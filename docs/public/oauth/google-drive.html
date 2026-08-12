@@ -41,21 +41,25 @@
   <h1 style="font-size: 1.1rem; margin: 0;">Google Drive settings sync</h1>
   <p class="status" id="status">Connecting to Google…</p>
   <button id="retry" hidden>Try again</button>
-  <script>
-    // Static OAuth broker for the Yomu userscript. The userscript runs on
-    // third-party origins Google will not authorise, so it navigates the current
-    // tab through this authorised yomureader.com origin. This page performs a
-    // redirect-based Drive appData authorization and returns to the original page
-    // with the short-lived token in the URL fragment. The fragment is not sent
-    // to the page's server, and Yomu removes it immediately after consuming it.
+  <script type="module">
+    import {
+      isTrustedYomuOAuthTransaction,
+      isTrustedYomuSettingsReturnUrl,
+    } from './google-drive-return-policy.js';
+
+    // Static OAuth broker for the Yomu userscript sandbox. It accepts only exact
+    // Yomu-owned settings routes, performs Drive appData authorization, and sends
+    // the short-lived token back in the URL fragment. The fragment is not sent to
+    // either server and Yomu quarantines it until a private pending state matches.
     (function () {
       'use strict';
       var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
       var GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+      var YOMU_CLIENT_ID = '697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com';
       var STORAGE_PREFIX = 'yomu-drive-oauth:';
       var RETURN_HASH_KEY = 'yomu-drive-oauth-return';
       var TOKEN_HASH_KEY = 'yomu-drive-oauth-token';
-      var WINDOW_NAME_TYPE = 'yomu-drive-oauth-token';
+      var TOKEN_PAYLOAD_TYPE = 'yomu-drive-oauth-token';
       var params = new URLSearchParams(location.search);
       var clientId = params.get('client_id') || '';
       var returnUrl = params.get('return_url') || '';
@@ -128,9 +132,8 @@
       }
 
       function returnToYomu(transaction, message) {
-        message.type = WINDOW_NAME_TYPE;
+        message.type = TOKEN_PAYLOAD_TYPE;
         message.state = transaction.state;
-        window.name = JSON.stringify(message);
         location.replace(returnUrlWithMarker(transaction.returnUrl, transaction.state, message));
       }
 
@@ -144,7 +147,8 @@
         var hash = hashParams();
         var returnedState = hash.get('state') || '';
         var transaction = returnedState ? loadTransaction(returnedState) : null;
-        if (!transaction || !transaction.returnUrl || !transaction.clientId) {
+        if (!isTrustedYomuOAuthTransaction(transaction, returnedState, YOMU_CLIENT_ID)) {
+          if (returnedState) clearTransaction(returnedState);
           fail('Could not find the Yomu authorization request. Please start sync again.');
           return true;
         }
@@ -176,11 +180,11 @@
       // start a fresh authorization.
       if (maybeFinishReturnedAuthorization()) {
         // Authorization result consumed.
-      } else if (!/^[-\w]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+      } else if (clientId !== YOMU_CLIENT_ID) {
         fail('Missing or invalid Google client id.');
-      } else if (!/^https?:\/\//.test(returnUrl)) {
+      } else if (!isTrustedYomuSettingsReturnUrl(returnUrl)) {
         fail('This page must be opened by Yomu.');
-      } else if (!/^[a-z0-9]+$/i.test(state)) {
+      } else if (!/^[0-9a-f]{48}$/.test(state)) {
         fail('This page must be opened by Yomu.');
       } else {
         start();

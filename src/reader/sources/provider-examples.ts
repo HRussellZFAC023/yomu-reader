@@ -2,6 +2,7 @@ import type { InterfaceLanguage } from '../app/types';
 import { uiText } from '../app/i18n';
 import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
+import { privateCommandAttributes, type CardCommandAction, type CardCommandCapability } from '../dom/private-command-capabilities';
 
 export type ProviderCollection<T> =
     | { availability: 'loaded'; items: T[] }
@@ -188,7 +189,44 @@ function renderProviderExampleAudio(audio: ProviderExampleAudioView): string {
         .filter(([name]) => /^data-[a-z0-9-]+$/u.test(name))
         .map(([name, value]) => ` ${name}="${escapeHtml(value)}"`)
         .join('');
-    return `<button class="${classes('jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio', audio.className)}" type="button" data-action="${escapeHtml(audio.action)}"${attributes} title="${escapeHtml(audio.label)}" aria-label="${escapeHtml(audio.label)}">${speakerIcon()}</button>`;
+    const command = providerExampleAudioCommand(audio);
+    const capability = command ? privateCommandAttributes(command) : '';
+    return `<button class="${classes('jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio', audio.className)}" type="button" data-action="${escapeHtml(audio.action)}"${attributes}${capability} title="${escapeHtml(audio.label)}" aria-label="${escapeHtml(audio.label)}">${speakerIcon()}</button>`;
+}
+
+function providerExampleAudioCommand(audio: ProviderExampleAudioView): CardCommandCapability | null {
+    if (!isProviderExampleCardAction(audio.action)) return null;
+    const attributes = audio.attributes;
+    return {
+        kind: 'card-action',
+        action: audio.action,
+        sentence: attributes['data-study-sentence'] || attributes['data-jpdb-example-sentence'],
+        audioUrl: attributes['data-audio-url'],
+        audioIds: attributes['data-jpdb-audio'],
+        audioUrls: parsedStringArray(attributes['data-jiten-audio-urls']),
+        jitenSentenceId: finiteInteger(attributes['data-jiten-sentence-id'], 1),
+        jitenWordId: finiteInteger(attributes['data-jiten-word-id'], 1),
+        jitenReadingIndex: finiteInteger(attributes['data-jiten-reading-index'], 0),
+    };
+}
+
+function isProviderExampleCardAction(value: string): value is CardCommandAction {
+    return value === 'jpdb-example-audio' || value === 'jiten-audio' || value === 'bunpro-audio' || value === 'wanikani-audio';
+}
+
+function parsedStringArray(value: string | undefined): string[] | undefined {
+    if (!value) return undefined;
+    try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function finiteInteger(value: string | undefined, minimum: number): number | undefined {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= minimum ? parsed : undefined;
 }
 
 function classes(...values: Array<string | undefined>): string {

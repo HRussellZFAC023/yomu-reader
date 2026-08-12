@@ -67,6 +67,7 @@ function activateAdHocTarget(language: string, overrides: Parameters<typeof adHo
 
 describe('onboarding target-language picker', () => {
     it('stamps lang= from the active target typography, not a Japanese literal', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         const target = activateAdHocTarget('sv');
         expect(target.typography.contentLocale).toBe('sv');
 

@@ -533,7 +533,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
             expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
             expect(internals.htmlCache.provisionalParsedHtmlCache.has(key)).toBe(true);
-            expect(Object.keys(sessionStorage).some(storageKey => storageKey.startsWith('yomu:subtitle-parse:v4:'))).toBe(false);
+            expect(Object.keys(sessionStorage).some(storageKey => storageKey.startsWith('yomu:subtitle-parse:v5:'))).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }
@@ -1767,6 +1767,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
                 key,
                 '<span class="jpdb-reader-word jpdb-not-in-deck fallback-not-in-deck jpdb-pitch-unknown" data-card-source="fallback">読む</span>',
             );
+            internals.htmlCache.fallbackParsedHtmlKeys.add(key);
 
             const html = await internals.parseCueHtml('読む', settings, {
                 allowProvisional: false,

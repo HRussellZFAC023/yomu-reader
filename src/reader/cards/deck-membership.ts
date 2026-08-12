@@ -1,4 +1,5 @@
 import type { JPDBCard } from '../app/types';
+import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
 
 type DeckMembershipSource = NonNullable<JPDBCard['source']>;
 
@@ -29,9 +30,18 @@ function cardDeckNames(card: JPDBCard): string[] {
 export function cardDeckMembershipClassNames(card: JPDBCard): string[] {
     const membership = cardDeckMembership(card);
     if (!membership.member) return [];
+    if (!currentAccountDataSurfaceIsTrusted()) return ['yomu-deck-member'];
+    return trustedDeckMembershipClassNames(card);
+}
+
+function trustedDeckMembershipClassNames(card: JPDBCard): string[] {
     const classes = new Set<string>(['yomu-deck-member']);
-    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes, primaryDeckMembershipSource(card), primaryDeckNames(card));
-    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes, 'anki', ankiDeckNames(card));
+    const memberships = [
+        { member: hasPrimaryDeckMembership(card), source: primaryDeckMembershipSource(card), names: primaryDeckNames(card) },
+        { member: hasAnkiDeckMembership(card), source: 'anki' as const, names: ankiDeckNames(card) },
+    ];
+    memberships.filter(membership => membership.member)
+        .forEach(membership => addDeckSourceClasses(classes, membership.source, membership.names));
     return [...classes];
 }
 

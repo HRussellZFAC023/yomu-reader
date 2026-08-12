@@ -10,6 +10,8 @@ import { frequencyProviderForLookupId, type FrequencyProvider, type ProviderFreq
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 import { extractFrequency } from '../dictionaries/yomitan/ranking';
 import { isJapaneseKanjiCharacter } from '../lookup/japanese-script';
+import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 interface WordPillContext {
     query: string;
@@ -30,6 +32,7 @@ export interface WordPillRenderOptions {
     frequencyRanks?: ProviderFrequencyRanks;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     dictionaryLabel: (name: string) => string;
+    trustedAccountDataSurface?: boolean;
 }
 
 export function renderWordPills(options: WordPillRenderOptions): string {
@@ -205,20 +208,42 @@ function renderAnkiPill(
     language: ReaderSettings['interfaceLanguage'],
     query: string,
 ): string {
-    const lookup = options.ankiLookup;
-    if (options.overrideQuery || !options.settings.ankiEnabled || !lookup) return '';
+    if (!ankiPillSurfaceIsTrusted(options)) return '';
+    const lookup = ankiPillLookup(options);
+    if (!lookup) return '';
     if (lookup.primary) return renderEditAnkiPill(lookup, language, query, options.inert);
+    return renderNewAnkiPill(options, lookup, language, query);
+}
+
+function ankiPillSurfaceIsTrusted(options: WordPillRenderOptions): boolean {
+    return options.trustedAccountDataSurface ?? currentAccountDataSurfaceIsTrusted();
+}
+
+function ankiPillLookup(options: WordPillRenderOptions): AnkiLookupResult | undefined {
+    if (options.overrideQuery) return undefined;
+    if (!options.settings.ankiEnabled) return undefined;
+    return options.ankiLookup;
+}
+
+function renderNewAnkiPill(options: WordPillRenderOptions, lookup: AnkiLookupResult, language: ReaderSettings['interfaceLanguage'], query: string): string {
     if (lookup.state !== 'not-in-deck') return '';
     const mobileHandoff = canUseMobileAnkiHandoff(options.settings);
-    if (!mobileHandoff && lookup.trusted === false) return '';
-    const title = mobileHandoff ? mobileAnkiHandoffButtonLabel(language) : uiText(language, 'addToAnki');
+    if (!ankiAddIsAllowed(lookup, mobileHandoff)) return '';
     return ankiPillButton({
         action: 'anki',
-        title,
+        title: ankiAddTitle(language, mobileHandoff),
         query,
         language,
         inert: options.inert,
     });
+}
+
+function ankiAddIsAllowed(lookup: AnkiLookupResult, mobileHandoff: boolean): boolean {
+    return mobileHandoff || lookup.trusted !== false;
+}
+
+function ankiAddTitle(language: ReaderSettings['interfaceLanguage'], mobileHandoff: boolean): string {
+    return mobileHandoff ? mobileAnkiHandoffButtonLabel(language) : uiText(language, 'addToAnki');
 }
 
 function renderEditAnkiPill(
@@ -261,7 +286,7 @@ function ankiPillButton(options: {
         return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</span>`;
     }
     const noteAttribute = options.action === 'anki-edit' && options.noteId ? ` data-note-id="${options.noteId}"` : '';
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute} type="button"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute}${privateCommandAttributes({ kind: 'card-action', action: options.action, noteId: options.noteId })} type="button"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</button>`;
 }
 
 function lookupPillStyleAttribute(style: string): string {
@@ -280,7 +305,7 @@ function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: st
     if (inert) {
         return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</span>`;
     }
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word"${privateCommandAttributes({ kind: 'card-action', action: 'copy-word' })} type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
 }
 
 function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<string, string>; mergedLiveRanks: MergedLiveRanks } {

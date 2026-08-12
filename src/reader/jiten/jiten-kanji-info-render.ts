@@ -1,4 +1,5 @@
 import { escapeHtml } from '../dom';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { renderKanjiKeywordChips } from '../popup/kanji-keyword-line';
 import { kanjiSourceStateKey } from '../sources/definition-render';
@@ -246,7 +247,7 @@ function renderJitenKanjiReadings(info: JitenKanjiInfo, language: InterfaceLangu
     const groupedReadings = jitenKanjiGroupedReadingRows(info);
     if (groupedReadings.length) {
         return `<div class="jpdb-reader-kanji-readings jpdb-reader-jiten-kanji-reading-filter" role="list" aria-label="${escapeHtml(uiText(language, 'reading'))}">
-            ${groupedReadings.map(reading => `<button type="button" data-action="jiten-kanji-reading" data-jiten-kanji-character="${escapeHtml(info.character)}" data-jiten-kanji-reading="${escapeHtml(reading.reading)}" role="listitem" aria-pressed="false"><span>${escapeHtml(reading.reading)}</span><small>${escapeHtml(reading.share)}</small></button>`).join('')}
+            ${groupedReadings.map(reading => `<button type="button" data-action="jiten-kanji-reading" data-jiten-kanji-character="${escapeHtml(info.character)}" data-jiten-kanji-reading="${escapeHtml(reading.reading)}"${privateCommandAttributes({ kind: 'jiten-kanji-words', action: 'filter', character: info.character, reading: reading.reading })} role="listitem" aria-pressed="false"><span>${escapeHtml(reading.reading)}</span><small>${escapeHtml(reading.share)}</small></button>`).join('')}
         </div>`;
     }
     const readings = jitenKanjiReadingRows(info).filter(Boolean);
@@ -283,7 +284,7 @@ function renderJitenKanjiVocabularyWords(words: JitenKanjiVocabularyWord[], lang
 function renderJitenKanjiVocabularyWord(word: JitenKanjiVocabularyWord, language: InterfaceLanguage): string {
     const key = `${word.expression}:${word.reading}`;
     const meta = renderJitenKanjiWordMeta(word, language);
-    return `<button class="jpdb-reader-similar-word jpdb-reader-jiten-kanji-word" type="button" data-action="similar-word" data-expression="${escapeHtml(word.expression)}" data-reading="${escapeHtml(word.reading)}" data-jiten-kanji-word-key="${escapeHtml(key)}" data-jiten-kanji-reading="${escapeHtml(word.kanjiReading)}" title="${escapeHtml(jitenKanjiWordTitle(word))}" aria-label="${escapeHtml(jitenKanjiWordAriaLabel(word))}" role="listitem">
+    return `<button class="jpdb-reader-similar-word jpdb-reader-jiten-kanji-word" type="button" data-action="similar-word" data-expression="${escapeHtml(word.expression)}" data-reading="${escapeHtml(word.reading)}"${privateCommandAttributes({ kind: 'kanji-word', expression: word.expression, reading: word.reading })} data-jiten-kanji-word-key="${escapeHtml(key)}" data-jiten-kanji-reading="${escapeHtml(word.kanjiReading)}" title="${escapeHtml(jitenKanjiWordTitle(word))}" aria-label="${escapeHtml(jitenKanjiWordAriaLabel(word))}" role="listitem">
         <span class="jpdb-reader-similar-word-head jpdb-reader-jiten-kanji-word-main">
             <span class="jpdb-reader-jiten-kanji-word-term">${word.termHtml || escapeHtml(word.expression)}</span>
             ${meta}
@@ -327,7 +328,7 @@ function renderJitenKanjiMoreButton(info: JitenKanjiInfo, renderedCount: number,
 }
 
 function renderJitenKanjiMoreButtonAttributes(character: string, reading: string, page: number, pageSize: number, total: number, remaining: number, language: InterfaceLanguage): string {
-    return `<button class="jpdb-reader-btn jpdb-reader-jiten-kanji-more" type="button" data-action="jiten-kanji-more" data-jiten-kanji-character="${escapeHtml(character)}" data-jiten-kanji-reading="${escapeHtml(reading)}" data-jiten-kanji-page="${page}" data-jiten-kanji-page-size="${pageSize}" data-jiten-kanji-total="${total}">
+    return `<button class="jpdb-reader-btn jpdb-reader-jiten-kanji-more" type="button" data-action="jiten-kanji-more" data-jiten-kanji-character="${escapeHtml(character)}" data-jiten-kanji-reading="${escapeHtml(reading)}" data-jiten-kanji-page="${page}" data-jiten-kanji-page-size="${pageSize}" data-jiten-kanji-total="${total}"${privateCommandAttributes({ kind: 'jiten-kanji-words', action: 'more', character, reading, page, pageSize, total })}>
         ${escapeHtml(uiText(language, 'more'))} <span class="jpdb-reader-source-status">${remaining}</span>
     </button>`;
 }

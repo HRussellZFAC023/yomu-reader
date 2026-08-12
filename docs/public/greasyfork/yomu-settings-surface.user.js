@@ -5360,6 +5360,105 @@ const ANKI_SOURCE_ID = "__anki__";
 const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
 const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
 const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+const DOCS_PREVIEW_HOST = "yomureader.localhost";
+const WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+const TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_ORIGIN, "docs"],
+  [GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_PREVIEW_HOST, "docs-preview"],
+  ["127.0.0.1", "loopback"],
+  ["localhost", "loopback"],
+  ["[::1]", "loopback"]
+]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
+  "http://127.0.0.1:5174",
+  "http://localhost:5174",
+  "http://[::1]:5174"
+]);
+function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
+  return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+  url = new URL(value);
+  } catch {
+  return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
+}
+function trustedHttpsOriginKind(url, path) {
+  const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+  if (originKind !== "github-pages") return originKind ?? null;
+  return isYomuRepositoryPath(path) ? originKind : null;
+}
+function trustedWebHostKind(url) {
+  if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+  return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+function trustedExtensionOriginKind(url) {
+  if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+  return url.hostname ? "extension" : null;
+}
+const SETTINGS_PANEL_IDS = [
+  "appearance",
+  "backup",
+  "api",
+  "dictionaries",
+  "media",
+  "mining",
+  "newTab",
+  "shortcuts",
+  "help"
+];
+const SETTINGS_PANEL_ID_SET = new Set(SETTINGS_PANEL_IDS);
+const STUDY_ROUTE_POLICIES = {
+  docs: isYomuStudyRoutePath,
+  "docs-preview": isYomuStudyRoutePath,
+  extension: isYomuStudyRoutePath,
+  "github-pages": isRepositoryStudyRoutePath,
+  loopback: isLoopbackStudyRoutePath
+};
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function settingsPanelHash(panel) {
+  return `#settings=${isSettingsPanelId(panel) ? panel : "appearance"}`;
+}
+function isSettingsPanelId(value) {
+  return typeof value === "string" && SETTINGS_PANEL_ID_SET.has(value);
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
@@ -6480,203 +6579,6 @@ function createAudioPreviewCard() {
   source: "jpdb"
   };
 }
-new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
-const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
-const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
-const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
-const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-let trustedHtmlPolicy;
-function setInnerHtml(element2, html) {
-  if (!replaceWithHtmlFragment(element2, html)) element2.textContent = html;
-}
-function replaceWithHtmlFragment(element2, html) {
-  try {
-  const ownerDocument = element2.ownerDocument || document;
-  const { source, rootSelector } = contextualSanitizerSource(element2, html);
-  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
-  if (!parsedRoot) return false;
-  sanitizeChildren(parsedRoot, parsed);
-  const fragment = ownerDocument.createDocumentFragment();
-  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-  sanitizeChildren(fragment, ownerDocument);
-  const target = element2.localName === "template" && "content" in element2 ? element2.content : element2;
-  target.replaceChildren(fragment);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function contextualSanitizerSource(element2, html) {
-  if (element2.namespaceURI === SVG_NAMESPACE) {
-  return {
-    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
-    rootSelector: "[data-yomu-sanitize-root]"
-  };
-  }
-  switch (element2.localName.toLowerCase()) {
-  case "table":
-    return {
-      source: `<table data-yomu-sanitize-root>${html}</table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "thead":
-  case "tbody":
-  case "tfoot":
-    return {
-      source: `<table><${element2.localName} data-yomu-sanitize-root>${html}</${element2.localName}></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "tr":
-    return {
-      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "colgroup":
-    return {
-      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "select":
-    return {
-      source: `<select data-yomu-sanitize-root>${html}</select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "optgroup":
-    return {
-      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  default:
-    return { source: html, rootSelector: "" };
-  }
-}
-function escapeHtml$1(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function sanitizeChildren(parent, ownerDocument) {
-  for (const node of Array.from(parent.childNodes)) {
-  if (node.nodeType !== 1) continue;
-  const element2 = node;
-  const localName = element2.localName.toLowerCase();
-  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
-    element2.remove();
-    continue;
-  }
-  if (localName.includes("-")) {
-    sanitizeChildren(element2, ownerDocument);
-    element2.replaceWith(...Array.from(element2.childNodes));
-    continue;
-  }
-  sanitizeElement(element2, ownerDocument);
-  const childRoot = localName === "template" && "content" in element2 ? element2.content : element2;
-  sanitizeChildren(childRoot, ownerDocument);
-  }
-}
-function sanitizeElement(element2, ownerDocument) {
-  for (const attribute of Array.from(element2.attributes)) {
-  const name = attribute.name.toLowerCase();
-  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
-    element2.removeAttribute(attribute.name);
-    continue;
-  }
-  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
-    element2.removeAttribute(attribute.name);
-    continue;
-  }
-  if (name === "style") {
-    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
-    if (style) element2.setAttribute(attribute.name, style);
-    else element2.removeAttribute(attribute.name);
-  }
-  }
-  if (element2.getAttribute("target")?.toLowerCase() === "_blank") {
-  const rel = new Set((element2.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
-  rel.add("noopener");
-  rel.add("noreferrer");
-  element2.setAttribute("rel", [...rel].join(" "));
-  }
-}
-function sanitizedInlineStyle(value, ownerDocument) {
-  const declaration = ownerDocument.createElement("span").style;
-  declaration.cssText = value;
-  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
-  let removedProperty = false;
-  for (const property of Array.from(declaration)) {
-  const propertyValue = declaration.getPropertyValue(property);
-  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
-    declaration.removeProperty(property);
-    removedProperty = true;
-  }
-  }
-  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
-}
-function isSafeHtmlUrl(value) {
-  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
-  if (!candidate) return true;
-  if (candidate.startsWith("#")) return true;
-  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
-  try {
-  const parsed = new URL(candidate, "https://yomureader.invalid/");
-  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
-  } catch {
-  return false;
-  }
-}
-function trustedHtml(value) {
-  try {
-  const factory = trustedTypesFactory();
-  if (!factory) return value;
-  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-  return trustedHtmlPolicy?.createHTML(value) ?? value;
-  } catch {
-  trustedHtmlPolicy = null;
-  return value;
-  }
-}
-function trustedTypesFactory() {
-  const root = globalThis;
-  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-  (factory) => Boolean(factory)
-  );
-}
-function createTrustedHtmlPolicy(factory) {
-  const existing = factory.getPolicy?.("yomu-reader");
-  if (existing?.createHTML) return existing;
-  const options = { createHTML: (html) => html };
-  return createTrustedHtmlPolicyWithOptions(
-  factory,
-  pageCompartmentValue(options, {
-    cloneFunctions: true,
-    wrapReflectors: true
-  })
-  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-}
-function createTrustedHtmlPolicyWithOptions(factory, options) {
-  try {
-  return factory.createPolicy?.("yomu-reader", options) ?? null;
-  } catch {
-  return null;
-  }
-}
-const HOSTED_LOCAL_SETTINGS_KEYS = [
-  "showFurigana",
-  "furiganaMode",
-  "showPitchAccent",
-  "wordUnderlineColorSource",
-  "subtitlePlayerEnabled",
-  "subtitleAutoDetect",
-  "subtitleOverlayVisible",
-  "subtitleControlsMode",
-  "subtitleTranscriptVisible",
-  "ocrEnabled",
-  "ocrVideoPauseFrames",
-  "ocrProvider",
-  "ocrOverlayTheme",
-  "preferJapaneseSiteLanguage"
-];
 function isPromiseLike(value) {
   return Boolean(value && typeof value.then === "function");
 }
@@ -6731,8 +6633,10 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  // Cloud settings sync handoff written before an OAuth redirect.
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  // Private, one-use cloud settings OAuth handoff. The old page-readable key
+  // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
+  { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
+  { owner: "settings/dialog-controller (legacy)", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
@@ -7396,6 +7300,166 @@ const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
 function isManagedStorageBackupKey(key) {
   return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
 }
+function isRecord$3(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+const HOSTED_DEMO_READER_SETTINGS = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true,
+  wordUnderlineColorSource: "pitch",
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: true,
+  subtitleControlsMode: "always",
+  subtitleTranscriptVisible: false,
+  ocrEnabled: true,
+  ocrVideoPauseFrames: true,
+  ocrProvider: "google-lens",
+  ocrOverlayTheme: "auto",
+  preferJapaneseSiteLanguage: false
+};
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
+  HOSTED_SETTINGS_BLOB_KEY,
+  "yomu:explicit-user-settings:v1"
+]);
+const HOSTED_SETTINGS_COORDINATION_FIELDS = [
+  HOSTED_SETTINGS_TRANSACTION_FIELD,
+  HOSTED_SETTINGS_COMMIT_FIELD
+];
+function isHostedSettingsStorageKey(key) {
+  return key === HOSTED_SETTINGS_BLOB_KEY;
+}
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+function hostedStoragePromotionValue(key, value, hostedOrigin) {
+  const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
+  return isRecord$3(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
+}
+function pendingHostedSettingsPatch(key, localValue, hostedOrigin) {
+  const localSettings = rawHostedSettingsRecord(key, localValue, hostedOrigin);
+  if (!localSettings) return void 0;
+  const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  if (!isRecord$3(patch)) return void 0;
+  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
+  return withoutSettingsCoordination(sanitized);
+}
+function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious) {
+  const current = sanitizedHostedSettingsRecord(key, value, hostedOrigin);
+  if (!current) return value;
+  const previousValue = readPrevious();
+  const previous = sanitizedHostedSettingsRecord(key, previousValue, hostedOrigin);
+  if (!previous) return current;
+  return {
+  ...current,
+  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: {
+    ...earlierHostedPatch(previousValue),
+    ...changedRecordFields(previous, current)
+  }
+  };
+}
+function sanitizedHostedStorageValue(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isRecord$3(value)) return value;
+  const record2 = { ...value };
+  const policy = hostedPolicyRecord(key, record2);
+  if (!policy) return value;
+  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
+  return record2;
+}
+function hostedPolicyRecord(key, record2) {
+  if (key === HOSTED_SETTINGS_INTENT_KEY) return hostedIntentRecords(record2);
+  return HOSTED_ROOT_POLICY_KEYS.has(key) ? record2 : null;
+}
+function hostedIntentRecords(record2) {
+  if (!isRecord$3(record2.records)) return null;
+  return record2.records = { ...record2.records };
+}
+function rawHostedSettingsRecord(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isHostedSettingsStorageKey(key)) return null;
+  return isRecord$3(value) ? value : null;
+}
+function sanitizedHostedSettingsRecord(key, value, hostedOrigin) {
+  const record2 = rawHostedSettingsRecord(key, value, hostedOrigin);
+  return record2 ? sanitizedHostedStorageValue(key, record2, hostedOrigin) : null;
+}
+function earlierHostedPatch(value) {
+  if (!isRecord$3(value)) return {};
+  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  return isRecord$3(patch) ? withoutSettingsCoordination(patch) : {};
+}
+function changedRecordFields(previous, current) {
+  const changed = {};
+  for (const [field, value] of Object.entries(current)) {
+  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
+  }
+  return withoutSettingsCoordination(changed);
+}
+function withoutSettingsCoordination(record2) {
+  const clean = { ...record2 };
+  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field) => delete clean[field]);
+  return clean;
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
@@ -7484,6 +7548,11 @@ async function ensureManagedWebStorageCurrent() {
   const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
   await ensureManagedWebStorageEpochCurrent(epoch);
 }
+function localFallbackStoredValue(key, fallback) {
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  if (!epoch || !localMirrorBelongsToEpoch(key, epoch)) return fallback;
+  return localStorageGet(key, fallback);
+}
 async function gmStorageGet(key, fallback) {
   const getValue = asyncGmGetValue();
   if (!getValue) return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
@@ -7493,6 +7562,21 @@ async function gmStorageGet(key, fallback) {
   return await sharedManagedValue(getValue, key, fallback, epoch);
   } catch (error) {
   return failedManagedReadValue(error, key, fallback, epoch);
+  }
+}
+async function gmStorageGetShared(key, fallback) {
+  const getValue = asyncGmGetValue();
+  if (!getValue) return fallback;
+  return sharedOwnedManagedValue(getValue, key, fallback, "Shared GM storage read failed");
+}
+async function sharedOwnedManagedValue(getValue, key, fallback, errorLabel) {
+  try {
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  return await managedGmValue(getValue, key, fallback, epoch);
+  } catch (error) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError(errorLabel, key, error);
+  return fallback;
   }
 }
 async function gmStorageGetMany(keys, fallback) {
@@ -7518,19 +7602,25 @@ async function gmStorageGetMany(keys, fallback) {
 }
 async function sharedManagedValue(getValue, key, fallback, epoch) {
   const pendingPatch = pendingHostedLocalPatch(key, epoch);
-  if (pendingPatch) {
+  return pendingPatch ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
+}
+async function reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) {
   const shared2 = await managedGmValue(getValue, key, void 0, epoch);
   const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
   const reconciled = { ...sharedRecord, ...pendingPatch };
   await gmStorageSet(key, reconciled);
   return reconciled;
-  }
+}
+async function sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
+  return promoteLocalManagedValue(key, fallback, epoch);
+}
+async function promoteLocalManagedValue(key, fallback, epoch) {
   const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(migrated)) {
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   await gmStorageSet(key, promoted);
   return promoted;
   }
@@ -7547,10 +7637,13 @@ function failedManagedReadValue(error, key, fallback, epoch) {
 function localOnlyManagedValue(key, fallback, epoch) {
   const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(local)) return local;
-  if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
+  mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch);
+  return fallback;
+}
+function mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch) {
+  if (isHostedSettingsStorageKey(key) && isHostedYomuOrigin() && isPlainRecord(fallback)) {
   mirrorManagedValueToHostedStorage(key, fallback, epoch);
   }
-  return fallback;
 }
 async function gmStorageGetForResetEnumeration(key, fallback) {
   const getValue = asyncGmGetValue();
@@ -7582,14 +7675,7 @@ async function gmPrivateStorageGet(key, fallback) {
   removeSessionStorageKey(key);
   const getValue = directGmGetValue();
   if (!getValue) return fallback;
-  try {
-  const epoch = await assertRealmManagedStateEpoch(getValue);
-  return await managedGmValue(getValue, key, fallback, epoch);
-  } catch (error) {
-  if (isStaleManagedStateEpochError(error)) throw error;
-  debugStorageError("Private GM storage read failed", key, error);
-  return fallback;
-  }
+  return sharedOwnedManagedValue(getValue, key, fallback, "Private GM storage read failed");
 }
 async function withGmStorageLease(name, operation, options = {}) {
   return withGmStorageLeaseCore(name, operation, options, {
@@ -7647,80 +7733,58 @@ function migratedLocalStorageSyncValue(key, epoch) {
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
 }
-const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
-function sanitizedStrandedLocalValue(key, value) {
-  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
-  const record2 = { ...value };
-  let policy = record2;
-  if (key === "yomu:settings-intent:v2") {
-  if (!isPlainRecord(record2.records)) return value;
-  policy = record2.records = { ...record2.records };
-  } else if (key !== HOSTED_SETTINGS_BLOB_KEY && key !== "yomu:explicit-user-settings:v1") {
-  return value;
-  }
-  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
-  return record2;
-}
 function pendingHostedLocalPatch(key, epoch) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
+  if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return void 0;
   if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
-  const value = localStorageGet(key, void 0);
-  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : void 0;
+  return pendingHostedSettingsPatch(key, localStorageGet(key, void 0), true);
 }
 function localFallbackValueForWrite(key, value) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const current = sanitizedStrandedLocalValue(key, value);
-  const previousValue = localStorageGet(key, void 0);
-  const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
-  const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
-  if (!previous) return current;
-  const changed = changedRecordFields(previous, current);
-  return {
-  ...current,
-  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
-  };
+  if (!isHostedSettingsStorageKey(key)) return value;
+  return hostedSettingsLocalFallbackValue(
+  key,
+  value,
+  isHostedYomuOrigin(),
+  () => localStorageGet(key, void 0)
+  );
 }
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field, value] of Object.entries(current)) {
-  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-  }
-  return changed;
-}
-async function gmStorageSet(key, value) {
+async function gmStorageSet(key, value, options = {}) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) {
-  let epoch2;
-  try {
-    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
-    epoch2 = await assertRealmManagedStateEpoch(getValue);
-    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
-    mirrorManagedValueToHostedStorage(key, value, epoch2);
-    return;
-  } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      epoch2 ??= await assertRealmManagedStateEpoch(null);
-      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
+  if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
   const epoch = await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+async function setSharedManagedValue(key, value, options, getValue, setValue) {
+  let epoch;
+  try {
+  if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+  epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  mirrorManagedValueToHostedStorage(key, value, epoch);
+  } catch (error) {
+  await handleSharedManagedWriteFailure(key, value, options, error, epoch);
+  }
+}
+async function handleSharedManagedWriteFailure(key, value, options, error, epoch) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("GM storage write failed", key, error);
+  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
+  throw storageWriteError(key, "GM storage write failed", error);
+  }
+  await writeFailedManagedValueFallback(key, value, error, epoch);
+  throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+}
+async function writeFailedManagedValueFallback(key, value, error, epoch) {
+  try {
+  const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
+  } catch (fallbackError) {
+  throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+  }
 }
 async function gmPrivateStorageSet(key, value) {
   assertPrivateStorageKey(key);
@@ -8130,35 +8194,6 @@ function addMatchingStorageKeys(keys, candidates, prefixes) {
 function storageKeyMatchesPrefix(key, prefixes) {
   return prefixes.some((prefix) => key.startsWith(prefix));
 }
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  if (serialized === void 0) throw new Error("value is not JSON-serializable");
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  return serialized;
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
 function removeLocalStorageKey(key) {
   try {
   localStorage.removeItem(key);
@@ -8252,6 +8287,12 @@ function removeLocalMirrorProvenance(key) {
   if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
   else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
 }
+function restoreLocalFallbackStoredValue(key, value, existed) {
+  if (!existed) return removeLocalManagedValue(key);
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  if (!epoch) throw storageWriteError(key, "Managed storage cannot restore its localStorage fallback");
+  writeLocalManagedValueOrThrow(key, value, epoch);
+}
 function localMirrorProvenanceRecord() {
   const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
   if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.values)) return null;
@@ -8283,11 +8324,7 @@ function shouldMirrorManagedValueToHostedStorage(key) {
 }
 function isHostedYomuOrigin() {
   try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
   } catch {
   return false;
   }
@@ -8419,6 +8456,384 @@ async function assertManagedStateMutationFence(getValue, expected) {
 function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
+const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+let pendingReaderControlClick;
+const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
+const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
+function syntheticInteractionAllowedForTests() {
+  return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+}
+function isDirectTrustedReaderInteraction(event) {
+  return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+}
+function isTrustedReaderInteraction(event) {
+  return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();
+}
+function trustedReaderEventHandler(handler) {
+  return (event) => {
+  if (isTrustedReaderInteraction(event)) handler(event);
+  };
+}
+function dispatchAuthorizedReaderControlEvent(target, event) {
+  authorizedReaderControlEvents.add(event);
+  try {
+  return target.dispatchEvent(event);
+  } finally {
+  authorizedReaderControlEvents.delete(event);
+  }
+}
+function dispatchAuthorizedReaderControlClick(target) {
+  if (pendingReaderControlClick) return;
+  const grant = { target };
+  pendingReaderControlClick = grant;
+  try {
+  target.click();
+  } finally {
+  if (grant.event) authorizedReaderControlClicks.delete(grant.event);
+  if (pendingReaderControlClick === grant) pendingReaderControlClick = void 0;
+  }
+}
+class ReaderFormSubmitAuthorization {
+  armed = false;
+  revision = 0;
+  arm(event) {
+  if (!isDirectTrustedReaderInteraction(event)) return;
+  this.armed = true;
+  const revision2 = ++this.revision;
+  queueMicrotask(() => {
+    if (this.revision === revision2) this.armed = false;
+  });
+  }
+  consume(event) {
+  const allowed = this.armed || !event.isTrusted && isDirectTrustedReaderInteraction(event);
+  this.armed = false;
+  this.revision += 1;
+  return allowed;
+  }
+}
+function bindAuthorizedReaderFormSubmit(form, onSubmit) {
+  const authorization = new ReaderFormSubmitAuthorization();
+  form.addEventListener("click", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const submit = target?.closest('button:not([type]), button[type="submit"], input[type="submit"]');
+  if (submit && form.contains(submit)) authorization.arm(event);
+  }, { capture: true });
+  form.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.isComposing) authorization.arm(event);
+  }, { capture: true });
+  form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (authorization.consume(event)) onSubmit();
+  });
+}
+function isTrustedAccountDataSurface(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (![isYomuNewTabUrl(value), appUrl.originKind !== "docs-preview"].every(Boolean)) return false;
+  return [
+  appUrl.originKind !== "loopback",
+  isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin)
+  ].some(Boolean);
+}
+function currentAccountDataSurfaceIsTrusted() {
+  return typeof location !== "undefined" && isTrustedAccountDataSurface(location.href);
+}
+new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+const TOKEN_ATTRIBUTE = "data-yomu-private-token";
+const MAX_PENDING_VALUES = 16384;
+const valuesByElement = /* @__PURE__ */ new WeakMap();
+const pendingValues = /* @__PURE__ */ new Map();
+const replayableBlueprints = /* @__PURE__ */ new Map();
+function createPrivateElementStateSlot(snapshot, options = {}) {
+  const slot = Symbol("yomu-private-element-state");
+  return {
+  attributes(value) {
+    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    return ` ${TOKEN_ATTRIBUTE}="${token}"`;
+  },
+  prepareSerialization(element2, value) {
+    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const current = element2.getAttribute(TOKEN_ATTRIBUTE)?.trim();
+    element2.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
+  },
+  bind(element2, value) {
+    element2.removeAttribute(TOKEN_ATTRIBUTE);
+    setPrivateValue(element2, slot, snapshot(value));
+  },
+  read(element2) {
+    return element2 ? valuesByElement.get(element2)?.get(slot) : void 0;
+  }
+  };
+}
+function registerPendingValue(slot, value, replayable) {
+  const token = privateStateToken();
+  const pending2 = { slot, value };
+  pendingValues.set(token, pending2);
+  if (replayable) replayableBlueprints.set(token, pending2);
+  prunePendingValues();
+  return token;
+}
+function hydratePrivateElementState(root) {
+  const candidates = [];
+  if (root instanceof Element && root.hasAttribute(TOKEN_ATTRIBUTE)) candidates.push(root);
+  candidates.push(...root.querySelectorAll(`[${TOKEN_ATTRIBUTE}]`));
+  for (const element2 of candidates) hydratePrivateElement(element2);
+}
+function hydratePrivateElement(element2) {
+  const tokens = element2.getAttribute(TOKEN_ATTRIBUTE)?.split(/\s+/u).filter(Boolean) ?? [];
+  element2.removeAttribute(TOKEN_ATTRIBUTE);
+  for (const token of tokens) {
+  const pending2 = pendingValues.get(token);
+  pendingValues.delete(token);
+  if (pending2) setPrivateValue(element2, pending2.slot, pending2.value);
+  }
+}
+function setPrivateValue(element2, slot, value) {
+  const values = valuesByElement.get(element2) ?? /* @__PURE__ */ new Map();
+  values.set(slot, value);
+  valuesByElement.set(element2, values);
+}
+function prunePendingValues() {
+  pruneOldestPrivateValues(pendingValues);
+  pruneOldestPrivateValues(replayableBlueprints);
+}
+function pruneOldestPrivateValues(values) {
+  while (values.size > MAX_PENDING_VALUES) {
+  const oldest = values.keys().next().value;
+  if (oldest === void 0) return;
+  values.delete(oldest);
+  }
+}
+function privateStateToken() {
+  const bytes = new Uint32Array(4);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (value) => value.toString(36)).join("-");
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
+const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
+const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
+const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
+const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+let trustedHtmlPolicy;
+function setInnerHtml(element2, html) {
+  if (!replaceWithHtmlFragment(element2, html)) {
+  element2.textContent = html;
+  }
+}
+function replaceWithHtmlFragment(element2, html) {
+  try {
+  const ownerDocument = element2.ownerDocument || document;
+  const parsedRoot = parsedReplacementRoot(element2, html);
+  if (!parsedRoot) return false;
+  const fragment = sanitizedReplacementFragment(ownerDocument, parsedRoot);
+  hydratePrivateElementState(fragment);
+  htmlReplacementTarget(element2).replaceChildren(fragment);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function parsedReplacementRoot(element2, html) {
+  const { source, rootSelector } = contextualSanitizerSource(element2, html);
+  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+  const root = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+  if (root) sanitizeChildren(root, parsed);
+  return root;
+}
+function sanitizedReplacementFragment(ownerDocument, parsedRoot) {
+  const fragment = ownerDocument.createDocumentFragment();
+  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+  sanitizeChildren(fragment, ownerDocument);
+  return fragment;
+}
+function htmlReplacementTarget(element2) {
+  return element2.localName === "template" && "content" in element2 ? element2.content : element2;
+}
+function contextualSanitizerSource(element2, html) {
+  if (element2.namespaceURI === SVG_NAMESPACE) {
+  return {
+    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
+    rootSelector: "[data-yomu-sanitize-root]"
+  };
+  }
+  switch (element2.localName.toLowerCase()) {
+  case "table":
+    return {
+      source: `<table data-yomu-sanitize-root>${html}</table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "thead":
+  case "tbody":
+  case "tfoot":
+    return {
+      source: `<table><${element2.localName} data-yomu-sanitize-root>${html}</${element2.localName}></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "tr":
+    return {
+      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "colgroup":
+    return {
+      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "select":
+    return {
+      source: `<select data-yomu-sanitize-root>${html}</select>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "optgroup":
+    return {
+      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  default:
+    return { source: html, rootSelector: "" };
+  }
+}
+function escapeHtml$1(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function sanitizeChildren(parent, ownerDocument) {
+  for (const node of Array.from(parent.childNodes)) {
+  if (node.nodeType !== 1) continue;
+  const element2 = node;
+  const localName = element2.localName.toLowerCase();
+  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
+    element2.remove();
+    continue;
+  }
+  if (localName.includes("-")) {
+    sanitizeChildren(element2, ownerDocument);
+    element2.replaceWith(...Array.from(element2.childNodes));
+    continue;
+  }
+  sanitizeElement(element2, ownerDocument);
+  const childRoot = localName === "template" && "content" in element2 ? element2.content : element2;
+  sanitizeChildren(childRoot, ownerDocument);
+  }
+}
+function sanitizeElement(element2, ownerDocument) {
+  for (const attribute of Array.from(element2.attributes)) {
+  const name = attribute.name.toLowerCase();
+  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
+    element2.removeAttribute(attribute.name);
+    continue;
+  }
+  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
+    element2.removeAttribute(attribute.name);
+    continue;
+  }
+  if (name === "style") {
+    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
+    if (style) element2.setAttribute(attribute.name, style);
+    else element2.removeAttribute(attribute.name);
+  }
+  }
+  if (element2.getAttribute("target")?.toLowerCase() === "_blank") {
+  const rel = new Set((element2.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+  rel.add("noopener");
+  rel.add("noreferrer");
+  element2.setAttribute("rel", [...rel].join(" "));
+  }
+}
+function sanitizedInlineStyle(value, ownerDocument) {
+  const declaration = ownerDocument.createElement("span").style;
+  declaration.cssText = value;
+  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
+  let removedProperty = false;
+  for (const property of Array.from(declaration)) {
+  const propertyValue = declaration.getPropertyValue(property);
+  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
+    declaration.removeProperty(property);
+    removedProperty = true;
+  }
+  }
+  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
+}
+function isSafeHtmlUrl(value) {
+  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+  if (!candidate) return true;
+  if (candidate.startsWith("#")) return true;
+  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
+  try {
+  const parsed = new URL(candidate, "https://yomureader.invalid/");
+  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
+  } catch {
+  return false;
+  }
+}
+function trustedHtml(value) {
+  try {
+  const factory = trustedTypesFactory();
+  if (!factory) return value;
+  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+  return trustedHtmlPolicy?.createHTML(value) ?? value;
+  } catch {
+  trustedHtmlPolicy = null;
+  return value;
+  }
+}
+function trustedTypesFactory() {
+  const root = globalThis;
+  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+  (factory) => Boolean(factory)
+  );
+}
+function createTrustedHtmlPolicy(factory) {
+  const existing = factory.getPolicy?.("yomu-reader");
+  if (existing?.createHTML) return existing;
+  const options = { createHTML: (html) => html };
+  return createTrustedHtmlPolicyWithOptions(
+  factory,
+  pageCompartmentValue(options, {
+    cloneFunctions: true,
+    wrapReflectors: true
+  })
+  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+}
+function createTrustedHtmlPolicyWithOptions(factory, options) {
+  try {
+  return factory.createPolicy?.("yomu-reader", options) ?? null;
+  } catch {
+  return null;
+  }
+}
+const CLEAR_SUFFIX = ".clearStoredCredential";
+const PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES = {
+  autocapitalize: "off",
+  autocorrect: "off",
+  spellcheck: "false",
+  enterkeyhint: "done",
+  "data-1p-ignore": "true",
+  "data-lpignore": "true",
+  "data-bwignore": "true",
+  "data-protonpass-ignore": "true",
+  "data-form-type": "other"
+};
+function storedCredentialClearName(name) {
+  return `${name}${CLEAR_SUFFIX}`;
+}
+function credentialValueFromReader(reader, name, storedValue) {
+  const replacement = reader.get(name).trim();
+  if (replacement) return replacement;
+  return reader.has(storedCredentialClearName(name)) ? "" : storedValue?.trim() ?? "";
+}
+function credentialValueFromFormData(data, name, storedValue) {
+  return credentialValueFromReader({
+  get: (field) => String(data.get(field) ?? ""),
+  has: (field) => data.has(field)
+  }, name, storedValue);
+}
+function trimmedFormField(data, name) {
+  return String(data.get(name) ?? "").trim();
+}
 const JITEN_API_KEY_PREFIX = "ak_";
 function combinedApiCredentialLabel(settings) {
   const jpdb = Boolean(effectiveJpdbApiKey(settings));
@@ -8466,29 +8881,79 @@ function splitApiCredential(value) {
   if (!credential) return { apiKey: "", jitenApiKey: "" };
   return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
 }
-function readApiCredentialsFromFormData(data) {
-  const bunpro = readBunproCredentialsFromFormData(data);
-  const wanikani = readWanikaniCredentialsFromFormData(data);
-  if (data.has("apiCredentialJpdb") || data.has("apiCredentialJiten")) {
+function readApiCredentialsFromFormData(data, current = { apiKey: "", jitenApiKey: "" }) {
   return {
-    ...mergeApiCredentialValues(
-      String(data.get("apiCredentialJpdb") ?? ""),
-      String(data.get("apiCredentialJiten") ?? "")
-    ),
-    ...bunpro,
-    ...wanikani
-  };
-  }
-  if (data.has("apiCredential")) return { ...splitApiCredential(String(data.get("apiCredential") ?? "")), ...bunpro, ...wanikani };
-  return {
-  apiKey: String(data.get("apiKey") ?? "").trim(),
-  jitenApiKey: String(data.get("jitenApiKey") ?? "").trim(),
-  ...bunpro,
-  ...wanikani
+  ...readProviderApiCredentials(data, current),
+  ...readBunproCredentialsFromFormData(data, current),
+  ...readWanikaniCredentialsFromFormData(data, current)
   };
 }
-function readWanikaniCredentialsFromFormData(data) {
-  return { wanikaniApiToken: String(data.get("apiCredentialWanikani") ?? data.get("wanikaniApiToken") ?? "").trim() };
+function readProviderApiCredentials(data, current) {
+  if (hasDedicatedApiCredentialFields(data)) {
+  return updatedDedicatedApiCredentials(data, current);
+  }
+  if (data.has("apiCredential")) {
+  return splitApiCredential(credentialValueFromFormData(data, "apiCredential", storedCombinedApiCredential(current)));
+  }
+  return {
+  apiKey: trimmedFormField(data, "apiKey"),
+  jitenApiKey: trimmedFormField(data, "jitenApiKey")
+  };
+}
+function hasDedicatedApiCredentialFields(data) {
+  return data.has("apiCredentialJpdb") || data.has("apiCredentialJiten");
+}
+function storedCombinedApiCredential(current) {
+  return current.apiKey || current.jitenApiKey;
+}
+function updatedDedicatedApiCredentials(data, current) {
+  const next = {
+  apiKey: current.apiKey.trim(),
+  jitenApiKey: current.jitenApiKey.trim()
+  };
+  updateCredentialSlot(data, "apiCredentialJiten", next, "jiten");
+  updateCredentialSlot(data, "apiCredentialJpdb", next, "jpdb");
+  return next;
+}
+function updateCredentialSlot(data, name, next, slot) {
+  const replacement = trimmedFormField(data, name);
+  if (!replacement && !data.has(storedCredentialClearName(name))) return;
+  applyCredentialSlotReplacement(next, slot, replacement);
+}
+function applyCredentialSlotReplacement(next, slot, replacement) {
+  if (isJitenApiCredential(replacement)) {
+  applyJitenCredentialReplacement(next, slot, replacement);
+  return;
+  }
+  applyJpdbCredentialReplacement(next, slot, replacement);
+}
+function applyJitenCredentialReplacement(next, slot, replacement) {
+  next.jitenApiKey = replacement;
+  if (slot === "jpdb") next.apiKey = "";
+}
+function applyJpdbCredentialReplacement(next, slot, replacement) {
+  if (slot === "jpdb") {
+  next.apiKey = replacement;
+  return;
+  }
+  next.jitenApiKey = "";
+  if (replacement) next.apiKey = replacement;
+}
+function redactedApiCredentialsFromForm(form) {
+  const configured = (name, sentinel) => {
+  const input2 = form.querySelector(`input[name="${name}"]`);
+  return input2?.dataset.storedCredentialPlaceholder === "true" ? sentinel : "";
+  };
+  return readApiCredentialsFromFormData(new FormData(form), {
+  apiKey: configured("apiCredentialJpdb", "stored-jpdb"),
+  jitenApiKey: configured("apiCredentialJiten", "ak_stored-jiten"),
+  bunproFrontendApiToken: configured("apiCredentialBunpro", "stored-bunpro"),
+  wanikaniApiToken: configured("apiCredentialWanikani", "stored-wanikani")
+  });
+}
+function readWanikaniCredentialsFromFormData(data, current) {
+  const field = data.has("apiCredentialWanikani") ? "apiCredentialWanikani" : "wanikaniApiToken";
+  return { wanikaniApiToken: credentialValueFromFormData(data, field, current.wanikaniApiToken) };
 }
 function mergeApiCredentialValues(jpdbValue, jitenValue) {
   const values = [jpdbValue.trim(), jitenValue.trim()].filter(Boolean);
@@ -8499,12 +8964,22 @@ function mergeApiCredentialValues(jpdbValue, jitenValue) {
 function isJitenApiCredential(value) {
   return value.trim().startsWith(JITEN_API_KEY_PREFIX);
 }
-function readBunproCredentialsFromFormData(data) {
+function readBunproCredentialsFromFormData(data, current) {
+  const legacyField = preferredCredentialField(data, "apiCredentialBunproLegacy", "bunproApiKey");
+  const frontendField = preferredCredentialField(data, "apiCredentialBunpro", "bunproFrontendApiToken");
+  const frontendToken = credentialValueFromFormData(data, frontendField, current.bunproFrontendApiToken);
   return {
-  bunproApiKey: String(data.get("apiCredentialBunproLegacy") ?? data.get("bunproApiKey") ?? "").trim(),
-  bunproFrontendApiToken: String(data.get("apiCredentialBunpro") ?? data.get("bunproFrontendApiToken") ?? "").trim(),
-  bunproFrontendApiTokenExpiresAt: String(data.get("bunproFrontendApiTokenExpiresAt") ?? "").trim()
+  bunproApiKey: credentialValueFromFormData(data, legacyField, current.bunproApiKey),
+  bunproFrontendApiToken: frontendToken,
+  bunproFrontendApiTokenExpiresAt: retainedBunproExpiration(data, current, frontendToken)
   };
+}
+function preferredCredentialField(data, preferred, legacy) {
+  return data.has(preferred) ? preferred : legacy;
+}
+function retainedBunproExpiration(data, current, frontendToken) {
+  if (!frontendToken) return "";
+  return String(data.get("bunproFrontendApiTokenExpiresAt") ?? current.bunproFrontendApiTokenExpiresAt ?? "").trim();
 }
 const __vite_import_meta_env__ = { "DEV": false };
 const LOG_PREFIX = "[Yomu]";
@@ -8674,6 +9149,65 @@ function redactString(value) {
 if (typeof window !== "undefined") {
   window.__YOMU_LOGGER__ = Logger;
   window.YomuLogger = Logger;
+}
+const SETTINGS_CHANGE_BUS_SLOT = Symbol.for("yomu.private-settings-change-bus.v1");
+const HOSTED_PUBLIC_SETTINGS_KEYS = [
+  "theme",
+  "accentColor",
+  "interfaceLanguage",
+  "furiganaMode",
+  "showFurigana",
+  "hideKnownFurigana",
+  "showPitchAccent",
+  "parserProvider",
+  "dictionaryPreferences"
+];
+function publishSettingsChange$1(detail) {
+  for (const listener of privateSettingsChangeBus().listeners) listener(detail);
+  publishPublicSettingsProjection(detail);
+}
+function subscribeToSettingsChanges(listener, signal) {
+  const listeners = privateSettingsChangeBus().listeners;
+  listeners.add(listener);
+  const unsubscribe = () => {
+  listeners.delete(listener);
+  };
+  return unsubscribe;
+}
+function privateSettingsChangeBus() {
+  const realm = globalThis;
+  const existing = realm[SETTINGS_CHANGE_BUS_SLOT];
+  if (isSettingsChangeBus(existing)) return existing;
+  const bus = { listeners: /* @__PURE__ */ new Set() };
+  Object.defineProperty(realm, SETTINGS_CHANGE_BUS_SLOT, {
+  configurable: true,
+  enumerable: false,
+  value: bus,
+  writable: false
+  });
+  return bus;
+}
+function isSettingsChangeBus(value) {
+  return Boolean(value && typeof value === "object" && value.listeners instanceof Set);
+}
+function publishPublicSettingsProjection(detail) {
+  const settings = publicSettingsProjection(detail.settings);
+  try {
+  dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, {
+    preview: detail.preview === true,
+    remote: detail.remote === true,
+    settings
+  }));
+  } catch {
+  }
+}
+function publicSettingsProjection(settings) {
+  const projection = {};
+  if (!isHostedYomuOrigin()) return projection;
+  for (const key of HOSTED_PUBLIC_SETTINGS_KEYS) {
+  if (Object.hasOwn(settings, key)) Object.assign(projection, { [key]: settings[key] });
+  }
+  return projection;
 }
 const SLICE1_TARGET_LANGUAGE = "ja";
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
@@ -8905,7 +9439,7 @@ const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
 function hasOwn(value, key) {
   return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
-function objectRecord$1(value) {
+function objectRecord$2(value) {
   return value && typeof value === "object" ? value : null;
 }
 function trimmedText(value) {
@@ -9005,7 +9539,7 @@ function activateLanguageProfileForOutputLanguage(profiles, activeProfileId, out
   };
 }
 function resolveLanguageProfile(value) {
-  if (isRecord$3(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+  if (isRecord$2(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
   const normalized2 = normalizeLanguageProfiles([value], value.id, {
     outputLanguage: readOutputLanguageField(value),
     uiLocale: value.uiLocale,
@@ -9013,7 +9547,7 @@ function resolveLanguageProfile(value) {
   });
   return normalized2.profiles[0];
   }
-  const source = isRecord$3(value) ? value : {};
+  const source = isRecord$2(value) ? value : {};
   const normalized = normalizeLanguageProfiles(
   source.languageProfiles,
   source.activeLanguageProfileId,
@@ -9026,7 +9560,7 @@ function resolveLanguageProfile(value) {
   return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
 }
 function normalizeLanguageProfile(value, index, defaults) {
-  if (!isRecord$3(value)) return null;
+  if (!isRecord$2(value)) return null;
   if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
   return {
   schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -9063,7 +9597,7 @@ function normalizeParserProvider$1(value, fallback) {
   return PARSER_PROVIDERS.has(value) ? value : fallback;
 }
 function normalizeProfileDictionaries(value) {
-  if (!isRecord$3(value)) return emptyProfileDictionaries();
+  if (!isRecord$2(value)) return emptyProfileDictionaries();
   const enabled = normalizeStringIds(value.enabled);
   const order = normalizeStringIds(value.order);
   const installed = normalizeStringIds([
@@ -9104,7 +9638,7 @@ function normalizeStringIds(value) {
   }
   return result;
 }
-function isRecord$3(value) {
+function isRecord$2(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function targetLanguageOf(value) {
@@ -10006,6 +10540,12 @@ const COPY = {
   settingsSearch: "Search settings",
   settingsSearchPlaceholder: "Search settings",
   settingsSearchNoResults: "No matches.",
+  accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
+  accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
+  openAccountSettingsTrustedSurface: "Open Study settings",
+  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
+  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
+  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
   show: "Show",
@@ -10039,6 +10579,8 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
+  storedCredentialPlaceholder: "Saved — enter a replacement",
+  clearStoredCredential: "Remove saved credential",
   apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
   wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
   jpdbSettings: "JPDB settings",
@@ -11705,6 +12247,12 @@ translating	翻訳中...
   ...GRAMMAR_UI_COPY.ja
 };
 const JA_SETTINGS_COPY = {
+  accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
+  accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
+  openAccountSettingsTrustedSurface: "Studyの設定を開く",
+  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
+  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
+  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -11742,6 +12290,8 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
+storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
+clearStoredCredential	保存済みの認証情報を削除
 apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
@@ -12443,16 +12993,16 @@ const AUDIO_SOURCE_LABEL_KEYS = {
 };
 function externalLinkIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M7 17 17 7"></path>
-    <path d="M9 7h8v8"></path>
-  </svg>`;
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
 }
 function speakerIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-  </svg>`;
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
@@ -13796,7 +14346,7 @@ function normalizeDictionaryPreferences(value) {
   return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function normalizeDictionaryPreference(item, index) {
-  const record2 = objectRecord$1(item);
+  const record2 = objectRecord$2(item);
   if (!record2) return null;
   const name = stringValue(record2.name);
   if (!name.trim()) return null;
@@ -14082,14 +14632,14 @@ function settingsIntentLedgerFromStorage(stored, legacyPins) {
   };
 }
 function parseSettingsIntentLedger(value) {
-  const record2 = objectRecord(value);
+  const record2 = objectRecord$1(value);
   if (!record2) return null;
-  const records = objectRecord(record2.records);
+  const records = objectRecord$1(record2.records);
   if (!records) return null;
   const parsed = {};
   let highest = 0;
   for (const [key, entry] of Object.entries(records)) {
-  const item = objectRecord(entry);
+  const item = objectRecord$1(entry);
   if (!item) continue;
   const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
   parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
@@ -14099,13 +14649,13 @@ function parseSettingsIntentLedger(value) {
   return { revision: Math.max(revision2, highest), records: parsed };
 }
 function ledgerFromLegacyPins(value) {
-  const record2 = objectRecord(value);
+  const record2 = objectRecord$1(value);
   if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
   const records = {};
   for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
   return { revision: 0, records };
 }
-function objectRecord(value) {
+function objectRecord$1(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 function recordSettingsIntent(ledger, keys, settings) {
@@ -14179,11 +14729,66 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleSeekPadding: 0.08
   };
 }
-function normalizeLearningTargetChosen(value, defaults) {
+const DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS = {
+  interfaceLanguage: "en",
+  parserProvider: "local"
+};
+const LEGACY_READER_TARGET_EVIDENCE_KEYS = [
+  "apiKey",
+  "jitenApiKey",
+  "parserProvider",
+  "lookupOnClick",
+  "lookupOnHover",
+  "manualScanEnabled",
+  "annotationsPaused",
+  "popupMode",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleFontSize",
+  "subtitleBottomOffset"
+];
+const ACADEMY_READER_DEFAULTS = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true
+};
+const HOSTED_APPEARANCE_CHOICES = {
+  interfaceLanguage: /* @__PURE__ */ new Set(["auto", "en", "ja"]),
+  theme: /* @__PURE__ */ new Set(["auto", "dark", "light"])
+};
+const HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
+function normalizeLearningTargetChosen(value, defaults = DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS) {
   if (!value) return false;
-  if (hasOwn(value, "learningTargetChosen")) return value.learningTargetChosen === true;
-  if (value.onboardingSeen === true) return true;
-  return persistedProfilesChooseLearningTarget(value, defaults);
+  const explicit = explicitLearningTargetChoice(value);
+  if (explicit !== void 0) return explicit;
+  return unmarkedLegacySettingsChooseTarget(value, defaults);
+}
+function explicitLearningTargetChoice(value) {
+  return hasOwn(value, "learningTargetChosen") && typeof value.learningTargetChosen === "boolean" ? value.learningTargetChosen : void 0;
+}
+function unmarkedLegacySettingsChooseTarget(value, defaults) {
+  if (isPassiveHostedSettingsRecord(value)) return false;
+  if (persistedProfilesChooseLearningTarget(value, defaults)) return true;
+  return legacyReaderTargetEvidenceExists(value);
+}
+function legacyReaderTargetEvidenceExists(value) {
+  return LEGACY_READER_TARGET_EVIDENCE_KEYS.some((key) => hasOwn(value, key));
+}
+function isPassiveHostedSettingsRecord(record2) {
+  return Object.entries(record2).every(isHostedAppearanceEntry) || extendsHostedPolicy(record2, ACADEMY_READER_DEFAULTS) || extendsHostedPolicy(record2, HOSTED_DEMO_READER_SETTINGS);
+}
+function extendsHostedPolicy(record2, policy) {
+  return Object.entries(policy).every(([key, value]) => record2[key] === value) && Object.entries(record2).every((entry) => hasOwn(policy, entry[0]) || isHostedAppearanceEntry(entry));
+}
+function isHostedAppearanceEntry([key, value]) {
+  return isHostedAppearanceChoice(key, value) || isHostedAccentColor(key, value);
+}
+function isHostedAppearanceChoice(key, value) {
+  return HOSTED_APPEARANCE_CHOICES[key]?.has(value) === true;
+}
+function isHostedAccentColor(key, value) {
+  if (key !== "accentColor") return false;
+  return typeof value === "string" ? HOSTED_ACCENT_COLOR_RE.test(value) : false;
 }
 function persistedProfilesChooseLearningTarget(value, defaults) {
   const profiles = value.languageProfiles;
@@ -14302,6 +14907,247 @@ function normalizedInterfaceLanguage(value, fallback) {
 function isInterfaceLanguage(value) {
   return value === "auto" || value === "en" || value === "ja";
 }
+const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
+const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+const SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+const SETTINGS_STORAGE_MISSING = "\0yomu-settings-storage-missing:v1";
+const LOCAL_FALLBACK_MISSING = Symbol("yomu-settings-local-fallback-missing");
+const AUTHORITATIVE_TRANSACTION_WRITE = {
+  localFallbackOnAuthoritativeFailure: "preserve"
+};
+async function readSettingsPersistenceView() {
+  for (let attempt2 = 0; attempt2 < 3; attempt2++) {
+  const view = await stableSettingsPersistenceView(await readSettingsPersistenceSample());
+  if (view) return view;
+  }
+  return {
+  settings: null,
+  intentLedger: settingsIntentLedgerFromStorage(null, null)
+  };
+}
+async function readSettingsPersistenceSample() {
+  return {
+  beforeSettings: await readSettingsStorageValue(SETTINGS_STORAGE_KEY, null),
+  beforeIntentLedger: await readSettingsStorageValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+  afterIntentLedger: await readSettingsStorageValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+  afterSettings: await readSettingsStorageValue(SETTINGS_STORAGE_KEY, null)
+  };
+}
+function stableSettingsPersistenceView(sample) {
+  return settingsPersistenceSampleIsStable(sample) ? settingsPersistenceView(sample.afterSettings, sample.afterIntentLedger) : Promise.resolve(null);
+}
+function settingsPersistenceSampleIsStable(sample) {
+  return storedValuesMatch(sample.beforeSettings, sample.afterSettings) && storedValuesMatch(sample.beforeIntentLedger, sample.afterIntentLedger);
+}
+async function settingsPersistenceView(storedSettings, storedIntentLedger) {
+  const committed = committedSettingsStoragePair(storedSettings, storedIntentLedger);
+  if (!committed) return null;
+  const intentLedger = settingsIntentLedgerFromStorage(
+  committed.intentLedger,
+  await readSettingsStorageValue(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+  );
+  return { settings: committed.settings, intentLedger };
+}
+function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+  const marker = settingsTransactionMarker(storedSettings);
+  const committedSettings = marker ? storedSnapshotValue(marker.settings) : storedSettings;
+  const committedIntentLedger = marker ? storedSnapshotValue(marker.intentLedger) : storedIntentLedger;
+  return settingsCommitMatches(committedSettings, committedIntentLedger) ? {
+  settings: withoutSettingsCommit(committedSettings),
+  intentLedger: withoutSettingsCommit(committedIntentLedger)
+  } : null;
+}
+function readSettingsStorageValue(key, fallback) {
+  return isHostedYomuOrigin() ? gmStorageGet(key, fallback) : gmStorageGetShared(key, fallback);
+}
+function storedValuesMatch(left, right) {
+  try {
+  return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+  return false;
+  }
+}
+function settingsCommitMatches(settings, intentLedger) {
+  const settingsId = settingsCommitId(settings);
+  const ledgerId = settingsCommitId(intentLedger);
+  return settingsId !== null && ledgerId !== null && settingsId === ledgerId;
+}
+function settingsCommitId(value) {
+  const record2 = objectRecord(value);
+  return record2 ? recordSettingsCommitId(record2) : void 0;
+}
+function recordSettingsCommitId(record2) {
+  return Object.hasOwn(record2, SETTINGS_COMMIT_FIELD) ? validSettingsCommitId(record2[SETTINGS_COMMIT_FIELD]) : void 0;
+}
+function validSettingsCommitId(value) {
+  return typeof value === "string" && value ? value : null;
+}
+function withSettingsCommit(value, commitId) {
+  return commitId ? { ...value, [SETTINGS_COMMIT_FIELD]: commitId } : value;
+}
+function withoutSettingsCommit(value) {
+  const record2 = objectRecord(value);
+  if (!record2 || !Object.hasOwn(record2, SETTINGS_COMMIT_FIELD)) return value;
+  const clean = { ...record2 };
+  delete clean[SETTINGS_COMMIT_FIELD];
+  return clean;
+}
+async function persistSettingsStorageTransaction(nextIntentLedger, settings) {
+  const [settingsSnapshot, intentLedgerSnapshot] = await settingsStorageSnapshots();
+  const commitId = settingsTransactionCommitId(nextIntentLedger, intentLedgerSnapshot);
+  const attempted = /* @__PURE__ */ new Set();
+  try {
+  await stageSettingsIntent(nextIntentLedger, settingsSnapshot, intentLedgerSnapshot, commitId, attempted);
+  await gmStorageSet(
+    SETTINGS_STORAGE_KEY,
+    withSettingsCommit(settings, commitId),
+    AUTHORITATIVE_TRANSACTION_WRITE
+  );
+  } catch (error) {
+  await rollbackSettingsTransaction(error, settingsSnapshot, intentLedgerSnapshot, attempted);
+  }
+}
+function settingsTransactionCommitId(nextIntentLedger, intentLedgerSnapshot) {
+  return nextIntentLedger === void 0 ? settingsCommitId(intentLedgerSnapshot.previousValue) : createStorageCoordinationId();
+}
+async function stageSettingsIntent(nextIntentLedger, settingsSnapshot, intentLedgerSnapshot, commitId, attempted) {
+  attempted.add(SETTINGS_STORAGE_KEY);
+  if (nextIntentLedger === void 0) return;
+  await gmStorageSet(
+  SETTINGS_STORAGE_KEY,
+  settingsTransactionRecord(settingsSnapshot, intentLedgerSnapshot),
+  AUTHORITATIVE_TRANSACTION_WRITE
+  );
+  attempted.add(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+  await gmStorageSet(
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+  withSettingsCommit(nextIntentLedger, commitId),
+  AUTHORITATIVE_TRANSACTION_WRITE
+  );
+}
+async function rollbackSettingsTransaction(error, settingsSnapshot, intentLedgerSnapshot, attempted) {
+  const rollbackErrors = await restoreSettingsStorageSnapshots(
+  [intentLedgerSnapshot, settingsSnapshot].filter((snapshot) => attempted.has(snapshot.key))
+  );
+  if (!rollbackErrors.length) throw error;
+  throw new AggregateError(
+  [error, ...rollbackErrors],
+  `Settings persistence failed and ${rollbackErrors.length} rollback operation(s) also failed.`
+  );
+}
+async function settingsStorageSnapshots() {
+  const rawSettingsSnapshot = await settingsStorageSnapshot(SETTINGS_STORAGE_KEY);
+  const interrupted = settingsTransactionMarker(rawSettingsSnapshot.previousValue);
+  if (interrupted) {
+  return [
+    snapshotFromMarker(SETTINGS_STORAGE_KEY, interrupted.settings),
+    snapshotFromMarker(SETTINGS_INTENT_LEDGER_STORAGE_KEY, interrupted.intentLedger)
+  ];
+  }
+  return [
+  rawSettingsSnapshot,
+  await settingsStorageSnapshot(SETTINGS_INTENT_LEDGER_STORAGE_KEY)
+  ];
+}
+async function settingsStorageSnapshot(key) {
+  const stored = await readSettingsStorageValue(key, SETTINGS_STORAGE_MISSING);
+  const existed = stored !== SETTINGS_STORAGE_MISSING;
+  const previousValue = existed ? stored : null;
+  const localFallbackValue = isHostedYomuOrigin() ? localFallbackStoredValue(key, LOCAL_FALLBACK_MISSING) : LOCAL_FALLBACK_MISSING;
+  return {
+  key,
+  existed,
+  previousValue,
+  localFallbackExisted: localFallbackValue !== LOCAL_FALLBACK_MISSING,
+  localFallbackValue: localFallbackValue === LOCAL_FALLBACK_MISSING ? null : localFallbackValue
+  };
+}
+function settingsTransactionRecord(settings, intentLedger) {
+  const previous = objectRecord(settings.previousValue) ?? {};
+  return {
+  ...previous,
+  learningTargetChosen: normalizeLearningTargetChosen(settings.existed ? previous : null),
+  onboardingSeen: typeof previous.onboardingSeen === "boolean" ? previous.onboardingSeen : false,
+  [SETTINGS_TRANSACTION_FIELD]: {
+    version: 1,
+    settings: serializedSnapshot(settings),
+    intentLedger: serializedSnapshot(intentLedger)
+  }
+  };
+}
+function settingsTransactionMarker(value) {
+  const marker = transactionMarkerRecord(value);
+  return marker?.version === 1 ? transactionMarkerSnapshots(marker) : null;
+}
+function transactionMarkerRecord(value) {
+  const record2 = objectRecord(value);
+  return record2 ? objectRecord(record2[SETTINGS_TRANSACTION_FIELD]) : null;
+}
+function transactionMarkerSnapshots(marker) {
+  const settings = serializedSnapshotRecord(marker.settings);
+  const intentLedger = serializedSnapshotRecord(marker.intentLedger);
+  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
+}
+function serializedSnapshot(snapshot) {
+  return {
+  existed: snapshot.existed,
+  previousValue: snapshot.previousValue,
+  localFallbackExisted: snapshot.localFallbackExisted,
+  localFallbackValue: snapshot.localFallbackValue
+  };
+}
+function serializedSnapshotRecord(value) {
+  const record2 = objectRecord(value);
+  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
+  existed: record2.existed,
+  previousValue: record2.previousValue,
+  localFallbackExisted: record2.localFallbackExisted,
+  localFallbackValue: record2.localFallbackValue
+  } : null;
+}
+function snapshotFromMarker(key, snapshot) {
+  return { key, ...snapshot };
+}
+function storedSnapshotValue(snapshot) {
+  return snapshot.existed ? snapshot.previousValue : null;
+}
+async function restoreSettingsStorageSnapshots(snapshots) {
+  const errors = [];
+  for (const snapshot of snapshots) {
+  const snapshotErrors = await restoreSettingsStorageSnapshot(snapshot);
+  errors.push(...snapshotErrors);
+  if (snapshot.key === SETTINGS_INTENT_LEDGER_STORAGE_KEY && snapshotErrors.length) break;
+  }
+  return errors;
+}
+async function restoreSettingsStorageSnapshot(snapshot) {
+  const errors = [];
+  try {
+  if (snapshot.existed) {
+    await gmStorageSet(snapshot.key, snapshot.previousValue, AUTHORITATIVE_TRANSACTION_WRITE);
+  } else await gmStorageDelete(snapshot.key);
+  } catch (error) {
+  errors.push(error);
+  }
+  try {
+  restoreLocalFallback(snapshot);
+  } catch (error) {
+  errors.push(error);
+  }
+  return errors;
+}
+function restoreLocalFallback(snapshot) {
+  restoreLocalFallbackStoredValue(
+  snapshot.key,
+  snapshot.localFallbackValue,
+  snapshot.localFallbackExisted
+  );
+}
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
 function isHostedReaderRuntime() {
   return document.documentElement?.dataset.yomuHosted !== void 0;
 }
@@ -14339,6 +15185,55 @@ function audioSubSourceProviderName(name) {
 }
 function audioSubSourceNameKey(name) {
   return audioSubSourceProviderName(name).toLowerCase();
+}
+const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
+const AUDIO_SOURCE_TYPE_VALUES = [
+  "jpod101",
+  "language-pod-101",
+  "jisho",
+  "bunpro",
+  "lingua-libre",
+  "wiktionary",
+  "jiten-tts",
+  "jpdb-tts",
+  "text-to-speech",
+  "text-to-speech-reading",
+  "custom",
+  "custom-json"
+];
+const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter((type) => type !== "custom");
+const DEFAULT_AUDIO_SOURCES = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+  { type: "jpod101", url: "", voice: "", enabled: false },
+  { type: "language-pod-101", url: "", voice: "", enabled: false },
+  { type: "jisho", url: "", voice: "", enabled: false },
+  { type: "bunpro", url: "", voice: "", enabled: false },
+  { type: "jiten-tts", url: "", voice: "", enabled: false },
+  { type: "jpdb-tts", url: "", voice: "", enabled: false },
+  { type: "text-to-speech", url: "", voice: "", enabled: false }
+];
+const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+  { type: "jpod101", url: "", voice: "", enabled: true },
+  { type: "language-pod-101", url: "", voice: "", enabled: true },
+  { type: "jisho", url: "", voice: "", enabled: true },
+  { type: "text-to-speech", url: "", voice: "", enabled: true }
+];
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+  { type: "jpod101", url: "", voice: "", enabled: true },
+  { type: "language-pod-101", url: "", voice: "", enabled: true },
+  { type: "jisho", url: "", voice: "", enabled: true },
+  { type: "jiten-tts", url: "", voice: "", enabled: true },
+  { type: "jpdb-tts", url: "", voice: "", enabled: true },
+  { type: "text-to-speech", url: "", voice: "", enabled: true }
+];
+const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
+  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+);
+function isAudioSourceType(value) {
+  return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
 }
 function formatShortcutEvent(event) {
   const parts = [];
@@ -14388,11 +15283,7 @@ function isModifierKey(key) {
 function dedupeShortcutParts(parts) {
   return parts.filter((part, index) => parts.indexOf(part) === index);
 }
-const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
-const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const log$c = Logger.scope("Settings");
-const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
@@ -14406,51 +15297,6 @@ const AUDIO_GUIDE_URL = "https://yomitan.wiki/advanced/#audio";
 function isPopupLookupEnabled(settings) {
   return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
 }
-const AUDIO_SOURCE_TYPE_VALUES = [
-  "jpod101",
-  "language-pod-101",
-  "jisho",
-  "bunpro",
-  "lingua-libre",
-  "wiktionary",
-  "jiten-tts",
-  "jpdb-tts",
-  "text-to-speech",
-  "text-to-speech-reading",
-  "custom",
-  "custom-json"
-];
-const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter((type) => type !== "custom");
-const DEFAULT_AUDIO_SOURCES = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: false },
-  { type: "language-pod-101", url: "", voice: "", enabled: false },
-  { type: "jisho", url: "", voice: "", enabled: false },
-  { type: "bunpro", url: "", voice: "", enabled: false },
-  { type: "jiten-tts", url: "", voice: "", enabled: false },
-  { type: "jpdb-tts", url: "", voice: "", enabled: false },
-  { type: "text-to-speech", url: "", voice: "", enabled: false }
-];
-const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: true },
-  { type: "language-pod-101", url: "", voice: "", enabled: true },
-  { type: "jisho", url: "", voice: "", enabled: true },
-  { type: "text-to-speech", url: "", voice: "", enabled: true }
-];
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: true },
-  { type: "language-pod-101", url: "", voice: "", enabled: true },
-  { type: "jisho", url: "", voice: "", enabled: true },
-  { type: "jiten-tts", url: "", voice: "", enabled: true },
-  { type: "jpdb-tts", url: "", voice: "", enabled: true },
-  { type: "text-to-speech", url: "", voice: "", enabled: true }
-];
-const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
 const READER_COLOR_SOURCES = /* @__PURE__ */ new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
 const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
 const OCR_ENGINE_ALIASES = /* @__PURE__ */ new Map([
@@ -14956,10 +15802,9 @@ function mergeSettings(value) {
     activeTargetRosterId(languageProfileSettings)
   ),
   ...languageProfileSettings,
-  learningTargetChosen: normalizeLearningTargetChosen(settingsValue, {
-    interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
-    parserProvider: DEFAULT_SETTINGS.parserProvider
-  }),
+  // Choice migration is based on the raw stored record. The migrations
+  // above add marker fields even to `{}`, which is still no prior choice.
+  learningTargetChosen: normalizeLearningTargetChosen(value),
   preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
   shortcuts: normalizeShortcutSettings(settingsValue)
   };
@@ -15701,10 +16546,7 @@ function coupledSettingsIntentKeys(keys) {
   return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
 }
 async function readSettingsIntentLedger() {
-  return settingsIntentLedgerFromStorage(
-  await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-  await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
-  );
+  return (await readSettingsPersistenceView()).intentLedger;
 }
 async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
   const normalizedSettings = mergeSettings(settings);
@@ -15717,24 +16559,17 @@ async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUs
     coupledSettingsIntentKeys(explicitUserChoiceKeys),
     normalizedSettings
   );
-  if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
   storedSettings = mergeSettings(
     applySettingsIntent(normalizedSettings, nextLedger)
   );
   const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
-  await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+  await persistSettingsStorageTransaction(nextLedger === ledger ? void 0 : nextLedger, supportedSettings);
   storedSettings = supportedSettings;
   });
   dispatchSettingsChange(storedSettings);
 }
 function dispatchSettingsChange(settings) {
-  try {
-  dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
-  } catch {
-  }
-}
-function isAudioSourceType(value) {
-  return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
+  publishSettingsChange$1({ settings });
 }
 function normalizeAudioSource(value) {
   const record2 = audioSourceRecord(value);
@@ -15787,7 +16622,7 @@ function ensureHostedAudioSourceFirst(sources) {
   ];
 }
 function isHostedAudioSource(source) {
-  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+  return source.type === "custom-json" && source.url.trim() === DEFAULT_AUDIO_URL;
 }
 function migrateLegacyDefaultAudioSources(sources) {
   if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
@@ -15821,6 +16656,16 @@ function ensureBuiltInAudioSource(sources, source, beforeType) {
   const insertIndex = sources.findIndex((candidate) => candidate.type === beforeType);
   if (insertIndex < 0) sources.push(source);
   else sources.splice(insertIndex, 0, source);
+}
+const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+function privateCommandAttributes(command) {
+  return commandCapabilities.attributes(command);
+}
+function immutableCommandSnapshot(command) {
+  if (command.kind === "card-action" && command.audioUrls) {
+  return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
+  }
+  return Object.freeze({ ...command });
 }
 new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -16615,7 +17460,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.9.0".trim() ? "1.9.0".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.9.1".trim() ? "1.9.1".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -52722,7 +53567,7 @@ function readFormSettings(data, current) {
   dictionaryLookupLinks
   );
   const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
-  const apiCredentials = readApiCredentialsFromFormData(data);
+  const apiCredentials = readApiCredentialsFromFormData(data, current);
   const interfaceLanguage = readOption(
   get("interfaceLanguage"),
   SELECTABLE_INTERFACE_LANGUAGES,
@@ -53172,7 +54017,7 @@ function readOcrFormSettings(reader, current) {
   ocrProvider: normalizeOcrProvider(get("ocrProvider")),
   ocrEndpointUrl: get("ocrEndpointUrl").trim(),
   ocrEngine: get("ocrEngine").trim() || "auto",
-  ocrCloudVisionApiKey: get("ocrCloudVisionApiKey").trim(),
+  ocrCloudVisionApiKey: credentialValueFromReader(reader, "ocrCloudVisionApiKey", current.ocrCloudVisionApiKey),
   // Blank means "follow the language being studied" and has to SURVIVE
   // the round trip. Resolving it to a literal here turned the sentinel
   // into whichever target happened to be active the first time anything
@@ -53242,14 +54087,11 @@ function readSubtitleFormSettings(reader, current) {
 }
 function readImmersionKitFormSettings(reader, current) {
   const { get, has, clamped } = reader;
-  const mediaEnabled = has("immersionKitEnabled");
-  const sourceRowPresent = Boolean(get("immersionKit.name") || get("immersionKit.priority"));
-  const sourceEnabled = sourceRowPresent ? has("immersionKit.enabled") : true;
   return {
-  immersionKitEnabled: mediaEnabled && sourceEnabled,
+  immersionKitEnabled: readImmersionKitEnabled(reader),
   immersionKitAlias: readSourceAlias(reader, "immersionKit", current.immersionKitAlias),
   immersionKitExampleSource: readOption(get("immersionKitExampleSource"), ["immersion-kit", "nadeshiko", "combined"], current.immersionKitExampleSource),
-  nadeshikoApiKey: get("nadeshikoApiKey").trim(),
+  nadeshikoApiKey: credentialValueFromReader(reader, "nadeshikoApiKey", current.nadeshikoApiKey),
   immersionKitPriority: clamped("immersionKit.priority", 0, 999, current.immersionKitPriority),
   immersionKitLimitEnabled: get("immersionKitLimitEnabled") === "on",
   immersionKitLimit: clamped("immersionKitLimit", 1, 12, current.immersionKitLimit),
@@ -53259,13 +54101,22 @@ function readImmersionKitFormSettings(reader, current) {
   immersionKitSort: readOption(get("immersionKitSort"), ["sentence_length:asc", "sentence_length:desc"], current.immersionKitSort),
   immersionKitExactMatch: has("immersionKitExactMatch"),
   immersionKitShowTranslation: has("immersionKitShowTranslation"),
-  immersionKitRevealTranslationOnClick: has("immersionKitShowTranslation") && has("immersionKitRevealTranslationOnClick"),
+  immersionKitRevealTranslationOnClick: readEnabledChildCheckbox(reader, "immersionKitShowTranslation", "immersionKitRevealTranslationOnClick"),
   immersionKitShowImages: has("immersionKitShowImages"),
   immersionKitAutoPlayAudio: has("immersionKitAutoPlayAudio"),
   immersionKitPlayOnHover: has("immersionKitPlayOnHover"),
   immersionKitPlayOnImageClick: has("immersionKitPlayOnImageClick"),
   immersionKitPlaybackRate: clamped("immersionKitPlaybackRate", 0.5, 2, current.immersionKitPlaybackRate)
   };
+}
+function readImmersionKitEnabled(reader) {
+  if (!reader.has("immersionKitEnabled")) return false;
+  const sourceRowPresent = [reader.get("immersionKit.name"), reader.get("immersionKit.priority")].some(Boolean);
+  return sourceRowPresent ? reader.has("immersionKit.enabled") : true;
+}
+function readEnabledChildCheckbox(reader, parent, child) {
+  if (!reader.has(parent)) return false;
+  return reader.has(child);
 }
 function readYoutubeFormSettings(reader, current) {
   const { get, has } = reader;
@@ -53867,8 +54718,8 @@ function hasPaidSubscription(subscription) {
   return PAID_SUBSCRIPTION_TYPES.has(subscription.type);
 }
 function parseWanikaniUser(raw) {
-  const record2 = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
-  const subscriptionRaw = isRecord$2(record2.subscription) ? record2.subscription : {};
+  const record2 = isRecord$1(raw) ? isRecord$1(raw.data) ? raw.data : raw : {};
+  const subscriptionRaw = isRecord$1(record2.subscription) ? record2.subscription : {};
   return {
   id: typeof record2.id === "string" ? record2.id : "",
   level: typeof record2.level === "number" ? record2.level : 0,
@@ -53912,7 +54763,7 @@ function isRateLimitError(error) {
   return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
 }
 function rawSubjectLevel(value) {
-  if (!isRecord$2(value) || !isRecord$2(value.data)) return Number.POSITIVE_INFINITY;
+  if (!isRecord$1(value) || !isRecord$1(value.data)) return Number.POSITIVE_INFINITY;
   return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
 }
 function stableOptionsKey(options) {
@@ -53921,7 +54772,7 @@ function stableOptionsKey(options) {
 function trimBaseUrl(value) {
   return value.replace(/\/+$/u, "");
 }
-function isRecord$2(value) {
+function isRecord$1(value) {
   return typeof value === "object" && value !== null;
 }
 const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
@@ -54050,14 +54901,13 @@ function updateSourceRowEditor(action, control) {
 function installSourceRowDrag(root) {
   let drag = null;
   const dragDocument = root.ownerDocument;
-  root.addEventListener("pointerdown", (event) => {
+  root.addEventListener("pointerdown", trustedReaderEventHandler((event) => {
   if (drag) return;
-  if (event.pointerType === "mouse" && event.button !== 0) return;
-  const handle = event.target.closest("[data-source-drag-handle]");
-  if (!handle || !root.contains(handle)) return;
-  const row = handle.closest("[data-source-row]");
-  const container = row?.closest("[data-source-editor]");
-  if (!row || !container) return;
+  const handle = sourceRowDragHandle(root, event);
+  if (!handle) return;
+  const elements = sourceRowDragElements(handle);
+  if (!elements) return;
+  const { container, row } = elements;
   event.preventDefault();
   setSourceRowPointerCapture(handle, event.pointerId);
   const pageScale = overlayViewport().pageScale;
@@ -54071,10 +54921,10 @@ function installSourceRowDrag(root) {
     startY: sourceRowOverlayY(event.clientY, pageScale)
   };
   row.classList.add("jpdb-reader-order-row-drag-pending");
-  dragDocument.addEventListener("pointermove", moveDrag);
-  dragDocument.addEventListener("pointerup", finishDrag);
-  dragDocument.addEventListener("pointercancel", finishDrag);
-  });
+  dragDocument.addEventListener("pointermove", trustedMoveDrag);
+  dragDocument.addEventListener("pointerup", trustedFinishDrag);
+  dragDocument.addEventListener("pointercancel", trustedFinishDrag);
+  }));
   const moveDrag = (event) => {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
@@ -54090,13 +54940,15 @@ function installSourceRowDrag(root) {
   drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
   syncSourceRowOrder(drag.container);
   drag = null;
-  dragDocument.removeEventListener("pointermove", moveDrag);
-  dragDocument.removeEventListener("pointerup", finishDrag);
-  dragDocument.removeEventListener("pointercancel", finishDrag);
+  dragDocument.removeEventListener("pointermove", trustedMoveDrag);
+  dragDocument.removeEventListener("pointerup", trustedFinishDrag);
+  dragDocument.removeEventListener("pointercancel", trustedFinishDrag);
   };
-  root.addEventListener("pointermove", moveDrag);
-  root.addEventListener("pointerup", finishDrag);
-  root.addEventListener("pointercancel", finishDrag);
+  const trustedMoveDrag = trustedReaderEventHandler(moveDrag);
+  const trustedFinishDrag = trustedReaderEventHandler(finishDrag);
+  root.addEventListener("pointermove", trustedMoveDrag);
+  root.addEventListener("pointerup", trustedFinishDrag);
+  root.addEventListener("pointercancel", trustedFinishDrag);
 }
 function moveSourceRow(container, index, targetIndex) {
   const rows = Array.from(container.querySelectorAll("[data-source-row]"));
@@ -54106,6 +54958,19 @@ function moveSourceRow(container, index, targetIndex) {
   if (targetIndex < index) container.insertBefore(row, target);
   else container.insertBefore(row, target.nextSibling);
   syncSourceRowOrder(container);
+}
+function sourceRowDragHandle(root, event) {
+  if (!sourceRowDragPointerAllowed(event)) return null;
+  const handle = event.target.closest("[data-source-drag-handle]");
+  return handle && root.contains(handle) ? handle : null;
+}
+function sourceRowDragPointerAllowed(event) {
+  return event.pointerType !== "mouse" || event.button === 0;
+}
+function sourceRowDragElements(handle) {
+  const row = handle.closest("[data-source-row]");
+  const container = row?.closest("[data-source-editor]");
+  return row && container ? { container, row } : null;
 }
 function setSourceRowPointerCapture(handle, pointerId) {
   try {
@@ -54727,8 +55592,29 @@ const FONT_FAMILY_PRESETS = [
   { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
   { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
 ];
-function isRecord$1(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+const AUTHORIZATION_STATE_BYTES = 24;
+const AUTHORIZATION_STATE_PATTERN = /^[0-9a-f]{48}$/u;
+function createCloudSettingsAuthorization() {
+  const cryptoSource = globalThis.crypto;
+  if (!cryptoSource?.getRandomValues) {
+  throw new Error("Secure randomness is unavailable for Google authorization.");
+  }
+  const bytes = cryptoSource.getRandomValues(new Uint8Array(AUTHORIZATION_STATE_BYTES));
+  return {
+  state: Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")
+  };
+}
+function isCloudSettingsAuthorizationState(value) {
+  return typeof value === "string" && AUTHORIZATION_STATE_PATTERN.test(value);
+}
+function cloudSettingsRedirectHandoffRequired() {
+  const global = globalThis;
+  return [
+  typeof GM_xmlhttpRequest === "function",
+  typeof global.GM?.xmlHttpRequest === "function",
+  typeof global.GM?.xmlhttpRequest === "function",
+  Boolean(global.GM_info)
+  ].some(Boolean);
 }
 const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
 const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
@@ -54740,18 +55626,45 @@ const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
 const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
 const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
-const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
+const OAUTH_TOKEN_PAYLOAD_TYPE = "yomu-drive-oauth-token";
 const TOKEN_EARLY_REFRESH_MS = 6e4;
 const DRIVE_TIMEOUT_MS = 2e4;
 let cachedToken = null;
-let lastAuthRedirectResult = consumeAuthRedirectResult();
+let pendingAuthRedirectResult = readAuthRedirectCandidate();
 function cloudSettingsSyncAvailable() {
   return CLOUD_SETTINGS_SYNC_ENABLED;
 }
-function cloudSettingsAuthRedirectResult() {
-  return lastAuthRedirectResult;
+function cloudSettingsAuthRedirectResult(expectedState) {
+  const candidate = takeAuthRedirectCandidate();
+  if (!candidate) return null;
+  if (!authRedirectStateMatches(candidate, expectedState)) {
+  return {
+    ok: false,
+    state: candidate.state,
+    error: "Google authorization did not match the pending Yomu action."
+  };
+  }
+  cacheAuthRedirectToken(candidate);
+  return { ok: candidate.ok, state: candidate.state, error: candidate.error };
 }
-async function uploadCloudSettingsToCloud(settings) {
+function takeAuthRedirectCandidate() {
+  const candidate = pendingAuthRedirectResult;
+  pendingAuthRedirectResult = null;
+  return candidate;
+}
+function authRedirectStateMatches(candidate, expectedState) {
+  if (!isCloudSettingsAuthorizationState(expectedState)) return false;
+  return candidate.state === expectedState;
+}
+function cacheAuthRedirectToken(candidate) {
+  if (!candidate.ok) return;
+  if (!candidate.accessToken) return;
+  cachedToken = {
+  token: candidate.accessToken,
+  expiresAt: Date.now() + (candidate.expiresInSeconds ?? 3600) * 1e3
+  };
+}
+async function uploadCloudSettingsToCloud(settings, authorization) {
   requireConfigured();
   const snapshot = {
   formatName: "yomu-google-drive-settings-sync",
@@ -54761,15 +55674,15 @@ async function uploadCloudSettingsToCloud(settings) {
   storage: await exportManagedStoredValues()
   };
   const serialized = JSON.stringify(snapshot);
-  const existing = await findSettingsFile();
-  const file = existing ? await updateSettingsFile(existing.id, serialized) : await createSettingsFile(serialized);
+  const existing = await findSettingsFile(authorization);
+  const file = existing ? await updateSettingsFile(existing.id, serialized, authorization) : await createSettingsFile(serialized, authorization);
   return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
 }
-async function downloadCloudSettingsFromCloud() {
+async function downloadCloudSettingsFromCloud(authorization) {
   requireConfigured();
-  const existing = await findSettingsFile();
+  const existing = await findSettingsFile(authorization);
   if (!existing?.id) return null;
-  const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`);
+  const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`, { authorization });
   return parseSettingsSnapshot(body);
 }
 function requireConfigured() {
@@ -54777,19 +55690,26 @@ function requireConfigured() {
   throw new Error("Google Drive settings sync is not configured for this build.");
   }
 }
-async function findSettingsFile() {
+async function findSettingsFile(authorization) {
   const params = new URLSearchParams({
   spaces: "appDataFolder",
   pageSize: "1",
   fields: "files(id,name,modifiedTime,size)",
   q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
   });
-  const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-  const files = isRecord$1(body) && Array.isArray(body.files) ? body.files : [];
-  const first = files[0];
-  return isRecord$1(first) && typeof first.id === "string" ? first : null;
+  const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`, { authorization });
+  return driveFileOrNull(driveFiles(body)[0]);
 }
-async function createSettingsFile(serialized) {
+function driveFiles(body) {
+  if (!isRecord$3(body)) return [];
+  return Array.isArray(body.files) ? body.files : [];
+}
+function driveFileOrNull(value) {
+  if (!isRecord$3(value)) return null;
+  if (typeof value.id !== "string") return null;
+  return value;
+}
+async function createSettingsFile(serialized, authorization) {
   const boundary = `yomu_drive_sync_${randomBoundary()}`;
   const metadata = { name: SETTINGS_FILE_NAME, mimeType: SETTINGS_MIME_TYPE, parents: ["appDataFolder"] };
   const body = [
@@ -54807,14 +55727,15 @@ async function createSettingsFile(serialized) {
   const result = await driveRequestJson("/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size", {
   method: "POST",
   headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-  data: body
+  data: body,
+  authorization
   });
   return driveFileFromResponse(result);
 }
-async function updateSettingsFile(fileId, serialized) {
+async function updateSettingsFile(fileId, serialized, authorization) {
   const result = await driveRequestJson(
   `/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size`,
-  { method: "PATCH", headers: { "Content-Type": SETTINGS_MIME_TYPE }, data: serialized }
+  { method: "PATCH", headers: { "Content-Type": SETTINGS_MIME_TYPE }, data: serialized, authorization }
   );
   return driveFileFromResponse(result);
 }
@@ -54825,39 +55746,46 @@ async function driveRequestText(path, options = {}) {
   return driveRequest(options, (body) => requestText(driveUrl(path), body));
 }
 async function driveRequest(options, run) {
-  for (let attempt2 = 0; attempt2 < 2; attempt2 += 1) {
-  const token = await acquireAccessToken(attempt2 === 0);
+  const firstToken = await acquireAccessToken(true, options.authorization);
   try {
-    return await run({
-      method: options.method ?? "GET",
-      headers: { ...options.headers ?? {}, Authorization: `Bearer ${token}` },
-      data: options.data,
-      responseType: "json",
-      timeoutMs: DRIVE_TIMEOUT_MS,
-      allowDirectCrossOrigin: true,
-      preferFetch: true,
-      failureLabel: "Google Drive settings sync"
-    });
+  return await run(driveHttpOptions(options, firstToken));
   } catch (error) {
-    if (attempt2 === 0 && isUnauthorized(error)) {
-      cachedToken = null;
-      continue;
-    }
-    throw error;
+  if (!isUnauthorized(error)) throw error;
+  cachedToken = null;
   }
-  }
-  throw new Error("Google Drive settings sync failed to authorise.");
+  const freshToken = await acquireAccessToken(false, options.authorization);
+  return run(driveHttpOptions(options, freshToken));
+}
+function driveHttpOptions(options, token) {
+  return {
+  method: options.method ?? "GET",
+  headers: { ...options.headers ?? {}, Authorization: `Bearer ${token}` },
+  data: options.data,
+  responseType: "json",
+  timeoutMs: DRIVE_TIMEOUT_MS,
+  allowDirectCrossOrigin: true,
+  preferFetch: true,
+  failureLabel: "Google Drive settings sync"
+  };
 }
 function driveUrl(path) {
   return `https://www.googleapis.com${path}`;
 }
-async function acquireAccessToken(allowCached) {
-  if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
-  return cachedToken.token;
-  }
-  const token = isUserscriptContext() ? await tokenViaPageRedirect() : await tokenViaIdentityServices();
+async function acquireAccessToken(allowCached, authorization) {
+  const cached = reusableAccessToken(allowCached);
+  if (cached) return cached;
+  const token = await freshAccessToken(authorization);
   cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
   return cachedToken.token;
+}
+function reusableAccessToken(allowCached) {
+  if (!allowCached) return null;
+  if (!cachedToken) return null;
+  return Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS ? cachedToken.token : null;
+}
+function freshAccessToken(authorization) {
+  if (cloudSettingsRedirectHandoffRequired()) return tokenViaPageRedirect(authorization);
+  return tokenViaIdentityServices();
 }
 async function tokenViaIdentityServices() {
   const gis = await loadIdentityServices();
@@ -54881,24 +55809,35 @@ async function tokenViaIdentityServices() {
   }
   });
 }
-function tokenViaPageRedirect() {
-  return new Promise((resolve, reject) => {
-  const browserWindow = typeof window !== "undefined" ? window : void 0;
-  if (!browserWindow?.location?.href) {
-    reject(new Error("Google Drive settings sync needs a browser page."));
-    return;
+function tokenViaPageRedirect(authorization) {
+  return new Promise((_resolve, reject) => startPageRedirect(authorization, reject));
+}
+function startPageRedirect(authorization, reject) {
+  try {
+  const target = pageRedirectTarget(authorization);
+  navigateToOAuthBroker(target.browserWindow, target.url);
+  } catch (error) {
+  reject(googleAuthorizationStartError(error));
   }
-  const state = randomBoundary();
+}
+function pageRedirectTarget(authorization) {
+  const browserWindow = currentBrowserWindow();
+  if (!browserWindow) throw new Error("Google Drive settings sync needs a browser page.");
+  if (!authorization) throw new Error("Google authorization requires a private pending Yomu action.");
+  if (!isCloudSettingsAuthorizationState(authorization.state)) {
+  throw new Error("Google authorization requires a private pending Yomu action.");
+  }
+  return { browserWindow, url: oauthBrokerUrl(browserWindow.location.href, authorization.state) };
+}
+function googleAuthorizationStartError(error) {
+  return error instanceof Error ? error : new Error("Google authorization failed to start.");
+}
+function oauthBrokerUrl(returnUrl, state) {
   const brokerUrl = new URL(OAUTH_BROKER_URL);
-  brokerUrl.searchParams.set("return_url", browserWindow.location.href);
+  brokerUrl.searchParams.set("return_url", returnUrl);
   brokerUrl.searchParams.set("client_id", WEB_OAUTH_CLIENT_ID);
   brokerUrl.searchParams.set("state", state);
-  try {
-    navigateToOAuthBroker(browserWindow, brokerUrl.href);
-  } catch (error) {
-    reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
-  }
-  });
+  return brokerUrl.href;
 }
 function navigateToOAuthBroker(browserWindow, url) {
   const testNavigate = globalThis.__YOMU_TEST_NAVIGATE_TO_OAUTH__;
@@ -54908,30 +55847,56 @@ function navigateToOAuthBroker(browserWindow, url) {
   }
   browserWindow.location.assign(url);
 }
-function consumeAuthRedirectResult() {
-  const browserWindow = typeof window !== "undefined" ? window : void 0;
-  if (!browserWindow?.location?.href) return null;
-  const state = oauthReturnState(browserWindow.location.href);
-  if (!state) return null;
-  const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
+function readAuthRedirectCandidate() {
+  const browserWindow = currentBrowserWindow();
+  if (!browserWindow) return null;
+  scrubLegacyOAuthWindowName(browserWindow);
+  const envelope = readOAuthReturnEnvelope(browserWindow.location.href);
+  if (!envelope) return null;
   clearOAuthReturnHash(browserWindow);
-  if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
+  return oauthRedirectCandidate(envelope.state, envelope.payload);
+}
+function currentBrowserWindow() {
+  if (typeof window === "undefined") return null;
+  return window;
+}
+function readOAuthReturnEnvelope(href) {
+  const state = oauthReturnState(href);
+  if (!state) return null;
+  return { state, payload: parseOAuthReturnPayload(href) };
+}
+function oauthRedirectCandidate(state, payload) {
+  if (!isValidOAuthReturnPayload(state, payload)) {
   return { ok: false, state, error: "Google authorization returned without a Yomu token." };
   }
-  browserWindow.name = "";
-  if (typeof payload.accessToken === "string" && payload.accessToken) {
-  const expiresInSeconds = Number(payload.expiresIn) || 3600;
-  cachedToken = { token: payload.accessToken, expiresAt: Date.now() + expiresInSeconds * 1e3 };
-  return { ok: true, state };
+  if (hasOAuthAccessToken(payload)) {
+  return {
+    ok: true,
+    state,
+    accessToken: payload.accessToken,
+    expiresInSeconds: oauthTokenLifetime(payload.expiresIn)
+  };
   }
   return { ok: false, state, error: payload.error || "Google authorization failed." };
 }
-function parseOAuthWindowName(value) {
+function isValidOAuthReturnPayload(state, payload) {
+  if (!isCloudSettingsAuthorizationState(state)) return false;
+  if (!payload) return false;
+  if (payload.type !== OAUTH_TOKEN_PAYLOAD_TYPE) return false;
+  return payload.state === state;
+}
+function hasOAuthAccessToken(payload) {
+  return typeof payload.accessToken === "string" && Boolean(payload.accessToken);
+}
+function oauthTokenLifetime(value) {
+  const seconds = Number(value);
+  return seconds > 0 ? seconds : 3600;
+}
+function scrubLegacyOAuthWindowName(browserWindow) {
   try {
-  const parsed = JSON.parse(value);
-  return isRecord$1(parsed) ? parsed : null;
+  const parsed = JSON.parse(browserWindow.name);
+  if (isRecord$3(parsed) && parsed.type === OAUTH_TOKEN_PAYLOAD_TYPE) browserWindow.name = "";
   } catch {
-  return null;
   }
 }
 function parseOAuthReturnPayload(href) {
@@ -54939,7 +55904,7 @@ function parseOAuthReturnPayload(href) {
   if (!encoded) return null;
   try {
   const parsed = JSON.parse(encoded);
-  return isRecord$1(parsed) ? parsed : null;
+  return isRecord$3(parsed) ? parsed : null;
   } catch {
   return null;
   }
@@ -54967,16 +55932,20 @@ function clearOAuthReturnHash(browserWindow) {
   if (!browserWindow.history?.replaceState) return;
   try {
   const url = new URL(browserWindow.location.href);
-  const removedKeys = /* @__PURE__ */ new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
-  const remainingHash = url.hash.slice(1).split("&").filter((part) => {
-    if (!part) return false;
-    const key = part.includes("=") ? part.slice(0, part.indexOf("=")) : part;
-    return !removedKeys.has(key);
-  }).join("&");
-  url.hash = remainingHash ? `#${remainingHash}` : "";
+  url.hash = hashWithoutOAuthReturn(url.hash);
   browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
   } catch {
   }
+}
+function hashWithoutOAuthReturn(hash) {
+  const remaining = hash.slice(1).split("&").filter(retainsOAuthHashPart).join("&");
+  return remaining ? `#${remaining}` : "";
+}
+function retainsOAuthHashPart(part) {
+  if (!part) return false;
+  const separator = part.indexOf("=");
+  const key = separator < 0 ? part : part.slice(0, separator);
+  return key !== OAUTH_RETURN_HASH_KEY && key !== OAUTH_TOKEN_HASH_KEY;
 }
 let identityServicesPromise = null;
 function loadIdentityServices() {
@@ -55008,10 +55977,6 @@ function googleIdentityServices() {
   const candidate = globalThis.google;
   return candidate?.accounts?.oauth2 ? candidate : null;
 }
-function isUserscriptContext() {
-  const global = globalThis;
-  return typeof GM_xmlhttpRequest === "function" || typeof global.GM?.xmlHttpRequest === "function" || typeof global.GM?.xmlhttpRequest === "function" || Boolean(global.GM_info);
-}
 function parseSettingsSnapshot(body) {
   let parsed;
   try {
@@ -55019,12 +55984,12 @@ function parseSettingsSnapshot(body) {
   } catch {
   return null;
   }
-  if (!isRecord$1(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-  if (!isRecord$1(parsed.settings)) return null;
+  if (!isRecord$3(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+  if (!isRecord$3(parsed.settings)) return null;
   return parsed;
 }
 function driveFileFromResponse(value) {
-  if (isRecord$1(value) && typeof value.id === "string") return value;
+  if (isRecord$3(value) && typeof value.id === "string") return value;
   throw new Error("Google Drive did not return the saved file.");
 }
 function isUnauthorized(error) {
@@ -55056,22 +56021,28 @@ function updateAnkiTagsEditor(form, action, control) {
   if (!editor || !hidden) return;
   const language2 = formInterfaceLanguage(form);
   const tags = ankiTagList(hidden.value);
-  if (action === "anki-tag-add") {
-  const input2 = editor.querySelector("[data-anki-tag-input]");
-  ankiTagList(input2?.value ?? "").forEach((tag) => {
-    if (!tags.includes(tag)) tags.push(tag);
-  });
-  if (input2) input2.value = "";
-  } else {
-  const tag = control?.dataset.tag?.trim();
-  if (tag) {
-    const index = tags.indexOf(tag);
-    if (index >= 0) tags.splice(index, 1);
-  }
-  }
+  updateAnkiTagList(editor, tags, action, control);
   hidden.value = tags.join(" ");
-  hidden.dispatchEvent(new Event("input", { bubbles: true }));
+  dispatchAuthorizedReaderControlEvent(hidden, new Event("input", { bubbles: true }));
   renderAnkiTagChips(editor, tags, language2);
+}
+function updateAnkiTagList(editor, tags, action, control) {
+  if (action === "anki-tag-add") {
+  addAnkiTags(editor, tags);
+  return;
+  }
+  removeAnkiTag(tags, control?.dataset.tag?.trim());
+}
+function addAnkiTags(editor, tags) {
+  const input2 = editor.querySelector("[data-anki-tag-input]");
+  if (!input2) return;
+  tags.push(...ankiTagList(input2.value).filter((tag) => !tags.includes(tag)));
+  input2.value = "";
+}
+function removeAnkiTag(tags, tag) {
+  if (!tag) return;
+  const index = tags.indexOf(tag);
+  if (index >= 0) tags.splice(index, 1);
 }
 function ankiTagList(value) {
   return uniqueStrings(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
@@ -55451,7 +56422,7 @@ function ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, language2) {
 function localizeJpdbStatus(form, language2) {
   const status = form.querySelector("[data-jpdb-status]");
   if (!status) return;
-  const credentials = readApiCredentialsFromFormData(new FormData(form));
+  const credentials = redactedApiCredentialsFromForm(form);
   const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language2);
   status.dataset.statusTone = line.tone;
   status.replaceChildren(line.message);
@@ -55459,7 +56430,7 @@ function localizeJpdbStatus(form, language2) {
 function localizeBunproStatus(form, language2) {
   const status = form.querySelector("[data-bunpro-status]");
   if (!status) return;
-  const credentials = readApiCredentialsFromFormData(new FormData(form));
+  const credentials = redactedApiCredentialsFromForm(form);
   const line = bunproStatusLineForSettings(credentials, language2);
   status.dataset.statusTone = line.tone;
   status.replaceChildren(line.message);
@@ -57106,19 +58077,18 @@ function colorSourceSelectOptions(text2) {
   ];
 }
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = "jpdb-reader-disabled-control-description";
-const API_KEY_INPUT_ATTRIBUTES = {
-  autocapitalize: "off",
-  autocorrect: "off",
-  spellcheck: "false",
-  enterkeyhint: "done",
-  "data-1p-ignore": "true",
-  "data-lpignore": "true",
-  "data-bwignore": "true",
-  "data-protonpass-ignore": "true",
-  "data-form-type": "other"
-};
-const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+function protectedCredentialInput(name, label, storedValue, language2, emptyPlaceholder = "") {
+  const configured = Boolean(storedValue.trim());
+  const field = input(name, label, "", "text", {
+  ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
+  class: "jpdb-reader-masked-input",
+  placeholder: configured ? uiText(language2, "storedCredentialPlaceholder") : emptyPlaceholder,
+  ...configured ? { "data-stored-credential-placeholder": "true" } : {}
+  });
+  if (!configured) return field;
+  return `<div class="jpdb-reader-protected-credential" data-stored-credential="true">${field}<label class="inline"><input name="${escapeHtml$1(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language2, "clearStoredCredential")}</span></label></div>`;
+}
 const NEW_TAB_STUDY_STEP_LABEL_KEYS = {
   "kanji-doodle": "newTabStudyStepKanji",
   word: "newTabStudyStepWord",
@@ -57290,50 +58260,54 @@ function renderSettingsSearch(language2) {
             <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language2, "settingsSearchNoResults")}</div>
     `;
 }
-function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
-  const language2 = settings.interfaceLanguage;
-  const text2 = settingsText(language2);
-  const jpdbStatus = renderJpdbStatusLine(settings);
-  const bunproStatus = renderBunproStatusLine(settings);
-  const wanikaniStatus = renderWanikaniStatusLine(settings);
+function renderApiMiningControls(settings, text2 = settingsText(settings.interfaceLanguage)) {
   return `
-            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
-                <legend>${escapedUiText(language2, "api")}</legend>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language2, "apiAccess")}</div>
-                    <div class="grid">
-                        ${input("apiCredentialJiten", `${escapedUiText(language2, "apiCredentialJiten")} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language2, "jitenSettings")}</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
-                        ${input("apiCredentialJpdb", `${escapedUiText(language2, "apiCredentialJpdb")} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language2, "jpdbSettings")}</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
-                        ${input("apiCredentialBunpro", `${escapedUiText(language2, "apiCredentialBunpro")} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language2, "bunproSettings")}</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
-                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
-                        ${input("apiCredentialWanikani", `${escapedUiText(language2, "apiCredentialWanikani")} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language2, "wanikaniSettings")}</a>`, settings.wanikaniApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "wanikani personal access token" })}
-                    </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language2, "apiAccessHelp")}</div>
-                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language2, "wanikaniTokenHelp")}</div>
-                </div>
-                ${jpdbStatus}
-                ${bunproStatus}
-                ${wanikaniStatus}
-                <div data-jpdb-decks>
-                    ${renderDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
-                </div>
                 ${checkbox("jpdbMiningEnabled", text2("jpdbMiningEnabled"), settings.jpdbMiningEnabled)}
                 ${checkbox("bunproMiningEnabled", text2("bunproMiningEnabled"), settings.bunproMiningEnabled)}
                 ${checkbox("wanikaniReviewEnabled", text2("wanikaniReviewEnabled"), settings.wanikaniReviewEnabled)}
-                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(language2, "wanikaniGradeMappingHelp")}</div>
+                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(settings.interfaceLanguage, "wanikaniGradeMappingHelp")}</div>
                 ${checkbox("addToForq", text2("addToForq"), settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox("enableReviews", text2("enableReviews"), settings.enableReviews)}
                 ${select("apiGradingProvider", text2("apiGradingProvider"), settings.apiGradingProvider === "bunpro" ? "jiten" : settings.apiGradingProvider, [["jiten", "Jiten"], ["jpdb", "JPDB"]])}
-                <div class="jpdb-reader-help" data-grading-provider-help>${escapedUiText(language2, "apiGradingProviderHelp")}</div>
+                <div class="jpdb-reader-help" data-grading-provider-help>${escapedUiText(settings.interfaceLanguage, "apiGradingProviderHelp")}</div>`;
+}
+function renderJpdbPageEnhancementControls(settings, text2 = settingsText(settings.interfaceLanguage)) {
+  return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language2, "jpdbPageEnhancements")}</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(settings.interfaceLanguage, "jpdbPageEnhancements")}</div>
                     <div class="grid">
                         ${checkbox("jpdbPageEnhancementsEnabled", text2("jpdbPageEnhancementsEnabled"), settings.jpdbPageEnhancementsEnabled)}
                         ${checkbox("jpdbPageWordEnhancementsEnabled", text2("jpdbPageWordEnhancementsEnabled"), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox("jpdbPageKanjiEnhancementsEnabled", text2("jpdbPageKanjiEnhancementsEnabled"), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
                     <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
+                </div>`;
+}
+function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
+  const language2 = settings.interfaceLanguage;
+  return `
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
+                <legend>${escapedUiText(language2, "api")}</legend>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">${escapedUiText(language2, "apiAccess")}</div>
+                    <div class="grid">
+                        ${protectedCredentialInput("apiCredentialJiten", `${escapedUiText(language2, "apiCredentialJiten")} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language2, "jitenSettings")}</a>`, effectiveJitenApiKey(settings), language2)}
+                        ${protectedCredentialInput("apiCredentialJpdb", `${escapedUiText(language2, "apiCredentialJpdb")} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language2, "jpdbSettings")}</a>`, effectiveJpdbApiKey(settings), language2)}
+                        ${protectedCredentialInput("apiCredentialBunpro", `${escapedUiText(language2, "apiCredentialBunpro")} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language2, "bunproSettings")}</a>`, settings.bunproFrontendApiToken, language2, "frontend_api_token")}
+                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
+                        ${protectedCredentialInput("apiCredentialWanikani", `${escapedUiText(language2, "apiCredentialWanikani")} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language2, "wanikaniSettings")}</a>`, settings.wanikaniApiToken, language2, "wanikani personal access token")}
+                    </div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language2, "apiAccessHelp")}</div>
+                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language2, "wanikaniTokenHelp")}</div>
                 </div>
+                ${renderJpdbStatusLine(settings)}
+                ${renderBunproStatusLine(settings)}
+                ${renderWanikaniStatusLine(settings)}
+                <div data-jpdb-decks>
+                    ${renderDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
+                </div>
+                ${renderApiMiningControls(settings)}
+                ${renderJpdbPageEnhancementControls(settings)}
             </fieldset>
     `;
 }
@@ -57765,7 +58739,7 @@ function renderNadeshikoApiKeyField(settings) {
   const language2 = settings.interfaceLanguage;
   return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? "" : "hidden"}>
-                        ${input("nadeshikoApiKey", `${escapedUiText(language2, "nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language2, "getNadeshikoKey"))}</a>`, settings.nadeshikoApiKey, "text", { class: "jpdb-reader-masked-input" })}
+                        ${protectedCredentialInput("nadeshikoApiKey", `${escapedUiText(language2, "nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language2, "getNadeshikoKey"))}</a>`, settings.nadeshikoApiKey, language2)}
                     </div>`;
 }
 function usesNadeshikoExamples(source) {
@@ -57886,7 +58860,7 @@ function renderImageSettingsPanel(settings) {
                     <div data-local-ocr ${localOcrHidden}>${select("ocrEngine", text2("ocrEngine"), settings.ocrEngine, ocrEngineOptions(text2))}</div>
                     <label data-local-ocr ${localOcrHidden}>${escapedUiText(language2, "ocrEndpointUrl")}<input name="ocrEndpointUrl" type="url" value="${escapeHtml$1(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">${escapedUiText(language2, "ocrCloudHelp")}</div>
-                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language2, "cloudVisionApiKey")}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <div data-cloud-ocr ${cloudOcrHidden}>${protectedCredentialInput("ocrCloudVisionApiKey", escapedUiText(language2, "cloudVisionApiKey"), settings.ocrCloudVisionApiKey, language2)}</div>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                     <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
@@ -58171,6 +59145,10 @@ function localizeSettingsForm(form, language2) {
   excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word"
   });
   const text2 = settingsText(language2);
+  form.querySelectorAll("[data-stored-credential-placeholder]").forEach((input2) => {
+  input2.placeholder = text2("storedCredentialPlaceholder");
+  });
+  form.querySelectorAll("[data-clear-stored-credential]").forEach((label) => label.replaceChildren(text2("clearStoredCredential")));
   withNamedControlIndex(form, () => {
   localizeSettingsShell(form, language2, text2);
   localizeSettingsLabels(form, text2);
@@ -58408,17 +59386,6 @@ function localizeSettingsLegends(form, text2) {
   directFieldsetLegend(fieldset)?.replaceChildren(text2(key));
   });
 }
-function apiCredentialSettingsFromForm(form) {
-  const jpdbField = getNamedControl(form, "apiCredentialJpdb");
-  const jitenField = getNamedControl(form, "apiCredentialJiten");
-  if (jpdbField || jitenField) return mergeApiCredentialValues(jpdbField?.value ?? "", jitenField?.value ?? "");
-  const combined = getNamedControl(form, "apiCredential")?.value ?? "";
-  if (combined.trim()) return { apiKey: combined, jitenApiKey: "" };
-  return {
-  apiKey: getNamedControl(form, "apiKey")?.value ?? "",
-  jitenApiKey: getNamedControl(form, "jitenApiKey")?.value ?? ""
-  };
-}
 function localizeSettingsLabels(form, text2) {
   SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
   const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
@@ -58494,7 +59461,7 @@ function localizeBasicSettingsSelects(form, language2, text2) {
   setSelectOptionLabels(form, "parserProvider", localizedOptions(text2, PARSER_PROVIDER_OPTIONS));
   setSelectOptionLabels(form, "newTabSource", newTabSourceOptions(text2));
   setSelectOptionLabels(form, "newTabJpdbReviewMode", localizedOptions(text2, NEW_TAB_JPDB_REVIEW_MODE_OPTIONS));
-  setSelectOptionLabels(form, "newTabKanjiKeywordSource", kanjiKeywordSourceOptions(apiCredentialSettingsFromForm(form), text2));
+  setSelectOptionLabels(form, "newTabKanjiKeywordSource", kanjiKeywordSourceOptions(redactedApiCredentialsFromForm(form), text2));
   setSelectOptionLabels(form, "twoButtonReviews", localizedOptions(text2, TWO_BUTTON_REVIEW_OPTIONS));
 }
 function localizeColorAndReaderSelects(form, text2) {
@@ -59815,6 +60782,105 @@ function seedCatalogBrowseFilterFromSettings(form, section, filter) {
   filter.value = query;
   applyCatalogBrowseFilter(section, query);
 }
+function isCloudSettingsAction(action) {
+  return action === "sync-cloud-settings" || action === "restore-cloud-settings";
+}
+async function resumePendingCloudSettingsAction(host) {
+  const request = await readCloudSettingsResumeRequest(host);
+  if (!request) return false;
+  await host.clearPending();
+  if (!request.auth.ok) {
+  host.authorizationFailed(request.auth.error, host.language);
+  host.openBackup();
+  return true;
+  }
+  await performResumedCloudSettingsAction(host, request.pending.action);
+  return true;
+}
+async function readCloudSettingsResumeRequest(host) {
+  if (!cloudSettingsResumeAvailable(host)) return null;
+  const pending2 = await host.readPending();
+  const auth = host.consumeAuthorization(pending2?.state);
+  return cloudSettingsResumeRequest(pending2, auth);
+}
+function cloudSettingsResumeAvailable(host) {
+  return host.trustedSurface && host.available;
+}
+function cloudSettingsResumeRequest(pending2, auth) {
+  if (!pending2) return null;
+  if (!auth) return null;
+  return { pending: pending2, auth };
+}
+async function performResumedCloudSettingsAction(host, action) {
+  try {
+  await host.perform(action, host.language);
+  if (action === "sync-cloud-settings") host.openBackup();
+  } catch (error) {
+  host.actionFailed(error, host.language);
+  host.openBackup();
+  }
+}
+const CLOUD_SETTINGS_PENDING_ACTION_KEY = "yomu:private:cloud-settings-sync-pending:v1";
+const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
+async function rememberPendingCloudSettingsAction(action, authorization) {
+  await gmPrivateStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
+  action,
+  startedAt: Date.now(),
+  state: authorization.state
+  });
+}
+function clearPendingCloudSettingsAction() {
+  return gmPrivateStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
+}
+async function rememberCloudSettingsRedirectHandoff(required, action, authorization) {
+  if (!required) return;
+  await rememberPendingCloudSettingsAction(action, authorization);
+}
+async function clearCloudSettingsRedirectHandoff(required) {
+  if (!required) return;
+  await clearPendingCloudSettingsAction();
+}
+async function readPendingCloudSettingsAction() {
+  const pending2 = await gmPrivateStorageGet(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
+  if (pending2 === null) return null;
+  if (!isPendingCloudSettingsAction(pending2) || Date.now() - pending2.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
+  await clearPendingCloudSettingsAction();
+  return null;
+  }
+  return pending2;
+}
+function isPendingCloudSettingsAction(value) {
+  if (!isPendingCloudSettingsRecord(value)) return false;
+  const record2 = value;
+  return [
+  isFiniteTimestamp(record2.startedAt),
+  isCloudSettingsAuthorizationState(record2.state),
+  isCloudSettingsAction(record2.action)
+  ].every(Boolean);
+}
+function isPendingCloudSettingsRecord(value) {
+  return Boolean(value) && typeof value === "object";
+}
+function isFiniteTimestamp(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+function cloudSettingsActionEnabled(enabled, action) {
+  return enabled && isCloudSettingsAction(action);
+}
+function settingsForCloudAction(action, form, settings) {
+  if (action === "sync-cloud-settings") return readFormSettings(new FormData(form), settings);
+  return settings;
+}
+function setCloudSettingsActionButtonDisabled(button2, disabled) {
+  if (disabled) button2?.setAttribute("disabled", "true");
+  else button2?.removeAttribute("disabled");
+}
+function notifyCloudSettingsPersistenceFailed(callback, previousSettings) {
+  callback?.(previousSettings);
+}
+function reportCloudSettingsStatus(setStatus, message) {
+  setStatus?.(message);
+}
 const log$a = Logger.scope("SettingsFileIO");
 function recommendedDictionaryFilename(dictionary) {
   if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
@@ -59873,7 +60939,7 @@ function pickFiles(root, type) {
     inputEl.value = "";
     resolve(files);
   };
-  inputEl.click();
+  dispatchAuthorizedReaderControlClick(inputEl);
   });
 }
 function downloadBlob(blob, filename) {
@@ -59889,10 +60955,9 @@ function dateStamp() {
 }
 function bindLiveSettingsSync(form, dependencies) {
   let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
-  window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
+  subscribeToSettingsChanges((detail) => {
   if (!dependencies.isActive()) return;
-  const detail = event.detail;
-  if (detail?.settings && detail.preview !== true) {
+  if (detail.preview !== true) {
     const previousSettings = adoptedSettings;
     const settings = { ...previousSettings, ...detail.settings };
     dependencies.adoptSettings(settings);
@@ -59902,7 +60967,7 @@ function bindLiveSettingsSync(form, dependencies) {
     syncFontFamilyControls(form);
     adoptedSettings = snapshotLiveSettings(settings);
   }
-  const theme = themeFromSettingsChangeEvent(event);
+  const theme = themeFromSettingsChange(detail);
   if (theme) dependencies.applyTheme(theme);
   });
 }
@@ -59946,8 +61011,8 @@ function syncFormFromSettings(form, previousSettings, settings) {
 function changedSettingKeys(previousSettings, settings) {
   return Object.keys(settings).filter((key) => !Object.is(previousSettings[key], settings[key]));
 }
-function themeFromSettingsChangeEvent(event) {
-  const theme = event.detail?.settings?.theme;
+function themeFromSettingsChange(detail) {
+  const theme = detail.settings.theme;
   return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
 }
 function syncLanguageProfileForm(form, settings, request, dependencies) {
@@ -61047,7 +62112,7 @@ function glossaryValueToProfileText(value, options) {
   if (Array.isArray(value)) {
   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
   }
-  return isRecord$1(value) ? glossaryRecordToText(value, options) : "";
+  return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
 }
 function primitiveGlossaryText(value) {
   if (value == null) return "";
@@ -61141,7 +62206,7 @@ function renderGlossaryValue(value, context) {
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord$1(value)) return "";
+  if (!isRecord$3(value)) return "";
   return renderGlossaryRecord(value, context);
 }
 function isStructuredPrimitive(value) {
@@ -61341,7 +62406,9 @@ function structuredLinkAttrs(link, dictionary, lang) {
   ].join("");
 }
 function kanjiReferenceActionAttribute(link) {
-  return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
+  if (!link.kanjiReference) return "";
+  const kanji = link.kanjiReference.kanji;
+  return ` data-action="kanji" data-kanji="${escapeHtml(kanji)}"${privateCommandAttributes({ kind: "kanji-lookup", kanji })}`;
 }
 function dictionaryAttribute(dictionary) {
   return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
@@ -64854,7 +65921,7 @@ ${glossaryKey}`;
     return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
   }
   const log$5 = Logger.scope("CardStateSignal");
-  const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
+  const CARD_STATE_SIGNAL_KEY = "yomu:private:card-state-signal:v1";
   const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
   function cardStateSignalCard(card) {
     return {
@@ -64882,15 +65949,13 @@ ${glossaryKey}`;
       at: Date.now(),
       card: cardStateSignalCard(card)
     };
-    try {
-      gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
-    } catch (error) {
+    void gmPrivateStorageSet(CARD_STATE_SIGNAL_KEY, signal).catch((error) => {
       log$5.debug("GM card-state publish failed", error);
-    }
+    });
     publishBroadcastCardStateSignal(signal);
   }
   function publishBroadcastCardStateSignal(signal) {
-    if (typeof BroadcastChannel !== "function") return;
+    if (!currentAccountDataSurfaceIsTrusted() || typeof BroadcastChannel !== "function") return;
     try {
       const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
       channel.postMessage(signal);
@@ -64953,7 +66018,7 @@ ${glossaryKey}`;
     };
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$1(value) || value.version !== 1 || !isRecord$1(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$3(value) || value.version !== 1 || !isRecord$3(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate of Object.values(value.cards)) {
       const normalized = normalizeStoredCard(candidate);
@@ -64961,7 +66026,7 @@ ${glossaryKey}`;
       cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
     }
     const tombstones = {};
-    if (isRecord$1(value.tombstones)) {
+    if (isRecord$3(value.tombstones)) {
       for (const [id, timestamp] of Object.entries(value.tombstones)) {
         if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
         const card = cards[id];
@@ -65103,7 +66168,7 @@ ${glossaryKey}`;
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$1(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$3(value) || typeof value.expression !== "string") return null;
     let identity;
     try {
       identity = canonicalStudyCardIdentity(
@@ -65173,10 +66238,10 @@ ${glossaryKey}`;
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$1(value)) return {};
+    if (!isRecord$3(value)) return {};
     const result = {};
     for (const candidate of Object.values(value)) {
-      if (!isRecord$1(candidate)) continue;
+      if (!isRecord$3(candidate)) continue;
       try {
         const normalized = normalizeProvenance({
           id: String(candidate.id ?? ""),
@@ -66322,6 +67387,7 @@ ${glossaryKey}`;
     "jitenApiKey",
     "bunproApiKey",
     "bunproFrontendApiToken",
+    "wanikaniApiToken",
     "nadeshikoApiKey",
     "ocrCloudVisionApiKey"
   ];
@@ -66359,6 +67425,16 @@ ${glossaryKey}`;
     if (!isFirefoxExtensionRuntime()) return false;
     return typeof firefoxExtensionApi()?.permissions?.request !== "function";
   }
+  function firefoxAuthenticationInfoSettingsPageUrl() {
+    if (!isFirefoxExtensionRuntime()) return "";
+    const runtime = firefoxExtensionApi()?.runtime;
+    if (!runtime?.id || typeof runtime.getURL !== "function") return "";
+    try {
+      return `${runtime.getURL("newtab/index.html")}#settings=api`;
+    } catch {
+      return "";
+    }
+  }
   function normalizedCredential(value) {
     return typeof value === "string" ? value.trim() : "";
   }
@@ -66385,6 +67461,119 @@ ${glossaryKey}`;
       return false;
     }
   }
+  const CANONICAL_SETTINGS_URL = `${NEW_TAB_PAGE_URL}#settings=api`;
+  function sensitiveSettingsSurfaceAccess(pageUrl, extensionSettingsUrl = "") {
+    return {
+      trusted: isTrustedSensitiveSettingsSurface(pageUrl),
+      launcherUrl: trustedSettingsLauncherUrl(extensionSettingsUrl)
+    };
+  }
+  function currentSensitiveSettingsSurfaceIsTrusted(host) {
+    return currentSensitiveSettingsSurfaceAccess(host).trusted;
+  }
+  function mountSensitiveSettingsLauncher(host, modal, language2, panel, trigger) {
+    const access = currentSensitiveSettingsSurfaceAccess(host);
+    if (access.trusted) return null;
+    const launcherUrl = sensitiveSettingsLauncherForPanel(access.launcherUrl, panel);
+    const surface = createSensitiveSettingsLauncher(language2);
+    const close = () => {
+      modal.release();
+      host.dismiss();
+    };
+    surface.querySelector("[data-trusted-settings-launcher]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isDirectTrustedReaderInteraction(event)) openTrustedSettingsSurface(launcherUrl);
+    });
+    surface.querySelector('[data-action="cancel"]')?.addEventListener("click", close);
+    surface.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || event.isComposing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    });
+    host.mountDialog(host.createBackdrop(), surface);
+    modal.activate(surface, trigger);
+    return surface;
+  }
+  function currentSensitiveSettingsSurfaceAccess(host) {
+    return host.sensitiveSettingsSurface?.() ?? sensitiveSettingsSurfaceAccess(location.href, firefoxAuthenticationInfoSettingsPageUrl());
+  }
+  function sensitiveSettingsLauncherForPanel(url, panel) {
+    const target = new URL(url);
+    target.hash = settingsPanelHash(panel);
+    return target.href;
+  }
+  function isTrustedSensitiveSettingsSurface(value) {
+    const appUrl = readTrustedYomuUrl(value);
+    if (!appUrl) return false;
+    if (!isYomuNewTabUrl(value)) return false;
+    return trustedSettingsOrigin(appUrl.originKind, appUrl.url.origin);
+  }
+  function trustedSettingsOrigin(originKind, origin) {
+    if (originKind === "docs-preview") return false;
+    return originKind === "loopback" ? isPrivilegedYomuLocalDevelopmentOrigin(origin) : true;
+  }
+  function trustedSettingsLauncherUrl(extensionSettingsUrl) {
+    return isTrustedExtensionSettingsUrl(extensionSettingsUrl) ? extensionSettingsUrl : CANONICAL_SETTINGS_URL;
+  }
+  function isTrustedExtensionSettingsUrl(value) {
+    const appUrl = readTrustedYomuUrl(value);
+    return appUrl?.originKind === "extension" && isYomuNewTabUrl(value);
+  }
+  function openTrustedSettingsSurface(url) {
+    const protocol = new URL(url).protocol;
+    if (WEB_SETTINGS_PROTOCOLS.has(protocol)) {
+      openUrlInNewTab(url);
+      return;
+    }
+    openTrustedExtensionSettingsSurface(url);
+  }
+  const WEB_SETTINGS_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+  function openTrustedExtensionSettingsSurface(url) {
+    const opened = window.open(url, "_blank", "noopener");
+    if (!opened) return;
+    try {
+      opened.opener = null;
+    } catch {
+    }
+  }
+  function createSensitiveSettingsLauncher(language2) {
+    const root = document.createElement("section");
+    root.className = "jpdb-reader-settings jpdb-reader-settings-launcher";
+    root.dataset.jpdbReaderRoot = "true";
+    root.dataset.sensitiveSettingsLauncher = "true";
+    root.setAttribute("role", "dialog");
+    root.setAttribute("aria-modal", "true");
+    root.setAttribute("aria-label", uiText(language2, "settingsTitle"));
+    root.tabIndex = -1;
+    const head = document.createElement("div");
+    head.className = "jpdb-reader-settings-head";
+    const title = document.createElement("h2");
+    title.textContent = uiText(language2, "accountSettingsTrustedSurfaceTitle");
+    head.append(title);
+    const content = document.createElement("div");
+    content.className = "jpdb-reader-settings-scroll";
+    const help = document.createElement("p");
+    help.className = "jpdb-reader-help";
+    help.textContent = uiText(language2, "accountSettingsTrustedSurfaceHelp");
+    const launcher = document.createElement("button");
+    launcher.className = "jpdb-reader-btn";
+    launcher.dataset.trustedSettingsLauncher = "true";
+    launcher.type = "button";
+    launcher.textContent = uiText(language2, "openAccountSettingsTrustedSurface");
+    content.append(help, launcher);
+    const footer = document.createElement("div");
+    footer.className = "footer";
+    const close = document.createElement("button");
+    close.className = "jpdb-reader-btn";
+    close.dataset.action = "cancel";
+    close.type = "button";
+    close.textContent = uiText(language2, "cancel");
+    footer.append(close);
+    root.append(head, content, footer);
+    return root;
+  }
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
@@ -66396,8 +67585,6 @@ ${glossaryKey}`;
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-  const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
-  const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
   function settingsStatusSetter(form, control) {
     return (message) => {
       const originPanel = control?.closest("fieldset[data-settings-panel]");
@@ -66503,7 +67690,7 @@ ${glossaryKey}`;
   function applySettingsControlValue(control, value) {
     if (!control || !value) return;
     control.value = value;
-    control.dispatchEvent(new Event("input", { bubbles: true }));
+    dispatchAuthorizedReaderControlEvent(control, new Event("input", { bubbles: true }));
   }
   function ankiConnectionAction(action) {
     return action === "test-anki" || action === "prepare-anki" || action === "update-anki-model" ? action : null;
@@ -66605,6 +67792,7 @@ ${glossaryKey}`;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
       const trigger = settingsDialogTrigger(document.activeElement);
+      if (mountSensitiveSettingsLauncher(this.dependencies, this.modal, this.settings.interfaceLanguage, panel, trigger)) return;
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);
@@ -66655,29 +67843,21 @@ ${glossaryKey}`;
       void this.refreshTargetDictionaryAvailability(form);
     }
     async resumePendingCloudSettingsSync() {
-      if (!CLOUD_SETTINGS_SYNC_ENABLED || !cloudSettingsSyncAvailable()) return false;
-      const pending2 = await this.readPendingCloudSettingsAction();
-      if (!pending2) return false;
-      const authResult = cloudSettingsAuthRedirectResult();
-      if (!authResult) return false;
-      await this.clearPendingCloudSettingsAction();
-      const language2 = this.settings.interfaceLanguage;
-      if (!authResult.ok) {
-        log$3.warn("Cloud settings authorization failed", { message: authResult.error });
-        const message = uiText(language2, "actionFailed");
-        this.dependencies.toast(message);
-        this.open("backup");
-        return true;
-      }
-      try {
-        await this.performCloudSettingsAction(pending2.action, language2, void 0);
-        if (pending2.action === "sync-cloud-settings") this.open("backup");
-      } catch (error) {
-        const message = userFacingErrorText(language2, "actionFailed", error);
-        this.dependencies.toast(message);
-        this.open("backup");
-      }
-      return true;
+      return resumePendingCloudSettingsAction({
+        trustedSurface: currentSensitiveSettingsSurfaceIsTrusted(this.dependencies),
+        available: CLOUD_SETTINGS_SYNC_ENABLED && cloudSettingsSyncAvailable(),
+        language: this.settings.interfaceLanguage,
+        readPending: readPendingCloudSettingsAction,
+        clearPending: clearPendingCloudSettingsAction,
+        consumeAuthorization: (expectedState) => cloudSettingsAuthRedirectResult(expectedState),
+        perform: (action, language2) => this.performCloudSettingsAction(action, language2, void 0),
+        authorizationFailed: (error, language2) => {
+          log$3.warn("Cloud settings authorization failed", { message: error });
+          this.dependencies.toast(uiText(language2, "actionFailed"));
+        },
+        actionFailed: (error, language2) => this.dependencies.toast(userFacingErrorText(language2, "actionFailed", error)),
+        openBackup: () => this.open("backup")
+      });
     }
     get settings() {
       return this.dependencies.getSettings();
@@ -66724,8 +67904,7 @@ ${glossaryKey}`;
       return form;
     }
     bindFormSubmit(form) {
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
+      bindAuthorizedReaderFormSubmit(form, () => {
         if (this.pendingDictionaryOperations > 0) {
           this.showDictionarySaveBlocked(form);
           return;
@@ -67885,41 +69064,42 @@ ${glossaryKey}`;
       return false;
     }
     async handleSettingsCloudSyncAction(form, action, control, setStatus) {
-      if (!CLOUD_SETTINGS_SYNC_ENABLED || !isCloudSettingsAction(action)) return false;
+      if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action)) return false;
       const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       if (!cloudSettingsSyncAvailable()) {
         setStatus(cloudSettingsSyncUnavailableStatus(language2));
         return true;
       }
       const button2 = settingsActionButton(control);
-      button2?.setAttribute("disabled", "true");
-      await this.rememberPendingCloudSettingsAction(action);
+      setCloudSettingsActionButtonDisabled(button2, true);
+      const authorization = createCloudSettingsAuthorization();
+      const redirectHandoff = cloudSettingsRedirectHandoffRequired();
+      await rememberCloudSettingsRedirectHandoff(redirectHandoff, action, authorization);
       const previousSettings = this.settings;
       try {
-        if (action === "sync-cloud-settings") this.settings = readFormSettings(new FormData(form), this.settings);
-        await this.performCloudSettingsAction(action, language2, setStatus, previousSettings);
-        await this.clearPendingCloudSettingsAction();
+        this.settings = settingsForCloudAction(action, form, this.settings);
+        await this.performCloudSettingsAction(action, language2, setStatus, previousSettings, authorization);
         return true;
       } catch (error) {
-        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-        await this.clearPendingCloudSettingsAction();
+        notifyCloudSettingsPersistenceFailed(this.dependencies.onSettingsPersistenceFailed, previousSettings);
         throw error;
       } finally {
-        button2?.removeAttribute("disabled");
+        await clearCloudSettingsRedirectHandoff(redirectHandoff);
+        setCloudSettingsActionButtonDisabled(button2, false);
       }
     }
-    async performCloudSettingsAction(action, language2, setStatus, previousSettings = this.settings) {
+    async performCloudSettingsAction(action, language2, setStatus, previousSettings = this.settings, authorization) {
       if (action === "sync-cloud-settings") {
         await this.saveCurrentSettings(previousSettings);
-        const metadata = await uploadCloudSettingsToCloud(this.settings);
+        const metadata = await uploadCloudSettingsToCloud(this.settings, authorization);
         const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language2);
-        setStatus?.(message2);
+        reportCloudSettingsStatus(setStatus, message2);
         this.dependencies.toast(message2);
         return;
       }
-      const snapshot = await downloadCloudSettingsFromCloud();
+      const snapshot = await downloadCloudSettingsFromCloud(authorization);
       if (!snapshot) {
-        setStatus?.(cloudSettingsNotFoundStatus(language2));
+        reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language2));
         return;
       }
       const settingsBeforeRestore = this.settings;
@@ -67931,7 +69111,7 @@ ${glossaryKey}`;
       await importStoredValues(snapshot.storage);
       await this.saveCurrentSettings(settingsBeforeRestore);
       const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language2);
-      setStatus?.(message);
+      reportCloudSettingsStatus(setStatus, message);
       this.dependencies.toast(message);
       this.dependencies.applyTheme();
       void this.dependencies.refreshDictionaryStyles();
@@ -67942,28 +69122,6 @@ ${glossaryKey}`;
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
       this.open("backup");
-    }
-    async rememberPendingCloudSettingsAction(action) {
-      await gmStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
-        action,
-        startedAt: Date.now(),
-        href: location.href
-      });
-    }
-    async clearPendingCloudSettingsAction() {
-      await gmStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
-    }
-    async readPendingCloudSettingsAction() {
-      const pending2 = await gmStorageGet(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
-      if (!isPendingCloudSettingsAction(pending2)) {
-        await this.clearPendingCloudSettingsAction();
-        return null;
-      }
-      if (Date.now() - pending2.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
-        await this.clearPendingCloudSettingsAction();
-        return null;
-      }
-      return pending2;
     }
     async handleSettingsImportExportAction(form, action, setStatus) {
       if (action === "import-yomitan-settings") {
@@ -68084,19 +69242,18 @@ ${glossaryKey}`;
       const input2 = namedSettingsControl(form, "ankiFieldMappings");
       if (!input2) return;
       const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
-      const next = { ...existing };
-      for (const model of scan.models) {
-        const currentMapping = next[model.modelName] ?? {};
+      const scannedMappings = Object.fromEntries(scan.models.flatMap((model) => {
+        const currentMapping = existing[model.modelName] ?? {};
         const liveFields = new Set(model.fields);
         const mapping = Object.fromEntries(model.suggestions.flatMap((suggestion) => {
           const savedField = currentMapping[suggestion.role]?.trim();
           const fieldName = liveFields.has(savedField ?? "") ? savedField : suggestion.fieldName?.trim();
           return fieldName ? [[suggestion.role, fieldName]] : [];
         }));
-        if (Object.keys(mapping).length) next[model.modelName] = mapping;
-      }
-      input2.value = JSON.stringify(next);
-      input2.dispatchEvent(new Event("input", { bubbles: true }));
+        return Object.keys(mapping).length ? [[model.modelName, mapping]] : [];
+      }));
+      input2.value = JSON.stringify({ ...existing, ...scannedMappings });
+      dispatchAuthorizedReaderControlEvent(input2, new Event("input", { bubbles: true }));
     }
     applyAnkiScanControlsToForm(form, scan, selected = {}) {
       const deckOptions = form.querySelector("[data-anki-deck-options]");
@@ -68146,7 +69303,7 @@ ${glossaryKey}`;
         ...visibleDisabled.filter((deck) => !previousDisabledSet.has(deck))
       ]);
       hidden.value = disabled.join(", ");
-      hidden.dispatchEvent(new Event("input", { bubbles: true }));
+      dispatchAuthorizedReaderControlEvent(hidden, new Event("input", { bubbles: true }));
       this.renderNewTabAnkiDeckToggles(form, visibleDecks, getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabled);
     }
     renderAnkiFieldMappingEditor(form) {
@@ -68177,7 +69334,7 @@ ${glossaryKey}`;
       if (Object.keys(mapping).length) next[modelName] = mapping;
       else delete next[modelName];
       input2.value = JSON.stringify(next);
-      input2.dispatchEvent(new Event("input", { bubbles: true }));
+      dispatchAuthorizedReaderControlEvent(input2, new Event("input", { bubbles: true }));
     }
     ankiScanFieldsForModel(form, modelName) {
       const input2 = form.querySelector("[data-anki-scan-fields]");
@@ -68564,21 +69721,13 @@ ${glossaryKey}`;
   function isLookupLinkEditorAction(action) {
     return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
   }
-  function isCloudSettingsAction(action) {
-    return action === "sync-cloud-settings" || action === "restore-cloud-settings";
-  }
-  function isPendingCloudSettingsAction(value) {
-    if (!value || typeof value !== "object") return false;
-    const record2 = value;
-    return typeof record2.startedAt === "number" && Number.isFinite(record2.startedAt) && typeof record2.href === "string" && typeof record2.action === "string" && isCloudSettingsAction(record2.action);
-  }
   function getReaderStorageExport(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
     return record2.formatName === "yomu-reader-settings" || record2.formatName === "jpdb-popup-reader-settings" ? record2.storage : null;
   }
   function publishSettingsChange(settings, options = {}) {
-    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
+    publishSettingsChange$1({ preview: options.preview === true, settings });
   }
   function importSettingsStatus(restoredValues, dictionarySummary, language2) {
     const details = [];
@@ -68731,6 +69880,50 @@ ${glossaryKey}`;
     select2.prepend(placeholder);
     if (selected === null) select2.value = "";
   }
+  function createOffhostOnboardingLauncher(pageUrl, language2, dismiss) {
+    const access = sensitiveSettingsSurfaceAccess(pageUrl);
+    if (access.trusted) return null;
+    const launcherUrl = access.launcherUrl;
+    const backdrop = document.createElement("div");
+    backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
+    backdrop.dataset.jpdbReaderRoot = "true";
+    const panel = document.createElement("section");
+    panel.className = "jpdb-reader-onboarding jpdb-reader-onboarding-trusted-launcher";
+    panel.dataset.jpdbReaderRoot = "true";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", uiText(language2, "welcomeLabel"));
+    panel.tabIndex = -1;
+    const eyebrow = document.createElement("div");
+    eyebrow.className = "jpdb-reader-onboarding-eyebrow";
+    eyebrow.textContent = uiText(language2, "onboardingTrustedSurfaceEyebrow");
+    const title = document.createElement("h2");
+    title.textContent = APP_NAME;
+    const copy = document.createElement("p");
+    copy.textContent = uiText(language2, "onboardingTrustedSurfaceCopy");
+    const actions = document.createElement("div");
+    actions.className = "jpdb-reader-onboarding-actions";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.textContent = uiText(language2, "openOnboardingTrustedSurface");
+    open.className = "jpdb-reader-btn add";
+    open.dataset.onboardingAction = "open-trusted-setup";
+    open.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!isDirectTrustedReaderInteraction(event)) return;
+      if (openUrlInNewTab(launcherUrl)) dismiss();
+    });
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = uiText(language2, "closeOnboarding");
+    close.className = "jpdb-reader-btn";
+    close.dataset.onboardingAction = "close";
+    close.addEventListener("click", dismiss);
+    actions.append(open, close);
+    panel.append(eyebrow, title, copy, actions);
+    return { backdrop, panel };
+  }
   const log$2 = Logger.scope("Onboarding");
   const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
   const ONBOARDING_FEATURE_KEYS = [
@@ -68789,13 +69982,33 @@ ${glossaryKey}`;
       if (settings.onboardingSeen && settings.learningTargetChosen) {
         return false;
       }
-      this.show();
+      const launcher = createOffhostOnboardingLauncher(
+        location.href,
+        settings.interfaceLanguage,
+        () => this.dismiss()
+      );
+      this.showOnCurrentSurface(launcher);
       return true;
     }
     async waitForCompletion() {
       const settings = this.options.getSettings();
       if (settings.onboardingSeen && settings.learningTargetChosen) return;
       await this.completionPromise;
+    }
+    showOnCurrentSurface(launcher) {
+      if (launcher) this.showOffhostLauncher(launcher);
+      else this.show();
+    }
+    showOffhostLauncher(launcher) {
+      this.close();
+      this.completionPromise = new Promise((resolve) => {
+        this.resolveCompletion = resolve;
+      });
+      this.backdrop = launcher.backdrop;
+      this.panel = launcher.panel;
+      applyOverlayPageScale(this.panel);
+      document.body.append(this.backdrop, this.panel);
+      this.panel.focus();
     }
     show() {
       const entrySettings = this.onboardingEntrySettings ?? this.options.getSettings();

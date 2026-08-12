@@ -1,6 +1,8 @@
 import { readerWordSurfaceText } from '../dom/index';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import type { JPDBCard } from '../app/types';
+import { renderedWordsInRoot } from '../dom/rendered-word-state';
+import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 
 export function renderedWordLookupText(word: HTMLElement): string {
     return normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
@@ -42,36 +44,51 @@ const MASS_REVIEW_STATES = new Set(['due', 'failed', 'learning', 'new']);
 
 export function visibleJitenReviewableWords(): HTMLElement[] {
     const seen = new Set<string>();
-    return Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-card-source="jiten"]'))
+    return renderedWordsInRoot(document)
         .filter(word => {
-            const state = word.dataset.cardState ?? '';
-            if (!MASS_REVIEW_STATES.has(state)) return false;
-            const key = `${word.dataset.vid}:${word.dataset.sid}`;
-            if (seen.has(key) || !(Number(word.dataset.vid) > 0)) return false;
-            const rect = word.getBoundingClientRect();
-            const visible = rect.bottom > 0 && rect.top < window.innerHeight && rect.width > 0 && rect.height > 0;
-            if (!visible) return false;
+            const key = visibleJitenReviewIdentity(word);
+            if (!key || seen.has(key)) return false;
+            if (!elementIsInViewport(word)) return false;
             seen.add(key);
             return true;
         });
 }
 
+function visibleJitenReviewIdentity(word: HTMLElement): string | null {
+    if (renderedWordPrivateValue(word, 'cardSource') !== 'jiten') return null;
+    if (!MASS_REVIEW_STATES.has(String(renderedWordPrivateValue(word, 'cardState')))) return null;
+    const vid = Number(renderedWordPrivateValue(word, 'vid'));
+    if (!(vid > 0)) return null;
+    return `${vid}:${Number(renderedWordPrivateValue(word, 'sid'))}`;
+}
+
+function elementIsInViewport(element: HTMLElement): boolean {
+    const rect = element.getBoundingClientRect();
+    return rect.bottom > 0
+        && rect.top < window.innerHeight
+        && rect.width > 0
+        && rect.height > 0;
+}
+
 export function jitenWordCardForMassReview(word: HTMLElement): JPDBCard {
+    const vid = Number(renderedWordPrivateValue(word, 'vid'));
+    const sid = Number(renderedWordPrivateValue(word, 'sid'));
+    const cardState = renderedWordPrivateValue(word, 'cardState');
     return {
-        vid: Number(word.dataset.vid),
-        sid: Number(word.dataset.sid),
+        vid,
+        sid,
         rid: 0,
         spelling: word.dataset.expression || readerWordSurfaceText(word),
         reading: word.dataset.reading ?? '',
         frequencyRank: null,
         partOfSpeech: [],
         meanings: [],
-        cardState: word.dataset.cardState ? [word.dataset.cardState as JPDBCard['cardState'][number]] : [],
+        cardState: cardState ? [cardState as JPDBCard['cardState'][number]] : [],
         pitchAccent: [],
         wordWithReading: null,
         source: 'jiten',
-        jitenWordId: Number(word.dataset.vid),
-        jitenReadingIndex: Number(word.dataset.sid),
+        jitenWordId: vid,
+        jitenReadingIndex: sid,
     };
 }
 

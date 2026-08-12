@@ -15,7 +15,6 @@ import {
     searchCardStateLabel,
 } from './search-view';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
-import { togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from '../cards/reading-display';
 import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
@@ -23,10 +22,13 @@ import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
 import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
-import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
+import { escapeHtml, htmlToFirstElement, renderedWordPrivateValue, setInnerHtml } from '../dom';
 import { el, replaceChildrenWith } from '../dom/builder';
 import { appendComposedOfLine as renderComposedOfLine } from './composed-of';
+import { renderJitenKanjiBackingWord as renderJitenKanjiBackingWordView } from './jiten-kanji-backing-word';
+import { NestedCommandRouter } from './nested-command-router';
 import { pointInElementClientRects } from '../dom/pointer-geometry';
+import { bindRenderedWordCardIdentity, preserveRenderedWordSentence, renderedWordHasCardIdentity, renderedWordSourceVisualClass, renderedWordTextIdentityMatches, replaceRenderedWordStateAndPitchClasses } from '../dom/rendered-word-policy';
 import { renderedWordCardForLookup } from '../main/rendered-word-lookup';
 import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
@@ -89,7 +91,12 @@ import {
     usesJapaneseCharacterStudy,
     usesJapaneseProviders,
 } from '../languages/character-lookup';
-import { openDeckPickerForCardAdd } from '../study/mining-controls';
+import {
+    bindPrivateCommandCapability,
+    readCardCommandCapability,
+    readJpdbKanjiCommandCapability,
+    type CardCommandCapability,
+} from '../dom/private-command-capabilities';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import {
     buildRtkComponentSummaries,
@@ -199,7 +206,6 @@ import {
     firstTruthy,
     heisigFact,
     isKanjiUnlockStudyCard,
-    isStandaloneKanjiCard,
     jpdbKanjiVocabularyToNewTabCard,
     keywordCandidates,
     newTabKanjiKeyword,
@@ -485,7 +491,7 @@ export interface NewTabControllerDependencies {
     preloadWordAudio?: (card: JPDBCard) => void;
     playWordAudio?: (card: JPDBCard) => Promise<void> | void;
     playJpdbExampleAudio?: (audioIds: string, fallbackSentence: string) => Promise<void> | void;
-    performCardAction?: (button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement) => Promise<void> | void;
+    performCardAction?: (button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement, command?: CardCommandCapability) => Promise<void> | void;
     parseContent?: (root: HTMLElement, options?: NewTabParseContentOptions) => Promise<void> | void;
     setImmersionTranslationBlurred?: (blurred: boolean) => void;
     dictionarySourceAttributes?: (sourceStateKey: string, initiallyExpanded?: boolean) => string;
@@ -806,6 +812,7 @@ export class NewTabController {
             this.persistState();
         },
     });
+    private readonly nestedCommandRouter: NestedCommandRouter;
     private listenItem: PitchSrsItem | null = null;
     private listenInteractionMode: Exclude<ListenInteractionMode, 'shadow'> = 'perceive';
     private listenRenderedMode: ListenInteractionMode | null = null;
@@ -873,7 +880,8 @@ export class NewTabController {
         'listen-play-recording': () => this.playListenRecording(),
         grade: (root, target) => this.gradeFromStudyClick(root, target),
         'jpdb-kanji-action': (root, target) => {
-            void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
+            const command = readJpdbKanjiCommandCapability(target.closest('[data-kanji-action-id]'));
+            if (command) void this.performJpdbKanjiAction(root, command.actionId);
         },
     };
     private lastPointerNavigation: { action: 'next' | 'previous'; time: number } | null = null;
@@ -913,6 +921,22 @@ export class NewTabController {
         private readonly dependencies: NewTabControllerDependencies,
         private readonly options: NewTabControllerOptions = {},
     ) {
+        this.nestedCommandRouter = new NestedCommandRouter({
+            route: () => this.state.route,
+            currentCard: () => this.visibleWords[this.index],
+            selectSearch: (root, query) => this.searchController.selectSearchSuggestion(root, query),
+            showKanji: (card, kanji, anchor) => this.showNestedKanjiCard(card, kanji, anchor),
+            showTerm: (anchor, expression, reading) => {
+                if (!this.showNestedSourceReviewCard(anchor)) this.lookupNestedTerm(expression, reading, anchor);
+            },
+            loadJitenWords: (button, action) => {
+                if (action === 'more') void this.loadMoreJitenKanjiWords(button);
+                else void this.filterJitenKanjiWords(button);
+            },
+            playJpdbExampleAudio: dependencies.playJpdbExampleAudio,
+            cardForTarget: target => this.nestedCardActionCard(target),
+            performCardAction: dependencies.performCardAction,
+        });
         this.providerContexts = newTabProviderContexts(dependencies.getSettings());
         const startup = newTabControllerStartup({
             source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings()),
@@ -2206,8 +2230,8 @@ export class NewTabController {
     }
 
     private gradeFromStudyClick(root: HTMLElement, target: HTMLElement): void {
-        const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
-        if (grade) void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
+        const command = readCardCommandCapability(target.closest('[data-grade]'));
+        if (command?.grade) void this.gradeCurrentCard(command.grade, this.selectedMainGradeTarget(root));
     }
 
     private handleNewTabSwipe(root: HTMLElement, action: NewTabSwipeAction, direction: NewTabSwipeDirection): void {
@@ -2271,10 +2295,6 @@ export class NewTabController {
         if (target && isNewTabStudyInteractiveTarget(target)) return false;
         const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
         return session.steps.length > 1;
-    }
-
-    private kanjiActionIdFromTarget(target: HTMLElement): string {
-        return target.closest<HTMLElement>('[data-kanji-action-id]')?.dataset.kanjiActionId ?? '';
     }
 
     private handleStudyCardClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): void {
@@ -2396,7 +2416,7 @@ export class NewTabController {
     private cachedCardForRenderedWord(word: HTMLElement): JPDBCard | undefined {
         const getCachedCard = (this.dependencies.parser as ReaderParser & { getCachedCard?: (vid: number, sid: number) => JPDBCard | undefined }).getCachedCard;
         const cachedCard = typeof getCachedCard === 'function'
-            ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid))
+            ? getCachedCard.call(this.dependencies.parser, Number(renderedWordPrivateValue(word, 'vid')), Number(renderedWordPrivateValue(word, 'sid')))
             : undefined;
         return renderedWordCardForLookup(word, cachedCard)
             ?? renderedWordCardForLookup(word, this.visibleWords[this.index]);
@@ -2461,105 +2481,35 @@ export class NewTabController {
     }
 
     private handleNestedLookupAction(root: HTMLElement, actionTarget: HTMLElement, event: MouseEvent): boolean {
+        if (this.nestedCommandRouter.handle(root, actionTarget, event)) return true;
         const action = actionTarget.dataset.action;
-        if (action === 'kanji') {
-            return this.handleNestedKanjiAction(root, actionTarget, event);
-        }
-        if (action === 'similar-word' || action === 'lookup') {
-            return this.handleNestedTermLookupAction(root, actionTarget, event);
-        }
-        if (action === 'jiten-kanji-more') {
-            return this.handleNestedJitenKanjiMoreAction(actionTarget, event);
-        }
-        if (action === 'jiten-kanji-reading') {
-            return this.handleNestedJitenKanjiReadingAction(actionTarget, event);
-        }
-        if (action === 'jpdb-example-audio') {
-            return this.handleNestedJpdbExampleAudioAction(actionTarget, event);
-        }
-        if (action === 'jiten-audio') {
-            return this.handleNestedJitenAudioAction(actionTarget, event);
-        }
         if (action === 'search-word-audio') {
             return this.handleSearchWordAudioAction(actionTarget, event);
         }
         if (action === 'study-word-audio') {
             return this.handleStudyWordAudioAction(actionTarget, event);
         }
-        if (action === 'anki-media-audio') {
-            return this.handleNestedAnkiMediaAudioAction(actionTarget, event);
-        }
-        if (action === 'deck-picker' || action === 'add') {
-            return this.handleNestedDeckPickerAction(actionTarget, event);
-        }
-        if (action === 'review-target-toggle' && actionTarget instanceof HTMLButtonElement) {
-            consumeNestedLookupEvent(event);
-            togglePopoverReviewTargetSelection(actionTarget);
-            return true;
-        }
-        if (action === 'copy-word'
-            || action === 'anki'
-            || action === 'anki-edit'
-            || action === 'neverforget'
-            || action === 'blacklist'
-            || action === 'jiten-mining'
-            || action === 'jiten-suspend'
-            || action === 'jiten-forget') {
-            return this.handleNestedCardAction(actionTarget, event);
-        }
         return false;
     }
 
-    private handleNestedKanjiAction(root: HTMLElement, actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const card = this.visibleWords[this.index];
-        const kanji = actionTarget.dataset.kanji ?? '';
-        if (!kanji) return false;
-        consumeNestedLookupEvent(event);
-        // Swallowed, not ignored: a chip outlives a target switch in the DOM.
-        if (!usesJapaneseCharacterStudy()) return true;
-        if (this.state.route === 'search') {
-            this.searchController.selectSearchSuggestion(root, kanji);
-            return true;
+    private showNestedKanjiCard(card: JPDBCard, kanji: string, actionTarget: HTMLElement): void {
+        const showKanjiCard = this.dependencies.showKanjiCard;
+        if (showKanjiCard) {
+            void showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
+            return;
         }
-        if (!card) return true;
-        // Every kanji chip — composed-of included — surfaces the kanji in the
-        // standard anchored popover (KanjiVG / meaning / mnemonic). A composed-of
-        // chip used to swap the whole study card to a synthetic per-kanji queue
-        // in place; that re-pooled the review, replaced the word the learner was
-        // mid-reveal on, and read as the page navigating away. The popover keeps
-        // the studied card put and shows the same kanji detail non-destructively.
-        if (this.dependencies.showKanjiCard) {
-            void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
-        } else {
-            void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
-        }
-        return true;
+        void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
     }
 
-    private handleNestedTermLookupAction(root: HTMLElement, actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const term = cleanNestedLookupValue(actionTarget.dataset.expression ?? actionTarget.dataset.term);
-        if (!term) return false;
-        const reading = cleanNestedLookupValue(actionTarget.dataset.reading);
-        consumeNestedLookupEvent(event);
-        if (this.state.route === 'search') {
-            this.searchController.selectSearchSuggestion(root, term);
-            return true;
-        }
+    private lookupNestedTerm(expression: string, reading: string, actionTarget: HTMLElement): void {
+        void this.dependencies.lookupText?.(expression, reading || expression, actionTarget, this.nestedLookupOptions());
+    }
+
+    private showNestedSourceReviewCard(actionTarget: HTMLElement): boolean {
         const sourceReviewCard = this.sourceReviewLookupCardForTarget(actionTarget);
-        if (sourceReviewCard && this.dependencies.showLookupCard) {
-            void this.dependencies.showLookupCard(sourceReviewCard, actionTarget.dataset.sentence || sentenceForCard(sourceReviewCard), actionTarget, this.nestedLookupOptions());
-            return true;
-        }
-        void this.dependencies.lookupText?.(term, reading || term, actionTarget, this.nestedLookupOptions());
-        return true;
-    }
-
-    private handleNestedJitenKanjiMoreAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget.closest<HTMLButtonElement>('button[data-action="jiten-kanji-more"]');
-        if (!button) return false;
-        consumeNestedLookupEvent(event);
-        if (!targetCanLookupCharacter(button.dataset.jitenKanjiCharacter?.trim() ?? '')) return true;
-        void this.loadMoreJitenKanjiWords(button);
+        const showLookupCard = this.dependencies.showLookupCard;
+        if (!sourceReviewCard || !showLookupCard) return false;
+        void showLookupCard(sourceReviewCard, sentenceForCard(sourceReviewCard), actionTarget, this.nestedLookupOptions());
         return true;
     }
 
@@ -2579,57 +2529,9 @@ export class NewTabController {
         if (context) await loadMoreSharedJitenKanjiWords(button, context);
     }
 
-    private handleNestedJitenKanjiReadingAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget.closest<HTMLButtonElement>('button[data-action="jiten-kanji-reading"]');
-        if (!button) return false;
-        consumeNestedLookupEvent(event);
-        if (!targetCanLookupCharacter(button.dataset.jitenKanjiCharacter?.trim() ?? '')) return true;
-        void this.filterJitenKanjiWords(button);
-        return true;
-    }
-
     private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
         const context = this.jitenKanjiWordsActionContext();
         if (context) await filterSharedJitenKanjiWords(button, context);
-    }
-
-    private handleNestedJpdbExampleAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        if (!button) return false;
-        consumeNestedLookupEvent(event);
-        void this.dependencies.playJpdbExampleAudio?.(button.dataset.jpdbAudio ?? '', button.dataset.jpdbExampleSentence ?? '');
-        return true;
-    }
-
-    private handleNestedJitenAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        const card = this.nestedCardActionCard(actionTarget);
-        if (!button || !card || !this.dependencies.performCardAction) return false;
-        consumeNestedLookupEvent(event);
-        void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
-        return true;
-    }
-
-    private handleNestedCardAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        const card = this.nestedCardActionCard(actionTarget);
-        if (!button || !card || !this.dependencies.performCardAction) return false;
-        consumeNestedLookupEvent(event);
-        void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
-        return true;
-    }
-
-    private handleNestedDeckPickerAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        const card = this.nestedCardActionCard(actionTarget);
-        const performCardAction = this.dependencies.performCardAction;
-        if (!button || !card || !performCardAction) return false;
-        consumeNestedLookupEvent(event);
-        const sentence = button.dataset.studySentence || sentenceForCard(card);
-        openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence) => (
-            performCardAction(actionButton, actionCard, actionSentence, actionButton)
-        ));
-        return true;
     }
 
     private nestedCardActionCard(target: HTMLElement): JPDBCard | undefined {
@@ -2671,15 +2573,6 @@ export class NewTabController {
                 ?? this.visibleWords.find(card => this.cardMatchesSelectionKey(card, key));
         }
         return this.sourceCardForVisibleCard(this.visibleWords[this.index]);
-    }
-
-    private handleNestedAnkiMediaAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
-        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        const card = this.nestedCardActionCard(actionTarget);
-        if (!button || !card || !this.dependencies.performCardAction) return false;
-        consumeNestedLookupEvent(event);
-        void this.dependencies.performCardAction(button, card, sentenceForCard(card), button);
-        return true;
     }
 
     private toggleNewTabImmersionTranslations(root: HTMLElement): void {
@@ -3010,12 +2903,13 @@ export class NewTabController {
     }
 
     private lookupTargetMatchesSourceReviewCard(target: HTMLElement, card: JPDBCard): boolean {
-        const vid = Number(target.dataset.vid);
-        const sid = Number(target.dataset.sid);
-        if (Number.isFinite(vid) && Number.isFinite(sid) && vid === card.vid && sid === card.sid) return true;
-        const term = cleanNestedLookupValue(target.dataset.expression ?? target.dataset.term) || cleanNestedLookupValue(readerWordSurfaceText(target));
-        const reading = cleanNestedLookupValue(target.dataset.reading);
-        return term === card.spelling && (!reading || reading === newTabCardReading(card));
+        if (renderedWordHasCardIdentity(target, card)) return true;
+        return renderedWordTextIdentityMatches(
+            card.spelling,
+            newTabCardReading(card),
+            [target.dataset.expression, target.dataset.term, readerWordSurfaceText(target)],
+            target.dataset.reading,
+        );
     }
 
     private isDictionaryCard(card: JPDBCard): boolean {
@@ -6115,29 +6009,20 @@ export class NewTabController {
     }
 
     private renderJitenKanjiBackingWord(card: JPDBCard, kanji: string): HTMLElement | null {
-        const sourceCard = this.sourceCardForVisibleCard(card) ?? card;
-        if (!isJitenSrsCard(sourceCard) || isStandaloneKanjiCard(sourceCard, kanji) || sourceCard.spelling === kanji) return null;
-        const settings = this.dependencies.getSettings();
-        const reading = newTabCardOptionalReading(sourceCard);
-        const visibleReading = reading && !isPlainReadingRedundantForHeadword(sourceCard, { ...settings, furiganaMode: 'all', showFurigana: true }, reading)
-            ? reading
-            : '';
-        const meaning = firstCardMeaning(sourceCard);
-        const state = primaryCardState(sourceCard);
-        return el('div', { class: 'jpdb-reader-newtab-kanji-backing-word', dataset: { newtabKanjiBackingWord: true } },
-            el('span', { class: 'jpdb-reader-newtab-kanji-backing-term-row' },
-                el('button', {
-                    class: 'jpdb-reader-newtab-kanji-popover-word jpdb-reader-newtab-kanji-backing-term',
-                    type: 'button',
-                    lang: 'ja',
-                    dataset: { action: 'similar-word', expression: sourceCard.spelling, reading: sourceCard.reading },
-                    title: `${this.text('lookUp')}: ${sourceCard.spelling}`,
-                }, this.renderPromptReaderWord(sourceCard, state, sourceCard.spelling)),
-                this.renderStudyWordAudioButton(sourceCard),
-            ),
-            visibleReading ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-reading', lang: 'ja' }, visibleReading) : null,
-            meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-meaning' }, meaning) : null,
-        );
+        return renderJitenKanjiBackingWordView(card, kanji, {
+            sourceCardFor: value => this.sourceCardForVisibleCard(value),
+            settings: this.dependencies.getSettings(),
+            meaningFor: firstCardMeaning,
+            stateFor: primaryCardState,
+            lookupButton: (value, state) => this.kanjiBackingLookupButton(value, state),
+            audioButton: value => this.renderStudyWordAudioButton(value),
+        });
+    }
+
+    private kanjiBackingLookupButton(card: JPDBCard, state: CardState): HTMLButtonElement {
+        const button = el('button', { class: 'jpdb-reader-newtab-kanji-popover-word jpdb-reader-newtab-kanji-backing-term', type: 'button', lang: 'ja', dataset: { action: 'similar-word', expression: card.spelling, reading: card.reading }, title: `${this.text('lookUp')}: ${card.spelling}` }, this.renderPromptReaderWord(card, state, card.spelling)) as HTMLButtonElement;
+        bindPrivateCommandCapability(button, { kind: 'kanji-word', expression: card.spelling, reading: card.reading });
+        return button;
     }
 
     private kanjiDoodleFront(studyStepId = ''): HTMLElement {
@@ -7351,24 +7236,17 @@ export class NewTabController {
 
     private applyNewTabParsedTargetCardIdentity(word: HTMLElement, card: JPDBCard, surface: string): void {
         const state = primaryCardState(card.cardState);
-        const sourceClass = card.source === 'anki' || card.reviewSource === 'anki' ? 'anki' : 'jpdb';
+        const sourceClass = renderedWordSourceVisualClass(card);
         const pitchClass = newTabPitchClass(card);
-        for (const cls of Array.from(word.classList)) {
-            if (cls.startsWith('jpdb-pitch-')) {
-                word.classList.remove(cls);
-                continue;
-            }
-            if (NEW_TAB_WORD_STATE_CLASSES.some(candidate => cls === `jpdb-${candidate}` || cls === `anki-${candidate}`)) {
-                word.classList.remove(cls);
-            }
-        }
-        word.classList.add(`${sourceClass}-${state}`, `jpdb-pitch-${pitchClass}`);
-        word.dataset.vid = String(card.vid);
-        word.dataset.sid = String(card.sid);
+        replaceRenderedWordStateAndPitchClasses(word, NEW_TAB_WORD_STATE_CLASSES, [
+            `${sourceClass}-${state}`,
+            `jpdb-pitch-${pitchClass}`,
+        ]);
+        bindRenderedWordCardIdentity(word, card, state);
         word.dataset.expression = card.spelling;
         word.dataset.reading = newTabCardReading(card);
         word.dataset.pitchClass = pitchClass;
-        word.dataset.sentence ||= card.sentence || surface;
+        preserveRenderedWordSentence(word, [card.sentence, surface]);
         if (!this.state.revealAnswer) this.hidePromptPronunciation(word);
     }
 
@@ -8284,13 +8162,19 @@ export class NewTabController {
         const actions = visibleJpdbKanjiActions(info);
         if (!actions.length) return null;
         return el('div', { class: 'jpdb-reader-newtab-kanji-mining', role: 'group', 'aria-label': this.text('miningActions') },
-            actions.map(action => el('button', {
-                type: 'button',
-                class: `jpdb-reader-newtab-mini-action ${jpdbKanjiActionClass(action)}`,
-                dataset: { newtabAction: newTabAction('jpdb-kanji-action'), kanjiActionId: action.id },
-                title: action.label,
-            }, action.label)),
+            actions.map(action => this.renderKanjiMiningAction(action)),
         );
+    }
+
+    private renderKanjiMiningAction(action: ReturnType<typeof visibleJpdbKanjiActions>[number]): HTMLButtonElement {
+        const button = el('button', {
+            type: 'button',
+            class: `jpdb-reader-newtab-mini-action ${jpdbKanjiActionClass(action)}`,
+            dataset: { newtabAction: newTabAction('jpdb-kanji-action'), kanjiActionId: action.id },
+            title: action.label,
+        }, action.label) as HTMLButtonElement;
+        bindPrivateCommandCapability(button, { kind: 'jpdb-kanji-action', actionId: action.id });
+        return button;
     }
 
     private loadKanjiDetails(kanji: string): Promise<KanjiDetailBundle> {
@@ -10059,7 +9943,7 @@ export class NewTabController {
     }
 
     private renderReaderWord(card: JPDBCard, state: string, text = card.spelling, sentence = card.sentence || card.spelling): HTMLSpanElement {
-        const sourceClass = card.source === 'anki' ? 'anki' : 'jpdb';
+        const sourceClass = renderedWordSourceVisualClass(card);
         const pitchClass = newTabPitchClass(card);
         const reading = newTabCardReading(card);
         const word = el('span', {
@@ -10069,15 +9953,14 @@ export class NewTabController {
                 term: text,
                 expression: card.spelling,
                 reading,
-                vid: card.vid,
-                sid: card.sid,
                 pitchClass,
                 pitchAccent: card.pitchAccent.join('|'),
                 sentence,
             },
             tabIndex: -1,
         }, text);
-        if (this.state.revealAnswer && text === card.spelling) {
+        bindRenderedWordCardIdentity(word, card, state);
+        if ([this.state.revealAnswer, text === card.spelling].every(Boolean)) {
             setInnerHtml(word, renderCardSpellingWithFurigana(card, {
                 ...this.dependencies.getSettings(),
                 furiganaMode: 'all',
@@ -10085,6 +9968,7 @@ export class NewTabController {
             }, { enabled: true, label: this.text('showKanji') }));
             word.dataset.yomuHeadword = 'true';
         }
+        bindPrivateCommandCapability(word, { kind: 'kanji-word', expression: card.spelling, reading });
         return word;
     }
 
@@ -10153,9 +10037,15 @@ export class NewTabController {
     }
 
     private isRenderedWordForCard(word: HTMLElement, card: JPDBCard): boolean {
-        const reading = newTabCardReading(card);
-        return (word.dataset.vid === String(card.vid) && word.dataset.sid === String(card.sid))
-            || (word.dataset.expression === card.spelling && (!word.dataset.reading || word.dataset.reading === reading));
+        return [
+            renderedWordHasCardIdentity(word, card),
+            renderedWordTextIdentityMatches(
+                card.spelling,
+                newTabCardReading(card),
+                [word.dataset.expression],
+                word.dataset.reading,
+            ),
+        ].some(Boolean);
     }
 
     private syncMode(root: HTMLElement): void {

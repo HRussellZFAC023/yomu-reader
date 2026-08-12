@@ -23,6 +23,7 @@ import {
 import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { readingAnnotationModeForTarget } from './reading-annotation-mode';
 import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
+import { credentialValueFromReader } from './credential-form';
 
 
 /**
@@ -163,7 +164,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         dictionaryLookupLinks,
     );
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
-    const apiCredentials = readApiCredentialsFromFormData(data);
+    const apiCredentials = readApiCredentialsFromFormData(data, current);
     const interfaceLanguage = readOption(
         get('interfaceLanguage'),
         SELECTABLE_INTERFACE_LANGUAGES,
@@ -694,7 +695,7 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrProvider: normalizeOcrProvider(get('ocrProvider')),
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',
-        ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
+        ocrCloudVisionApiKey: credentialValueFromReader(reader, 'ocrCloudVisionApiKey', current.ocrCloudVisionApiKey),
         // Blank means "follow the language being studied" and has to SURVIVE
         // the round trip. Resolving it to a literal here turned the sentinel
         // into whichever target happened to be active the first time anything
@@ -766,14 +767,11 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
 
 function readImmersionKitFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
-    const mediaEnabled = has('immersionKitEnabled');
-    const sourceRowPresent = Boolean(get('immersionKit.name') || get('immersionKit.priority'));
-    const sourceEnabled = sourceRowPresent ? has('immersionKit.enabled') : true;
     return {
-        immersionKitEnabled: mediaEnabled && sourceEnabled,
+        immersionKitEnabled: readImmersionKitEnabled(reader),
         immersionKitAlias: readSourceAlias(reader, 'immersionKit', current.immersionKitAlias),
         immersionKitExampleSource: readOption(get('immersionKitExampleSource'), ['immersion-kit', 'nadeshiko', 'combined'] as const, current.immersionKitExampleSource),
-        nadeshikoApiKey: get('nadeshikoApiKey').trim(),
+        nadeshikoApiKey: credentialValueFromReader(reader, 'nadeshikoApiKey', current.nadeshikoApiKey),
         immersionKitPriority: clamped('immersionKit.priority', 0, 999, current.immersionKitPriority),
         immersionKitLimitEnabled: get('immersionKitLimitEnabled') === 'on',
         immersionKitLimit: clamped('immersionKitLimit', 1, 12, current.immersionKitLimit),
@@ -783,13 +781,24 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
         immersionKitSort: readOption(get('immersionKitSort'), ['sentence_length:asc', 'sentence_length:desc'] as const, current.immersionKitSort),
         immersionKitExactMatch: has('immersionKitExactMatch'),
         immersionKitShowTranslation: has('immersionKitShowTranslation'),
-        immersionKitRevealTranslationOnClick: has('immersionKitShowTranslation') && has('immersionKitRevealTranslationOnClick'),
+        immersionKitRevealTranslationOnClick: readEnabledChildCheckbox(reader, 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick'),
         immersionKitShowImages: has('immersionKitShowImages'),
         immersionKitAutoPlayAudio: has('immersionKitAutoPlayAudio'),
         immersionKitPlayOnHover: has('immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: has('immersionKitPlayOnImageClick'),
         immersionKitPlaybackRate: clamped('immersionKitPlaybackRate', 0.5, 2, current.immersionKitPlaybackRate),
     };
+}
+
+function readImmersionKitEnabled(reader: SettingsFormReader): boolean {
+    if (!reader.has('immersionKitEnabled')) return false;
+    const sourceRowPresent = [reader.get('immersionKit.name'), reader.get('immersionKit.priority')].some(Boolean);
+    return sourceRowPresent ? reader.has('immersionKit.enabled') : true;
+}
+
+function readEnabledChildCheckbox(reader: SettingsFormReader, parent: string, child: string): boolean {
+    if (!reader.has(parent)) return false;
+    return reader.has(child);
 }
 
 function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {

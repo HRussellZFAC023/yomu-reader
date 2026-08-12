@@ -1,5 +1,6 @@
 import { escapeHtml, setInnerHtml } from '../dom/index';
 import { applyOverlayPageScale, overlayViewport, sourceRectToOverlay } from './page-scale';
+import { isTrustedReaderInteraction } from './trusted-interaction';
 
 export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
 
@@ -199,6 +200,7 @@ export class RadialMenuController {
         item.tabIndex = action.disabled ? -1 : 0;
         this.applyActionState(item, action);
         item.addEventListener('click', event => {
+            if (!isTrustedReaderInteraction(event)) return;
             event.preventDefault();
             event.stopPropagation();
             if (action.disabled) return;

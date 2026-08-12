@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { privateCommandAttributes } from '../../../src/reader/dom/private-command-capabilities';
+import { setInnerHtml } from '../../../src/reader/dom/html';
 import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
@@ -765,9 +767,14 @@ describe('reader helpers', () => {
         const root = document.createElement('div');
         root.dataset.jpdbReaderRoot = 'true';
         root.dataset.yomuJpdbAddon = 'word';
-        root.innerHTML = `
-            <button type="button" data-action="jiten-audio" data-study-sentence="サッカーをする。" data-jiten-audio-urls='["https://audio.example.test/soccer.mp3"]'>audio</button>
-        `;
+        setInnerHtml(root, `
+            <button type="button" data-action="jiten-audio"${privateCommandAttributes({
+                kind: 'card-action',
+                action: 'jiten-audio',
+                sentence: 'サッカー',
+                audioUrls: ['https://audio.example.test/soccer.mp3'],
+            })}>audio</button>
+        `);
         document.body.append(root);
         const fallbackCard = { ...card, spelling: 'サッカー', reading: 'サッカー' };
         const handleCardAction = vi.fn(async () => undefined);
@@ -785,7 +792,12 @@ describe('reader helpers', () => {
             button.dispatchEvent(click);
 
             expect(click.defaultPrevented).toBe(true);
-            expect(handleCardAction).toHaveBeenCalledWith(button, fallbackCard, 'サッカー');
+            expect(handleCardAction).toHaveBeenCalledWith(button, fallbackCard, 'サッカー', {
+                kind: 'card-action',
+                action: 'jiten-audio',
+                sentence: 'サッカー',
+                audioUrls: ['https://audio.example.test/soccer.mp3'],
+            });
         } finally {
             app.destroy();
             document.body.replaceChildren();

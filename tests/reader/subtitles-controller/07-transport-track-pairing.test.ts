@@ -1184,6 +1184,116 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         expect(internals.secondaryTrackId).toBe('youtube-en');
     });
 
+    it('discovers and loads the active Spanish TARGET and English OUTPUT from Japanese YouTube ASR', async () => {
+        const originalPlayerResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
+        const timedTextRequests: string[] = [];
+        const timedTextLines: Record<'es' | 'en', [string, string]> = {
+            es: ['Hoy leo.', 'Esta es la segunda línea.'],
+            en: ['I read today.', 'This is the second line.'],
+        };
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const href = String(input);
+            const url = new URL(href);
+            expect(url.pathname).toBe('/api/timedtext');
+            timedTextRequests.push(url.href);
+            const language = url.searchParams.get('tlang') as 'es' | 'en';
+            expect(['es', 'en']).toContain(language);
+            const lines = timedTextLines[language];
+            return new Response(
+                `<transcript><text start="0" dur="2">${lines[0]}</text><text start="2" dur="2">${lines[1]}</text></transcript>`,
+                { status: 200, headers: { 'content-type': 'text/xml' } },
+            );
+        });
+
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+
+        try {
+            await withSubtitleRequestStubs(
+                'https://www.youtube.com/watch?v=multilingual-selection',
+                fetchMock,
+                undefined,
+                async () => {
+                    (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
+                        videoDetails: { videoId: 'multilingual-selection' },
+                        captions: {
+                            playerCaptionsTracklistRenderer: {
+                                captionTracks: [{
+                                    baseUrl: 'https://www.youtube.com/api/timedtext?v=multilingual-selection&lang=ja',
+                                    languageCode: 'ja',
+                                    vssId: 'a.ja',
+                                    kind: 'asr',
+                                    name: { simpleText: '日本語（自動生成）' },
+                                }],
+                                translationLanguages: [
+                                    { languageCode: 'es', languageName: { simpleText: 'Español' } },
+                                    { languageCode: 'en', languageName: { simpleText: 'English' } },
+                                ],
+                            },
+                        },
+                    };
+                    const { controller } = createInstalledSubtitleController({
+                        annotationsPaused: true,
+                        interfaceLanguage: 'en' as const,
+                        subtitleOverlayVisible: true,
+                        subtitleSecondaryVisible: true,
+                    });
+                    attachVideo(controller, { currentTime: 0.5 });
+                    const internals = controllerInternals<{
+                        tracks: Array<{
+                            id: string;
+                            kind: 'youtube';
+                            language?: string;
+                            sourceType?: 'asr' | 'translation';
+                            sourceLanguage?: string;
+                            targetLanguage?: string;
+                            cues?: Array<{ text: string }>;
+                            loadingState?: string;
+                        }>;
+                        selectedTrackId: string;
+                        secondaryTrackId: string;
+                        cues: Array<{ text: string }>;
+                        secondaryCues: Array<{ text: string }>;
+                        discoverYouTubeTracks: () => Promise<void>;
+                    }>(controller);
+
+                    await internals.discoverYouTubeTracks();
+                    await vi.waitFor(() => {
+                        expect(internals.cues.map(cue => cue.text)).toEqual([
+                            'Hoy leo.',
+                            'Esta es la segunda línea.',
+                        ]);
+                        expect(internals.secondaryCues.map(cue => cue.text)).toEqual([
+                            'I read today.',
+                            'This is the second line.',
+                        ]);
+                    });
+
+                    const selected = internals.tracks.find(track => track.id === internals.selectedTrackId);
+                    const secondary = internals.tracks.find(track => track.id === internals.secondaryTrackId);
+                    expect(selected).toMatchObject({
+                        language: 'es',
+                        sourceType: 'translation',
+                        sourceLanguage: 'ja',
+                        targetLanguage: 'es',
+                        loadingState: 'ready',
+                    });
+                    expect(secondary).toMatchObject({
+                        language: 'en',
+                        sourceType: 'translation',
+                        sourceLanguage: 'ja',
+                        targetLanguage: 'en',
+                        loadingState: 'ready',
+                    });
+                    expect(internals.tracks.filter(track => track.sourceType === 'asr')).toHaveLength(1);
+                    expect(timedTextRequests.some(href => new URL(href).searchParams.get('tlang') === 'es')).toBe(true);
+                    expect(timedTextRequests.some(href => new URL(href).searchParams.get('tlang') === 'en')).toBe(true);
+                },
+            );
+        } finally {
+            (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalPlayerResponse;
+        }
+    });
+
     it('recovers a secondary YouTube translation track when translated timedtext is empty', async () => {
         const originalLocation = window.location;
         const originalFetch = globalThis.fetch;

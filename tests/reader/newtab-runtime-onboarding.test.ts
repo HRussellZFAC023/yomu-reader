@@ -10,6 +10,7 @@ import {
     SETTINGS_STORAGE_KEY,
     endSettingsResetGuard,
 } from '../../src/reader/settings';
+import { gmStorageSet } from '../../src/reader/app/storage';
 import { installUserscriptGmStorageBridge, uninstallUserscriptGmStorageBridge } from '../../src/reader/userscript/storage-bridge';
 import { rejectOnboardingTargetPersistence } from './helpers/rejected-onboarding-target';
 
@@ -36,6 +37,33 @@ function prepareRenderingRuntime(
 function storeRuntimeSettings(overrides: Partial<typeof DEFAULT_SETTINGS>): void {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...overrides }));
 }
+
+function installPackagedSettings(overrides: Partial<typeof DEFAULT_SETTINGS>): void {
+    const values = new Map<string, unknown>([[
+        SETTINGS_STORAGE_KEY,
+        { ...DEFAULT_SETTINGS, ...overrides },
+    ]]);
+    const clone = <T>(value: T): T => structuredClone(value);
+    vi.stubGlobal('browser', {
+        runtime: { id: 'yomu@yomureader.com' },
+        storage: { local: {
+            get: vi.fn(async (key: string | null) => key === null
+                ? Object.fromEntries([...values].map(([name, value]) => [name, clone(value)]))
+                : values.has(key) ? { [key]: clone(values.get(key)) } : {}),
+            set: vi.fn(async (items: Record<string, unknown>) => {
+                for (const [key, value] of Object.entries(items)) values.set(key, clone(value));
+            }),
+            remove: vi.fn(async (key: string) => { values.delete(key); }),
+        } },
+    });
+}
+
+const RAW_ACADEMY_READER_DEFAULTS = {
+    learningTargetChosen: false,
+    showFurigana: true,
+    furiganaMode: 'all',
+    showPitchAccent: true,
+} as const;
 
 function replaceOnboardingWithDismissal(internals: Record<string, unknown>) {
     const showIfNeeded = vi.fn(async () => true);
@@ -74,6 +102,7 @@ describe('packaged Study welcome integration', () => {
     });
 
     it('constructs the real welcome controller without a new-tab takeover option', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
         const runtime = new NewTabRuntime();
         const internals = runtime as unknown as {
@@ -151,6 +180,7 @@ describe('packaged Study welcome integration', () => {
     });
 
     it('keeps a rejected standalone Study target inert and asks again on reload', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         storeRuntimeSettings({
             onboardingSeen: false,
             learningTargetChosen: false,
@@ -205,7 +235,69 @@ describe('packaged Study welcome integration', () => {
         expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
     });
 
+    it('keeps the current Academy bootstrap transient and asks again on same-origin Study', async () => {
+        window.history.replaceState({}, '', '/academy/');
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(RAW_ACADEMY_READER_DEFAULTS));
+        const academyRuntime = new NewTabRuntime({
+            mountHost: document.createElement('main'),
+            pageOwnedLearningTarget: 'ja',
+        });
+        const academyRender = vi.fn(async () => undefined);
+        const academyInternals = prepareRenderingRuntime(academyRuntime, academyRender);
+        const academyWelcome = replaceOnboardingWithDismissal(academyInternals);
+
+        await academyRuntime.init();
+
+        expect(academyRender).toHaveBeenCalledOnce();
+        expect(academyWelcome).not.toHaveBeenCalled();
+        expect(activeLearningTargetLanguage()).toBe('ja');
+        expect((academyInternals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toEqual(RAW_ACADEMY_READER_DEFAULTS);
+        academyRuntime.destroy();
+        resetActiveLearningTargetLanguage();
+
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...RAW_ACADEMY_READER_DEFAULTS,
+            interfaceLanguage: 'ja',
+        }));
+        window.history.replaceState({}, '', '/newtab/');
+        const studyRuntime = new NewTabRuntime();
+        const studyRender = vi.fn(async () => undefined);
+        const studyInternals = prepareRenderingRuntime(studyRuntime, studyRender);
+        const studyWelcome = replaceOnboardingWithDismissal(studyInternals);
+
+        await studyRuntime.init();
+
+        expect(studyWelcome).toHaveBeenCalledOnce();
+        expect(studyInternals.createNewTabController).not.toHaveBeenCalled();
+        expect(studyRender).not.toHaveBeenCalled();
+        expect((studyInternals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
+        studyRuntime.destroy();
+    });
+
+    it('keeps the raw docs interface-language handoff unchosen on Study', async () => {
+        window.history.replaceState({}, '', '/newtab/');
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            learningTargetChosen: false,
+            interfaceLanguage: 'en',
+        }));
+        const runtime = new NewTabRuntime();
+        const renderPage = vi.fn(async () => undefined);
+        const internals = prepareRenderingRuntime(runtime, renderPage);
+        const showIfNeeded = replaceOnboardingWithDismissal(internals);
+
+        await runtime.init();
+
+        expect(showIfNeeded).toHaveBeenCalledOnce();
+        expect(internals.createNewTabController).not.toHaveBeenCalled();
+        expect(renderPage).not.toHaveBeenCalled();
+        expect((internals.settings as typeof DEFAULT_SETTINGS).interfaceLanguage).toBe('en');
+        expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
+        runtime.destroy();
+    });
+
     it('applies Academy Japanese as a transient runtime target over an unchosen partial profile', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/academy/'));
         storeRuntimeSettings({
             learningTargetChosen: false,
             localDictionariesEnabled: false,
@@ -243,9 +335,8 @@ describe('packaged Study welcome integration', () => {
     });
 
     it('opens account settings from the Firefox-safe Study link after welcome', async () => {
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' } });
         window.history.replaceState({}, '', '/newtab/index.html#settings=api');
-        storeRuntimeSettings({
+        installPackagedSettings({
             onboardingSeen: true,
             learningTargetChosen: true,
             localDictionariesEnabled: false,
@@ -268,7 +359,7 @@ describe('packaged Study welcome integration', () => {
     });
 
     it('reloads settings when a late userscript storage bridge reaches the Study runtime', async () => {
-        window.history.replaceState({}, '', '/newtab/index.html');
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         const runtime = new NewTabRuntime();
         const applyRemoteSettings = vi.fn(async () => undefined);
         const internals = runtime as unknown as {
@@ -278,11 +369,20 @@ describe('packaged Study welcome integration', () => {
         };
         internals.isDestroyed = false;
         internals.applyRemoteSettings = applyRemoteSettings;
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        await gmStorageSet(SETTINGS_STORAGE_KEY, {
+            ...DEFAULT_SETTINGS,
+            theme: 'light',
+            popupMode: 'modal',
+        });
+        await gmStorageSet(SETTINGS_STORAGE_KEY, {
             ...DEFAULT_SETTINGS,
             theme: 'dark',
+            popupMode: 'modal',
+        });
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
+            theme: 'dark',
             __yomuHostedPendingGmPatch: { theme: 'dark' },
-        }));
+        });
         const shared = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, theme: 'light', popupMode: 'popover' }]]);
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => shared.has(key) ? shared.get(key) : fallback));
         vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { shared.set(key, value); }));

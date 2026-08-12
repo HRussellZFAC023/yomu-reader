@@ -5,14 +5,16 @@
 //
 // Transports mirror the factory-reset signal: GM value-change listeners cover
 // cross-origin tabs (the userscript manager shares GM storage), and a
-// BroadcastChannel covers same-origin tabs plus managers without
-// GM_addValueChangeListener.
-import { gmStorageSetSync, subscribeToStoredValueChanges } from './storage';
+// BroadcastChannel is restricted to Yomu-owned Study documents. On arbitrary
+// reader pages the host shares the same origin and could otherwise read or
+// forge every spelling, deck and review-schedule payload.
+import { gmPrivateStorageSet, subscribeToStoredValueChanges } from './storage';
 import { Logger } from './logger';
 import type { CardState, JPDBCard } from './types';
+import { currentAccountDataSurfaceIsTrusted } from './account-data-surface';
 
 const log = Logger.scope('CardStateSignal');
-const CARD_STATE_SIGNAL_KEY = 'yomu:card-state-signal';
+const CARD_STATE_SIGNAL_KEY = 'yomu:private:card-state-signal:v1';
 const CARD_STATE_CHANNEL_NAME = 'yomu:card-state';
 const SEEN_SIGNAL_LIMIT = 32;
 
@@ -78,16 +80,14 @@ export function publishCardStateSignal(card: JPDBCard): void {
         at: Date.now(),
         card: cardStateSignalCard(card),
     };
-    try {
-        gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
-    } catch (error) {
+    void gmPrivateStorageSet(CARD_STATE_SIGNAL_KEY, signal).catch(error => {
         log.debug('GM card-state publish failed', error);
-    }
+    });
     publishBroadcastCardStateSignal(signal);
 }
 
 function publishBroadcastCardStateSignal(signal: CardStateSignal): void {
-    if (typeof BroadcastChannel !== 'function') return;
+    if (!currentAccountDataSurfaceIsTrusted() || typeof BroadcastChannel !== 'function') return;
     try {
         const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
         channel.postMessage(signal);
@@ -109,12 +109,13 @@ export function subscribeToCardStateSignals(onCard: (card: JPDBCard) => void): (
     };
 
     cleanups.push(subscribeToStoredValueChanges(CARD_STATE_SIGNAL_KEY, (newValue, source) => {
+        if (source.transport === 'web-storage') return;
         // Same-tab mutations are applied locally by the action paths; only
         // remote tabs need the signal.
         if (source.remote) handle(newValue);
     }));
 
-    if (typeof BroadcastChannel === 'function') {
+    if (currentAccountDataSurfaceIsTrusted() && typeof BroadcastChannel === 'function') {
         try {
             const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
             channel.onmessage = event => handle(event.data);

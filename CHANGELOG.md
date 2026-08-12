@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.1] - 2026-08-12
+
+### Fixed
+
+- Restored YouTube subtitles for existing learners after the 1.9.0 learning-target migration. Pre-1.9 records that contain actual Reader or subtitle settings keep their historical target; passive hosted appearance and bootstrap records stay unchosen. An open YouTube tab now starts its subtitle reader when a target is chosen in another tab.
+- Fresh installs remain language-neutral: Academy and hosted appearance preferences now stamp their neutral target state, and a rejected onboarding save cannot become active after reload.
+- Reader controls are now isolated from host-page scripts: arbitrary sites cannot trigger privileged settings, subtitle, card, or OCR actions; rewrite values behind a real click; or read credentials, account details, imported files, recovery codes, and captured raster data. Sensitive setup opens on Yomu-owned Study and extension new-tab surfaces while ordinary reading stays on the page.
+
 ## [1.9.0] - 2026-08-11
 
 ### Fixed

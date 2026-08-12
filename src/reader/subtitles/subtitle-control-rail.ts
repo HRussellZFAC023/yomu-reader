@@ -2,6 +2,7 @@ import {
     loadSubtitleControlRailPosition,
     saveSubtitleControlRailPosition,
 } from './subtitle-layout';
+import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 
 const RAIL_MARGIN_PX = 8;
 const RAIL_KEY_STEP_PX = 12;
@@ -177,12 +178,12 @@ export function bindSubtitleControlRail(
         setPixels(nextLeft, nextTop, true);
     };
 
-    handle.addEventListener('pointerdown', pointerDown, { signal: abort.signal });
+    handle.addEventListener('pointerdown', trustedReaderEventHandler(pointerDown), { signal: abort.signal });
     handle.addEventListener('click', suppressDraggedClick, { capture: true, signal: abort.signal });
-    handle.addEventListener('keydown', keyDown, { signal: abort.signal });
-    window.addEventListener('pointermove', pointerMove, { passive: false, signal: abort.signal });
-    window.addEventListener('pointerup', finishPointer, { passive: false, signal: abort.signal });
-    window.addEventListener('pointercancel', finishPointer, { passive: false, signal: abort.signal });
+    handle.addEventListener('keydown', trustedReaderEventHandler(keyDown), { signal: abort.signal });
+    window.addEventListener('pointermove', trustedReaderEventHandler(pointerMove), { passive: false, signal: abort.signal });
+    window.addEventListener('pointerup', trustedReaderEventHandler(finishPointer), { passive: false, signal: abort.signal });
+    window.addEventListener('pointercancel', trustedReaderEventHandler(finishPointer), { passive: false, signal: abort.signal });
 
     const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(syncPosition) : null;
     resizeObserver?.observe(root);

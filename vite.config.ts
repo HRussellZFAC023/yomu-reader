@@ -11,6 +11,9 @@ const require = createRequire(import.meta.url);
 const { greasyForkLibraryUrls } = require('./scripts/lib/greasyfork-libraries.cjs') as {
     greasyForkLibraryUrls: () => string[];
 };
+const { USERSCRIPT_DISTRIBUTION_METADATA } = require('./scripts/lib/public-release-policy.cjs') as {
+    USERSCRIPT_DISTRIBUTION_METADATA: { downloadURL: string; updateURL: string };
+};
 const configRoot = path.dirname(fileURLToPath(import.meta.url));
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
@@ -28,11 +31,8 @@ const userscriptIcon = `${docsUrl}favicon-32x32.png`;
 // hours ago — the reported "still installs 1.6.241 when 1.6.244 is out".
 // Greasy Fork's update endpoints answer must-revalidate, so the version probe
 // is always fresh; the hosted copy stays the install entry point.
-const greasyForkScriptId = 581653;
-const greasyForkScriptSlug = encodeURIComponent('よむ');
-const greasyForkUpdateBase = `https://update.greasyfork.org/scripts/${greasyForkScriptId}/${greasyForkScriptSlug}`;
-const userscriptUpdateUrl = `${greasyForkUpdateBase}.meta.js`;
-const userscriptDownloadUrl = `${greasyForkUpdateBase}.user.js`;
+const userscriptUpdateUrl = USERSCRIPT_DISTRIBUTION_METADATA.updateURL;
+const userscriptDownloadUrl = USERSCRIPT_DISTRIBUTION_METADATA.downloadURL;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // Required for user-configured audio, OCR, proxy, dictionary,
 // AnkiConnect-compatible, Tailnet, and local service URLs. Keep high-volume
@@ -167,6 +167,15 @@ function readerResolveConfig(command: string) {
         alias['./target-runtime'] = targetRuntimeCompanion;
         alias['../languages/target-runtime'] = targetRuntimeCompanion;
         alias['../../languages/target-runtime'] = targetRuntimeCompanion;
+        const deinflectionCompanion = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'lookup',
+            'deinflect-companion.ts',
+        );
+        alias['./deinflect'] = deinflectionCompanion;
+        alias['../lookup/deinflect'] = deinflectionCompanion;
         const tokenTextRenderingCompanion = path.join(
             configRoot,
             'src',

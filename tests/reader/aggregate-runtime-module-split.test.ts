@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as tokenTextRendering from '../../src/reader/dom/token-text-rendering';
 import * as localYomuDeck from '../../src/reader/srs/local-yomu-deck';
 import * as handleDrag from '../../src/reader/popup/handle-drag';
+import * as deinflection from '../../src/reader/lookup/deinflect';
 import * as settings from '../../src/reader/settings';
 import type { JPDBToken } from '../../src/reader/app/types';
 import {
@@ -25,7 +26,13 @@ function importRuntimeFacade<T>(directory: string, moduleName: string): Promise<
 
 describe('aggregate runtime implementation sharing', () => {
     beforeEach(() => {
-        registerAggregateRuntimeModules({ settings, tokenTextRendering, localYomuDeck, handleDrag });
+        registerAggregateRuntimeModules({
+            deinflection,
+            settings,
+            tokenTextRendering,
+            localYomuDeck,
+            handleDrag,
+        });
     });
 
     afterEach(() => {
@@ -39,6 +46,7 @@ describe('aggregate runtime implementation sharing', () => {
     it('publishes the exact implementations through one sandbox-only Module interface', () => {
         const modules = aggregateRuntimeModules();
 
+        expect(modules.deinflection).toBe(deinflection);
         expect(modules.settings).toBe(settings);
         expect(modules.tokenTextRendering).toBe(tokenTextRendering);
         expect(modules.localYomuDeck).toBe(localYomuDeck);
@@ -50,6 +58,19 @@ describe('aggregate runtime implementation sharing', () => {
 
     it('fails closed when the required aggregate runtime did not register its Modules', () => {
         Reflect.deleteProperty(globalThis, AGGREGATE_RUNTIME_MODULES_SLOT);
+
+        expect(() => aggregateRuntimeModules()).toThrow('aggregate runtime Modules are not installed');
+    });
+
+    it('fails closed when the runtime publishes only part of the deinflection contract', () => {
+        const modules = aggregateRuntimeModules();
+        Object.defineProperty(globalThis, AGGREGATE_RUNTIME_MODULES_SLOT, {
+            configurable: true,
+            value: {
+                ...modules,
+                deinflection: { deinflectJapaneseTerm: modules.deinflection.deinflectJapaneseTerm },
+            },
+        });
 
         expect(() => aggregateRuntimeModules()).toThrow('aggregate runtime Modules are not installed');
     });
@@ -78,26 +99,36 @@ describe('aggregate runtime implementation sharing', () => {
             'utf8',
         );
         const viteConfig = readFileSync(path.join(repoRoot, 'vite.config.ts'), 'utf8');
+        const readerMain = readFileSync(path.join(repoRoot, 'src/reader/app/main.ts'), 'utf8');
+        const studyRuntime = readFileSync(path.join(repoRoot, 'src/reader/newtab/runtime.ts'), 'utf8');
 
         expect(aggregateEntry.trimEnd()).toMatch(/import '.\/register-aggregate-runtime-modules';$/u);
         for (const facade of [
             'index-companion.ts',
+            'deinflect-companion.ts',
             'token-text-rendering-companion.ts',
             'local-yomu-deck-companion.ts',
             'handle-drag-companion.ts',
         ]) expect(viteConfig).toContain(facade);
         expect(viteConfig).toContain("alias['./token-text-rendering']");
+        expect(viteConfig).toContain("alias['./deinflect']");
         expect(viteConfig).toContain("alias['../dom/token-text-rendering']");
         expect(viteConfig).toContain("alias['./local-yomu-deck']");
         expect(viteConfig).toContain("alias['./handle-drag']");
         expect(viteConfig).toContain("alias['../popup/handle-drag']");
         expect(viteConfig).toContain("alias['../settings/index']");
+        expect(readerMain).not.toMatch(/from ['"]\.\.\/locales['"]/u);
+        expect(studyRuntime).not.toMatch(/from ['"]\.\.\/locales['"]/u);
     });
 
     it('keeps every facade bound to the runtime implementation, not a second copy', async () => {
         const settingsFacade = await importRuntimeFacade<typeof settings>(
             'settings',
             'index-companion',
+        );
+        const deinflectionFacade = await importRuntimeFacade<typeof deinflection>(
+            'lookup',
+            'deinflect-companion',
         );
         const tokenFacade = await importRuntimeFacade<typeof tokenTextRendering>(
             'dom',
@@ -114,6 +145,8 @@ describe('aggregate runtime implementation sharing', () => {
 
         expect(settingsFacade.normalizeReaderSettings).toBe(settings.normalizeReaderSettings);
         expect(settingsFacade.saveSettings).toBe(settings.saveSettings);
+        expect(deinflectionFacade.deinflectJapaneseTerm).toBe(deinflection.deinflectJapaneseTerm);
+        expect(deinflectionFacade.termRulesMatch).toBe(deinflection.termRulesMatch);
         expect(tokenFacade.renderRuby).toBe(tokenTextRendering.renderRuby);
         expect(tokenFacade.inferredInflectedSurfaceRubies)
             .toBe(tokenTextRendering.inferredInflectedSurfaceRubies);
@@ -128,8 +161,9 @@ describe('aggregate runtime implementation sharing', () => {
             pitchClass: '',
         } as JPDBToken;
         const navigation = { enabled: true, label: 'Show kanji' };
-        expect(tokenFacade.renderDetachedReadings('食', representativeToken, navigation))
-            .toBe(tokenTextRendering.renderDetachedReadings('食', representativeToken, navigation));
+        const privateToken = / data-yomu-private-token="[^"]+"/gu;
+        expect(tokenFacade.renderDetachedReadings('食', representativeToken, navigation).replace(privateToken, ''))
+            .toBe(tokenTextRendering.renderDetachedReadings('食', representativeToken, navigation).replace(privateToken, ''));
         expect(deckFacade.normalizeStoredYomuSrsDeck).toBe(localYomuDeck.normalizeStoredYomuSrsDeck);
         expect(deckFacade.mergeStoredYomuSrsDecks).toBe(localYomuDeck.mergeStoredYomuSrsDecks);
         expect(dragFacade.createHandleDragController).toBe(handleDrag.createHandleDragController);

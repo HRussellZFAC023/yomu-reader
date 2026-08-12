@@ -2,6 +2,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearManagedStoredValues } from '../../src/reader/app/storage';
 import { DEFAULT_SETTINGS, deleteSettingsStorage, endSettingsResetGuard, loadSettings } from '../../src/reader/settings/index';
 
+function installMutableGmStore(store: Map<string, unknown>): void {
+    const api = {
+        GM_getValue(key: string, fallback: unknown) {
+            return store.has(key) ? store.get(key) : fallback;
+        },
+        GM_setValue(key: string, value: unknown) {
+            store.set(key, value);
+        },
+        GM_deleteValue(key: string) {
+            store.delete(key);
+        },
+        GM_listValues() {
+            return [...store.keys()];
+        },
+    };
+    Object.entries(api).forEach(([name, implementation]) => {
+        vi.stubGlobal(name, vi.fn(implementation));
+    });
+}
+
 describe('factory reset storage completeness', () => {
     beforeEach(() => {
         localStorage.clear();
@@ -40,10 +60,7 @@ describe('factory reset storage completeness', () => {
             ['__yomu_cloud_settings_sync_pending_action', { action: 'save' }],
             ['yomu:jpdb-cache:v1', { x: 1 }],
         ]);
-        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => (store.has(key) ? store.get(key) : fallback)));
-        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { store.set(key, value); }));
-        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { store.delete(key); }));
-        vi.stubGlobal('GM_listValues', vi.fn(() => [...store.keys()]));
+        installMutableGmStore(store);
 
         await clearManagedStoredValues();
 
@@ -113,10 +130,11 @@ describe('factory reset storage completeness', () => {
 
     it('clears lookup pill selections so settings return to defaults after reset', async () => {
         const customLinks = DEFAULT_SETTINGS.dictionaryLookupLinks.slice(0, 1);
-        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
-            apiKey: 'secret-123',
-            dictionaryLookupLinks: customLinks,
-        }));
+        const store = new Map<string, unknown>([[
+            'jpdb-popup-reader-settings',
+            { apiKey: 'secret-123', dictionaryLookupLinks: customLinks },
+        ]]);
+        installMutableGmStore(store);
 
         const before = await loadSettings();
         expect(before.apiKey).toBe('secret-123');
@@ -124,7 +142,7 @@ describe('factory reset storage completeness', () => {
         await clearManagedStoredValues();
         await deleteSettingsStorage();
 
-        expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
+        expect(store.has('jpdb-popup-reader-settings')).toBe(false);
         const after = await loadSettings();
         expect(after.apiKey).toBe(DEFAULT_SETTINGS.apiKey);
         expect(after.dictionaryLookupLinks.map(link => link.id).sort()).toEqual(DEFAULT_SETTINGS.dictionaryLookupLinks.map(link => link.id).sort());

@@ -3,6 +3,10 @@ import { ACADEMY_SRS_LABEL } from '../app/constants';
 import type { JPDBGrade } from '../app/types';
 import type { NewTabReviewTarget } from './review-targets';
 import { newTabAction, newTabActionSelector } from './actions';
+import {
+    bindPrivateCommandCapability,
+    readReviewTargetCapability,
+} from '../dom/private-command-capabilities';
 
 export interface NewTabLookupReviewTarget {
     id: string;
@@ -128,30 +132,36 @@ export function renderNewTabGradeControlButtons(options: RenderNewTabGradeContro
 }
 
 export function selectedNewTabMainGradeTarget(root: HTMLElement): NewTabLookupReviewTargetSelection | undefined {
+    const target = readReviewTargetCapability(selectedNewTabGradeTargetOption(root));
+    if (!target || target.target === 'both') return undefined;
+    return newTabLookupReviewTargetSelection(target);
+}
+
+function selectedNewTabGradeTargetOption(root: HTMLElement): HTMLOptionElement | null {
     const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
-    const option = select?.options[select.selectedIndex] ?? null;
-    if (!option) return undefined;
-    if (option.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
-    if (option.dataset.newtabReviewTarget === 'jiten') return { kind: 'jiten' };
-    if (option.dataset.newtabReviewTarget === 'bunpro') return { kind: 'bunpro' };
-    if (option.dataset.newtabReviewTarget === 'wanikani') return { kind: 'wanikani' };
-    if (option.dataset.newtabReviewTarget === 'yomu-local') return { kind: 'yomu-local' };
-    if (option.dataset.newtabReviewTarget !== 'anki') return undefined;
-    const ankiCardId = Number(option.dataset.ankiCardId);
-    return Number.isFinite(ankiCardId) && ankiCardId > 0
-        ? { kind: 'anki', ankiCardId }
-        : undefined;
+    if (!select) return null;
+    return select.options[select.selectedIndex] ?? null;
+}
+
+function newTabLookupReviewTargetSelection(target: NonNullable<ReturnType<typeof readReviewTargetCapability>>): NewTabLookupReviewTargetSelection {
+    if (target.target === 'anki' && target.ankiCardId) return { kind: 'anki', ankiCardId: target.ankiCardId };
+    return { kind: target.target as NewTabLookupReviewTarget['kind'] };
 }
 
 export function updateNewTabMainGradeTargetLabel(root: HTMLElement, option: HTMLOptionElement | null, bothLabel: string): void {
-    if (!option) return;
-    const label = option.dataset.newtabGradeTargetLabel ?? '';
-    const shortLabel = mainGradeTargetShortLabel(option, bothLabel);
+    const selection = readReviewTargetCapability(option);
+    if (!selection) return;
+    const label = selection.label;
+    const shortLabel = selection.shortLabel || bothLabel;
+    updateNewTabGradeTargetText(root, label, shortLabel);
+    updateMainGradeButtonLabels(root, label);
+}
+
+function updateNewTabGradeTargetText(root: HTMLElement, label: string, shortLabel: string): void {
     const target = root.querySelector<HTMLElement>('[data-newtab-grade-target]');
     const text = target?.querySelector<HTMLElement>('[data-newtab-grade-target-text]');
     if (target) target.setAttribute('aria-label', label || shortLabel);
     if (text) text.textContent = shortLabel;
-    updateMainGradeButtonLabels(root, label);
 }
 
 function newTabMainGradeTargetOptionFromLookupTarget(target: NewTabLookupReviewTarget): NewTabMainGradeTargetOption {
@@ -208,7 +218,11 @@ function renderNewTabMainGradeTargetSelector(options: NewTabMainGradeTargetOptio
         class: 'jpdb-reader-newtab-grade-target-select',
         dataset: { newtabGradeTargetSelector: true, newtabGradeTargetSelect: true },
         'aria-label': selectorLabel,
-    }, ...options.map((option, index) => el('option', {
+    }, ...options.map((option, index) => privateReviewTargetOption(option, index)));
+}
+
+function privateReviewTargetOption(option: NewTabMainGradeTargetOption, index: number): HTMLOptionElement {
+    const element = el('option', {
             value: option.id,
             selected: index === 0,
             title: option.label,
@@ -218,7 +232,16 @@ function renderNewTabMainGradeTargetSelector(options: NewTabMainGradeTargetOptio
                 newtabGradeTargetShortLabel: option.shortLabel,
                 ...(option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}),
             },
-        }, option.shortLabel)));
+        }, option.shortLabel) as HTMLOptionElement;
+    bindPrivateCommandCapability(element, {
+        kind: 'review-target',
+        target: option.kind,
+        gradeProfile: 'standard',
+        label: option.label,
+        shortLabel: option.shortLabel,
+        ankiCardId: option.ankiCardId,
+    });
+    return element;
 }
 
 function renderNewTabGradeButton(
@@ -229,12 +252,12 @@ function renderNewTabGradeButton(
     keyHint?: string,
     showShortcutHints = true,
 ): HTMLButtonElement {
-    const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || '';
-    const aria = [label, intervalLabel].filter(Boolean).join(', ');
-    const title = [targetLabel, interval?.label || intervalLabel].filter(Boolean).join(' · ');
-    return el('button', {
+    const intervalText = gradeIntervalText(interval);
+    const aria = [label, intervalText.button].filter(Boolean).join(', ');
+    const title = [targetLabel, intervalText.title].filter(Boolean).join(' · ');
+    const button = el('button', {
         type: 'button',
-        dataset: { newtabAction: newTabAction('grade'), grade, ...(intervalLabel ? { gradeInterval: intervalLabel } : {}) },
+        dataset: { newtabAction: newTabAction('grade'), grade, ...(intervalText.button ? { gradeInterval: intervalText.button } : {}) },
         title,
         'aria-label': `${aria}: ${targetLabel}`,
     },
@@ -242,7 +265,26 @@ function renderNewTabGradeButton(
     // jpdb.io/Jiten parity: both advertise their grading keys on the controls.
     // UT-54: touch-only devices never render the hint at all (the CSS
     // pointer:coarse rule stays as a belt for hybrid devices).
-    keyHint?.trim() && newTabKeyHintsRenderable(showShortcutHints) ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, keyHint.trim()) : null);
+    gradeKeyHint(keyHint, showShortcutHints)) as HTMLButtonElement;
+    bindPrivateCommandCapability(button, { kind: 'card-action', action: 'grade', grade });
+    return button;
+}
+
+function gradeIntervalText(interval: { buttonLabel?: string; intervalLabel?: string; label?: string } | undefined): { button: string; title: string } {
+    if (!interval) return { button: '', title: '' };
+    const button = gradeIntervalButtonText(interval);
+    return { button, title: interval.label || button };
+}
+
+function gradeIntervalButtonText(interval: { buttonLabel?: string; intervalLabel?: string }): string {
+    return interval.buttonLabel || interval.intervalLabel || '';
+}
+
+function gradeKeyHint(keyHint: string | undefined, showShortcutHints: boolean): HTMLElement | null {
+    const hint = keyHint?.trim() ?? '';
+    return hint && newTabKeyHintsRenderable(showShortcutHints)
+        ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, hint)
+        : null;
 }
 
 export function newTabKeyHintsRenderable(showShortcutHints = true): boolean {
@@ -255,10 +297,6 @@ export function newTabKeyHintsRenderable(showShortcutHints = true): boolean {
     } catch {
         return true;
     }
-}
-
-function mainGradeTargetShortLabel(option: HTMLOptionElement, fallback: string): string {
-    return option.dataset.newtabGradeTargetShortLabel || option.textContent?.trim() || fallback;
 }
 
 function visibleGradeTargetLabel(label: string): string {

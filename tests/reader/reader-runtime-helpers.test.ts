@@ -4,6 +4,7 @@ import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, NEW_TAB_PAGE_URL, OPEN_SETTI
 import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
+import { publishSettingsChange } from '../../src/reader/settings/settings-change-bus';
 import {
     AUTO_SCAN_MIN_INTERVAL_MS,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
@@ -19,6 +20,7 @@ import {
 } from '../../src/reader/app/main-helpers';
 import { normalizedNestedParseOptions } from '../../src/reader/app/main-lookup-helpers';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
+import { isHostedYomuOrigin } from '../../src/reader/app/storage';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -77,6 +79,24 @@ describe('pauseActiveVideo', () => {
 });
 
 describe('reader runtime helpers', () => {
+    it('does not grant hosted storage authority to an unrelated localhost app', () => {
+        vi.stubGlobal('location', {
+            href: 'http://localhost:9999/study/',
+            hostname: 'localhost',
+            origin: 'http://localhost:9999',
+            pathname: '/study/',
+        });
+        expect(isHostedYomuOrigin()).toBe(false);
+
+        vi.stubGlobal('location', {
+            href: 'http://localhost:5174/study/',
+            hostname: 'localhost',
+            origin: 'http://localhost:5174',
+            pathname: '/study/',
+        });
+        expect(isHostedYomuOrigin()).toBe(true);
+    });
+
     it('keeps hosted pages out of onboarding', () => {
         expect(shouldShowReaderOnboarding(true, 'https://hrussellzfac023.github.io/yomu-reader/')).toBe(false);
         expect(shouldShowReaderOnboarding(true, 'https://example.com/article')).toBe(true);
@@ -244,6 +264,12 @@ describe('reader runtime helpers', () => {
     });
 
     it('routes runtime custom events through the supplied ReaderApp callbacks', () => {
+        vi.stubGlobal('location', {
+            href: 'https://yomureader.com/video-player/',
+            hostname: 'yomureader.com',
+            origin: 'https://yomureader.com',
+            pathname: '/video-player/',
+        });
         const controller = new AbortController();
         const settings = { ...DEFAULT_SETTINGS, theme: 'dark' as const };
         const showSettings = vi.fn();
@@ -267,6 +293,8 @@ describe('reader runtime helpers', () => {
         window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'anki' } }));
         window.dispatchEvent(new CustomEvent(INTERFACE_LANGUAGE_CHANGE_EVENT, { detail: { interfaceLanguage: 'ja' } }));
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: 'light' } } }));
+        expect(settings.theme).toBe('light');
+        publishSettingsChange({ settings: { theme: 'light' } });
         window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
         controller.abort();
 
@@ -279,6 +307,76 @@ describe('reader runtime helpers', () => {
         // it on, so the mirroring write declares it.
         expect(saveSettings).toHaveBeenCalledWith(settings, ['theme']);
         expect(clearBridgeCaches).toHaveBeenCalled();
+    });
+
+    it('does not let an arbitrary host open settings or persist appearance through forged events', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=test',
+            hostname: 'www.youtube.com',
+            origin: 'https://www.youtube.com',
+            pathname: '/watch',
+        });
+        const controller = new AbortController();
+        const setInterfaceLanguage = vi.fn();
+        const showSettings = vi.fn();
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        bindReaderRuntimeEvents({
+            applyTheme: () => undefined,
+            clearBridgeCaches: () => undefined,
+            getSettings: () => DEFAULT_SETTINGS,
+            isDestroyed: () => false,
+            saveSettings,
+            setInterfaceLanguage,
+            setSettings: () => undefined,
+            showSettings,
+        }, controller.signal);
+
+        window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'providers' } }));
+        window.dispatchEvent(new CustomEvent(INTERFACE_LANGUAGE_CHANGE_EVENT, {
+            detail: { interfaceLanguage: 'ja' },
+        }));
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: { settings: { theme: 'dark' } },
+        }));
+
+        expect(showSettings).not.toHaveBeenCalled();
+        expect(setInterfaceLanguage).not.toHaveBeenCalled();
+        expect(saveSettings).not.toHaveBeenCalled();
+        controller.abort();
+    });
+
+    it('keeps full settings sandbox-private and exposes only hosted appearance fields', () => {
+        let publicDetail: unknown;
+        const capture = (event: Event): void => {
+            publicDetail = (event as CustomEvent).detail;
+        };
+        window.addEventListener(SETTINGS_CHANGE_EVENT, capture, { once: true });
+        publishSettingsChange({
+            settings: { ...DEFAULT_SETTINGS, apiKey: 'never-page-visible', jitenApiKey: 'also-private' },
+        });
+        expect(publicDetail).toEqual({ preview: false, remote: false, settings: {} });
+
+        vi.stubGlobal('location', {
+            href: 'https://yomureader.com/',
+            hostname: 'yomureader.com',
+            origin: 'https://yomureader.com',
+            pathname: '/',
+        });
+        window.addEventListener(SETTINGS_CHANGE_EVENT, capture, { once: true });
+        publishSettingsChange({
+            settings: {
+                accentColor: '#5ea780',
+                apiKey: 'never-page-visible',
+                interfaceLanguage: 'ja',
+                jitenApiKey: 'also-private',
+                theme: 'dark',
+            },
+        });
+        expect(publicDetail).toEqual({
+            preview: false,
+            remote: false,
+            settings: { accentColor: '#5ea780', interfaceLanguage: 'ja', theme: 'dark' },
+        });
     });
 
     it('warms Anki status on an idle callback after startup delay', async () => {

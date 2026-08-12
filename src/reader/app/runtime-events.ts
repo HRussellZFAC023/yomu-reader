@@ -7,10 +7,16 @@ import {
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { addWindowEventListener } from '../platform/window-events';
+import { subscribeToSettingsChanges, type SettingsChangeDetail } from '../settings/settings-change-bus';
+import { isHostedYomuOrigin } from './storage';
+import { isRecord } from '../core/object-utils';
 
 type InterfaceLanguageChangeDetail = Partial<{ language: unknown; interfaceLanguage: unknown }>;
 type OpenSettingsEventDetail = Partial<{ panel: unknown; tab: unknown }>;
-type SettingsChangeEventDetail = Partial<{ preview: unknown; settings: Partial<{ theme: unknown }> }>;
+interface HostedPublicSettingsChangeRecords {
+    detail: Record<string, unknown>;
+    settings: Record<string, unknown>;
+}
 
 export interface ReaderRuntimeEventHandlers {
     applyTheme: () => void;
@@ -32,17 +38,22 @@ export function bindReaderRuntimeEvents(
 ): void {
     addWindowEventListener(OPEN_SETTINGS_EVENT, event => {
         if (handlers.isDestroyed()) return;
+        if (!isHostedYomuOrigin()) return;
         handlers.showSettings(openSettingsPanelDetail((event as CustomEvent<OpenSettingsEventDetail>).detail));
     }, { signal });
 
     addWindowEventListener(INTERFACE_LANGUAGE_CHANGE_EVENT, event => {
         if (handlers.isDestroyed()) return;
+        if (!isHostedYomuOrigin()) return;
         const language = interfaceLanguageChangeDetail((event as CustomEvent<InterfaceLanguageChangeDetail>).detail);
         if (language) void handlers.setInterfaceLanguage(language);
     }, { signal });
 
+    subscribeToSettingsChanges(detail => handleSettingsChange(handlers, detail), signal);
     addWindowEventListener(SETTINGS_CHANGE_EVENT, event => {
-        handleSettingsChangeEvent(handlers, event as CustomEvent<SettingsChangeEventDetail>);
+        if (handlers.isDestroyed() || !isHostedYomuOrigin()) return;
+        const detail = hostedPublicSettingsChangeDetail((event as CustomEvent).detail);
+        if (detail) handleSettingsChange(handlers, detail);
     }, { signal });
 
     addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
@@ -50,12 +61,29 @@ export function bindReaderRuntimeEvents(
     }, { signal });
 }
 
-function handleSettingsChangeEvent(
+function hostedPublicSettingsChangeDetail(value: unknown): SettingsChangeDetail | null {
+    const records = hostedPublicSettingsChangeRecords(value);
+    if (!records) return null;
+    const theme = settingsThemeValue(records.settings.theme);
+    if (!theme) return null;
+    return {
+        settings: { theme },
+        preview: records.detail.preview === true,
+        remote: records.detail.remote === true,
+    };
+}
+
+function hostedPublicSettingsChangeRecords(value: unknown): HostedPublicSettingsChangeRecords | null {
+    if (!isRecord(value)) return null;
+    if (!isRecord(value.settings)) return null;
+    return { detail: value, settings: value.settings };
+}
+
+function handleSettingsChange(
     handlers: ReaderRuntimeEventHandlers,
-    event: CustomEvent<SettingsChangeEventDetail>,
+    detail: SettingsChangeDetail,
 ): void {
     if (handlers.isDestroyed()) return;
-    const detail = event.detail;
     const settings = handlers.getSettings();
     adoptChosenLearningTarget(settings);
     applyChangedTheme(handlers, settings, detail);
@@ -71,7 +99,7 @@ function adoptChosenLearningTarget(settings: ReaderSettings): void {
 function applyChangedTheme(
     handlers: ReaderRuntimeEventHandlers,
     settings: ReaderSettings,
-    detail: SettingsChangeEventDetail | undefined,
+    detail: SettingsChangeDetail,
 ): void {
     const theme = settingsThemeChangeDetail(detail);
     if (!theme) return;
@@ -87,9 +115,9 @@ function applyChangedTheme(
 function persistChangedTheme(
     handlers: ReaderRuntimeEventHandlers,
     settings: ReaderSettings,
-    detail: SettingsChangeEventDetail | undefined,
+    detail: SettingsChangeDetail,
 ): void {
-    if (detail?.preview === true) return;
+    if (detail.preview === true) return;
     void handlers.saveSettings(settings, ['theme']);
 }
 
@@ -103,7 +131,10 @@ function openSettingsPanelDetail(detail: OpenSettingsEventDetail | undefined): s
     return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-function settingsThemeChangeDetail(detail: SettingsChangeEventDetail | undefined): ReaderSettings['theme'] | null {
-    const value = detail?.settings?.theme;
+function settingsThemeChangeDetail(detail: SettingsChangeDetail): ReaderSettings['theme'] | null {
+    return settingsThemeValue(detail.settings.theme);
+}
+
+function settingsThemeValue(value: unknown): ReaderSettings['theme'] | null {
     return value === 'auto' || value === 'dark' || value === 'light' ? value : null;
 }

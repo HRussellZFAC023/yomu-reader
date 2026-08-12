@@ -3,6 +3,7 @@ import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
 import type { LanguageTag, TextDirection } from '../languages/types';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 export interface StudyTextMetadata {
     lang: LanguageTag;
@@ -52,7 +53,8 @@ export function renderStudyList(items: string[], attrs = ''): string {
 export function renderStudySentenceAudioButton(language: InterfaceLanguage, options: StudySentenceAudioOptions): string {
     const readSentence = uiText(language, options.audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
     const sentenceAttr = options.sentence ? ` data-study-sentence="${escapeHtml(options.sentence)}"` : '';
-    return `<button class="jpdb-reader-icon-mini" data-action="study-read-sentence"${sentenceAttr} type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${options.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>`;
+    const capability = privateCommandAttributes({ kind: 'card-action', action: 'study-read-sentence', sentence: options.sentence });
+    return `<button class="jpdb-reader-icon-mini" data-action="study-read-sentence"${sentenceAttr}${capability} type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${options.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>`;
 }
 
 function studyBlockClassName(className: string): string {

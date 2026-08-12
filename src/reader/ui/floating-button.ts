@@ -19,6 +19,7 @@ import {
     type RadialAction,
 } from './radial-menu';
 import type { OcrInteractionMode } from '../ocr/mode';
+import { isTrustedReaderInteraction } from './trusted-interaction';
 import {
     applyOverlayPageScale,
     hasOverlayPageScale,
@@ -294,6 +295,7 @@ export class FloatingButtonController {
         });
         this.installDragHandlers(button);
         button.addEventListener('click', event => {
+            if (!isTrustedReaderInteraction(event)) return;
             if (button.dataset.jpdbReaderMoved === 'true') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -442,6 +444,7 @@ export class FloatingButtonController {
             dragFrame = dragFramePending ? frame : undefined;
         };
         button.addEventListener('pointerdown', event => {
+            if (!isTrustedReaderInteraction(event)) return;
             if (event.button !== 0) return;
             dragging = true;
             moved = false;

@@ -50,11 +50,62 @@ function signalValue(id: string, overrides: Partial<ReturnType<typeof cardStateS
 }
 
 function emitStoredSignal(values: Map<string, unknown>, listener: GmListener, value: unknown, remote: boolean): void {
-    values.set('yomu:card-state-signal', value);
-    listener('yomu:card-state-signal', undefined, value, remote);
+    values.set('yomu:private:card-state-signal:v1', value);
+    listener('yomu:private:card-state-signal:v1', undefined, value, remote);
+}
+
+class FakeBroadcastChannel {
+    static instances: FakeBroadcastChannel[] = [];
+    readonly postMessage = vi.fn();
+    readonly close = vi.fn();
+    onmessage: ((event: MessageEvent) => void) | null = null;
+
+    constructor(readonly name: string) {
+        FakeBroadcastChannel.instances.push(this);
+    }
 }
 
 describe('card state signal bus', () => {
+    it('never constructs, posts, or receives BroadcastChannel data offhost while private GM updates still apply', async () => {
+        FakeBroadcastChannel.instances = [];
+        vi.stubGlobal('location', { href: 'https://www.youtube.com/watch?v=hostile' });
+        vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+        const { listeners, values } = stubGmValueChange();
+        const received: JPDBCard[] = [];
+        const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
+
+        publishCardStateSignal(card({ sourceDeckName: 'Private deck' }));
+        expect(FakeBroadcastChannel.instances).toHaveLength(0);
+
+        emitStoredSignal(values, [...listeners.values()][0]!, signalValue('private-gm'), true);
+        await vi.waitFor(() => expect(received).toHaveLength(1));
+        expect(received[0]?.spelling).toBe('日本語');
+        expect(FakeBroadcastChannel.instances).toHaveLength(0);
+        unsubscribe();
+    });
+
+    it('uses BroadcastChannel only on an exact owned Study surface', async () => {
+        FakeBroadcastChannel.instances = [];
+        vi.stubGlobal('location', { href: 'https://yomureader.com/study/' });
+        vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+        stubGmValueChange();
+        const received: JPDBCard[] = [];
+        const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
+        const listenerChannel = FakeBroadcastChannel.instances[0]!;
+        expect(listenerChannel.name).toBe('yomu:card-state');
+
+        publishCardStateSignal(card());
+        const publisherChannel = FakeBroadcastChannel.instances[1]!;
+        expect(publisherChannel.name).toBe('yomu:card-state');
+        expect(publisherChannel.postMessage).toHaveBeenCalledOnce();
+        expect(publisherChannel.close).toHaveBeenCalledOnce();
+
+        listenerChannel.onmessage?.({ data: signalValue('trusted-broadcast') } as MessageEvent);
+        await vi.waitFor(() => expect(received).toHaveLength(1));
+        unsubscribe();
+        expect(listenerChannel.close).toHaveBeenCalledOnce();
+    });
+
     it('delivers remote GM signals as reconstructed cards and ignores same-tab echoes and duplicates', async () => {
         const { listeners, values } = stubGmValueChange();
         const received: JPDBCard[] = [];

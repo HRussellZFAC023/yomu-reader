@@ -1,6 +1,7 @@
 import { isRecord } from '../../core/object-utils';
 import { isJapaneseKanjiCharacter } from '../../lookup/japanese-script';
 import { glossaryValueToText } from './glossary-text';
+import { privateCommandAttributes } from '../../dom/private-command-capabilities';
 
 export interface GlossaryRenderOptions {
     internalSearchLinks?: boolean;
@@ -350,7 +351,9 @@ function structuredLinkAttrs(link: StructuredLinkModel, dictionary: string, lang
 }
 
 function kanjiReferenceActionAttribute(link: StructuredLinkModel): string {
-    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : '';
+    if (!link.kanjiReference) return '';
+    const kanji = link.kanjiReference.kanji;
+    return ` data-action="kanji" data-kanji="${escapeHtml(kanji)}"${privateCommandAttributes({ kind: 'kanji-lookup', kanji })}`;
 }
 
 function dictionaryAttribute(dictionary: string): string {

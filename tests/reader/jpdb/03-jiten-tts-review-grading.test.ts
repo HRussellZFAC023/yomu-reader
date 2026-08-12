@@ -33,6 +33,8 @@ import {
     renderTokensToHtml,
     testCardActionController,
     testCardPopoverRenderer,
+    testJitenAudioActionController,
+    performTestJitenAudioAction,
     testReviewGradeController,
     tokenSpellings,
     withFakeSegmenter,
@@ -42,29 +44,30 @@ import type {
     JPDBToken,
     JitenApiClient,
 } from './fixtures';
+import { bindPrivateCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
 
 registerReaderHelpersCleanup();
 
+async function performJitenSentenceAudio(controller: ReturnType<typeof testCardActionController>): Promise<void> {
+    await expect(controller.perform({
+        kind: 'card-action',
+        action: 'jiten-audio',
+        jitenSentenceId: 803776181,
+        sentence: 'やがて、塗布も終えたのか。',
+    }, document.createElement('button'), card)).resolves.toBe(false);
+}
+
 describe('reader helpers', () => {
     it('plays Jiten sentence TTS by sentence id using the selected Jiten voice', async () => {
-        const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true);
-        const playSentenceAudio = vi.fn(async () => undefined);
-        const controller = testCardActionController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
+        const { controller, playMediaUrl, playSentenceAudio } = testJitenAudioActionController({
+            settings: {
                 audioSources: [
                     { type: 'jiten-tts', url: '', voice: 'asmr', enabled: true },
                     { type: 'text-to-speech', url: '', voice: '', enabled: true },
                 ],
-            }),
-            playMediaUrl,
-            playSentenceAudio,
+            },
         });
-        const button = document.createElement('button');
-        button.dataset.jitenSentenceId = '803776181';
-        button.dataset.studySentence = 'やがて、塗布も終えたのか。';
-
-        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+        await performJitenSentenceAudio(controller);
 
         expect(playMediaUrl).toHaveBeenCalledTimes(1);
         expect(playMediaUrl).toHaveBeenCalledWith('https://api.jiten.moe/api/tts/sentence/803776181?voice=asmr');
@@ -89,7 +92,7 @@ describe('reader helpers', () => {
         button.dataset.jitenReadingIndex = '0';
         button.dataset.studySentence = '終える';
 
-        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+        await expect(controller.perform({ kind: 'card-action', action: 'jiten-audio', jitenWordId: 1332760, jitenReadingIndex: 0, sentence: '終える' }, button, card)).resolves.toBe(false);
 
         expect(playMediaUrl).toHaveBeenCalledTimes(1);
         expect(playMediaUrl).toHaveBeenCalledWith('https://api.jiten.moe/api/tts/word/1332760/0?voice=female2');
@@ -98,22 +101,15 @@ describe('reader helpers', () => {
 
     it('tries random Jiten sentence voices before generic sentence TTS', async () => {
         const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => false);
-        const playSentenceAudio = vi.fn(async () => undefined);
-        const controller = testCardActionController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
+        const { controller, playSentenceAudio } = testJitenAudioActionController({
+            playMediaUrl,
+            settings: {
                 audioSources: [
                     { type: 'jiten-tts', url: '', voice: '', enabled: true },
                 ],
-            }),
-            playMediaUrl,
-            playSentenceAudio,
+            },
         });
-        const button = document.createElement('button');
-        button.dataset.jitenSentenceId = '803776181';
-        button.dataset.studySentence = 'やがて、塗布も終えたのか。';
-
-        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+        await performJitenSentenceAudio(controller);
 
         expect(playMediaUrl).toHaveBeenCalledTimes(5);
         expect(playMediaUrl.mock.calls.map(([url]) => url)).toEqual([
@@ -130,19 +126,8 @@ describe('reader helpers', () => {
         const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true)
             .mockRejectedValueOnce(new Error('primary failed'))
             .mockRejectedValueOnce(new Error('backup failed'));
-        const playSentenceAudio = vi.fn(async () => undefined);
-        const controller = testCardActionController({
-            playMediaUrl,
-            playSentenceAudio,
-        });
-        const button = document.createElement('button');
-        button.dataset.jitenAudioUrls = JSON.stringify([
-            'https://audio.example.test/primary.mp3',
-            'https://audio.example.test/backup.mp3',
-        ]);
-        button.dataset.studySentence = '訓むこともある。';
-
-        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+        const { controller, playSentenceAudio } = testJitenAudioActionController({ playMediaUrl });
+        await performTestJitenAudioAction(controller);
 
         expect(playMediaUrl).toHaveBeenCalledTimes(2);
         expect(playSentenceAudio).toHaveBeenCalledWith('訓むこともある。');
@@ -190,7 +175,7 @@ describe('reader helpers', () => {
         const button = document.createElement('button');
         button.dataset.action = 'grade-provider-toggle';
 
-        await expect(controller.perform('grade-provider-toggle', button, sourceCard, '本を読む。')).resolves.toBe(false);
+        await expect(controller.perform({ kind: 'card-action', action: 'grade-provider-toggle' }, button, sourceCard, '本を読む。')).resolves.toBe(false);
 
         expect(parse).toHaveBeenCalledWith(['読む']);
         expect(setApiGradingProvider).toHaveBeenCalledWith('jpdb');
@@ -310,7 +295,7 @@ describe('reader helpers', () => {
         button.dataset.deckId = 'forq';
         const lockedCard: JPDBCard = { ...card, cardState: ['locked'] };
 
-        await expect(controller.perform('add', button, lockedCard, '食べる。')).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jpdb', deckId: 'forq' }, button, lockedCard, '食べる。')).resolves.toBe(true);
 
         expect(addToDeck).toHaveBeenCalledWith('forq', lockedCard, '食べる。');
         expect(toast).toHaveBeenCalledWith('Added to JPDB.');
@@ -331,6 +316,7 @@ describe('reader helpers', () => {
             renderDefinitionSources: () => '',
             dictionarySourceAttributes: () => '',
             dictionaryLabel: name => name,
+            accountDataSurfaceTrusted: () => true,
         });
         const html = renderer.render(jitenTestCard(), '本を読みます。', 'modal', emptyCardRenderData({
             jitenDecks: [{ id: '12', name: 'Mining' }],
@@ -521,9 +507,9 @@ describe('reader helpers', () => {
         button.dataset.deckId = '12';
         const jitenCard = jitenTestCard();
 
-        await expect(controller.perform('add', button, jitenCard, '本を読みます。')).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jiten', deckId: '12' }, button, jitenCard, '本を読みます。')).resolves.toBe(true);
         await expect(controller.reviewGrade('pass', jitenCard, '本を読みます。')).resolves.toBeUndefined();
-        await expect(controller.perform('neverforget', document.createElement('button'), jitenCard)).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'neverforget' }, document.createElement('button'), jitenCard)).resolves.toBe(true);
 
         expect(addToStudyDeck).toHaveBeenCalledWith('12', jitenCard, '本を読みます。', 'Example Page');
         expect(reviewCard).toHaveBeenCalledWith(jitenCard, 'pass');
@@ -577,7 +563,7 @@ describe('reader helpers', () => {
         button.dataset.action = 'add';
         button.dataset.deckSource = 'bunpro';
 
-        await expect(controller.perform('add', button, { ...bunproCard, cardState: ['not-in-deck'] }, 'ご飯を食べる。')).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'bunpro' }, button, { ...bunproCard, cardState: ['not-in-deck'] }, 'ご飯を食べる。')).resolves.toBe(true);
         await expect(controller.reviewGrade('okay', bunproCard, 'ご飯を食べる。', { target: 'bunpro' })).resolves.toBeUndefined();
 
         expect(mine).toHaveBeenCalledWith(expect.objectContaining({
@@ -639,7 +625,7 @@ describe('reader helpers', () => {
         button.dataset.action = 'add';
         button.dataset.deckSource = 'bunpro';
 
-        await expect(controller.perform('add', button, pageCard, 'ご飯を食べる。')).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'bunpro' }, button, pageCard, 'ご飯を食べる。')).resolves.toBe(true);
         expect(mine).toHaveBeenCalledWith(expect.objectContaining({
             expression: '食べる',
             reading: 'たべる',
@@ -688,7 +674,7 @@ describe('reader helpers', () => {
         button.dataset.action = 'add';
         button.dataset.deckSource = 'yomu-local';
 
-        await expect(controller.perform('add', button, localCard, 'ご飯を食べる。')).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'yomu-local' }, button, localCard, 'ご飯を食べる。')).resolves.toBe(true);
         await expect(controller.reviewGrade('okay', localCard, 'ご飯を食べる。', { target: 'yomu-local' })).resolves.toBeUndefined();
 
         expect(mine).toHaveBeenCalledWith(expect.objectContaining({
@@ -739,7 +725,7 @@ describe('reader helpers', () => {
         button.dataset.deckSource = 'jiten';
         button.dataset.deckId = '12';
 
-        await expect(controller.perform('add', button, jitenTestCard(), '本を読みます。')).resolves.toBe(true);
+        await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jiten', deckId: '12' }, button, jitenTestCard(), '本を読みます。')).resolves.toBe(true);
 
         const message = String(toast.mock.calls.at(-1)?.[0] ?? '');
         expect(message).toContain('Added to Jiten.');
@@ -973,6 +959,7 @@ describe('reader helpers', () => {
         `;
         document.body.append(popover);
         const kanjiButton = popover.querySelector<HTMLButtonElement>('[data-action="kanji"]')!;
+        bindPrivateCommandCapability(kanjiButton, { kind: 'kanji-lookup', kanji: '読' });
         const trace = popover.querySelector<HTMLButtonElement>('[data-doodle-trace]')!;
         const anchor = document.createElement('span');
         const showKanjiCard = vi.fn(async () => undefined);
@@ -1218,7 +1205,7 @@ describe('reader helpers', () => {
         document.body.innerHTML = renderTokensToHtml('計量する', tokens, DEFAULT_SETTINGS);
         const renderedWord = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(renderedWord.classList.contains('jpdb-not-in-deck')).toBe(true);
-        expect(renderedWord.classList.contains('local-not-in-deck')).toBe(true);
+        expect(renderedWord.classList.contains('local-not-in-deck')).toBe(false);
         expect(renderedWord.classList.contains('jpdb-pitch-heiban')).toBe(true);
     });
 
@@ -1267,7 +1254,7 @@ describe('reader helpers', () => {
             const contentWords = renderedWords.filter(word => !word.classList.contains('jpdb-reader-particle'));
             expect(contentWords).toHaveLength(2);
             expect(contentWords.every(word => word.classList.contains('jpdb-not-in-deck'))).toBe(true);
-            expect(contentWords.every(word => word.classList.contains('fallback-not-in-deck'))).toBe(true);
+            expect(contentWords.every(word => !word.classList.contains('fallback-not-in-deck'))).toBe(true);
             expect(contentWords.every(word => word.classList.contains('jpdb-pitch-unknown'))).toBe(true);
         });
     });

@@ -1838,13 +1838,14 @@ describe('Anki rendered card details', () => {
         });
         const lookup: AnkiLookupResult = { state: 'due', primary: word, notes: [word, kanji], trusted: true };
         const container = document.createElement('div');
-        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings());
+        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings(), { trustedAccountDataSurface: true });
 
         const summary = container.querySelector<HTMLElement>('.jpdb-reader-anki-match-summary');
-        expect(summary?.textContent).toContain('Vocab 2k · Core 2k · Word');
-        expect(summary?.textContent).toContain('RRTK · RRTK Recognition · Kanji');
-        expect(summary?.textContent).toContain('Due');
-        expect(summary?.textContent).toContain('New');
+        expect(summary).not.toBeNull();
+        expect(summary!.textContent).toContain('Vocab 2k · Core 2k · Word');
+        expect(summary!.textContent).toContain('RRTK · RRTK Recognition · Kanji');
+        expect(summary!.textContent).toContain('Due');
+        expect(summary!.textContent).toContain('New');
     });
 
     it('threads persisted collapse state through the Anki section and per-deck cards', () => {
@@ -1854,6 +1855,7 @@ describe('Anki rendered card details', () => {
         const container = document.createElement('div');
         container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings(), {
             sourceAttributes: (key, open) => `data-source-state-key="${key}" data-source-initial-open="${String(open ?? true)}"${(open ?? true) ? ' open' : ''}`,
+            trustedAccountDataSurface: true,
         });
 
         const section = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing');
@@ -1881,15 +1883,17 @@ describe('Anki rendered card details', () => {
         });
         const lookup: AnkiLookupResult = { state: 'known', primary: newMatch, notes: [newMatch, knownMatch], trusted: true };
         const container = document.createElement('div');
-        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings());
+        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings(), { trustedAccountDataSurface: true });
 
         const header = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing > summary');
         const matches = container.querySelector<HTMLElement>('.jpdb-reader-anki-match-summary');
-        expect(header?.querySelector('.jpdb-reader-state-dot')?.className).toContain('anki-known');
-        expect(header?.textContent).toContain('Known');
-        expect(header?.textContent).toContain('2 matches');
-        expect(matches?.textContent).toContain('New');
-        expect(matches?.textContent).toContain('Known');
+        expect(header).not.toBeNull();
+        expect(matches).not.toBeNull();
+        expect(header!.querySelector('.jpdb-reader-state-dot')?.className).toContain('anki-known');
+        expect(header!.textContent).toContain('Known');
+        expect(header!.textContent).toContain('2 matches');
+        expect(matches!.textContent).toContain('New');
+        expect(matches!.textContent).toContain('Known');
     });
 });
 

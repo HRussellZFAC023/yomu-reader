@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard } from '../../src/reader/app/types';
-import { renderTokensToHtml } from '../../src/reader/dom/index';
+import { renderTokensToHtml, setInnerHtml } from '../../src/reader/dom/index';
+import { registerRenderedWordPrivateState } from '../../src/reader/dom/rendered-word-private-state';
 import {
     applyLocalYomuSrsStateToRenderedWord,
     fallbackVocabularySpanCacheKey,
@@ -9,6 +10,10 @@ import {
     renderedFallbackVocabularyCacheKey,
     setRenderedWordCardIdentity,
 } from '../../src/reader/dom/rendered-word-state';
+
+beforeEach(() => {
+    vi.stubGlobal('location', { href: 'https://yomureader.com/study/' });
+});
 
 describe('rendered word card identity', () => {
     it('keeps fallback resolution cache identities occurrence-scoped', () => {
@@ -24,8 +29,7 @@ describe('rendered word card identity', () => {
         expect(first).not.toBe(second);
 
         const word = document.createElement('span');
-        word.dataset.vid = String(card.vid);
-        word.dataset.sid = String(card.sid);
+        registerRenderedWordPrivateState(word, { vid: String(card.vid), sid: String(card.sid) });
         word.dataset.expression = card.spelling;
         word.dataset.tokenStart = '8';
         word.dataset.tokenEnd = '13';
@@ -168,6 +172,7 @@ describe('rendered word card identity', () => {
         word.className = 'jpdb-reader-word jpdb-learning bunpro-learning';
         word.dataset.cardState = 'learning';
         word.dataset.bunproState = 'learning';
+        registerRenderedWordPrivateState(word, { cardState: 'learning', bunproState: 'learning' });
 
         setRenderedWordCardIdentity(word, renderedWordCard({
             source: 'jiten',
@@ -195,6 +200,15 @@ describe('rendered word card identity', () => {
         word.dataset.readingIndex = '3';
         word.dataset.cardState = 'known';
         word.dataset.stateProvenance = 'authoritative';
+        registerRenderedWordPrivateState(word, {
+            vid: '1456360',
+            sid: '3',
+            cardSource: 'jpdb',
+            cardId: '1456360',
+            readingIndex: '3',
+            cardState: 'known',
+            stateProvenance: 'authoritative',
+        });
 
         setRenderedWordCardIdentity(word, renderedWordCard({
             source: 'jiten',
@@ -226,6 +240,13 @@ describe('rendered word card identity', () => {
         word.dataset.cardSource = 'jiten';
         word.dataset.cardState = 'not-in-deck';
         word.dataset.stateProvenance = 'authoritative';
+        registerRenderedWordPrivateState(word, {
+            vid: '1456360',
+            sid: '3',
+            cardSource: 'jiten',
+            cardState: 'not-in-deck',
+            stateProvenance: 'authoritative',
+        });
 
         setRenderedWordCardIdentity(word, renderedWordCard({
             source: 'jiten',
@@ -294,7 +315,7 @@ describe('rendered word deck styling parity', () => {
     ];
 
     it.each(deckStylingCases)('stamps $source deck membership on reader words', ({ source, deckFields }) => {
-        document.body.innerHTML = renderTokensToHtml('読む', [{
+        setInnerHtml(document.body, renderTokensToHtml('読む', [{
             card: renderedWordCard({
                 source,
                 cardState: ['in-deck'],
@@ -305,7 +326,7 @@ describe('rendered word deck styling parity', () => {
             length: 2,
             rubies: [],
             pitchClass: 'unknown',
-        }], DEFAULT_SETTINGS);
+        }], DEFAULT_SETTINGS));
 
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(word.classList.contains('yomu-deck-member')).toBe(true);
@@ -318,7 +339,7 @@ describe('rendered word deck styling parity', () => {
     });
 
     it('keeps merged Anki deck metadata on Anki deck classes', () => {
-        document.body.innerHTML = renderTokensToHtml('読む', [{
+        setInnerHtml(document.body, renderTokensToHtml('読む', [{
             card: renderedWordCard({
                 source: 'jpdb',
                 cardState: ['known'],
@@ -329,7 +350,7 @@ describe('rendered word deck styling parity', () => {
             length: 2,
             rubies: [],
             pitchClass: 'unknown',
-        }], DEFAULT_SETTINGS);
+        }], DEFAULT_SETTINGS));
 
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(word.classList.contains('anki-deck-member')).toBe(true);

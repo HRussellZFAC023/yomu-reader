@@ -31,8 +31,19 @@ import { canvasMirrorTurnToken } from '../../src/reader/ocr/canvas-mirror';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { waitForExpect } from './test-utils';
+import { privateRasterImageForHost } from '../../src/reader/ocr/private-raster-presenter';
 
 const EPOCH_ATTR = 'data-yomu-mirror-epoch';
+
+function privateCanvasFrames(): HTMLImageElement[] {
+    return [...document.querySelectorAll('.jpdb-ocr-canvas-frame')]
+        .map(privateRasterImageForHost)
+        .filter((image): image is HTMLImageElement => Boolean(image));
+}
+
+function privateCanvasFrame(): HTMLImageElement | null {
+    return privateCanvasFrames()[0] ?? null;
+}
 const originalGetContext = HTMLCanvasElement.prototype.getContext;
 
 function stubTaintedCanvas(): void {
@@ -332,9 +343,9 @@ describe('OCR identity invariants — end-to-end scan counts (controller)', () =
         const controller = createController(async () => undefined);
         try {
             await waitForExpect(() => {
-                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE11');
+                expect(privateCanvasFrame()?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE11');
             });
-            const staleFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            const staleFrame = privateCanvasFrame()!;
             Object.defineProperty(staleFrame, 'complete', { value: true, configurable: true });
 
             records.m2!.ops.push({
@@ -357,7 +368,7 @@ describe('OCR identity invariants — end-to-end scan counts (controller)', () =
             controller.refresh();
 
             await waitForExpect(() => {
-                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                const frame = privateCanvasFrame();
                 expect(frame).not.toBe(staleFrame);
                 expect(frame?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE29');
             });
@@ -385,9 +396,9 @@ describe('OCR identity invariants — end-to-end scan counts (controller)', () =
         try {
             await waitForExpect(() => {
                 expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
-                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE1');
+                expect(privateCanvasFrame()?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE1');
             });
-            const staleFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            const staleFrame = privateCanvasFrame()!;
             Object.defineProperty(staleFrame, 'complete', { value: true, configurable: true });
             const internals = controller as unknown as {
                 canvasFrameContentTokens: Map<HTMLCanvasElement, string>;
@@ -419,7 +430,7 @@ describe('OCR identity invariants — end-to-end scan counts (controller)', () =
 
             await waitForExpect(() => {
                 expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
-                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-canvas-frame')];
+                const frames = privateCanvasFrames();
                 expect(frames).toHaveLength(1);
                 expect(frames[0]?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE3');
             });

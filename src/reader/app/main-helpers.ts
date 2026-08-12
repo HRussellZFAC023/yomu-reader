@@ -171,8 +171,9 @@ export function dictionaryLookupQuery(link: HTMLAnchorElement): string {
 }
 
 export function dictionaryLookupNestedWord(target: EventTarget | null, link: HTMLAnchorElement): HTMLElement | null {
-    const word = (target as HTMLElement | null)?.closest?.<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]') ?? null;
-    return word && link.contains(word) ? word : null;
+    if (!(target instanceof Element)) return null;
+    const word = target.closest<HTMLElement>('.jpdb-reader-word');
+    return word !== null && link.contains(word) ? word : null;
 }
 
 export function dictionaryLookupWordMatchesLink(word: HTMLElement, query: string): boolean {

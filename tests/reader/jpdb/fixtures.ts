@@ -12,6 +12,7 @@ import { CardActionController } from '../../../src/reader/cards/action-controlle
 import { CardPopoverRenderer, updatePopoverReviewTargetSelection, type CardPopoverRendererDependencies } from '../../../src/reader/cards/popover-renderer';
 import { CardRenderDataLoader, type CardRenderData } from '../../../src/reader/cards/render-data';
 import { createAudioPreviewCard } from '../../../src/reader/cards/utils';
+import { primaryCardState } from '../../../src/reader/cards/state';
 import { IMMERSION_KIT_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../../src/reader/app/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../../src/reader/lookup/deinflect';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../../src/reader/sources/definition-render';
@@ -121,6 +122,11 @@ import {
 import { yomitanZipBlob } from '../zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../../workers/jpdb-public-proxy/src/index';
 import { registerYomuCompanion } from '../../../src/reader/companions/registry';
+import {
+    registerRenderedWordPrivateState,
+    renderedWordPrivateStateForCard,
+    updateRenderedWordPrivateState,
+} from '../../../src/reader/dom/rendered-word-private-state';
 
 registerYomuCompanion('ocr', { ImageOcrController, normalizeOcrRenderedText });
 
@@ -547,6 +553,7 @@ export function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}, 
         renderDefinitionSources: () => '',
         dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
         dictionaryLabel: name => name,
+        accountDataSurfaceTrusted: () => true,
         ...overrides,
     });
 }
@@ -753,6 +760,34 @@ export function testCardActionController(
         toast: vi.fn(),
         ...overrides,
     });
+}
+
+export function testJitenAudioActionController(options: {
+    playMediaUrl?: (audioUrl: string) => Promise<boolean | void>;
+    settings?: Partial<ReaderSettings>;
+} = {}) {
+    const playMediaUrl = options.playMediaUrl ?? vi.fn(async (): Promise<boolean | void> => true);
+    const playSentenceAudio = vi.fn(async () => undefined);
+    const controller = testCardActionController({
+        getSettings: () => ({ ...DEFAULT_SETTINGS, ...options.settings }),
+        playMediaUrl,
+        playSentenceAudio,
+    });
+    return { controller, playMediaUrl, playSentenceAudio };
+}
+
+export const TEST_JITEN_AUDIO_URLS = [
+    'https://audio.example.test/primary.mp3',
+    'https://audio.example.test/backup.mp3',
+] as const;
+
+export async function performTestJitenAudioAction(controller: CardActionController): Promise<void> {
+    await expect(controller.perform({
+        kind: 'card-action',
+        action: 'jiten-audio',
+        audioUrls: [...TEST_JITEN_AUDIO_URLS],
+        sentence: '訓むこともある。',
+    }, document.createElement('button'), card)).resolves.toBe(false);
 }
 
 export function testReviewGradeController(options: {
@@ -2095,18 +2130,30 @@ export function appendRenderedReaderWord(
     lookupCard: JPDBCard,
     options: { className?: string; parent?: HTMLElement; text?: string; tokenStart?: number; tokenEnd?: number } = {},
 ): HTMLSpanElement {
+    const {
+        className = 'jpdb-reader-word jpdb-pitch-unknown',
+        parent = document.body,
+        text = lookupCard.spelling,
+        tokenStart = 0,
+    } = options;
+    const { tokenEnd = tokenStart + text.length } = options;
     const word = document.createElement('span');
-    word.className = options.className ?? 'jpdb-reader-word jpdb-pitch-unknown';
+    word.className = className;
+    registerRenderedWordPrivateState(
+        word,
+        renderedWordPrivateStateForCard(lookupCard, primaryCardState(lookupCard.cardState)),
+    );
+    // A few trusted-surface assertions inspect the projection directly.
+    // The private binding above is the authoritative production identity.
     word.dataset.vid = String(lookupCard.vid);
     word.dataset.sid = String(lookupCard.sid);
-    const text = options.text ?? lookupCard.spelling;
     word.textContent = text;
     // Production words carry their token span (renderToken stamps it), and
     // span-keyed repaints filter on it. Default to the span testTokenForCard
     // derives for the same card so fixtures stay aligned with real markup.
-    word.dataset.tokenStart = String(options.tokenStart ?? 0);
-    word.dataset.tokenEnd = String(options.tokenEnd ?? (options.tokenStart ?? 0) + text.length);
-    (options.parent ?? document.body).append(word);
+    word.dataset.tokenStart = String(tokenStart);
+    word.dataset.tokenEnd = String(tokenEnd);
+    parent.append(word);
     return word;
 }
 
@@ -2118,6 +2165,9 @@ export function appendKnownAnkiRenderedWord(
         className: 'jpdb-reader-word jpdb-not-in-deck anki-known',
         parent: options.parent,
     });
+    updateRenderedWordPrivateState(word, { ankiState: 'known', ankiDecks: 'Mining' });
+    word.dataset.vid = String(lookupCard.vid);
+    word.dataset.sid = String(lookupCard.sid);
     word.dataset.ankiState = 'known';
     word.dataset.ankiDecks = 'Mining';
     options.contrastVars?.forEach(name => word.style.setProperty(name, '#58a6ff'));
@@ -3092,6 +3142,12 @@ export function registerReaderHelpersCleanup(): void {
         document.body.innerHTML = '';
         document.head.innerHTML = '';
     });
+}
+
+export function stubSharedReaderSettings(overrides: Record<string, unknown>): void {
+    const stored = { ...DEFAULT_SETTINGS, ...overrides };
+    vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) =>
+        key === SETTINGS_STORAGE_KEY ? structuredClone(stored) : fallback));
 }
 
 // Re-exported source symbols so topic files import everything from ./fixtures.

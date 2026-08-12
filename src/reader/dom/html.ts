@@ -1,4 +1,5 @@
 import { pageCompartmentValue } from '../platform/window-events';
+import { hydratePrivateElementState } from './private-element-state';
 
 type TrustedTypesFactory = {
     createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
@@ -27,7 +28,9 @@ let trustedHtmlPolicy: { createHTML: (value: string) => unknown } | null | undef
  * dangerous CSS before the detached fragment enters the live document.
  */
 export function setInnerHtml(element: Element, html: string): void {
-    if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+    if (!replaceWithHtmlFragment(element, html)) {
+        element.textContent = html;
+    }
 }
 
 export function parseHtmlDocument(html: string): Document {
@@ -42,20 +45,38 @@ export function parseHtmlDocument(html: string): Document {
 function replaceWithHtmlFragment(element: Element, html: string): boolean {
     try {
         const ownerDocument = element.ownerDocument || document;
-        const { source, rootSelector } = contextualSanitizerSource(element, html);
-        const parsed = new DOMParser().parseFromString(trustedHtml(source) as string, 'text/html');
-        const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+        const parsedRoot = parsedReplacementRoot(element, html);
         if (!parsedRoot) return false;
-        sanitizeChildren(parsedRoot, parsed);
-        const fragment = ownerDocument.createDocumentFragment();
-        fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-        sanitizeChildren(fragment, ownerDocument);
-        const target = element.localName === 'template' && 'content' in element ? (element as HTMLTemplateElement).content : element;
-        target.replaceChildren(fragment);
+        const fragment = sanitizedReplacementFragment(ownerDocument, parsedRoot);
+        // Bind while detached. Connected custom-element callbacks and page
+        // MutationObservers never get a live token-bearing control to rewrite.
+        hydratePrivateElementState(fragment);
+        htmlReplacementTarget(element).replaceChildren(fragment);
         return true;
     } catch {
         return false;
     }
+}
+
+function parsedReplacementRoot(element: Element, html: string): Element | null {
+    const { source, rootSelector } = contextualSanitizerSource(element, html);
+    const parsed = new DOMParser().parseFromString(trustedHtml(source) as string, 'text/html');
+    const root = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+    if (root) sanitizeChildren(root, parsed);
+    return root;
+}
+
+function sanitizedReplacementFragment(ownerDocument: Document, parsedRoot: Element): DocumentFragment {
+    const fragment = ownerDocument.createDocumentFragment();
+    fragment.append(...Array.from(parsedRoot.childNodes, node => ownerDocument.importNode(node, true)));
+    sanitizeChildren(fragment, ownerDocument);
+    return fragment;
+}
+
+function htmlReplacementTarget(element: Element): Element | DocumentFragment {
+    return element.localName === 'template' && 'content' in element
+        ? (element as HTMLTemplateElement).content
+        : element;
 }
 
 function contextualSanitizerSource(element: Element, html: string): { source: string; rootSelector: string } {
@@ -125,7 +146,9 @@ export function htmlToFirstElement(html: string): HTMLElement | null {
     const template = document.createElement('template');
     setInnerHtml(template, trimmed);
     const first = template.content.firstElementChild;
-    return first instanceof HTMLElement ? (document.importNode(first, true) as HTMLElement) : null;
+    if (!(first instanceof HTMLElement)) return null;
+    first.remove();
+    return first;
 }
 
 export function appendToDocumentHead(element: Node): void {

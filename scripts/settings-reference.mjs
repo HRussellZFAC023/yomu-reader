@@ -74,7 +74,7 @@ const REFERENCE_SECTION_HELP = new Map([
 const PAGE_COPY = Object.freeze({
     description: 'Every Yomu setting, its default, and the part of the settings dialog that holds it.',
     intro: 'Every setting Yomu stores is listed here, in the order the settings dialog presents them.',
-    open: 'Open the dialog from the Yomu button on any page.',
+    open: "Use the Yomu button on any page. On ordinary websites, Open settings launches the Yomu-owned Study page so the host cannot read or rewrite credentials, imports, recovery codes, or the values you save. The full dialog opens directly on Study and the extension's new-tab page.",
     freshSetup: 'Fresh setup is language-neutral. Target-specific reading and Japanese-only preferences stay inactive until you explicitly choose a learning target. Some compatibility fields retain historical stored values; when one could look like a fresh Japanese default, the table states the effective gated behavior instead.',
     columns: 'Each row gives the label the dialog shows, the explanation the dialog offers, the stored default or effective fresh-install gate, and the name the setting takes in an exported settings file.',
     generated: 'This page is generated from the reader source, so it stays in step with the version you have installed.',

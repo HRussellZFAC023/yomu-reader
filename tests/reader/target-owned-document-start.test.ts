@@ -1,18 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const runtimeMocks = vi.hoisted(() => ({
-    applyMokuroDefault: vi.fn(),
-    bootReaderApp: vi.fn(),
-    installMokuroNote: vi.fn(),
-    installHttpBridge: vi.fn(),
-    installStorageBridge: vi.fn(),
-    installShadowBridge: vi.fn(),
-    promoteHostedSettings: vi.fn(async () => undefined),
-    asyncStoredSettings: null as Record<string, unknown> | null,
-    syncStoredSettings: null as Record<string, unknown> | null,
-    newTab: false,
-    pageOwnedTarget: false,
-}));
+const runtimeMocks = vi.hoisted(() => {
+    const state = {
+        applyMokuroDefault: vi.fn(),
+        bootReaderApp: vi.fn(),
+        installMokuroNote: vi.fn(),
+        installHttpBridge: vi.fn(),
+        installStorageBridge: vi.fn(),
+        installShadowBridge: vi.fn(),
+        activateTargetOwnedCompanions: vi.fn(),
+        promoteHostedSettings: vi.fn(async () => undefined),
+        asyncStoredSettings: null as Record<string, unknown> | null,
+        asyncStoredIntentLedger: null as Record<string, unknown> | null,
+        asyncStoredSettingsGate: null as Promise<void> | null,
+        syncStoredSettings: null as Record<string, unknown> | null,
+        syncStoredIntentLedger: null as Record<string, unknown> | null,
+        newTab: false,
+        pageOwnedTarget: false,
+        gmStorageGetShared: vi.fn<[string], Promise<Record<string, unknown> | null>>(),
+    };
+    state.gmStorageGetShared.mockImplementation(async key => {
+        if (state.asyncStoredSettingsGate) await state.asyncStoredSettingsGate;
+        return key === 'yomu:settings-intent:v2'
+            ? state.asyncStoredIntentLedger
+            : state.asyncStoredSettings;
+    });
+    return state;
+});
 
 vi.mock('../../src/reader/companions/register-build-target', () => ({}));
 vi.mock('../../src/reader/app/register-storage-runtime', () => ({}));
@@ -46,8 +60,13 @@ vi.mock('../../src/reader/dom/shadow-scan-registry', () => ({
 }));
 vi.mock('../../src/reader/app/storage', async importOriginal => ({
     ...await importOriginal<typeof import('../../src/reader/app/storage')>(),
-    gmStorageGet: async () => runtimeMocks.asyncStoredSettings,
-    gmStorageGetSync: () => runtimeMocks.syncStoredSettings,
+    gmStorageGetShared: runtimeMocks.gmStorageGetShared,
+    gmStorageGetSharedSync: (key: string) => key === 'yomu:settings-intent:v2'
+        ? runtimeMocks.syncStoredIntentLedger
+        : runtimeMocks.syncStoredSettings,
+}));
+vi.mock('../../src/reader/app/target-owned-document-start', () => ({
+    activateTargetOwnedDocumentStartCompanions: runtimeMocks.activateTargetOwnedCompanions,
 }));
 vi.mock('../../src/reader/settings/index', async importOriginal => ({
     ...await importOriginal<typeof import('../../src/reader/settings/index')>(),
@@ -56,8 +75,8 @@ vi.mock('../../src/reader/settings/index', async importOriginal => ({
 
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
-const TARGET_OWNED_DOCUMENT_START_EVENT = 'yomu:target-owned-document-start';
 const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
+const STORAGE_BRIDGE_READY_EVENT = 'yomu-userscript-storage-bridge-ready';
 
 async function importUserscriptEntry(): Promise<void> {
     await import('../../src/reader/userscript/entry');
@@ -65,10 +84,17 @@ async function importUserscriptEntry(): Promise<void> {
     await Promise.resolve();
 }
 
-function dispatchSettingsChoice(learningTargetChosen: boolean): void {
+async function dispatchSettingsChoice(learningTargetChosen: boolean): Promise<void> {
+    runtimeMocks.asyncStoredSettings = { learningTargetChosen };
     window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
         detail: { settings: { learningTargetChosen } },
     }));
+    if (learningTargetChosen) {
+        await vi.waitFor(() => expect(runtimeMocks.installHttpBridge).toHaveBeenCalled());
+    } else {
+        await Promise.resolve();
+        await Promise.resolve();
+    }
 }
 
 function expectTargetOwnedRuntimeActivation(): void {
@@ -78,9 +104,18 @@ function expectTargetOwnedRuntimeActivation(): void {
     expect(runtimeMocks.installShadowBridge).not.toHaveBeenCalled();
 }
 
-function expectTargetOwnedCanvasActivation(canvasActivation: () => void): void {
+function expectTargetOwnedCanvasActivation(): void {
     expectTargetOwnedRuntimeActivation();
-    expect(canvasActivation).toHaveBeenCalledOnce();
+    expect(runtimeMocks.activateTargetOwnedCompanions).toHaveBeenCalledOnce();
+}
+
+function expectTargetOwnedRuntimeInert(): void {
+    expect(runtimeMocks.applyMokuroDefault).not.toHaveBeenCalled();
+    expect(runtimeMocks.installMokuroNote).not.toHaveBeenCalled();
+    expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
+    expect(runtimeMocks.installStorageBridge).toHaveBeenCalledOnce();
+    expect(runtimeMocks.installShadowBridge).not.toHaveBeenCalled();
+    expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
 }
 
 describe('target-owned document-start activation', () => {
@@ -92,54 +127,137 @@ describe('target-owned document-start activation', () => {
         runtimeMocks.installHttpBridge.mockReset();
         runtimeMocks.installStorageBridge.mockReset();
         runtimeMocks.installShadowBridge.mockReset();
+        runtimeMocks.activateTargetOwnedCompanions.mockReset();
         runtimeMocks.promoteHostedSettings.mockClear();
+        runtimeMocks.gmStorageGetShared.mockClear();
+        runtimeMocks.gmStorageGetShared.mockImplementation(async key => {
+            if (runtimeMocks.asyncStoredSettingsGate) await runtimeMocks.asyncStoredSettingsGate;
+            return key === 'yomu:settings-intent:v2'
+                ? runtimeMocks.asyncStoredIntentLedger
+                : runtimeMocks.asyncStoredSettings;
+        });
         runtimeMocks.asyncStoredSettings = null;
+        runtimeMocks.asyncStoredIntentLedger = null;
+        runtimeMocks.asyncStoredSettingsGate = null;
         runtimeMocks.syncStoredSettings = null;
+        runtimeMocks.syncStoredIntentLedger = null;
         runtimeMocks.newTab = false;
         runtimeMocks.pageOwnedTarget = false;
     });
 
     it('keeps a fresh host inert when the target chooser is dismissed', async () => {
-        const canvasActivation = vi.fn();
-        window.addEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, canvasActivation, { once: true });
-
         await importUserscriptEntry();
-        dispatchSettingsChoice(false);
+        await dispatchSettingsChoice(false);
 
-        expect(runtimeMocks.applyMokuroDefault).not.toHaveBeenCalled();
-        expect(runtimeMocks.installMokuroNote).not.toHaveBeenCalled();
-        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
-        expect(runtimeMocks.installStorageBridge).toHaveBeenCalledOnce();
-        expect(runtimeMocks.installShadowBridge).not.toHaveBeenCalled();
-        expect(canvasActivation).not.toHaveBeenCalled();
+        expectTargetOwnedRuntimeInert();
 
         // Complete the choice so the entry's one-shot listener cannot leak into
         // another test realm when Vitest deliberately runs without isolation.
-        dispatchSettingsChoice(true);
-        window.removeEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, canvasActivation);
+        await dispatchSettingsChoice(true);
+    });
+
+    it('treats a page-realm settings event only as a hint and rejects forged detail', async () => {
+        await importUserscriptEntry();
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: { settings: { theme: 'dark', learningTargetChosen: true } },
+        }));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
+        expect(runtimeMocks.applyMokuroDefault).not.toHaveBeenCalled();
+        expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
+
+        runtimeMocks.asyncStoredSettings = { learningTargetChosen: true };
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+        await vi.waitFor(expectTargetOwnedCanvasActivation);
+    });
+
+    it('coalesces hostile settings-event bursts into one active and one trailing shared read', async () => {
+        let releaseRead = (): void => undefined;
+        runtimeMocks.asyncStoredSettingsGate = new Promise<void>(resolve => { releaseRead = resolve; });
+        await importUserscriptEntry();
+
+        for (let index = 0; index < 100; index += 1) {
+            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+                detail: { settings: { learningTargetChosen: true } },
+            }));
+        }
+        expect(runtimeMocks.gmStorageGetShared).toHaveBeenCalledTimes(2);
+
+        releaseRead();
+        await vi.waitFor(() => expect(runtimeMocks.gmStorageGetShared).toHaveBeenCalledTimes(4));
+        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
+
+        runtimeMocks.asyncStoredSettingsGate = null;
+        runtimeMocks.asyncStoredSettings = { learningTargetChosen: true };
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+        await vi.waitFor(expectTargetOwnedCanvasActivation);
+    });
+
+    it('ignores forged hosted-storage bridge events on an ordinary host', async () => {
+        await importUserscriptEntry();
+        const initialReads = runtimeMocks.gmStorageGetShared.mock.calls.length;
+
+        for (let index = 0; index < 100; index += 1) {
+            window.dispatchEvent(new CustomEvent(STORAGE_BRIDGE_READY_EVENT));
+        }
+        await Promise.resolve();
+
+        expect(runtimeMocks.gmStorageGetShared).toHaveBeenCalledTimes(initialReads);
+
+        await dispatchSettingsChoice(true);
     });
 
     it('activates once when the learner explicitly chooses a target later', async () => {
-        const canvasActivation = vi.fn();
-        window.addEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, canvasActivation);
-
         await importUserscriptEntry();
-        dispatchSettingsChoice(true);
-        dispatchSettingsChoice(true);
+        await dispatchSettingsChoice(true);
+        await dispatchSettingsChoice(true);
 
-        expectTargetOwnedCanvasActivation(canvasActivation);
-        window.removeEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, canvasActivation);
+        expectTargetOwnedCanvasActivation();
     });
 
     it('preserves synchronous document-start activation for a stored explicit target', async () => {
         runtimeMocks.syncStoredSettings = { learningTargetChosen: true };
-        const canvasActivation = vi.fn();
-        window.addEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, canvasActivation);
 
         await importUserscriptEntry();
 
-        expectTargetOwnedCanvasActivation(canvasActivation);
-        window.removeEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, canvasActivation);
+        expectTargetOwnedCanvasActivation();
+    });
+
+    it('rejects a target whose settings and intent commit witnesses do not match', async () => {
+        runtimeMocks.syncStoredSettings = {
+            learningTargetChosen: true,
+            __yomuSettingsPersistenceCommitV1: 'settings-c2',
+        };
+        runtimeMocks.syncStoredIntentLedger = {
+            version: 2,
+            seq: 1,
+            entries: {},
+            __yomuSettingsPersistenceCommitV1: 'ledger-c1',
+        };
+
+        await importUserscriptEntry();
+
+        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
+        expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
+
+        runtimeMocks.asyncStoredSettings = runtimeMocks.syncStoredSettings;
+        runtimeMocks.asyncStoredIntentLedger = {
+            ...runtimeMocks.syncStoredIntentLedger,
+            __yomuSettingsPersistenceCommitV1: 'settings-c2',
+        };
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+
+        await vi.waitFor(expectTargetOwnedCanvasActivation);
+    });
+
+    it('preserves synchronous document-start activation for pre-1.9 subtitle settings', async () => {
+        runtimeMocks.syncStoredSettings = { subtitleFontSize: 48 };
+
+        await importUserscriptEntry();
+
+        expectTargetOwnedCanvasActivation();
     });
 
     it('keeps stored-target document-start activation safe before documentElement exists', async () => {
@@ -156,15 +274,18 @@ describe('target-owned document-start activation', () => {
         }
     });
 
-    it('activates positive legacy onboarding evidence from the async shared store', async () => {
-        runtimeMocks.asyncStoredSettings = { onboardingSeen: true };
+    it('activates pre-1.9 JPDB settings from the async shared store', async () => {
+        runtimeMocks.asyncStoredSettings = {
+            apiKey: 'legacy-jpdb-key',
+            parserProvider: 'jpdb',
+        };
 
         await importUserscriptEntry();
 
         expectTargetOwnedRuntimeActivation();
     });
 
-    it('does not treat the untouched compatibility profile as an explicit target', async () => {
+    it('keeps the untouched compatibility profile neutral without substantive Reader state', async () => {
         runtimeMocks.asyncStoredSettings = {
             onboardingSeen: false,
             languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({ ...profile })),
@@ -173,9 +294,7 @@ describe('target-owned document-start activation', () => {
 
         await importUserscriptEntry();
 
-        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
-        expect(runtimeMocks.applyMokuroDefault).not.toHaveBeenCalled();
-        dispatchSettingsChoice(true);
+        expectTargetOwnedRuntimeInert();
     });
 
     it('keeps fresh hosted Study transport-private until its chooser completes', async () => {
@@ -187,7 +306,7 @@ describe('target-owned document-start activation', () => {
         expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
         expect(runtimeMocks.bootReaderApp).not.toHaveBeenCalled();
 
-        dispatchSettingsChoice(true);
+        await dispatchSettingsChoice(true);
         expect(runtimeMocks.installHttpBridge).toHaveBeenCalledOnce();
     });
 

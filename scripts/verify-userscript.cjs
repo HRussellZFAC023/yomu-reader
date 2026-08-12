@@ -31,6 +31,7 @@ const {
   userscriptRequireLibraries,
 } = require('./lib/greasyfork-libraries.cjs');
 const { collectBundledDependencyDrift, formatBundledDependencyDrift } = require('./lib/bundled-dependency-lock.cjs');
+const { userscriptDistributionMetadataViolations } = require('./lib/public-release-policy.cjs');
 const { userscriptWeightReport } = require('./lib/userscript-weight.cjs');
 
 const READER_CSS_NETWORK_SKIP_ENV = 'YOMU_VERIFY_SKIP_NETWORK';
@@ -103,12 +104,9 @@ assertZipReaderBundled();
 // must-revalidate endpoints (1.6.246: stops cached hosted copies re-offering
 // an older release). Any other host remains an "alternate" URL Greasy Fork
 // rejects.
-const greasyForkUpdateBase = 'https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80';
-if (code.includes('// @downloadURL') && !hasMetadataValue('downloadURL', `${greasyForkUpdateBase}.user.js`)) {
-  fail('Greasy Fork build should not advertise an alternate download URL.');
-}
-if (code.includes('// @updateURL') && !hasMetadataValue('updateURL', `${greasyForkUpdateBase}.meta.js`)) {
-  fail('Greasy Fork build should not advertise an alternate update URL.');
+const distributionMetadataViolations = userscriptDistributionMetadataViolations(code, userscriptMetadataValues);
+if (distributionMetadataViolations.length) {
+  fail(`Greasy Fork build should not advertise alternate or duplicate update/download URLs: ${JSON.stringify(distributionMetadataViolations)}`);
 }
 if (code.includes('function inflateSync(') && !code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER)) fail('bundled dependency source/version notice is missing.');
 if (!fileExists(DIST_READER_CSS_PATH)) fail(`${READER_CSS_RELATIVE_PATH} is missing; docs and extension builds still ship the reader stylesheet as a local asset.`);

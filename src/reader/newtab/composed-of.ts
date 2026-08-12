@@ -1,6 +1,7 @@
 import { el } from '../dom/builder';
 import { targetCanLookupCharacter, usesJapaneseCharacterStudy } from '../languages/character-lookup';
 import type { JPDBCard } from '../app/types';
+import { bindPrivateCommandCapability, readKanjiCommandCapability } from '../dom/private-command-capabilities';
 
 /**
  * The "Composed of" line on a study card's back.
@@ -35,17 +36,23 @@ export function appendComposedOfLine(meaning: HTMLElement, card: JPDBCard, conte
     if (kanjiCharacters.length === 0) return;
     const row = el('div', { class: 'jpdb-reader-newtab-composed-of', dataset: { newtabComposedOf: true } },
         el('span', { class: 'jpdb-reader-newtab-composed-of-label' }, context.text('composedOf')),
-        ...kanjiCharacters.map(character => el('button', {
+        ...kanjiCharacters.map(character => composedOfKanjiButton(character, context)),
+    );
+    meaning.append(row);
+    void hydrateComposedOfKeywords(row, kanjiCharacters, context);
+}
+
+function composedOfKanjiButton(character: string, context: ComposedOfContext): HTMLButtonElement {
+    const button = el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-composed-of-kanji',
             dataset: { action: 'kanji', kanji: character },
             title: `${context.text('showKanji')}: ${character}`,
         },
         el('span', { lang: 'ja' }, character),
-        el('small', {}, context.keywordCache.get(character) ?? ''))),
-    );
-    meaning.append(row);
-    void hydrateComposedOfKeywords(row, kanjiCharacters, context);
+        el('small', {}, context.keywordCache.get(character) ?? '')) as HTMLButtonElement;
+    bindPrivateCommandCapability(button, { kind: 'kanji-lookup', kanji: character });
+    return button;
 }
 
 async function hydrateComposedOfKeywords(
@@ -53,20 +60,37 @@ async function hydrateComposedOfKeywords(
     kanjiCharacters: readonly string[],
     context: ComposedOfContext,
 ): Promise<void> {
-    await Promise.all(kanjiCharacters.map(async character => {
-        if (!targetCanLookupCharacter(character) || context.keywordCache.has(character)) return;
-        const keyword = await composedOfKeyword(context.rtk, character)
-            || await composedOfKeyword(context.jpdbKanji, character);
-        if (keyword && targetCanLookupCharacter(character)) context.keywordCache.set(character, keyword);
-    }));
+    await Promise.all(kanjiCharacters.map(character => hydrateComposedOfKeyword(character, context)));
     // Re-checked after the awaits: the learner can change target mid-flight, and a
     // detached row must not be written into.
     if (!usesJapaneseCharacterStudy() || !row.isConnected) return;
-    row.querySelectorAll<HTMLElement>('[data-kanji]').forEach(chip => {
-        const small = chip.querySelector('small');
-        const keyword = context.keywordCache.get(chip.dataset.kanji ?? '');
-        if (small && keyword) small.textContent = keyword;
-    });
+    row.querySelectorAll<HTMLElement>('[data-kanji]')
+        .forEach(chip => hydrateComposedOfChip(chip, context));
+}
+
+function hydrateComposedOfChip(chip: HTMLElement, context: ComposedOfContext): void {
+    const small = chip.querySelector('small');
+    const command = readKanjiCommandCapability(chip);
+    if (!small || !command) return;
+    const keyword = context.keywordCache.get(command.kanji);
+    if (keyword) small.textContent = keyword;
+}
+
+async function hydrateComposedOfKeyword(character: string, context: ComposedOfContext): Promise<void> {
+    if (!shouldHydrateComposedOfKeyword(character, context)) return;
+    const keyword = await lookupComposedOfKeyword(character, context);
+    if (!keyword) return;
+    if (targetCanLookupCharacter(character)) context.keywordCache.set(character, keyword);
+}
+
+function shouldHydrateComposedOfKeyword(character: string, context: ComposedOfContext): boolean {
+    return targetCanLookupCharacter(character) && !context.keywordCache.has(character);
+}
+
+async function lookupComposedOfKeyword(character: string, context: ComposedOfContext): Promise<string> {
+    const rtkKeyword = await composedOfKeyword(context.rtk, character);
+    if (rtkKeyword) return rtkKeyword;
+    return composedOfKeyword(context.jpdbKanji, character);
 }
 
 async function composedOfKeyword(client: KanjiKeywordClient | undefined, character: string): Promise<string> {

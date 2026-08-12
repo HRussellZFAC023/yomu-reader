@@ -13,6 +13,33 @@ import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
 } from '../../src/reader/settings/index';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+
+async function expectTargetlessOptInIgnored(storedSettings: unknown, storedIntentLedger?: unknown): Promise<void> {
+    const language = navigator.language;
+    const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
+    delete pageWindow.__yomuJapaneseSiteLanguagePreference;
+    const cookieWrite = vi.fn();
+    vi.spyOn(document, 'cookie', 'set').mockImplementation(cookieWrite);
+    const storedReads = new Map<string, (fallback: unknown) => unknown>([
+        [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, () => true],
+        [SETTINGS_STORAGE_KEY, () => storedSettings],
+        [SETTINGS_INTENT_LEDGER_STORAGE_KEY, fallback => storedIntentLedger ?? fallback],
+    ]);
+    vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
+        const readStoredValue = storedReads.get(key);
+        return readStoredValue ? readStoredValue(fallback) : fallback;
+    });
+    vi.stubGlobal('unsafeWindow', window);
+
+    await installPreferredJapaneseSiteLanguageFromStoredSettings();
+    await settleAsyncHandlers();
+
+    expect(navigator.language).toBe(language);
+    expect(cookieWrite).not.toHaveBeenCalled();
+    expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBeNull();
+    expect(pageWindow.__yomuJapaneseSiteLanguagePreference).toBeUndefined();
+}
 
 describe('preferred Japanese site language', () => {
     const originalFetch = globalThis.fetch;
@@ -407,26 +434,60 @@ describe('preferred Japanese site language', () => {
         expect(pageWindow.__yomuJapaneseSiteLanguagePreference).toBeUndefined();
     });
 
-    it('ignores an orphaned opt-in scalar without a durable target choice', async () => {
-        const language = navigator.language;
-        const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
-        delete pageWindow.__yomuJapaneseSiteLanguagePreference;
+    it('never promotes page-local site-language state on an untrusted origin', async () => {
+        const store = new Map<string, unknown>();
+        const replace = vi.fn();
         const cookieWrite = vi.fn();
-        vi.spyOn(document, 'cookie', 'set').mockImplementation(cookieWrite);
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
-            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
-            if (key === SETTINGS_STORAGE_KEY) return { ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true };
-            return fallback;
-        });
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => store.get(key) ?? fallback));
+        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { store.set(key, value); }));
         vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=forged',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+            protocol: 'https:',
+            replace,
+        });
+        vi.spyOn(document, 'cookie', 'set').mockImplementation(cookieWrite);
+        localStorage.setItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, 'true');
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            learningTargetChosen: true,
+            preferJapaneseSiteLanguage: true,
+        }));
 
         await installPreferredJapaneseSiteLanguageFromStoredSettings();
         await settleAsyncHandlers();
 
-        expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
         expect(cookieWrite).not.toHaveBeenCalled();
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBeNull();
-        expect(pageWindow.__yomuJapaneseSiteLanguagePreference).toBeUndefined();
+        expect(store.size).toBe(0);
+    });
+
+    it('ignores an orphaned opt-in scalar without a durable target choice', async () => {
+        await expectTargetlessOptInIgnored({ ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true });
+    });
+
+    it('ignores a target whose settings and intent commit witnesses do not match', async () => {
+        await expectTargetlessOptInIgnored({
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
+            preferJapaneseSiteLanguage: true,
+            __yomuSettingsPersistenceCommitV1: 'settings-c2',
+        }, {
+            version: 2,
+            seq: 1,
+            entries: {},
+            __yomuSettingsPersistenceCommitV1: 'ledger-c1',
+        });
+    });
+
+    it.each([
+        ['synchronous', [{ theme: 'dark' }]],
+        ['asynchronous', Promise.resolve([{ theme: 'dark' }])],
+    ])('rejects a malformed %s settings array as target provenance', async (_mode, malformedSettings) => {
+        await expectTargetlessOptInIgnored(malformedSettings);
     });
 
     // The reported bug: the cache is per origin, so every site opened while the

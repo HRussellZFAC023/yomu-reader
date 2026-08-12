@@ -25,6 +25,37 @@ import type {
     ImmersionKitExample,
     JPDBCard,
 } from './fixtures';
+import { primaryCardState } from '../../../src/reader/cards/state';
+import {
+    registerRenderedWordPrivateState,
+    renderedWordPrivateStateForCard,
+    renderedWordPrivateValue,
+} from '../../../src/reader/dom/rendered-word-private-state';
+import { readCardCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+
+function parsedFrontSentenceLookupFixture(
+    current: JPDBCard,
+    related: JPDBCard,
+    markup: string,
+    selector: string,
+) {
+    const showLookupCard = vi.fn();
+    const lookupText = vi.fn();
+    const parseContent = vi.fn((sentenceNode: HTMLElement) => {
+        sentenceNode.innerHTML = markup;
+        const word = sentenceNode.querySelector<HTMLElement>(selector)!;
+        registerRenderedWordPrivateState(word, renderedWordPrivateStateForCard(related, primaryCardState(related.cardState)));
+    });
+    const controller = newTabPromptController(DEFAULT_SETTINGS, {
+        parseContent,
+        parser: {
+            getCachedCard: vi.fn((vid: number, sid: number) => vid === related.vid && sid === related.sid ? related : undefined),
+        } as never,
+        showLookupCard,
+        lookupText,
+    });
+    return { controller, root: renderNewTabWordFront(controller, current), showLookupCard, lookupText };
+}
 
 describe('new tab review — card fronts, pitch/audio & front-sentence parsing', () => {
     registerNewTabReviewCleanup();
@@ -539,6 +570,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         try {
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
             const audio = root.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')!;
+            expect(readCardCommandCapability(audio)).toMatchObject({ action: 'anki-media-audio', mediaFilename: 'rendered-front.mp3' });
             const clickTarget = audio.querySelector('svg') ?? audio;
             const clickWasNotCanceled = clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
@@ -547,7 +579,11 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             expect(audio.classList.contains('jpdb-reader-icon-btn')).toBe(true);
             expect(audio.classList.contains('jpdb-reader-icon-mini')).toBe(false);
             expect(performCardAction).toHaveBeenCalledOnce();
-            expect(performCardAction).toHaveBeenCalledWith(audio, card, card.sentence, audio);
+            expect(performCardAction).toHaveBeenCalledWith(audio, card, card.sentence, audio, expect.objectContaining({
+                kind: 'card-action',
+                action: 'anki-media-audio',
+                mediaFilename: 'rendered-front.mp3',
+            }));
             expect(playWordAudio).not.toHaveBeenCalled();
         } finally {
             root.remove();
@@ -912,8 +948,10 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
                 expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(false);
                 expect(word?.classList.contains('jpdb-pitch-unknown')).toBe(true);
                 expect(word?.dataset.pitchClass).toBeUndefined();
-                expect(word?.dataset.vid).toBe('88');
-                expect(word?.dataset.sid).toBe('44');
+                expect(word && renderedWordPrivateValue(word, 'vid')).toBe('88');
+                expect(word && renderedWordPrivateValue(word, 'sid')).toBe('44');
+                expect(word?.dataset.vid).toBeUndefined();
+                expect(word?.dataset.sid).toBeUndefined();
             });
         } finally {
             root.remove();
@@ -924,20 +962,12 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         const sentence = 'お連れ様との会話は日本語でした。';
         const current = newTabTestCard({ spelling: '日本語', reading: 'にほんご', sentence });
         const related = newTabTestCard({ vid: 1198880, sid: 0, spelling: '会話', reading: 'かいわ', sentence });
-        const showLookupCard = vi.fn();
-        const lookupText = vi.fn();
-        const parseContent = vi.fn((sentenceNode: HTMLElement) => {
-            sentenceNode.innerHTML = 'お連れ様との<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="1198880" data-sid="0" data-pitch-class="heiban" data-sentence="お連れ様との会話は日本語でした。" data-expression="会話" data-reading="かいわ" tabindex="-1">会話</span>は日本語でした。';
-        });
-        const controller = newTabPromptController(DEFAULT_SETTINGS, {
-            parseContent,
-            parser: {
-                getCachedCard: vi.fn((vid: number, sid: number) => vid === related.vid && sid === related.sid ? related : undefined),
-            } as never,
-            showLookupCard,
-            lookupText,
-        });
-        const root = renderNewTabWordFront(controller, current);
+        const { controller, root, showLookupCard, lookupText } = parsedFrontSentenceLookupFixture(
+            current,
+            related,
+            'お連れ様との<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="1198880" data-sid="0" data-pitch-class="heiban" data-sentence="お連れ様との会話は日本語でした。" data-expression="会話" data-reading="かいわ" tabindex="-1">会話</span>は日本語でした。',
+            '.jpdb-reader-word',
+        );
 
         try {
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
@@ -963,20 +993,12 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         const sentence = 'メイは座って食べなさいと言った。';
         const current = newTabTestCard({ spelling: '食べる', reading: 'たべる', sentence });
         const related = newTabTestCard({ vid: 1291770, sid: 0, spelling: '座', reading: 'ざ', sentence });
-        const showLookupCard = vi.fn();
-        const lookupText = vi.fn();
-        const parseContent = vi.fn((sentenceNode: HTMLElement) => {
-            sentenceNode.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="1291770" data-sid="0" data-pitch-class="unknown" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="座" data-reading="ざ">座</span>って食べなさいと言った。';
-        });
-        const controller = newTabPromptController(DEFAULT_SETTINGS, {
-            parseContent,
-            parser: {
-                getCachedCard: vi.fn((vid: number, sid: number) => vid === related.vid && sid === related.sid ? related : undefined),
-            } as never,
-            showLookupCard,
-            lookupText,
-        });
-        const root = renderNewTabWordFront(controller, current);
+        const { controller, root, showLookupCard, lookupText } = parsedFrontSentenceLookupFixture(
+            current,
+            related,
+            '<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="1291770" data-sid="0" data-pitch-class="unknown" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="座" data-reading="ざ">座</span>って食べなさいと言った。',
+            '[data-expression="座"]',
+        );
 
         try {
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);

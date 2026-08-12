@@ -1,6 +1,6 @@
 import { Logger } from '../app/logger';
-import { ACADEMY_SRS_LABEL, FURIGANA_HIDE_STATE_GROUPS, SETTINGS_CHANGE_EVENT, WORD_COLOR_HIDE_STATE_GROUPS, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
-import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
+import { ACADEMY_SRS_LABEL, FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
+import { publishSettingsChange } from './settings-change-bus';
 import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
@@ -14,19 +14,27 @@ import {
     recordSettingsIntent,
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
     settingsIntentKeys,
-    settingsIntentLedgerFromStorage,
     type SettingsIntentLedger,
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLearningTargetChosen } from './learning-target-choice';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
-import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
+import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsPersistenceView, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
+import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageGetShared, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguageWithSettings, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
 export { changedSettingsKeys } from './store-reconciliation';
 import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
+import {
+    DEFAULT_AUDIO_SOURCES,
+    DEFAULT_AUDIO_URL,
+    DEFAULT_OFF_AUDIO_SOURCE_TYPES,
+    isAudioSourceType,
+    LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS,
+    LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS,
+} from './audio-source-defaults';
 import {
     activeLanguageProfile,
     createDefaultLanguageProfile,
@@ -39,11 +47,10 @@ export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './short
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
 export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 export { NO_EXPLICIT_USER_CHOICE } from './intent-ledger';
-
-export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
+export { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES } from './audio-source-defaults';
+export { EXPLICIT_USER_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
 export { PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY };
 /** Superseded by the intent ledger; still read once so upgrades keep their pins. */
-export const EXPLICIT_USER_SETTINGS_STORAGE_KEY = 'yomu:explicit-user-settings:v1';
 const LEGACY_SETTINGS_STORAGE_KEYS = [
     'jpdb-reader-settings',
     'yomu-reader-settings',
@@ -53,13 +60,8 @@ export const SETTINGS_STORAGE_KEYS = [
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS,
 ] as const;
-const SETTINGS_PERSISTENCE_STORAGE_LEASE = 'reader-settings-persistence';
-
 const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
-
-const DEFAULT_AUDIO_URL =
-    YOMU_HOSTED_AUDIO_URL;
 
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
@@ -83,56 +85,6 @@ export function isPopupLookupEnabled(settings: Pick<
         && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
 }
 
-const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
-    'jpod101',
-    'language-pod-101',
-    'jisho',
-    'bunpro',
-    'lingua-libre',
-    'wiktionary',
-    'jiten-tts',
-    'jpdb-tts',
-    'text-to-speech',
-    'text-to-speech-reading',
-    'custom',
-    'custom-json',
-];
-
-export const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter(type => type !== 'custom');
-
-export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
-    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
-    { type: 'jpod101', url: '', voice: '', enabled: false },
-    { type: 'language-pod-101', url: '', voice: '', enabled: false },
-    { type: 'jisho', url: '', voice: '', enabled: false },
-    { type: 'bunpro', url: '', voice: '', enabled: false },
-    { type: 'jiten-tts', url: '', voice: '', enabled: false },
-    { type: 'jpdb-tts', url: '', voice: '', enabled: false },
-    { type: 'text-to-speech', url: '', voice: '', enabled: false },
-];
-
-const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_TYPE_VALUES);
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS: AudioSourceSetting[] = [
-    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
-    { type: 'jpod101', url: '', voice: '', enabled: true },
-    { type: 'language-pod-101', url: '', voice: '', enabled: true },
-    { type: 'jisho', url: '', voice: '', enabled: true },
-    { type: 'text-to-speech', url: '', voice: '', enabled: true },
-];
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS: AudioSourceSetting[] = [
-    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
-    { type: 'jpod101', url: '', voice: '', enabled: true },
-    { type: 'language-pod-101', url: '', voice: '', enabled: true },
-    { type: 'jisho', url: '', voice: '', enabled: true },
-    { type: 'jiten-tts', url: '', voice: '', enabled: true },
-    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
-    { type: 'text-to-speech', url: '', voice: '', enabled: true },
-];
-const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(
-    DEFAULT_AUDIO_SOURCES
-        .filter(source => source.type !== 'custom-json' || source.url !== YOMU_HOSTED_AUDIO_URL)
-        .map(source => source.type),
-);
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
 const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status', 'hover']);
 const OCR_ENGINE_ALIASES = new Map<string, string>([
@@ -659,10 +611,9 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
             activeTargetRosterId(languageProfileSettings),
         ),
         ...languageProfileSettings,
-        learningTargetChosen: normalizeLearningTargetChosen(settingsValue, {
-            interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
-            parserProvider: DEFAULT_SETTINGS.parserProvider,
-        }),
+        // Choice migration is based on the raw stored record. The migrations
+        // above add marker fields even to `{}`, which is still no prior choice.
+        learningTargetChosen: normalizeLearningTargetChosen(value),
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
@@ -1779,66 +1730,127 @@ function normalizedOcrEngineInput(value: unknown): string {
 export async function loadSettings(): Promise<ReaderSettings> {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
-        // This scalar is the durable user-intent boundary for a preference that
-        // changes page startup behavior at document-start. Read it before the
-        // larger settings blob so a stale whole-object writer can never become
-        // authoritative merely because it finishes later.
-        const storedPreferredJapaneseSiteLanguage = await gmStorageGet<unknown>(
-            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-            undefined,
-        );
-        const intentLedger = await readSettingsIntentLedger();
-        const cacheStandaloneBaseline = isHostedYomuOrigin()
-            && !hasAsyncGmStorageBackend()
-            && localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
-        const currentRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
-        let settings = mergeSettings(currentRecord);
-        let recoveredLegacySettings = false;
-
-        // Keys the learner has expressed a deliberate choice about. Recovery below
-        // still uses "equals the default" to spot a gap -- it has to, because Yomu
-        // persists the WHOLE settings object, so presence in the stored record tells
-        // you nothing -- but a key in this set is never treated as a gap. That is what
-        // makes clearing a field stick: an explicit '' equals the default, so without
-        // this a donor store replayed the old value and re-persisted it (GitHub #36).
-        // Keys recovered from an earlier donor join the set too, so the first donor
-        // still wins, exactly as the bare equality test used to arrange.
-        const settledKeys = new Set<string>(settingsIntentKeys(intentLedger));
-
-        for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
-            const legacyRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(key, null));
-            if (!legacyRecord) continue;
-
-            const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
-            settings = recovery.settings;
-            recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
-        }
-
-        const strandedRecord = strandedHostedLocalSettingsRecord();
-        if (strandedRecord) {
-            const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
-            settings = recovery.settings;
-            recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
-        }
-
-        settings = {
-            ...settings,
-            preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
-                storedPreferredJapaneseSiteLanguage,
-                settings.preferJapaneseSiteLanguage,
-            ),
-        };
-        settings = mergeSettings(applySettingsIntent(settings, intentLedger) as LegacyReaderSettings);
-
-        if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
-        else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
-            cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
-        }
-        return settings;
+        return await loadSettingsFromStorage();
     } catch (error) {
         log.warn('Settings load failed', { error });
         return mergeSettings(null);
     }
+}
+
+interface SettingsRecoveryState {
+    settings: ReaderSettings;
+    readonly settledKeys: Set<string>;
+    recovered: boolean;
+}
+
+async function loadSettingsFromStorage(): Promise<ReaderSettings> {
+    // This scalar is the durable user-intent boundary for a preference that
+    // changes page startup behavior at document-start. Read it before the
+    // larger settings blob so a stale whole-object writer can never become
+    // authoritative merely because it finishes later.
+    const storedSitePreference = await readSettingsOwnedValue<unknown>(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        undefined,
+    );
+    const view = await readSettingsPersistenceView();
+    const cacheStandaloneBaseline = shouldCacheStandaloneSettingsBaseline();
+    const recovered = await recoverStoredSettings(view.settings, view.intentLedger);
+    const withSitePreference = await applyStoredSitePreference(recovered.settings, storedSitePreference);
+    const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as LegacyReaderSettings);
+    await finalizeLoadedSettings(settings, recovered.recovered, cacheStandaloneBaseline);
+    return settings;
+}
+
+function shouldCacheStandaloneSettingsBaseline(): boolean {
+    if (!isHostedYomuOrigin()) return false;
+    if (hasAsyncGmStorageBackend()) return false;
+    return localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
+}
+
+async function recoverStoredSettings(
+    persistedSettings: unknown,
+    intentLedger: SettingsIntentLedger,
+): Promise<SettingsRecoveryState> {
+    const state: SettingsRecoveryState = {
+        settings: mergeSettings(settingsRecord(persistedSettings)),
+        // Keys the learner deliberately chose cannot be filled from an older
+        // donor just because their current value happens to equal a default.
+        settledKeys: new Set(settingsIntentKeys(intentLedger)),
+        recovered: false,
+    };
+    for (const key of LEGACY_SETTINGS_STORAGE_KEYS) await recoverLegacySettingsKey(state, key);
+    recoverStrandedSettings(state, strandedHostedLocalSettingsRecord());
+    return state;
+}
+
+async function recoverLegacySettingsKey(state: SettingsRecoveryState, key: string): Promise<void> {
+    const stored = await readSettingsOwnedValue<Partial<ReaderSettings> | null>(key, null);
+    const legacyRecord = settingsRecord(stored);
+    if (!legacyRecord) return;
+    applySettingsRecovery(state, recoverLegacySettings(
+        state.settings,
+        mergeSettings(legacyRecord),
+        state.settledKeys,
+        DEFAULT_SETTINGS,
+    ));
+}
+
+function recoverStrandedSettings(
+    state: SettingsRecoveryState,
+    strandedRecord: Partial<ReaderSettings> | null,
+): void {
+    if (!strandedRecord) return;
+    applySettingsRecovery(state, recoverStrandedHostedSettings(
+        state.settings,
+        mergeSettings(strandedRecord),
+        state.settledKeys,
+        DEFAULT_SETTINGS,
+    ));
+}
+
+function applySettingsRecovery(
+    state: SettingsRecoveryState,
+    recovery: { settings: ReaderSettings; changed: boolean },
+): void {
+    state.settings = recovery.settings;
+    state.recovered ||= recovery.changed;
+}
+
+async function applyStoredSitePreference(
+    settings: ReaderSettings,
+    storedSitePreference: unknown,
+): Promise<ReaderSettings> {
+    return {
+        ...settings,
+        preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+            storedSitePreference,
+            settings.preferJapaneseSiteLanguage,
+        ),
+    };
+}
+
+async function finalizeLoadedSettings(
+    settings: ReaderSettings,
+    recoveredLegacySettings: boolean,
+    cacheStandaloneBaseline: boolean,
+): Promise<void> {
+    if (recoveredLegacySettings) {
+        await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
+        return;
+    }
+    if (shouldCacheHostedSettings(cacheStandaloneBaseline)) {
+        cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
+    }
+}
+
+function shouldCacheHostedSettings(cacheStandaloneBaseline: boolean): boolean {
+    return isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline);
+}
+
+function readSettingsOwnedValue<T>(key: string, fallback: T): Promise<T> {
+    return isHostedYomuOrigin()
+        ? gmStorageGet(key, fallback)
+        : gmStorageGetShared(key, fallback);
 }
 
 
@@ -2003,10 +2015,7 @@ export function coupledSettingsIntentKeys(
 }
 
 async function readSettingsIntentLedger(): Promise<SettingsIntentLedger> {
-    return settingsIntentLedgerFromStorage(
-        await gmStorageGet<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-        await gmStorageGet<unknown>(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null),
-    );
+    return (await readSettingsPersistenceView()).intentLedger;
 }
 
 async function persistSettings(
@@ -2027,23 +2036,18 @@ async function persistSettings(
             coupledSettingsIntentKeys(explicitUserChoiceKeys),
             normalizedSettings,
         );
-        if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
         storedSettings = mergeSettings(
             applySettingsIntent(normalizedSettings, nextLedger) as LegacyReaderSettings,
         );
         const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
-        await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+        await persistSettingsStorageTransaction(nextLedger === ledger ? undefined : nextLedger, supportedSettings);
         storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
-    try {
-        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
-    } catch {
-        // Some test shims do not expose CustomEvent; saving settings should still succeed.
-    }
+    publishSettingsChange({ settings });
 }
 
 export function beginSettingsResetGuard(): void {
@@ -2077,10 +2081,6 @@ export async function settingsStorageKeysStillPresent(): Promise<string[]> {
         if (await storedValueExists(key)) keys.push(key);
     }
     return keys;
-}
-
-function isAudioSourceType(value: unknown): value is AudioSourceType {
-    return typeof value === 'string' && AUDIO_SOURCE_TYPES.has(value as AudioSourceType);
 }
 
 export function normalizeAudioSource(value: unknown): AudioSourceSetting | null {
@@ -2145,7 +2145,7 @@ function ensureHostedAudioSourceFirst(sources: AudioSourceSetting[]): AudioSourc
 }
 
 function isHostedAudioSource(source: AudioSourceSetting): boolean {
-    return source.type === 'custom-json' && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+    return source.type === 'custom-json' && source.url.trim() === DEFAULT_AUDIO_URL;
 }
 
 function migrateLegacyDefaultAudioSources(sources: AudioSourceSetting[]): AudioSourceSetting[] {

@@ -4,6 +4,7 @@ import type { GraphAnchorZone } from '../kanji/graph-geometry';
 import type { KanjiOriginGraph } from '../kanji/origin';
 import { forceLayoutOriginGraph, groupOriginEdges, clippedOriginEdgePath, formatGraphNumber, hashOriginGraphId, isOriginSubcomponentEdge, inferInboundComponentZone, inferOutboundComponentZone } from './origin-graph-layout';
 import type { InterfaceLanguage } from '../app/types';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 export function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const model = buildKanjiOriginGraphRenderModel(graph);
@@ -269,7 +270,7 @@ function renderRelatedOriginGraphNode(node: OriginGraphNode, attrs: string): str
 
 function renderKanjiOriginGraphNode(node: OriginGraphNode, attrs: string): string {
     const title = [node.detail, node.source].filter(Boolean).join(' · ');
-    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" ${attrs} title="${escapeHtml(title)}">${escapeHtml(node.label)}</button>`;
+    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}"${privateCommandAttributes({ kind: 'kanji-lookup', kanji: node.id })} ${attrs} title="${escapeHtml(title)}">${escapeHtml(node.label)}</button>`;
 }
 
 function chooseOriginGraphNodes(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): OriginGraphNode[] {

@@ -13,6 +13,7 @@ import {
     subscribeToSettingsStorageChanges,
 } from '../../src/reader/settings/index';
 import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+import { readSettingsPersistenceView } from '../../src/reader/settings/settings-persistence-transaction';
 import { gmStorageGet } from '../../src/reader/app/storage';
 import {
     installUserscriptGmStorageBridge,
@@ -47,6 +48,85 @@ function installSharedMessageBasedGm(store: Map<string, unknown>): void {
     vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
         store.delete(key);
     }));
+}
+
+async function expectUnchosenPersistenceState(
+    store: Map<string, unknown>,
+    previousSettings: unknown,
+): Promise<void> {
+    expect(store.get(SETTINGS_STORAGE_KEY)).toEqual(previousSettings);
+    expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
+    expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
+    await expect(loadSettings()).resolves.toMatchObject({
+        learningTargetChosen: false,
+        onboardingSeen: false,
+    });
+}
+
+function installSettingsReadSequence(
+    settingsAt: (read: number) => unknown,
+    intentLedgerAt?: unknown | ((read: number) => unknown),
+): { settings: () => number; intentLedger: () => number } {
+    let settingsReads = 0;
+    let intentLedgerReads = 0;
+    const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+    const storedReads = new Map<string, () => unknown>([
+        [SETTINGS_STORAGE_KEY, () => settingsAt(settingsReads++)],
+    ]);
+    if (intentLedgerAt !== undefined) storedReads.set(SETTINGS_INTENT_LEDGER_STORAGE_KEY, () => {
+        const value = typeof intentLedgerAt === 'function'
+            ? intentLedgerAt(intentLedgerReads)
+            : intentLedgerAt;
+        intentLedgerReads += 1;
+        return value;
+    });
+    vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) => {
+        const readStoredValue = storedReads.get(key);
+        return clone(readStoredValue ? readStoredValue() : fallback);
+    }));
+    return {
+        settings: () => settingsReads,
+        intentLedger: () => intentLedgerReads,
+    };
+}
+
+function installForgedPageSettings(): Map<string, unknown> {
+    vi.stubGlobal('location', {
+        href: 'https://evil.example/article',
+        hostname: 'evil.example',
+        pathname: '/article',
+        origin: 'https://evil.example',
+    });
+    const store = new Map<string, unknown>();
+    installSharedMessageBasedGm(store);
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        subtitleFontSize: 48,
+        learningTargetChosen: true,
+    }));
+    return store;
+}
+
+function installRejectedTargetCommit(): {
+    previousSettings: typeof DEFAULT_SETTINGS;
+    store: Map<string, unknown>;
+} {
+    vi.stubGlobal('location', hostedLocation);
+    const previousSettings = {
+        ...DEFAULT_SETTINGS,
+        learningTargetChosen: false,
+        onboardingSeen: false,
+    };
+    const store = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
+    installSharedMessageBasedGm(store);
+    vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+        if (key === SETTINGS_STORAGE_KEY
+            && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) {
+            throw new Error('settings blob rejected');
+        }
+        store.set(key, JSON.parse(JSON.stringify(value)));
+    }));
+    return { previousSettings, store };
 }
 
 function managedStatePhysicalSlot(key: string, epoch: { generation: number; resetId: string }): string {
@@ -271,6 +351,318 @@ describe('settings persist across sites (message-based GM store)', () => {
         })).rejects.toThrow(/GM storage write failed/);
 
         expect(store.has(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+    });
+
+    it('rolls back the intent ledger, settings blob, and local fallback when the settings write fails', async () => {
+        const { previousSettings, store } = installRejectedTargetCommit();
+
+        await expect(saveSettings({
+            ...previousSettings,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        }, {
+            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        })).rejects.toThrow(/GM storage write failed/);
+
+        await expectUnchosenPersistenceState(store, previousSettings);
+    });
+
+    it('rolls back a rejected ledger write before the canonical settings commit can run', async () => {
+        const previousSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        };
+        const store = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
+        installSharedMessageBasedGm(store);
+        const setValue = vi.fn(async (key: string, value: unknown) => {
+            if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY) throw new Error('ledger rejected');
+            store.set(key, JSON.parse(JSON.stringify(value)));
+        });
+        vi.stubGlobal('GM_setValue', setValue);
+
+        await expect(saveSettings({
+            ...previousSettings,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        }, {
+            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        })).rejects.toThrow(/GM storage write failed/);
+
+        const attemptedSettings = setValue.mock.calls
+            .filter(([key]) => key === SETTINGS_STORAGE_KEY)
+            .map(([, value]) => value as { learningTargetChosen?: unknown });
+        expect(attemptedSettings.length).toBeGreaterThan(0);
+        expect(attemptedSettings.every(value => value.learningTargetChosen === false)).toBe(true);
+        await expectUnchosenPersistenceState(store, previousSettings);
+    });
+
+    it('keeps the safe settings marker published when ledger rollback also fails', async () => {
+        const { previousSettings, store } = installRejectedTargetCommit();
+        vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
+            if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY) throw new Error('ledger rollback rejected');
+            store.delete(key);
+        }));
+
+        await expect(saveSettings({
+            ...previousSettings,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        }, {
+            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        })).rejects.toThrow(/rollback operation/);
+
+        expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({
+            records: { learningTargetChosen: { value: true } },
+        });
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+            __yomuSettingsPersistenceTransactionV1: { version: 1 },
+        });
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+            __yomuSettingsPersistenceTransactionV1: { version: 1 },
+        });
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+    });
+
+    it('keeps async loads and the same-origin raw fallback on the previous target until commit', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const previousSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        };
+        const store = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
+        installSharedMessageBasedGm(store);
+        let releaseCommit!: () => void;
+        const commitGate = new Promise<void>(resolve => { releaseCommit = resolve; });
+        let commitReached!: () => void;
+        const reachedCommit = new Promise<void>(resolve => { commitReached = resolve; });
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            if (key === SETTINGS_STORAGE_KEY
+                && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) {
+                commitReached();
+                await commitGate;
+            }
+            store.set(key, JSON.parse(JSON.stringify(value)));
+        }));
+
+        const saving = saveSettings({
+            ...previousSettings,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        }, {
+            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        });
+        await reachedCommit;
+
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+        const rawFallback = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
+        expect(rawFallback).toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+        expect(normalizeReaderSettings(rawFallback).learningTargetChosen).toBe(false);
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+
+        releaseCommit();
+        await saving;
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        });
+    });
+
+    it('retries a committed view read that crosses the final settings write', async () => {
+        const previousSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        };
+        const committedSettings = {
+            ...previousSettings,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        };
+        const nextLedger = {
+            revision: 2,
+            records: {
+                learningTargetChosen: { seq: 1, value: true },
+                onboardingSeen: { seq: 2, value: true },
+            },
+        };
+        const reads = installSettingsReadSequence(
+            read => read === 0 ? previousSettings : committedSettings,
+            nextLedger,
+        );
+
+        const view = await readSettingsPersistenceView();
+        expect(view.settings).toEqual(committedSettings);
+        expect(view.intentLedger.records).toMatchObject({
+            learningTargetChosen: { value: true },
+            onboardingSeen: { value: true },
+        });
+        expect(reads.settings()).toBe(4);
+    });
+
+    it('accepts a matching commit witness and hides its storage metadata', async () => {
+        const commitId = 'committed-target';
+        const committedSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+            __yomuSettingsPersistenceCommitV1: commitId,
+        };
+        const committedLedger = {
+            revision: 2,
+            __yomuSettingsPersistenceCommitV1: commitId,
+            records: {
+                learningTargetChosen: { seq: 1, value: true },
+                onboardingSeen: { seq: 2, value: true },
+            },
+        };
+        installSettingsReadSequence(() => committedSettings, committedLedger);
+
+        const view = await readSettingsPersistenceView();
+        expect(view.settings).toMatchObject({ learningTargetChosen: true, onboardingSeen: true });
+        expect(view.settings).not.toHaveProperty('__yomuSettingsPersistenceCommitV1');
+        expect(view.intentLedger.records).toMatchObject({
+            learningTargetChosen: { value: true },
+            onboardingSeen: { value: true },
+        });
+    });
+
+    it('rejects a staged ledger observed during failed-transaction ABA rollback', async () => {
+        const previousSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        };
+        const previousLedger = { revision: 1, records: {} };
+        const rejectedLedger = {
+            revision: 2,
+            __yomuSettingsPersistenceCommitV1: 'rejected-transaction',
+            records: {
+                learningTargetChosen: { seq: 1, value: true },
+                onboardingSeen: { seq: 2, value: true },
+            },
+        };
+        const reads = installSettingsReadSequence(
+            () => previousSettings,
+            (read: number) => read < 2 ? rejectedLedger : previousLedger,
+        );
+
+        const view = await readSettingsPersistenceView();
+        expect(view.settings).toEqual(previousSettings);
+        expect(view.intentLedger.records).toEqual({});
+        expect(reads.settings()).toBe(4);
+        expect(reads.intentLedger()).toBe(4);
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+    });
+
+    it('does not promote page-local settings into learner intent on an untrusted origin', async () => {
+        const store = installForgedPageSettings();
+
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+        expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
+    });
+
+    it('does not restore a forged page-local target when the first legitimate save fails', async () => {
+        const store = installForgedPageSettings();
+        const previous = await loadSettings();
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            if (key === SETTINGS_STORAGE_KEY
+                && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) {
+                throw new Error('first target commit rejected');
+            }
+            store.set(key, JSON.parse(JSON.stringify(value)));
+        }));
+
+        await expect(saveSettings({
+            ...previous,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        }, {
+            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        })).rejects.toThrow('first target commit rejected');
+
+        expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        });
+    });
+
+    it('never serializes an untrusted page-local blob into the privileged transaction marker', async () => {
+        const store = installForgedPageSettings();
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            learningTargetChosen: true,
+            pagePayload: 'x'.repeat(500_000),
+        }));
+        const writes: unknown[] = [];
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            const serialized = JSON.stringify(value);
+            if (serialized.length > 200_000) throw new Error('quota exceeded');
+            writes.push(value);
+            store.set(key, JSON.parse(serialized));
+        }));
+
+        const previous = await loadSettings();
+        await expect(saveSettings({
+            ...previous,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        }, {
+            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        })).resolves.toBeUndefined();
+
+        expect(writes.length).toBeGreaterThan(0);
+        expect(JSON.stringify(writes)).not.toContain('pagePayload');
+        await expect(loadSettings()).resolves.toMatchObject({
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        });
+    });
+
+    it('fails closed when a committed settings view never stabilizes', async () => {
+        const previousSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: false,
+            onboardingSeen: false,
+        };
+        const nextSettings = {
+            ...previousSettings,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+        };
+        const reads = installSettingsReadSequence(
+            read => read % 2 === 0 ? previousSettings : nextSettings,
+        );
+
+        const view = await readSettingsPersistenceView();
+        expect(view.settings).toBeNull();
+        expect(view.intentLedger.records).toEqual({});
+        expect(reads.settings()).toBe(6);
     });
 
     // GitHub #36 (mirrormc), the half with the broad blast radius. Recovery from an
@@ -722,13 +1114,11 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         expect(shared.onboardingSeen).toBe(true);
     });
 
-    // Owner report 2026-07-29: "if I toggle annotations on and refresh the page
-    // it goes back to off state". Turning annotations back ON writes
-    // `annotationsPaused: false`, which IS the default, so recovery that infers
-    // intent from "differs from the default" read the choice as unset and let
-    // the shared store's `true` win on the next load. The write records the
-    // field it changed, so intent is available and does not need inferring.
-    it('recovers an explicit hosted choice that happens to equal the default', async () => {
+    // A rejected hosted save used to leave its new intent ledger in the local
+    // fallback. A later healthy bridge promoted that orphan and made a setting
+    // the UI reported as failed become active after reload. Rejection now means
+    // the prior shared and origin-local state both remain authoritative.
+    it('does not replay a rejected hosted choice from the local fallback', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
@@ -745,18 +1135,18 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         vi.stubGlobal('GM_setValue', vi.fn(async () => {
             throw new Error('hosted app has no GM bridge');
         }));
-        // A rejected shared write is now reported rather than swallowed, so the
-        // save throws while still leaving the origin-local recovery copy behind.
+        // A rejected shared write is reported and its attempted local recovery
+        // copy is rolled back with the ledger transaction.
         await expect(saveSettings({ ...beforeToggle, annotationsPaused: false }, {
             explicitUserChoiceKeys: ['annotationsPaused'],
-        })).rejects.toThrow(/GM storage write failed/);
+        })).rejects.toThrow(/Settings persistence failed/);
         expect(store.get('jpdb-popup-reader-settings')).toEqual({ annotationsPaused: true });
 
-        // Reload with the shared store readable again: the choice must survive
-        // even though `false` is this setting's default value.
+        // Reload with the shared store readable again: the rejected choice must
+        // not become active merely because the bridge recovered.
         installSharedMessageBasedGm(store);
         const afterRefresh = await loadSettings();
-        expect(afterRefresh.annotationsPaused).toBe(false);
+        expect(afterRefresh.annotationsPaused).toBe(true);
     });
 
     it('still ignores a stale hosted default nobody chose', async () => {
@@ -843,6 +1233,43 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
 
         const localAfterBridge = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? '{}');
         expect(localAfterBridge.__yomuHostedPendingGmPatch).toBeUndefined();
+    });
+
+    it('replays hosted fields without replacing the shared transaction commit witness', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const sharedCommit = 'shared-commit';
+        const store = new Map<string, unknown>([
+            [SETTINGS_STORAGE_KEY, {
+                ...DEFAULT_SETTINGS,
+                learningTargetChosen: true,
+                theme: 'light',
+                __yomuSettingsPersistenceCommitV1: sharedCommit,
+            }],
+            [SETTINGS_INTENT_LEDGER_STORAGE_KEY, {
+                revision: 1,
+                records: {},
+                __yomuSettingsPersistenceCommitV1: sharedCommit,
+            }],
+        ]);
+        installSharedMessageBasedGm(store);
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            theme: 'dark',
+            __yomuSettingsPersistenceCommitV1: 'offline-commit',
+            __yomuHostedPendingGmPatch: {
+                theme: 'dark',
+                __yomuSettingsPersistenceCommitV1: 'offline-commit',
+                __yomuSettingsPersistenceTransactionV1: { version: 1 },
+            },
+        }));
+
+        await expect(loadSettings()).resolves.toMatchObject({ theme: 'dark' });
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
+            theme: 'dark',
+            __yomuSettingsPersistenceCommitV1: sharedCommit,
+        });
+        expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({
+            __yomuSettingsPersistenceCommitV1: sharedCommit,
+        });
     });
 
     it('merges only the pending hosted fields into newer GM changes from another site', async () => {

@@ -5,6 +5,7 @@ import {
     overlayViewport,
     sourceRectToOverlay,
 } from '../ui/page-scale';
+import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 
 export function updateSourceRowEditor(action: string, control?: HTMLElement | null): void {
     const row = control?.closest<HTMLElement>('[data-source-row]');
@@ -20,14 +21,13 @@ export function installSourceRowDrag(root: HTMLElement): void {
     let drag: SourceRowDragState | null = null;
     const dragDocument = root.ownerDocument;
 
-    root.addEventListener('pointerdown', event => {
+    root.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => {
         if (drag) return;
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
-        const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-source-drag-handle]');
-        if (!handle || !root.contains(handle)) return;
-        const row = handle.closest<HTMLElement>('[data-source-row]');
-        const container = row?.closest<HTMLElement>('[data-source-editor]');
-        if (!row || !container) return;
+        const handle = sourceRowDragHandle(root, event);
+        if (!handle) return;
+        const elements = sourceRowDragElements(handle);
+        if (!elements) return;
+        const { container, row } = elements;
         event.preventDefault();
         setSourceRowPointerCapture(handle, event.pointerId);
         const pageScale = overlayViewport().pageScale;
@@ -41,10 +41,10 @@ export function installSourceRowDrag(root: HTMLElement): void {
             startY: sourceRowOverlayY(event.clientY, pageScale),
         };
         row.classList.add('jpdb-reader-order-row-drag-pending');
-        dragDocument.addEventListener('pointermove', moveDrag);
-        dragDocument.addEventListener('pointerup', finishDrag);
-        dragDocument.addEventListener('pointercancel', finishDrag);
-    });
+        dragDocument.addEventListener('pointermove', trustedMoveDrag);
+        dragDocument.addEventListener('pointerup', trustedFinishDrag);
+        dragDocument.addEventListener('pointercancel', trustedFinishDrag);
+    }));
 
     const moveDrag = (event: PointerEvent): void => {
         if (!drag || event.pointerId !== drag.pointerId) return;
@@ -62,13 +62,15 @@ export function installSourceRowDrag(root: HTMLElement): void {
         drag.row.classList.remove('jpdb-reader-order-row-drag-pending', 'jpdb-reader-order-row-dragging');
         syncSourceRowOrder(drag.container);
         drag = null;
-        dragDocument.removeEventListener('pointermove', moveDrag);
-        dragDocument.removeEventListener('pointerup', finishDrag);
-        dragDocument.removeEventListener('pointercancel', finishDrag);
+        dragDocument.removeEventListener('pointermove', trustedMoveDrag);
+        dragDocument.removeEventListener('pointerup', trustedFinishDrag);
+        dragDocument.removeEventListener('pointercancel', trustedFinishDrag);
     };
-    root.addEventListener('pointermove', moveDrag);
-    root.addEventListener('pointerup', finishDrag);
-    root.addEventListener('pointercancel', finishDrag);
+    const trustedMoveDrag = trustedReaderEventHandler(moveDrag);
+    const trustedFinishDrag = trustedReaderEventHandler(finishDrag);
+    root.addEventListener('pointermove', trustedMoveDrag);
+    root.addEventListener('pointerup', trustedFinishDrag);
+    root.addEventListener('pointercancel', trustedFinishDrag);
 }
 
 export function moveSourceRow(container: HTMLElement, index: number, targetIndex: number): void {
@@ -89,6 +91,22 @@ interface SourceRowDragState {
     pointerId: number;
     row: HTMLElement;
     startY: number;
+}
+
+function sourceRowDragHandle(root: HTMLElement, event: PointerEvent): HTMLElement | null {
+    if (!sourceRowDragPointerAllowed(event)) return null;
+    const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-source-drag-handle]');
+    return handle && root.contains(handle) ? handle : null;
+}
+
+function sourceRowDragPointerAllowed(event: PointerEvent): boolean {
+    return event.pointerType !== 'mouse' || event.button === 0;
+}
+
+function sourceRowDragElements(handle: HTMLElement): Pick<SourceRowDragState, 'container' | 'row'> | null {
+    const row = handle.closest<HTMLElement>('[data-source-row]');
+    const container = row?.closest<HTMLElement>('[data-source-editor]');
+    return row && container ? { container, row } : null;
 }
 
 function setSourceRowPointerCapture(handle: HTMLElement, pointerId: number): void {

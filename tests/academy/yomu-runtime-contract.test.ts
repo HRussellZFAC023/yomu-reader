@@ -29,4 +29,17 @@ describe('Academy Reader runtime contract', () => {
         expect(source).toContain("from '../../reader/app/runtime-presence'");
         expect(source).toContain('if (!shouldInstallHostedReaderRuntime()) return \'starting\';');
     });
+
+    it('marks the hosted Academy defaults as target-neutral', () => {
+        const source = readFileSync('src/academy/integration/yomu-runtime.ts', 'utf8');
+        const seed = source.slice(
+            source.indexOf('function seedAcademyReaderDefaults()'),
+            source.indexOf('function academyHostedRuntimeRevision()'),
+        );
+
+        expect(seed).toContain('learningTargetChosen: false');
+        expect(seed).toContain('showFurigana: true');
+        expect(seed).toContain("furiganaMode: 'all'");
+        expect(seed).toContain('showPitchAccent: true');
+    });
 });

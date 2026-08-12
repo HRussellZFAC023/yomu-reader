@@ -4,7 +4,8 @@ import { escapeHtml } from '../dom/index';
 import { escapeWithBreaks, formatSubtitleTime, type SubtitleCue } from './subtitle-cues';
 import { subtitleContentAttributes, type SubtitleContentLanguage } from './subtitle-language-context';
 import { SUBTITLE_SECONDARY_BLURRED_CLASS, SUBTITLE_SECONDARY_CLEAR_CLASS } from './subtitle-rendering';
-import { subtitleIcon, type SubtitleIconName } from './subtitle-surface';
+import { subtitleActionAttributes, subtitleIcon, type SubtitleIconName } from './subtitle-surface';
+import type { SubtitleCommandAction } from '../dom/private-command-capabilities';
 
 export interface SubtitleShadowParsedLine {
     html: string;
@@ -77,7 +78,7 @@ export interface SubtitleShadowActionsState {
 }
 
 interface SubtitleShadowActionButton {
-    action: string;
+    action: SubtitleCommandAction;
     label: string;
     icon: SubtitleIconName;
     pressed: boolean;
@@ -131,7 +132,7 @@ function optionalPlayRecordingAction(state: SubtitleShadowActionsState): Subtitl
 }
 
 function shadowActionButton(
-    action: string,
+    action: SubtitleCommandAction,
     label: string,
     icon: SubtitleIconName,
     pressed: boolean,
@@ -140,7 +141,7 @@ function shadowActionButton(
 }
 
 function renderSubtitleShadowAction(action: SubtitleShadowActionButton): string {
-    return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action.action}" title="${escapeHtml(action.label)}" aria-label="${escapeHtml(action.label)}" aria-pressed="${action.pressed}">${subtitleIcon(action.icon)}<span>${escapeHtml(action.label)}</span></button>`;
+    return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action.action}"${subtitleActionAttributes(action.action)} title="${escapeHtml(action.label)}" aria-label="${escapeHtml(action.label)}" aria-pressed="${action.pressed}">${subtitleIcon(action.icon)}<span>${escapeHtml(action.label)}</span></button>`;
 }
 
 function renderShadowRecordingNote(state: SubtitleShadowActionsState): string {
@@ -168,7 +169,7 @@ function renderShadowContextLine(
     const text = cue.text.trim();
     if (!text) return '';
     const label = SHADOW_CONTEXT_LABELS[resolveUiLanguage(language)][direction];
-    return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${subtitleContentAttributes(content)}>${escapeWithBreaks(text)}</button>`;
+    return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}"${subtitleActionAttributes('shadow-goto', { shadowDirection: direction })} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${subtitleContentAttributes(content)}>${escapeWithBreaks(text)}</button>`;
 }
 
 function renderShadowSecondaryLine(options: {
@@ -182,5 +183,5 @@ function renderShadowSecondaryLine(options: {
     if (!text) return '';
     const blurClass = options.secondaryBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
     const label = uiText(options.language, 'toggleNativeSubtitleBlur');
-    return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${options.secondaryBlurred}" ${subtitleContentAttributes(options.secondaryContent)}>${escapeWithBreaks(text)}</button>`;
+    return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur"${subtitleActionAttributes('toggle-native-blur')} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${options.secondaryBlurred}" ${subtitleContentAttributes(options.secondaryContent)}>${escapeWithBreaks(text)}</button>`;
 }

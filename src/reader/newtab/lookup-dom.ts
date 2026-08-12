@@ -6,6 +6,10 @@ import type { ApiSrsProviderView } from '../cards/srs-providers';
 import { isTargetLanguageText } from '../lookup/target-text';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
+import {
+    privateCommandAttributes,
+    readPrivateReviewTarget,
+} from '../dom/private-command-capabilities';
 
 interface NewTabLookupMetaItemsOptions {
     card: JPDBCard;
@@ -21,11 +25,6 @@ interface LookupPopoverDictionaryLinkRequest {
     reading: string;
 }
 
-interface LookupTextButtonRequest {
-    expression: string;
-    reading: string;
-}
-
 interface InstallLookupOutsideDismissOptions {
     popover: HTMLElement;
     anchor: HTMLElement | undefined;
@@ -35,16 +34,23 @@ interface InstallLookupOutsideDismissOptions {
 }
 
 export function newTabLookupReviewTargetSelection(button: HTMLButtonElement): NewTabLookupReviewTargetSelection | undefined {
-    const target = button.dataset.newtabReviewTarget || button.dataset.reviewTarget || '';
-    if (target === 'jpdb') return { kind: 'jpdb' };
-    if (target === 'jiten') return { kind: 'jiten' };
-    if (target === 'bunpro') return { kind: 'bunpro' };
-    if (target === 'yomu-local') return { kind: 'yomu-local' };
-    if (target !== 'anki') return undefined;
-    const ankiCardId = Number(button.dataset.ankiCardId);
-    return Number.isFinite(ankiCardId) && ankiCardId > 0
-        ? { kind: 'anki', ankiCardId }
-        : { kind: 'anki' };
+    const { target, ankiCardId } = readPrivateReviewTarget(button);
+    if (!isLookupReviewTarget(target)) return undefined;
+    if (target === 'anki') return lookupAnkiReviewTargetSelection(ankiCardId);
+    return { kind: target };
+}
+
+function isLookupReviewTarget(value: string | undefined): value is NewTabLookupReviewTarget['kind'] {
+    return value !== undefined && value !== 'both';
+}
+
+function lookupAnkiReviewTargetSelection(ankiCardId: number | undefined): NewTabLookupReviewTargetSelection {
+    return validLookupAnkiCardId(ankiCardId) ? { kind: 'anki', ankiCardId } : { kind: 'anki' };
+}
+
+function validLookupAnkiCardId(value: number | undefined): value is number {
+    if (typeof value !== 'number') return false;
+    return Number.isFinite(value) && value > 0;
 }
 
 export function newTabLookupMetaItems(options: NewTabLookupMetaItemsOptions): HTMLElement[] {
@@ -72,12 +78,6 @@ export function updateKanjiLookupMiningControls(
     setMiningControlsExpanded: (button: HTMLButtonElement, expanded: boolean) => void,
 ): void {
     updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded);
-}
-
-export function lookupTextRequestFromPopoverButton(button: HTMLButtonElement): LookupTextButtonRequest {
-    const expression = button.dataset.expression ?? button.dataset.lookup ?? button.dataset.term ?? '';
-    const reading = button.dataset.reading ?? expression;
-    return { expression, reading };
 }
 
 export function installLookupOutsideDismiss(options: InstallLookupOutsideDismissOptions): void {
@@ -169,7 +169,7 @@ function renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grade
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
                 const title = targetLabel ? ` title="${escapeHtml(targetLabel)}" aria-label="${escapeHtml(`${buttonLabel}: ${targetLabel}`)}"` : '';
-                return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml(buttonLabel)}</button>`;
+                return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}>${escapeHtml(buttonLabel)}</button>`;
             }).join('')}
         </div>
     `;
@@ -188,15 +188,15 @@ function renderLookupReviewTargetControls(targets: NewTabLookupReviewTarget[], g
 function renderLookupReviewTargetGutter(target: NewTabLookupReviewTarget): string {
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
-        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="Switch review target" aria-label="Switch review target">⇄</button>
-        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}"></button>
+        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: 'card-ui', action: 'review-target-toggle' })} title="Switch review target" aria-label="Switch review target">⇄</button>
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}"></button>
     </div>`;
 }
 
 function renderLookupReviewTargetSelector(targets: NewTabLookupReviewTarget[]): string {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target">
-            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
+            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''}${privateCommandAttributes({ kind: 'review-target', target: target.kind, gradeProfile: 'standard', label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
     </div>`;
 }

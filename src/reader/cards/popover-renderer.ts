@@ -16,7 +16,7 @@ import { cardPronunciationReading, headwordComponentPitchSegments, type Expressi
 import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
-import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
@@ -28,6 +28,11 @@ import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 import { activeContentLanguageAxes } from './content-language-axes';
+import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
+import {
+    privateCommandAttributes,
+    readReviewTargetCapability,
+} from '../dom/private-command-capabilities';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -52,6 +57,7 @@ interface CardPopoverRenderView {
     loadingDetails: string;
     audioButtonDisabled: boolean;
     audioButtonTitle: string;
+    trustedAccountDataSurface: boolean;
 }
 
 interface ReviewButtonsRenderOptions {
@@ -83,6 +89,7 @@ export interface CardPopoverRendererDependencies {
     dictionarySourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
     renderReviewButtonsFallback?: (card: JPDBCard, data: CardRenderData & { loading: boolean }) => string;
+    accountDataSurfaceTrusted?: () => boolean;
 }
 
 export class CardPopoverRenderer {
@@ -97,12 +104,8 @@ export class CardPopoverRenderer {
         const view = this.renderView(card, data);
         const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
         const expressionComponents = this.renderExpressionComponents(card, data, view);
-        const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
-            [ANKI_SOURCE_ID]: ankiSourceSection,
-        });
-        const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes('jpdb-reader-anki-existing')
-            ? ankiSourceSection
-            : '';
+        const definitionSources = this.renderDefinitionSources(card, sentence, data, ankiSourceSection);
+        const fallbackAnkiSection = fallbackAnkiSourceSection(ankiSourceSection, definitionSources);
 
         return `
             <div class="jpdb-reader-sheet-handle"></div>
@@ -120,20 +123,33 @@ export class CardPopoverRenderer {
         `;
     }
 
+    private renderDefinitionSources(card: JPDBCard, sentence: string | undefined, data: CardRenderData, ankiSourceSection: string): string {
+        return this.dependencies.renderDefinitionSources(
+            card,
+            data.localEntries,
+            sentence,
+            data.jpdbVocabularyInfo,
+            data.jitenVocabularyInfo ?? null,
+            data.bunproDefinitionInfo ?? null,
+            { [ANKI_SOURCE_ID]: ankiSourceSection },
+        );
+    }
+
     private renderView(card: JPDBCard, data: CardRenderData & { loading: boolean }): CardPopoverRenderView {
         const cardStates = normalizeCardStates(card.cardState);
         const state = primaryCardState(cardStates);
         const settings = this.settings();
         const language = settings.interfaceLanguage;
+        const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
         const provider = this.apiProviderForCard(card);
-        const selectedDeckLabel = this.selectedApiDeckLabel(provider, data);
-        const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
-        const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider);
-        const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings);
+        const selectedDeckLabel = this.selectedDeckLabelForView(provider, data, trustedAccountDataSurface);
+        const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language);
+        const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider, trustedAccountDataSurface);
+        const ankiActions = renderPopoverAnkiActions(data, settings, trustedAccountDataSurface);
         return {
             cardStates,
             state,
-            storedContext: data.loading ? null : loadMiningContext(card.spelling),
+            storedContext: popoverStoredContext(card, data.loading),
             jpdbUrl: jpdbVocabularyUrl(card),
             cardPos: formatPartOfSpeech(card.partOfSpeech),
             cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
@@ -149,12 +165,22 @@ export class CardPopoverRenderer {
                 selectedDeckLabel,
                 reviewBlockReason,
                 language,
-            }),
-            metaItems: this.renderMetaItems(card, provider, state, data),
+            }, trustedAccountDataSurface),
+            metaItems: this.renderMetaItems(card, provider, state, data, trustedAccountDataSurface),
             loadingDetails: this.renderLoadingDetails(data.loading, language),
             audioButtonDisabled: !settings.audioEnabled,
-            audioButtonTitle: uiText(language, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled'),
+            audioButtonTitle: popoverAudioButtonTitle(settings),
+            trustedAccountDataSurface,
         };
+    }
+
+    private selectedDeckLabelForView(provider: ApiSrsProviderView | null, data: CardRenderData & { loading: boolean }, trusted: boolean): string {
+        return trusted ? this.selectedApiDeckLabel(provider, data) : '';
+    }
+
+    private reviewBlockReasonForView(cardStates: ReturnType<typeof normalizeCardStates>, data: CardRenderData, language: InterfaceLanguage): string {
+        if (data.ankiLookup.primary?.primaryCardId) return '';
+        return this.reviewBlockReason(cardStates, language);
     }
 
     private renderHeader(card: JPDBCard, sentence: string | undefined, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
@@ -175,7 +201,7 @@ export class CardPopoverRenderer {
                     loading: data.loading,
                     dictionaryLabel: name => this.dependencies.dictionaryLabel(name),
                 })}
-                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? ' disabled' : ''}>${speakerIcon()}</button>
+                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio"${privateCommandAttributes({ kind: 'card-action', action: 'audio' })} aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? ' disabled' : ''}>${speakerIcon()}</button>
             </div>
         </div>`;
     }
@@ -264,6 +290,7 @@ export class CardPopoverRenderer {
         return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
             suppressReviewButtons: Boolean(view.reviewButtons),
             sourceAttributes: (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded),
+            trustedAccountDataSurface: view.trustedAccountDataSurface,
         });
     }
 
@@ -272,16 +299,15 @@ export class CardPopoverRenderer {
     }
 
     private renderAnkiNewCardPreview(card: JPDBCard, sentence: string | undefined, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
-        if (data.loading || data.ankiLookup.primary || data.ankiLookup.trusted === false || data.ankiLookup.state !== 'not-in-deck') return '';
+        if (!popoverCanRenderNewAnkiPreview(data)) return '';
         const settings = this.settings();
         return renderAnkiNewCardPreview(card, sentence, settings, {
             localEntries: data.localEntries,
             kanjiEntries: data.kanjiEntries,
             metaEntries: data.metaEntries,
             dictionaryPreferences: settings.dictionaryPreferences,
-            sourceTitle: view.storedContext?.sourceTitle,
-            sourceUrl: view.storedContext?.sourceUrl,
-        }, data.ankiFieldTargetPlan);
+            ...popoverAnkiSourceContext(view.storedContext),
+        }, data.ankiFieldTargetPlan, { trustedAccountDataSurface: view.trustedAccountDataSurface });
     }
 
     private renderActions(view: CardPopoverRenderView): string {
@@ -313,23 +339,47 @@ export class CardPopoverRenderer {
         language: InterfaceLanguage,
         data: CardRenderData & { loading: boolean },
         provider: ApiSrsProviderView | null,
+        trustedAccountDataSurface: boolean,
     ): string {
-        return renderApiMiningActions(this.settings(), card, cardStates, language, data, provider);
+        return renderApiMiningActions(this.settings(), card, cardStates, language, data, provider, trustedAccountDataSurface);
     }
 
-    private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
+    private renderReviewButtons(options: ReviewButtonsRenderOptions, trustedAccountDataSurface: boolean): string {
+        return trustedAccountDataSurface
+            ? this.renderTrustedReviewButtons(options)
+            : this.renderPublicReviewButtons(options);
+    }
+
+    private renderPublicReviewButtons(options: ReviewButtonsRenderOptions): string {
+        if (!this.canRenderPublicReviewButtons(options)) return '';
+        return renderReviewButtons(this.settings());
+    }
+
+    private canRenderPublicReviewButtons(options: ReviewButtonsRenderOptions): boolean {
+        if (options.data.loading) return false;
+        if (options.reviewBlockReason) return false;
+        if (!this.settings().enableReviews) return false;
+        return this.canReviewWithApiProvider(options.provider);
+    }
+
+    private renderTrustedReviewButtons(options: ReviewButtonsRenderOptions): string {
         const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
         const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
         if (earlyResult !== undefined) return earlyResult;
         const targets = this.popoverReviewTargets(card, data, provider, language);
         if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
-        if (provider?.id === 'yomu-local' && card.reviewSource === 'jpdb-live') {
-            return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
-        }
-        if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
-            return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
-        }
+        if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
         return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
+    }
+
+    private shouldUseFallbackReviewButtons(card: JPDBCard, data: CardRenderData & { loading: boolean }, provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
+        return isLiveJpdbCardOnAcademy(provider, card)
+            || !this.shouldRenderReviewButtons(data, provider, reviewBlockReason);
+    }
+
+    private renderReviewButtonsFallback(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
+        const renderer = this.dependencies.renderReviewButtonsFallback;
+        return renderer ? renderer(card, data) : '';
     }
 
     private reviewButtonsEarlyResult(
@@ -536,14 +586,12 @@ export class CardPopoverRenderer {
         `;
     }
 
-    private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
+    private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }, trustedAccountDataSurface: boolean): string[] {
         const settings = this.settings();
-        const academyBacked = card.source === 'yomu-local' || card.reviewSource === 'yomu-local';
-        const canShowProviderStatus = Boolean(provider?.hasApiKey && (provider.id !== 'yomu-local' || academyBacked));
         return [
-            shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank!, settings.interfaceLanguage) : '',
-            canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
-            renderAnkiMeta(data.ankiLookup, settings),
+            renderPopoverFrequencyMeta(card, provider, settings),
+            renderPopoverProviderMeta(card, provider, state, settings, trustedAccountDataSurface),
+            renderPopoverAnkiMeta(data, settings, trustedAccountDataSurface),
         ].filter(Boolean);
     }
 
@@ -569,39 +617,125 @@ export class CardPopoverRenderer {
         if (provider?.id === 'jiten') return jitenDeckLabel((data.jitenDecks ?? [])[0]);
         return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || 'forq', data.jpdbDecks);
     }
+
+    private accountDataSurfaceTrusted(): boolean {
+        return this.dependencies.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
+    }
+}
+
+function fallbackAnkiSourceSection(ankiSourceSection: string, definitionSources: string): string {
+    if (!ankiSourceSection) return '';
+    if (definitionSources.includes('jpdb-reader-anki-existing')) return '';
+    if (definitionSources.includes('data-account-private-launcher')) return '';
+    return ankiSourceSection;
+}
+
+function renderPopoverAnkiActions(data: CardRenderData & { loading: boolean }, settings: ReaderSettings, trusted: boolean): string {
+    if (data.loading || !trusted) return '';
+    return renderAnkiActionRow(data.ankiLookup, settings);
+}
+
+function popoverStoredContext(card: JPDBCard, loading: boolean): ReturnType<typeof loadMiningContext> | null {
+    return loading ? null : loadMiningContext(card.spelling);
+}
+
+function popoverAudioButtonTitle(settings: ReaderSettings): string {
+    const key = settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled';
+    return uiText(settings.interfaceLanguage, key);
+}
+
+function popoverCanRenderNewAnkiPreview(data: CardRenderData & { loading: boolean }): boolean {
+    if (data.loading) return false;
+    if (data.ankiLookup.primary) return false;
+    if (data.ankiLookup.trusted === false) return false;
+    return data.ankiLookup.state === 'not-in-deck';
+}
+
+function popoverAnkiSourceContext(context: ReturnType<typeof loadMiningContext> | null): { sourceTitle?: string; sourceUrl?: string } {
+    return {
+        sourceTitle: context?.sourceTitle,
+        sourceUrl: context?.sourceUrl,
+    };
+}
+
+function isLiveJpdbCardOnAcademy(provider: ApiSrsProviderView | null, card: JPDBCard): boolean {
+    return provider?.id === 'yomu-local' && card.reviewSource === 'jpdb-live';
+}
+
+function renderPopoverFrequencyMeta(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings): string {
+    return shouldRenderMetaFrequencyRank(card, provider, settings)
+        ? renderMetaFrequencyRank(card.frequencyRank!, settings.interfaceLanguage)
+        : '';
+}
+
+function renderPopoverProviderMeta(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, settings: ReaderSettings, trusted: boolean): string {
+    if (!provider || !popoverProviderStatusIsVisible(card, provider, trusted)) return '';
+    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider.label)} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>`;
+}
+
+function popoverProviderStatusIsVisible(card: JPDBCard, provider: ApiSrsProviderView, trusted: boolean): boolean {
+    if (!trusted || !provider.hasApiKey) return false;
+    if (provider.id !== 'yomu-local') return true;
+    return cardIsAcademyBacked(card);
+}
+
+function cardIsAcademyBacked(card: JPDBCard): boolean {
+    return card.source === 'yomu-local' || card.reviewSource === 'yomu-local';
+}
+
+function renderPopoverAnkiMeta(data: CardRenderData, settings: ReaderSettings, trusted: boolean): string {
+    return trusted ? renderAnkiMeta(data.ankiLookup, settings) : '';
 }
 
 export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): void {
-    const option = select.options[select.selectedIndex] ?? null;
-    if (!option) return;
+    const selection = readReviewTargetCapability(selectedPopoverReviewOption(select));
+    if (!selection) return;
     const actions = select.closest<HTMLElement>('.jpdb-reader-actions');
     if (!actions) return;
-    const label = option.dataset.reviewTargetLabel ?? option.textContent?.trim() ?? '';
-    const shortLabel = option.dataset.reviewTargetShortLabel ?? option.textContent?.trim() ?? label;
-    const target = option.dataset.reviewTarget ?? '';
-    const gradeProfile = option.dataset.reviewGradeProfile ?? 'standard';
-    const ankiCardId = option.dataset.ankiCardId ?? '';
+    updatePopoverReviewTargetLabels(actions, selection.label, selection.shortLabel);
+    updatePopoverReviewGradeProfile(actions, selection.gradeProfile);
+    actions.querySelectorAll<HTMLButtonElement>('[data-review-target-row] [data-action="grade"][data-grade]')
+        .forEach(button => updatePopoverReviewButton(button, selection));
+}
+
+function selectedPopoverReviewOption(select: HTMLSelectElement): HTMLOptionElement | null {
+    return select.options[select.selectedIndex] ?? null;
+}
+
+function updatePopoverReviewTargetLabels(actions: HTMLElement, label: string, shortLabel: string): void {
     const current = actions.querySelector<HTMLElement>('[data-review-target-current]');
     if (current) current.textContent = shortLabel;
     const labelText = actions.querySelector<HTMLElement>('[data-review-target-label] [data-newtab-grade-target-text]');
     if (labelText) labelText.textContent = label;
+}
+
+function updatePopoverReviewGradeProfile(actions: HTMLElement, gradeProfile: string): void {
     actions.querySelectorAll<HTMLElement>('[data-review-grade-profile]').forEach(row => {
         row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
     });
-    actions.querySelectorAll<HTMLButtonElement>('[data-review-target-row] [data-action="grade"][data-grade]').forEach(button => {
-        button.dataset.reviewTarget = target;
-        button.dataset.newtabReviewTarget = target;
-        if (ankiCardId) button.dataset.ankiCardId = ankiCardId;
-        else delete button.dataset.ankiCardId;
-        const buttonLabel = button.textContent?.trim() ?? '';
-        if (label) {
-            button.title = label;
-            button.setAttribute('aria-label', `${buttonLabel}: ${label}`);
-        } else {
-            button.removeAttribute('title');
-            button.removeAttribute('aria-label');
-        }
-    });
+}
+
+function updatePopoverReviewButton(button: HTMLButtonElement, selection: NonNullable<ReturnType<typeof readReviewTargetCapability>>): void {
+    button.dataset.reviewTarget = selection.target;
+    button.dataset.newtabReviewTarget = selection.target;
+    updatePopoverReviewButtonCardId(button, selection.ankiCardId);
+    updatePopoverReviewButtonLabel(button, selection.label);
+}
+
+function updatePopoverReviewButtonCardId(button: HTMLButtonElement, ankiCardId: number | undefined): void {
+    if (ankiCardId) button.dataset.ankiCardId = String(ankiCardId);
+    else delete button.dataset.ankiCardId;
+}
+
+function updatePopoverReviewButtonLabel(button: HTMLButtonElement, label: string): void {
+    if (!label) {
+        button.removeAttribute('title');
+        button.removeAttribute('aria-label');
+        return;
+    }
+    const buttonLabel = button.textContent?.trim() ?? '';
+    button.title = label;
+    button.setAttribute('aria-label', `${buttonLabel}: ${label}`);
 }
 
 export function popoverUsesBunproGradeScale(root: ParentNode | null | undefined): boolean {
@@ -626,7 +760,7 @@ function renderTargetedGradeRow(
         ${targetLabel}
         ${grades.map(([grade, label]) => {
             const title = selected.label ? ` title="${escapeHtml(selected.label)}" aria-label="${escapeHtml(`${label}: ${selected.label}`)}"` : '';
-            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml(label)}</button>`;
+            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade: grade as JPDBGrade, reviewTarget: selected.kind === 'wanikani' ? undefined : selected.kind, ankiCardId: selected.ankiCardId })}${title}>${escapeHtml(label)}</button>`;
         }).join('')}
     </div>`;
 }
@@ -651,19 +785,29 @@ function renderReviewTargetGutter(
 ): string {
     const label = uiText(language, 'showMiningActions');
     const switchLabel = uiText(language, 'switchReviewTarget');
-    const currentTarget = switchProviderTarget || canSwitchTarget ? renderReviewTargetCurrent(target) : '';
-    const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget) : currentTarget;
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-        ${targetControl}
-        ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ''}
-        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml(label)}"></button>
+        ${renderReviewTargetControl(target, language, canSwitchTarget, switchProviderTarget)}
+        ${renderReviewTargetToggle(canSwitchTarget, switchLabel)}
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" aria-label="${escapeHtml(label)}"></button>
     </div>`;
+}
+
+function renderReviewTargetControl(target: PopoverReviewTarget, language: InterfaceLanguage, canSwitchTarget: boolean, switchProviderTarget: ApiSrsProviderView | null): string {
+    if (!switchProviderTarget && !canSwitchTarget) return '';
+    const currentTarget = renderReviewTargetCurrent(target);
+    return switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget) : currentTarget;
+}
+
+function renderReviewTargetToggle(canSwitchTarget: boolean, label: string): string {
+    return canSwitchTarget
+        ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle"${privateCommandAttributes({ kind: 'card-ui', action: 'review-target-toggle' })} aria-label="${escapeHtml(label)}">⇄</button>`
+        : '';
 }
 
 function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(uiText(language, 'gradeTargetSelector'))}">
-            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
+            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''}${privateCommandAttributes({ kind: 'review-target', target: target.kind, gradeProfile: target.gradeProfile, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
     </div>`;
 }
@@ -712,11 +856,23 @@ function renderApiMiningActions(
     language: InterfaceLanguage,
     data: CardRenderData & { loading: boolean },
     provider: ApiSrsProviderView | null,
+    trustedAccountDataSurface: boolean,
 ): string {
+    if (!trustedAccountDataSurface) return renderPrivateMiningAction(settings, language, provider);
     const state = miningActionState(cardStates, language);
     const addDeckSelect = renderAddDeckSelect(settings, card, data, language, provider);
     if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return '';
     return renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
+}
+
+function renderPrivateMiningAction(settings: ReaderSettings, language: InterfaceLanguage, provider: ApiSrsProviderView | null): string {
+    const apiAvailable = canRenderApiMiningActions(settings, provider);
+    if (!apiAvailable && !settings.ankiEnabled) return '';
+    return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 1">
+            <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: 'card-action', action: 'add-default' })}>${escapeHtml(uiText(language, 'addToDeck'))} +</button>
+        </div>
+    </div>`;
 }
 
 // Mirrors changeProviderDeckState's resolution: Never forget / Blacklist land
@@ -754,24 +910,56 @@ function renderAddDeckSelect(
 
 function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null, canToggleDeckState: boolean): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-    const directAdd = (provider?.id === 'bunpro' || provider?.id === 'yomu-local')
-        && (addDeckSelect.match(/data-deck-source=/g)?.length ?? 0) <= 1;
-    const directDeckSource = provider?.id === 'bunpro' ? 'bunpro' : provider?.id === 'yomu-local' ? 'yomu-local' : '';
-    // Jiten now follows the same Add to deck / Never forget / Blacklist pattern
-    // as JPDB; its old Mining/Suspended/Forget row was removed.
-    const deckStateButtons = canToggleDeckState
-        ? `
-                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>`
-        : '';
+    const directAdd = isDirectApiDeckAdd(provider, addDeckSelect);
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${canToggleDeckState ? 3 : 1}">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? 'add' : 'deck-picker'}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ''} aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>${deckStateButtons}
+                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${apiMiningActionColumns(canToggleDeckState)}">
+                        ${renderApiDeckAddButton(provider, directAdd, addToDeckLabel)}${renderApiDeckStateButtons(state, canToggleDeckState)}
                     </div>
                     ${addDeckSelect}
                 </div>
             `;
+}
+
+function isDirectApiDeckAdd(provider: ApiSrsProviderView | null, addDeckSelect: string): boolean {
+    if (!provider) return false;
+    const directProviders = new Set<ApiSrsProviderView['id']>(['bunpro', 'yomu-local']);
+    if (!directProviders.has(provider.id)) return false;
+    return apiDeckSourceCount(addDeckSelect) <= 1;
+}
+
+function apiDeckSourceCount(addDeckSelect: string): number {
+    return addDeckSelect.match(/data-deck-source=/g)?.length ?? 0;
+}
+
+function apiMiningActionColumns(canToggleDeckState: boolean): number {
+    return canToggleDeckState ? 3 : 1;
+}
+
+function renderApiDeckAddButton(provider: ApiSrsProviderView | null, directAdd: boolean, label: string): string {
+    return directAdd
+        ? renderDirectApiDeckAddButton(directApiDeckSource(provider), label)
+        : renderApiDeckPickerButton(label);
+}
+
+function directApiDeckSource(provider: ApiSrsProviderView | null): 'bunpro' | 'yomu-local' {
+    return provider?.id === 'bunpro' ? 'bunpro' : 'yomu-local';
+}
+
+function renderDirectApiDeckAddButton(deckSource: 'bunpro' | 'yomu-local', label: string): string {
+    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: 'card-action', action: 'add', deckSource })} aria-expanded="false">${escapeHtml(label)}</button>`;
+}
+
+function renderApiDeckPickerButton(label: string): string {
+    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${escapeHtml(label)}</button>`;
+}
+
+function renderApiDeckStateButtons(state: MiningActionState, canToggleDeckState: boolean): string {
+    if (!canToggleDeckState) return '';
+    const neverForgetClass = state.isNeverForget ? ' danger' : '';
+    return `
+                        <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: 'card-action', action: 'neverforget' })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: 'card-action', action: 'blacklist' })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>`;
 }
 
 function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): string {
@@ -873,7 +1061,7 @@ function expressionComponentRubyToken(text: string, reading: string, pitchClass:
 // deck and grade buttons act on.
 function renderProviderToggle(nextProvider: ApiSrsProviderView, language: InterfaceLanguage, content = ''): string {
     const label = `${uiText(language, 'switchGradingProvider')} (${nextProvider.label})`;
-    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">⇄ ${content}</button>`;
+    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle"${privateCommandAttributes({ kind: 'card-action', action: 'grade-provider-toggle' })} aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">⇄ ${content}</button>`;
 }
 
 // The drawer's expand/collapse behaviour ships in the kanji-study companion;
@@ -886,7 +1074,7 @@ function canExpandMiningDrawer(): boolean {
 function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {
     const label = uiText(language, 'showMiningActions');
     return miningActions
-        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml(label)}"></button></div>`
+        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" aria-label="${escapeHtml(label)}"></button></div>`
         : '';
 }
 

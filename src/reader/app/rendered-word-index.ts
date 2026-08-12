@@ -152,7 +152,7 @@ export class RenderedWordIndex {
             if (root instanceof HTMLElement && root.matches(selector)) words.add(root);
             root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
         });
-        return [...words];
+        return [...words].filter(word => renderedWordElementKey(word) === key);
     }
 
     private primeRepaintIndex(): void {

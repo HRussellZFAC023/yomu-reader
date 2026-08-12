@@ -26,6 +26,13 @@ import { waitForSelectorText } from '../lib/smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { greasyForkLibraryPath, userscriptRequireLibraries } = require('../lib/greasyfork-libraries.cjs');
+const {
+    isLiveStudyAppUrl,
+    liveHostedAnkiBridgeUrl,
+    liveStudyAliasUrl,
+    liveStudyUrl,
+    userscriptDistributionMetadataViolations,
+} = require('../lib/public-release-policy.cjs');
 const { assertNoRemoteExecutableMetadata, userscriptMetadataValues } = require('../lib/userscript-build-utils.cjs');
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
@@ -121,20 +128,25 @@ async function runLiveAssetSmoke(browser) {
     const requests = [];
     page.on('request', request => requests.push(request.url()));
     try {
-        await openLiveNewTab(page);
+        const navigation = await openLiveStudyViaAlias(page);
         const version = await fetchLiveVersion(page);
         const deployedVersion = assertLiveVersion(version);
         const appRequest = assertVersionedAppRequest(requests, version);
         const assets = await fetchLiveAssets(page);
         assertLiveAssets(assets, version, deployedVersion);
-        return liveAssetReport(version, deployedVersion, appRequest, assets);
+        return liveAssetReport(version, deployedVersion, appRequest, assets, navigation);
     } finally {
         await context.close();
     }
 }
 
-async function openLiveNewTab(page) {
-    await page.goto(`${LIVE_ORIGIN}/newtab/index.html?yomu-smoke=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+async function openLiveStudyViaAlias(page) {
+    const smokeId = Date.now();
+    const aliasUrl = liveStudyAliasUrl(LIVE_ORIGIN, smokeId);
+    const expectedUrl = liveStudyUrl(LIVE_ORIGIN);
+    await page.goto(aliasUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.waitForURL(expectedUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    return { aliasUrl, studyUrl: page.url() };
 }
 
 async function fetchLiveVersion(page) {
@@ -145,17 +157,17 @@ async function fetchLiveVersion(page) {
 }
 
 function assertLiveVersion(version) {
-    assert(version.status === 200, 'Live newtab version.json did not load', version);
-    assert(/^[a-f0-9]{12}$/i.test(version.json.appHash ?? ''), 'Live newtab version.json has no 12-char app hash', version.json);
+    assert(version.status === 200, 'Live Study version.json did not load', version);
+    assert(/^[a-f0-9]{12}$/i.test(version.json.appHash ?? ''), 'Live Study version.json has no 12-char app hash', version.json);
     const deployedVersion = versionFromBuildId(version.json.buildId, version.json.appHash);
-    assert(deployedVersion, 'Live newtab build id does not contain a deploy version and the current app hash', version.json);
+    assert(deployedVersion, 'Live Study build id does not contain a deploy version and the current app hash', version.json);
     assertExpectedLiveVersion(version, deployedVersion);
     return deployedVersion;
 }
 
 function assertExpectedLiveVersion(version, deployedVersion) {
     if (!EXPECTED_LIVE_VERSION) return;
-    assert(deployedVersion === EXPECTED_LIVE_VERSION, 'Live newtab deployed version does not match the expected live version', {
+    assert(deployedVersion === EXPECTED_LIVE_VERSION, 'Live Study deployed version does not match the expected live version', {
         expected: EXPECTED_LIVE_VERSION,
         deployedVersion,
         version: version.json,
@@ -164,12 +176,12 @@ function assertExpectedLiveVersion(version, deployedVersion) {
 
 function assertVersionedAppRequest(requests, version) {
     const appRequest = requests.find(isLiveAppRequest);
-    assert(appRequest?.includes(`v=${version.json.appHash}`), 'Live newtab did not request app.js with the version hash', { appRequest, version: version.json });
+    assert(appRequest?.includes(`v=${version.json.appHash}`), 'Live Study did not request app.js with the version hash', { appRequest, version: version.json });
     return appRequest;
 }
 
 function isLiveAppRequest(url) {
-    return url.includes('/newtab/app.js');
+    return isLiveStudyAppUrl(url);
 }
 
 async function fetchLiveAssets(page) {
@@ -197,38 +209,36 @@ function assertLiveAssets(assets, version, deployedVersion) {
 }
 
 function assertLiveIndexAsset(index, version) {
-    assert(index.status === 200, 'Live newtab index did not load', { status: index.status });
-    assert(index.text.includes(`./app.js?v=${version.json.appHash}`), 'Live newtab index is not cache-busting app.js with the current hash', { status: index.status, appHash: version.json.appHash });
-    assert(index.text.includes(version.json.buildId), 'Live newtab index does not expose the current build id', { buildId: version.json.buildId });
+    assert(index.status === 200, 'Live Study index did not load', { status: index.status });
+    assert(index.text.includes(`./app.js?v=${version.json.appHash}`), 'Live Study index is not cache-busting app.js with the current hash', { status: index.status, appHash: version.json.appHash });
+    assert(index.text.includes(version.json.buildId), 'Live Study index does not expose the current build id', { buildId: version.json.buildId });
 }
 
 function assertLiveServiceWorkerAsset(serviceWorker, version) {
-    assert(serviceWorker.status === 200, 'Live newtab service worker did not load', { status: serviceWorker.status });
-    assert(serviceWorker.text.includes(`const APP_HASH = '${version.json.appHash}';`), 'Live newtab service worker app hash does not match version.json', { appHash: version.json.appHash });
-    assert(serviceWorker.text.includes('yomu-newtab-${APP_HASH}'), 'Live newtab service worker cache name does not use APP_HASH');
-    assert(serviceWorker.text.includes("cache: 'no-store'"), 'Live newtab service worker does not network-first navigations with no-store');
+    assert(serviceWorker.status === 200, 'Live Study service worker did not load', { status: serviceWorker.status });
+    assert(serviceWorker.text.includes(`const APP_HASH = '${version.json.appHash}';`), 'Live Study service worker app hash does not match version.json', { appHash: version.json.appHash });
+    assert(serviceWorker.text.includes('yomu-newtab-${APP_HASH}'), 'Live Study service worker cache name does not use APP_HASH');
+    assert(serviceWorker.text.includes("cache: 'no-store'"), 'Live Study service worker does not network-first navigations with no-store');
 }
 
 function assertLiveUserscriptAsset(userscript, deployedVersion) {
     assert(userscript.status === 200, 'Live userscript did not load', { status: userscript.status });
     assert(userscript.text.startsWith('// ==UserScript=='), 'Live userscript did not load as a raw userscript', { status: userscript.status });
-    assert(userscriptMetadataValues(userscript.text, 'version').includes(deployedVersion), 'Live userscript version does not match the live newtab build version', { deployedVersion });
+    assert(userscriptMetadataValues(userscript.text, 'version').includes(deployedVersion), 'Live userscript version does not match the live Study build version', { deployedVersion });
     assertNoRemoteExecutableMetadata(userscript.text);
-    assert(!assetsHasUserscriptUpdateUrl(userscript.text), 'Live userscript should not advertise alternate update/download URLs');
-}
-
-function assetsHasUserscriptUpdateUrl(text) {
-    return text.includes('// @downloadURL') || text.includes('// @updateURL');
+    const violations = userscriptDistributionMetadataViolations(userscript.text, userscriptMetadataValues);
+    assert(violations.length === 0, 'Live userscript advertises alternate or duplicate update/download URLs', { violations });
 }
 
 function assertLiveAppAsset(app) {
-    assert(app.status === 200, 'Live newtab app.js did not load', { status: app.status });
-    assert(app.text.includes('__YOMU_READER_RUNTIME__'), 'Live newtab app.js did not load expected runtime code', { status: app.status });
+    assert(app.status === 200, 'Live Study app.js did not load', { status: app.status });
+    assert(app.text.includes('__YOMU_READER_RUNTIME__'), 'Live Study app.js did not load expected runtime code', { status: app.status });
 }
 
-function liveAssetReport(version, deployedVersion, appRequest, assets) {
+function liveAssetReport(version, deployedVersion, appRequest, assets, navigation) {
     return {
         origin: LIVE_ORIGIN,
+        navigation,
         version: version.json,
         deployedVersion,
         localPackageVersion: pkg.version,
@@ -478,7 +488,7 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
     await page.exposeFunction('__yomuLiveSmokeAnkiRequest', createHostedAnkiRequestHandler(bridgeRequests));
     await addGmXmlHttpRequestBridgeInitScript(page, { requestBridgeName: '__yomuLiveSmokeAnkiRequest' });
     try {
-        await page.goto(`${LIVE_ORIGIN}/newtab/index.html?yomu-anki-bridge-smoke=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+        await page.goto(liveHostedAnkiBridgeUrl(LIVE_ORIGIN, Date.now()), { waitUntil: 'domcontentloaded', timeout: 45_000 });
         await injectLocalUserscriptRuntime(page);
         await page.waitForFunction(() => document.documentElement.dataset.yomuUserscriptHttpBridge === 'true', { timeout: 10_000 });
         const result = await page.evaluate(async ({ ankiUrl, requestEvent, responseEvent }) => {

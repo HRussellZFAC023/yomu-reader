@@ -3,6 +3,7 @@ import { uiText } from '../app/i18n';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import type { InterfaceLanguage } from '../app/types';
 import { sourceStateAttribute } from './source-state';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'readingsComponents')): string {
     if (!info) return '';
@@ -54,7 +55,7 @@ function renderJpdbKanjiReadings(info: JpdbKanjiInfo): string {
 function renderJpdbKanjiComponents(info: JpdbKanjiInfo, language: InterfaceLanguage): string {
     if (!info.components.length) return '';
     return `<div class="jpdb-reader-component-grid">
-        ${info.components.map(component => `<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
+        ${info.components.map(component => `<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}"${privateCommandAttributes({ kind: 'kanji-lookup', kanji: component.kanji })} title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
             <strong>${escapeHtml(component.kanji)}</strong>
             <span>${escapeHtml(component.keyword)}</span>
         </button>`).join('')}
@@ -71,7 +72,7 @@ function renderJpdbKanjiVocabulary(info: JpdbKanjiInfo, language: InterfaceLangu
                 type="button"
                 data-action="similar-word"
                 data-expression="${escapeHtml(item.expression)}"
-                data-reading="${escapeHtml(item.reading)}">
+                data-reading="${escapeHtml(item.reading)}"${privateCommandAttributes({ kind: 'kanji-word', expression: item.expression, reading: item.reading })}>
                 <span class="jpdb-reader-similar-word-head">
                     <span>${escapeHtml(item.expression)}</span>
                     ${item.reading ? `<small>${escapeHtml(item.reading)}</small>` : ''}
@@ -97,6 +98,7 @@ export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, langua
                     type="button"
                     data-action="jpdb-kanji-action"
                     data-kanji-action-id="${escapeHtml(action.id)}"
+                    ${privateCommandAttributes({ kind: 'jpdb-kanji-action', actionId: action.id })}
                     title="${escapeHtml(jpdbKanjiActionLabel(action, language))}">${escapeHtml(jpdbKanjiActionLabel(action, language))}</button>`).join('')}
             </div>
         </div>

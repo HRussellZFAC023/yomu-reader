@@ -4,7 +4,7 @@ import type { InterfaceLanguage, JPDBGrade, ReaderSettings } from '../app/types'
 import { formatSubtitleTime } from './subtitle-cues';
 import type { SubtitleBatchMiningCandidate, SubtitleBatchMiningSummary } from './subtitle-batch-mining';
 import { formatSubtitleText, subtitleText } from './i18n';
-import { renderDrawerHead, subtitleIcon } from './subtitle-surface';
+import { renderDrawerHead, subtitleActionAttributes, subtitleIcon } from './subtitle-surface';
 import { subtitleContentAttributes, type SubtitleContentLanguage } from './subtitle-language-context';
 
 export type SubtitleBatchMiningStatus = 'idle' | 'scanning' | 'ready' | 'failed';
@@ -51,7 +51,7 @@ function renderBatchMiningToolbar(state: SubtitleBatchMiningPanelRenderState): s
 function renderBatchMiningScanButton(state: SubtitleBatchMiningPanelRenderState): string {
     const key = state.status === 'ready' ? 'bmRescan' : 'bmScan';
     const label = subtitleText(state.language, key);
-    return `<button type="button" data-action="bm-scan" ${disabledAttribute(state.status === 'scanning')}>${subtitleIcon('transcript')}<span>${escapeHtml(label)}</span></button>`;
+    return `<button type="button" data-action="bm-scan"${subtitleActionAttributes('bm-scan')} ${disabledAttribute(state.status === 'scanning')}>${subtitleIcon('transcript')}<span>${escapeHtml(label)}</span></button>`;
 }
 
 function renderBatchMiningCandidateActions(state: SubtitleBatchMiningPanelRenderState): string[] {
@@ -59,8 +59,8 @@ function renderBatchMiningCandidateActions(state: SubtitleBatchMiningPanelRender
     const selectedCount = state.selectedKeys.size;
     const language = state.language;
     return [
-        `<button type="button" data-action="bm-add" ${disabledAttribute(selectedCount === 0)}>${subtitleIcon('check')}<span>${escapeHtml(subtitleText(language, 'bmAdd'))}</span></button>`,
-        `<button type="button" data-action="bm-copy" ${disabledAttribute(selectedCount === 0)}>${subtitleIcon('copy')}<span>${escapeHtml(subtitleText(language, 'bmCopy'))}</span></button>`,
+        `<button type="button" data-action="bm-add"${subtitleActionAttributes('bm-add')} ${disabledAttribute(selectedCount === 0)}>${subtitleIcon('check')}<span>${escapeHtml(subtitleText(language, 'bmAdd'))}</span></button>`,
+        `<button type="button" data-action="bm-copy"${subtitleActionAttributes('bm-copy')} ${disabledAttribute(selectedCount === 0)}>${subtitleIcon('copy')}<span>${escapeHtml(subtitleText(language, 'bmCopy'))}</span></button>`,
         renderBatchMiningGradeGroup({
             action: 'bm-grade-selected',
             label: subtitleText(language, 'bmGradeSelected'),
@@ -68,14 +68,14 @@ function renderBatchMiningCandidateActions(state: SubtitleBatchMiningPanelRender
             disabled: selectedCount === 0,
             className: 'jpdb-subtitle-batch-grade-selected',
         }),
-        `<button type="button" data-action="bm-all" ${disabledAttribute(selectedCount === state.candidates.length)}>${escapeHtml(subtitleText(language, 'selectAll'))}</button>`,
+        `<button type="button" data-action="bm-all"${subtitleActionAttributes('bm-all')} ${disabledAttribute(selectedCount === state.candidates.length)}>${escapeHtml(subtitleText(language, 'selectAll'))}</button>`,
         ...renderBatchMiningClearAction(state),
     ];
 }
 
 function renderBatchMiningClearAction(state: SubtitleBatchMiningPanelRenderState): string[] {
     if (!state.selectedKeys.size) return [];
-    return [`<button type="button" data-action="bm-clear">${escapeHtml(subtitleText(state.language, 'clearSelection'))}</button>`];
+    return [`<button type="button" data-action="bm-clear"${subtitleActionAttributes('bm-clear')}>${escapeHtml(subtitleText(state.language, 'clearSelection'))}</button>`];
 }
 
 function disabledAttribute(disabled: boolean): string {
@@ -114,7 +114,7 @@ function renderBatchMiningCandidate(candidate: SubtitleBatchMiningCandidate, sta
     const selectLabel = subtitleText(language, batchMiningSelectLabelKey(selected));
     const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
     const content = subtitleContentAttributes(state.targetContent);
-    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${batchMiningSelectedIcon(selected)}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" ${content}>${escapeHtml(candidate.card.spelling)}</span>${renderBatchMiningReading(candidate, content)}</button><div class="jpdb-subtitle-batch-meta">${renderBatchMiningIPlusOneBadge(candidate, language)}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, 'bmOccurrences', { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" ${content}>${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle"${subtitleActionAttributes('bm-toggle', { candidateKey: candidate.key })} aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${batchMiningSelectedIcon(selected)}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"${subtitleActionAttributes('bm-open', { candidateKey: candidate.key })}><span class="jpdb-subtitle-batch-expression" ${content}>${escapeHtml(candidate.card.spelling)}</span>${renderBatchMiningReading(candidate, content)}</button><div class="jpdb-subtitle-batch-meta">${renderBatchMiningIPlusOneBadge(candidate, language)}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, 'bmOccurrences', { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" ${content}>${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
 }
 
 function batchMiningSelectLabelKey(selected: boolean): 'bmDeselect' | 'bmSelect' {
@@ -140,15 +140,17 @@ function renderBatchMiningCandidateGrades(candidate: SubtitleBatchMiningCandidat
     const label = `${subtitleText(state.language, 'bmGradeWord')}: ${candidate.card.spelling}`;
     return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({
         action: 'bm-grade',
+        candidateKey: candidate.key,
         grades: state.reviewGrades,
         ariaContext: label,
     })}</div>`;
 }
 
 function renderBatchMiningGradeGroup(options: {
-    action: string;
+    action: 'bm-grade' | 'bm-grade-selected';
     label: string;
     grades: SubtitleBatchMiningGradeOption[];
+    candidateKey?: string;
     disabled?: boolean;
     className?: string;
 }): string {
@@ -157,14 +159,15 @@ function renderBatchMiningGradeGroup(options: {
 }
 
 function renderBatchMiningGradeButtons(options: {
-    action: string;
+    action: 'bm-grade' | 'bm-grade-selected';
     grades: SubtitleBatchMiningGradeOption[];
+    candidateKey?: string;
     disabled?: boolean;
     ariaContext?: string;
 }): string {
     return options.grades.map(({ grade, label }) => {
         const ariaLabel = options.ariaContext ? `${label}: ${options.ariaContext}` : label;
-        return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml(options.action)}" data-grade="${escapeHtml(grade)}" ${options.disabled ? 'disabled' : ''} aria-label="${escapeHtml(ariaLabel)}">${escapeHtml(label)}</button>`;
+        return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml(options.action)}" data-grade="${escapeHtml(grade)}"${subtitleActionAttributes(options.action, { grade, candidateKey: options.candidateKey })} ${options.disabled ? 'disabled' : ''} aria-label="${escapeHtml(ariaLabel)}">${escapeHtml(label)}</button>`;
     }).join('');
 }
 

@@ -5,7 +5,6 @@ import {
     isPrivateManagedStorageKey,
     logicalManagedStorageKey,
 } from './managed-storage-keys';
-import { HOSTED_LOCAL_SETTINGS_KEYS } from './hosted-demo-settings';
 import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
@@ -54,6 +53,14 @@ import {
     type GmStorageLeaseOptions,
 } from './gm-storage-lease';
 import { isManagedStorageBackupKey } from './managed-storage-backup-policy';
+import {
+    hostedSettingsLocalFallbackValue,
+    hostedStoragePromotionValue,
+    isHostedSettingsStorageKey,
+    isHostedYomuLocation,
+    pendingHostedSettingsPatch,
+} from './hosted-storage-fallback';
+import { localStorageGet, localStorageSet, localStorageSetOrThrow, storageWriteError } from './storage-local-values';
 
 export { managedLocalStorage, managedSessionStorage };
 export type { GmStorageLeaseOptions } from './gm-storage-lease';
@@ -298,6 +305,29 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
     }
 }
 
+/** Shared-only read: never promote or fall back to page-readable storage. */
+export async function gmStorageGetShared<T>(key: string, fallback: T): Promise<T> {
+    const getValue = asyncGmGetValue();
+    if (!getValue) return fallback;
+    return sharedOwnedManagedValue(getValue, key, fallback, 'Shared GM storage read failed');
+}
+
+async function sharedOwnedManagedValue<T>(
+    getValue: GmGetValue,
+    key: string,
+    fallback: T,
+    errorLabel: string,
+): Promise<T> {
+    try {
+        const epoch = await assertRealmManagedStateEpoch(getValue);
+        return await managedGmValue(getValue, key, fallback, epoch);
+    } catch (error) {
+        if (isStaleManagedStateEpochError(error)) throw error;
+        debugStorageError(errorLabel, key, error);
+        return fallback;
+    }
+}
+
 /**
  * Read several managed keys behind ONE realm fence, in the order given. Per-key
  * recovery and error handling are exactly `gmStorageGet`'s.
@@ -332,21 +362,42 @@ export async function gmStorageGetMany<T>(keys: readonly string[], fallback: T):
 
 async function sharedManagedValue<T>(getValue: GmGetValue, key: string, fallback: T, epoch: ManagedStateEpoch): Promise<T> {
     const pendingPatch = pendingHostedLocalPatch(key, epoch);
-    if (pendingPatch) {
-        const shared = await managedGmValue(getValue, key, undefined, epoch);
-        const sharedRecord = isPlainRecord(shared) ? shared : {};
-        const reconciled = { ...sharedRecord, ...pendingPatch } as T;
-        await gmStorageSet(key, reconciled);
-        return reconciled;
-    }
+    return pendingPatch
+        ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch)
+        : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
+}
+
+async function reconcilePendingHostedLocalPatch<T>(
+    getValue: GmGetValue,
+    key: string,
+    pendingPatch: Record<string, unknown>,
+    epoch: ManagedStateEpoch,
+): Promise<T> {
+    const shared = await managedGmValue(getValue, key, undefined, epoch);
+    const sharedRecord = isPlainRecord(shared) ? shared : {};
+    const reconciled = { ...sharedRecord, ...pendingPatch } as T;
+    await gmStorageSet(key, reconciled);
+    return reconciled;
+}
+
+async function sharedManagedValueWithoutPendingPatch<T>(
+    getValue: GmGetValue,
+    key: string,
+    fallback: T,
+    epoch: ManagedStateEpoch,
+): Promise<T> {
     const read = await readManagedGmValue<T>(getValue, key, epoch);
     if (read.kind === 'found') return read.value;
     if (read.kind === 'deleted') return fallback;
+    return promoteLocalManagedValue(key, fallback, epoch);
+}
+
+async function promoteLocalManagedValue<T>(key: string, fallback: T, epoch: ManagedStateEpoch): Promise<T> {
     const migrated = localMirrorBelongsToEpoch(key, epoch)
         ? localStorageGet<T>(key, MISSING as T)
         : MISSING as T;
     if (!isMissingSentinel(migrated)) {
-        const promoted = sanitizedStrandedLocalValue(key, migrated);
+        const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
         await gmStorageSet(key, promoted);
         return promoted;
     }
@@ -363,18 +414,20 @@ function failedManagedReadValue<T>(error: unknown, key: string, fallback: T, epo
 }
 
 function localOnlyManagedValue<T>(key: string, fallback: T, epoch: ManagedStateEpoch): T {
-    const local = localMirrorBelongsToEpoch(key, epoch)
-        ? localStorageGet<T | typeof MISSING>(key, MISSING)
-        : MISSING;
+    const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet<T | typeof MISSING>(key, MISSING) : MISSING;
     if (!isMissingSentinel(local)) return local as T;
     // Establish the standalone hosted profile as a comparison baseline before
     // the user edits it. A later bridge can then persist a field-level patch,
     // rather than mistaking the entire default-filled settings object for user
     // intent and overwriting unrelated settings already present in GM storage.
-    if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
+    mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch);
+    return fallback;
+}
+
+function mirrorStandaloneHostedSettingsBaseline<T>(key: string, fallback: T, epoch: ManagedStateEpoch): void {
+    if (isHostedSettingsStorageKey(key) && isHostedYomuOrigin() && isPlainRecord(fallback)) {
         mirrorManagedValueToHostedStorage(key, fallback, epoch);
     }
-    return fallback;
 }
 
 /** Raw, non-promoting read used by owner-defined factory-reset enumerators. */
@@ -413,14 +466,7 @@ export async function gmPrivateStorageGet<T>(key: string, fallback: T): Promise<
     removeSessionStorageKey(key);
     const getValue = directGmGetValue();
     if (!getValue) return fallback;
-    try {
-        const epoch = await assertRealmManagedStateEpoch(getValue);
-        return await managedGmValue(getValue, key, fallback, epoch);
-    } catch (error) {
-        if (isStaleManagedStateEpochError(error)) throw error;
-        debugStorageError('Private GM storage read failed', key, error);
-        return fallback;
-    }
+    return sharedOwnedManagedValue(getValue, key, fallback, 'Private GM storage read failed');
 }
 
 export async function withGmStorageLease<T>(
@@ -523,107 +569,90 @@ function migratedLocalStorageSyncValue<T>(key: string, epoch: ManagedStateEpoch)
     if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: 'fallback' };
     const migrated = localStorageGet<T>(key, MISSING as T);
     if (isMissingSentinel(migrated)) return { kind: 'fallback' };
-    const promoted = sanitizedStrandedLocalValue(key, migrated);
+    const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
     void gmStorageSet(key, promoted);
     return { kind: 'found', value: promoted };
 }
 
-// Mirrors SETTINGS_STORAGE_KEY in settings/index.ts; the settings module
-// depends on this one, so the literal cannot be imported from there.
-const HOSTED_SETTINGS_BLOB_KEY = 'jpdb-popup-reader-settings';
-const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = '__yomuHostedPendingGmPatch';
-
-// A hosted page's localStorage settings copy includes policy values owned by
-// the built-in Reader. Promoting a stranded copy into the shared GM store must
-// drop those keys so visiting a hosted surface can never change the learner's
-// installed Reader settings. (Stranded-settings field recovery in
-// settings/index.ts applies the same exclusion.)
-function sanitizedStrandedLocalValue<T>(key: string, value: T): T {
-    if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
-    const record: Record<string, unknown> = { ...value };
-    let policy = record;
-    if (key === 'yomu:settings-intent:v2') {
-        if (!isPlainRecord(record.records)) return value;
-        policy = record.records = { ...record.records };
-    } else if (key !== HOSTED_SETTINGS_BLOB_KEY && key !== 'yomu:explicit-user-settings:v1') {
-        return value;
-    }
-    delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-    HOSTED_LOCAL_SETTINGS_KEYS.forEach(hostedKey => delete policy[hostedKey]);
-    return record as T;
-}
-
 function pendingHostedLocalPatch(key: string, epoch: ManagedStateEpoch): Record<string, unknown> | undefined {
-    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return undefined;
+    if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return undefined;
     if (!localMirrorBelongsToEpoch(key, epoch)) return undefined;
-    const value = localStorageGet<unknown>(key, undefined);
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-    const patch = (value as Record<string, unknown>)[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-    return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : undefined;
+    return pendingHostedSettingsPatch(key, localStorageGet<unknown>(key, undefined), true);
 }
 
 function localFallbackValueForWrite(key: string, value: unknown): unknown {
-    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-    const current = sanitizedStrandedLocalValue(key, value) as Record<string, unknown>;
-    const previousValue = localStorageGet<unknown>(key, undefined);
-    const previous = isPlainRecord(previousValue)
-        ? sanitizedStrandedLocalValue(key, previousValue) as Record<string, unknown>
-        : undefined;
-    const earlierPatch = isPlainRecord(previousValue)
-        && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD])
-        ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] as Record<string, unknown>
-        : {};
-    // A direct write without a preceding read has no trustworthy baseline.
-    // Leave it as a stranded local blob: settings/index.ts can recover only
-    // its non-default fields later. Marking the full object as a patch would
-    // let default values clobber unrelated, newer GM settings.
-    if (!previous) return current;
-    const changed = changedRecordFields(previous, current);
-    return {
-        ...current,
-        [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed },
-    };
+    if (!isHostedSettingsStorageKey(key)) return value;
+    return hostedSettingsLocalFallbackValue(
+        key,
+        value,
+        isHostedYomuOrigin(),
+        () => localStorageGet<unknown>(key, undefined),
+    );
 }
 
-function changedRecordFields(previous: Record<string, unknown>, current: Record<string, unknown>): Record<string, unknown> {
-    const changed: Record<string, unknown> = {};
-    for (const [field, value] of Object.entries(current)) {
-        if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-    }
-    return changed;
+interface GmStorageSetOptions {
+    readonly localFallbackOnAuthoritativeFailure?: 'write' | 'preserve';
 }
 
-export async function gmStorageSet(key: string, value: unknown): Promise<void> {
+export async function gmStorageSet(
+    key: string,
+    value: unknown,
+    options: GmStorageSetOptions = {},
+): Promise<void> {
     if (managedStateWritesSuppressed()) throw new Error('Managed state writes are suppressed during factory reset.');
     const getValue = asyncGmGetValue();
     const setValue = asyncGmSetValue();
-    if (setValue) {
-        let epoch: ManagedStateEpoch | undefined;
-        try {
-            if (!getValue) throw new Error('Managed storage cannot validate its state epoch.');
-            epoch = await assertRealmManagedStateEpoch(getValue);
-            await writeManagedGmValue(key, value, epoch, getValue, setValue);
-            mirrorManagedValueToHostedStorage(key, value, epoch);
-            return;
-        } catch (error) {
-            if (isStaleManagedStateEpochError(error)) throw error;
-            debugStorageError('GM storage write failed', key, error);
-            // Keep the origin-local recovery copy, but never report a shared
-            // userscript/extension write as successful when its authoritative
-            // backend rejected it. Otherwise the UI confirms a setting that
-            // disappears on refresh or on the next site.
-            try {
-                epoch ??= await assertRealmManagedStateEpoch(null);
-                writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
-            } catch (fallbackError) {
-                throw storageWriteError(key, 'GM storage and localStorage fallback writes failed', error, fallbackError);
-            }
-            throw storageWriteError(key, 'GM storage write failed; saved only to localStorage fallback', error);
-        }
-    }
+    if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
     const epoch = await assertRealmManagedStateEpoch(null);
     writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+
+async function setSharedManagedValue(
+    key: string,
+    value: unknown,
+    options: GmStorageSetOptions,
+    getValue: GmGetValue | null,
+    setValue: GmSetValue,
+): Promise<void> {
+    let epoch: ManagedStateEpoch | undefined;
+    try {
+        if (!getValue) throw new Error('Managed storage cannot validate its state epoch.');
+        epoch = await assertRealmManagedStateEpoch(getValue);
+        await writeManagedGmValue(key, value, epoch, getValue, setValue);
+        mirrorManagedValueToHostedStorage(key, value, epoch);
+    } catch (error) {
+        await handleSharedManagedWriteFailure(key, value, options, error, epoch);
+    }
+}
+
+async function handleSharedManagedWriteFailure(
+    key: string,
+    value: unknown,
+    options: GmStorageSetOptions,
+    error: unknown,
+    epoch: ManagedStateEpoch | undefined,
+): Promise<never> {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError('GM storage write failed', key, error);
+    if (options.localFallbackOnAuthoritativeFailure === 'preserve') {
+        throw storageWriteError(key, 'GM storage write failed', error);
+    }
+    await writeFailedManagedValueFallback(key, value, error, epoch);
+    throw storageWriteError(key, 'GM storage write failed; saved only to localStorage fallback', error);
+}
+
+async function writeFailedManagedValueFallback(
+    key: string,
+    value: unknown,
+    error: unknown,
+    epoch: ManagedStateEpoch | undefined,
+): Promise<void> {
+    try {
+        const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
+        writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
+    } catch (fallbackError) {
+        throw storageWriteError(key, 'GM storage and localStorage fallback writes failed', error, fallbackError);
+    }
 }
 
 /** Store secret material fail-closed; page localStorage is never a fallback. */
@@ -1506,44 +1535,6 @@ async function resetStoredValueExists(key: string): Promise<boolean> {
         || resetWebStorageHasKey(sessionStorage, key, 'sessionStorage');
 }
 
-function localStorageGet<T>(key: string, fallback: T): T {
-    try {
-        const value = localStorage.getItem(key);
-        return value == null ? fallback : JSON.parse(value) as T;
-    } catch {
-        return fallback;
-    }
-}
-
-function localStorageSet(key: string, value: unknown): void {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-        // Best effort only. Callers that promise durability use
-        // localStorageSetOrThrow instead.
-    }
-}
-
-function localStorageSetOrThrow(key: string, value: unknown): string {
-    try {
-        const serialized = JSON.stringify(value);
-        if (serialized === undefined) throw new Error('value is not JSON-serializable');
-        localStorage.setItem(key, serialized);
-        if (localStorage.getItem(key) !== serialized) throw new Error('read-back did not match');
-        return serialized;
-    } catch (error) {
-        throw storageWriteError(key, 'localStorage write failed', error);
-    }
-}
-
-function storageWriteError(key: string, message: string, ...causes: unknown[]): Error {
-    const details = causes
-        .map(cause => cause instanceof Error ? cause.message : String(cause))
-        .filter(Boolean)
-        .join('; ');
-    return new Error(`${message} for "${key}"${details ? `: ${details}` : ''}`);
-}
-
 function removeLocalStorageKey(key: string): void {
     try {
         localStorage.removeItem(key);
@@ -1669,6 +1660,14 @@ function removeLocalMirrorProvenance(key: string): void {
     else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
 }
 
+export function restoreLocalFallbackStoredValue(key: string, value: unknown, existed: boolean): void {
+    if (managedStateWritesSuppressed()) return;
+    if (!existed) return removeLocalManagedValue(key);
+    const epoch = managedStateEpochForSynchronousLocalRead();
+    if (!epoch) throw storageWriteError(key, 'Managed storage cannot restore its localStorage fallback');
+    writeLocalManagedValueOrThrow(key, value, epoch);
+}
+
 function localMirrorProvenanceRecord(): LocalMirrorProvenance | null {
     const value = localStorageGet<unknown>(LOCAL_MIRROR_PROVENANCE_KEY, null);
     if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.values)) return null;
@@ -1704,16 +1703,12 @@ function shouldMirrorManagedValueToHostedStorage(key: string): boolean {
 
 export function isHostedYomuOrigin(): boolean {
     try {
-        const host = location.hostname;
-        const path = location.pathname;
-        if (location.origin === DOCS_ORIGIN) return true;
-        if (host === 'hrussellzfac023.github.io') return path.startsWith('/yomu-reader/');
-        return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host)
-            && (path.includes('/study/') || path.includes('/newtab/'));
+        return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
     } catch {
         return false;
     }
 }
+
 
 async function clearManagedIndexedDatabases(): Promise<void> {
     // The registry is the single source of truth for managed IndexedDB names.

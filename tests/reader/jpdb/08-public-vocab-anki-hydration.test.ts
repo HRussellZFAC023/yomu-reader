@@ -26,6 +26,7 @@ import {
     stubAudioConstructorPlayback,
     testAudioBlob,
     testCardRenderDataLoader,
+    testCardPopoverRenderer,
     testImmersionKitExample,
     testImmersionPopoverController,
     unproxiedFetchTarget,
@@ -479,20 +480,11 @@ describe('reader helpers', () => {
     });
 
     it('renders cache-only Anki status in the popover header without showing Add to Anki', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                ankiEnabled: true,
-                ankiSectionEnabled: true,
-                jpdbMiningEnabled: true,
-                apiKey: 'test-key',
-            }),
-            isJpdbBackedCard: () => true,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: () => '',
-            dictionaryLabel: name => name,
+        const renderer = testCardPopoverRenderer({
+            ankiEnabled: true,
+            ankiSectionEnabled: true,
+            jpdbMiningEnabled: true,
+            apiKey: 'test-key',
         });
         const cachedStatus: AnkiLookupResult = {
             state: 'due',
@@ -530,21 +522,12 @@ describe('reader helpers', () => {
     });
 
     it('hides cached Anki popover status, details, and grade targets when Anki mining is disabled', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                ankiEnabled: false,
-                ankiSectionEnabled: true,
-                enableReviews: true,
-                jpdbMiningEnabled: true,
-                apiKey: 'test-key',
-            }),
-            isJpdbBackedCard: () => true,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: () => '',
-            dictionaryLabel: name => name,
+        const renderer = testCardPopoverRenderer({
+            ankiEnabled: false,
+            ankiSectionEnabled: true,
+            enableReviews: true,
+            jpdbMiningEnabled: true,
+            apiKey: 'test-key',
         });
         const cachedStatus: AnkiLookupResult = {
             state: 'due',
@@ -595,6 +578,7 @@ describe('reader helpers', () => {
             renderDefinitionSources: () => '',
             dictionarySourceAttributes: () => '',
             dictionaryLabel: name => name,
+            accountDataSurfaceTrusted: () => true,
         });
 
         document.body.innerHTML = renderer.render({ ...card, cardState: ['not-in-deck'] }, '動画を見る。', 'modal', {

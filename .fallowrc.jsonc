@@ -113,6 +113,9 @@
     // The file is an executable module seam, but the static graph sees only the
     // original settings/index specifiers rather than the resolved alias target.
     "src/reader/settings/index-companion.ts",
+    // Imported directly by the static OAuth broker HTML. Fallow's JavaScript
+    // graph does not follow module-script imports declared in HTML.
+    "docs/public/oauth/google-drive-return-policy.js",
     // Substituted for the real modules by vite alias in companion builds
     // (vite.config.ts greasyfork aliases) — invisible to the import graph.
     "src/reader/app/i18n-companion.ts",

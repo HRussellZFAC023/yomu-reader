@@ -5,6 +5,7 @@ import { newTabGradeOptions, usesTwoButtonNewTabGradeScale } from '../../src/rea
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { popoverUsesBunproGradeScale, updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
+import { bindPrivateCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -45,6 +46,8 @@ describe('new-tab review controls', () => {
             <div data-review-target-row data-review-grade-profile="bunpro-regular" hidden><button data-action="grade" data-grade="pass"></button></div>
         </div>`;
         const select = document.querySelector<HTMLSelectElement>('select')!;
+        bindPrivateCommandCapability(select.options[0]!, { kind: 'review-target', target: 'jpdb', gradeProfile: 'standard', label: 'Grades JPDB', shortLabel: 'JPDB' });
+        bindPrivateCommandCapability(select.options[1]!, { kind: 'review-target', target: 'bunpro', gradeProfile: 'bunpro-regular', label: 'Grades Bunpro', shortLabel: 'Bunpro' });
         select.selectedIndex = 1;
         updatePopoverReviewTargetSelection(select);
 

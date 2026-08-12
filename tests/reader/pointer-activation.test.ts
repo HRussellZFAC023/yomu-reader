@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { installReaderControlPointerActivation } from '../../src/reader/ui/pointer-activation';
 import { shouldIgnoreDocumentClickTarget } from '../../src/reader/app/native-page-lookup-targets';
 import { createPointerEvent } from './helpers/browser-fixtures';
+import {
+    allowSyntheticReaderInteractionsForTests,
+    installTrustedReaderRootBoundary,
+    isDirectTrustedReaderInteraction,
+} from '../../src/reader/ui/trusted-interaction';
 
 function mountReaderButton(): HTMLButtonElement {
     document.body.innerHTML = `
@@ -53,6 +58,59 @@ describe('reader control pointer activation', () => {
 
         expect(trailingClick.defaultPrevented).toBe(true);
         expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('authorizes only the exact derived click through the Reader root gate', () => {
+        const button = mountReaderButton();
+        const onClick = vi.fn();
+        let derivedClick: MouseEvent | undefined;
+        button.addEventListener('click', event => {
+            if (!isDirectTrustedReaderInteraction(event)) return;
+            derivedClick ??= event;
+            onClick(event);
+        });
+        const boundary = new AbortController();
+        installTrustedReaderRootBoundary(document, boundary.signal);
+
+        try {
+            button.dispatchEvent(createPointerEvent('pointerdown', {
+                pointerId: 17,
+                pointerType: 'touch',
+                clientX: 12,
+                clientY: 18,
+            }));
+            button.dispatchEvent(createPointerEvent('pointerup', {
+                pointerId: 17,
+                pointerType: 'touch',
+                clientX: 12,
+                clientY: 18,
+            }));
+
+            expect(onClick).toHaveBeenCalledTimes(1);
+            expect(derivedClick).toBeDefined();
+
+            allowSyntheticReaderInteractionsForTests(false);
+            button.dispatchEvent(derivedClick!);
+            button.click();
+            expect(onClick).toHaveBeenCalledTimes(1);
+
+            button.dispatchEvent(createPointerEvent('pointerdown', {
+                pointerId: 18,
+                pointerType: 'touch',
+                clientX: 12,
+                clientY: 18,
+            }));
+            button.dispatchEvent(createPointerEvent('pointerup', {
+                pointerId: 18,
+                pointerType: 'touch',
+                clientX: 12,
+                clientY: 18,
+            }));
+            expect(onClick).toHaveBeenCalledTimes(1);
+        } finally {
+            allowSyntheticReaderInteractionsForTests(true);
+            boundary.abort();
+        }
     });
 
     it('leaves mouse clicks to the browser', () => {

@@ -438,6 +438,18 @@ async function fetchWithinAbortScope(url, init, signal) {
 function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
 }
+const SETTINGS_PANEL_IDS = [
+  "appearance",
+  "backup",
+  "api",
+  "dictionaries",
+  "media",
+  "mining",
+  "newTab",
+  "shortcuts",
+  "help"
+];
+new Set(SETTINGS_PANEL_IDS);
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
@@ -2341,6 +2353,12 @@ const COPY = {
   settingsSearch: "Search settings",
   settingsSearchPlaceholder: "Search settings",
   settingsSearchNoResults: "No matches.",
+  accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
+  accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
+  openAccountSettingsTrustedSurface: "Open Study settings",
+  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
+  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
+  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
   show: "Show",
@@ -2374,6 +2392,8 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
+  storedCredentialPlaceholder: "Saved — enter a replacement",
+  clearStoredCredential: "Remove saved credential",
   apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
   wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
   jpdbSettings: "JPDB settings",
@@ -4040,6 +4060,12 @@ translating	翻訳中...
   ...GRAMMAR_UI_COPY.ja
 };
 const JA_SETTINGS_COPY = {
+  accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
+  accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
+  openAccountSettingsTrustedSurface: "Studyの設定を開く",
+  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
+  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
+  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -4077,6 +4103,8 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
+storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
+clearStoredCredential	保存済みの認証情報を削除
 apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定

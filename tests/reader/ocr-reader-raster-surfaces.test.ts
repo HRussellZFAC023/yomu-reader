@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { OcrWordRenderStateRegistry } from '../../src/reader/ocr/word-render-state';
@@ -8,16 +8,35 @@ import { captureCanvasMirror as captureRealCanvasMirror, mirrorContentTokenForRe
 import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canvas-mirror';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 import { setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { ocrTargetCacheKey } from '../../src/reader/ocr/target-context';
 import { waitForExpect } from './test-utils';
+import {
+    createPrivateRasterImage,
+    privateRasterHost,
+} from '../../src/reader/ocr/private-raster-presenter';
+import {
+    installPrivateRasterQueryFixture,
+    type PrivateRasterQueryFixture,
+} from './helpers/private-raster-query-fixture';
 
 const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext;
 const originalCanvasToBlob = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob');
 const originalCanvasToDataURL = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toDataURL');
 
+let privateRasterQueries: PrivateRasterQueryFixture;
+
+beforeEach(() => {
+    privateRasterQueries = installPrivateRasterQueryFixture(document, [
+        '.jpdb-ocr-canvas-frame',
+        '.jpdb-ocr-background-frame',
+    ]);
+});
+
 afterEach(() => {
+    privateRasterQueries.restore();
     document.body.replaceChildren();
     document.documentElement.removeAttribute('data-yomu-mirror-epoch');
     document.documentElement.removeAttribute('data-yomu-mirror-recorder');
@@ -284,7 +303,9 @@ describe('OCR transform controller wiring', () => {
             new MouseEvent('click', { bubbles: true }),
         ]) {
             line.dispatchEvent(event);
-            expect(word.dataset.vid).toBe('501');
+            expect(word.dataset.vid).toBeUndefined();
+            expect(renderedWordPrivateValue(word, 'vid')).toBe('501');
+            expect(renderedWordPrivateValue(word, 'sid')).toBe('0');
             expect(word.dataset.reading).toBe('にほんご');
             expect(word.dataset.pitchClass).toBe('heiban');
             expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
@@ -327,8 +348,6 @@ describe('OCR transform controller wiring', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word';
         Object.assign(word.dataset, {
-            vid: '71',
-            sid: '0',
             tokenStart: '0',
             tokenEnd: '2',
             surface: '神社',
@@ -349,6 +368,7 @@ describe('OCR transform controller wiring', () => {
             source: 'fallback',
             provisionalState: true,
         };
+        setRenderedWordCardIdentity(word, card);
         const token: JPDBToken = {
             card,
             start: 0,
@@ -396,10 +416,9 @@ describe('OCR transform controller wiring', () => {
         const controller = bareController();
         const host = document.createElement('main');
         const canvas = pageCanvas(20, 40);
-        const frame = document.createElement('img');
-        frame.className = 'jpdb-ocr-canvas-frame';
+        const frame = createPrivateRasterImage('jpdb-ocr-canvas-frame');
         host.append(canvas);
-        document.body.append(host, frame);
+        document.body.append(host, privateRasterHost(frame));
         const internals = controller as unknown as {
             canvasFrames: Map<HTMLCanvasElement, HTMLImageElement>;
             positionCanvasFrames(): void;
@@ -2427,19 +2446,27 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(canvas);
 
         const controller = createController({}, captureReaderSurface);
+        let privateFrame: HTMLImageElement | null = null;
         try {
             await waitForExpect(() => {
                 expect(captureReaderSurface).toHaveBeenCalledWith(canvas, 10_000_000);
             });
             await waitForExpect(() => {
-                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
-                expect(frame).not.toBeNull();
-                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,BBBB');
-                expect(frame!.style.left).toBe('32px');
-                expect(frame!.style.top).toBe('40px');
+                privateFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(privateFrame).not.toBeNull();
+                expect(privateFrame!.getAttribute('src')).toBe('data:image/jpeg;base64,BBBB');
+                expect(privateFrame!.style.left).toBe('32px');
+                expect(privateFrame!.style.top).toBe('40px');
             });
+            const publicHost = privateRasterQueries.publicHost<HTMLElement>('.jpdb-ocr-canvas-frame')!;
+            expect(publicHost).not.toBeInstanceOf(HTMLImageElement);
+            expect(publicHost.getAttribute('src')).toBeNull();
+            expect(publicHost.shadowRoot).toBeNull();
+            expect(publicHost.querySelector('img,canvas')).toBeNull();
+            expect(publicHost.outerHTML).not.toContain('BBBB');
         } finally {
             controller.destroy();
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBeNull();
         }
     });
 
@@ -2771,6 +2798,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 expect(frame!.dataset.yomuBackgroundFrame).toBe('true');
                 expect(frame!.src).toBe('blob:https://reader.mokuro.app/page-6');
             });
+            const publicHost = privateRasterQueries.publicHost<HTMLElement>('.jpdb-ocr-background-frame')!;
+            expect(publicHost.getAttribute('src')).toBeNull();
+            expect(publicHost.shadowRoot).toBeNull();
+            expect(publicHost.outerHTML).not.toContain('blob:');
 
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-background-frame')!;
             Object.defineProperty(frame, 'naturalWidth', { value: 1080, configurable: true });

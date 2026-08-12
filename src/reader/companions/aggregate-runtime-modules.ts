@@ -1,4 +1,9 @@
 export interface AggregateRuntimeModules {
+    readonly deinflection: Pick<
+        typeof import('../lookup/deinflect'),
+        | 'deinflectJapaneseTerm'
+        | 'termRulesMatch'
+    >;
     readonly settings: typeof import('../settings');
     readonly tokenTextRendering: Pick<
         typeof import('../dom/token-text-rendering'),
@@ -67,6 +72,8 @@ export function aggregateRuntimeModules(): AggregateRuntimeModules {
 function isAggregateRuntimeModules(value: unknown): value is AggregateRuntimeModules {
     if (!value || typeof value !== 'object') return false;
     return [
+        aggregateRuntimeMember(value, 'deinflection', 'deinflectJapaneseTerm'),
+        aggregateRuntimeMember(value, 'deinflection', 'termRulesMatch'),
         aggregateRuntimeMember(value, 'settings', 'normalizeReaderSettings'),
         aggregateRuntimeMember(value, 'tokenTextRendering', 'renderRuby'),
         aggregateRuntimeMember(value, 'localYomuDeck', 'normalizeStoredYomuSrsDeck'),

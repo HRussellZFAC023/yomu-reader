@@ -4,8 +4,13 @@ import { escapeHtml, parseHtmlDocument, setInnerHtml } from '../dom';
 import { definitionSourceLabel } from '../sources/sections';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
-import type { CardState, InterfaceLanguage, JPDBCard, ReaderSettings, ReviewGradeIntervals } from '../app/types';
+import type { CardState, InterfaceLanguage, JPDBCard, JPDBGrade, ReaderSettings, ReviewGradeIntervals } from '../app/types';
 import { cardStateLabel, formatUiText, uiText, type UiCopyKey } from '../app/i18n';
+import {
+    currentAccountDataSurfaceIsTrusted,
+    installOwnedStudyLauncher,
+} from '../app/account-data-surface';
+import { preparePrivateCommandSerialization, privateCommandAttributes } from '../dom/private-command-capabilities';
 
 interface AnkiCardSanitizeOptions {
     maxFontPx: number;
@@ -16,6 +21,7 @@ interface AnkiCardSanitizeOptions {
 interface RenderAnkiExistingSectionOptions {
     suppressReviewButtons?: boolean;
     sourceAttributes?: (key: string, initiallyExpanded?: boolean) => string;
+    trustedAccountDataSurface?: boolean;
 }
 
 function ankiDetailsStateAttributes(options: RenderAnkiExistingSectionOptions, key: string, initiallyOpen: boolean): string {
@@ -42,15 +48,24 @@ const CONTEXT_SOURCE_LABEL_KEYS: Partial<Record<StoredMiningContext['sourceKind'
 };
 
 export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
-    if (!settings.ankiEnabled) return '';
-    if (ankiLookup.primary) return '';
-    if (ankiLookup.state !== 'not-in-deck') return '';
+    if (!ankiActionRowCanAdd(ankiLookup, settings)) return '';
     const mobileHandoff = shouldRenderMobileAnkiHandoffAction(ankiLookup, settings);
-    if (!mobileHandoff && ankiLookup.trusted === false) return '';
-    const label = mobileHandoff
-        ? mobileAnkiHandoffButtonLabel(settings.interfaceLanguage)
-        : uiText(settings.interfaceLanguage, 'addToAnki');
-    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml(label)}</button></div>`;
+    if (!ankiActionRowIsTrusted(ankiLookup, mobileHandoff)) return '';
+    const label = ankiActionRowLabel(settings.interfaceLanguage, mobileHandoff);
+    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki"${privateCommandAttributes({ kind: 'card-action', action: 'anki' })}>${escapeHtml(label)}</button></div>`;
+}
+
+function ankiActionRowCanAdd(ankiLookup: AnkiLookupResult, settings: ReaderSettings): boolean {
+    if (!settings.ankiEnabled) return false;
+    return !ankiLookup.primary && ankiLookup.state === 'not-in-deck';
+}
+
+function ankiActionRowIsTrusted(ankiLookup: AnkiLookupResult, mobileHandoff: boolean): boolean {
+    return mobileHandoff || ankiLookup.trusted !== false;
+}
+
+function ankiActionRowLabel(language: InterfaceLanguage, mobileHandoff: boolean): string {
+    return mobileHandoff ? mobileAnkiHandoffButtonLabel(language) : uiText(language, 'addToAnki');
 }
 
 function mobileAnkiHandoffButtonLabel(language: InterfaceLanguage): string {
@@ -68,10 +83,24 @@ export function renderAnkiExistingSection(
     settings: ReaderSettings,
     options: RenderAnkiExistingSectionOptions = {},
 ): string {
-    if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return '';
+    if (!ankiSectionIsEnabled(settings)) return '';
     const notes = orderedExistingAnkiNotes(ankiLookup);
     const primary = notes[0];
     if (!primary) return '';
+    if (!accountDataSurfaceIsTrusted(options.trustedAccountDataSurface)) {
+        return renderPrivateAccountDataLauncher(settings.interfaceLanguage);
+    }
+    return renderTrustedAnkiExistingSection(ankiLookup, primary, notes, storedContext, settings, options);
+}
+
+function renderTrustedAnkiExistingSection(
+    ankiLookup: AnkiLookupResult,
+    primary: AnkiExistingNote,
+    notes: AnkiExistingNote[],
+    storedContext: StoredMiningContext | null,
+    settings: ReaderSettings,
+    options: RenderAnkiExistingSectionOptions,
+): string {
     const language = settings.interfaceLanguage;
     const aggregateState = ankiLookup.state;
     const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
@@ -79,20 +108,49 @@ export function renderAnkiExistingSection(
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml(title)}${notes.length > 1 ? ` (${notes.length})` : ''}</span>
+                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml(title)}${ankiNoteCountSuffix(notes)}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml(summary)}</small>
             </summary>
-            ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ''}
-            ${notes.length === 1
-                ? renderAnkiExistingNote(primary, storedContext, settings, false, true, options)
-                : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0, options)).join('')}
+            ${renderExistingAnkiCollisionSummary(notes, language)}
+            ${renderExistingAnkiNotes(notes, primary, storedContext, settings, options)}
         </details>
     `;
 }
 
-export function renderAnkiNewCardPreview(card: JPDBCard, sentence: string | undefined, settings: ReaderSettings, context: AnkiCardContext = {}, fieldTargetPlan?: AnkiNoteFieldTargetPlan | null): string {
-    if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return '';
-    const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? '', settings, context, fieldTargetPlan);
+function ankiSectionIsEnabled(settings: ReaderSettings): boolean {
+    return settings.ankiEnabled && settings.ankiSectionEnabled;
+}
+
+function ankiNoteCountSuffix(notes: AnkiExistingNote[]): string {
+    return notes.length > 1 ? ` (${notes.length})` : '';
+}
+
+function renderExistingAnkiCollisionSummary(notes: AnkiExistingNote[], language: InterfaceLanguage): string {
+    return notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : '';
+}
+
+function renderExistingAnkiNotes(notes: AnkiExistingNote[], primary: AnkiExistingNote, storedContext: StoredMiningContext | null, settings: ReaderSettings, options: RenderAnkiExistingSectionOptions): string {
+    if (notes.length === 1) return renderAnkiExistingNote(primary, storedContext, settings, false, true, options);
+    return notes.map((note, index) => renderAnkiExistingNote(note, ankiContextForNote(index, storedContext), settings, true, index === 0, options)).join('');
+}
+
+function ankiContextForNote(index: number, storedContext: StoredMiningContext | null): StoredMiningContext | null {
+    return index === 0 ? storedContext : null;
+}
+
+export function renderAnkiNewCardPreview(
+    card: JPDBCard,
+    sentence: string | undefined,
+    settings: ReaderSettings,
+    context: AnkiCardContext = {},
+    fieldTargetPlan?: AnkiNoteFieldTargetPlan | null,
+    options: { trustedAccountDataSurface?: boolean } = {},
+): string {
+    if (!ankiSectionIsEnabled(settings)) return '';
+    if (!accountDataSurfaceIsTrusted(options.trustedAccountDataSurface)) {
+        return renderPrivateAccountDataLauncher(settings.interfaceLanguage);
+    }
+    const fields = buildYomuAnkiPreviewFields(card, ankiPreviewSentence(sentence, card), settings, context, fieldTargetPlan);
     const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
     if (!fieldPreview) return '';
     const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, 'Anki');
@@ -107,6 +165,23 @@ export function renderAnkiNewCardPreview(card: JPDBCard, sentence: string | unde
             </div>
         </details>
     `;
+}
+
+function ankiPreviewSentence(sentence: string | undefined, card: JPDBCard): string {
+    return sentence ?? card.sentence ?? '';
+}
+
+function accountDataSurfaceIsTrusted(explicit: boolean | undefined): boolean {
+    return explicit ?? currentAccountDataSurfaceIsTrusted();
+}
+
+function renderPrivateAccountDataLauncher(language: InterfaceLanguage): string {
+    if (typeof document !== 'undefined') installOwnedStudyLauncher(document);
+    return `<section class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-account-private-launcher" data-account-private-launcher>
+        <div class="jpdb-reader-local-title"><strong>${escapeHtml(uiText(language, 'accountSettingsTrustedSurfaceTitle'))}</strong></div>
+        <p class="jpdb-reader-help">${escapeHtml(uiText(language, 'accountSettingsTrustedSurfaceHelp'))}</p>
+        <button class="jpdb-reader-btn" type="button" data-yomu-owned-study-launcher>${escapeHtml(uiText(language, 'openAccountSettingsTrustedSurface'))}</button>
+    </section>`;
 }
 
 function orderedExistingAnkiNotes(ankiLookup: AnkiLookupResult): AnkiExistingNote[] {
@@ -316,32 +391,66 @@ function renderAnkiRenderedSideBody(html: string): string {
 // Japanese run and drop the exact duplicates (plus dead tts elements).
 export function pruneRedundantAnkiGlyphRepeats(html: string): string {
     if (typeof document === 'undefined') return html;
-    const template = document.createElement('template');
-    setInnerHtml(template, html);
-    template.content.querySelectorAll('tts').forEach(element => element.remove());
+    // This is a detached transform, not the live sink. Keep one-shot private
+    // capability tokens serialized until the caller's final setInnerHtml.
+    const root = parseHtmlDocument(html).body;
+    root.querySelectorAll('tts').forEach(element => element.remove());
+    duplicateAnkiGlyphElements(root).forEach(removeAnkiGlyphElement);
+    root.querySelectorAll('br + br').forEach(element => element.remove());
+    trimTrailingAnkiSpacing(root);
+    return root.innerHTML;
+}
+
+function duplicateAnkiGlyphElements(root: ParentNode): Element[] {
     const seen = new Set<string>();
-    const removable: Element[] = [];
-    for (const element of Array.from(template.content.querySelectorAll('span, font, b, strong, div'))) {
-        if (element.children.length > 0) continue;
-        const text = element.textContent?.replace(/\s+/g, '') ?? '';
-        if (!text || text.length > 4 || !JAPANESE_GLYPH_RUN_RE.test(text)) continue;
-        if (seen.has(text)) removable.push(element);
-        else seen.add(text);
-    }
-    for (const element of removable) {
-        const before = element.previousSibling;
-        if (before?.nodeType === Node.TEXT_NODE && !before.textContent?.trim()) before.remove();
-        element.remove();
-    }
-    // Repeated glyph rows leave orphaned line breaks behind.
-    template.content.querySelectorAll('br + br').forEach(element => element.remove());
-    let last = template.content.lastChild;
-    while (last && ((last.nodeType === Node.TEXT_NODE && !last.textContent?.trim()) || (last instanceof Element && last.tagName === 'BR'))) {
+    return Array.from(root.querySelectorAll('span, font, b, strong, div')).filter(element => {
+        const text = standaloneAnkiGlyphText(element);
+        if (!text) return false;
+        if (seen.has(text)) return true;
+        seen.add(text);
+        return false;
+    });
+}
+
+function standaloneAnkiGlyphText(element: Element): string | null {
+    if (element.children.length > 0) return null;
+    const text = compactAnkiElementText(element);
+    return isShortJapaneseGlyph(text) ? text : null;
+}
+
+function compactAnkiElementText(element: Element): string {
+    return element.textContent ? element.textContent.replace(/\s+/g, '') : '';
+}
+
+function isShortJapaneseGlyph(text: string): boolean {
+    if (!text) return false;
+    if (text.length > 4) return false;
+    return JAPANESE_GLYPH_RUN_RE.test(text);
+}
+
+function removeAnkiGlyphElement(element: Element): void {
+    const before = element.previousSibling;
+    if (isBlankAnkiTextNode(before)) before.remove();
+    element.remove();
+}
+
+function trimTrailingAnkiSpacing(root: ParentNode): void {
+    let last = root.lastChild;
+    while (last && isTrailingAnkiSpacing(last)) {
         const previous = last.previousSibling;
         last.remove();
         last = previous;
     }
-    return template.innerHTML;
+}
+
+function isTrailingAnkiSpacing(node: Node): boolean {
+    if (isBlankAnkiTextNode(node)) return true;
+    return node instanceof Element && node.tagName === 'BR';
+}
+
+function isBlankAnkiTextNode(node: Node | null): node is Text {
+    if (!(node instanceof Text)) return false;
+    return node.textContent.trim() === '';
 }
 
 const JAPANESE_GLYPH_RUN_RE = /^[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3005\u3006\u30f6]+$/;
@@ -417,7 +526,7 @@ function renderFieldText(value: string, language: InterfaceLanguage, options: { 
 
 function renderAnkiSoundChip(filename: string, language: InterfaceLanguage): string {
     const title = ankiAudioLabel(filename, language);
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml(filename)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${speakerIcon()}</button>`;
+    return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml(filename)}"${privateCommandAttributes({ kind: 'card-action', action: 'anki-media-audio', mediaFilename: filename })} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${speakerIcon()}</button>`;
 }
 
 function renderAnkiNoteActions(note: AnkiExistingNote, language: InterfaceLanguage): string {
@@ -425,8 +534,8 @@ function renderAnkiNoteActions(note: AnkiExistingNote, language: InterfaceLangua
     return `<div class="jpdb-reader-anki-note-actions">
         ${renderAnkiAudioMergeSelect(note, language)}
         <div class="jpdb-reader-anki-note-action-row">
-            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml(uiText(language, 'mergeYomuTitle'))}">${escapeHtml(uiText(language, 'mergeYomu'))}</button>
-            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml(uiText(language, 'editInAnki'))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: 'card-action', action: 'anki-merge', noteId: note.noteId })} title="${escapeHtml(uiText(language, 'mergeYomuTitle'))}">${escapeHtml(uiText(language, 'mergeYomu'))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: 'card-action', action: 'anki-edit', noteId: note.noteId })}>${escapeHtml(uiText(language, 'editInAnki'))}</button>
         </div>
     </div>`;
 }
@@ -436,9 +545,9 @@ function renderAnkiAudioMergeSelect(note: AnkiExistingNote, language: InterfaceL
     return `<label class="jpdb-reader-anki-audio-merge">
         <span>${escapeHtml(uiText(language, 'audio'))}</span>
         <select data-anki-audio-merge>
-            <option value="both">${escapeHtml(uiText(language, 'keepBothAudio'))}</option>
-            <option value="theirs">${escapeHtml(uiText(language, 'keepAnkiAudio'))}</option>
-            <option value="ours">${escapeHtml(uiText(language, 'useYomuAudio'))}</option>
+            <option value="both"${privateCommandAttributes({ kind: 'anki-audio-merge', mode: 'both' })}>${escapeHtml(uiText(language, 'keepBothAudio'))}</option>
+            <option value="theirs"${privateCommandAttributes({ kind: 'anki-audio-merge', mode: 'theirs' })}>${escapeHtml(uiText(language, 'keepAnkiAudio'))}</option>
+            <option value="ours"${privateCommandAttributes({ kind: 'anki-audio-merge', mode: 'ours' })}>${escapeHtml(uiText(language, 'useYomuAudio'))}</option>
         </select>
     </label>`;
 }
@@ -659,6 +768,7 @@ function ankiSoundMarkerNode(value: string, language: InterfaceLanguage): HTMLEl
     chip.className = 'jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control';
     chip.dataset.action = 'anki-media-audio';
     chip.dataset.ankiMediaName = filename;
+    preparePrivateCommandSerialization(chip, { kind: 'card-action', action: 'anki-media-audio', mediaFilename: filename });
     chip.title = ankiAudioLabel(filename, language);
     chip.setAttribute('aria-label', chip.title);
     setInnerHtml(chip, speakerIcon());
@@ -673,12 +783,21 @@ function ankiPlaybackMarkerNode(value: string, soundFilenames: string[], languag
     chip.type = 'button';
     chip.className = 'jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-anki-playback-marker jpdb-reader-audio-control';
     chip.dataset.action = 'anki-media-audio';
-    if (filename) chip.dataset.ankiMediaName = filename;
-    chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, 'ankiAudioUnavailablePreview');
+    configureAnkiPlaybackMarker(chip, filename, language);
     chip.setAttribute('aria-label', chip.title);
-    chip.disabled = !filename;
     setInnerHtml(chip, speakerIcon());
     return chip;
+}
+
+function configureAnkiPlaybackMarker(chip: HTMLButtonElement, filename: string, language: InterfaceLanguage): void {
+    if (!filename) {
+        chip.title = uiText(language, 'ankiAudioUnavailablePreview');
+        chip.disabled = true;
+        return;
+    }
+    chip.dataset.ankiMediaName = filename;
+    preparePrivateCommandSerialization(chip, { kind: 'card-action', action: 'anki-media-audio', mediaFilename: filename });
+    chip.title = ankiAudioLabel(filename, language);
 }
 
 function ankiPlaybackMarkerFilename(value: string, soundFilenames: string[]): string {
@@ -753,23 +872,72 @@ export function renderReviewButtons(
     ankiNote: AnkiExistingNote | null = null,
     options: { disabled?: boolean; title?: string; targetLabel?: string; intervals?: ReviewGradeIntervals } = {},
 ): string {
-    const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : '';
+    const ankiCardId = ankiReviewCardId(ankiNote);
     const grades = reviewButtonGrades(settings);
-    const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml(options.targetLabel)}</div>` : '';
     // Jiten/Anki parity: due-in previews on the popover grade row, same data
     // the study page's grade bar shows.
-    const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
-    const intervalSpan = (grade: string): string => {
-        const interval = intervals?.[grade as keyof ReviewGradeIntervals];
-        const label = interval?.buttonLabel || interval?.intervalLabel || '';
-        return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml(label)}</span>` : '';
-    };
+    const intervals = ankiReviewIntervals(options.intervals, ankiNote);
     return `
-        ${target}
-        <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join('')}
+        ${renderAnkiReviewTarget(options.targetLabel)}
+        <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
+            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage)).join('')}
         </div>
     `;
+}
+
+function ankiReviewCardId(note: AnkiExistingNote | null): number | undefined {
+    return note?.primaryCardId ?? undefined;
+}
+
+function ankiReviewIntervals(intervals: ReviewGradeIntervals | undefined, note: AnkiExistingNote | null): ReviewGradeIntervals | undefined {
+    return intervals ?? note?.reviewGradeIntervals;
+}
+
+function renderAnkiReviewTarget(targetLabel: string | undefined): string {
+    return targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml(targetLabel)}</div>` : '';
+}
+
+function ankiReviewGradesClass(grades: Array<[string, string]>): string {
+    return grades.length === 5 ? ' jpdb-reader-grades' : '';
+}
+
+function renderAnkiReviewButton(
+    grade: string,
+    label: string,
+    ankiCardId: number | undefined,
+    intervals: ReviewGradeIntervals | undefined,
+    options: { disabled?: boolean; title?: string; targetLabel?: string },
+    language: InterfaceLanguage,
+): string {
+    const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
+    const command = privateCommandAttributes({
+        kind: 'card-action',
+        action: 'grade',
+        grade: grade as JPDBGrade,
+        reviewTarget: ankiReviewTarget(ankiCardId),
+        ankiCardId,
+    });
+    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, language)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
+}
+
+function ankiReviewCardAttributes(ankiCardId: number | undefined): string {
+    return ankiCardId ? ` data-anki-card-id="${ankiCardId}"` : '';
+}
+
+function ankiReviewTarget(ankiCardId: number | undefined): 'anki' | undefined {
+    return ankiCardId ? 'anki' : undefined;
+}
+
+function ankiReviewIntervalSpan(intervals: ReviewGradeIntervals | undefined, grade: string): string {
+    if (!intervals) return '';
+    const interval = intervals[grade as keyof ReviewGradeIntervals];
+    if (!interval) return '';
+    const label = ankiReviewIntervalLabel(interval);
+    return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml(label)}</span>` : '';
+}
+
+function ankiReviewIntervalLabel(interval: NonNullable<ReviewGradeIntervals[keyof ReviewGradeIntervals]>): string {
+    return interval.buttonLabel || interval.intervalLabel || '';
 }
 
 function reviewButtonAttrs(options: { disabled?: boolean; title?: string; targetLabel?: string }, buttonLabel: string, language: InterfaceLanguage): string {

@@ -26,6 +26,7 @@ import type {
     LocalGrammarRuleSummary,
     SentenceTranslationResult,
 } from './tools-contract';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 export type { GrammarPreferences } from './grammar-knowledge';
 export type {
@@ -256,7 +257,7 @@ function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnow
 function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {
     if (!knownCount) return '';
     const label = showKnown ? uiText(language, 'grammarHideKnown') : uiText(language, 'grammarShowKnown');
-    return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
+    return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility"${privateCommandAttributes({ kind: 'card-action', action: 'study-grammar-toggle-known-visibility' })} aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
 }
 
 async function renderGrammarHintList(visibleGroups: GroupedGrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage, audioEnabled: boolean): Promise<string> {
@@ -269,8 +270,9 @@ async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, 
     const { hint, count } = group;
     const details = await grammarHintDetails(hint, language);
     const displayName = grammarDisplayName(hint, language);
+    const knownState = grammarKnownState(known, language);
     return `
-            <li class="jpdb-reader-study-item${known ? ' known' : ''}" data-grammar-rule-id="${escapeHtml(hint.ruleId)}">
+            <li class="jpdb-reader-study-item${knownState.className}" data-grammar-rule-id="${escapeHtml(hint.ruleId)}">
                 <div class="jpdb-reader-study-name">
                     <span>${escapeHtml(displayName)}</span>
                     <span class="jpdb-reader-grammar-level">${escapeHtml(grammarLevelText(hint.level, language))}</span>
@@ -280,13 +282,19 @@ async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, 
                         <div class="jpdb-reader-study-kind">${escapeHtml(details.kind)}</div>
                         <div class="jpdb-reader-grammar-actions">
                             ${renderGrammarRepeatCount(count)}
-                            <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${known ? 'true' : 'false'}" aria-pressed="${known ? 'true' : 'false'}">${known ? uiText(language, 'grammarReview') : uiText(language, 'grammarKnown')}</button>
+                            <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${knownState.pressed}"${privateCommandAttributes({ kind: 'card-action', action: 'study-grammar-toggle-known', grammarRuleId: hint.ruleId, grammarKnown: known })} aria-pressed="${knownState.pressed}">${knownState.label}</button>
                         </div>
                     </div>
                     <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml(details.short)}</div>
                     ${renderGrammarHintDisclosure(hint, details, displayName, language, audioEnabled)}
                 </div>
             </li>`;
+}
+
+function grammarKnownState(known: boolean, language: InterfaceLanguage): { className: string; pressed: string; label: string } {
+    return known
+        ? { className: ' known', pressed: 'true', label: uiText(language, 'grammarReview') }
+        : { className: '', pressed: 'false', label: uiText(language, 'grammarKnown') };
 }
 
 // Reported from an owner screenshot as "the Details button does nothing".

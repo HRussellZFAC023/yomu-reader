@@ -3,13 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import {
-    activeLearningTargetLanguage,
     resetActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import {
     endSettingsResetGuard,
+    SETTINGS_STORAGE_KEY,
 } from '../../src/reader/settings';
-import { rejectOnboardingTargetPersistence } from './helpers/rejected-onboarding-target';
 
 interface StartupInternals {
     dictionaryStyles: {
@@ -28,11 +27,20 @@ interface StartupInternals {
     bindEvents: () => void;
     installOfflineParsingDictionaries: () => Promise<void>;
     parser: { parse: (...args: unknown[]) => Promise<unknown> };
+    subtitles: { init: () => void };
     settings: ReaderSettings;
-    onboarding: { complete(openSettings: boolean | 'dictionaries'): Promise<void> };
 }
 
 type CompanionHost = typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
+
+async function dismissOffhostOnboarding(initializing: Promise<void>): Promise<void> {
+    await vi.waitFor(() => {
+        expect(document.querySelector('.jpdb-reader-onboarding-trusted-launcher')).not.toBeNull();
+    });
+    expect(document.querySelector('select[name="targetLanguage"]')).toBeNull();
+    document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
+    await initializing;
+}
 
 describe('ReaderApp core startup', () => {
     let app: ReaderApp | undefined;
@@ -44,6 +52,7 @@ describe('ReaderApp core startup', () => {
         app = undefined;
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
         document.head.replaceChildren();
         document.body.replaceChildren();
     });
@@ -70,6 +79,42 @@ describe('ReaderApp core startup', () => {
 
         releaseDictionaryStyles?.();
         await dictionaryStylesFinished;
+    });
+
+    it('boots YouTube subtitles without a chooser for pre-1.9 subtitle settings', async () => {
+        vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=legacy-video'));
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            unobserve(): void {}
+            disconnect(): void {}
+        });
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+            fillStyle: '#ffffff',
+        } as never);
+        const stored = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, { subtitleFontSize: 48 }]]);
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => stored.get(key) ?? fallback));
+        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { stored.set(key, value); }));
+        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { stored.delete(key); }));
+        vi.stubGlobal('GM_listValues', vi.fn(() => [...stored.keys()]));
+        const player = document.createElement('div');
+        player.id = 'movie_player';
+        const video = document.createElement('video');
+        video.className = 'html5-main-video';
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 2 });
+        player.append(video);
+        document.body.append(player);
+
+        app = new ReaderApp();
+        const internals = app as unknown as StartupInternals;
+        internals.installStyles = vi.fn();
+        const subtitleInit = vi.spyOn(internals.subtitles, 'init');
+
+        await expect(app.init({ showWelcome: true })).resolves.toBeUndefined();
+
+        expect(internals.settings.learningTargetChosen).toBe(true);
+        expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
+        expect(subtitleInit).toHaveBeenCalledOnce();
+        expect(document.querySelector('.jpdb-subtitle-player')).not.toBeNull();
     });
 
     it('does not resume startup after ownership destroys it while settings are loading', async () => {
@@ -135,7 +180,7 @@ describe('ReaderApp core startup', () => {
         expect(internals.bindEvents).not.toHaveBeenCalled();
     });
 
-    it('keeps a rejected target choice inert and asks again on the next ordinary-page boot', async () => {
+    it('never exposes the target chooser on an ordinary page and offers the trusted launcher again on reload', async () => {
         vi.stubGlobal('location', new URL('https://example.com/article'));
         resetActiveLearningTargetLanguage();
         app = new ReaderApp();
@@ -144,17 +189,10 @@ describe('ReaderApp core startup', () => {
         internals.installTargetOwnedCoreSurfaces = vi.fn();
 
         const initializing = app.init({ showWelcome: true });
-        await vi.waitFor(() => {
-            expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
-        });
-        await rejectOnboardingTargetPersistence(internals.onboarding);
-        expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
-        await initializing;
+        await dismissOffhostOnboarding(initializing);
 
         expect(internals.settings.learningTargetChosen).toBe(false);
         expect(internals.settings.languageProfiles[0]?.targetLanguage).toBe('ja');
-        expect(activeLearningTargetLanguage()).toBe('ja');
         expect(internals.installTargetOwnedCoreSurfaces).not.toHaveBeenCalled();
 
         endSettingsResetGuard();
@@ -163,11 +201,7 @@ describe('ReaderApp core startup', () => {
         internals = app as unknown as StartupInternals;
         internals.installStyles = vi.fn();
         const reloading = app.init({ showWelcome: true });
-        await vi.waitFor(() => {
-            expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('');
-        });
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
-        await reloading;
+        await dismissOffhostOnboarding(reloading);
     });
 
     it('does not apply theme classes after page teardown removes the document root', () => {

@@ -1,5 +1,4 @@
 import {
-    DEFAULT_SETTINGS,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEYS,
 } from '../settings/index';
@@ -8,7 +7,9 @@ import {
     ensureManagedWebStorageCurrent,
     ensureManagedWebStorageCurrentSync,
     gmStorageGet,
+    gmStorageGetShared,
     gmStorageGetSharedSync,
+    isHostedYomuOrigin,
     managedLocalStorage,
     managedSessionStorage,
 } from './storage';
@@ -16,6 +17,9 @@ import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platfo
 import type { ReaderSettings } from './types';
 import { targetLanguageOf } from '../languages/selection';
 import { languageFamilyIncludes } from '../settings/language-gating';
+import { isRecord } from '../core/object-utils';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../settings/intent-ledger';
+import { committedSettingsStoragePair } from '../settings/settings-persistence-transaction';
 
 const JA_LANG = 'ja';
 const JA_COUNTRY = 'JP';
@@ -48,6 +52,10 @@ type StoredSettings = Partial<ReaderSettings> | null;
 interface StoredPreference {
     enabled: boolean;
     targetLanguage: string;
+}
+interface CanonicalStoredSettings {
+    readonly settings: StoredSettings | undefined;
+    readonly blocksLegacy: boolean;
 }
 type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, 'readyState'>>;
 
@@ -239,13 +247,30 @@ function readStoredPreferenceSync(): StoredPreference | undefined {
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         undefined,
     );
-    let storedSettings: StoredSettings | undefined;
-    for (const key of SETTINGS_STORAGE_KEYS) {
-        const stored = gmStorageGetSharedSync<StoredSettings | undefined>(key, undefined);
-        if (!stored || typeof stored !== 'object') continue;
-        storedSettings = stored;
-        break;
+    return syncSitePreference(preferredLanguage, readStoredSettingsSync());
+}
+
+function readStoredSettingsSync(): StoredSettings | undefined {
+    const storedCanonical = gmStorageGetSharedSync<unknown>(SETTINGS_STORAGE_KEYS[0], undefined);
+    const canonical = canonicalStoredSettings(
+        storedCanonical,
+        gmStorageGetSharedSync<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, undefined),
+    );
+    return canonical.blocksLegacy ? canonical.settings : readLegacyStoredSettingsSync();
+}
+
+function readLegacyStoredSettingsSync(): StoredSettings | undefined {
+    for (const key of SETTINGS_STORAGE_KEYS.slice(1)) {
+        const stored = gmStorageGetSharedSync<unknown>(key, undefined);
+        if (isRecord(stored)) return stored as Partial<ReaderSettings>;
     }
+    return undefined;
+}
+
+function syncSitePreference(
+    preferredLanguage: unknown,
+    storedSettings: StoredSettings | undefined,
+): StoredPreference | undefined {
     // "Off" is safe before the target is known. "On" is not: a dedicated
     // scalar can resolve synchronously while the profile-bearing settings blob
     // is still behind an async bridge, and assuming Japanese in that gap would
@@ -255,7 +280,7 @@ function readStoredPreferenceSync(): StoredPreference | undefined {
 }
 
 async function readStoredPreferenceAsync(): Promise<StoredPreference | undefined> {
-    const preferredLanguage = await gmStorageGet<unknown>(
+    const preferredLanguage = await readPreferenceStorageValue<unknown>(
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         undefined,
     );
@@ -264,21 +289,44 @@ async function readStoredPreferenceAsync(): Promise<StoredPreference | undefined
 }
 
 async function readStoredSettingsAsync(): Promise<StoredSettings | undefined> {
-    let storedSettings: StoredSettings | undefined;
-    for (const key of SETTINGS_STORAGE_KEYS) {
-        const stored = await gmStorageGet<StoredSettings | undefined>(key, undefined);
-        if (!stored || typeof stored !== 'object') continue;
-        storedSettings = stored;
-        break;
+    const storedCanonical = await readPreferenceStorageValue<unknown>(SETTINGS_STORAGE_KEYS[0], undefined);
+    const canonical = canonicalStoredSettings(
+        storedCanonical,
+        await readPreferenceStorageValue<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, undefined),
+    );
+    return canonical.blocksLegacy ? canonical.settings : readLegacyStoredSettingsAsync();
+}
+
+function canonicalStoredSettings(
+    storedCanonical: unknown,
+    storedIntentLedger: unknown,
+): CanonicalStoredSettings {
+    const settings = committedSettingsStoragePair(storedCanonical, storedIntentLedger)?.settings;
+    return isRecord(settings)
+        ? { settings: settings as Partial<ReaderSettings>, blocksLegacy: true }
+        : { settings: undefined, blocksLegacy: storedCanonical != null };
+}
+
+async function readLegacyStoredSettingsAsync(): Promise<StoredSettings | undefined> {
+    for (const key of SETTINGS_STORAGE_KEYS.slice(1)) {
+        const stored = await readPreferenceStorageValue<unknown>(key, undefined);
+        if (!isRecord(stored)) continue;
+        return stored as Partial<ReaderSettings>;
     }
-    return storedSettings;
+    return undefined;
+}
+
+function readPreferenceStorageValue<T>(key: string, fallback: T): Promise<T> {
+    return isHostedYomuOrigin()
+        ? gmStorageGet(key, fallback)
+        : gmStorageGetShared(key, fallback);
 }
 
 // No stored settings at all is a genuinely fresh install. Only a cache written
 // by an earlier Yomu visit is provenance worth reconciling.
 function cachedPreferenceFallback(): boolean | undefined {
     const cached = readCachedPreferenceEnabled();
-    return typeof cached === 'boolean' ? cached : undefined;
+    return cached === false ? false : undefined;
 }
 
 function sitePreference(
@@ -305,10 +353,7 @@ function storedSitePreferenceEnabled(
 }
 
 function storedSettingsChooseLearningTarget(settings: StoredSettings | undefined): boolean {
-    return normalizeLearningTargetChosen(settings ?? null, {
-        interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
-        parserProvider: DEFAULT_SETTINGS.parserProvider,
-    });
+    return normalizeLearningTargetChosen(settings ?? null);
 }
 
 function readCachedPreferenceEnabled(): boolean | undefined {

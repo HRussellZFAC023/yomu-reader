@@ -11,7 +11,9 @@ import {
     sourceRectToOverlay,
 } from '../ui/page-scale';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
+import { dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary, isTrustedReaderInteraction, trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { CardActionController } from '../cards/action-controller';
+import { refreshAfterCardAction, reportCardActionFailure, runCardActionOperation } from '../cards/action-operation';
 import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { kanjiFrequencyRanks } from '../cards/frequency-ranks';
@@ -29,8 +31,8 @@ import {
     type SettingsDialogControllerInstance,
     type YoutubeImmersionFilterInstance,
 } from '../companions/registry';
-import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
-import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
+import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL } from './constants';
+import { publishSettingsChange as publishPrivateSettingsChange, subscribeToSettingsChanges } from '../settings/settings-change-bus';
 import { DictionarySourceStateController } from '../sources/state';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
@@ -60,6 +62,7 @@ import {
     renderedWordSentenceScope,
     readerWordSourcePointScore,
     readerWordSurfaceText,
+    renderedWordPrivateValue,
     releaseRubyRoomGrowth,
     removeNonDestructiveScanMirrors,
     scheduleProjectedAnnotationLayoutRefresh,
@@ -151,6 +154,7 @@ import {
     renderTokenListHtml as renderTokenListMarkup,
     type TokenListContext,
 } from '../main/token-list';
+import * as privateCommands from '../dom/private-command-capabilities';
 import {
     configuredPopoverMaxHeight,
     installPopoverBodyStabilizers as installRuntimePopoverBodyStabilizers,
@@ -272,8 +276,9 @@ import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
 import { jpOnlyOn, syncLanguageFamilyDom } from '../settings/language-gating';
-import { applyInterfaceLocaleToRoot, resolveInterfaceLocale, type InterfaceLocale } from '../locales';
-
+import { applyInterfaceLocaleToRoot } from '../locales/direction';
+import { resolveInterfaceLocale } from '../locales/resolve';
+import type { InterfaceLocale } from '../locales/manifest';
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
 import { isKanjiCharacter, uniqueKanji } from '../popup/pitch';
@@ -312,7 +317,6 @@ import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
     fallbackVocabularySpanCacheKey,
-    renderedFallbackVocabularyCacheKey,
     renderedWordCardKey,
     renderedWordElementKey,
     renderedWordsInRoot,
@@ -324,15 +328,21 @@ import {
     uniqueParentNodes,
 } from '../dom/rendered-word-state';
 import {
+    isProvisionalRenderedWord,
+    renderedWordNumericIdentity,
+    renderedWordSpan,
+    resolveRenderedWordAttempts,
+    selectRenderedWordAttempt,
+} from '../dom/rendered-word-policy';
+import { cachedRenderedWordHydration } from '../dom/rendered-word-hydration';
+import {
     DEFAULT_SETTINGS,
-    loadSettings,
     matchesShortcut,
     NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shortcutIsPressed,
     shouldLookupAnkiStatus,
     shouldLookupBunproWordStates,
-    subscribeToSettingsStorageChanges,
 } from '../settings/index';
 import {
     effectiveBunproFrontendApiToken,
@@ -381,7 +391,8 @@ import { currentAnkiLookupBatch, LateCardReconciliation } from './late-card-reco
 import { RenderedWordIndex } from './rendered-word-index';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
-import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
+import { addWindowEventListener } from '../platform/window-events';
+import { applyTargetSurfaceSettingsChange, shouldWakeTopLevelTarget, subscribeToFirstPersistedLearningTarget, subscribeToReaderSettingsChanges, TopLevelTargetLifecycle } from './settings-storage-subscription';
 import type {
     YomitanDictionaryStore,
     YomitanKanjiEntry,
@@ -414,7 +425,6 @@ import {
     MIRROR_STALE_SCAN_MIN_INTERVAL_MS,
     VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS,
     eventTargetsReaderRoot,
-    reviewShortcutTargetKind,
     pointOverReaderRoot,
     readerRootGestureLeaks,
     READER_ROOT_SCROLL_BODY_SELECTOR,
@@ -468,6 +478,7 @@ export class ReaderApp {
     /** Non-persisted policy owned by a deliberate hosted reading surface. */
     private pageOwnedLearningTargetActive = false;
     private targetOwnedCoreInstalled = false;
+    private readonly topLevelTargetLifecycle = new TopLevelTargetLifecycle();
     private disposeHostThemeObserver?: () => void;
     private hostThemeEnforceTimer?: number;
     private themeContrastRefreshFrame?: number;
@@ -1121,7 +1132,7 @@ export class ReaderApp {
             if (!this.canContinueStartup(shouldShowWelcome)) return;
             const surfacesReady = await this.initializeReaderSurfaces(shouldShowWelcome);
             if (!surfacesReady) return;
-            dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
+            publishPrivateSettingsChange({ settings: this.settings });
         } finally {
             done();
         }
@@ -1246,7 +1257,11 @@ export class ReaderApp {
     }
 
     private async initTopLevelReaderPage(shouldShowWelcome: boolean): Promise<void> {
-        if (!await this.ensureTopLevelLearningTarget(shouldShowWelcome)) return;
+        if (!await this.ensureTopLevelLearningTarget(shouldShowWelcome)) {
+            this.installDormantLearningTargetSubscription();
+            return;
+        }
+        if (!this.topLevelTargetLifecycle.beginTargetOwnedSurfaces(this.isDestroyed, this.embeddedFrame, this.hasLearningTargetRuntimePolicy())) return;
         this.installTargetOwnedCoreSurfaces();
         // The chosen target owns this bounded composed-DOM probe. Running it
         // before onboarding used to scan 200k characters for the compatibility
@@ -1322,29 +1337,22 @@ export class ReaderApp {
 
     private installSettingsStorageSubscription(): void {
         this.unsubscribeSettingsStorageChanges?.();
-        const unsubscribeStoredChanges = subscribeToSettingsStorageChanges(settings => {
-            if (this.isDestroyed) return;
-            void this.applyRemoteSettings(settings);
+        this.unsubscribeSettingsStorageChanges = subscribeToReaderSettingsChanges(settings => {
+            if (!this.isDestroyed) void this.applyRemoteSettings(settings);
         });
-        // A late-injecting userscript (iPad Safari) can install the GM storage
-        // bridge after this hosted instance already loaded settings from the
-        // localStorage fallback. Re-load through the bridge so the shared GM
-        // settings (plus stranded-value recovery) apply without a page reload.
-        const onStorageBridgeReady = (): void => {
-            if (this.isDestroyed) return;
-            void loadSettings().then(settings => {
-                if (this.isDestroyed) return;
-                return this.applyRemoteSettings(settings);
-            });
-        };
-        addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
-        this.unsubscribeSettingsStorageChanges = () => {
-            unsubscribeStoredChanges();
-            removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
-        };
+    }
+
+    private installDormantLearningTargetSubscription(): void {
+        if (!this.topLevelTargetLifecycle.canWaitForTarget(this.isDestroyed, this.embeddedFrame, this.hasLearningTargetRuntimePolicy())) return;
+        this.unsubscribeSettingsStorageChanges?.();
+        this.unsubscribeSettingsStorageChanges = subscribeToFirstPersistedLearningTarget(
+            () => this.settings,
+            settings => { if (!this.isDestroyed) void this.applyRemoteSettings(settings); },
+        );
     }
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
+        const wakesTopLevelTarget = shouldWakeTopLevelTarget(this.embeddedFrame, this.hasLearningTargetRuntimePolicy(), settings);
         const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
         // Turning the preference off in another tab is still the user turning it
         // off here, so this tab leaves its Japanese URL as well instead of staying
@@ -1357,15 +1365,18 @@ export class ReaderApp {
         this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
         this.applyTheme(settings);
         this.applyWordColors(settings);
-        if (!this.embeddedFrame) this.installFab();
+        const initializedTarget = await applyTargetSurfaceSettingsChange(
+            wakesTopLevelTarget, this.embeddedFrame,
+            () => this.initTopLevelReaderPage(false), () => this.installFab(),
+            () => { this.subtitles.refresh(); this.ocr.refresh(); this.youtube.refresh(); },
+        );
         if (pauseChanged) this.applyAnnotationsPausedState();
-        this.subtitles.refresh();
-        this.ocr.refresh();
-        this.youtube.refresh();
         this.clearBridgeBackedCaches();
-        this.scheduleDictionaryRescan();
-        await this.refreshDictionaryStyles();
-        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings, remote: true }));
+        if (!initializedTarget) {
+            this.scheduleDictionaryRescan();
+            await this.refreshDictionaryStyles();
+        }
+        publishPrivateSettingsChange({ settings, remote: true });
     }
 
     private syncCardLookupTarget(settings: ReaderSettings): void {
@@ -1826,7 +1837,7 @@ export class ReaderApp {
     }
 
     private publishSettingsChange(settings: Partial<ReaderSettings>): void {
-        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
+        publishPrivateSettingsChange({ settings });
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
@@ -2154,16 +2165,17 @@ export class ReaderApp {
         if (!checkbox) return;
         if (checkbox.dataset.yomuExamplesMemoryInstalled === 'true') return;
         checkbox.dataset.yomuExamplesMemoryInstalled = 'true';
-
-        const storedVisible = this.storedJpdbReviewExamplesVisible();
-        if (storedVisible !== null && checkbox.checked !== storedVisible) {
-            checkbox.checked = storedVisible;
-            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
-        checkbox.addEventListener('change', () => {
+        this.restoreJpdbReviewExamplesVisible(checkbox);
+        checkbox.addEventListener('change', trustedReaderEventHandler(() => {
             this.storeJpdbReviewExamplesVisible(checkbox.checked);
-        }, { signal: this.abortController.signal });
+        }), { signal: this.abortController.signal });
+    }
+
+    private restoreJpdbReviewExamplesVisible(checkbox: HTMLInputElement): void {
+        const storedVisible = this.storedJpdbReviewExamplesVisible();
+        if (storedVisible === null || checkbox.checked === storedVisible) return;
+        checkbox.checked = storedVisible;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     private isJpdbReviewPage(): boolean {
@@ -2432,7 +2444,7 @@ export class ReaderApp {
         if (root.dataset.yomuHandlersInstalled === 'true') return;
         root.dataset.yomuHandlersInstalled = 'true';
         this.installReaderControlPointerActivation(root);
-        root.addEventListener('click', event => this.handleJpdbPageAddonClick(event, root, fallbackCard));
+        root.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleJpdbPageAddonClick(event, root, fallbackCard)));
     }
 
     private installReaderControlPointerActivation(root: HTMLElement): void {
@@ -2442,43 +2454,20 @@ export class ReaderApp {
     private handleJpdbPageAddonClick(event: MouseEvent, root: HTMLElement, fallbackCard: JPDBCard): void {
         if (!(event instanceof MouseEvent)) return;
         if (this.handleDictionaryLookupLink(event, root, 'modal')) return;
-        const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
-        if (!actionButton?.dataset.action || !root.contains(actionButton)) return;
+        const actionButton = jpdbPageAddonActionButton(event, root);
+        if (!actionButton) return;
         event.preventDefault();
         event.stopPropagation();
         this.dispatchJpdbPageAddonAction(actionButton, fallbackCard);
     }
 
     private dispatchJpdbPageAddonAction(actionButton: HTMLButtonElement, fallbackCard: JPDBCard): void {
-        const handlers: Record<string, () => void> = {
-            kanji: () => this.showJpdbPageAddonKanji(actionButton, fallbackCard),
-            'similar-word': () => this.lookupTextFromAddonAction(actionButton),
-            lookup: () => this.lookupTextFromAddonAction(actionButton),
-            'jpdb-example-audio': () => this.playJpdbPageAddonExampleAudio(actionButton),
-            'jiten-audio': () => this.playJpdbPageAddonJitenAudio(actionButton, fallbackCard),
-        };
-        handlers[actionButton.dataset.action ?? '']?.();
-    }
-
-    private showJpdbPageAddonKanji(actionButton: HTMLButtonElement, fallbackCard: JPDBCard): void {
-        void this.showKanjiCard(fallbackCard, actionButton.dataset.kanji ?? '', fallbackCard.spelling, actionButton, {
-            navigation: 'push-current',
-            preservePosition: true,
+        privateCommands.dispatchPrivateCommand(actionButton, {
+            'kanji-lookup': command => { void this.showKanjiCard(fallbackCard, command.kanji, fallbackCard.spelling, actionButton, { navigation: 'push-current', preservePosition: true }); },
+            'kanji-word': command => { void this.lookupText(command.expression, command.reading || command.expression, { anchor: actionButton, navigation: 'push-current', preservePosition: true, userGesture: true }); },
+            'jpdb-kanji-action': command => { void this.performJpdbKanjiAction(command.actionId, fallbackCard, fallbackCard.spelling, fallbackCard.spelling, actionButton); },
+            'card-action': command => { void this.handleCardAction(actionButton, fallbackCard, command.sentence || fallbackCard.spelling, command); },
         });
-    }
-
-    private lookupTextFromAddonAction(actionButton: HTMLButtonElement): void {
-        const expression = actionButton.dataset.expression ?? actionButton.dataset.lookup ?? actionButton.dataset.term ?? '';
-        const reading = actionButton.dataset.reading ?? expression;
-        void this.lookupText(expression, reading, { anchor: actionButton, navigation: 'push-current', preservePosition: true, userGesture: true });
-    }
-
-    private playJpdbPageAddonExampleAudio(actionButton: HTMLButtonElement): void {
-        void this.audioActions.playJpdbExampleAudio(actionButton.dataset.jpdbAudio ?? '', actionButton.dataset.jpdbExampleSentence ?? '');
-    }
-
-    private playJpdbPageAddonJitenAudio(actionButton: HTMLButtonElement, fallbackCard: JPDBCard): void {
-        void this.handleCardAction(actionButton, fallbackCard, fallbackCard.spelling);
     }
 
     private isCurrentJpdbPageEnhancement(generation: number): boolean {
@@ -2928,27 +2917,25 @@ export class ReaderApp {
             if (document.hidden) return;
             this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
         }, { passive: true, signal: abortSignal });
-        document.addEventListener('click', event => {
-            if (!document.hidden
-                && isPageEnhancementHost()
-                && clickMayRevealReviewAnswer(event)) {
-                // Capture runs before the host's handler. A zero-delay refresh
-                // sees the answer DOM after a synchronous reveal; asynchronous
-                // and full-body swaps are covered by the mutation/body watchers.
-                this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
-            }
-            if (document.hidden
-                || !this.canParseJapanese()
-                || !clickMayRevealDynamicUiText(event)) return;
-            this.noteVisibleAutoScanWorkObserved();
-            // Capture runs before the site's click handler. The delayed scan
-            // therefore sees the newly selected panel after its transition,
-            // and debounce collapses nested menu events into one pass.
-            this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
-        }, { capture: true, signal: abortSignal });
+        document.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleAutoScanClick(event)), { capture: true, signal: abortSignal });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
         document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
+    }
+
+    private handleAutoScanClick(event: MouseEvent): void {
+        if (this.clickMayRevealReviewAnswer(event)) this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+        if (!this.clickMayRevealDynamicUiText(event)) return;
+        this.noteVisibleAutoScanWorkObserved();
+        this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
+    }
+
+    private clickMayRevealReviewAnswer(event: MouseEvent): boolean {
+        return !document.hidden && isPageEnhancementHost() && clickMayRevealReviewAnswer(event);
+    }
+
+    private clickMayRevealDynamicUiText(event: MouseEvent): boolean {
+        return !document.hidden && this.canParseJapanese() && clickMayRevealDynamicUiText(event);
     }
 
     private handleAutoScanVisibilityChange(): void {
@@ -3181,6 +3168,7 @@ export class ReaderApp {
 
     private bindEvents(): void {
         const abortSignal = this.abortController.signal;
+        installTrustedReaderRootBoundary(document, abortSignal);
         bindReaderRuntimeEvents({
             getSettings: () => this.settings,
             setSettings: settings => {
@@ -3193,11 +3181,11 @@ export class ReaderApp {
             saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
             clearBridgeCaches: () => this.clearBridgeBackedCaches(),
         }, this.abortController.signal);
-        addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {
+        subscribeToSettingsChanges(() => {
             if (!this.isDestroyed) {
                 this.syncReaderRootLanguages();
             }
-        }, { signal: abortSignal });
+        }, abortSignal);
 
         // Tapping Yomu's OCR overlay must look the word up, never fall through to the
         // host viewer's tap-to-turn. BookWalker (NFBR) turns the page on a touchend /
@@ -3238,11 +3226,11 @@ export class ReaderApp {
         // observer below — and never during ordinary browsing.
         let scrollDragBody: HTMLElement | null = null;
         let scrollDragLastY = 0;
-        const onScrollDragStart = (event: TouchEvent): void => {
+        const onScrollDragStart = trustedReaderEventHandler((event: TouchEvent): void => {
             // Editable / form controls keep native touch (caret, selection, option lists).
             scrollDragBody = eventTargetsInteractiveControl(event) ? null : readerScrollBodyForEvent(event);
             scrollDragLastY = event.touches[0]?.clientY ?? 0;
-        };
+        });
         const onScrollDragMove = (event: TouchEvent): void => {
             if (!scrollDragBody?.isConnected || event.touches.length > 1) return; // pinch → native
             const y = event.touches[0]?.clientY;
@@ -3251,7 +3239,7 @@ export class ReaderApp {
             scrollDragLastY = y;
             if (consumed && event.cancelable) event.preventDefault(); // the line above already moved the body
         };
-        const endScrollDrag = (): void => { scrollDragBody = null; };
+        const endScrollDrag = trustedReaderEventHandler((_event: Event): void => { scrollDragBody = null; });
         const onScrollWheel = (event: WheelEvent): void => {
             if (eventTargetsInteractiveControl(event)) return;
             const body = readerScrollBodyForEvent(event);
@@ -3260,23 +3248,25 @@ export class ReaderApp {
             if (!body || !manualScrollReaderBody(body, px)) return;
             if (event.cancelable) event.preventDefault();
         };
+        const trustedOnScrollDragMove = trustedReaderEventHandler(onScrollDragMove);
+        const trustedOnScrollWheel = trustedReaderEventHandler(onScrollWheel);
         let scrollDriveAttached = false;
         const setScrollDrive = (on: boolean): void => {
             if (on === scrollDriveAttached) return;
             scrollDriveAttached = on;
             if (on) {
                 document.addEventListener('touchstart', onScrollDragStart, { capture: true, passive: true });
-                document.addEventListener('touchmove', onScrollDragMove, { capture: true, passive: false });
+                document.addEventListener('touchmove', trustedOnScrollDragMove, { capture: true, passive: false });
                 document.addEventListener('touchend', endScrollDrag, { capture: true, passive: true });
                 document.addEventListener('touchcancel', endScrollDrag, { capture: true, passive: true });
-                document.addEventListener('wheel', onScrollWheel, { capture: true, passive: false });
+                document.addEventListener('wheel', trustedOnScrollWheel, { capture: true, passive: false });
                 return;
             }
             document.removeEventListener('touchstart', onScrollDragStart, true);
-            document.removeEventListener('touchmove', onScrollDragMove, true);
+            document.removeEventListener('touchmove', trustedOnScrollDragMove, true);
             document.removeEventListener('touchend', endScrollDrag, true);
             document.removeEventListener('touchcancel', endScrollDrag, true);
-            document.removeEventListener('wheel', onScrollWheel, true);
+            document.removeEventListener('wheel', trustedOnScrollWheel, true);
         };
         // Overlays mount as document.body children; attach the scroll driver only while
         // one carrying a scroll body is present (cheap querySelector, run only when body's
@@ -3329,30 +3319,30 @@ export class ReaderApp {
         }, { once: true });
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true, signal: abortSignal });
-
-        document.addEventListener('mousedown', event => {
+        document.addEventListener('mousedown', trustedReaderEventHandler((event: MouseEvent) => {
             if (this.isDestroyed) return;
             if (!this.shouldCaptureMiddleMouseLookup(event)) return;
             event.preventDefault();
             event.stopPropagation();
-        }, { capture: true, passive: false, signal: abortSignal });
-
-        document.addEventListener('auxclick', event => {
+        }), { capture: true, passive: false, signal: abortSignal });
+        document.addEventListener('auxclick', trustedReaderEventHandler((event: MouseEvent) => {
             if (this.isDestroyed) return;
             if (event.button !== 1 || Date.now() > this.suppressMiddleAuxClickUntil) return;
             event.preventDefault();
             event.stopPropagation();
-        }, { capture: true, signal: abortSignal });
-
-        document.addEventListener('pointerdown', event => {
+        }), { capture: true, signal: abortSignal });
+        document.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => {
             this.primeLookupAudioFromFirstGesture();
             this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
-            if (this.isMiningDrawerHandlePointerEvent(event)) return;
-            if (this.isLookupInteractionIgnoredTarget(event.target)) {
-                this.cancelPendingHoverLookup();
-                if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
-                return;
-            }
+            if ([
+                () => this.isMiningDrawerHandlePointerEvent(event),
+                () => {
+                    if (!this.isLookupInteractionIgnoredTarget(event.target)) return false;
+                    this.cancelPendingHoverLookup();
+                    if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
+                    return true;
+                },
+            ].some(handle => handle())) return;
             this.suppressHoverAfterPenContact(event);
             if (this.handleOcrReaderWordPointerDown(event)) return;
             this.beginTapLookup(event);
@@ -3361,75 +3351,65 @@ export class ReaderApp {
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
-        }, { capture: true, passive: false, signal: abortSignal });
-
-        document.addEventListener('pointermove', event => {
+        }), { capture: true, passive: false, signal: abortSignal });
+        document.addEventListener('pointermove', trustedReaderEventHandler((event: PointerEvent) => {
             this.updateTapLookup(event);
             this.updateLinkPressLookup(event);
             this.updatePressLookup(event);
-        }, { capture: true, passive: false, signal: abortSignal });
-
-        document.addEventListener('pointerup', event => {
+        }), { capture: true, passive: false, signal: abortSignal });
+        document.addEventListener('pointerup', trustedReaderEventHandler((event: PointerEvent) => {
             this.finishTapLookup(event);
             this.cancelLinkPressLookup(event);
             this.endPressLookup(event);
-        }, { capture: true, signal: abortSignal });
-
-        document.addEventListener('pointercancel', event => {
+        }), { capture: true, signal: abortSignal });
+        document.addEventListener('pointercancel', trustedReaderEventHandler((event: PointerEvent) => {
             this.cancelTapLookup(event);
             this.cancelLinkPressLookup(event);
             this.endPressLookup(event);
-        }, { capture: true, signal: abortSignal });
-
+        }), { capture: true, signal: abortSignal });
         // Android fires contextmenu at its own long-press threshold; when the
         // link-word long-press lookup is pending or just opened, the popover
         // owns the gesture instead of the native link menu.
-        document.addEventListener('contextmenu', event => {
+        document.addEventListener('contextmenu', trustedReaderEventHandler((event: MouseEvent) => {
             if (!this.linkPressLookup && Date.now() >= this.suppressLinkContextMenuUntil) return;
             event.preventDefault();
             event.stopPropagation();
-        }, { capture: true, signal: abortSignal });
+        }), { capture: true, signal: abortSignal });
 
-        document.addEventListener('pointerover', event => {
+        document.addEventListener('pointerover', trustedReaderEventHandler((event: PointerEvent) => {
             this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             this.handleHoverPointer(event);
-        }, { capture: true, signal: abortSignal });
+        }), { capture: true, signal: abortSignal });
 
-        document.addEventListener('pointermove', event => {
+        document.addEventListener('pointermove', trustedReaderEventHandler((event: PointerEvent) => {
             // Ahead of every hover gate on purpose: the latch must be released by
             // any pointer event the browser routes outside the popover, even one
             // that hover handling itself ignores (drag, wrong pointer type, no
             // hover shortcut held).
             this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             this.queueHoverPointerMove(event);
-        }, { capture: true, signal: abortSignal });
+        }), { capture: true, signal: abortSignal });
 
-        document.addEventListener('pointerout', event => {
+        document.addEventListener('pointerout', trustedReaderEventHandler((event: PointerEvent) => {
             this.handleHoverPointerOut(event);
-        }, { capture: true, signal: abortSignal });
+        }), { capture: true, signal: abortSignal });
 
         if (!window.PointerEvent) {
-            document.addEventListener('mouseover', event => {
+            document.addEventListener('mouseover', trustedReaderEventHandler((event: MouseEvent) => {
                 this.handleHoverPointer(event as PointerEvent);
-            }, { capture: true, signal: abortSignal });
+            }), { capture: true, signal: abortSignal });
 
-            document.addEventListener('mousemove', event => {
+            document.addEventListener('mousemove', trustedReaderEventHandler((event: MouseEvent) => {
                 this.queueHoverPointerMove(event as PointerEvent);
-            }, { capture: true, signal: abortSignal });
+            }), { capture: true, signal: abortSignal });
 
-            document.addEventListener('mouseout', event => {
+            document.addEventListener('mouseout', trustedReaderEventHandler((event: MouseEvent) => {
                 this.handleHoverPointerOut(event as PointerEvent);
-            }, { capture: true, signal: abortSignal });
+            }), { capture: true, signal: abortSignal });
         }
 
-        document.addEventListener('keydown', event => this.handleDocumentKeydown(event), { signal: abortSignal });
-        document.addEventListener('keyup', event => {
-            this.pressedKeys.delete(normalizePressedKey(event.key));
-            if ((this.settings.shortcuts.hoverLookup ?? '').trim() && !this.shouldLookupOnHover(event)) {
-                this.cancelPendingHoverLookup();
-                if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
-            }
-        }, { signal: abortSignal });
+        document.addEventListener('keydown', this.handleDocumentKeydown, { signal: abortSignal });
+        document.addEventListener('keyup', trustedReaderEventHandler((event: KeyboardEvent) => this.handleDocumentKeyup(event)), { signal: abortSignal });
         window.addEventListener('blur', () => {
             this.pressedKeys.clear();
             this.cancelPendingHoverLookup();
@@ -3438,28 +3418,40 @@ export class ReaderApp {
     }
 
     private handleDocumentClick(event: MouseEvent): void {
-        if (this.isDestroyed) return;
-        if (this.isMiningDrawerHandlePointerEvent(event)) return;
+        if (!isTrustedReaderInteraction(event)) return;
+        const target = this.documentClickTarget(event);
+        if (!target) return;
+        if (this.handleDocumentReaderWordClick(event, target)) return;
+        this.handleDocumentNonWordClick(event);
+    }
+    private documentClickTarget(event: MouseEvent): HTMLElement | null {
+        if (this.isDestroyed) return null;
+        if (this.isMiningDrawerHandlePointerEvent(event)) return null;
         const target = event.target as HTMLElement;
-        if (shouldIgnoreDocumentClickTarget(target)) return;
-
-        // The selection/token-list popover installs its own click handlers for
-        // its word buttons, action pills and copy control. Let those run instead
-        // of resolving a page word from the click point — the popover overlaps
-        // page text, so point geometry would pierce through to an underlying word
-        // and open its dictionary at the wrong location (and shift this popover).
-        if (target.closest?.(TOKEN_LIST_POPOVER_CONTROL_SELECTOR)) return;
-
+        return this.documentClickTargetIgnored(target) ? null : target;
+    }
+    private documentClickTargetIgnored(target: HTMLElement): boolean {
+        return shouldIgnoreDocumentClickTarget(target) || Boolean(target.closest?.(TOKEN_LIST_POPOVER_CONTROL_SELECTOR));
+    }
+    private handleDocumentReaderWordClick(event: MouseEvent, target: HTMLElement): boolean {
         const word = this.readerWordForPointerEvent(event, { clickLookup: true });
-        if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
-
-        const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
-        if (!word) {
-            if (this.pauseForSubtitleSurfaceTap(event)) return;
-            this.handleDocumentLookupCandidateClick(event, insideActivePopover);
-            return;
-        }
+        if (!word) return Boolean(target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]'));
         this.handleReaderWordClick(event, word);
+        return true;
+    }
+    private handleDocumentNonWordClick(event: MouseEvent): void {
+        const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
+        if (this.pauseForSubtitleSurfaceTap(event)) return;
+        this.handleDocumentLookupCandidateClick(event, insideActivePopover);
+    }
+    private handleDocumentKeyup(event: KeyboardEvent): void {
+        this.pressedKeys.delete(normalizePressedKey(event.key));
+        if (!this.shouldCloseHoverAfterKeyup(event)) return;
+        this.cancelPendingHoverLookup();
+        if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
+    }
+    private shouldCloseHoverAfterKeyup(event: KeyboardEvent): boolean {
+        return Boolean(this.settings.shortcuts.hoverLookup?.trim()) && !this.shouldLookupOnHover(event);
     }
 
     private handleDocumentLookupCandidateClick(event: MouseEvent, insideActivePopover: boolean): void {
@@ -3858,26 +3850,21 @@ export class ReaderApp {
         // own autoplay manages the new player.
         if (stored.isConnected && stored.paused) void stored.play().catch(() => undefined);
     }
-
-    private markMiningPause(video: HTMLVideoElement): void {
-        video.dataset.jpdbReaderMiningPause = String(Date.now());
-    }
-
-    private clearMiningPause(video: HTMLVideoElement): void {
-        delete video.dataset.jpdbReaderMiningPause;
-    }
-
-    private handleDocumentKeydown(event: KeyboardEvent): void {
+    private markMiningPause(video: HTMLVideoElement): void { video.dataset.jpdbReaderMiningPause = String(Date.now()); }
+    private clearMiningPause(video: HTMLVideoElement): void { delete video.dataset.jpdbReaderMiningPause; }
+    private readonly handleDocumentKeydown = trustedReaderEventHandler((event: KeyboardEvent): void => {
         if (this.isDestroyed) return;
         this.pressedKeys.add(normalizePressedKey(event.key));
         if (isEditableEventContext(event)) return;
-        if (this.handleClosePopupShortcut(event)) return;
-        if (this.hasHoverLookupShortcut() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
-        if (this.handleLookupNavigationShortcut(event)) return;
-        if (this.handleReaderUtilityShortcut(event)) return;
-        this.handleReviewShortcut(event);
-    }
-
+        [() => this.handleClosePopupShortcut(event),
+            () => {
+                if (this.hasHoverLookupShortcut() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
+                return false;
+            },
+            () => this.handleLookupNavigationShortcut(event),
+            () => this.handleReaderUtilityShortcut(event),
+            () => { this.handleReviewShortcut(event); return true; }].some(handle => handle());
+    });
     private handleClosePopupShortcut(event: KeyboardEvent): boolean {
         const escapeClose = this.settings.shortcuts.closePopup.trim().toLowerCase() === 'escape' && event.key === 'Escape';
         if (!this.hasOpenReaderDialog()) return false;
@@ -4035,18 +4022,8 @@ export class ReaderApp {
     }
 
     private reviewShortcutSelection(): Pick<ReviewShortcutContext, 'reviewTarget' | 'ankiCardId'> {
-        const actions = this.activePopover?.querySelector<HTMLElement>('.jpdb-reader-actions');
-        const select = actions?.querySelector<HTMLSelectElement>('[data-review-target-select]');
-        const option = select?.options[select.selectedIndex] ?? null;
-        const visibleButton = actions?.querySelector<HTMLButtonElement>('[data-review-target-row]:not([hidden]) [data-action="grade"][data-grade]');
-        const value = option?.dataset.reviewTarget ?? visibleButton?.dataset.reviewTarget ?? '';
-        const reviewTarget = reviewShortcutTargetKind(value);
-        const explicitAnkiId = Number(option?.dataset.ankiCardId ?? visibleButton?.dataset.ankiCardId);
         const fallbackAnkiId = this.lastAnkiLookup?.primary?.primaryCardId ?? null;
-        const ankiCardId = Number.isFinite(explicitAnkiId) && explicitAnkiId > 0
-            ? explicitAnkiId
-            : reviewTarget === 'anki' || reviewTarget === 'both' || !reviewTarget ? fallbackAnkiId : null;
-        return { reviewTarget, ankiCardId };
+        return privateCommands.resolvePrivateReviewSelection(this.activePopover, fallbackAnkiId);
     }
 
     private canReviewFromShortcut(reviewTarget: ReviewShortcutContext['reviewTarget'], ankiCardId: number | null): boolean {
@@ -4431,7 +4408,7 @@ export class ReaderApp {
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
         if (word.dataset.jpdbReaderPassive === 'true') return null;
-        const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        const card = this.getCachedCard(Number(renderedWordPrivateValue(word, 'vid')), Number(renderedWordPrivateValue(word, 'sid')));
         return card && isUsefulImmersionPreloadQuery(card.spelling) ? card : null;
     }
 
@@ -5503,8 +5480,8 @@ export class ReaderApp {
     }
 
     private hoverLookupKeyForWord(word: HTMLElement): string {
-        const vid = Number(word.dataset.vid);
-        const sid = Number(word.dataset.sid);
+        const vid = Number(renderedWordPrivateValue(word, 'vid'));
+        const sid = Number(renderedWordPrivateValue(word, 'sid'));
         if (!Number.isFinite(vid) || !Number.isFinite(sid)) return '';
         return `word:${vid}:${sid}:${word.dataset.sentence ?? ''}`;
     }
@@ -6069,8 +6046,8 @@ export class ReaderApp {
     }
 
     private cardForRenderedWord(word: HTMLElement): JPDBCard | undefined {
-        const vid = Number(word.dataset.vid);
-        const sid = Number(word.dataset.sid);
+        const vid = Number(renderedWordPrivateValue(word, 'vid'));
+        const sid = Number(renderedWordPrivateValue(word, 'sid'));
         const card = this.getCachedCard(vid, sid);
         return renderedWordCardForLookup(word, card);
     }
@@ -6082,17 +6059,20 @@ export class ReaderApp {
         scope: CardLookupTargetSnapshot,
     ): Promise<void> {
         if (!scope.isCurrent()) return;
-        const vid = Number(word.dataset.vid);
-        const sid = Number(word.dataset.sid);
+        const { vid, sid } = renderedWordNumericIdentity(word);
         // A cache miss is an unconfirmed span: give the authority the word's
         // sentence first, so a stale fragment resolves to the real word it
         // sits in instead of a text lookup for the fragment's surface.
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
-        if (await this.showAuthoritativeSpanForRenderedWord(word, undefined, context, options, options.stackOverSettings ?? false, scope)) return;
-        if (!scope.isCurrent()) return;
-        if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options, scope)) return;
-        if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options, scope)) return;
-        if (!scope.isCurrent()) return;
+        const uncachedLookup = selectRenderedWordAttempt(
+            insideReaderPopup,
+            () => this.lookupUncachedPopupWord(word, options, scope),
+            () => this.lookupUncachedPageWord(word, options, scope),
+        );
+        if (await resolveRenderedWordAttempts([
+            () => this.showAuthoritativeSpanForRenderedWord(word, undefined, context, options, options.stackOverSettings ?? false, scope),
+            uncachedLookup,
+        ], () => scope.isCurrent())) return;
         if (options.stackOverSettings) return;
         log.warn('Clicked word cache miss; reparsing', { vid, sid });
         this.scheduleVisiblePageReparse();
@@ -6305,7 +6285,9 @@ export class ReaderApp {
         anchor: HTMLElement | undefined,
         context: TokenListContext,
     ): void {
-        const card = this.getCachedCard(Number(button.dataset.vid), Number(button.dataset.sid));
+        const choice = privateCommands.readTokenChoiceCommandCapability(button);
+        if (!choice) return;
+        const card = this.getCachedCard(choice.vid, choice.sid);
         if (!card) return;
         void this.showCard(card, tokens.find(token => token.card === card)?.sentence, anchor, {
             trigger: context.trigger,
@@ -7115,9 +7097,9 @@ export class ReaderApp {
     private installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         this.installReaderControlPointerActivation(popover);
-        popover.addEventListener('click', event => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
-        popover.addEventListener('keydown', event => this.handleCardPopoverLookupKeydown(event));
-        popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
+        popover.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleCardPopoverClick(event, card, sentence, anchor, trigger)));
+        popover.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => this.handleCardPopoverLookupKeydown(event)));
+        popover.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handlePopoverReviewTargetChange(event, popover)));
     }
 
     // Dictionary-lookup chips (Composed of, related words) render as anchors;
@@ -7129,7 +7111,7 @@ export class ReaderApp {
         if (!link) return;
         event.preventDefault();
         event.stopPropagation();
-        link.click();
+        dispatchAuthorizedReaderControlClick(link);
     }
 
     private handlePopoverReviewTargetChange(event: Event, popover: HTMLElement): void {
@@ -7154,16 +7136,23 @@ export class ReaderApp {
     }
 
     private handleCardPopoverKanjiAction(event: MouseEvent, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined): void {
+        const command = privateCommands.readKanjiCommandCapability(button);
+        if (!command) return;
         event.preventDefault();
         event.stopPropagation();
-        void this.showKanjiCard(card, button.dataset.kanji ?? '', sentence, anchor, { preservePosition: true });
+        void this.showKanjiCard(card, command.kanji, sentence, anchor, { preservePosition: true });
     }
 
     private dispatchCardPopoverAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
         if (this.handleCardPopoverNavigationAction(button, anchor, trigger)) return;
         if (this.handleCardPopoverMiningAction(button)) return;
         if (this.handleCardPopoverDeckPickerAction(button, card, sentence)) return;
-        void this.handleCardAction(button, card, sentence);
+        this.performCardPopoverCommand(button, card, sentence);
+    }
+
+    private performCardPopoverCommand(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): void {
+        const command = privateCommands.readCardCommandCapability(button);
+        if (command) void this.handleCardAction(button, card, sentence, command);
     }
 
     private handleCardPopoverNavigationAction(button: HTMLButtonElement, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean {
@@ -7173,18 +7162,25 @@ export class ReaderApp {
     }
 
     private handleCardPopoverMiningAction(button: HTMLButtonElement): boolean {
-        if (button.dataset.action === 'review-target-toggle') {
+        const command = privateCommands.readCardUiCommandCapability(button);
+        if (!command) return false;
+        return this.performCardPopoverUiCommand(button, command.action);
+    }
+
+    private performCardPopoverUiCommand(button: HTMLButtonElement, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle'): boolean {
+        if (action === 'review-target-toggle') {
             togglePopoverReviewTargetSelection(button);
             return true;
         }
-        if (button.dataset.action !== 'mining-collapse') return false;
+        if (action !== 'mining-collapse') return false;
         this.toggleMiningControls(button);
         return true;
     }
 
     private handleCardPopoverDeckPickerAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        if (button.dataset.action === 'deck-picker') return this.openDeckPickerForAdd(button, card, sentence);
-        return button.dataset.action === 'add' && this.openDeckPickerForAdd(button, card, sentence);
+        if (cardPopoverDeckPickerCommand(button)) return this.openDeckPickerForAdd(button, card, sentence);
+        if (!cardPopoverAddCommand(button)) return false;
+        return this.openDeckPickerForAdd(button, card, sentence);
     }
 
     private toggleMiningControls(button: HTMLButtonElement): void {
@@ -7200,8 +7196,8 @@ export class ReaderApp {
     }
 
     private openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        return openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence) => (
-            this.handleCardAction(actionButton, actionCard, actionSentence)
+        return openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence, command) => (
+            this.handleCardAction(actionButton, actionCard, actionSentence, command)
         ));
     }
 
@@ -7358,16 +7354,16 @@ export class ReaderApp {
         const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
         const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
         return `
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}" title="${escapeHtml(uiText(language, 'previousKanji'))}">‹</button>
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}" title="${escapeHtml(uiText(language, 'nextKanji'))}">›</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}"${privateCommands.privateCommandAttributes({ kind: 'kanji-lookup', kanji: previous })} title="${escapeHtml(uiText(language, 'previousKanji'))}">‹</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}"${privateCommands.privateCommandAttributes({ kind: 'kanji-lookup', kanji: next })} title="${escapeHtml(uiText(language, 'nextKanji'))}">›</button>
         `;
     }
 
     private installKanjiCardActions(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         this.installReaderControlPointerActivation(popover);
-        popover.addEventListener('click', event => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor));
-        popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
+        popover.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor)));
+        popover.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handlePopoverReviewTargetChange(event, popover)));
     }
 
     private handleKanjiCardActionClick(event: MouseEvent, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
@@ -7381,26 +7377,17 @@ export class ReaderApp {
     }
 
     private dispatchKanjiCardAction(actionButton: HTMLButtonElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
+        if (privateCommands.dispatchPrivateCommand(actionButton, {
+            'jpdb-kanji-action': command => { void this.performJpdbKanjiAction(command.actionId, card, kanji, sentence, anchor); },
+            'kanji-lookup': command => { void this.showKanjiCard(card, command.kanji, sentence, anchor, { navigation: 'push-current', preservePosition: true }); },
+            'card-ui': () => this.toggleMiningControls(actionButton),
+            'card-action': command => { if (command.action === 'copy-word') void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord'))); else void this.handleCardAction(actionButton, card, sentence, command); },
+            'kanji-word': command => { void this.lookupText(command.expression, command.reading || command.expression, { navigation: 'push-current', preservePosition: true }); },
+            'jiten-kanji-words': command => { void (command.action === 'more' ? this.loadMoreJitenKanjiWords(actionButton) : this.filterJitenKanjiWords(actionButton)); },
+        })) return;
         const handlers: Record<string, () => void> = {
-            'copy-word': () => copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord'))),
-            'jpdb-kanji-action': () => this.performJpdbKanjiAction(actionButton.dataset.kanjiActionId ?? '', card, kanji, sentence, anchor),
-            'mining-collapse': () => this.toggleMiningControls(actionButton),
-            grade: () => this.handleCardAction(actionButton, card, sentence),
             'word-back': () => this.showCard(card, sentence, anchor, { autoPlay: false, navigation: 'preserve', preservePosition: true }),
             'kanji-history-back': () => this.showPreviousKanji(anchor),
-            'kanji-prev': () => this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { navigation: 'push-current', preservePosition: true }),
-            'kanji-next': () => this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { navigation: 'push-current', preservePosition: true }),
-            kanji: () => this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { navigation: 'push-current', preservePosition: true }),
-            'similar-word': () => {
-                const expression = actionButton.dataset.expression ?? '';
-                this.lookupText(expression, actionButton.dataset.reading ?? expression, { navigation: 'push-current', preservePosition: true });
-            },
-            'jiten-kanji-more': () => {
-                void this.loadMoreJitenKanjiWords(actionButton);
-            },
-            'jiten-kanji-reading': () => {
-                void this.filterJitenKanjiWords(actionButton);
-            },
         };
         void handlers[actionButton.dataset.action ?? '']?.();
     }
@@ -7467,7 +7454,7 @@ export class ReaderApp {
         return `
             <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? 'true' : 'false'}"${reviewButtons ? '' : ' hidden'}>
                 <div class="jpdb-reader-actions-gutter" hidden>
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(uiText(this.settings.interfaceLanguage, 'showMiningActions'))}" aria-label="${escapeHtml(uiText(this.settings.interfaceLanguage, 'showMiningActions'))}"></button>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommands.privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" title="${escapeHtml(uiText(this.settings.interfaceLanguage, 'showMiningActions'))}" aria-label="${escapeHtml(uiText(this.settings.interfaceLanguage, 'showMiningActions'))}"></button>
                 </div>
                 <div data-kanji-mining-mount hidden></div>
                 ${reviewButtons}
@@ -8329,17 +8316,11 @@ export class ReaderApp {
     }
 
     private renderedWordTokenForRecolor(word: HTMLElement): JPDBToken | null {
-        const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        const identity = renderedWordNumericIdentity(word);
+        const card = this.getCachedCard(identity.vid, identity.sid);
         if (!card) return null;
         const surface = readerWordSurfaceText(word);
-        const recordedStart = Number(word.dataset.tokenStart);
-        const recordedEnd = Number(word.dataset.tokenEnd);
-        const hasRecordedSpan = Number.isInteger(recordedStart)
-            && Number.isInteger(recordedEnd)
-            && recordedStart >= 0
-            && recordedEnd > recordedStart;
-        const start = hasRecordedSpan ? recordedStart : 0;
-        const end = hasRecordedSpan ? recordedEnd : surface.length;
+        const { start, end } = renderedWordSpan(word, surface.length);
         return {
             card,
             start,
@@ -9289,7 +9270,7 @@ export class ReaderApp {
 
     private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document], pitchClass = ''): void {
         if (!pitchClass && !hasPaintablePitchComponents(card)) return;
-        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+        const key = renderedWordCardKey(card.vid, card.sid);
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
             const apply = (word: HTMLElement): void => {
@@ -9300,10 +9281,9 @@ export class ReaderApp {
                 setRenderedWordPitchComponents(word, card);
                 changedRoots.add(word.parentElement ?? word);
             };
-            this.renderedAnnotationRoots(roots).forEach(root => {
-                if (root instanceof HTMLElement && root.matches(selector)) apply(root);
-                root.querySelectorAll<HTMLElement>(selector).forEach(apply);
-            });
+            const targetRoots = this.renderedAnnotationRoots(roots);
+            this.renderedWords.prepareForLookups(new Map([[key, true]]), targetRoots);
+            this.renderedWords.wordsForLookupKey(key, targetRoots).forEach(apply);
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
     }
@@ -9485,19 +9465,13 @@ export class ReaderApp {
     }
 
     private provisionalKnownStateWords(): HTMLElement[] {
-        const selector = '.jpdb-reader-word[data-state-provenance="provisional"]';
-        const words = new Set<HTMLElement>();
-        this.renderedAnnotationRoots().forEach(root => {
-            root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
-        });
+        const annotatedWords = this.renderedAnnotationRoots().flatMap(root => renderedWordsInRoot(root));
         // Mirror words inside recycled/unscanned shadow roots live only in the
         // index; include any that still match the provisional predicate.
-        for (const set of this.renderedWordIndex.values()) {
-            for (const word of set) {
-                if (word.isConnected && word.matches(selector)) words.add(word);
-            }
-        }
-        return [...words];
+        const indexedWords = [...this.renderedWordIndex.values()]
+            .flatMap(words => [...words])
+            .filter(word => word.isConnected);
+        return [...new Set([...annotatedWords, ...indexedWords])].filter(isProvisionalRenderedWord);
     }
 
     private applyCachedPublicVocabularyToRenderedFallbackWords(root: ParentNode): void {
@@ -9506,21 +9480,22 @@ export class ReaderApp {
         const geometryRoots = new Set<ParentNode>();
         const effectTokens = new Map<string, JPDBToken>();
         this.pauseAutoScanObserver(() => {
-            this.renderedAnnotationRoots([root]).forEach(targetRoot => {
-                targetRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
-                    const key = renderedFallbackVocabularyCacheKey(word);
-                    const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
-                    if (!card) return;
-                    const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-                    const changedRoot = this.lateAnnotationRootForRenderedWord(word);
-                    if (this.applyPublicVocabularyToRenderedWord(word, card, pitchClass)) geometryRoots.add(changedRoot);
-                    changedRoots.add(changedRoot);
-                    effectTokens.set(cardKey(card), this.resolvedWordEffectsToken(card, pitchClass));
-                });
-            });
+            this.renderedAnnotationRoots([root])
+                .flatMap(targetRoot => renderedWordsInRoot(targetRoot))
+                .forEach(word => this.applyCachedPublicVocabularyToRenderedWord(word, changedRoots, geometryRoots, effectTokens));
         });
         this.pageScanner.scheduleLateAnnotationRefresh(changedRoots, geometryRoots);
         if (changedRoots.size) this.queueResolvedWordEffects([...effectTokens.values()], [...changedRoots]);
+    }
+
+    private applyCachedPublicVocabularyToRenderedWord(word: HTMLElement, changedRoots: Set<ParentNode>, geometryRoots: Set<ParentNode>, effectTokens: Map<string, JPDBToken>): void {
+        const hydration = cachedRenderedWordHydration(word, this.resolvedFallbackVocabularyCache);
+        if (!hydration) return;
+        const { card, pitchClass } = hydration;
+        const changedRoot = this.lateAnnotationRootForRenderedWord(word);
+        if (this.applyPublicVocabularyToRenderedWord(word, card, pitchClass)) geometryRoots.add(changedRoot);
+        changedRoots.add(changedRoot);
+        effectTokens.set(cardKey(card), this.resolvedWordEffectsToken(card, pitchClass));
     }
 
     private scheduleCachedPublicVocabularyHydration(
@@ -9610,27 +9585,25 @@ export class ReaderApp {
         setRenderedWordPitchClass(word, pitchClass);
     }
 
-    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, suppliedCommand?: privateCommands.CardCommandCapability): Promise<void> {
         if (button.disabled) return;
-        button.disabled = true;
-        const action = button.dataset.action;
+        const command = mainCardCommand(button, suppliedCommand);
+        if (!command) return;
+        const action = command.action;
         const anchor = this.connectedActivePopoverAnchor();
         const trigger = this.activeTextLookupTrigger();
         const done = log.time('cardAction', { action, term: card.spelling, trigger });
-        try {
-            const shouldRefresh = await this.cardActions.perform(action, button, card, sentence, this.cardActionContext(anchor));
-            if (shouldRefresh && action === 'grade') {
-                this.dismissAfterReview();
-                return;
-            }
-            if (shouldRefresh) await this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: 'preserve', preservePosition: true });
-        } catch (error) {
-            log.warn('Card action failed', { action, term: card.spelling }, error);
-            this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'actionFailed', error));
-        } finally {
-            done();
-            button.disabled = false;
-        }
+        await runCardActionOperation(
+            button,
+            () => refreshAfterCardAction(
+                command.action,
+                () => this.cardActions.perform(command, button, card, sentence, this.cardActionContext(anchor)),
+                () => this.dismissAfterReview(),
+                () => this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: 'preserve', preservePosition: true }),
+            ),
+            error => reportCardActionFailure({ logger: log, warning: 'Card action failed', action, term: card.spelling, language: this.settings.interfaceLanguage, toast: message => this.toast(message) }, error),
+            done,
+        );
     }
 
     private dismissAfterReview(): void {
@@ -9759,15 +9732,15 @@ export class ReaderApp {
         return this.settingsDialog;
     }
 
-    private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
+    private mountSettingsDialog(backdrop: HTMLElement, surface: HTMLElement): void {
         this.dismiss({ forceAll: true });
         this.syncReaderRootLanguage(backdrop);
-        this.syncReaderRootLanguage(form);
-        applyOverlayPageScale(form);
-        document.body.append(backdrop, form);
+        this.syncReaderRootLanguage(surface);
+        applyOverlayPageScale(surface);
+        document.body.append(backdrop, surface);
         this.activeBackdrop = backdrop;
-        this.activePopover = form;
-        form.focus();
+        this.activePopover = surface;
+        surface.focus();
     }
 
     private createPopover(trigger: 'modal' | 'hover' = 'modal'): HTMLElement {
@@ -10392,4 +10365,22 @@ export class ReaderApp {
     private toast(message: string): void {
         showReaderToast(message);
     }
+}
+
+function jpdbPageAddonActionButton(event: MouseEvent, root: HTMLElement): HTMLButtonElement | null {
+    if (!(event.target instanceof Element)) return null;
+    const button = event.target.closest<HTMLButtonElement>('[data-action]');
+    return button && root.contains(button) ? button : null;
+}
+
+function cardPopoverDeckPickerCommand(button: HTMLButtonElement): boolean {
+    return privateCommands.readCardUiCommandCapability(button)?.action === 'deck-picker';
+}
+
+function cardPopoverAddCommand(button: HTMLButtonElement): boolean {
+    return privateCommands.readCardCommandCapability(button)?.action === 'add';
+}
+
+function mainCardCommand(button: HTMLButtonElement, supplied: privateCommands.CardCommandCapability | undefined): privateCommands.CardCommandCapability | undefined {
+    return supplied ?? privateCommands.readCardCommandCapability(button);
 }

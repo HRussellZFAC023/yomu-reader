@@ -18,3 +18,20 @@ export const HOSTED_LOCAL_SETTINGS_KEYS = [
 ] as const;
 
 export type HostedLocalSettingKey = typeof HOSTED_LOCAL_SETTINGS_KEYS[number];
+
+export const HOSTED_DEMO_READER_SETTINGS = {
+    showFurigana: true,
+    furiganaMode: 'all',
+    showPitchAccent: true,
+    wordUnderlineColorSource: 'pitch',
+    subtitlePlayerEnabled: true,
+    subtitleAutoDetect: true,
+    subtitleOverlayVisible: true,
+    subtitleControlsMode: 'always',
+    subtitleTranscriptVisible: false,
+    ocrEnabled: true,
+    ocrVideoPauseFrames: true,
+    ocrProvider: 'google-lens',
+    ocrOverlayTheme: 'auto',
+    preferJapaneseSiteLanguage: false,
+} as const satisfies Record<HostedLocalSettingKey, unknown>;

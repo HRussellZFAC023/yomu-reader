@@ -1,5 +1,6 @@
 import { runLimited } from '../core/async-utils';
 import { chunkArray, unique } from '../core/array-utils';
+import { videoFrameDataUrl } from '../dom/video-frame-raster';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { gmStorageGet, gmStorageGetSync, gmStorageSet } from '../app/storage';
@@ -2081,16 +2082,7 @@ export function captureActiveVideoFrame(): string | undefined {
         return undefined;
     }
     try {
-        const canvas = document.createElement('canvas');
-        const maxWidth = 960;
-        const scale = Math.min(1, maxWidth / video.videoWidth);
-        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-        const context = canvas.getContext('2d');
-        if (!context) return undefined;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
-        return dataUrl;
+        return videoFrameDataUrl(video);
     } catch (error) {
         log.warn('Active video frame capture failed', error);
         return undefined;

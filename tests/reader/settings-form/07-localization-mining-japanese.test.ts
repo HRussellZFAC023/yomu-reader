@@ -54,16 +54,19 @@ describe('settings form localization', () => {
         const defaultForm = document.createElement('form');
         defaultForm.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const nadeshikoOnlyForm = document.createElement('form');
-        nadeshikoOnlyForm.innerHTML = renderSettingsForm({
+        const nadeshikoSettings = {
             ...DEFAULT_SETTINGS,
-            immersionKitExampleSource: 'nadeshiko',
+            immersionKitExampleSource: 'nadeshiko' as const,
             nadeshikoApiKey: 'nad-key',
-        }, 'https://jpdb.io/settings');
-        const saved = readFormSettings(new FormData(nadeshikoOnlyForm), DEFAULT_SETTINGS);
+        };
+        nadeshikoOnlyForm.innerHTML = renderSettingsForm(nadeshikoSettings, 'https://jpdb.io/settings');
+        const saved = readFormSettings(new FormData(nadeshikoOnlyForm), nadeshikoSettings);
 
         expect(defaultForm.querySelector<HTMLElement>('[data-nadeshiko-api-key-field]')?.hidden).toBe(true);
         expect(nadeshikoOnlyForm.querySelector<HTMLElement>('[data-nadeshiko-api-key-field]')?.hidden).toBe(false);
         expect(nadeshikoOnlyForm.querySelector<HTMLAnchorElement>('a[href="https://nadeshiko.co/user/developer"]')).toBeTruthy();
+        expect(nadeshikoOnlyForm.querySelector<HTMLInputElement>('input[name="nadeshikoApiKey"]')?.value).toBe('');
+        expect(nadeshikoOnlyForm.innerHTML).not.toContain('nad-key');
         expect(saved.immersionKitExampleSource).toBe('nadeshiko');
         expect(saved.nadeshikoApiKey).toBe('nad-key');
     });

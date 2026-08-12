@@ -3,7 +3,6 @@ import {
     registerReaderHelpersCleanup,
     AnkiConnectClient,
     AnkiDuplicateNoteError,
-    CardActionController,
     JpdbClient,
     TEST_ANDROID_CHROME_USER_AGENT,
     TEST_IOS_SAFARI_USER_AGENT,
@@ -21,6 +20,7 @@ import {
     testAnkiClient,
     testAnkiConnectResponse,
     testAnkiQueryRouteResult,
+    testCardActionController,
     testReadCard,
 } from './fixtures';
 import type {
@@ -32,6 +32,15 @@ import type {
 } from './fixtures';
 
 registerReaderHelpersCleanup();
+
+async function performTestAnkiAdd(controller: ReturnType<typeof testCardActionController>): Promise<void> {
+    await expect(controller.perform({ kind: 'card-action', action: 'anki' }, document.createElement('button'), {
+        ...card,
+        spelling: '読む',
+        reading: 'よむ',
+        meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+    }, '今日は本を読む。')).resolves.toBe(true);
+}
 
 describe('reader helpers', () => {
     it('hydrates cache-only Anki status notes by note id without searching the whole collection again', async () => {
@@ -915,7 +924,7 @@ describe('reader helpers', () => {
             localDictionariesEnabled: false,
             ankiCaptureScreenshot: false,
         };
-        const controller = new CardActionController({
+        const controller = testCardActionController({
             getSettings: () => settings,
             jpdb: {} as unknown as JpdbClient,
             jiten: {} as unknown as JitenApiClient,
@@ -946,14 +955,7 @@ describe('reader helpers', () => {
             parsePopoverJapanese: vi.fn(),
             toast,
         });
-        const button = document.createElement('button');
-
-        await expect(controller.perform('anki', button, {
-            ...card,
-            spelling: '読む',
-            reading: 'よむ',
-            meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
-        }, '今日は本を読む。')).resolves.toBe(true);
+        await performTestAnkiAdd(controller);
 
         expect(findExistingCards).toHaveBeenCalledTimes(1);
         expect(addCard).toHaveBeenCalledTimes(1);
@@ -1470,7 +1472,7 @@ describe('reader helpers', () => {
             const findExistingCards = vi.spyOn(anki, 'findExistingCards');
             const addCard = vi.spyOn(anki, 'addCard');
             const addCardViaMobileHandoff = vi.spyOn(anki, 'addCardViaMobileHandoff');
-            const controller = new CardActionController({
+            const controller = testCardActionController({
                 getSettings: () => settings,
                 jpdb: {} as JpdbClient,
                 jiten: {} as unknown as JitenApiClient,
@@ -1488,14 +1490,7 @@ describe('reader helpers', () => {
                 parsePopoverJapanese: vi.fn(),
                 toast,
             });
-            const button = document.createElement('button');
-
-            await expect(controller.perform('anki', button, {
-                ...card,
-                spelling: '読む',
-                reading: 'よむ',
-                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
-            }, '今日は本を読む。')).resolves.toBe(true);
+            await performTestAnkiAdd(controller);
 
             expect(fetchMock).not.toHaveBeenCalled();
             expect(findExistingCards).not.toHaveBeenCalled();

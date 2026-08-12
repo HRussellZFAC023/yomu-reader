@@ -3,6 +3,11 @@ import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthRedirectResult, CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
 import { requestJson, requestText } from '../network/http';
 import { exportManagedStoredValues } from '../app/storage';
+import {
+    cloudSettingsRedirectHandoffRequired,
+    isCloudSettingsAuthorizationState,
+    type CloudSettingsAuthorization,
+} from './cloud-settings-auth-state';
 
 // Serverless Google Drive settings sync for the userscript and hosted reader.
 //
@@ -25,14 +30,13 @@ const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const SETTINGS_FILE_NAME = 'yomu-settings.json';
 const SETTINGS_MIME_TYPE = 'application/json';
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
-// Static broker page on the hosted origin. The userscript runs on third-party
-// origins Google will not authorise, so it cannot run OAuth directly. Instead
-// it navigates the current tab through this authorised page, which performs a
-// redirect-based Google flow and returns to the original page without popups.
+// Static broker page on the hosted origin. The userscript sandbox cannot consume
+// the hosted page's GIS object directly, so it uses a same-tab redirect whose
+// destination and one-use state are independently constrained.
 const OAUTH_BROKER_URL = 'https://yomureader.com/oauth/google-drive.html';
 const OAUTH_RETURN_HASH_KEY = 'yomu-drive-oauth-return';
 const OAUTH_TOKEN_HASH_KEY = 'yomu-drive-oauth-token';
-const OAUTH_WINDOW_NAME_TYPE = 'yomu-drive-oauth-token';
+const OAUTH_TOKEN_PAYLOAD_TYPE = 'yomu-drive-oauth-token';
 const TOKEN_EARLY_REFRESH_MS = 60_000;
 const DRIVE_TIMEOUT_MS = 20_000;
 
@@ -48,20 +52,58 @@ interface CachedAccessToken {
     expiresAt: number;
 }
 
+interface OAuthRedirectCandidate extends CloudSettingsAuthRedirectResult {
+    accessToken?: string;
+    expiresInSeconds?: number;
+}
+
 let cachedToken: CachedAccessToken | null = null;
-let lastAuthRedirectResult: CloudSettingsAuthRedirectResult | null = consumeAuthRedirectResult();
+let pendingAuthRedirectResult: OAuthRedirectCandidate | null = readAuthRedirectCandidate();
 
 export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED;
 }
 
 // fallow-ignore-next-line unused-export
-export function cloudSettingsAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
-    return lastAuthRedirectResult;
+export function cloudSettingsAuthRedirectResult(expectedState?: string): CloudSettingsAuthRedirectResult | null {
+    const candidate = takeAuthRedirectCandidate();
+    if (!candidate) return null;
+    if (!authRedirectStateMatches(candidate, expectedState)) {
+        return {
+            ok: false,
+            state: candidate.state,
+            error: 'Google authorization did not match the pending Yomu action.',
+        };
+    }
+    cacheAuthRedirectToken(candidate);
+    return { ok: candidate.ok, state: candidate.state, error: candidate.error };
+}
+
+function takeAuthRedirectCandidate(): OAuthRedirectCandidate | null {
+    const candidate = pendingAuthRedirectResult;
+    pendingAuthRedirectResult = null;
+    return candidate;
+}
+
+function authRedirectStateMatches(candidate: OAuthRedirectCandidate, expectedState?: string): boolean {
+    if (!isCloudSettingsAuthorizationState(expectedState)) return false;
+    return candidate.state === expectedState;
+}
+
+function cacheAuthRedirectToken(candidate: OAuthRedirectCandidate): void {
+    if (!candidate.ok) return;
+    if (!candidate.accessToken) return;
+    cachedToken = {
+        token: candidate.accessToken,
+        expiresAt: Date.now() + (candidate.expiresInSeconds ?? 3600) * 1000,
+    };
 }
 
 // fallow-ignore-next-line unused-export
-export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Promise<CloudSettingsSyncMetadata> {
+export async function uploadCloudSettingsToCloud(
+    settings: ReaderSettings,
+    authorization?: CloudSettingsAuthorization,
+): Promise<CloudSettingsSyncMetadata> {
     requireConfigured();
     const snapshot: CloudSettingsSyncSnapshot = {
         formatName: 'yomu-google-drive-settings-sync',
@@ -71,19 +113,21 @@ export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Prom
         storage: await exportManagedStoredValues(),
     };
     const serialized = JSON.stringify(snapshot);
-    const existing = await findSettingsFile();
+    const existing = await findSettingsFile(authorization);
     const file = existing
-        ? await updateSettingsFile(existing.id, serialized)
-        : await createSettingsFile(serialized);
+        ? await updateSettingsFile(existing.id, serialized, authorization)
+        : await createSettingsFile(serialized, authorization);
     return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
 }
 
 // fallow-ignore-next-line unused-export
-export async function downloadCloudSettingsFromCloud(): Promise<CloudSettingsSyncSnapshot | null> {
+export async function downloadCloudSettingsFromCloud(
+    authorization?: CloudSettingsAuthorization,
+): Promise<CloudSettingsSyncSnapshot | null> {
     requireConfigured();
-    const existing = await findSettingsFile();
+    const existing = await findSettingsFile(authorization);
     if (!existing?.id) return null;
-    const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`);
+    const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`, { authorization });
     return parseSettingsSnapshot(body);
 }
 
@@ -93,20 +137,29 @@ function requireConfigured(): void {
     }
 }
 
-async function findSettingsFile(): Promise<DriveFile | null> {
+async function findSettingsFile(authorization?: CloudSettingsAuthorization): Promise<DriveFile | null> {
     const params = new URLSearchParams({
         spaces: 'appDataFolder',
         pageSize: '1',
         fields: 'files(id,name,modifiedTime,size)',
         q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`,
     });
-    const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord(body) && Array.isArray(body.files) ? body.files : [];
-    const first = files[0];
-    return isRecord(first) && typeof first.id === 'string' ? (first as unknown as DriveFile) : null;
+    const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`, { authorization });
+    return driveFileOrNull(driveFiles(body)[0]);
 }
 
-async function createSettingsFile(serialized: string): Promise<DriveFile> {
+function driveFiles(body: unknown): unknown[] {
+    if (!isRecord(body)) return [];
+    return Array.isArray(body.files) ? body.files : [];
+}
+
+function driveFileOrNull(value: unknown): DriveFile | null {
+    if (!isRecord(value)) return null;
+    if (typeof value.id !== 'string') return null;
+    return value as unknown as DriveFile;
+}
+
+async function createSettingsFile(serialized: string, authorization?: CloudSettingsAuthorization): Promise<DriveFile> {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
     const metadata = { name: SETTINGS_FILE_NAME, mimeType: SETTINGS_MIME_TYPE, parents: ['appDataFolder'] };
     const body = [
@@ -125,14 +178,15 @@ async function createSettingsFile(serialized: string): Promise<DriveFile> {
         method: 'POST',
         headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
         data: body,
+        authorization,
     });
     return driveFileFromResponse(result);
 }
 
-async function updateSettingsFile(fileId: string, serialized: string): Promise<DriveFile> {
+async function updateSettingsFile(fileId: string, serialized: string, authorization?: CloudSettingsAuthorization): Promise<DriveFile> {
     const result = await driveRequestJson(
         `/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size`,
-        { method: 'PATCH', headers: { 'Content-Type': SETTINGS_MIME_TYPE }, data: serialized },
+        { method: 'PATCH', headers: { 'Content-Type': SETTINGS_MIME_TYPE }, data: serialized, authorization },
     );
     return driveFileFromResponse(result);
 }
@@ -141,6 +195,7 @@ interface DriveRequestOptions {
     method?: string;
     headers?: Record<string, string>;
     data?: string;
+    authorization?: CloudSettingsAuthorization;
 }
 
 async function driveRequestJson(path: string, options: DriveRequestOptions = {}): Promise<unknown> {
@@ -157,41 +212,57 @@ async function driveRequest<T>(
     options: DriveRequestOptions,
     run: (httpOptions: Parameters<typeof requestJson>[1]) => Promise<T>,
 ): Promise<T> {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-        const token = await acquireAccessToken(attempt === 0);
-        try {
-            return await run({
-                method: options.method ?? 'GET',
-                headers: { ...(options.headers ?? {}), Authorization: `Bearer ${token}` },
-                data: options.data,
-                responseType: 'json',
-                timeoutMs: DRIVE_TIMEOUT_MS,
-                allowDirectCrossOrigin: true,
-                preferFetch: true,
-                failureLabel: 'Google Drive settings sync',
-            });
-        } catch (error) {
-            if (attempt === 0 && isUnauthorized(error)) {
-                cachedToken = null;
-                continue;
-            }
-            throw error;
-        }
+    const firstToken = await acquireAccessToken(true, options.authorization);
+    try {
+        return await run(driveHttpOptions(options, firstToken));
+    } catch (error) {
+        if (!isUnauthorized(error)) throw error;
+        cachedToken = null;
     }
-    throw new Error('Google Drive settings sync failed to authorise.');
+    const freshToken = await acquireAccessToken(false, options.authorization);
+    return run(driveHttpOptions(options, freshToken));
+}
+
+function driveHttpOptions(
+    options: DriveRequestOptions,
+    token: string,
+): Parameters<typeof requestJson>[1] {
+    return {
+        method: options.method ?? 'GET',
+        headers: { ...(options.headers ?? {}), Authorization: `Bearer ${token}` },
+        data: options.data,
+        responseType: 'json',
+        timeoutMs: DRIVE_TIMEOUT_MS,
+        allowDirectCrossOrigin: true,
+        preferFetch: true,
+        failureLabel: 'Google Drive settings sync',
+    };
 }
 
 function driveUrl(path: string): string {
     return `https://www.googleapis.com${path}`;
 }
 
-async function acquireAccessToken(allowCached: boolean): Promise<string> {
-    if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
-        return cachedToken.token;
-    }
-    const token = isUserscriptContext() ? await tokenViaPageRedirect() : await tokenViaIdentityServices();
+async function acquireAccessToken(
+    allowCached: boolean,
+    authorization?: CloudSettingsAuthorization,
+): Promise<string> {
+    const cached = reusableAccessToken(allowCached);
+    if (cached) return cached;
+    const token = await freshAccessToken(authorization);
     cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1000 };
     return cachedToken.token;
+}
+
+function reusableAccessToken(allowCached: boolean): string | null {
+    if (!allowCached) return null;
+    if (!cachedToken) return null;
+    return Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS ? cachedToken.token : null;
+}
+
+function freshAccessToken(authorization?: CloudSettingsAuthorization): Promise<AcquiredToken> {
+    if (cloudSettingsRedirectHandoffRequired()) return tokenViaPageRedirect(authorization);
+    return tokenViaIdentityServices();
 }
 
 interface AcquiredToken {
@@ -223,28 +294,46 @@ async function tokenViaIdentityServices(): Promise<AcquiredToken> {
     });
 }
 
-// Userscript on a third-party page: navigate the current tab to the hosted
-// broker. The current JS context will unload; the settings controller resumes
-// the pending sync/restore once the broker returns to the original page.
-function tokenViaPageRedirect(): Promise<AcquiredToken> {
-    return new Promise<AcquiredToken>((resolve, reject) => {
-        void resolve;
-        const browserWindow = typeof window !== 'undefined' ? window : undefined;
-        if (!browserWindow?.location?.href) {
-            reject(new Error('Google Drive settings sync needs a browser page.'));
-            return;
-        }
-        const state = randomBoundary();
-        const brokerUrl = new URL(OAUTH_BROKER_URL);
-        brokerUrl.searchParams.set('return_url', browserWindow.location.href);
-        brokerUrl.searchParams.set('client_id', WEB_OAUTH_CLIENT_ID);
-        brokerUrl.searchParams.set('state', state);
-        try {
-            navigateToOAuthBroker(browserWindow, brokerUrl.href);
-        } catch (error) {
-            reject(error instanceof Error ? error : new Error('Google authorization failed to start.'));
-        }
-    });
+// A userscript running on an owned Study page cannot use the page's GIS object
+// directly, so it navigates through the hosted broker. The state was generated
+// before the private pending action was committed; never mint one here, where
+// the callback would no longer be bound to that action.
+function tokenViaPageRedirect(authorization?: CloudSettingsAuthorization): Promise<AcquiredToken> {
+    return new Promise<AcquiredToken>((_resolve, reject) => startPageRedirect(authorization, reject));
+}
+
+function startPageRedirect(
+    authorization: CloudSettingsAuthorization | undefined,
+    reject: (reason: Error) => void,
+): void {
+    try {
+        const target = pageRedirectTarget(authorization);
+        navigateToOAuthBroker(target.browserWindow, target.url);
+    } catch (error) {
+        reject(googleAuthorizationStartError(error));
+    }
+}
+
+function pageRedirectTarget(authorization?: CloudSettingsAuthorization): { browserWindow: Window; url: string } {
+    const browserWindow = currentBrowserWindow();
+    if (!browserWindow) throw new Error('Google Drive settings sync needs a browser page.');
+    if (!authorization) throw new Error('Google authorization requires a private pending Yomu action.');
+    if (!isCloudSettingsAuthorizationState(authorization.state)) {
+        throw new Error('Google authorization requires a private pending Yomu action.');
+    }
+    return { browserWindow, url: oauthBrokerUrl(browserWindow.location.href, authorization.state) };
+}
+
+function googleAuthorizationStartError(error: unknown): Error {
+    return error instanceof Error ? error : new Error('Google authorization failed to start.');
+}
+
+function oauthBrokerUrl(returnUrl: string, state: string): string {
+    const brokerUrl = new URL(OAUTH_BROKER_URL);
+    brokerUrl.searchParams.set('return_url', returnUrl);
+    brokerUrl.searchParams.set('client_id', WEB_OAUTH_CLIENT_ID);
+    brokerUrl.searchParams.set('state', state);
+    return brokerUrl.href;
 }
 
 function navigateToOAuthBroker(browserWindow: Window, url: string): void {
@@ -256,7 +345,7 @@ function navigateToOAuthBroker(browserWindow: Window, url: string): void {
     browserWindow.location.assign(url);
 }
 
-interface OAuthWindowNamePayload {
+interface OAuthTokenPayload {
     type?: string;
     state?: string;
     accessToken?: string;
@@ -264,42 +353,73 @@ interface OAuthWindowNamePayload {
     error?: string;
 }
 
-function consumeAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
-    const browserWindow = typeof window !== 'undefined' ? window : undefined;
-    if (!browserWindow?.location?.href) return null;
-    const state = oauthReturnState(browserWindow.location.href);
-    if (!state) return null;
-
-    const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
+function readAuthRedirectCandidate(): OAuthRedirectCandidate | null {
+    const browserWindow = currentBrowserWindow();
+    if (!browserWindow) return null;
+    scrubLegacyOAuthWindowName(browserWindow);
+    const envelope = readOAuthReturnEnvelope(browserWindow.location.href);
+    if (!envelope) return null;
     clearOAuthReturnHash(browserWindow);
-    if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
+    return oauthRedirectCandidate(envelope.state, envelope.payload);
+}
+
+function currentBrowserWindow(): Window | null {
+    if (typeof window === 'undefined') return null;
+    return window;
+}
+
+function readOAuthReturnEnvelope(href: string): { state: string; payload: OAuthTokenPayload | null } | null {
+    const state = oauthReturnState(href);
+    if (!state) return null;
+    return { state, payload: parseOAuthReturnPayload(href) };
+}
+
+function oauthRedirectCandidate(state: string, payload: OAuthTokenPayload | null): OAuthRedirectCandidate {
+    if (!isValidOAuthReturnPayload(state, payload)) {
         return { ok: false, state, error: 'Google authorization returned without a Yomu token.' };
     }
-
-    browserWindow.name = '';
-    if (typeof payload.accessToken === 'string' && payload.accessToken) {
-        const expiresInSeconds = Number(payload.expiresIn) || 3600;
-        cachedToken = { token: payload.accessToken, expiresAt: Date.now() + expiresInSeconds * 1000 };
-        return { ok: true, state };
+    if (hasOAuthAccessToken(payload)) {
+        return {
+            ok: true,
+            state,
+            accessToken: payload.accessToken,
+            expiresInSeconds: oauthTokenLifetime(payload.expiresIn),
+        };
     }
     return { ok: false, state, error: payload.error || 'Google authorization failed.' };
 }
 
-function parseOAuthWindowName(value: string): OAuthWindowNamePayload | null {
+function isValidOAuthReturnPayload(state: string, payload: OAuthTokenPayload | null): payload is OAuthTokenPayload {
+    if (!isCloudSettingsAuthorizationState(state)) return false;
+    if (!payload) return false;
+    if (payload.type !== OAUTH_TOKEN_PAYLOAD_TYPE) return false;
+    return payload.state === state;
+}
+
+function hasOAuthAccessToken(payload: OAuthTokenPayload): payload is OAuthTokenPayload & { accessToken: string } {
+    return typeof payload.accessToken === 'string' && Boolean(payload.accessToken);
+}
+
+function oauthTokenLifetime(value: OAuthTokenPayload['expiresIn']): number {
+    const seconds = Number(value);
+    return seconds > 0 ? seconds : 3600;
+}
+
+function scrubLegacyOAuthWindowName(browserWindow: Window): void {
     try {
-        const parsed = JSON.parse(value);
-        return isRecord(parsed) ? parsed as OAuthWindowNamePayload : null;
+        const parsed = JSON.parse(browserWindow.name);
+        if (isRecord(parsed) && parsed.type === OAUTH_TOKEN_PAYLOAD_TYPE) browserWindow.name = '';
     } catch {
-        return null;
+        // Unrelated window names belong to the current page.
     }
 }
 
-function parseOAuthReturnPayload(href: string): OAuthWindowNamePayload | null {
+function parseOAuthReturnPayload(href: string): OAuthTokenPayload | null {
     const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
     if (!encoded) return null;
     try {
         const parsed = JSON.parse(encoded);
-        return isRecord(parsed) ? parsed as OAuthWindowNamePayload : null;
+        return isRecord(parsed) ? parsed as OAuthTokenPayload : null;
     } catch {
         return null;
     }
@@ -330,18 +450,24 @@ function clearOAuthReturnHash(browserWindow: Window): void {
     if (!browserWindow.history?.replaceState) return;
     try {
         const url = new URL(browserWindow.location.href);
-        const removedKeys = new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
-        const remainingHash = url.hash.slice(1).split('&').filter(part => {
-            if (!part) return false;
-            const key = part.includes('=') ? part.slice(0, part.indexOf('=')) : part;
-            return !removedKeys.has(key);
-        }).join('&');
-        url.hash = remainingHash ? `#${remainingHash}` : '';
+        url.hash = hashWithoutOAuthReturn(url.hash);
         browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
     } catch {
-        // Best effort only; the token has already been consumed from the return
-        // URL or the legacy window.name fallback.
+        // Best effort only; the candidate remains quarantined until its state is
+        // matched against the private one-use pending action.
     }
+}
+
+function hashWithoutOAuthReturn(hash: string): string {
+    const remaining = hash.slice(1).split('&').filter(retainsOAuthHashPart).join('&');
+    return remaining ? `#${remaining}` : '';
+}
+
+function retainsOAuthHashPart(part: string): boolean {
+    if (!part) return false;
+    const separator = part.indexOf('=');
+    const key = separator < 0 ? part : part.slice(0, separator);
+    return key !== OAUTH_RETURN_HASH_KEY && key !== OAUTH_TOKEN_HASH_KEY;
 }
 
 let identityServicesPromise: Promise<GoogleIdentityServices> | null = null;
@@ -375,17 +501,6 @@ function loadIdentityServices(): Promise<GoogleIdentityServices> {
 function googleIdentityServices(): GoogleIdentityServices | null {
     const candidate = (globalThis as { google?: GoogleIdentityServices }).google;
     return candidate?.accounts?.oauth2 ? candidate : null;
-}
-
-function isUserscriptContext(): boolean {
-    const global = globalThis as typeof globalThis & {
-        GM?: { xmlHttpRequest?: unknown; xmlhttpRequest?: unknown };
-        GM_info?: unknown;
-    };
-    return typeof GM_xmlhttpRequest === 'function'
-        || typeof global.GM?.xmlHttpRequest === 'function'
-        || typeof global.GM?.xmlhttpRequest === 'function'
-        || Boolean(global.GM_info);
 }
 
 function parseSettingsSnapshot(body: string): CloudSettingsSyncSnapshot | null {

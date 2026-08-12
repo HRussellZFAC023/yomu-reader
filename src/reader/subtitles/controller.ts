@@ -1,7 +1,6 @@
-import { createWindowCustomEvent } from '../platform/window-events';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
-import { escapeHtml, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
+import { escapeHtml, remintRenderedWordPrivateTokens, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
     cueHasExactWordTimings,
     escapeWithBreaks,
@@ -95,6 +94,7 @@ import { mirrorNativeFullscreenCues } from './subtitle-native-fullscreen';
 import {
     applySubtitleStyleControl,
     resetSubtitleStyleSettings,
+    subtitleStyleControlValueFromTarget,
     syncNativeSubtitleBlurVariables,
     syncSubtitleStylePopoverControls,
 } from './subtitle-style-controls';
@@ -139,13 +139,13 @@ import { settleSubtitleSelectionFailure, SubtitleSelectionLifecycle } from './su
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
 import { copyText, isEditableTarget } from '../ui/browser';
+import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 import {
     canParseSubtitleTranscriptRows,
     authoritativeSubtitleParseOptions,
     hasAttemptedTranscriptParse,
     parsedSubtitleHtmlHasReaderWords,
     provisionalSubtitleParseOptions,
-    shouldApplyParsedTranscriptHtml,
     subtitleParseOptions,
     waitForBackgroundTranscriptParseTurn,
     type SubtitleParseOptions,
@@ -175,17 +175,24 @@ import {
 import {
     applyElementLayout,
     compareSubtitleVideoCandidates,
+    createSubtitlePlayerSurface,
     isSubtitleOverlayVideoVisible,
     isSubtitleVideoElementRenderable,
     renderDrawerHead,
-    renderSubtitleStyleControls,
     type PanelOptionsControlsState,
     setStylePropertyIfChanged,
     subtitleIcon,
     subtitleOverlayLayout,
+    type SubtitlePlayerSurfaceElements,
     type SubtitlePanelMode,
 } from './subtitle-surface';
+import {
+    readSubtitleCommandCapability,
+    type SubtitleCommandCapability,
+} from '../dom/private-command-capabilities';
 import { bindSubtitleControlRail, type SubtitleControlRailBinding } from './subtitle-control-rail';
+import { requestManualVideoFrameOcr } from '../ocr/video-frame-request-bus';
+import { openDetachedFilePicker } from './detached-file-picker';
 import { isTranscriptScrollIntentKey, TranscriptFollowState } from './transcript-follow-state';
 import {
     TRANSCRIPT_PANEL_ANIMATION_MS,
@@ -215,6 +222,8 @@ import {
     type TranscriptPanelVirtualWindow,
     type TranscriptRow,
 } from './transcript-panel';
+import { flashSubtitleCopyFeedback, mouseEventElement, updateParsedTranscriptTargets, type ParsedTranscriptUpdateOptions } from './transcript-dom-update';
+import { panelRenderAlreadyCurrent, renderTranscriptVirtualRows, transcriptVirtualPatch, transcriptWarmupRows } from './transcript-window-update';
 import { SubtitleKaraokeSampler } from './karaoke-sampler';
 import { prewarmSubtitleFirstPaint } from './subtitle-first-paint-prewarm';
 import {
@@ -225,7 +234,6 @@ import {
 import type { InterfaceLanguage, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
-
 const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
     'yt-navigate-finish',
     'yt-page-data-updated',
@@ -700,13 +708,6 @@ function subtitleClipboardText(primary: SubtitleCue | undefined, secondary: Subt
     return [primary?.text.trim(), includeTranslation ? secondary?.text.trim() : ''].filter(Boolean).join('\n');
 }
 
-// UT-68a: a subtle "copied" confirmation on the pressed control.
-function flashSubtitleCopyFeedback(target: HTMLElement): void {
-    const button = target.closest<HTMLElement>('button') ?? target;
-    button.classList.add('jpdb-subtitle-copy-flash');
-    window.setTimeout(() => button.classList.remove('jpdb-subtitle-copy-flash'), 1200);
-}
-
 export class SubtitlePlayerController {
     private root?: HTMLElement;
     private subtitleEl?: HTMLElement;
@@ -963,14 +964,14 @@ export class SubtitlePlayerController {
         this.subtitleLanguageContext = resolveSubtitleLanguageContext(options.getSettings());
     }
 
-    private readonly clickHandlers: Record<string, (target: HTMLElement) => void> = {
-        cue: target => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
+    private readonly clickHandlers: Record<SubtitleCommandCapability['action'], (target: HTMLElement, command: SubtitleCommandCapability) => void> = {
+        cue: (_target, command) => this.seekToTranscriptRow(command.rowIndex ?? Number.NaN),
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
         ocr: () => this.toggleVideoFrameOcr(),
         visibility: () => this.toggleOverlayVisibility(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
-        'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
+        'copy-row': (target, command) => { void this.copyTranscriptRow(command.rowIndex ?? Number.NaN).then(() => flashSubtitleCopyFeedback(target)); },
         'peek-row': target => this.transcriptPanelSurface.toggleRowTranslationPeek(target),
         'jump-current': () => this.jumpToCurrentTranscriptRow(),
         'rail-expand': () => this.toggleSubtitleControlRailExpanded(),
@@ -985,31 +986,31 @@ export class SubtitlePlayerController {
         'panel-mine': () => this.openBatchMiningPanel(),
         'panel-tracks': () => this.openTracksPanel(),
         'bm-scan': () => { void this.scanBatchMiningTranscript(); },
-        'bm-toggle': target => this.toggleBatchMiningCandidate(target),
-        'bm-open': target => { void this.openBatchMiningCandidate(target); },
+        'bm-toggle': (_target, command) => this.toggleBatchMiningCandidate(command.candidateKey),
+        'bm-open': (_target, command) => { void this.openBatchMiningCandidate(command.candidateKey); },
         'bm-add': () => { void this.addSelectedBatchMiningCandidates(); },
         'bm-copy': () => { void this.copySelectedBatchMiningCandidates(); },
-        'bm-grade': target => { void this.gradeBatchMiningCandidate(target); },
-        'bm-grade-selected': target => { void this.gradeSelectedBatchMiningCandidates(target); },
+        'bm-grade': (_target, command) => { void this.gradeBatchMiningCandidate(command.candidateKey, command.grade); },
+        'bm-grade-selected': (_target, command) => { void this.gradeSelectedBatchMiningCandidates(command.grade); },
         'bm-all': () => this.selectAllBatchMiningCandidates(),
         'bm-clear': () => this.clearBatchMiningSelection(),
         'shadow-replay': () => this.replayShadowCue(),
         'shadow-loop': () => this.toggleShadowLoop(),
         'shadow-auto-pause': () => this.toggleShadowAutoPause(),
         'shadow-toggle-text': () => this.toggleShadowText(),
-        'shadow-goto': target => this.gotoShadowNeighbor(target),
+        'shadow-goto': (_target, command) => this.gotoShadowNeighbor(command.shadowDirection),
         'shadow-record': () => { void this.toggleShadowRecording(); },
         'shadow-play-recording': () => this.playShadowRecording(),
         'close-panel': () => this.closeTranscriptPanel(),
-        'transcript-placement': target => this.changeTranscriptPlacement(target),
+        'transcript-placement': (_target, command) => this.changeTranscriptPlacement(command.placement),
         'toggle-pause-panel': () => this.togglePausePanelMode(),
-        'primary-track': target => { void this.choosePrimaryTrack(this.trackIdFromTarget(target)); },
-        'secondary-track': target => { void this.chooseSecondaryTrack(this.trackIdFromTarget(target)); },
-        'offset-earlier': target => this.adjustTrackTimingOffset(this.trackIdFromTarget(target), -SUBTITLE_TIMING_OFFSET_STEP_SECONDS),
-        'offset-later': target => this.adjustTrackTimingOffset(this.trackIdFromTarget(target), SUBTITLE_TIMING_OFFSET_STEP_SECONDS),
-        'offset-previous': target => this.alignTrackTimingOffset(this.trackIdFromTarget(target), false),
-        'offset-next': target => this.alignTrackTimingOffset(this.trackIdFromTarget(target), true),
-        'offset-reset': target => this.setTrackTimingOffset(this.trackIdFromTarget(target), 0),
+        'primary-track': (_target, command) => { void this.choosePrimaryTrack(command.trackId); },
+        'secondary-track': (_target, command) => { void this.chooseSecondaryTrack(command.trackId); },
+        'offset-earlier': (_target, command) => this.adjustTrackTimingOffset(command.trackId, -SUBTITLE_TIMING_OFFSET_STEP_SECONDS),
+        'offset-later': (_target, command) => this.adjustTrackTimingOffset(command.trackId, SUBTITLE_TIMING_OFFSET_STEP_SECONDS),
+        'offset-previous': (_target, command) => this.alignTrackTimingOffset(command.trackId, false),
+        'offset-next': (_target, command) => this.alignTrackTimingOffset(command.trackId, true),
+        'offset-reset': (_target, command) => this.setTrackTimingOffset(command.trackId, 0),
         'toggle-native-blur': target => this.toggleNativeSubtitleBlur(target.closest<HTMLElement>('.jpdb-subtitle-secondary, .jpdb-subtitle-shadow-secondary')),
     };
 
@@ -1026,32 +1027,32 @@ export class SubtitlePlayerController {
         }
         if (!this.install()) return;
         this.syncYouTubeMobileBottomSheetState();
+        this.bindInteractionEvents();
+        this.discoverVideo();
+        this.syncRuntimeSignals();
+        this.runtimeSignalsInitialized = true;
+    }
+    private bindInteractionEvents(): void {
         // Capture phase: YouTube's own keydown handlers stopImmediatePropagation
         // on keys they know, which starved the subtitle seek shortcuts of the
         // event entirely. handleKeydown only preventDefaults on a configured
         // shortcut match, so unmatched keys pass through untouched.
-        document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions({ capture: true }));
+        document.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => this.handleKeydown(event)), this.eventOptions({ capture: true }));
         document.addEventListener('focusin', event => this.handleSubtitleUiFocusIn(event), this.eventOptions({ capture: true }));
         document.addEventListener('focusout', event => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
         // Reader-word handlers may stop pointerdown propagation for lookup.
         // Observe the subtitle rectangle first so tapping any part of a moved
         // line still wakes its controls without intercepting the underlying
         // video click or the word interaction.
-        document.addEventListener('pointerdown', event => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
-        document.addEventListener('click', event => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
-        document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
+        document.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => this.wakeControlsFromSubtitleSurface(event)), this.eventOptions({ passive: true, capture: true }));
+        document.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleSubtitleSurfaceClick(event)), this.eventOptions({ capture: true }));
+        document.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => this.handlePointerActivity(event)), this.eventOptions({ passive: true }));
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
-        document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true, capture: true }));
-        window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
-        window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, event => this.loadSubtitleFilesFromHost(event), this.eventOptions());
-        for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
-            window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
-        }
-        for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) {
-            document.addEventListener(eventName, () => {
-                this.handleFullscreenLayoutChange();
-            }, this.eventOptions());
-        }
+        document.addEventListener('pointermove', trustedReaderEventHandler((event: PointerEvent) => this.handlePointerActivity(event)), this.eventOptions({ passive: true, capture: true }));
+        window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, trustedReaderEventHandler(() => this.openSubtitleTracksPanelFromHost()), this.eventOptions());
+        window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, trustedReaderEventHandler((event: Event) => this.loadSubtitleFilesFromHost(event)), this.eventOptions());
+        for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
+        for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) document.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions());
         // capture:true so scrolls inside nested scrollers (which don't bubble)
         // still re-anchor the overlay to the video's new on-screen position.
         window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true, capture: true }));
@@ -1059,11 +1060,7 @@ export class SubtitlePlayerController {
         window.addEventListener('orientationchange', () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
         window.visualViewport?.addEventListener('resize', () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
         window.visualViewport?.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
-        this.discoverVideo();
-        this.syncRuntimeSignals();
-        this.runtimeSignalsInitialized = true;
     }
-
     // Install the document observer that matches the current runtime state and
     // (re)start the housekeeping tick if it should run. Idempotent: the mode
     // guard skips a redundant re-observe and wakeTick no-ops when already
@@ -1359,63 +1356,54 @@ export class SubtitlePlayerController {
         if (this.root) return true;
         const body = document.body;
         if (!body) return false;
-        document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach(element => element.remove());
-        if (isYouTubePage() || document.querySelector('[data-yomu-video-frame]')) installSubtitleFullscreenRedirect();
+        this.removeStaleSubtitleSurfaces();
+        this.installFullscreenRedirectForCurrentPage();
+        const surface = createSubtitlePlayerSurface(this.options.getSettings());
+        this.bindSubtitleSurface(surface);
+        body.append(surface.root, surface.transcriptPanel);
+        this.adoptSubtitleSurface(surface);
+        this.finishSubtitleSurfaceInstall();
+        return true;
+    }
 
-        const root = document.createElement('div');
-        root.className = 'jpdb-subtitle-player';
-        root.dataset.jpdbReaderRoot = 'true';
-        const settings = this.options.getSettings();
-        const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
-        const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
-        const visibilityLabel = uiText(settings.interfaceLanguage, 'subtitleOverlayVisible');
-        const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
-        const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
-        const moveAccessibleLabel = uiText(settings.interfaceLanguage, 'moveSubtitlesAccessible');
-        const moveControlsLabel = uiText(settings.interfaceLanguage, 'moveSubtitleControls');
-        const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? 'readVideoFrameStop' : 'readVideoFrame');
-        const ocrButton = settings.ocrEnabled && settings.ocrProvider !== 'off'
-            ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? ' jpdb-subtitle-ocr-active' : ''}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon('scan')}</button>`
-            : '';
-        setInnerHtml(root, `
-            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
-            <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
-            <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
-                <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand" data-subtitle-rail-drag-handle title="${escapeHtml(moveControlsLabel)}" aria-label="${escapeHtml(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon('grip')}</button>
-                <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
-                <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
-                ${ocrButton}
-                <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? 'eye' : 'eye-off')}</button>
-                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
-                ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
-            </div>
-            <div class="jpdb-subtitle-list" hidden></div>
-        `);
-        root.addEventListener('click', event => this.handleClick(event));
-        root.addEventListener('input', event => this.handleSubtitleStyleInput(event), this.eventOptions());
-        root.addEventListener('change', event => this.handleSubtitleStyleInput(event), this.eventOptions());
-        const stylePopover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]');
+    private removeStaleSubtitleSurfaces(): void {
+        document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach(element => element.remove());
+    }
+
+    private installFullscreenRedirectForCurrentPage(): void {
+        if (isYouTubePage() || document.querySelector('[data-yomu-video-frame]')) installSubtitleFullscreenRedirect();
+    }
+
+    private bindSubtitleSurface(surface: SubtitlePlayerSurfaceElements): void {
+        surface.root.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleClick(event)));
+        surface.root.addEventListener('input', trustedReaderEventHandler((event: Event) => this.handleSubtitleStyleInput(event)), this.eventOptions());
+        surface.root.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handleSubtitleStyleInput(event)), this.eventOptions());
         for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
-            stylePopover?.addEventListener(eventName, event => this.stopSubtitleStylePopoverPropagation(event), this.eventOptions());
+            surface.stylePopover?.addEventListener(eventName, event => this.stopSubtitleStylePopoverPropagation(event), this.eventOptions());
         }
-        this.subtitleEl = root.querySelector('.jpdb-subtitle-lines') as HTMLElement;
-        this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
-        this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
-        this.transcriptPanel.addEventListener('click', event => this.transcriptPanelSurface.handlePanelClick(event), this.eventOptions());
+        this.bindTranscriptPanelSurface(surface.transcriptPanel);
+    }
+
+    private bindTranscriptPanelSurface(panel: HTMLElement): void {
+        panel.dataset.jpdbReaderRoot = 'true';
+        panel.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.transcriptPanelSurface.handlePanelClick(event)), this.eventOptions());
         // Bound after the click handler above so a held render replays with the
         // tap's own effect already applied, and never before the tap lands.
-        this.transcriptPanel.addEventListener('pointerdown', event => this.beginPanelPress(event), this.eventOptions({ passive: true }));
-        this.transcriptPanel.addEventListener('pointercancel', () => this.endPanelPress(), this.eventOptions({ passive: true }));
-        this.transcriptPanel.addEventListener('click', () => this.endPanelPress(), this.eventOptions());
-        this.transcriptPanel.addEventListener('keydown', event => this.transcriptPanelSurface.handlePanelKeydown(event), this.eventOptions());
+        panel.addEventListener('pointerdown', event => this.beginPanelPress(event), this.eventOptions({ passive: true }));
+        panel.addEventListener('pointercancel', () => this.endPanelPress(), this.eventOptions({ passive: true }));
+        panel.addEventListener('click', () => this.endPanelPress(), this.eventOptions());
+        panel.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => this.transcriptPanelSurface.handlePanelKeydown(event)), this.eventOptions());
         for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
-            this.transcriptPanel.addEventListener(eventName, event => this.transcriptPanelSurface.stopPanelPropagation(event), this.eventOptions());
+            panel.addEventListener(eventName, event => this.transcriptPanelSurface.stopPanelPropagation(event), this.eventOptions());
         }
-        body.appendChild(root);
-        body.appendChild(this.transcriptPanel);
-        this.root = root;
+    }
+
+    private adoptSubtitleSurface(surface: SubtitlePlayerSurfaceElements): void {
+        this.root = surface.root;
+        this.subtitleEl = surface.subtitleLines;
+        this.transcriptPanel = surface.transcriptPanel;
         this.subtitleControlRail = bindSubtitleControlRail(
-            root,
+            surface.root,
             () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
             {
                 getReservedRects: () => this.nativePlayerControlSafeZones(),
@@ -1424,6 +1412,9 @@ export class SubtitlePlayerController {
                 },
             },
         ) ?? undefined;
+    }
+
+    private finishSubtitleSurfaceInstall(): void {
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();
         this.refresh();
@@ -1434,7 +1425,6 @@ export class SubtitlePlayerController {
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
         this.scheduleControlsIdle();
-        return true;
     }
 
     private scheduleDiscoverVideo(): void {
@@ -3600,28 +3590,51 @@ export class SubtitlePlayerController {
     }
 
     private handleClick(event: MouseEvent): void {
-        const eventTarget = event.target as HTMLElement;
-        if (shouldPreservePlainSubtitleSelection(eventTarget, this.options.getSettings().annotationsPaused)) {
+        const target = this.actionableSubtitleClickTarget(event);
+        if (!target) return;
+        const command = readSubtitleCommandCapability(target);
+        if (!command) return;
+        this.performSubtitleCommand(event, target, command);
+    }
+
+    private actionableSubtitleClickTarget(event: MouseEvent): HTMLElement | null {
+        const eventTarget = mouseEventElement(event);
+        if (!eventTarget) return null;
+        if (this.preserveSubtitleSelectionClick(event, eventTarget)) return null;
+        if (eventTarget.closest('.jpdb-reader-word')) return null;
+        return this.subtitleActionTarget(event, eventTarget);
+    }
+
+    private preserveSubtitleSelectionClick(event: MouseEvent, target: HTMLElement): boolean {
+        if (!shouldPreservePlainSubtitleSelection(target, this.options.getSettings().annotationsPaused)) return false;
             // A drag selection ends with a click. Plain transcript rows are
             // themselves cue actions, and the native subtitle line is a blur
             // toggle, so letting that click through would seek/toggle and can
             // destroy the text selection the learner just made.
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-        }
-        if (eventTarget.closest?.('.jpdb-reader-word')) return;
-        if (this.panelOptionsMenuOpen && !eventTarget.closest?.('[data-panel-options]')) this.closePanelOptionsMenu();
-        const insideStylePopover = Boolean(eventTarget.closest?.('[data-subtitle-style-popover]'));
+        event.preventDefault();
+        event.stopPropagation();
+        return true;
+    }
+
+    private subtitleActionTarget(event: MouseEvent, eventTarget: HTMLElement): HTMLElement | null {
+        this.closePanelOptionsOutside(eventTarget);
         const target = eventTarget.closest<HTMLElement>('[data-action]');
-        const action = target?.dataset.action;
-        if (!action) {
-            if (insideStylePopover) {
-                event.stopPropagation();
-                this.showControlsTemporarily();
-            }
-            return;
-        }
+        if (target) return target;
+        this.keepStylePopoverClickAlive(event, eventTarget);
+        return null;
+    }
+
+    private closePanelOptionsOutside(eventTarget: HTMLElement): void {
+        if (this.panelOptionsMenuOpen && !eventTarget.closest('[data-panel-options]')) this.closePanelOptionsMenu();
+    }
+
+    private keepStylePopoverClickAlive(event: MouseEvent, eventTarget: HTMLElement): void {
+        if (!eventTarget.closest('[data-subtitle-style-popover]')) return;
+        event.stopPropagation();
+        this.showControlsTemporarily();
+    }
+
+    private performSubtitleCommand(event: MouseEvent, target: HTMLElement, command: SubtitleCommandCapability): void {
         event.preventDefault();
         event.stopPropagation();
         // Every rail/panel action wants the controls awake, but the native
@@ -3629,20 +3642,19 @@ export class SubtitlePlayerController {
         // translation must not be paid for with an expanded rail.
         if (!this.isNativeSubtitleBlurControl(target)) this.showControlsTemporarily();
 
+        const action = command.action;
         const handler = this.clickHandlers[action];
         if (!handler) return;
-        handler(target);
+        handler(target, command);
         if (event.detail > 0) target.closest<HTMLButtonElement>('button')?.blur();
-        if (action !== 'menu') this.syncControls();
+        this.syncControls();
     }
 
     private handleSubtitleStyleInput(event: Event): void {
-        const target = event.target instanceof HTMLElement
-            ? event.target.closest<HTMLInputElement | HTMLSelectElement>('[data-subtitle-style-setting]')
-            : null;
-        if (!target || !this.root?.contains(target)) return;
+        const control = subtitleStyleControlValueFromTarget(this.root, event.target);
+        if (!control) return;
         event.stopPropagation();
-        const explicitUserChoiceKeys = applySubtitleStyleControl(this.options.getSettings(), target);
+        const explicitUserChoiceKeys = applySubtitleStyleControl(this.options.getSettings(), control);
         if (!explicitUserChoiceKeys) return;
         this.syncRootStyleSettings(this.options.getSettings());
         this.syncSubtitleStyleControls();
@@ -3657,11 +3669,7 @@ export class SubtitlePlayerController {
     }
 
     private rowIndexFromTarget(target: HTMLElement): number {
-        return Number(target.closest<HTMLElement>('[data-row-index]')?.dataset.rowIndex);
-    }
-
-    private trackIdFromTarget(target: HTMLElement): string | undefined {
-        return target.closest<HTMLElement>('[data-track-id]')?.dataset.trackId;
+        return readSubtitleCommandCapability(target.closest<HTMLElement>('[data-action]'))?.rowIndex ?? Number.NaN;
     }
 
     private adjustTrackTimingOffset(id: string | undefined, deltaSeconds: number): void {
@@ -3751,28 +3759,31 @@ export class SubtitlePlayerController {
         return adjacentSubtitleCueForOffset(baseCues, this.video.currentTime, offset, forward);
     }
 
-    private transcriptPlacementFromTarget(target: HTMLElement): ReaderSettings['subtitleTranscriptPlacement'] | undefined {
-        const placement = target.closest<HTMLElement>('[data-placement]')?.dataset.placement;
-        return placement === 'left' || placement === 'right' || placement === 'bottom' ? placement : undefined;
-    }
-
-    private changeTranscriptPlacement(target: HTMLElement): void {
-        const placement = this.transcriptPlacementFromTarget(target);
+    private changeTranscriptPlacement(placement: ReaderSettings['subtitleTranscriptPlacement'] | undefined): void {
         if (!placement) return;
         this.closePanelOptionsMenu();
         const settings = this.options.getSettings();
         if (placement === this.plannedTranscriptPlacement()) return;
         settings.subtitleTranscriptPlacement = placement;
-        if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
+        this.clampTranscriptSideWidth(placement);
         this.options.onSettingsChange(['subtitleTranscriptPlacement']);
-        if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderOpenSubtitlePanel();
-        else {
-            this.lastTranscriptSignature = '';
-            this.syncPanelPlacementButtons();
-        }
+        this.refreshPanelAfterTranscriptPlacementChange();
         this.clearVideoInsetForTranscriptPanel();
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
+    }
+
+    private clampTranscriptSideWidth(placement: ReaderSettings['subtitleTranscriptPlacement']): void {
+        if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
+    }
+
+    private refreshPanelAfterTranscriptPlacementChange(): void {
+        if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) {
+            this.renderOpenSubtitlePanel();
+            return;
+        }
+        this.lastTranscriptSignature = '';
+        this.syncPanelPlacementButtons();
     }
 
     private resetSubtitleStyleDefaults(): void {
@@ -3944,9 +3955,9 @@ export class SubtitlePlayerController {
     private bindSubtitleDragHandle(): void {
         const handle = this.root?.querySelector<HTMLElement>('[data-subtitle-drag-handle]');
         if (!handle) return;
-        handle.addEventListener('pointerdown', event => this.startSubtitleDrag(event), this.eventOptions());
-        handle.addEventListener('mousedown', event => this.startSubtitleMouseDrag(event), this.eventOptions());
-        handle.addEventListener('keydown', event => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
+        handle.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => this.startSubtitleDrag(event)), this.eventOptions());
+        handle.addEventListener('mousedown', trustedReaderEventHandler((event: MouseEvent) => this.startSubtitleMouseDrag(event)), this.eventOptions());
+        handle.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => this.moveSubtitleOverlayFromKeyboard(event)), this.eventOptions());
     }
 
     private startSubtitleDrag(event: PointerEvent): void {
@@ -3955,21 +3966,20 @@ export class SubtitlePlayerController {
         if (!session) return;
         const pointerId = event.pointerId;
         handle.setPointerCapture?.(pointerId);
-
         const pointerMatches = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId;
-        const onMove = (moveEvent: PointerEvent) => {
+        const onMove = trustedReaderEventHandler((moveEvent: PointerEvent) => {
             if (!pointerMatches(moveEvent)) return;
             this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent);
-        };
+        });
 
-        const onEnd = (upEvent: PointerEvent) => {
+        const onEnd = trustedReaderEventHandler((upEvent: PointerEvent) => {
             if (!pointerMatches(upEvent)) return;
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onEnd);
             window.removeEventListener('pointercancel', onEnd);
             handle.releasePointerCapture?.(pointerId);
             this.endSubtitleDrag(session);
-        };
+        });
 
         window.addEventListener('pointermove', onMove, this.eventOptions());
         window.addEventListener('pointerup', onEnd, this.eventOptions());
@@ -3980,12 +3990,12 @@ export class SubtitlePlayerController {
         const handle = event.currentTarget as HTMLElement;
         const session = this.beginSubtitleDrag(handle, event.button, event.clientY, event);
         if (!session) return;
-        const onMove = (moveEvent: MouseEvent) => this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent);
-        const onEnd = () => {
+        const onMove = trustedReaderEventHandler((moveEvent: MouseEvent) => this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent));
+        const onEnd = trustedReaderEventHandler((_upEvent: MouseEvent) => {
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onEnd);
             this.endSubtitleDrag(session);
-        };
+        });
         window.addEventListener('mousemove', onMove, this.eventOptions());
         window.addEventListener('mouseup', onEnd, this.eventOptions());
     }
@@ -4337,9 +4347,9 @@ export class SubtitlePlayerController {
         handle.setAttribute('aria-label', moveAccessibleLabel);
         handle.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown PageUp PageDown Home 0');
         if (this.asbSubtitleDragHandles.has(handle)) return;
-        handle.addEventListener('pointerdown', event => this.startSubtitleDrag(event), this.eventOptions());
-        handle.addEventListener('mousedown', event => this.startSubtitleMouseDrag(event), this.eventOptions());
-        handle.addEventListener('keydown', event => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
+        handle.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => this.startSubtitleDrag(event)), this.eventOptions());
+        handle.addEventListener('mousedown', trustedReaderEventHandler((event: MouseEvent) => this.startSubtitleMouseDrag(event)), this.eventOptions());
+        handle.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => this.moveSubtitleOverlayFromKeyboard(event)), this.eventOptions());
         this.asbSubtitleDragHandles.add(handle);
     }
 
@@ -4702,15 +4712,15 @@ export class SubtitlePlayerController {
     private requestVideoFrameOcr(): void {
         const video = this.video;
         if (!video) return;
-        if (!video.paused) {
-            const player = this.youTubePlayerApi(video);
-            if (player?.pauseVideo) player.pauseVideo();
-            else video.pause();
-            this.armPlaybackPauseReassert(video);
-        }
-        // Raw sandbox detail objects are denied at the Firefox Xray boundary;
-        // the shared factory clones the detail into the page compartment.
-        document.dispatchEvent(createWindowCustomEvent('yomu-ocr-video-frame-request', { video }));
+        this.pauseVideoForManualFrameOcr(video);
+        requestManualVideoFrameOcr(video);
+    }
+    private pauseVideoForManualFrameOcr(video: HTMLVideoElement): void {
+        if (video.paused) return;
+        const player = this.youTubePlayerApi(video);
+        if (player?.pauseVideo) player.pauseVideo();
+        else video.pause();
+        this.armPlaybackPauseReassert(video);
     }
 
     private youTubePlayerApi(video: HTMLVideoElement): YouTubePlayerApi | null {
@@ -4898,23 +4908,7 @@ export class SubtitlePlayerController {
     }
 
     private openSubtitleFilePicker(kind: 'primary' | 'secondary'): void {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = SUBTITLE_FILE_ACCEPT;
-        input.multiple = true;
-        input.style.setProperty('display', 'none', 'important');
-        input.addEventListener('change', () => {
-            const files = Array.from(input.files ?? []);
-            if (!files.length) {
-                input.remove();
-                return;
-            }
-            void this.loadSubtitleFilesFromPicker(kind, files)
-                .finally(() => input.remove());
-        }, { once: true });
-        input.addEventListener('cancel', () => input.remove(), { once: true });
-        (document.body || document.documentElement).appendChild(input);
-        input.click();
+        openDetachedFilePicker(SUBTITLE_FILE_ACCEPT, files => { void this.loadSubtitleFilesFromPicker(kind, files); });
     }
 
     private async loadSubtitleFilesFromPicker(kind: 'primary' | 'secondary', files: File[]): Promise<void> {
@@ -5817,8 +5811,7 @@ export class SubtitlePlayerController {
         return { prev: this.cues[index - 1], next: this.cues[index + 1] };
     }
 
-    private gotoShadowNeighbor(target: HTMLElement): void {
-        const direction = target.closest<HTMLElement>('[data-shadow-goto]')?.dataset.shadowGoto;
+    private gotoShadowNeighbor(direction: 'prev' | 'next' | undefined): void {
         const cue = this.currentCue;
         if (!cue) return;
         const neighbors = this.shadowCueNeighbors(cue);
@@ -6183,26 +6176,38 @@ export class SubtitlePlayerController {
     }
 
     private renderTranscriptPanel(force = false): void {
-        const panel = this.renderableTranscriptPanel();
+        const panel = this.preparedTranscriptPanel(force);
         if (!panel) return;
-        if (this.holdPanelRenderDuringPress(() => this.renderTranscriptPanel(force))) return;
-        this.clearDeferredTranscriptPanelRender();
-        this.transcriptPreviewPlayerResizeDeferred = false;
         const state = this.transcriptPanelRenderState();
         if (this.canRefreshTranscriptPanel(force, state)) return;
-        // Try the in-place patch first: an append-only cue-list growth (or a
-        // scroll-driven window shift) can reuse the existing scroller node, so
-        // it never replaces the panel and never paints a spacer-only frame.
-        // Falls back to a full render for structure changes, shrinks, or
-        // non-virtualized transcripts.
+        if (this.patchTranscriptPanelWindow(panel, state)) return;
+        this.replaceTranscriptPanel(panel, state);
+    }
+
+    private preparedTranscriptPanel(force: boolean): HTMLElement | null {
+        const panel = this.renderableTranscriptPanel();
+        if (!panel) return null;
+        if (this.holdPanelRenderDuringPress(() => this.renderTranscriptPanel(force))) return null;
+        this.clearDeferredTranscriptPanelRender();
+        this.transcriptPreviewPlayerResizeDeferred = false;
+        return panel;
+    }
+
+    // Append-only growth and scroll-window shifts reuse the existing scroller;
+    // structure changes and shrinks fall through to a full panel replacement.
+    private patchTranscriptPanelWindow(panel: HTMLElement, state: TranscriptPanelRenderState): boolean {
         const scroller = panel.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
-        if (scroller && this.patchTranscriptVirtualWindow(state, scroller)) return;
+        if (!scroller) return false;
+        return this.patchTranscriptVirtualWindow(state, scroller);
+    }
+
+    private replaceTranscriptPanel(panel: HTMLElement, state: TranscriptPanelRenderState): void {
         this.lastTranscriptStructureSignature = state.structureSignature;
         this.lastTranscriptSignature = state.signature;
         this.renderedVirtualWindow = state.virtual
             ? { start: state.virtual.start, end: state.virtual.end, rowCount: state.totalRowCount ?? state.rows.length }
             : undefined;
-        setInnerHtml(panel, this.transcriptPanelSurface.renderPanelHtml(state));
+        setInnerHtml(panel, remintRenderedWordPrivateTokens(this.transcriptPanelSurface.renderPanelHtml(state)));
         this.afterTranscriptPanelRender(state);
     }
 
@@ -6213,7 +6218,7 @@ export class SubtitlePlayerController {
         const state = this.transcriptPanelPreviewState(fullState);
         this.transcriptPreviewPlayerResizeDeferred = true;
         this.lastTranscriptSignature = '';
-        setInnerHtml(panel, this.transcriptPanelSurface.renderPanelHtml(state));
+        setInnerHtml(panel, remintRenderedWordPrivateTokens(this.transcriptPanelSurface.renderPanelHtml(state)));
         this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
     }
 
@@ -6222,15 +6227,20 @@ export class SubtitlePlayerController {
         if (!panel) return;
         if (this.holdPanelRenderDuringPress(() => this.renderShadowPanel(force))) return;
         const state = this.shadowPanelRenderState();
-        if (!force && state.signature === this.lastShadowSignature) return;
+        if (panelRenderAlreadyCurrent(force, state.signature, this.lastShadowSignature)) return;
         this.lastShadowSignature = state.signature;
         this.transcriptTextTargetsByParseKey.clear();
-        setInnerHtml(panel, this.renderShadowPanelHtml(state));
+        setInnerHtml(panel, remintRenderedWordPrivateTokens(this.renderShadowPanelHtml(state)));
         this.indexTranscriptTextTargets(panel);
         this.bindTranscriptResizeHandle();
         this.positionTranscriptPanel();
         this.syncPanelState();
-        if (state.cue && state.parseKey) this.requestParsedShadowLineIfNeeded(state.cue, state.parseKey, state.signature, state.settings);
+        this.requestRenderedShadowParse(state);
+    }
+
+    private requestRenderedShadowParse(state: ShadowPanelRenderState): void {
+        if (!state.cue || !state.parseKey) return;
+        this.requestParsedShadowLineIfNeeded(state.cue, state.parseKey, state.signature, state.settings);
     }
 
     private renderableShadowPanel(): HTMLElement | null {
@@ -6498,16 +6508,15 @@ export class SubtitlePlayerController {
         }
     }
 
-    private toggleBatchMiningCandidate(target: HTMLElement): void {
-        const key = target.closest<HTMLElement>('[data-batch-candidate-key]')?.dataset.batchCandidateKey;
+    private toggleBatchMiningCandidate(key: string | undefined): void {
         if (!key) return;
         if (this.batchMiningSelectedKeys.has(key)) this.batchMiningSelectedKeys.delete(key);
         else this.batchMiningSelectedKeys.add(key);
         this.renderBatchMiningPanel();
     }
 
-    private async openBatchMiningCandidate(target: HTMLElement): Promise<void> {
-        const candidate = this.batchMiningCandidateForTarget(target);
+    private async openBatchMiningCandidate(key: string | undefined): Promise<void> {
+        const candidate = this.batchMiningCandidateForKey(key);
         if (!candidate || !this.options.showBatchMiningCard) return;
         await this.options.showBatchMiningCard(candidate);
     }
@@ -6541,15 +6550,13 @@ export class SubtitlePlayerController {
         this.options.toast?.(formatSubtitleText(language, 'bmCopied', { count: candidates.length }));
     }
 
-    private async gradeBatchMiningCandidate(target: HTMLElement): Promise<void> {
-        const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
-        const candidate = this.batchMiningCandidateForTarget(target);
+    private async gradeBatchMiningCandidate(key: string | undefined, grade: JPDBGrade | undefined): Promise<void> {
+        const candidate = this.batchMiningCandidateForKey(key);
         if (!grade || !candidate) return;
         await this.gradeBatchMiningCandidates([candidate], grade);
     }
 
-    private async gradeSelectedBatchMiningCandidates(target: HTMLElement): Promise<void> {
-        const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
+    private async gradeSelectedBatchMiningCandidates(grade: JPDBGrade | undefined): Promise<void> {
         if (!grade) return;
         await this.gradeBatchMiningCandidates(this.selectedBatchMiningCandidates(), grade);
     }
@@ -6588,8 +6595,7 @@ export class SubtitlePlayerController {
         return this.batchMiningCandidates.filter(candidate => this.batchMiningSelectedKeys.has(candidate.key));
     }
 
-    private batchMiningCandidateForTarget(target: HTMLElement): SubtitleBatchMiningCandidate | undefined {
-        const key = target.closest<HTMLElement>('[data-batch-candidate-key]')?.dataset.batchCandidateKey;
+    private batchMiningCandidateForKey(key: string | undefined): SubtitleBatchMiningCandidate | undefined {
         return key ? this.batchMiningCandidates.find(candidate => candidate.key === key) : undefined;
     }
 
@@ -6991,41 +6997,43 @@ export class SubtitlePlayerController {
         // Only safe when the structure hasn't changed and the row count is equal
         // or grew (append-only); a shrink or a structure change falls back to a
         // full render.
-        if (!state.virtual) return false;
-        if (!this.isTranscriptVirtualScroller(scroller)) return false;
-        if (state.structureSignature !== this.lastTranscriptStructureSignature) return false;
-        const previousRowCount = this.renderedVirtualWindow?.rowCount;
-        const rowCount = state.totalRowCount ?? state.rows.length;
-        if (previousRowCount === undefined || rowCount < previousRowCount) return false;
+        const patch = transcriptVirtualPatch(state, {
+            isVirtualScroller: this.isTranscriptVirtualScroller(scroller),
+            lastStructureSignature: this.lastTranscriptStructureSignature,
+            previousRowCount: this.renderedVirtualWindow?.rowCount,
+        });
+        if (!patch) return false;
         const rowIndexOffset = state.rowIndexOffset ?? 0;
         const transcriptRows = this.transcriptRows();
-        setInnerHtml(scroller, `
-            ${this.transcriptPanelSurface.renderVirtualSpacer(state.virtual.topSpacer)}
-            ${state.rows.length
-                ? state.rows.map((row, index) => this.transcriptPanelSurface.renderRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows)).join('')
-                : this.transcriptPanelSurface.renderWaitingState()}
-            ${this.transcriptPanelSurface.renderVirtualSpacer(state.virtual.bottomSpacer)}
-        `);
-        scroller.dataset.totalRows = String(rowCount);
+        setInnerHtml(scroller, remintRenderedWordPrivateTokens(`
+            ${this.transcriptPanelSurface.renderVirtualSpacer(patch.virtual.topSpacer)}
+            ${renderTranscriptVirtualRows(state, rowIndexOffset, transcriptRows, this.transcriptPanelSurface)}
+            ${this.transcriptPanelSurface.renderVirtualSpacer(patch.virtual.bottomSpacer)}
+        `));
+        scroller.dataset.totalRows = String(patch.rowCount);
         this.lastTranscriptStructureSignature = state.structureSignature;
         this.lastTranscriptSignature = state.signature;
-        this.renderedVirtualWindow = { start: state.virtual.start, end: state.virtual.end, rowCount };
-        this.transcriptVirtualScrollTop = state.virtual.scrollTop;
+        this.renderedVirtualWindow = { start: patch.virtual.start, end: patch.virtual.end, rowCount: patch.rowCount };
+        this.transcriptVirtualScrollTop = patch.virtual.scrollTop;
         this.indexTranscriptTextTargets();
-        this.updateTranscriptDrawerMeta(rowCount);
+        this.updateTranscriptDrawerMeta(patch.rowCount);
         // Center synchronously (no rAF round-trip) so the active row is never
         // painted at an obsolete scrollTop against the freshly-grown spacers.
         // A manual (auto-follow-paused) scroll keeps its own scrollTop, since
         // state.virtual.scrollTop was computed from the current scrollTop.
         this.restoreTranscriptVirtualScroll(state);
-        if (this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused()) {
-            this.scrollTranscriptToActive({ behavior: 'auto', sync: true });
-        }
+        this.restoreTranscriptAutoFollow();
         const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
         this.scheduleTranscriptHydration(hydrationIndex);
-        this.scheduleTranscriptCacheWarmup(state.warmupRows ?? state.rows, hydrationIndex);
+        this.scheduleTranscriptCacheWarmup(transcriptWarmupRows(state), hydrationIndex);
         this.syncPanelState();
         return true;
+    }
+
+    private restoreTranscriptAutoFollow(): void {
+        if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
+        if (this.isTranscriptAutoScrollPaused()) return;
+        this.scrollTranscriptToActive({ behavior: 'auto', sync: true });
     }
 
     private updateTranscriptDrawerMeta(rowCount: number): void {
@@ -7050,17 +7058,22 @@ export class SubtitlePlayerController {
         const handle = this.transcriptPanel?.querySelector<HTMLElement>('[data-resize-transcript]');
         if (!handle || handle.dataset.transcriptResizeBound === 'true') return;
         handle.dataset.transcriptResizeBound = 'true';
-        handle.addEventListener('pointerdown', event => this.startTranscriptResize(event));
-        handle.addEventListener('keydown', event => this.resizeTranscriptPanelFromKeyboard(event));
+        handle.addEventListener('pointerdown', trustedReaderEventHandler((event: PointerEvent) => this.startTranscriptResize(event)));
+        handle.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => this.resizeTranscriptPanelFromKeyboard(event)));
         this.syncTranscriptResizeHandle();
     }
 
     private startTranscriptResize(event: PointerEvent): void {
-        if (!this.transcriptPanel) return;
+        const panel = this.transcriptPanel;
+        if (!panel) return;
+        this.startTranscriptResizeForPanel(event, panel);
+    }
+
+    private startTranscriptResizeForPanel(event: PointerEvent, panel: HTMLElement): void {
         event.preventDefault();
         event.stopPropagation();
         const placement = this.effectiveTranscriptPlacement;
-        const panelRect = this.transcriptPanel.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
         const resizeBounds = transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight());
         const startX = event.clientX;
         const startY = event.clientY;
@@ -7070,7 +7083,7 @@ export class SubtitlePlayerController {
         this.transcriptResizeActive = true;
         this.alignAfterTranscriptResize = false;
         this.pauseTranscriptBackgroundWorkForResize();
-        this.transcriptPanel.classList.add('jpdb-subtitle-resizing');
+        panel.classList.add('jpdb-subtitle-resizing');
         this.root?.classList.add('jpdb-subtitle-resizing');
         document.documentElement.classList.add('jpdb-subtitle-transcript-resizing');
         const handle = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined;
@@ -7090,7 +7103,7 @@ export class SubtitlePlayerController {
         let finished = false;
         let lastClientX = startX;
         let lastClientY = startY;
-        const onMove = (moveEvent: Pick<PointerEvent, 'clientX' | 'clientY'>) => {
+        const onMove = trustedReaderEventHandler((moveEvent: PointerEvent) => {
             lastClientX = moveEvent.clientX;
             lastClientY = moveEvent.clientY;
             Object.assign(this.transcriptPanelSize, transcriptResizePatchForPointerDrag({
@@ -7109,7 +7122,7 @@ export class SubtitlePlayerController {
                 if (this.destroyed) return;
                 this.positionTranscriptPanel({ skipInset: true, skipControlSync: true, skipResizeHandle: true });
             });
-        };
+        });
 
         const finish = (mode: 'commit' | 'cancel' | 'settle', clientX = lastClientX, clientY = lastClientY) => {
             if (finished) return;
@@ -7149,10 +7162,10 @@ export class SubtitlePlayerController {
             this.scrollTranscriptToActive();
             if (shouldAlignAfterResize) this.scheduleAlignToVideo();
         };
-        const onPointerUp = (upEvent: PointerEvent) => finish('commit', upEvent.clientX, upEvent.clientY);
-        const onPointerCancel = () => finish('cancel');
-        const onMouseUp = (upEvent: MouseEvent) => finish('commit', upEvent.clientX, upEvent.clientY);
-        const onLostPointerCapture = () => finish('settle');
+        const onPointerUp = trustedReaderEventHandler((upEvent: PointerEvent) => finish('commit', upEvent.clientX, upEvent.clientY));
+        const onPointerCancel = trustedReaderEventHandler((_cancelEvent: PointerEvent) => finish('cancel'));
+        const onMouseUp = trustedReaderEventHandler((upEvent: MouseEvent) => finish('commit', upEvent.clientX, upEvent.clientY));
+        const onLostPointerCapture = trustedReaderEventHandler((_lostEvent: PointerEvent) => finish('settle'));
 
         window.addEventListener('pointermove', onMove, this.eventOptions());
         window.addEventListener('pointerup', onPointerUp, this.eventOptions());
@@ -7388,7 +7401,7 @@ export class SubtitlePlayerController {
         delete hydration.target.dataset.parseEmptyAt;
         delete hydration.target.dataset.parseFailedKey;
         delete hydration.target.dataset.parseFailedAt;
-        setInnerHtml(hydration.target, html);
+        setInnerHtml(hydration.target, remintRenderedWordPrivateTokens(html));
     }
 
     private scheduleTranscriptCacheWarmup(rows?: TranscriptRow[], preferredIndex?: number): void {
@@ -7545,40 +7558,20 @@ export class SubtitlePlayerController {
         return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
     }
 
-    private updateTranscriptRowsForParseKey(key: string, html: string, options: { provisional?: boolean; force?: boolean; refreshProvisional?: boolean } = {}): void {
-        if (!this.shouldParseSubtitles()) return;
-        if (this.transcriptResizeActive) {
-            this.transcriptWarmupAfterResize = true;
-            return;
-        }
-        const panel = this.updatableTranscriptPanel();
+    private updateTranscriptRowsForParseKey(key: string, html: string, options: ParsedTranscriptUpdateOptions = {}): void {
+        const panel = this.transcriptPanelForParsedUpdate();
         if (!panel) return;
         const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
-        const updatedRoots: HTMLElement[] = [];
-        for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
-            // force: a rebake refreshes rows that already carry this key's
-            // final html (enrichment changed the underlying tokens).
-            if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true, options.refreshProvisional === true)) continue;
-            if (hasReaderWords) {
-                target.dataset.parsedKey = key;
-                if (options.provisional) target.dataset.parsedProvisional = 'true';
-                else delete target.dataset.parsedProvisional;
-                delete target.dataset.parseEmptyKey;
-                delete target.dataset.parseEmptyAt;
-                delete target.dataset.parseFailedKey;
-                delete target.dataset.parseFailedAt;
-                setInnerHtml(target, html);
-                updatedRoots.push(target);
-            } else {
-                target.dataset.parseEmptyKey = key;
-                target.dataset.parseEmptyAt = String(Date.now());
-                delete target.dataset.parsedKey;
-                delete target.dataset.parsedProvisional;
-                delete target.dataset.parseFailedKey;
-                delete target.dataset.parseFailedAt;
-            }
-        }
+        const targets = this.transcriptTextTargetsForParseKey(panel, key);
+        const updatedRoots = updateParsedTranscriptTargets(targets, key, html, hasReaderWords, options);
         if (updatedRoots.length) this.notifyParsedTokensForKey(key, true, updatedRoots);
+    }
+
+    private transcriptPanelForParsedUpdate(): HTMLElement | null {
+        if (!this.shouldParseSubtitles()) return null;
+        if (!this.transcriptResizeActive) return this.updatableTranscriptPanel();
+        this.transcriptWarmupAfterResize = true;
+        return null;
     }
 
     private indexTranscriptTextTargets(panel = this.updatableTranscriptPanel()): void {

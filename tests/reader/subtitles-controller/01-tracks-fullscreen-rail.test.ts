@@ -19,6 +19,7 @@ import type {
     ReaderSettings,
     SubtitleFullscreenHost,
 } from './fixtures';
+import { subscribeToManualVideoFrameOcrRequests } from '../../../src/reader/ocr/video-frame-request-bus';
 
 describe('SubtitlePlayerController — tracks, native fullscreen & rail controls', () => {
     registerSubtitleControllerCleanup();
@@ -216,9 +217,7 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
         Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
         const pause = vi.spyOn(video, 'pause').mockImplementation(() => { paused = true; });
         const requests: HTMLVideoElement[] = [];
-        document.addEventListener('yomu-ocr-video-frame-request', event => {
-            requests.push((event as CustomEvent<{ video: HTMLVideoElement }>).detail.video);
-        }, { once: true });
+        const unsubscribe = subscribeToManualVideoFrameOcrRequests(requested => requests.push(requested));
 
         const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="ocr"]')!;
         expect(button.getAttribute('aria-pressed')).toBe('false');
@@ -243,6 +242,7 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
         expect(button.getAttribute('aria-pressed')).toBe('false');
         expect(button.classList.contains('jpdb-subtitle-ocr-active')).toBe(false);
         expect(button.title).toBe('Read video frame (OCR)');
+        unsubscribe();
     });
 
     it('syncs the rail OCR toggle after the setting changes elsewhere', () => {

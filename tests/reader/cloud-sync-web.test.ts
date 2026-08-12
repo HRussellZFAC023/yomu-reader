@@ -7,7 +7,9 @@ const { requestJson, requestText } = vi.hoisted(() => ({
 
 vi.mock('../../src/reader/network/http', () => ({ requestJson, requestText }));
 
-const CLIENT_ID = 'abc123.apps.googleusercontent.com';
+const CLIENT_ID = '697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com';
+const RETURN_STATE = 'a'.repeat(48);
+const OTHER_STATE = 'b'.repeat(48);
 
 function stubGoogleToken(token = 'tok-123', expiresIn = 3600): void {
     vi.stubGlobal('google', {
@@ -27,6 +29,42 @@ async function loadModule(clientId: string | undefined = CLIENT_ID) {
     else globals.__YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__ = clientId;
     vi.resetModules();
     return import('../../src/reader/settings/cloud-sync-web');
+}
+
+function installOAuthReturnToken(accessToken: string, existingHash = ''): void {
+    const tokenPayload = JSON.stringify({
+        type: 'yomu-drive-oauth-token',
+        state: RETURN_STATE,
+        accessToken,
+        expiresIn: 1200,
+    });
+    const prefix = existingHash ? `${existingHash}&` : '';
+    history.replaceState(null, '', `/reader/#${prefix}yomu-drive-oauth-return=${RETURN_STATE}&yomu-drive-oauth-token=${encodeURIComponent(tokenPayload)}`);
+}
+
+function mockEmptyDriveUpload(id: string, modifiedTime?: string): void {
+    requestJson.mockImplementation(async (url: string) => {
+        if (url.includes('uploadType=multipart')) return { id, modifiedTime };
+        if (url.includes('spaces=appDataFolder')) return { files: [] };
+        throw new Error(`unexpected ${url}`);
+    });
+}
+
+interface RecordedDriveRequest {
+    method?: string;
+    headers?: Record<string, string>;
+    allowDirectCrossOrigin?: boolean;
+    data?: unknown;
+}
+
+function createdUploadRequest(): RecordedDriveRequest {
+    const create = requestJson.mock.calls.find(([url]) => String(url).includes('uploadType=multipart'));
+    if (!create) throw new Error('Expected a Drive multipart upload request.');
+    return create[1] as RecordedDriveRequest;
+}
+
+function expectUploadAuthorization(token: string): void {
+    expect(createdUploadRequest().headers?.Authorization).toBe(`Bearer ${token}`);
 }
 
 describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
@@ -57,22 +95,18 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
 
     it('creates a new appData file on first upload, authorised with a GIS bearer token', async () => {
         localStorage.setItem('yomu:srs-local:v1', JSON.stringify({ version: 1, cards: { local: { expression: '読む' } } }));
-        requestJson.mockImplementation(async (url: string) => {
-            if (url.includes('uploadType=multipart')) return { id: 'file-1', modifiedTime: '2026-06-25T00:00:00Z' };
-            if (url.includes('spaces=appDataFolder')) return { files: [] };
-            throw new Error(`unexpected ${url}`);
-        });
+        mockEmptyDriveUpload('file-1', '2026-06-25T00:00:00Z');
         const mod = await loadModule();
         const meta = await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
 
         expect(meta.fileId).toBe('file-1');
-        const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
-        expect(create?.[1]?.method).toBe('POST');
-        expect(create?.[1]?.headers?.Authorization).toBe('Bearer tok-123');
-        expect(create?.[1]?.allowDirectCrossOrigin).toBe(true);
-        expect(String(create?.[1]?.data)).toContain('appDataFolder');
-        expect(String(create?.[1]?.data)).toContain('"theme":"dark"');
-        expect(String(create?.[1]?.data)).toContain('"yomu:srs-local:v1"');
+        const create = createdUploadRequest();
+        expect(create.method).toBe('POST');
+        expect(create.headers?.Authorization).toBe('Bearer tok-123');
+        expect(create.allowDirectCrossOrigin).toBe(true);
+        expect(String(create.data)).toContain('appDataFolder');
+        expect(String(create.data)).toContain('"theme":"dark"');
+        expect(String(create.data)).toContain('"yomu:srs-local:v1"');
     });
 
     it('navigates the current tab to the hosted OAuth broker from userscript contexts', async () => {
@@ -82,65 +116,82 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         vi.stubGlobal('GM_info', { script: { name: 'Yomu' } });
         const mod = await loadModule();
 
-        void mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
+        void mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never, { state: RETURN_STATE });
         await vi.waitFor(() => expect(navigate).toHaveBeenCalled());
         const brokerUrl = new URL(String(navigate.mock.calls[0]?.[0]));
         expect(brokerUrl.origin + brokerUrl.pathname).toBe('https://yomureader.com/oauth/google-drive.html');
         expect(brokerUrl.searchParams.get('client_id')).toBe(CLIENT_ID);
         expect(brokerUrl.searchParams.get('return_url')).toBe(window.location.href);
-        const state = brokerUrl.searchParams.get('state') ?? '';
-        expect(state).toMatch(/^[a-z0-9]+$/i);
+        expect(brokerUrl.searchParams.get('state')).toBe(RETURN_STATE);
         expect(open).not.toHaveBeenCalled();
         expect(requestJson).not.toHaveBeenCalled();
     });
 
-    it('consumes a same-tab OAuth return token from the URL fragment and resumes Drive requests without a popup', async () => {
-        const tokenPayload = JSON.stringify({
-            type: 'yomu-drive-oauth-token',
-            state: 'returnstate',
-            accessToken: 'returned-token',
-            expiresIn: 1200,
-        });
-        history.replaceState(null, '', `/reader/#chapter=1&yomu-drive-oauth-return=returnstate&yomu-drive-oauth-token=${encodeURIComponent(tokenPayload)}`);
-        requestJson.mockImplementation(async (url: string) => {
-            if (url.includes('uploadType=multipart')) return { id: 'file-return', modifiedTime: '2026-06-25T00:00:00Z' };
-            if (url.includes('spaces=appDataFolder')) return { files: [] };
-            throw new Error(`unexpected ${url}`);
-        });
+    it('refuses a userscript redirect that has no precommitted private state', async () => {
+        const navigate = vi.fn();
+        vi.stubGlobal('__YOMU_TEST_NAVIGATE_TO_OAUTH__', navigate);
+        vi.stubGlobal('GM_info', { script: { name: 'Yomu' } });
         const mod = await loadModule();
 
-        expect(mod.cloudSettingsAuthRedirectResult()).toEqual({ ok: true, state: 'returnstate' });
+        await expect(mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never))
+            .rejects.toThrow('private pending Yomu action');
+        expect(navigate).not.toHaveBeenCalled();
+        expect(requestJson).not.toHaveBeenCalled();
+    });
+
+    it('consumes a same-tab OAuth return token from the URL fragment and resumes Drive requests without a popup', async () => {
+        installOAuthReturnToken('returned-token', 'chapter=1');
+        mockEmptyDriveUpload('file-return', '2026-06-25T00:00:00Z');
+        const mod = await loadModule();
+
+        expect(mod.cloudSettingsAuthRedirectResult(RETURN_STATE)).toEqual({ ok: true, state: RETURN_STATE, error: undefined });
+        expect(mod.cloudSettingsAuthRedirectResult(RETURN_STATE)).toBeNull();
         expect(window.name).toBe('');
         expect(location.hash).toBe('#chapter=1');
 
         const meta = await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
-        const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
         expect(meta.fileId).toBe('file-return');
-        expect(create?.[1]?.headers?.Authorization).toBe('Bearer returned-token');
+        expectUploadAuthorization('returned-token');
     });
 
-    it('still accepts the legacy window.name OAuth return fallback', async () => {
+    it('scrubs and rejects the legacy window.name token fallback', async () => {
         window.name = JSON.stringify({
             type: 'yomu-drive-oauth-token',
-            state: 'returnstate',
+            state: RETURN_STATE,
             accessToken: 'window-name-token',
             expiresIn: 1200,
         });
-        history.replaceState(null, '', '/reader/#yomu-drive-oauth-return=returnstate');
-        requestJson.mockImplementation(async (url: string) => {
-            if (url.includes('uploadType=multipart')) return { id: 'file-window-name', modifiedTime: '2026-06-25T00:00:00Z' };
-            if (url.includes('spaces=appDataFolder')) return { files: [] };
-            throw new Error(`unexpected ${url}`);
-        });
+        history.replaceState(null, '', `/reader/#yomu-drive-oauth-return=${RETURN_STATE}`);
+        mockEmptyDriveUpload('file-window-name', '2026-06-25T00:00:00Z');
         const mod = await loadModule();
 
-        expect(mod.cloudSettingsAuthRedirectResult()).toEqual({ ok: true, state: 'returnstate' });
+        expect(mod.cloudSettingsAuthRedirectResult(RETURN_STATE)).toEqual({
+            ok: false,
+            state: RETURN_STATE,
+            error: 'Google authorization returned without a Yomu token.',
+        });
         expect(window.name).toBe('');
         expect(location.hash).toBe('');
 
         await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
-        const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
-        expect(create?.[1]?.headers?.Authorization).toBe('Bearer window-name-token');
+        expectUploadAuthorization('tok-123');
+    });
+
+    it('quarantines a forged hash token when its state does not match the private pending action', async () => {
+        installOAuthReturnToken('forged-token');
+        mockEmptyDriveUpload('file-safe');
+        const mod = await loadModule();
+
+        expect(mod.cloudSettingsAuthRedirectResult(OTHER_STATE)).toEqual({
+            ok: false,
+            state: RETURN_STATE,
+            error: 'Google authorization did not match the pending Yomu action.',
+        });
+        expect(mod.cloudSettingsAuthRedirectResult(RETURN_STATE)).toBeNull();
+        await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
+
+        expectUploadAuthorization('tok-123');
+        expect(location.hash).toBe('');
     });
 
     it('updates the existing appData file when one is already present', async () => {

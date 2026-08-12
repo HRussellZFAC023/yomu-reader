@@ -1,4 +1,6 @@
 import type { CardState, JPDBCard, JPDBToken } from '../app/types';
+import { renderedWordsInRoot } from '../dom/rendered-word-state';
+import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 
 interface OcrWordRenderState {
     surface: string;
@@ -11,14 +13,7 @@ export class OcrWordRenderStateRegistry {
 
     rememberLine(line: HTMLElement, tokens: JPDBToken[]): void {
         const tokensByKey = new Map(tokens.map(token => [ocrTokenRenderKey(token), token]));
-        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
-            const token = tokensByKey.get(ocrRenderedWordKey(word));
-            if (!token) return;
-            this.states.set(word, {
-                surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || '',
-                token,
-            });
-        });
+        renderedWordsInRoot(line).forEach(word => this.rememberWord(line, word, tokensByKey));
     }
 
     get(word: HTMLElement): OcrWordRenderState | undefined {
@@ -30,22 +25,40 @@ export class OcrWordRenderStateRegistry {
         if (!state) return;
         const previousSpelling = state.token.card.spelling;
         const previousReading = state.token.card.reading;
-        const renderedState = word.dataset.cardState?.trim() as CardState | undefined;
-        // A provisional public card can enrich reading/POS while the DOM keeps
-        // an authoritative Academy/JPDB state. Activation must follow the
-        // state actually painted or known-status furigana will reappear.
-        state.token.card = renderedState && !card.cardState.includes(renderedState)
-            ? { ...card, cardState: [renderedState] }
-            : card;
+        state.token.card = cardForRenderedState(word, card);
         // Ruby ranges describe the old surface/reading. Retaining them after a
         // canonical identity correction makes activation repaint stale kana;
         // an empty list lets token rendering derive fresh ruby from the card.
-        if (
-            previousSpelling !== state.token.card.spelling
-            || previousReading !== state.token.card.reading
-        ) state.token.rubies = [];
+        if (cardIdentityChanged(previousSpelling, previousReading, state.token.card)) state.token.rubies = [];
         state.token.pitchClass = pitchClass;
     }
+
+    private rememberWord(
+        line: HTMLElement,
+        word: HTMLElement,
+        tokensByKey: ReadonlyMap<string, JPDBToken>,
+    ): void {
+        const token = tokensByKey.get(ocrRenderedWordKey(word));
+        if (!token) return;
+        this.states.set(word, { surface: ocrRenderedWordSurface(line, word, token), token });
+    }
+}
+
+function cardForRenderedState(word: HTMLElement, card: JPDBCard): JPDBCard {
+    const renderedState = renderedWordPrivateValue(word, 'cardState')?.trim() as CardState | undefined;
+    // A provisional public card can enrich reading/POS while the DOM keeps an
+    // authoritative state. Activation follows the state that was painted.
+    if (!renderedState) return card;
+    if (card.cardState.includes(renderedState)) return card;
+    return { ...card, cardState: [renderedState] };
+}
+
+function cardIdentityChanged(spelling: string, reading: string, card: JPDBCard): boolean {
+    return spelling !== card.spelling || reading !== card.reading;
+}
+
+function ocrRenderedWordSurface(line: HTMLElement, word: HTMLElement, token: JPDBToken): string {
+    return word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || '';
 }
 
 function ocrTokenRenderKey(token: JPDBToken): string {
@@ -53,5 +66,14 @@ function ocrTokenRenderKey(token: JPDBToken): string {
 }
 
 function ocrRenderedWordKey(word: HTMLElement): string {
-    return `${word.dataset.tokenStart ?? ''}:${word.dataset.tokenEnd ?? ''}:${word.dataset.vid ?? ''}:${word.dataset.sid ?? ''}`;
+    return [
+        word.dataset.tokenStart,
+        word.dataset.tokenEnd,
+        renderedWordPrivateValue(word, 'vid'),
+        renderedWordPrivateValue(word, 'sid'),
+    ].map(ocrRenderKeyPart).join(':');
+}
+
+function ocrRenderKeyPart(value: string | undefined): string {
+    return value ?? '';
 }

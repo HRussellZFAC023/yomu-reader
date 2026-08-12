@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '../app/types';
+import { credentialValueFromFormData, storedCredentialClearName, trimmedFormField } from './credential-form';
 
 export type ApiCredentialSettings =
     Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>
@@ -78,32 +79,125 @@ function splitApiCredential(value: string): ApiCredentialSettings {
         : { apiKey: credential, jitenApiKey: '' };
 }
 
-export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSettings {
-    const bunpro = readBunproCredentialsFromFormData(data);
-    const wanikani = readWanikaniCredentialsFromFormData(data);
-    // UT-56: dedicated per-provider fields; values still auto-route by
-    // prefix so a Jiten key pasted into the JPDB field lands correctly.
-    if (data.has('apiCredentialJpdb') || data.has('apiCredentialJiten')) {
-        return {
-            ...mergeApiCredentialValues(
-                String(data.get('apiCredentialJpdb') ?? ''),
-                String(data.get('apiCredentialJiten') ?? ''),
-            ),
-            ...bunpro,
-            ...wanikani,
-        };
-    }
-    if (data.has('apiCredential')) return { ...splitApiCredential(String(data.get('apiCredential') ?? '')), ...bunpro, ...wanikani };
+export function readApiCredentialsFromFormData(
+    data: FormData,
+    current: ApiCredentialSettings = { apiKey: '', jitenApiKey: '' },
+): ApiCredentialSettings {
     return {
-        apiKey: String(data.get('apiKey') ?? '').trim(),
-        jitenApiKey: String(data.get('jitenApiKey') ?? '').trim(),
-        ...bunpro,
-        ...wanikani,
+        ...readProviderApiCredentials(data, current),
+        ...readBunproCredentialsFromFormData(data, current),
+        ...readWanikaniCredentialsFromFormData(data, current),
     };
 }
 
-function readWanikaniCredentialsFromFormData(data: FormData): WanikaniCredentialSettings {
-    return { wanikaniApiToken: String(data.get('apiCredentialWanikani') ?? data.get('wanikaniApiToken') ?? '').trim() };
+function readProviderApiCredentials(
+    data: FormData,
+    current: ApiCredentialSettings,
+): Pick<ApiCredentialSettings, 'apiKey' | 'jitenApiKey'> {
+    // UT-56: dedicated per-provider fields; values still auto-route by
+    // prefix so a Jiten key pasted into the JPDB field lands correctly.
+    if (hasDedicatedApiCredentialFields(data)) {
+        return updatedDedicatedApiCredentials(data, current);
+    }
+    if (data.has('apiCredential')) {
+        return splitApiCredential(credentialValueFromFormData(data, 'apiCredential', storedCombinedApiCredential(current)));
+    }
+    return {
+        apiKey: trimmedFormField(data, 'apiKey'),
+        jitenApiKey: trimmedFormField(data, 'jitenApiKey'),
+    };
+}
+
+function hasDedicatedApiCredentialFields(data: FormData): boolean {
+    return data.has('apiCredentialJpdb') || data.has('apiCredentialJiten');
+}
+
+function storedCombinedApiCredential(current: ApiCredentialSettings): string {
+    return current.apiKey || current.jitenApiKey;
+}
+
+function updatedDedicatedApiCredentials(
+    data: FormData,
+    current: ApiCredentialSettings,
+): Pick<ApiCredentialSettings, 'apiKey' | 'jitenApiKey'> {
+    const next = {
+        apiKey: current.apiKey.trim(),
+        jitenApiKey: current.jitenApiKey.trim(),
+    };
+    updateCredentialSlot(data, 'apiCredentialJiten', next, 'jiten');
+    updateCredentialSlot(data, 'apiCredentialJpdb', next, 'jpdb');
+    return next;
+}
+
+function updateCredentialSlot(
+    data: FormData,
+    name: string,
+    next: Pick<ApiCredentialSettings, 'apiKey' | 'jitenApiKey'>,
+    slot: 'jpdb' | 'jiten',
+): void {
+    const replacement = trimmedFormField(data, name);
+    if (!replacement && !data.has(storedCredentialClearName(name))) return;
+    applyCredentialSlotReplacement(next, slot, replacement);
+}
+
+function applyCredentialSlotReplacement(
+    next: Pick<ApiCredentialSettings, 'apiKey' | 'jitenApiKey'>,
+    slot: 'jpdb' | 'jiten',
+    replacement: string,
+): void {
+    if (isJitenApiCredential(replacement)) {
+        applyJitenCredentialReplacement(next, slot, replacement);
+        return;
+    }
+    applyJpdbCredentialReplacement(next, slot, replacement);
+}
+
+function applyJitenCredentialReplacement(
+    next: Pick<ApiCredentialSettings, 'apiKey' | 'jitenApiKey'>,
+    slot: 'jpdb' | 'jiten',
+    replacement: string,
+): void {
+    next.jitenApiKey = replacement;
+    if (slot === 'jpdb') next.apiKey = '';
+}
+
+function applyJpdbCredentialReplacement(
+    next: Pick<ApiCredentialSettings, 'apiKey' | 'jitenApiKey'>,
+    slot: 'jpdb' | 'jiten',
+    replacement: string,
+): void {
+    if (slot === 'jpdb') {
+        next.apiKey = replacement;
+        return;
+    }
+    next.jitenApiKey = '';
+    if (replacement) next.apiKey = replacement;
+}
+
+/**
+ * Reconstruct only credential presence from the masked form. The sentinel
+ * values are never persisted or rendered; they let localization and status
+ * labels stay accurate without putting stored secrets back into page DOM.
+ */
+export function redactedApiCredentialsFromForm(form: HTMLFormElement): ApiCredentialSettings {
+    const configured = (name: string, sentinel: string): string => {
+        const input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+        return input?.dataset.storedCredentialPlaceholder === 'true' ? sentinel : '';
+    };
+    return readApiCredentialsFromFormData(new FormData(form), {
+        apiKey: configured('apiCredentialJpdb', 'stored-jpdb'),
+        jitenApiKey: configured('apiCredentialJiten', 'ak_stored-jiten'),
+        bunproFrontendApiToken: configured('apiCredentialBunpro', 'stored-bunpro'),
+        wanikaniApiToken: configured('apiCredentialWanikani', 'stored-wanikani'),
+    });
+}
+
+function readWanikaniCredentialsFromFormData(
+    data: FormData,
+    current: WanikaniCredentialSettings,
+): WanikaniCredentialSettings {
+    const field = data.has('apiCredentialWanikani') ? 'apiCredentialWanikani' : 'wanikaniApiToken';
+    return { wanikaniApiToken: credentialValueFromFormData(data, field, current.wanikaniApiToken) };
 }
 
 export function mergeApiCredentialValues(jpdbValue: string, jitenValue: string): ApiCredentialSettings {
@@ -117,10 +211,25 @@ export function isJitenApiCredential(value: string): boolean {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
 }
 
-function readBunproCredentialsFromFormData(data: FormData): Pick<ApiCredentialSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'> {
+function readBunproCredentialsFromFormData(
+    data: FormData,
+    current: BunproCredentialSettings,
+): Pick<ApiCredentialSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'> {
+    const legacyField = preferredCredentialField(data, 'apiCredentialBunproLegacy', 'bunproApiKey');
+    const frontendField = preferredCredentialField(data, 'apiCredentialBunpro', 'bunproFrontendApiToken');
+    const frontendToken = credentialValueFromFormData(data, frontendField, current.bunproFrontendApiToken);
     return {
-        bunproApiKey: String(data.get('apiCredentialBunproLegacy') ?? data.get('bunproApiKey') ?? '').trim(),
-        bunproFrontendApiToken: String(data.get('apiCredentialBunpro') ?? data.get('bunproFrontendApiToken') ?? '').trim(),
-        bunproFrontendApiTokenExpiresAt: String(data.get('bunproFrontendApiTokenExpiresAt') ?? '').trim(),
+        bunproApiKey: credentialValueFromFormData(data, legacyField, current.bunproApiKey),
+        bunproFrontendApiToken: frontendToken,
+        bunproFrontendApiTokenExpiresAt: retainedBunproExpiration(data, current, frontendToken),
     };
+}
+
+function preferredCredentialField(data: FormData, preferred: string, legacy: string): string {
+    return data.has(preferred) ? preferred : legacy;
+}
+
+function retainedBunproExpiration(data: FormData, current: BunproCredentialSettings, frontendToken: string): string {
+    if (!frontendToken) return '';
+    return String(data.get('bunproFrontendApiTokenExpiresAt') ?? current.bunproFrontendApiTokenExpiresAt ?? '').trim();
 }

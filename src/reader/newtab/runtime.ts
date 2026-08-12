@@ -5,13 +5,14 @@ import { newTabAnkiClient } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
+import { refreshAfterCardAction, reportCardActionFailure, runCardActionOperation } from '../cards/action-operation';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
-import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
+import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import { handleReaderActionPillLink } from '../app/main-helpers';
 import {
     yomuKanjiStudyCompanion,
@@ -33,7 +34,6 @@ import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterMa
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
-import { userFacingErrorText } from '../app/user-facing-errors';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
     consumeLookupPopoverButtonEvent,
@@ -41,7 +41,6 @@ import {
     lookupPopoverDictionaryLinkRequest,
     lookupPopoverActionButton,
     lookupPopoverParsedWordElement,
-    lookupTextRequestFromPopoverButton,
     newTabLookupMetaItems,
     newTabLookupReviewTargetSelection,
     parsedWordLookupSentence,
@@ -80,7 +79,15 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import { newTabSettingsWithPageTarget } from './runtime-target-policy';
+import { settingsPanelFromHash } from './url';
 import type { StudySessionClock } from './session-clock';
+import {
+    privateCommandAttributes,
+    dispatchPrivateCommand,
+    readCardCommandCapability,
+    type CardCommandCapability,
+} from '../dom/private-command-capabilities';
+import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
@@ -96,7 +103,7 @@ import {
     renderRtkInfo,
 } from '../popup/render';
 import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
-import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
 import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProviders } from '../languages/character-lookup';
 import { ReaderParser } from '../lookup/parser';
 import {
@@ -105,7 +112,6 @@ import {
     NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shouldLookupAnkiStatus,
-    subscribeToSettingsStorageChanges,
 } from '../settings/index';
 import {
     effectiveBunproFrontendApiToken,
@@ -115,10 +121,12 @@ import {
     hasJitenApiCredential,
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
-import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
+import { renderedWordCardKey, renderedWordElementKey, renderedWordsInRoot, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
+import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
-import { applyInterfaceLocaleToDocument, applyInterfaceLocaleToRoot, resolveInterfaceLocale } from '../locales';
+import { applyInterfaceLocaleToDocument, applyInterfaceLocaleToRoot } from '../locales/direction';
+import { resolveInterfaceLocale } from '../locales/resolve';
 import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
@@ -143,7 +151,8 @@ import { StudySourceController } from '../study/sources';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
-import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
+import { addWindowEventListener } from '../platform/window-events';
+import { subscribeToReaderSettingsChanges } from '../app/settings-storage-subscription';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { BunproClient } from '../bunpro/bunpro';
@@ -153,7 +162,6 @@ import { repaintYomuLocalSrsRenderedWords } from '../srs/local-yomu-state';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
 import { WanikaniSourceController } from '../wanikani/wanikani-source';
-
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 import { NewTabTargetLookupResolver } from './target-lookup-resolver';
 import {
@@ -684,21 +692,10 @@ export class NewTabRuntime {
 
     private installSettingsStorageSubscription(): void {
         this.unsubscribeSettingsStorageChanges?.();
-        const unsubscribeStoredChanges = subscribeToSettingsStorageChanges(settings => {
+        this.unsubscribeSettingsStorageChanges = subscribeToReaderSettingsChanges(settings => {
             if (this.isDestroyed) return;
             void this.applyRemoteSettings(settings);
         });
-        const onStorageBridgeReady = (): void => {
-            if (this.isDestroyed) return;
-            void loadSettings().then(settings => {
-                if (!this.isDestroyed) return this.applyRemoteSettings(settings);
-            });
-        };
-        addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
-        this.unsubscribeSettingsStorageChanges = () => {
-            unsubscribeStoredChanges();
-            removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
-        };
     }
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
@@ -887,7 +884,7 @@ export class NewTabRuntime {
             preloadWordAudio: card => this.maybePreloadLookupCardAudio(card),
             playWordAudio: card => this.audioActions.playTermAudio(card, { userGesture: true }),
             playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
-            performCardAction: (button, card, sentence, anchor) => this.handleCardAction(button, card, sentence, anchor),
+            performCardAction: (button, card, sentence, anchor, command) => this.handleCardAction(button, card, sentence, anchor, command),
             setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
             dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             isDictionarySourceOpen: (key, initiallyExpanded) => this.dictionarySourceState.isOpen(key, initiallyExpanded),
@@ -914,24 +911,23 @@ export class NewTabRuntime {
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
     }
-
     private openRequestedSettingsPanel(): void {
-        if (location.hash !== '#settings=api') return;
+        const panel = settingsPanelFromHash(location.hash);
+        if (!panel) return;
         try {
             history.replaceState(history.state, '', `${location.pathname}${location.search}`);
         } catch {
             // A locked-down extension history must not block the settings UI.
         }
-        this.showSettings('api');
+        this.showSettings(panel);
     }
-
     private activeBunproFrontendApiToken(): string {
         return isBunproFrontendCredentialExpired(this.settings)
             ? ''
             : effectiveBunproFrontendApiToken(this.settings);
     }
 
-    private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
+    private mountSettingsDialog(backdrop: HTMLElement, surface: HTMLElement): void {
         this.dismiss();
         const dismissFromBackdrop = (event: Event) => {
             if (event.target !== backdrop) return;
@@ -942,10 +938,10 @@ export class NewTabRuntime {
         backdrop.addEventListener('pointerdown', dismissFromBackdrop, { capture: true });
         backdrop.addEventListener('mousedown', dismissFromBackdrop, { capture: true });
         backdrop.addEventListener('click', dismissFromBackdrop, { capture: true });
-        document.body.append(backdrop, form);
+        document.body.append(backdrop, surface);
         this.activeBackdrop = backdrop;
-        this.activeDialog = form;
-        form.focus();
+        this.activeDialog = surface;
+        surface.focus();
     }
 
     private nextLookupRenderRequest(): number {
@@ -1326,12 +1322,9 @@ export class NewTabRuntime {
     private renderKanjiLookupActionBar(card: JPDBCard): string {
         const reviewButtons = this.renderKanjiLookupReviewButtons(card);
         const hasReviewTargetGutter = reviewButtons.includes('data-review-target-gutter');
-        const actionsClass = hasReviewTargetGutter ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : '';
         return `
-            <div class="jpdb-reader-actions${actionsClass}" data-kanji-actions data-kanji-has-review="${reviewButtons ? 'true' : 'false'}"${reviewButtons ? '' : ' hidden'}>
-                ${hasReviewTargetGutter ? '' : `<div class="jpdb-reader-actions-gutter" hidden>
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(this.text('showMiningActions'))}" aria-label="${escapeHtml(this.text('showMiningActions'))}"></button>
-                </div>`}
+            <div class="jpdb-reader-actions${kanjiLookupActionsClass(hasReviewTargetGutter)}" data-kanji-actions${kanjiLookupReviewAttributes(reviewButtons)}>
+                ${renderKanjiLookupMiningGutter(hasReviewTargetGutter, this.text('showMiningActions'))}
                 <div data-kanji-mining-mount hidden></div>
                 ${reviewButtons}
             </div>
@@ -1384,8 +1377,8 @@ export class NewTabRuntime {
     private installKanjiLookupHandlers(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string): void {
         const signal = this.resetLookupHandlers();
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
-        popover.addEventListener('click', event => this.handleKanjiLookupPopoverClick(event, popover, card, kanji, sentence), { signal });
-        popover.addEventListener('change', event => this.handleLookupReviewTargetChange(event, popover), { signal });
+        popover.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleKanjiLookupPopoverClick(event, popover, card, kanji, sentence)), { signal });
+        popover.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handleLookupReviewTargetChange(event, popover)), { signal });
     }
 
     private handleKanjiLookupPopoverClick(event: MouseEvent, popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string): void {
@@ -1399,42 +1392,28 @@ export class NewTabRuntime {
         // one more delegated click. Make the stale surface inert before any
         // Japanese provider action is dispatched.
         if (!targetCanLookupCharacter(kanji)) return;
+        if (this.dispatchKanjiLookupCommand(button, card, kanji, sentence)) return;
+        this.handleLegacyKanjiLookupAction(button, card, sentence);
+    }
+
+    private dispatchKanjiLookupCommand(button: HTMLButtonElement, card: JPDBCard, kanji: string, sentence?: string): boolean {
+        return dispatchPrivateCommand(button, {
+            'kanji-lookup': command => { void this.showKanjiLookupCard(card, command.kanji, sentence, button, { navigation: 'push-current', reuseActivePopover: true }); },
+            'jpdb-kanji-action': command => { void this.performJpdbKanjiAction(command.actionId, card, kanji, sentence, button); },
+            'card-ui': () => this.toggleMiningControls(button),
+            'card-action': command => { if (command.action === 'copy-word') void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord'))); else if (command.action === 'grade') this.gradeLookupFromButton(button, command, card, sentence); },
+            'kanji-word': command => { void this.lookupText(command.expression, command.reading || command.expression, button, { navigation: 'push-current', reuseActivePopover: true, userGesture: true }); },
+            'jiten-kanji-words': command => { void (command.action === 'more' ? this.loadMoreJitenKanjiWords(button) : this.filterJitenKanjiWords(button)); },
+        });
+    }
+
+    private handleLegacyKanjiLookupAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string): void {
         const handlers: Record<string, () => void> = {
-            'copy-word': () => {
-                void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord')));
-            },
             'word-back': () => {
                 void this.showLookupCard(card, sentence, button, { navigation: 'preserve', reuseActivePopover: true, autoPlay: false });
             },
             'kanji-history-back': () => {
                 void this.showPreviousKanjiLookup(button);
-            },
-            kanji: () => {
-                void this.showKanjiLookupCard(card, button.dataset.kanji ?? kanji, sentence, button, {
-                    navigation: 'push-current',
-                    reuseActivePopover: true,
-                });
-            },
-            'similar-word': () => {
-                this.lookupTextFromPopoverButton(button);
-            },
-            'jiten-kanji-more': () => {
-                void this.loadMoreJitenKanjiWords(button);
-            },
-            'jiten-kanji-reading': () => {
-                void this.filterJitenKanjiWords(button);
-            },
-            lookup: () => {
-                this.lookupTextFromPopoverButton(button);
-            },
-            'jpdb-kanji-action': () => {
-                this.performJpdbKanjiActionFromButton(button, card, kanji, sentence);
-            },
-            'mining-collapse': () => {
-                this.toggleMiningControls(button);
-            },
-            grade: () => {
-                this.gradeLookupFromButton(button, card, sentence);
             },
         };
         const handler = handlers[button.dataset.action ?? ''];
@@ -1459,16 +1438,6 @@ export class NewTabRuntime {
     private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
         const context = this.jitenKanjiWordsActionContext();
         if (context) await filterSharedJitenKanjiWords(button, context);
-    }
-
-    private lookupTextFromPopoverButton(button: HTMLButtonElement): void {
-        const { expression, reading } = lookupTextRequestFromPopoverButton(button);
-        void this.lookupText(expression, reading, button, { navigation: 'push-current', reuseActivePopover: true, userGesture: true });
-    }
-
-    private performJpdbKanjiActionFromButton(button: HTMLButtonElement, card: JPDBCard, kanji: string, sentence?: string): void {
-        const actionId = button.dataset.kanjiActionId ?? '';
-        if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button);
     }
 
     private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupTarget.currentRenderRequest()): Promise<void> {
@@ -1752,8 +1721,8 @@ export class NewTabRuntime {
             dismiss: () => this.dismissLookupPopover(),
         });
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
-        popover.addEventListener('click', event => this.handleLookupPopoverClick(event, popover, card, sentence, anchor), { signal });
-        popover.addEventListener('change', event => this.handleLookupReviewTargetChange(event, popover), { signal });
+        popover.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleLookupPopoverClick(event, popover, card, sentence, anchor)), { signal });
+        popover.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handleLookupReviewTargetChange(event, popover)), { signal });
     }
 
     private handleLookupReviewTargetChange(event: Event, popover: HTMLElement): void {
@@ -1777,40 +1746,32 @@ export class NewTabRuntime {
     }
 
     private handleLookupPopoverAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
-        if (this.tryShowKanjiFromLookupButton(button, card, sentence)) return;
-        switch (button.dataset.action) {
-            case 'word-history-back':
-                void this.showPreviousLookupWord(button);
-                return;
-            case 'mining-collapse':
-                this.toggleMiningControls(button);
-                return;
-            case 'review-target-toggle':
-                togglePopoverReviewTargetSelection(button);
-                return;
-            case 'grade':
-                this.gradeLookupFromButton(button, card, sentence, anchor);
-                return;
-            case 'deck-picker':
-                if (this.openDeckPickerForAdd(button, card, sentence)) return;
-                break;
-            case 'add':
-                if (this.openDeckPickerForAdd(button, card, sentence)) return;
-                break;
+        if (button.dataset.action === 'word-history-back') {
+            void this.showPreviousLookupWord(button);
+            return;
         }
-        void this.handleCardAction(button, card, sentence, anchor);
+        dispatchPrivateCommand(button, {
+            'kanji-lookup': command => { void this.showKanjiLookupCard(card, command.kanji, sentence, button, { reuseActivePopover: true }); },
+            'card-ui': command => this.handleLookupCardUiCommand(button, command.action, card, sentence),
+            'card-action': command => this.handleLookupCardCommand(button, command, card, sentence, anchor),
+        });
     }
 
-    private tryShowKanjiFromLookupButton(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        if (button.dataset.action !== 'kanji') return false;
-        const kanji = button.dataset.kanji?.trim();
-        if (kanji) void this.showKanjiLookupCard(card, kanji, sentence, button, { reuseActivePopover: true });
-        return true;
+    private handleLookupCardUiCommand(button: HTMLButtonElement, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle', card: JPDBCard, sentence: string | undefined): void {
+        if (action === 'mining-collapse') return this.toggleMiningControls(button);
+        if (action === 'review-target-toggle') return togglePopoverReviewTargetSelection(button);
+        this.openDeckPickerForAdd(button, card, sentence);
     }
 
-    private gradeLookupFromButton(button: HTMLButtonElement, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
-        const grade = button.dataset.grade as JPDBGrade | undefined;
-        if (grade) void this.gradeCurrentCardFromLookup(button, grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
+    private handleLookupCardCommand(button: HTMLButtonElement, command: CardCommandCapability, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
+        if (command.action === 'grade') return this.gradeLookupFromButton(button, command, card, sentence, anchor);
+        if (command.action !== 'add' || !this.openDeckPickerForAdd(button, card, sentence)) {
+            void this.handleCardAction(button, card, sentence, anchor, command);
+        }
+    }
+
+    private gradeLookupFromButton(button: HTMLButtonElement, command: CardCommandCapability, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
+        if (command.grade) void this.gradeCurrentCardFromLookup(button, command.grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
     }
 
     private async gradeCurrentCardFromLookup(
@@ -1867,7 +1828,10 @@ export class NewTabRuntime {
     }
 
     private cachedCardForParsedWord(word: HTMLElement): JPDBCard | undefined {
-        return this.parser.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        return this.parser.getCachedCard(
+            Number(renderedWordPrivateValue(word, 'vid')),
+            Number(renderedWordPrivateValue(word, 'sid')),
+        );
     }
 
     private lookupParsedWordWithoutCard(word: HTMLElement, expression: string): void {
@@ -1902,34 +1866,28 @@ export class NewTabRuntime {
     }
 
     private openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        return openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence) => (
-            this.handleCardAction(actionButton, actionCard, actionSentence)
-        ));
+        return openDeckPickerForCardAdd(button, card, sentence, async (actionButton, actionCard, actionSentence, command) => {
+            await this.handleCardAction(actionButton, actionCard, actionSentence, undefined, command);
+        });
     }
 
-    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement): Promise<void> {
+    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement, suppliedCommand?: CardCommandCapability): Promise<void> {
         if (button.disabled) return;
-        button.disabled = true;
-        const action = button.dataset.action;
+        const command = runtimeCardCommand(button, suppliedCommand);
+        if (!command) return;
+        const action = command.action;
         const done = log.time('newTabCardAction', { action, term: card.spelling });
-        try {
-            const shouldRefresh = await this.cardActions.perform(action, button, card, sentence);
-            if (shouldRefresh && action === 'grade') {
-                this.dismissLookupPopover();
-                return;
-            }
-            if (shouldRefresh) await this.showLookupCard(card, sentence, anchor, {
-                navigation: 'preserve',
-                reuseActivePopover: true,
-                autoPlay: false,
-            });
-        } catch (error) {
-            log.warn('New tab card action failed', { action, term: card.spelling }, error);
-            this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'actionFailed', error));
-        } finally {
-            done();
-            button.disabled = false;
-        }
+        await runCardActionOperation(
+            button,
+            () => refreshAfterCardAction(
+                command.action,
+                () => this.cardActions.perform(command, button, card, sentence),
+                () => this.dismissLookupPopover(),
+                () => this.showLookupCard(card, sentence, anchor, { navigation: 'preserve', reuseActivePopover: true, autoPlay: false }),
+            ),
+            error => reportCardActionFailure({ logger: log, warning: 'New tab card action failed', action, term: card.spelling, language: this.settings.interfaceLanguage, toast: message => this.toast(message) }, error),
+            done,
+        );
     }
 
     private maybeAutoPlayLookupCard(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
@@ -2279,17 +2237,11 @@ export class NewTabRuntime {
     }
 
     private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult, roots?: ParentNode[]): void {
-        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         const targetRoots = roots?.length ? roots : (this.activeLookupPopover ? [this.activeLookupPopover] : []);
         targetRoots.forEach(root => {
-            root.querySelectorAll<HTMLElement>(selector).forEach(word => {
+            this.renderedWordsForCard(root, card).forEach(word => {
                 if (!ankiLookup.primary && ankiLookup.trusted === false) return;
-                clearRenderedWordAnkiState(word);
-                if (!ankiLookup.primary) return;
-                word.classList.add(`anki-${ankiLookup.state}`);
-                word.dataset.ankiState = ankiLookup.state;
-                word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
-                word.title = `Anki: ${this.cardStateText(ankiLookup.state)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+                applyAnkiLookupToRenderedWord(word, ankiLookup, this.settings.interfaceLanguage);
             });
         });
     }
@@ -2297,15 +2249,14 @@ export class NewTabRuntime {
     private applyPitchAccentToRenderedWords(card: JPDBCard): void {
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
         if (!pitchClass) return;
-        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
-        this.activeLookupPopover?.querySelectorAll<HTMLElement>(selector).forEach(word => {
+        this.renderedWordsForCard(this.activeLookupPopover, card).forEach(word => {
             setRenderedWordPitchClass(word, pitchClass);
         });
     }
 
     private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard): void {
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-        document.querySelectorAll<HTMLElement>(this.renderedWordSelector(fallback)).forEach(word => {
+        this.renderedWordsForCard(document, fallback).forEach(word => {
             setRenderedWordPitchClass(word, pitchClass);
             setRenderedWordCardIdentity(word, card);
             applyPublicVocabularyFurigana(word, card, this.settings);
@@ -2313,34 +2264,17 @@ export class NewTabRuntime {
     }
 
     private unwrapRenderedFallbackWords(card: JPDBCard): void {
-        document.querySelectorAll<HTMLElement>(this.renderedWordSelector(card)).forEach(word => {
+        this.renderedWordsForCard(document, card).forEach(word => {
             const parent = word.parentNode;
             word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
             parent?.normalize();
         });
     }
 
-    private renderedWordSelector(card: JPDBCard): string {
-        return `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
-    }
-
-    private cardStateText(state: string): string {
-        const keys: Partial<Record<string, UiCopyKey>> = {
-            new: 'stateNew',
-            learning: 'stateLearning',
-            due: 'stateDue',
-            failed: 'stateFailed',
-            known: 'stateKnown',
-            'never-forget': 'stateNeverForget',
-            suspended: 'stateSuspended',
-            locked: 'stateLocked',
-            blacklisted: 'stateBlacklisted',
-            redundant: 'stateRedundant',
-            'in-deck': 'stateInDeck',
-            'not-in-deck': 'stateNotInDeck',
-        };
-        const key = keys[state];
-        return key ? this.text(key) : state.replace(/-/g, ' ');
+    private renderedWordsForCard(root: ParentNode | null | undefined, card: JPDBCard): HTMLElement[] {
+        if (!root) return [];
+        const key = renderedWordCardKey(card.vid, card.sid);
+        return renderedWordsInRoot(root).filter(word => renderedWordElementKey(word) === key);
     }
 
     private restoreSettingsPreviewState(): void {
@@ -2561,6 +2495,25 @@ export class NewTabRuntime {
     private isCurrentSettingsRoot(root: HTMLElement): boolean {
         return Boolean(root.isConnected && this.activeDialog === root && root.classList.contains('jpdb-reader-settings'));
     }
+}
+
+function kanjiLookupActionsClass(hasReviewTargetGutter: boolean): string {
+    return hasReviewTargetGutter ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : '';
+}
+
+function runtimeCardCommand(button: HTMLButtonElement, supplied: CardCommandCapability | undefined): CardCommandCapability | undefined {
+    return supplied ?? readCardCommandCapability(button);
+}
+
+function kanjiLookupReviewAttributes(reviewButtons: string): string {
+    return reviewButtons ? ' data-kanji-has-review="true"' : ' data-kanji-has-review="false" hidden';
+}
+
+function renderKanjiLookupMiningGutter(hasReviewTargetGutter: boolean, label: string): string {
+    if (hasReviewTargetGutter) return '';
+    return `<div class="jpdb-reader-actions-gutter" hidden>
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button>
+    </div>`;
 }
 
 function markNewTabRuntime(): void {

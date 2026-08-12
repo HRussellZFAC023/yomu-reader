@@ -227,6 +227,20 @@ describe('release workflow safety', () => {
         expect(releaseGamingWorkflow).toContain('upload_release_assets "$TAG" release-assets/*');
     });
 
+    it('builds every Gaming artifact with the audited Node and npm toolchain', () => {
+        const setupNode = releaseGamingWorkflow.indexOf("node-version-file: '.nvmrc'");
+        const pinNpm = releaseGamingWorkflow.indexOf('npm install --global npm@11.9.0');
+        const install = releaseGamingWorkflow.indexOf('- run: npm ci');
+        const build = releaseGamingWorkflow.indexOf('npm run build:gaming');
+
+        expect(nodeVersion).toBe('24.16.0');
+        expect(setupNode).toBeGreaterThan(-1);
+        expect(pinNpm).toBeGreaterThan(setupNode);
+        expect(install).toBeGreaterThan(pinNpm);
+        expect(build).toBeGreaterThan(install);
+        expect(releaseGamingWorkflow).not.toContain('node-version: 24\n');
+    });
+
     // v1.8.21, v1.8.22 and v1.8.23 each attached their desktop assets by hand: the
     // gaming build finishes ~15 minutes into a tag push and then waited only 10 for
     // the main Release — which gates on check:release + smoke:release and publishes

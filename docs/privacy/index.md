@@ -5,7 +5,7 @@ description: What Yomu keeps on your device, which services it talks to and when
 
 # Yomu privacy policy
 
-Last updated: 27 July 2026
+Last updated: 12 August 2026
 
 **The short version.** Your settings, dictionaries, saved words, and review history stay on your device. Yomu talks to an outside service only when you use a feature that needs one — a lookup service you connected, an audio source, a translation — and the page below says exactly which, and when. There is no advertising and no analytics tracking, and your data is not sold.
 
@@ -14,6 +14,8 @@ Last updated: 27 July 2026
 The extension asks to run on websites because its core purpose is to add reading, target-aware lookup, OCR, subtitle, and mining tools for your selected learning language to the page you are viewing. It uses `activeTab` for user-requested visible-tab capture, `scripting` to install the reader, `storage` for settings and local study data, and context-menu access for reader shortcuts. It does not request browsing-history access.
 
 Firefox describes the text and images Yomu reads on a page as `websiteContent`. Account keys and imported sign-in tokens are `authenticationInfo`. Yomu declares website content as required for its reader, but account information as optional. Firefox can show that optional prompt only on an extension-owned page, so account details are added from **Study → Settings**. If you try from an ordinary webpage, Yomu keeps the details unsaved and points you to Study. The Bunpro page helper does not read its token in the Firefox extension; it opens Study settings so you can paste the token there. If you decline Firefox's prompt, the integration stays off.
+
+The same owned-page boundary protects authoritative settings and onboarding choices, imports, pairing and recovery controls, account-backed study details, and captured OCR image data. On an ordinary website, Yomu keeps those values out of page-readable controls and opens Study instead; popup lookup, annotations, and subtitles still work on the page you are reading.
 
 The extension does not replace or redirect your browser's new-tab page. Study is a separate page that opens only when you choose it from Yomu's toolbar menu or visit the hosted Study page.
 
@@ -41,7 +43,7 @@ Some public data requests that a website would otherwise block can pass through 
 
 AnkiConnect normally runs on your own computer. Bunpro's imported frontend token and a read/write WaniKani personal access token grant account access and should be treated like passwords. They are masked in Settings, are not logged or placed in request URLs, and are not transmitted to a Yomu-owned account service.
 
-Google Drive settings sync is shown only in a browser-extension build that has an approved Google OAuth client configured. When enabled and invoked, it stores a settings snapshot in the private application-data area of your own Google Drive; Yomu does not receive that file. The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
+Google Drive settings sync is available only from exact Yomu-owned Study settings surfaces. Extension builds use the browser's approved identity API and background process. Hosted Study uses Google Identity Services directly; a userscript on Study uses Yomu's canonical static broker plus a one-use authorization state kept in private userscript storage. When invoked, sync stores a settings snapshot in the private application-data area of your own Google Drive. The settings file and short-lived access token travel only between your browser and Google; no Yomu server receives either. The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
 ## Optional Yomu account and encrypted Reader sync
 

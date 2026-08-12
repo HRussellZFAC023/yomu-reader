@@ -8,7 +8,7 @@ editLink: false
 
 Every setting Yomu stores is listed here, in the order the settings dialog presents them.
 
-Open the dialog from the Yomu button on any page.
+Use the Yomu button on any page. On ordinary websites, Open settings launches the Yomu-owned Study page so the host cannot read or rewrite credentials, imports, recovery codes, or the values you save. The full dialog opens directly on Study and the extension's new-tab page.
 
 Fresh setup is language-neutral. Target-specific reading and Japanese-only preferences stay inactive until you explicitly choose a learning target. Some compatibility fields retain historical stored values; when one could look like a fresh Japanese default, the table states the effective gated behavior instead.
 

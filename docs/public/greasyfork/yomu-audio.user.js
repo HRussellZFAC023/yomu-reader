@@ -453,6 +453,26 @@ async function fetchWithinAbortScope(url, init, signal) {
 function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
 }
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
+  "http://127.0.0.1:5174",
+  "http://localhost:5174",
+  "http://[::1]:5174"
+]);
+function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
+  return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+const SETTINGS_PANEL_IDS = [
+  "appearance",
+  "backup",
+  "api",
+  "dictionaries",
+  "media",
+  "mining",
+  "newTab",
+  "shortcuts",
+  "help"
+];
+new Set(SETTINGS_PANEL_IDS);
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
@@ -2488,6 +2508,12 @@ const COPY = {
   settingsSearch: "Search settings",
   settingsSearchPlaceholder: "Search settings",
   settingsSearchNoResults: "No matches.",
+  accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
+  accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
+  openAccountSettingsTrustedSurface: "Open Study settings",
+  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
+  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
+  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
   show: "Show",
@@ -2521,6 +2547,8 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
+  storedCredentialPlaceholder: "Saved — enter a replacement",
+  clearStoredCredential: "Remove saved credential",
   apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
   wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
   jpdbSettings: "JPDB settings",
@@ -4168,6 +4196,12 @@ translating	翻訳中...
   ...GRAMMAR_UI_COPY.ja
 };
 const JA_SETTINGS_COPY = {
+  accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
+  accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
+  openAccountSettingsTrustedSurface: "Studyの設定を開く",
+  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
+  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
+  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -4205,6 +4239,8 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
+storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
+clearStoredCredential	保存済みの認証情報を削除
 apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
@@ -4996,8 +5032,10 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  // Cloud settings sync handoff written before an OAuth redirect.
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  // Private, one-use cloud settings OAuth handoff. The old page-readable key
+  // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
+  { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
+  { owner: "settings/dialog-controller (legacy)", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
@@ -5237,6 +5275,99 @@ function managedStateStorageKey(key, epoch) {
   if (epoch.generation === 0) return key;
   return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
+  HOSTED_SETTINGS_BLOB_KEY,
+  "yomu:explicit-user-settings:v1"
+]);
+const HOSTED_SETTINGS_COORDINATION_FIELDS = [
+  HOSTED_SETTINGS_TRANSACTION_FIELD,
+  HOSTED_SETTINGS_COMMIT_FIELD
+];
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+function hostedStoragePromotionValue(key, value, hostedOrigin) {
+  const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
+  return isRecord(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
+}
+function sanitizedHostedStorageValue(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isRecord(value)) return value;
+  const record2 = { ...value };
+  const policy = hostedPolicyRecord(key, record2);
+  if (!policy) return value;
+  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
+  return record2;
+}
+function hostedPolicyRecord(key, record2) {
+  return HOSTED_ROOT_POLICY_KEYS.has(key) ? record2 : null;
+}
+function withoutSettingsCoordination(record2) {
+  const clean = { ...record2 };
+  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field) => delete clean[field]);
+  return clean;
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
@@ -5341,45 +5472,47 @@ function migratedLocalStorageSyncValue(key, epoch) {
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
-}
-function sanitizedStrandedLocalValue(key, value) {
-  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
-  ({ ...value });
-  {
-  return value;
-  }
 }
 function localFallbackValueForWrite(key, value) {
   return value;
 }
-async function gmStorageSet(key, value) {
+async function gmStorageSet(key, value, options = {}) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) {
-  let epoch2;
-  try {
-    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
-    epoch2 = await assertRealmManagedStateEpoch(getValue);
-    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
-    mirrorManagedValueToHostedStorage(key, value, epoch2);
-    return;
-  } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      epoch2 ??= await assertRealmManagedStateEpoch(null);
-      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
+  if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
   const epoch = await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+async function setSharedManagedValue(key, value, options, getValue, setValue) {
+  let epoch;
+  try {
+  if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+  epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  mirrorManagedValueToHostedStorage(key, value, epoch);
+  } catch (error) {
+  await handleSharedManagedWriteFailure(key, value, options, error, epoch);
+  }
+}
+async function handleSharedManagedWriteFailure(key, value, options, error, epoch) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("GM storage write failed", key, error);
+  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
+  throw storageWriteError(key, "GM storage write failed", error);
+  }
+  await writeFailedManagedValueFallback(key, value, error, epoch);
+  throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+}
+async function writeFailedManagedValueFallback(key, value, error, epoch) {
+  try {
+  const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
+  } catch (fallbackError) {
+  throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+  }
 }
 function gmStorageSetSync(key, value) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -5497,35 +5630,6 @@ function gmStorageDeleteSync(key) {
 function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  if (serialized === void 0) throw new Error("value is not JSON-serializable");
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  return serialized;
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
 function removeLocalStorageKey(key) {
   try {
   localStorage.removeItem(key);
@@ -5626,11 +5730,7 @@ function shouldMirrorManagedValueToHostedStorage(key) {
 }
 function isHostedYomuOrigin() {
   try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
   } catch {
   return false;
   }

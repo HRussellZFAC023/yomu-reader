@@ -2,7 +2,7 @@ import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml } from '../dom/index';
 import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { hasUserscriptAnkiBridge } from '../anki/index';
-import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired, readApiCredentialsFromFormData, type BunproCredentialSettings, type WanikaniCredentialSettings } from './api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired, redactedApiCredentialsFromForm, type BunproCredentialSettings, type WanikaniCredentialSettings } from './api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android`;
@@ -213,7 +213,7 @@ function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, 
 export function localizeJpdbStatus(form: HTMLFormElement, language: InterfaceLanguage): void {
     const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
     if (!status) return;
-    const credentials = readApiCredentialsFromFormData(new FormData(form));
+    const credentials = redactedApiCredentialsFromForm(form);
     const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language);
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
@@ -222,7 +222,7 @@ export function localizeJpdbStatus(form: HTMLFormElement, language: InterfaceLan
 export function localizeBunproStatus(form: HTMLFormElement, language: InterfaceLanguage): void {
     const status = form.querySelector<HTMLElement>('[data-bunpro-status]');
     if (!status) return;
-    const credentials = readApiCredentialsFromFormData(new FormData(form));
+    const credentials = redactedApiCredentialsFromForm(form);
     const line = bunproStatusLineForSettings(credentials, language);
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);

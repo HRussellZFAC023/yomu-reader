@@ -1,6 +1,7 @@
 import { isYomuNewTabUrl } from '../newtab/url';
 import { APP_REPOSITORY_NAME } from './constants';
 import {
+    isPrivilegedYomuLocalDevelopmentOrigin,
     isYomuRepositoryPath,
     readTrustedYomuUrl,
     type TrustedYomuUrl,
@@ -8,6 +9,7 @@ import {
 } from './trusted-hosted-url';
 
 type RepositoryAppPolicy = (appUrl: TrustedYomuUrl) => boolean;
+type PrivilegedAppPolicy = (value: string, appUrl: TrustedYomuUrl) => boolean;
 
 const REPOSITORY_APP_POLICIES: Record<TrustedYomuOriginKind, RepositoryAppPolicy> = {
     docs: () => true,
@@ -15,6 +17,14 @@ const REPOSITORY_APP_POLICIES: Record<TrustedYomuOriginKind, RepositoryAppPolicy
     'github-pages': appUrl => isYomuRepositoryPath(appUrl.path),
     extension: appUrl => isYomuNewTabUrl(appUrl.url.href),
     loopback: appUrl => isYomuLocalAppPath(appUrl.path),
+};
+
+const PRIVILEGED_APP_POLICIES: Record<TrustedYomuOriginKind, PrivilegedAppPolicy> = {
+    docs: isYomuActiveAppRoute,
+    'github-pages': isYomuActiveAppRoute,
+    extension: () => false,
+    loopback: isPrivilegedLocalAppRoute,
+    'docs-preview': isPrivilegedLocalAppRoute,
 };
 
 export function isYomuHostedAppUrl(value: string): boolean {
@@ -29,11 +39,7 @@ export function isYomuHostedAppUrl(value: string): boolean {
  */
 export function isYomuPrivilegedHostedAppUrl(value: string): boolean {
     const appUrl = readTrustedYomuUrl(value);
-    if (!appUrl || appUrl.originKind === 'extension') return false;
-    return isYomuNewTabUrl(value)
-        || isExactHostedAppPath(appUrl, 'video-player')
-        || isExactHostedAppPath(appUrl, 'pdf-reader')
-        || isExactHostedAppPath(appUrl, 'academy');
+    return appUrl ? PRIVILEGED_APP_POLICIES[appUrl.originKind](value, appUrl) : false;
 }
 
 /**
@@ -84,6 +90,11 @@ function isYomuActiveAppRoute(value: string, appUrl: TrustedYomuUrl): boolean {
         || isExactHostedAppPath(appUrl, 'video-player')
         || isExactHostedAppPath(appUrl, 'pdf-reader')
         || isExactHostedAppPath(appUrl, 'academy');
+}
+
+function isPrivilegedLocalAppRoute(value: string, appUrl: TrustedYomuUrl): boolean {
+    return isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin)
+        && isYomuActiveAppRoute(value, appUrl);
 }
 
 function isYomuRepositoryAppUrl(appUrl: TrustedYomuUrl): boolean {

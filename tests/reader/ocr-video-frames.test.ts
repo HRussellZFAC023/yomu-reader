@@ -9,6 +9,8 @@ import {
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { OcrLine } from '../../src/reader/ocr/response';
+import { requestManualVideoFrameOcr } from '../../src/reader/ocr/video-frame-request-bus';
+import { privateRasterImageForHost } from '../../src/reader/ocr/private-raster-presenter';
 import { createPointerEvent } from './helpers/browser-fixtures';
 import { waitForExpect } from './test-utils';
 
@@ -65,12 +67,18 @@ describe('paused-video OCR frames', () => {
         return video;
     }
 
+    function privateVideoFrame(root: ParentNode = document): HTMLImageElement {
+        const image = privateRasterImageForHost(root.querySelector('.jpdb-ocr-video-frame'));
+        if (!image) throw new Error('Missing private video-frame raster.');
+        return image;
+    }
+
     function recognizePausedFrame(lines: readonly OcrLine[]): {
         frame: HTMLImageElement;
         status: HTMLElement;
     } {
         pausedVideo().dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        const frame = privateVideoFrame();
         Object.defineProperties(frame, {
             naturalWidth: { value: 640, configurable: true },
             naturalHeight: { value: 360, configurable: true },
@@ -87,7 +95,7 @@ describe('paused-video OCR frames', () => {
         video.dispatchEvent(new Event('pause'));
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
 
-        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
+        requestManualVideoFrameOcr(video);
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
     });
 
@@ -96,11 +104,13 @@ describe('paused-video OCR frames', () => {
         const video = pausedVideo();
 
         video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame');
-        expect(frame).not.toBeNull();
-        expect(frame!.dataset.yomuVideoFrame).toBe('true');
-        expect(frame!.src.startsWith('data:image/jpeg')).toBe(true);
-        expect(frame!.style.width).toBe('640px');
+        const frameHost = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame');
+        expect(frameHost).not.toBeNull();
+        expect(frameHost!.dataset.yomuVideoFrame).toBe('true');
+        expect(frameHost!.getAttribute('src')).toBeNull();
+        expect(frameHost!.shadowRoot).toBeNull();
+        expect(privateVideoFrame().src.startsWith('data:image/jpeg')).toBe(true);
+        expect(frameHost!.style.width).toBe('640px');
 
         video.dispatchEvent(new Event('play'));
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
@@ -141,7 +151,7 @@ describe('paused-video OCR frames', () => {
         const video = pausedVideo();
 
         video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        const frame = privateVideoFrame();
         const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
         expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
         expect(frame.dataset.ocrPending).toBe('true');
@@ -203,7 +213,7 @@ describe('paused-video OCR frames', () => {
             const video = pausedVideo();
             video.dispatchEvent(new Event('pause'));
 
-            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            const frame = privateVideoFrame();
             frame.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
             Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
@@ -284,13 +294,14 @@ describe('paused-video OCR frames', () => {
             expect(status.parentElement).toBe(host);
             expect(status.dataset.yomuOcrFullscreenHosted).toBe('true');
 
-            frame.getBoundingClientRect = () => new DOMRect(120, 70, 640, 360);
-            Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
-            Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
-            frame.dataset.ocrLines = JSON.stringify([
+            const privateFrame = privateRasterImageForHost(frame)!;
+            privateFrame.getBoundingClientRect = () => new DOMRect(120, 70, 640, 360);
+            Object.defineProperty(privateFrame, 'naturalWidth', { value: 640, configurable: true });
+            Object.defineProperty(privateFrame, 'naturalHeight', { value: 360, configurable: true });
+            privateFrame.dataset.ocrLines = JSON.stringify([
                 { text: '日本語', box: { left: 64, top: 72, width: 192, height: 54 } },
             ]);
-            frame.dispatchEvent(new Event('load'));
+            privateFrame.dispatchEvent(new Event('load'));
 
             await waitForExpect(() => {
                 const overlay = host.querySelector<HTMLElement>('.jpdb-ocr-layer');
@@ -484,7 +495,7 @@ describe('paused-video OCR frames', () => {
         controller.init();
         const video = pausedVideo();
         video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        const frame = privateVideoFrame();
         const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
         const resume = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-resume')!;
         Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
@@ -629,13 +640,16 @@ describe('paused-video OCR frames', () => {
         });
     });
 
-    it('snapshots on a manual rail request even with automatic pause frames off', () => {
+    it('ignores a forged DOM request and snapshots once through the private manual path', () => {
         createController({ ocrVideoPauseFrames: false });
         const video = pausedVideo();
         video.dispatchEvent(new Event('pause'));
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
 
         document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+
+        requestManualVideoFrameOcr(video);
         expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
     });
 
@@ -930,10 +944,10 @@ describe('paused-video seek refresh', () => {
         } as never);
         controller.init();
         video.dispatchEvent(new Event('pause'));
-        const first = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!.src;
+        const first = privateRasterImageForHost(document.querySelector('.jpdb-ocr-video-frame'))!.src;
 
         video.dispatchEvent(new Event('seeked'));
-        const second = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!.src;
+        const second = privateRasterImageForHost(document.querySelector('.jpdb-ocr-video-frame'))!.src;
         expect(captures).toBe(2);
         expect(second).not.toBe(first);
 

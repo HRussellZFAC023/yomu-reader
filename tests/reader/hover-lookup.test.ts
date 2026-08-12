@@ -5,7 +5,12 @@ import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS } from '../../src/reader/popup/ho
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
+import {
+    registerRenderedWordPrivateState,
+    renderedWordPrivateValue,
+} from '../../src/reader/dom/rendered-word-private-state';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
+import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 import {
     appendActivePopoverAndPageWord,
     appendActivePopoverBody,
@@ -280,6 +285,26 @@ function readerWordFixture(sentence: string, text = sentence): HTMLElement {
     return word;
 }
 
+function bindTestRenderedWordIdentity(word: HTMLElement, vid = '1', sid = '2'): HTMLElement {
+    registerRenderedWordPrivateState(word, { vid, sid });
+    return word;
+}
+
+function appendSubtitleHoverWordPair(): { firstWord: HTMLElement; nextWord: HTMLElement } {
+    const root = document.createElement('div');
+    root.className = 'asbplayer-subtitles-container-bottom';
+    root.innerHTML = `
+        <span class="jpdb-reader-word" data-sentence="今日は読む">今日</span>
+        <span class="jpdb-reader-word" data-sentence="今日は読む">読む</span>
+    `;
+    document.body.append(root);
+    const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+    return {
+        firstWord: bindTestRenderedWordIdentity(words[0]!, '1', '2'),
+        nextWord: bindTestRenderedWordIdentity(words[1]!, '3', '4'),
+    };
+}
+
 function passiveButtonWordFixture(): { button: HTMLButtonElement; overlay: HTMLElement; word: HTMLElement } {
     const button = document.createElement('button');
     button.innerHTML = `
@@ -385,6 +410,16 @@ function appendPlayingVideo() {
     });
     document.body.append(video);
     return { video, pause: pause as VitestMock, play: play as VitestMock };
+}
+
+function setupSubtitleHoverMiningPause() {
+    vi.useFakeTimers();
+    const app = new ReaderApp();
+    const internals = app as unknown as HoverLookupInternals;
+    internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, hoverCloseDelayMs: 0 };
+    const { pause, play } = appendPlayingVideo();
+    const { firstWord, nextWord } = appendSubtitleHoverWordPair();
+    return { app, internals, pause, play, firstWord, nextWord };
 }
 
 function stubElementFromPoint(element: Element): () => void {
@@ -816,21 +851,7 @@ describe('hover lookup', () => {
     });
 
     it('keeps a subtitle hover mining pause alive while moving to the next caption word', () => {
-        vi.useFakeTimers();
-        const app = new ReaderApp();
-        const internals = app as unknown as HoverLookupInternals;
-        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, hoverCloseDelayMs: 0 };
-        const { pause, play } = appendPlayingVideo();
-        const asbRoot = document.createElement('div');
-        asbRoot.className = 'asbplayer-subtitles-container-bottom';
-        asbRoot.innerHTML = `
-            <span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">今日</span>
-            <span class="jpdb-reader-word" data-vid="3" data-sid="4" data-sentence="今日は読む">読む</span>
-        `;
-        document.body.append(asbRoot);
-        const words = Array.from(asbRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        const firstWord = words[0]!;
-        const nextWord = words[1]!;
+        const { app, internals, pause, play, firstWord, nextWord } = setupSubtitleHoverMiningPause();
         const firstPopover = document.createElement('div');
         firstPopover.className = 'jpdb-reader-popover';
         const nextPopover = document.createElement('div');
@@ -867,21 +888,7 @@ describe('hover lookup', () => {
     });
 
     it('defers subtitle hover resume when the old caption word detaches under the pointer', () => {
-        vi.useFakeTimers();
-        const app = new ReaderApp();
-        const internals = app as unknown as HoverLookupInternals;
-        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, hoverCloseDelayMs: 0 };
-        const { pause, play } = appendPlayingVideo();
-        const asbRoot = document.createElement('div');
-        asbRoot.className = 'asbplayer-subtitles-container-bottom';
-        asbRoot.innerHTML = `
-            <span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">今日</span>
-            <span class="jpdb-reader-word" data-vid="3" data-sid="4" data-sentence="今日は読む">読む</span>
-        `;
-        document.body.append(asbRoot);
-        const words = Array.from(asbRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        const firstWord = words[0]!;
-        const nextWord = words[1]!;
+        const { app, internals, pause, play, firstWord, nextWord } = setupSubtitleHoverMiningPause();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         const restorePoint = stubElementFromPoint(nextWord);
@@ -1145,13 +1152,22 @@ describe('hover lookup', () => {
         document.addEventListener('click', event => internals.handleDocumentClick(event), { capture: true, signal: controller.signal });
 
         try {
+            allowSyntheticReaderInteractionsForTests(false);
             word.dispatchEvent(new MouseEvent('click', {
                 bubbles: true,
                 cancelable: true,
                 clientX: 24,
                 clientY: 24,
             }));
+            expect(showLookupCandidate).not.toHaveBeenCalled();
 
+            allowSyntheticReaderInteractionsForTests(true);
+            word.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 24,
+                clientY: 24,
+            }));
             expect(showLookupCandidate).toHaveBeenCalledWith(
                 expect.objectContaining({
                     text: '今日は読む',
@@ -1452,12 +1468,14 @@ describe('hover lookup', () => {
             cardState: ['known'],
             pitchAccent: ['LHH'],
         };
+        registerRenderedWordPrivateState(word, { vid: '-10', sid: '-10', cardSource: 'fallback' });
         internals.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', showPitchAccent: true };
 
         try {
             internals.applyPublicVocabularyToRenderedWords(fallback, resolved);
 
-            expect(word.dataset.vid).toBe('10');
+            expect(renderedWordPrivateValue(word, 'vid')).toBe('10');
+            expect(word.dataset.vid).toBeUndefined();
             expect(word.dataset.pitchClass).not.toBe('unknown');
             expect(word.querySelector('.jpdb-reader-furi')?.textContent).toBe('さんか');
         } finally {
@@ -1509,7 +1527,7 @@ describe('hover lookup', () => {
         const internals = app as unknown as HoverLookupInternals;
         const primeUserGesture = vi.fn(() => true);
         const primeUserGestureIfUnprimed = vi.fn(() => true);
-        const word = readerWordFixture('今日は読む', '読む');
+        const word = bindTestRenderedWordIdentity(readerWordFixture('今日は読む', '読む'));
         internals.settings = {
             ...DEFAULT_SETTINGS,
             audioEnabled: true,
@@ -1555,7 +1573,7 @@ describe('hover lookup', () => {
 
     it('retries audio when the pointer returns to the same active hover card', () => {
         const app = new ReaderApp();
-        const word = readerWordFixture('今日は読む', '読む');
+        const word = bindTestRenderedWordIdentity(readerWordFixture('今日は読む', '読む'));
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         document.body.append(popover);
@@ -3693,68 +3711,51 @@ describe('hover lookup', () => {
         }
 
         function replacementWord(vid: string, sid: string): HTMLElement {
-            const replacement = readerWordFixture('今日は読む', '読む');
-            replacement.dataset.vid = vid;
-            replacement.dataset.sid = sid;
-            return replacement;
+            return bindTestRenderedWordIdentity(readerWordFixture('今日は読む', '読む'), vid, sid);
+        }
+
+        function withDisconnectedHoverReplacement(
+            replacementIds: readonly [string, string],
+            assertion: (word: HTMLElement, replacement: HTMLElement, internals: HoverLookupInternals) => void,
+        ): void {
+            const word = bindTestRenderedWordIdentity(readerWordFixture('今日は読む', '読む'));
+            const { app, internals } = setupHoverWordContext(word);
+            const replacement = replacementWord(...replacementIds);
+            word.remove();
+            const restoreStack = stubElementsFromPoint([replacement]);
+            const restorePoint = stubElementFromPoint(replacement);
+            try {
+                assertion(word, replacement, internals);
+            } finally {
+                restorePoint();
+                restoreStack();
+                cleanupReaderApp(app);
+            }
         }
 
         it('re-anchors when the hovered word node is replaced with the same vid:sid', () => {
-            const word = readerWordFixture('今日は読む', '読む');
-            const { app, internals } = setupHoverWordContext(word);
-            const replacement = replacementWord('1', '2');
-            word.remove(); // YouTube reconcile detaches the original node under a stationary cursor
-            const restoreStack = stubElementsFromPoint([replacement]);
-            const restorePoint = stubElementFromPoint(replacement);
-
-            try {
+            withDisconnectedHoverReplacement(['1', '2'], (word, replacement, internals) => {
                 expect(word.isConnected).toBe(false);
                 expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
                 expect(internals.activeHoverWord).toBe(replacement);
                 expect(internals.activePopoverAnchor).toBe(replacement);
-            } finally {
-                restorePoint();
-                restoreStack();
-                cleanupReaderApp(app);
-            }
+            });
         });
 
         it('keeps an in-flight hover result current when the hovered word is rerendered', () => {
-            const word = readerWordFixture('今日は読む', '読む');
-            const { app, internals } = setupHoverWordContext(word);
-            const replacement = replacementWord('1', '2');
-            word.remove();
-            const restoreStack = stubElementsFromPoint([replacement]);
-            const restorePoint = stubElementFromPoint(replacement);
-
-            try {
+            withDisconnectedHoverReplacement(['1', '2'], (word, replacement, internals) => {
                 expect(word.isConnected).toBe(false);
                 expect(internals.isCurrentRenderedWordHover(word, 'word:1:2:今日は読む')).toBe(true);
                 expect(internals.activeHoverWord).toBe(replacement);
                 expect(internals.activePopoverAnchor).toBe(replacement);
-            } finally {
-                restorePoint();
-                restoreStack();
-                cleanupReaderApp(app);
-            }
+            });
         });
 
         it('closes when the replacement node has a different vid:sid', () => {
-            const word = readerWordFixture('今日は読む', '読む');
-            const { app, internals } = setupHoverWordContext(word);
-            const replacement = replacementWord('9', '9');
-            word.remove();
-            const restoreStack = stubElementsFromPoint([replacement]);
-            const restorePoint = stubElementFromPoint(replacement);
-
-            try {
+            withDisconnectedHoverReplacement(['9', '9'], (word, _replacement, internals) => {
                 expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(false);
                 expect(internals.activeHoverWord).toBe(word);
-            } finally {
-                restorePoint();
-                restoreStack();
-                cleanupReaderApp(app);
-            }
+            });
         });
 
         it('closes when no rendered word sits under the pointer after replacement', () => {

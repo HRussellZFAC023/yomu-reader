@@ -8,13 +8,17 @@ import type { ReaderSettings } from '../../../src/reader/app/types';
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 
 export function renderExistingAnkiLookup(notes: AnkiExistingNote[], settings: ReaderSettings): HTMLElement {
-    const primary = notes[0] ?? null;
-    const lookup: AnkiLookupResult = { state: primary?.state ?? 'not-in-deck', notes, primary, trusted: true };
+    const lookup = existingAnkiLookup(notes);
     const container = document.createElement('div');
-    container.innerHTML = renderAnkiExistingSection(lookup, null, settings);
+    container.innerHTML = renderAnkiExistingSection(lookup, null, settings, { trustedAccountDataSurface: true });
     const section = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing');
     if (!section) throw new Error('Expected rendered Anki section');
     return section;
+}
+
+function existingAnkiLookup(notes: AnkiExistingNote[]): AnkiLookupResult {
+    const primary = notes[0] ?? null;
+    return { state: primary?.state ?? 'not-in-deck', notes, primary, trusted: true };
 }
 
 export function renderExistingAnkiNote(note: AnkiExistingNote, settings: ReaderSettings): HTMLElement {

@@ -57,12 +57,109 @@ function promiseWithTimeout(promise, timeoutMs, message) {
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
+const APP_SLUG = "yomu";
+const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+const GITHUB_OWNER = "HRussellZFAC023";
+const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const DOCS_PREVIEW_HOST = "yomureader.localhost";
+const WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+const TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_ORIGIN, "docs"],
+  [GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_PREVIEW_HOST, "docs-preview"],
+  ["127.0.0.1", "loopback"],
+  ["localhost", "loopback"],
+  ["[::1]", "loopback"]
+]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
+  "http://127.0.0.1:5174",
+  "http://localhost:5174",
+  "http://[::1]:5174"
+]);
+function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
+  return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+  url = new URL(value);
+  } catch {
+  return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
+}
+function trustedHttpsOriginKind(url, path) {
+  const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+  if (originKind !== "github-pages") return originKind ?? null;
+  return isYomuRepositoryPath(path) ? originKind : null;
+}
+function trustedWebHostKind(url) {
+  if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+  return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+function trustedExtensionOriginKind(url) {
+  if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+  return url.hostname ? "extension" : null;
+}
+const SETTINGS_PANEL_IDS = [
+  "appearance",
+  "backup",
+  "api",
+  "dictionaries",
+  "media",
+  "mining",
+  "newTab",
+  "shortcuts",
+  "help"
+];
+new Set(SETTINGS_PANEL_IDS);
+const STUDY_ROUTE_POLICIES = {
+  docs: isYomuStudyRoutePath,
+  "docs-preview": isYomuStudyRoutePath,
+  extension: isYomuStudyRoutePath,
+  "github-pages": isRepositoryStudyRoutePath,
+  loopback: isLoopbackStudyRoutePath
+};
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
 function bridgeResponseEventDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
@@ -622,8 +719,10 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  // Cloud settings sync handoff written before an OAuth redirect.
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  // Private, one-use cloud settings OAuth handoff. The old page-readable key
+  // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
+  { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
+  { owner: "settings/dialog-controller (legacy)", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
@@ -952,6 +1051,99 @@ function removeStorageValue(storage2, key, label) {
   throw new Error(`${label} could not be removed.`, { cause: error });
   }
 }
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
+  HOSTED_SETTINGS_BLOB_KEY,
+  "yomu:explicit-user-settings:v1"
+]);
+const HOSTED_SETTINGS_COORDINATION_FIELDS = [
+  HOSTED_SETTINGS_TRANSACTION_FIELD,
+  HOSTED_SETTINGS_COMMIT_FIELD
+];
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+function hostedStoragePromotionValue(key, value, hostedOrigin) {
+  const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
+  return isRecord(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
+}
+function sanitizedHostedStorageValue(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isRecord(value)) return value;
+  const record2 = { ...value };
+  const policy = hostedPolicyRecord(key, record2);
+  if (!policy) return value;
+  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
+  return record2;
+}
+function hostedPolicyRecord(key, record2) {
+  return HOSTED_ROOT_POLICY_KEYS.has(key) ? record2 : null;
+}
+function withoutSettingsCoordination(record2) {
+  const clean = { ...record2 };
+  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field) => delete clean[field]);
+  return clean;
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
@@ -1056,45 +1248,47 @@ function migratedLocalStorageSyncValue(key, epoch) {
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
-}
-function sanitizedStrandedLocalValue(key, value) {
-  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
-  ({ ...value });
-  {
-  return value;
-  }
 }
 function localFallbackValueForWrite(key, value) {
   return value;
 }
-async function gmStorageSet(key, value) {
+async function gmStorageSet(key, value, options = {}) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) {
-  let epoch2;
-  try {
-    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
-    epoch2 = await assertRealmManagedStateEpoch(getValue);
-    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
-    mirrorManagedValueToHostedStorage(key, value, epoch2);
-    return;
-  } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      epoch2 ??= await assertRealmManagedStateEpoch(null);
-      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
+  if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
   const epoch = await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+async function setSharedManagedValue(key, value, options, getValue, setValue) {
+  let epoch;
+  try {
+  if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+  epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  mirrorManagedValueToHostedStorage(key, value, epoch);
+  } catch (error) {
+  await handleSharedManagedWriteFailure(key, value, options, error, epoch);
+  }
+}
+async function handleSharedManagedWriteFailure(key, value, options, error, epoch) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("GM storage write failed", key, error);
+  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
+  throw storageWriteError(key, "GM storage write failed", error);
+  }
+  await writeFailedManagedValueFallback(key, value, error, epoch);
+  throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+}
+async function writeFailedManagedValueFallback(key, value, error, epoch) {
+  try {
+  const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
+  } catch (fallbackError) {
+  throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+  }
 }
 function gmStorageSetSync(key, value) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -1212,35 +1406,6 @@ function gmStorageDeleteSync(key) {
 function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  if (serialized === void 0) throw new Error("value is not JSON-serializable");
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  return serialized;
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
 function removeLocalStorageKey(key) {
   try {
   localStorage.removeItem(key);
@@ -1341,11 +1506,7 @@ function shouldMirrorManagedValueToHostedStorage(key) {
 }
 function isHostedYomuOrigin() {
   try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
   } catch {
   return false;
   }
@@ -2339,6 +2500,107 @@ function installCanvasMirrorRecorder(hostname = location.hostname) {
   recorderBootstrap(pageWindow(), opts);
   if (recorderAlreadyInstalled()) markRecorderMethod("current");
 }
+const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
+const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
+function syntheticInteractionAllowedForTests() {
+  return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+}
+function isDirectTrustedReaderInteraction(event) {
+  return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+}
+function isTrustedReaderInteraction(event) {
+  return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();
+}
+function trustedReaderEventHandler(handler) {
+  return (event) => {
+  if (isTrustedReaderInteraction(event)) handler(event);
+  };
+}
+function isTrustedAccountDataSurface(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (![isYomuNewTabUrl(value), appUrl.originKind !== "docs-preview"].every(Boolean)) return false;
+  return [
+  appUrl.originKind !== "loopback",
+  isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin)
+  ].some(Boolean);
+}
+function currentAccountDataSurfaceIsTrusted() {
+  return typeof location !== "undefined" && isTrustedAccountDataSurface(location.href);
+}
+const DECK_CLASS_NAME_LIMIT = 8;
+function cardDeckMembership(card) {
+  const names = cardDeckNames(card);
+  return {
+  source: cardDeckMembershipSource(card),
+  names,
+  member: hasPrimaryDeckMembership(card) || hasAnkiDeckMembership(card)
+  };
+}
+function cardDeckNames(card) {
+  return uniqueDeckNames([
+  ...primaryDeckNames(card),
+  ...ankiDeckNames(card)
+  ]);
+}
+function cardDeckMembershipClassNames(card) {
+  const membership = cardDeckMembership(card);
+  if (!membership.member) return [];
+  if (!currentAccountDataSurfaceIsTrusted()) return ["yomu-deck-member"];
+  return trustedDeckMembershipClassNames(card);
+}
+function trustedDeckMembershipClassNames(card) {
+  const classes = /* @__PURE__ */ new Set(["yomu-deck-member"]);
+  const memberships = [
+  { member: hasPrimaryDeckMembership(card), source: primaryDeckMembershipSource(card), names: primaryDeckNames(card) },
+  { member: hasAnkiDeckMembership(card), source: "anki", names: ankiDeckNames(card) }
+  ];
+  memberships.filter((membership) => membership.member).forEach((membership) => addDeckSourceClasses(classes, membership.source, membership.names));
+  return [...classes];
+}
+function deckClassSlug(value) {
+  const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+  return slug || "unnamed";
+}
+function uniqueDeckNames(values) {
+  const seen = /* @__PURE__ */ new Set();
+  return values.map((value) => value?.trim() ?? "").filter((value) => {
+  if (!value || seen.has(value)) return false;
+  seen.add(value);
+  return true;
+  });
+}
+function cardDeckMembershipSource(card) {
+  if (!hasPrimaryDeckMembership(card) && hasAnkiDeckMembership(card)) return "anki";
+  return primaryDeckMembershipSource(card);
+}
+function primaryDeckMembershipSource(card) {
+  return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+}
+function primaryDeckNames(card) {
+  return uniqueDeckNames([
+  ...card.deckNames ?? [],
+  card.sourceDeckName ?? ""
+  ]);
+}
+function ankiDeckNames(card) {
+  return uniqueDeckNames(card.ankiDeckNames ?? []);
+}
+function hasPrimaryDeckMembership(card) {
+  return primaryDeckNames(card).length > 0 || card.cardState.includes("in-deck") || Boolean(card.jpdbDeckMembership?.trim());
+}
+function hasAnkiDeckMembership(card) {
+  return ankiDeckNames(card).length > 0;
+}
+function addDeckSourceClasses(classes, source, names) {
+  classes.add(`${source}-deck-member`);
+  names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
+  const slug = deckClassSlug(name);
+  classes.add(`yomu-deck-${slug}`);
+  classes.add(`${source}-deck-${slug}`);
+  });
+}
 const CARD_STATES = /* @__PURE__ */ new Set([
   "new",
   "learning",
@@ -2415,71 +2677,6 @@ function appendNormalizedCardState(states, rawState) {
 }
 function primaryCardState(value) {
   return normalizeCardStates(value)[0] ?? "not-in-deck";
-}
-const DECK_CLASS_NAME_LIMIT = 8;
-function cardDeckMembership(card) {
-  const names = cardDeckNames(card);
-  return {
-  source: cardDeckMembershipSource(card),
-  names,
-  member: hasPrimaryDeckMembership(card) || hasAnkiDeckMembership(card)
-  };
-}
-function cardDeckNames(card) {
-  return uniqueDeckNames([
-  ...primaryDeckNames(card),
-  ...ankiDeckNames(card)
-  ]);
-}
-function cardDeckMembershipClassNames(card) {
-  const membership = cardDeckMembership(card);
-  if (!membership.member) return [];
-  const classes = /* @__PURE__ */ new Set(["yomu-deck-member"]);
-  if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes, primaryDeckMembershipSource(card), primaryDeckNames(card));
-  if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes, "anki", ankiDeckNames(card));
-  return [...classes];
-}
-function deckClassSlug(value) {
-  const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
-  return slug || "unnamed";
-}
-function uniqueDeckNames(values) {
-  const seen = /* @__PURE__ */ new Set();
-  return values.map((value) => value?.trim() ?? "").filter((value) => {
-  if (!value || seen.has(value)) return false;
-  seen.add(value);
-  return true;
-  });
-}
-function cardDeckMembershipSource(card) {
-  if (!hasPrimaryDeckMembership(card) && hasAnkiDeckMembership(card)) return "anki";
-  return primaryDeckMembershipSource(card);
-}
-function primaryDeckMembershipSource(card) {
-  return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-}
-function primaryDeckNames(card) {
-  return uniqueDeckNames([
-  ...card.deckNames ?? [],
-  card.sourceDeckName ?? ""
-  ]);
-}
-function ankiDeckNames(card) {
-  return uniqueDeckNames(card.ankiDeckNames ?? []);
-}
-function hasPrimaryDeckMembership(card) {
-  return primaryDeckNames(card).length > 0 || card.cardState.includes("in-deck") || Boolean(card.jpdbDeckMembership?.trim());
-}
-function hasAnkiDeckMembership(card) {
-  return ankiDeckNames(card).length > 0;
-}
-function addDeckSourceClasses(classes, source, names) {
-  classes.add(`${source}-deck-member`);
-  names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
-  const slug = deckClassSlug(name);
-  classes.add(`yomu-deck-${slug}`);
-  classes.add(`${source}-deck-${slug}`);
-  });
 }
 const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
 function hanIdeographSegments(text) {
@@ -2681,6 +2878,79 @@ function compact(value) {
 function formatPercent(value) {
   return `${Number(value.toFixed(3))}%`;
 }
+const TOKEN_ATTRIBUTE = "data-yomu-private-token";
+const MAX_PENDING_VALUES = 16384;
+const valuesByElement = /* @__PURE__ */ new WeakMap();
+const pendingValues = /* @__PURE__ */ new Map();
+const replayableBlueprints = /* @__PURE__ */ new Map();
+function createPrivateElementStateSlot(snapshot, options = {}) {
+  const slot = Symbol("yomu-private-element-state");
+  return {
+  attributes(value) {
+    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    return ` ${TOKEN_ATTRIBUTE}="${token}"`;
+  },
+  prepareSerialization(element, value) {
+    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const current = element.getAttribute(TOKEN_ATTRIBUTE)?.trim();
+    element.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
+  },
+  bind(element, value) {
+    element.removeAttribute(TOKEN_ATTRIBUTE);
+    setPrivateValue(element, slot, snapshot(value));
+  },
+  read(element) {
+    return element ? valuesByElement.get(element)?.get(slot) : void 0;
+  }
+  };
+}
+function registerPendingValue(slot, value, replayable) {
+  const token = privateStateToken();
+  const pending = { slot, value };
+  pendingValues.set(token, pending);
+  if (replayable) replayableBlueprints.set(token, pending);
+  prunePendingValues();
+  return token;
+}
+function hydratePrivateElementState(root) {
+  const candidates = [];
+  if (root instanceof Element && root.hasAttribute(TOKEN_ATTRIBUTE)) candidates.push(root);
+  candidates.push(...root.querySelectorAll(`[${TOKEN_ATTRIBUTE}]`));
+  for (const element of candidates) hydratePrivateElement(element);
+}
+function hydratePrivateElement(element) {
+  const tokens = element.getAttribute(TOKEN_ATTRIBUTE)?.split(/\s+/u).filter(Boolean) ?? [];
+  element.removeAttribute(TOKEN_ATTRIBUTE);
+  for (const token of tokens) {
+  const pending = pendingValues.get(token);
+  pendingValues.delete(token);
+  if (pending) setPrivateValue(element, pending.slot, pending.value);
+  }
+}
+function setPrivateValue(element, slot, value) {
+  const values = valuesByElement.get(element) ?? /* @__PURE__ */ new Map();
+  values.set(slot, value);
+  valuesByElement.set(element, values);
+}
+function prunePendingValues() {
+  pruneOldestPrivateValues(pendingValues);
+  pruneOldestPrivateValues(replayableBlueprints);
+}
+function pruneOldestPrivateValues(values) {
+  while (values.size > MAX_PENDING_VALUES) {
+  const oldest = values.keys().next().value;
+  if (oldest === void 0) return;
+  values.delete(oldest);
+  }
+}
+function privateStateToken() {
+  const bytes = new Uint32Array(4);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (value) => value.toString(36)).join("-");
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
 const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
 const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
 const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
@@ -2689,25 +2959,38 @@ const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 let trustedHtmlPolicy;
 function setInnerHtml(element, html) {
-  if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+  if (!replaceWithHtmlFragment(element, html)) {
+  element.textContent = html;
+  }
 }
 function replaceWithHtmlFragment(element, html) {
   try {
   const ownerDocument = element.ownerDocument || document;
-  const { source, rootSelector } = contextualSanitizerSource(element, html);
-  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+  const parsedRoot = parsedReplacementRoot(element, html);
   if (!parsedRoot) return false;
-  sanitizeChildren(parsedRoot, parsed);
-  const fragment = ownerDocument.createDocumentFragment();
-  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-  sanitizeChildren(fragment, ownerDocument);
-  const target = element.localName === "template" && "content" in element ? element.content : element;
-  target.replaceChildren(fragment);
+  const fragment = sanitizedReplacementFragment(ownerDocument, parsedRoot);
+  hydratePrivateElementState(fragment);
+  htmlReplacementTarget(element).replaceChildren(fragment);
   return true;
   } catch {
   return false;
   }
+}
+function parsedReplacementRoot(element, html) {
+  const { source, rootSelector } = contextualSanitizerSource(element, html);
+  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+  const root = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+  if (root) sanitizeChildren(root, parsed);
+  return root;
+}
+function sanitizedReplacementFragment(ownerDocument, parsedRoot) {
+  const fragment = ownerDocument.createDocumentFragment();
+  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+  sanitizeChildren(fragment, ownerDocument);
+  return fragment;
+}
+function htmlReplacementTarget(element) {
+  return element.localName === "template" && "content" in element ? element.content : element;
 }
 function contextualSanitizerSource(element, html) {
   if (element.namespaceURI === SVG_NAMESPACE) {
@@ -7936,6 +8219,12 @@ const COPY = {
   settingsSearch: "Search settings",
   settingsSearchPlaceholder: "Search settings",
   settingsSearchNoResults: "No matches.",
+  accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
+  accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
+  openAccountSettingsTrustedSurface: "Open Study settings",
+  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
+  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
+  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
   show: "Show",
@@ -7969,6 +8258,8 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
+  storedCredentialPlaceholder: "Saved — enter a replacement",
+  clearStoredCredential: "Remove saved credential",
   apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
   wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
   jpdbSettings: "JPDB settings",
@@ -9616,6 +9907,12 @@ translating	翻訳中...
   ...GRAMMAR_UI_COPY.ja
 };
 const JA_SETTINGS_COPY = {
+  accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
+  accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
+  openAccountSettingsTrustedSurface: "Studyの設定を開く",
+  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
+  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
+  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -9653,6 +9950,8 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
+storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
+clearStoredCredential	保存済みの認証情報を削除
 apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
@@ -11586,10 +11885,6 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-Logger.scope("Settings");
-function isPopupLookupEnabled(settings) {
-  return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
-}
 const AUDIO_SOURCE_TYPE_VALUES = [
   "jpod101",
   "language-pod-101",
@@ -11618,6 +11913,10 @@ new Set(AUDIO_SOURCE_TYPE_VALUES);
 new Set(
   DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
 );
+Logger.scope("Settings");
+function isPopupLookupEnabled(settings) {
+  return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+}
 const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
 const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
   "kanji-doodle",
@@ -11757,18 +12056,20 @@ function isDifficultKanji(char) {
   return KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char);
 }
 function readerWordClassName(state2, token, settings) {
-  const classes = ["jpdb-reader-word"];
-  if (isParticleCard(token.card)) {
-  classes.push("jpdb-reader-particle");
-  }
-  if (hasKnownCardState(token.card)) {
-  classes.push(`jpdb-${state2}`);
-  const source = readerCardSource(token.card);
-  if (source !== "jpdb") classes.push(`${source}-${state2}`);
-  }
-  classes.push(...cardDeckMembershipClassNames(token.card));
-  if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
-  return classes.join(" ");
+  const hasKnownState = hasKnownCardState(token.card);
+  return [
+  "jpdb-reader-word",
+  isParticleCard(token.card) ? "jpdb-reader-particle" : "",
+  hasKnownState ? `jpdb-${state2}` : "",
+  trustedProviderStateClass(token.card, state2, hasKnownState),
+  ...cardDeckMembershipClassNames(token.card),
+  settings.showPitchAccent ? `jpdb-pitch-${tokenPitchClass(token)}` : ""
+  ].filter(Boolean).join(" ");
+}
+function trustedProviderStateClass(card, state2, hasKnownState) {
+  const source = readerCardSource(card);
+  const visible = [hasKnownState, currentAccountDataSurfaceIsTrusted(), source !== "jpdb"].every(Boolean);
+  return visible ? `${source}-${state2}` : "";
 }
 function hasKnownCardState(card) {
   return Array.isArray(card.cardState) && card.cardState.length > 0;
@@ -12064,8 +12365,75 @@ function rubyBaseKanaRuns(base) {
 function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
 }
-function cardStateProvenance(card) {
+const privateStateSlot = createPrivateElementStateSlot(
+  (state2) => Object.freeze({ ...state2 }),
+  { replayable: true }
+);
+const DATASET_KEYS = {
+  vid: "vid",
+  sid: "sid",
+  cardSource: "cardSource",
+  cardId: "cardId",
+  readingIndex: "readingIndex",
+  cardState: "cardState",
+  stateProvenance: "stateProvenance",
+  srsProvider: "srsProvider",
+  bunproState: "bunproState",
+  bunproPrefillState: "bunproPrefillState",
+  bunproPrefillProvenance: "bunproPrefillProvenance",
+  ankiState: "ankiState",
+  ankiDecks: "ankiDecks"
+};
+function renderedWordPrivateStateForCard(card, state2) {
+  const source = renderedWordCardSource(card);
+  return {
+  vid: String(card.vid),
+  sid: String(card.sid),
+  cardSource: source,
+  cardId: String(renderedWordProviderNumber(source, card.jitenWordId, card.vid)),
+  readingIndex: String(renderedWordProviderNumber(source, card.jitenReadingIndex, card.sid)),
+  cardState: state2,
+  stateProvenance: renderedWordStateProvenance(card)
+  };
+}
+function renderedWordCardSource(card) {
+  if (card.source) return card.source;
+  return card.reviewSource === "jiten-api" ? "jiten" : "jpdb";
+}
+function renderedWordProviderNumber(source, jitenValue, fallback) {
+  if (source !== "jiten") return fallback;
+  return jitenValue ?? fallback;
+}
+function renderedWordStateProvenance(card) {
   return card.provisionalState === true ? "provisional" : "authoritative";
+}
+function renderedWordPrivateAttributes(card, state2) {
+  return renderedWordPrivateAttributesForState(renderedWordPrivateStateForCard(card, state2));
+}
+function renderedWordPrivateAttributesForState(privateState) {
+  const trustedAttributes = currentAccountDataSurfaceIsTrusted() ? Object.entries(privateState).map(([key, value]) => ` data-${datasetAttributeName(DATASET_KEYS[key])}="${escapeAttributeValue(String(value))}"`).join("") : "";
+  return ` data-yomu-word="true"${privateStateSlot.attributes(privateState)}${trustedAttributes}`;
+}
+function renderedWordPrivateValue(word, key) {
+  return readRenderedWordPrivateState(word)?.[key];
+}
+function readRenderedWordPrivateState(word) {
+  return privateStateSlot.read(word);
+}
+function datasetAttributeName(key) {
+  return String(key).replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
+}
+function escapeAttributeValue(value) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function renderedWordsInRoot(root) {
+  const words = /* @__PURE__ */ new Set();
+  if (root instanceof HTMLElement && isRegisteredRenderedWord(root)) words.add(root);
+  root.querySelectorAll('.jpdb-reader-word[data-yomu-word="true"], .jpdb-reader-word[data-vid][data-sid]').forEach((word) => words.add(word));
+  return [...words];
+}
+function isRegisteredRenderedWord(element) {
+  return element.matches('.jpdb-reader-word[data-yomu-word="true"], .jpdb-reader-word[data-vid][data-sid]');
 }
 function isTargetLanguageText(text) {
   return activeLearningTarget().isLookupableText(text);
@@ -12097,6 +12465,60 @@ const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"
 roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
 `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
 roleSelectors("menu,menubar,toolbar,tablist");
+function renderRenderedWordHtml(surface, token, settings, miningInsightKeys) {
+  const state2 = primaryCardState(token.card.cardState);
+  const hasRuby = shouldRenderRuby(surface, token, settings);
+  const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
+  const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
+  const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
+  const classes = renderedWordClassNames(state2, token, settings, hasRuby, hasMiningInsight);
+  const privateAttributes = renderedWordPrivateAttributes(token.card, state2);
+  const attributes = renderedWordAttributes(surface, token, settings, pitchClass, hasMiningInsight);
+  return `<span class="${classes}"${privateAttributes}${attributes} tabindex="-1">${content}</span>`;
+}
+function renderedWordClassNames(state2, token, settings, hasRuby, hasMiningInsight) {
+  return [
+  readerWordClassName(state2, token, settings),
+  hasRuby ? "jpdb-reader-has-furi" : "",
+  hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
+  ].filter(Boolean).join(" ");
+}
+function renderedWordAttributes(surface, token, settings, pitchClass, hasMiningInsight) {
+  return [
+  ` data-token-start="${token.start}" data-token-end="${token.end}"`,
+  ` data-surface="${escapeHtml(surface)}"`,
+  optionalDataAttribute("pitch-class", pitchClass),
+  renderedWordPitchComponentAttributes(token.card, settings.showPitchAccent),
+  ` data-sentence="${escapeHtml(token.sentence ?? "")}"`,
+  conditionalDataAttribute("mining-insight", hasMiningInsight, "i-plus-one"),
+  optionalDataAttribute("expression", token.card.spelling),
+  optionalDataAttribute("reading", token.card.reading),
+  renderedWordPitchAccentAttribute(token, settings.showPitchAccent, pitchClass),
+  renderDeckMembershipAttributes(token.card)
+  ].join("");
+}
+function renderedWordPitchAccentAttribute(token, showPitchAccent, pitchClass) {
+  const pitchAccent = token.card.pitchAccent.join("|");
+  const visiblePitchAccent = [showPitchAccent, Boolean(pitchAccent), pitchClass !== "particle"].every(Boolean) ? pitchAccent : "";
+  return optionalDataAttribute("pitch-accent", visiblePitchAccent);
+}
+function renderedWordPitchComponentAttributes(card, showPitchAccent) {
+  const gradient = showPitchAccent ? pitchComponentUnderlineGradient(card) : "";
+  if (!gradient) return "";
+  return ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(gradient)}"`;
+}
+function optionalDataAttribute(name, value) {
+  return value ? ` data-${name}="${escapeHtml(value)}"` : "";
+}
+function conditionalDataAttribute(name, enabled, value) {
+  return enabled ? optionalDataAttribute(name, value) : "";
+}
+function renderDeckMembershipAttributes(card) {
+  const membership = cardDeckMembership(card);
+  if (!membership.member || !currentAccountDataSurfaceIsTrusted()) return "";
+  const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(", "))}"` : "";
+  return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
+}
 new Set(
   "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
 );
@@ -12112,7 +12534,7 @@ function renderTokensToHtml(text, tokens, settings) {
   const miningInsightKeys = miningInsightTokenKeys(safeTokens);
   for (const token of safeTokens) {
   if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
-  html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
+  html += renderRenderedWordHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
   offset = token.end;
   }
   if (offset < text.length) html += escapeHtml(text.slice(offset));
@@ -12123,40 +12545,6 @@ function plainTextBeforeTokenHtml(gap) {
   if (!digits) return escapeHtml(gap);
   const prefix = gap.slice(0, gap.length - digits.length);
   return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
-}
-function renderTokenHtml(surface, token, settings, miningInsightKeys) {
-  const state2 = primaryCardState(token.card.cardState);
-  const hasRuby = shouldRenderRuby(surface, token, settings);
-  const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
-  const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-  const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
-  const classes = [
-  readerWordClassName(state2, token, settings),
-  hasRuby ? "jpdb-reader-has-furi" : "",
-  hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
-  ].filter(Boolean).join(" ");
-  const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
-  const cardId = ` data-card-id="${readerCardId(token.card)}"`;
-  const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-  const cardState = ` data-card-state="${escapeHtml(state2)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
-  const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
-  const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
-  const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
-  const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : "";
-  const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
-  const pitchAccent = token.card.pitchAccent.join("|");
-  const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-  const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
-  const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
-  const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
-  const deck = renderDeckMembershipAttributes(token.card);
-  return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
-}
-function renderDeckMembershipAttributes(card) {
-  const membership = cardDeckMembership(card);
-  if (!membership.member) return "";
-  const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(", "))}"` : "";
-  return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
 function claimOcrScan(owner) {
   const token = Symbol("ocr-scan");
@@ -14788,12 +15176,6 @@ function readerCanvasSourceImageUrl() {
 function canUseReaderCanvasSourceImageFallback(hostname = location.hostname) {
   return !isBookwalkerViewerHost(hostname);
 }
-function positionCanvasFrameImage(frame, rect) {
-  frame.style.left = `${rect.left}px`;
-  frame.style.top = `${rect.top}px`;
-  frame.style.width = `${rect.width}px`;
-  frame.style.height = `${rect.height}px`;
-}
 function backgroundImageReaderUrl(element) {
   const image = getComputedStyle(element).backgroundImage;
   return firstCssBackgroundUrl(image);
@@ -15269,14 +15651,7 @@ class OcrWordRenderStateRegistry {
   states = /* @__PURE__ */ new WeakMap();
   rememberLine(line, tokens) {
   const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
-  line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-    const token = tokensByKey.get(ocrRenderedWordKey(word));
-    if (!token) return;
-    this.states.set(word, {
-      surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || "",
-      token
-    });
-  });
+  renderedWordsInRoot(line).forEach((word) => this.rememberWord(line, word, tokensByKey));
   }
   get(word) {
   return this.states.get(word);
@@ -15286,17 +15661,41 @@ class OcrWordRenderStateRegistry {
   if (!state2) return;
   const previousSpelling = state2.token.card.spelling;
   const previousReading = state2.token.card.reading;
-  const renderedState = word.dataset.cardState?.trim();
-  state2.token.card = renderedState && !card.cardState.includes(renderedState) ? { ...card, cardState: [renderedState] } : card;
-  if (previousSpelling !== state2.token.card.spelling || previousReading !== state2.token.card.reading) state2.token.rubies = [];
+  state2.token.card = cardForRenderedState(word, card);
+  if (cardIdentityChanged(previousSpelling, previousReading, state2.token.card)) state2.token.rubies = [];
   state2.token.pitchClass = pitchClass;
   }
+  rememberWord(line, word, tokensByKey) {
+  const token = tokensByKey.get(ocrRenderedWordKey(word));
+  if (!token) return;
+  this.states.set(word, { surface: ocrRenderedWordSurface(line, word, token), token });
+  }
+}
+function cardForRenderedState(word, card) {
+  const renderedState = renderedWordPrivateValue(word, "cardState")?.trim();
+  if (!renderedState) return card;
+  if (card.cardState.includes(renderedState)) return card;
+  return { ...card, cardState: [renderedState] };
+}
+function cardIdentityChanged(spelling, reading, card) {
+  return spelling !== card.spelling || reading !== card.reading;
+}
+function ocrRenderedWordSurface(line, word, token) {
+  return word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || "";
 }
 function ocrTokenRenderKey(token) {
   return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
 }
 function ocrRenderedWordKey(word) {
-  return `${word.dataset.tokenStart ?? ""}:${word.dataset.tokenEnd ?? ""}:${word.dataset.vid ?? ""}:${word.dataset.sid ?? ""}`;
+  return [
+  word.dataset.tokenStart,
+  word.dataset.tokenEnd,
+  renderedWordPrivateValue(word, "vid"),
+  renderedWordPrivateValue(word, "sid")
+  ].map(ocrRenderKeyPart).join(":");
+}
+function ocrRenderKeyPart(value) {
+  return value ?? "";
 }
 const READER_PAINT_CONTAINER_SELECTOR = [
   "[data-jpdb-reader-root]",
@@ -15364,42 +15763,166 @@ function isBackgroundImageReaderNode(node) {
 function hasRenderableMediaDescendant(node) {
   return node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
 }
-function isTerminalOcrStatus(status) {
-  return status === "empty" || status === "failed";
+const MANUAL_VIDEO_FRAME_REQUEST_SLOT = Symbol.for("yomu.private-manual-video-frame-request.v1");
+function subscribeToManualVideoFrameOcrRequests(listener) {
+  const listeners = manualVideoFrameRequestBus().listeners;
+  listeners.add(listener);
+  return () => {
+  listeners.delete(listener);
+  };
 }
-const MAX_CACHE_ITEMS = 36;
-const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
-const OCR_STATUS_READY_DWELL_MS = 1e3;
-const OCR_STATUS_FADE_MS = 360;
-const READER_RASTER_RETRY_BASE_MS = 140;
-const READER_RASTER_RETRY_MAX_MS = 1100;
-const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
-const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
-const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
-const READER_RASTER_EMPTY_RETRY_MS = 400;
-const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
-const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
-const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
-const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8e3;
-const BOOKWALKER_RECORDER_BOOT_GRACE_MS = 15e3;
-const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
-const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
-const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
-const READER_RASTER_REGION_MIN_SIZE_PX = 96;
-const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
-const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
-const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
-const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
-const bookwalkerAssetResolver = new BookwalkerAssetResolver();
-const log = Logger.scope("OCR");
-const STALE_OCR_STATE = Symbol("stale-ocr-state");
-const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
-let ocrLayerCounter = 0;
-const OCR_PROVIDER_LABELS = {
-  "google-lens": () => "google-lens",
-  "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
-  "local-service": localServiceProviderLabel
-};
+function manualVideoFrameRequestBus() {
+  const realm = globalThis;
+  const existing = realm[MANUAL_VIDEO_FRAME_REQUEST_SLOT];
+  if (isManualVideoFrameRequestBus(existing)) return existing;
+  const bus = { listeners: /* @__PURE__ */ new Set() };
+  Object.defineProperty(realm, MANUAL_VIDEO_FRAME_REQUEST_SLOT, {
+  configurable: true,
+  enumerable: false,
+  value: bus,
+  writable: false
+  });
+  return bus;
+}
+function isManualVideoFrameRequestBus(value) {
+  return Boolean(value && typeof value === "object" && value.listeners instanceof Set);
+}
+const presentationsByImage = /* @__PURE__ */ new WeakMap();
+const imagesByHost = /* @__PURE__ */ new WeakMap();
+function createPrivateRasterImage(className) {
+  const host = document.createElement("div");
+  host.className = className;
+  host.dataset.yomuPrivateRasterHost = "true";
+  host.setAttribute("aria-hidden", "true");
+  const root = host.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
+  const image = document.createElement("img");
+  image.alt = "";
+  root.append(style, image);
+  const presentation = { host, image, root };
+  presentationsByImage.set(image, presentation);
+  imagesByHost.set(host, image);
+  return image;
+}
+function privateRasterHost(image) {
+  const host = presentationsByImage.get(image)?.host;
+  if (!host) throw new Error("OCR raster image has no private presentation.");
+  return host;
+}
+function setPrivateRasterClass(image, className, enabled) {
+  image.classList.toggle(className, enabled);
+  privateRasterHost(image).classList.toggle(className, enabled);
+}
+function setPrivateRasterSource(image, source, options = {}) {
+  const presentation = presentationsByImage.get(image);
+  if (!presentation) throw new Error("OCR raster image has no private presentation.");
+  releaseOwnedObjectUrl(presentation);
+  image.src = source;
+  if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
+}
+function positionPrivateRasterImage(image, rect) {
+  for (const element of [privateRasterHost(image), image]) {
+  element.style.left = `${rect.left}px`;
+  element.style.top = `${rect.top}px`;
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+  }
+}
+function releasePrivateRasterImage(image) {
+  const presentation = presentationsByImage.get(image);
+  if (!presentation) {
+  image.removeAttribute("src");
+  image.remove();
+  return;
+  }
+  releaseOwnedObjectUrl(presentation);
+  image.removeAttribute("src");
+  presentation.root.replaceChildren();
+  presentation.host.remove();
+  presentationsByImage.delete(image);
+  imagesByHost.delete(presentation.host);
+}
+function releaseOwnedObjectUrl(presentation) {
+  const url = presentation.ownedObjectUrl;
+  presentation.ownedObjectUrl = void 0;
+  if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+}
+function isVisibleOcrImage(image) {
+  return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
+}
+function isImageVisibleForOcr(image, rect) {
+  return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
+}
+function isInsideHiddenAncestor(element, includeAriaHidden = true) {
+  for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
+  if (hiddenAncestor(current, includeAriaHidden)) return true;
+  }
+  return false;
+}
+function hiddenAncestor(element, includeAriaHidden) {
+  return isHiddenByCss(element) || element.hasAttribute("hidden") || ariaHidden(element, includeAriaHidden);
+}
+function ariaHidden(element, included) {
+  return included && element.getAttribute("aria-hidden") === "true";
+}
+function rectIntersectsViewport(rect) {
+  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+}
+function isHiddenByCss(element) {
+  const style = getComputedStyle(element);
+  return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
+}
+function isNearViewport(element, margin) {
+  const rect = element.getBoundingClientRect();
+  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+}
+function isImageOccludedByVideo(image, rect) {
+  if (image.dataset.yomuVideoFrame) return false;
+  const imageArea = rect.width * rect.height;
+  if (imageArea < 4) return false;
+  const imageRoot = image.getRootNode();
+  return [...document.querySelectorAll("video")].some((video) => isVisiblePeerVideo(video, image, imageRoot) && videoOccludesImage(video, rect, imageArea));
+}
+function isVisiblePeerVideo(video, image, imageRoot) {
+  return [
+  video.isConnected,
+  video.getRootNode() === imageRoot,
+  !isSameMediaNode(video, image),
+  visibleVideoRect(video) !== null,
+  !isHiddenByCss(video)
+  ].every(Boolean);
+}
+function visibleVideoRect(video) {
+  const rect = video.getBoundingClientRect();
+  return rect.width >= 2 && rect.height >= 2 ? rect : null;
+}
+function videoOccludesImage(video, imageRect, imageArea) {
+  const videoRect = visibleVideoRect(video);
+  return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
+}
+function isSameMediaNode(video, image) {
+  return video === image.parentElement || image === video.parentElement;
+}
+function intersectionArea(a, b) {
+  const left = Math.max(a.left, b.left);
+  const top = Math.max(a.top, b.top);
+  const right = Math.min(a.right, b.right);
+  const bottom = Math.min(a.bottom, b.bottom);
+  return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+const VIDEO_FRAME_MAX_WIDTH = 960;
+const VIDEO_FRAME_JPEG_QUALITY = 0.84;
+function videoFrameDataUrl(video) {
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(1, VIDEO_FRAME_MAX_WIDTH / video.videoWidth);
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return void 0;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", VIDEO_FRAME_JPEG_QUALITY);
+}
 const VIDEO_FRAME_PLAYER_SELECTOR = [
   "#movie_player",
   ".html5-video-player",
@@ -15448,6 +15971,280 @@ const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
   "yt-image",
   ".yt-core-image"
 ].join(",");
+function captureVideoFrameDataUrl(video) {
+  try {
+  if (!videoHasDecodedFrame(video)) return void 0;
+  return videoFrameDataUrl(video);
+  } catch {
+  return void 0;
+  }
+}
+function videoHasDecodedFrame(video) {
+  return Math.min(video.videoWidth, video.videoHeight) > 0 && video.readyState >= 2;
+}
+function isLikelyPausedVideoThumbnail(video) {
+  if (isExplicitVideoThumbnail(video)) return true;
+  if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
+  return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) && !isPrimaryPlayerSizedVideo(video);
+}
+function isExplicitVideoThumbnail(video) {
+  return isTwitterHost() || Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR));
+}
+function isTwitterHost(hostname = location.hostname) {
+  return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
+}
+function isPrimaryPlayerSizedVideo(video) {
+  const rect = video.getBoundingClientRect();
+  if (!hasMinimumPlayerSize(rect)) return false;
+  const viewport = currentViewportSize();
+  if (!viewport) return hasFallbackPrimaryPlayerSize(rect);
+  return isViewportProminentVideo(rect, viewport);
+}
+function hasMinimumPlayerSize(rect) {
+  return rect.width >= 280 && rect.height >= 160;
+}
+function hasFallbackPrimaryPlayerSize(rect) {
+  return rect.width >= 480 && rect.height >= 270;
+}
+function currentViewportSize() {
+  const width = firstNonZeroDimension(window.innerWidth, document.documentElement.clientWidth);
+  const height = firstNonZeroDimension(window.innerHeight, document.documentElement.clientHeight);
+  if (!width) return void 0;
+  return height ? { width, height } : void 0;
+}
+function firstNonZeroDimension(primary, fallback) {
+  return primary || fallback || 0;
+}
+function isViewportProminentVideo(rect, viewport) {
+  return rect.width >= viewport.width * 0.6 || rect.width * rect.height >= viewport.width * viewport.height * 0.25;
+}
+function positionVideoFrameImage(frame, rect, video) {
+  const content = videoContentBox(rect, video);
+  for (const element of [privateRasterHost(frame), frame]) {
+  setOcrArtifactPosition(element, content.left, content.top);
+  element.style.width = `${content.width}px`;
+  element.style.height = `${content.height}px`;
+  }
+}
+function positionVideoFrameResumeControl(control, rect, video) {
+  const root = videoFrameArtifactRoot(video);
+  if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
+  attachVideoFrameResumeControlFallback(control, root);
+  const content = videoContentBox(rect, video);
+  setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
+}
+function positionVideoFrameStatus(status, rect, video) {
+  const content = videoContentBox(rect, video);
+  positionOcrImageStatus(status, content);
+}
+function positionOcrImageStatus(status, rect) {
+  const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
+  setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
+  status.style.maxWidth = `${maxWidth}px`;
+}
+function appendOcrArtifactToRoot(element, root) {
+  const oldRoot = element.parentElement;
+  const fullscreenHosted = root !== document.body;
+  if (fullscreenHosted) prepareOcrFullscreenHost(root);
+  element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
+  if (oldRoot !== root) root.append(element);
+  clearOcrFullscreenHostMarker(oldRoot);
+}
+function removeOcrArtifact(element) {
+  const oldRoot = element.parentElement;
+  element.remove();
+  clearOcrFullscreenHostMarker(oldRoot);
+}
+function clearOcrFullscreenHostMarker(root) {
+  if (!isFullscreenArtifactContainer(root)) return;
+  if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
+  delete root.dataset.yomuOcrFullscreenHost;
+  clearPreparedFullscreenHostPosition(root);
+}
+function isFullscreenArtifactContainer(root) {
+  return root instanceof HTMLElement && root !== document.body;
+}
+function clearPreparedFullscreenHostPosition(root) {
+  if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
+  root.style.position = "";
+  delete root.dataset.yomuOcrFullscreenHostPosition;
+  }
+}
+function prepareOcrFullscreenHost(root) {
+  root.dataset.yomuOcrFullscreenHost = "true";
+  const position = getComputedStyle(root).position;
+  if (position && position !== "static") return;
+  root.style.position = "relative";
+  root.dataset.yomuOcrFullscreenHostPosition = "relative";
+}
+function videoFrameArtifactRoot(video) {
+  return activeVideoFullscreenHost(video) ?? document.body;
+}
+function activeVideoFullscreenHost(video) {
+  const active = activeFullscreenElement();
+  return documentFullscreenArtifactHost(active) ?? activeElementArtifactHost(active, video) ?? closestFullscreenArtifactHost(video) ?? youtubeFullscreenHostForOcrVideo(video);
+}
+function documentFullscreenArtifactHost(active) {
+  return [document.body, document.documentElement].includes(active) ? document.body : null;
+}
+function activeElementArtifactHost(active, video) {
+  if (!active) return null;
+  if (active === video) return fullscreenVideoArtifactHost(video);
+  return active.contains(video) ? active : null;
+}
+function closestFullscreenArtifactHost(video) {
+  return connectedVideoAncestor(video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR), video);
+}
+function fullscreenVideoArtifactHost(video) {
+  const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
+  return connectedVideoAncestor(host, video) ?? youtubeFullscreenHostForOcrVideo(video);
+}
+function connectedVideoAncestor(host, video) {
+  return isConnectedVideoAncestor(host, video) ? host : null;
+}
+function isConnectedVideoAncestor(host, video) {
+  return host !== null && host !== video && host.isConnected && host.contains(video);
+}
+function youtubeFullscreenHostForOcrVideo(video) {
+  if (!isYouTubeAppHostname()) return null;
+  return scopedYoutubeFullscreenHost(video) ?? unscopedYoutubeFullscreenHost(video);
+}
+function scopedYoutubeFullscreenHost(video) {
+  return [
+  video.closest('[data-yomu-inline-fullscreen="true"]'),
+  video.closest(".html5-video-player.ytp-fullscreen"),
+  video.closest("#movie_player.ytp-fullscreen"),
+  video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
+  video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
+  video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+  ].find((element) => Boolean(element && element !== video)) ?? null;
+}
+function unscopedYoutubeFullscreenHost(video) {
+  return [
+  document.querySelector('[data-yomu-inline-fullscreen="true"]'),
+  document.querySelector(".html5-video-player.ytp-fullscreen"),
+  document.querySelector("#movie_player.ytp-fullscreen"),
+  document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
+  document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
+  document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+  ].find((element) => Boolean(element && element !== video && youtubeFullscreenHostContainsVideo(element, video))) ?? null;
+}
+function youtubeFullscreenHostContainsVideo(element, video) {
+  return element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element);
+}
+function isYouTubeMobileFullscreenHostForOcr(element) {
+  return /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
+}
+function activeFullscreenElement() {
+  const doc = document;
+  return [
+  doc.fullscreenElement,
+  doc.webkitFullscreenElement,
+  doc.mozFullScreenElement,
+  doc.msFullscreenElement
+  ].find((element) => element instanceof HTMLElement) ?? null;
+}
+function attachVideoFrameResumeControlToSubtitleRail(control, root) {
+  const rail = connectedSubtitleRailForOcrRoot(root);
+  if (!rail) return false;
+  const oldParent = control.parentElement;
+  const oldRoot = subtitlePlayerRoot(control);
+  control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+  control.dataset.yomuOcrFullscreenHosted = "false";
+  control.style.left = "";
+  control.style.top = "";
+  insertResumeControlIntoSubtitleRail(control, rail);
+  clearOcrFullscreenHostMarker(oldParent);
+  updateSubtitleRailResumeState(oldRoot);
+  updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+  return true;
+}
+function connectedSubtitleRailForOcrRoot(root) {
+  const rail = subtitleRailForOcrRoot(root);
+  return rail?.isConnected ? rail : null;
+}
+function insertResumeControlIntoSubtitleRail(control, rail) {
+  if (control.parentElement === rail) return;
+  const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
+  rail.insertBefore(control, panelButton);
+}
+function attachVideoFrameResumeControlFallback(control, root) {
+  const oldRoot = subtitlePlayerRoot(control);
+  appendOcrArtifactToRoot(control, root);
+  control.classList.add("jpdb-ocr-video-frame-resume-fallback");
+  updateSubtitleRailResumeState(oldRoot);
+}
+function removeVideoFrameResumeControl(control) {
+  const root = subtitlePlayerRoot(control);
+  removeOcrArtifact(control);
+  updateSubtitleRailResumeState(root);
+}
+function subtitleRailForOcrRoot(root) {
+  const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
+  if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
+  return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
+}
+function subtitlePlayerRoot(control) {
+  return control.closest(".jpdb-subtitle-player");
+}
+function updateSubtitleRailResumeState(root) {
+  if (!root) return;
+  root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
+}
+function playVideoIcon() {
+  return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+}
+function videoContentBox(rect, video) {
+  const intrinsicWidth = video.videoWidth;
+  const intrinsicHeight = video.videoHeight;
+  if (!hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight)) return rect;
+  const style = getComputedStyle(video);
+  const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
+  const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object.width, rect.height - object.height);
+  return new DOMRect(rect.left + offset.x, rect.top + offset.y, object.width, object.height);
+}
+function hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight) {
+  return Math.min(intrinsicWidth, intrinsicHeight, rect.width, rect.height) > 0;
+}
+function videoObjectFit(value) {
+  return ["contain", "cover", "none", "scale-down"].includes(value) ? value : "contain";
+}
+function isTerminalOcrStatus(status) {
+  return status === "empty" || status === "failed";
+}
+const MAX_CACHE_ITEMS = 36;
+const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
+const OCR_STATUS_READY_DWELL_MS = 1e3;
+const OCR_STATUS_FADE_MS = 360;
+const READER_RASTER_RETRY_BASE_MS = 140;
+const READER_RASTER_RETRY_MAX_MS = 1100;
+const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
+const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
+const READER_RASTER_EMPTY_RETRY_MS = 400;
+const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
+const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
+const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
+const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8e3;
+const BOOKWALKER_RECORDER_BOOT_GRACE_MS = 15e3;
+const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
+const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
+const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
+const READER_RASTER_REGION_MIN_SIZE_PX = 96;
+const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
+const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
+const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
+const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
+const bookwalkerAssetResolver = new BookwalkerAssetResolver();
+const log = Logger.scope("OCR");
+const STALE_OCR_STATE = Symbol("stale-ocr-state");
+const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
+let ocrLayerCounter = 0;
+const OCR_PROVIDER_LABELS = {
+  "google-lens": () => "google-lens",
+  "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
+  "local-service": localServiceProviderLabel
+};
 function shouldSkipOcrRequest(state2, userRequested) {
   return state2.autoSkipped && !userRequested;
 }
@@ -15496,6 +16293,21 @@ const MINING_PAUSE_MARKER_TTL_MS = 1500;
 function isFreshMiningPause(video) {
   const marked = Number(video.dataset.jpdbReaderMiningPause);
   return Number.isFinite(marked) && Date.now() - marked < MINING_PAUSE_MARKER_TTL_MS;
+}
+function ocrVideoSnapshotEnabled(settings) {
+  return ocrRuntimeActive(settings) && settings.ocrProvider !== "off";
+}
+function automaticPausedVideoSnapshotAllowed(video, settings, manual) {
+  if (manual) return true;
+  if (!settings.ocrVideoPauseFrames) return false;
+  if (isFreshMiningPause(video)) return false;
+  return !isLikelyPausedVideoThumbnail(video);
+}
+function pausedVideoSnapshotRectEligible(video, rect, settings, manual) {
+  return pausedVideoSnapshotAreaEligible(rect, settings, manual) && isNearViewport(video, 0) && !isHiddenByCss(video);
+}
+function pausedVideoSnapshotAreaEligible(rect, settings, manual) {
+  return manual || rect.width * rect.height >= settings.ocrMinImageArea;
 }
 class ImageOcrController {
   constructor(options) {
@@ -15566,24 +16378,22 @@ class ImageOcrController {
   replacementOcrLines = /* @__PURE__ */ new WeakMap();
   lookupLineLeases = /* @__PURE__ */ new Map();
   recentTouchOcrPoint;
-  handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
-  handleManualFrameRequest = (event) => {
-  const video = event.detail?.video;
-  if (video) this.snapshotPausedVideo(video, true);
-  };
-  handleMediaResume = (event) => this.releaseVideoFrame(event.target);
-  handleMediaSeeked = (event) => this.refreshVideoFrameAfterSeek(event.target);
-  handleDocumentPointerDown = (event) => {
+  handleMediaPause = trustedReaderEventHandler((event) => this.snapshotPausedVideo(event.target));
+  handleManualFrameRequest = (video) => this.snapshotPausedVideo(video, true);
+  unsubscribeManualFrameRequests = () => void 0;
+  handleMediaResume = trustedReaderEventHandler((event) => this.releaseVideoFrame(event.target));
+  handleMediaSeeked = trustedReaderEventHandler((event) => this.refreshVideoFrameAfterSeek(event.target));
+  handleDocumentPointerDown = trustedReaderEventHandler((event) => {
   this.unpinOcrLinesFromDocumentEvent(event);
   this.requestOcrFromPointerEvent(event);
-  };
-  handleDocumentTouchStart = (event) => {
+  });
+  handleDocumentTouchStart = trustedReaderEventHandler((event) => {
   this.unpinOcrLinesFromDocumentEvent(event);
   this.requestOcrFromTouchEvent(event);
-  };
-  handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
-  handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
-  handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
+  });
+  handleDocumentPointerOver = trustedReaderEventHandler((event) => this.requestOcrFromPointerEvent(event));
+  handleDocumentPointerMove = trustedReaderEventHandler((event) => this.requestOcrFromPointerEvent(event));
+  handleDocumentClick = trustedReaderEventHandler((event) => this.unpinOcrLinesFromDocumentEvent(event));
   handleDocumentScroll = () => this.handleOcrViewportShift(120);
   handleWindowScroll = () => this.handleOcrViewportShift(240);
   handleWindowResize = () => {
@@ -15613,7 +16423,8 @@ class ImageOcrController {
   document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
   document.addEventListener("click", this.handleDocumentClick, true);
   document.addEventListener("pause", this.handleMediaPause, true);
-  document.addEventListener("yomu-ocr-video-frame-request", this.handleManualFrameRequest, true);
+  this.unsubscribeManualFrameRequests();
+  this.unsubscribeManualFrameRequests = subscribeToManualVideoFrameOcrRequests(this.handleManualFrameRequest);
   document.addEventListener("play", this.handleMediaResume, true);
   document.addEventListener("emptied", this.handleMediaResume, true);
   document.addEventListener("seeked", this.handleMediaSeeked, true);
@@ -15640,13 +16451,25 @@ class ImageOcrController {
   }
   destroy() {
   this.destroyed = true;
+  this.removeEventListeners();
+  this.releaseAllVideoFrames();
+  this.releaseAllCanvasFrames();
+  this.canvasTapRecapture.clear();
+  this.releaseAllBackgroundFrames();
+  this.cancelPendingWork();
+  this.mutationObserver?.disconnect();
+  if (this.positionFrame) window.cancelAnimationFrame(this.positionFrame);
+  this.clear();
+  }
+  removeEventListeners() {
   document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
   document.removeEventListener("touchstart", this.handleDocumentTouchStart, true);
   document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
   document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
   document.removeEventListener("click", this.handleDocumentClick, true);
   document.removeEventListener("pause", this.handleMediaPause, true);
-  document.removeEventListener("yomu-ocr-video-frame-request", this.handleManualFrameRequest, true);
+  this.unsubscribeManualFrameRequests();
+  this.unsubscribeManualFrameRequests = () => void 0;
   document.removeEventListener("play", this.handleMediaResume, true);
   document.removeEventListener("emptied", this.handleMediaResume, true);
   document.removeEventListener("seeked", this.handleMediaSeeked, true);
@@ -15654,18 +16477,12 @@ class ImageOcrController {
   window.removeEventListener("scroll", this.handleWindowScroll);
   window.removeEventListener("resize", this.handleWindowResize);
   window.removeEventListener("orientationchange", this.handleWindowResize);
-  for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
-    document.removeEventListener(eventName, this.handleWindowResize, true);
-  }
+  for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) document.removeEventListener(eventName, this.handleWindowResize, true);
   window.visualViewport?.removeEventListener("resize", this.handleVisualViewportResize);
   window.visualViewport?.removeEventListener("scroll", this.handleDocumentScroll);
-  for (const eventName of OCR_NAVIGATION_EVENTS) {
-    window.removeEventListener(eventName, this.handleSpaNavigation);
+  for (const eventName of OCR_NAVIGATION_EVENTS) window.removeEventListener(eventName, this.handleSpaNavigation);
   }
-  this.releaseAllVideoFrames();
-  this.releaseAllCanvasFrames();
-  this.canvasTapRecapture.clear();
-  this.releaseAllBackgroundFrames();
+  cancelPendingWork() {
   for (const pending of this.pendingCanvasSnapshots.values()) pending.cancelled = true;
   this.pendingCanvasSnapshots.clear();
   if (this.readerRasterPoll) {
@@ -15676,9 +16493,6 @@ class ImageOcrController {
     window.clearTimeout(this.readerRasterRetryTimer);
     this.readerRasterRetryTimer = 0;
   }
-  this.mutationObserver?.disconnect();
-  if (this.positionFrame) window.cancelAnimationFrame(this.positionFrame);
-  this.clear();
   }
   refresh(options = {}) {
   if (this.destroyed) return;
@@ -16680,43 +17494,60 @@ class ImageOcrController {
   }
   // --- Paused-video frames (UT-27) ---
   snapshotPausedVideo(target, manual = false) {
-  if (this.destroyed) return;
-  if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
-  const settings = this.options.getSettings();
-  if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
-  if (!manual) {
-    if (!settings.ocrVideoPauseFrames) return;
-    if (isFreshMiningPause(target)) return;
-    if (isLikelyPausedVideoThumbnail(target)) return;
-  }
-  const rect = target.getBoundingClientRect();
-  if (!manual && rect.width * rect.height < settings.ocrMinImageArea) return;
-  if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
-  const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
+  const request = this.pausedVideoSnapshotRequest(target, manual);
+  if (!request) return;
+  const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(request.video);
   if (!dataUrl) return;
-  const frame = document.createElement("img");
-  frame.className = "jpdb-ocr-video-frame";
-  frame.classList.add("jpdb-ocr-video-frame-pending");
+  const frame = this.createPausedVideoFrame(request.video, dataUrl);
+  this.mountPausedVideoFrame(request.video, frame, request.rect);
+  }
+  pausedVideoSnapshotRequest(target, manual) {
+  const video = this.pausedVideoTarget(target);
+  if (!video) return void 0;
+  const rect = this.pausedVideoSnapshotRect(video, this.options.getSettings(), manual);
+  if (!rect) return void 0;
+  return { video, rect };
+  }
+  pausedVideoTarget(target) {
+  if (this.destroyed) return void 0;
+  if (!(target instanceof HTMLVideoElement)) return void 0;
+  if (this.videoFrames.has(target)) return void 0;
+  return target;
+  }
+  pausedVideoSnapshotRect(video, settings, manual) {
+  if (!ocrVideoSnapshotEnabled(settings)) return void 0;
+  if (!automaticPausedVideoSnapshotAllowed(video, settings, manual)) return void 0;
+  const rect = video.getBoundingClientRect();
+  if (!pausedVideoSnapshotRectEligible(video, rect, settings, manual)) return void 0;
+  return rect;
+  }
+  createPausedVideoFrame(video, dataUrl) {
+  const frame = createPrivateRasterImage("jpdb-ocr-video-frame");
+  setPrivateRasterClass(frame, "jpdb-ocr-video-frame-pending", true);
   frame.dataset.yomuVideoFrame = "true";
   frame.dataset.ocrPending = "true";
-  frame.alt = "";
+  privateRasterHost(frame).dataset.yomuVideoFrame = "true";
+  privateRasterHost(frame).dataset.ocrPending = "true";
   frame.addEventListener("load", () => {
-    if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
+    if (this.videoFrames.get(video) === frame) this.enqueue(frame, true);
   }, { once: true });
-  frame.src = dataUrl;
-  appendOcrArtifactToRoot(frame, videoFrameArtifactRoot(target));
-  this.videoFrames.set(target, frame);
-  this.videoFrameVideos.set(frame, target);
+  setPrivateRasterSource(frame, dataUrl);
+  return frame;
+  }
+  mountPausedVideoFrame(video, frame, rect) {
+  appendOcrArtifactToRoot(privateRasterHost(frame), videoFrameArtifactRoot(video));
+  this.videoFrames.set(video, frame);
+  this.videoFrameVideos.set(frame, video);
   const status = this.createVideoFrameStatus("loading");
   status.classList.add("jpdb-ocr-video-frame-pending");
-  this.videoFrameStatuses.set(target, status);
-  positionVideoFrameStatus(status, rect, target);
-  const resume = this.createVideoFrameResumeControl(target);
-  this.videoFrameControls.set(target, resume);
-  this.syncVideoFrameArtifactMount(target, frame);
-  positionVideoFrameImage(frame, rect, target);
-  positionVideoFrameStatus(status, rect, target);
-  positionVideoFrameResumeControl(resume, rect, target);
+  this.videoFrameStatuses.set(video, status);
+  positionVideoFrameStatus(status, rect, video);
+  const resume = this.createVideoFrameResumeControl(video);
+  this.videoFrameControls.set(video, resume);
+  this.syncVideoFrameArtifactMount(video, frame);
+  positionVideoFrameImage(frame, rect, video);
+  positionVideoFrameStatus(status, rect, video);
+  positionVideoFrameResumeControl(resume, rect, video);
   this.schedulePosition();
   }
   // Reveal the rest of the overlay once OCR has produced text: the frame image
@@ -16724,8 +17555,9 @@ class ImageOcrController {
   // moment the video paused), so the readable text appears with its status.
   revealVideoFrameOverlay(image) {
   if (!this.videoFrameVideos.has(image)) return;
-  image.classList.remove("jpdb-ocr-video-frame-pending");
+  setPrivateRasterClass(image, "jpdb-ocr-video-frame-pending", false);
   delete image.dataset.ocrPending;
+  delete privateRasterHost(image).dataset.ocrPending;
   this.revealVideoFrameStatusAndResume(image);
   }
   // Reveal the status dot (the resume/play control is already visible from the
@@ -16969,17 +17801,23 @@ class ImageOcrController {
   const frame = this.videoFrames.get(target);
   if (!frame) return;
   this.videoFrames.delete(target);
-  const control = this.videoFrameControls.get(target);
+  this.releaseVideoFrameControls(target);
+  this.releaseVideoFrameImageState(frame);
+  this.videoFrameVideos.delete(frame);
+  releasePrivateRasterImage(frame);
+  }
+  releaseVideoFrameControls(video) {
+  const control = this.videoFrameControls.get(video);
   if (control) removeVideoFrameResumeControl(control);
-  this.videoFrameControls.delete(target);
-  const status = this.videoFrameStatuses.get(target);
+  this.videoFrameControls.delete(video);
+  const status = this.videoFrameStatuses.get(video);
   if (status) removeOcrArtifact(status);
-  this.videoFrameStatuses.delete(target);
+  this.videoFrameStatuses.delete(video);
+  }
+  releaseVideoFrameImageState(frame) {
   const state2 = this.states.get(frame);
   if (state2) this.releaseImageState(frame, state2);
   else this.forgetImageWork(frame);
-  this.videoFrameVideos.delete(frame);
-  removeOcrArtifact(frame);
   }
   releaseAllVideoFrames() {
   for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
@@ -17204,57 +18042,67 @@ class ImageOcrController {
   return { frameSrc, frameRect, contentKey, contentToken };
   }
   commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
-  if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-  if (!ocrRuntimeActive(this.options.getSettings())) return;
-  if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
+  if (!this.canvasSnapshotCommitAllowed(canvas, pendingSnapshot, userRequested)) return;
+  const identity = this.canvasSnapshotCommitIdentity(canvas, key, canvasRect, captured, userRequested);
+  if (!identity) return;
+  const frame = this.createCommittedCanvasFrame(canvas, canvasRect, captured, userRequested);
+  this.registerCommittedCanvasFrame(canvas, frame, key, canvasRect, captured, identity.finishContentToken, userRequested);
+  }
+  canvasSnapshotCommitAllowed(canvas, pendingSnapshot, userRequested) {
+  if (!canvasSnapshotBaseCommitAllowed(this.destroyed, canvas, this.canvasFrames.has(canvas))) return false;
+  if (!ocrRuntimeActive(this.options.getSettings())) return false;
+  return !this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested);
+  }
+  canvasSnapshotCommitIdentity(canvas, key, canvasRect, captured, userRequested) {
   const finishContentToken = canvasStablePageContentToken(canvas);
-  if (captured.contentToken && finishContentToken && finishContentToken !== captured.contentToken) {
+  if (!canvasSnapshotContentTokenMatches(captured.contentToken, finishContentToken)) {
     this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, "content identity");
-    return;
+    return void 0;
   }
   if (canvasSurfaceSnapshotKey(canvas) !== key) {
     this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, "surface identity");
+    return void 0;
+  }
+  return { finishContentToken };
+  }
+  createCommittedCanvasFrame(canvas, canvasRect, captured, userRequested) {
+  const frame = createPrivateRasterImage("jpdb-ocr-canvas-frame");
+  frame.dataset.yomuCanvasFrame = "true";
+  privateRasterHost(frame).dataset.yomuCanvasFrame = "true";
+  if (captured.contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(captured.contentKey, canvas);
+  positionPrivateRasterImage(frame, captured.frameRect);
+  frame.addEventListener("load", () => this.finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, true), { once: true });
+  frame.addEventListener("error", () => this.finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, false), { once: true });
+  document.body.append(privateRasterHost(frame));
+  return frame;
+  }
+  finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, loaded) {
+  if (this.canvasFrames.get(canvas) !== frame) return;
+  this.clearCanvasFrameLoadTimer(frame);
+  if (loaded) {
+    this.removeCanvasPendingStatus(canvas);
+    this.clearCanvasCaptureRetry(canvas);
+    this.canvasCommitMismatches.delete(canvas);
+    this.enqueue(frame, userRequested);
     return;
   }
-  const frame = document.createElement("img");
-  frame.className = "jpdb-ocr-canvas-frame";
-  frame.dataset.yomuCanvasFrame = "true";
-  if (captured.contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(captured.contentKey, canvas);
-  frame.alt = "";
-  positionCanvasFrameImage(frame, captured.frameRect);
-  const finishFrameLoad = (loaded) => {
-    if (this.canvasFrames.get(canvas) !== frame) return;
-    const timer = this.canvasFrameLoadTimers.get(frame);
-    if (timer) window.clearTimeout(timer);
-    this.canvasFrameLoadTimers.delete(frame);
-    if (loaded) {
-      this.removeCanvasPendingStatus(canvas);
-      this.clearCanvasCaptureRetry(canvas);
-      this.canvasCommitMismatches.delete(canvas);
-      this.enqueue(frame, userRequested);
-      return;
-    }
-    this.discardUnloadedCanvasFrame(canvas, frame);
-    this.handleCanvasCaptureNotReady(canvas, canvasRect, userRequested);
-  };
-  frame.addEventListener("load", () => finishFrameLoad(true), { once: true });
-  frame.addEventListener("error", () => finishFrameLoad(false), { once: true });
-  document.body.append(frame);
+  this.discardUnloadedCanvasFrame(canvas, frame);
+  this.handleCanvasCaptureNotReady(canvas, canvasRect, userRequested, true);
+  }
+  registerCommittedCanvasFrame(canvas, frame, key, canvasRect, captured, finishContentToken, userRequested) {
   this.canvasFrames.set(canvas, frame);
   this.canvasFrameSources.set(frame, canvas);
   this.canvasFrameKeys.set(canvas, key);
   const committedContentToken = captured.contentToken || finishContentToken;
-  if (committedContentToken) this.canvasFrameContentTokens.set(canvas, committedContentToken);
-  else this.canvasFrameContentTokens.delete(canvas);
+  syncStringMapEntry(this.canvasFrameContentTokens, canvas, committedContentToken);
   frame.dataset.ocrAttemptKey = canvasFrameOcrAttemptKey(canvas, key, committedContentToken);
   this.rememberCanvasSnapshotRegion(frame, canvasRect, captured.frameRect);
-  if (userRequested) this.canvasFrameUserRequested.add(canvas);
-  else this.canvasFrameUserRequested.delete(canvas);
+  syncSetEntry(this.canvasFrameUserRequested, canvas, userRequested);
   this.canvasFrameLoadTimers.set(frame, window.setTimeout(
-    () => finishFrameLoad(false),
+    () => this.finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, false),
     READER_RASTER_FRAME_LOAD_TIMEOUT_MS
   ));
-  frame.src = captured.frameSrc;
+  setPrivateRasterSource(frame, captured.frameSrc);
   this.canvasReaderSignature = canvasReaderPageSignature();
   this.canvasReaderSamePageSignatureSkips = 0;
   this.schedulePosition();
@@ -17314,9 +18162,7 @@ class ImageOcrController {
   }
   discardUnloadedCanvasFrame(canvas, frame) {
   if (this.canvasFrames.get(canvas) !== frame) return;
-  const timer = this.canvasFrameLoadTimers.get(frame);
-  if (timer) window.clearTimeout(timer);
-  this.canvasFrameLoadTimers.delete(frame);
+  this.clearCanvasFrameLoadTimer(frame);
   this.canvasFrames.delete(canvas);
   this.canvasFrameSources.delete(frame);
   this.canvasFrameStaticRects.delete(frame);
@@ -17325,7 +18171,12 @@ class ImageOcrController {
   this.canvasFrameContentTokens.delete(canvas);
   this.canvasFrameUserRequested.delete(canvas);
   this.removeImageStatusCard(frame);
-  frame.remove();
+  releasePrivateRasterImage(frame);
+  }
+  clearCanvasFrameLoadTimer(frame) {
+  const timer = this.canvasFrameLoadTimers.get(frame);
+  if (timer) window.clearTimeout(timer);
+  this.canvasFrameLoadTimers.delete(frame);
   }
   shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested) {
   if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return false;
@@ -17355,16 +18206,27 @@ class ImageOcrController {
   return isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature) && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature);
   }
   rebindExistingCanvasFrame(canvas, key, userRequested) {
-  const existing = this.findCanvasFrameBySnapshotKey(key, canvas);
-  if (!existing) return false;
-  const { canvas: previousCanvas, frame } = existing;
-  if (this.canvasFrameStaticRects.has(frame)) return false;
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return false;
+  const binding = this.rebindableCanvasFrame(canvas, key);
+  if (!binding) return false;
+  const { previousCanvas, frame, rect } = binding;
   this.removeCanvasPendingStatus(previousCanvas);
   this.removeCanvasPendingStatus(canvas);
   this.cancelCanvasSnapshot(previousCanvas);
   this.cancelCanvasSnapshot(canvas);
+  this.transferCanvasFrameBinding(previousCanvas, canvas, frame, key, userRequested);
+  positionPrivateRasterImage(frame, rect);
+  this.schedulePosition();
+  return true;
+  }
+  rebindableCanvasFrame(canvas, key) {
+  const existing = this.findCanvasFrameBySnapshotKey(key, canvas);
+  if (!existing) return void 0;
+  if (this.canvasFrameStaticRects.has(existing.frame)) return void 0;
+  const rect = canvas.getBoundingClientRect();
+  if (!rectHasArea(rect)) return void 0;
+  return { previousCanvas: existing.canvas, frame: existing.frame, rect };
+  }
+  transferCanvasFrameBinding(previousCanvas, canvas, frame, key, userRequested) {
   this.canvasFrames.delete(previousCanvas);
   this.canvasFrames.set(canvas, frame);
   this.canvasFrameSources.set(frame, canvas);
@@ -17372,18 +18234,13 @@ class ImageOcrController {
   this.canvasFrameKeys.set(canvas, key);
   const contentToken = this.canvasFrameContentTokens.get(previousCanvas) || canvasStablePageContentToken(canvas);
   this.canvasFrameContentTokens.delete(previousCanvas);
-  if (contentToken) this.canvasFrameContentTokens.set(canvas, contentToken);
-  else this.canvasFrameContentTokens.delete(canvas);
+  syncStringMapEntry(this.canvasFrameContentTokens, canvas, contentToken);
   this.canvasContentReadiness.delete(canvasContentReadinessKey(previousCanvas));
   this.canvasContentReadiness.set(canvasContentReadinessKey(canvas), canvasPageContentToken(canvas));
   this.canvasCaptureAttempts.delete(previousCanvas);
   this.canvasTapRecapture.delete(previousCanvas);
-  if (this.canvasFrameUserRequested.has(previousCanvas) || userRequested) this.canvasFrameUserRequested.add(canvas);
-  else this.canvasFrameUserRequested.delete(canvas);
+  syncSetEntry(this.canvasFrameUserRequested, canvas, this.canvasFrameUserRequested.has(previousCanvas) || userRequested);
   this.canvasFrameUserRequested.delete(previousCanvas);
-  positionCanvasFrameImage(frame, rect);
-  this.schedulePosition();
-  return true;
   }
   findCanvasFrameBySnapshotKey(key, excludeCanvas) {
   for (const [canvas, frame] of this.canvasFrames) {
@@ -17429,8 +18286,8 @@ class ImageOcrController {
   // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
   // turn) and is bounded by its own attempt count, so it can never become permanent
   // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
-  handleCanvasCaptureNotReady(canvas, rect, userRequested) {
-  if (this.deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested)) return;
+  handleCanvasCaptureNotReady(canvas, rect, userRequested, captured = false) {
+  if (!captured && this.deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested)) return;
   if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
   this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
   this.updateCanvasPendingStatus(canvas, rect, "failed");
@@ -17566,7 +18423,7 @@ class ImageOcrController {
   this.canvasFailureContentTokens.delete(canvas);
   this.canvasTapRecapture.delete(canvas);
   this.canvasFrameUserRequested.delete(canvas);
-  frame.remove();
+  releasePrivateRasterImage(frame);
   }
   releaseAllCanvasFrames() {
   for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
@@ -17584,57 +18441,80 @@ class ImageOcrController {
   }
   positionCanvasFrames() {
   for (const [canvas, status] of [...this.canvasPendingStatuses]) {
-    if (!canvas.isConnected) {
-      this.cancelCanvasSnapshot(canvas);
-      this.removeCanvasPendingStatus(canvas);
-      continue;
-    }
-    const key = this.canvasPendingStatusKeys.get(canvas);
-    if (key && canvasSurfaceSnapshotKey(canvas) !== key) {
-      this.cancelCanvasSnapshot(canvas);
-      this.removeCanvasPendingStatus(canvas);
-      continue;
-    }
-    const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
-    if (!rect) {
-      if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
-      else status.hidden = true;
-      continue;
-    }
-    status.hidden = false;
-    positionOcrImageStatus(status, rect);
+    this.positionCanvasPendingStatus(canvas, status);
   }
   for (const [canvas, frame] of [...this.canvasFrames]) {
-    if (!canvas.isConnected) {
-      this.releaseCanvasFrame(canvas);
-      continue;
-    }
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas, false)) {
-      this.releaseCanvasFrame(canvas);
-      continue;
-    }
-    const key = this.canvasFrameKeys.get(canvas);
-    if (key && key !== canvasSurfaceSnapshotKey(canvas)) {
-      this.releaseCanvasFrame(canvas);
-      this.scheduleReaderRasterRefresh(40);
-      continue;
-    }
-    const staticRect = this.canvasFrameStaticRects.get(frame);
-    if (staticRect) {
-      const currentRegionRect = this.canvasFrameRegionRect(frame, rect);
-      if (this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, rect)) {
-        if (this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame)) {
-          this.releaseCanvasFrameForResnapshot(canvas);
-          this.scheduleReaderRasterRefresh(40);
-          continue;
-        }
-      }
-      positionCanvasFrameImage(frame, currentRegionRect ?? staticRect);
-      continue;
-    }
-    positionCanvasFrameImage(frame, rect);
+    this.positionCanvasFrame(canvas, frame);
   }
+  }
+  positionCanvasPendingStatus(canvas, status) {
+  if (!this.canvasPendingStatusIsCurrent(canvas)) {
+    this.discardCanvasPendingStatus(canvas);
+    return;
+  }
+  const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+  if (!rect) {
+    this.hideUnavailableCanvasPendingStatus(canvas, status);
+    return;
+  }
+  status.hidden = false;
+  positionOcrImageStatus(status, rect);
+  }
+  canvasPendingStatusIsCurrent(canvas) {
+  if (!canvas.isConnected) return false;
+  const key = this.canvasPendingStatusKeys.get(canvas);
+  if (!key) return true;
+  return canvasSurfaceSnapshotKey(canvas) === key;
+  }
+  discardCanvasPendingStatus(canvas) {
+  this.cancelCanvasSnapshot(canvas);
+  this.removeCanvasPendingStatus(canvas);
+  }
+  hideUnavailableCanvasPendingStatus(canvas, status) {
+  if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
+  else status.hidden = true;
+  }
+  positionCanvasFrame(canvas, frame) {
+  const rect = this.connectedCanvasFrameRect(canvas);
+  if (!rect) return;
+  if (!this.canvasFrameKeyIsCurrent(canvas)) {
+    this.releaseCanvasFrame(canvas);
+    this.scheduleReaderRasterRefresh(40);
+    return;
+  }
+  const staticRect = this.canvasFrameStaticRects.get(frame);
+  if (staticRect) {
+    this.positionStaticCanvasFrame(canvas, frame, rect, staticRect);
+    return;
+  }
+  positionPrivateRasterImage(frame, rect);
+  }
+  connectedCanvasFrameRect(canvas) {
+  if (!canvas.isConnected) {
+    this.releaseCanvasFrame(canvas);
+    return void 0;
+  }
+  const rect = canvas.getBoundingClientRect();
+  if (canvasFrameRectUnavailable(canvas, rect)) {
+    this.releaseCanvasFrame(canvas);
+    return void 0;
+  }
+  return rect;
+  }
+  canvasFrameKeyIsCurrent(canvas) {
+  const key = this.canvasFrameKeys.get(canvas);
+  if (!key) return true;
+  return key === canvasSurfaceSnapshotKey(canvas);
+  }
+  positionStaticCanvasFrame(canvas, frame, canvasRect, staticRect) {
+  const currentRegionRect = this.canvasFrameRegionRect(frame, canvasRect);
+  const geometryChanged = this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect);
+  if (geometryChanged && this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame)) {
+    this.releaseCanvasFrameForResnapshot(canvas);
+    this.scheduleReaderRasterRefresh(40);
+    return;
+  }
+  positionPrivateRasterImage(frame, currentRegionRect ?? staticRect);
   }
   releaseCanvasFrameForResnapshot(canvas) {
   const preserveUserRequested = this.canvasFrameUserRequested.has(canvas);
@@ -17726,27 +18606,34 @@ class ImageOcrController {
   }
   }
   snapshotBackgroundImageSurface(surface, settings, userRequested = false) {
-  if (this.backgroundFrames.has(surface)) return;
-  const url = backgroundImageReaderUrl(surface);
+  const url = this.backgroundFrameSource(surface);
   if (!url) return;
-  const rect = surface.getBoundingClientRect();
-  if (rect.width * rect.height < settings.ocrMinImageArea) return;
-  if (!isNearViewport(surface, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
-  const frame = document.createElement("img");
-  frame.className = "jpdb-ocr-background-frame";
+  const rect = this.backgroundFrameRect(surface, settings, userRequested);
+  if (!rect) return;
+  const frame = createPrivateRasterImage("jpdb-ocr-background-frame");
   frame.dataset.yomuBackgroundFrame = "true";
-  frame.alt = "";
+  privateRasterHost(frame).dataset.yomuBackgroundFrame = "true";
   frame.decoding = "async";
-  positionCanvasFrameImage(frame, rect);
+  positionPrivateRasterImage(frame, rect);
   frame.addEventListener("load", () => {
     if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
   }, { once: true });
-  frame.src = url;
-  document.body.append(frame);
+  setPrivateRasterSource(frame, url);
+  document.body.append(privateRasterHost(frame));
   this.backgroundFrames.set(surface, frame);
   this.backgroundFrameSources.set(frame, surface);
   this.backgroundFrameKeys.set(surface, backgroundSurfaceCacheKey(surface));
   this.schedulePosition();
+  }
+  backgroundFrameSource(surface) {
+  if (this.backgroundFrames.has(surface)) return void 0;
+  return backgroundImageReaderUrl(surface);
+  }
+  backgroundFrameRect(surface, settings, userRequested) {
+  const rect = surface.getBoundingClientRect();
+  if (rect.width * rect.height < settings.ocrMinImageArea) return void 0;
+  if (!readerRasterSurfaceIsVisible(surface, readerRasterCaptureMargin(settings, userRequested))) return void 0;
+  return rect;
   }
   releaseBackgroundFrame(surface) {
   const frame = this.backgroundFrames.get(surface);
@@ -17757,7 +18644,7 @@ class ImageOcrController {
   if (state2) this.releaseImageState(frame, state2);
   else this.forgetImageWork(frame);
   this.backgroundFrameSources.delete(frame);
-  frame.remove();
+  releasePrivateRasterImage(frame);
   }
   releaseAllBackgroundFrames() {
   for (const surface of [...this.backgroundFrames.keys()]) this.releaseBackgroundFrame(surface);
@@ -17808,7 +18695,7 @@ class ImageOcrController {
       this.releaseBackgroundFrame(surface);
       continue;
     }
-    positionCanvasFrameImage(frame, surface.getBoundingClientRect());
+    positionPrivateRasterImage(frame, surface.getBoundingClientRect());
   }
   }
   positionVideoFrames() {
@@ -17989,7 +18876,7 @@ class ImageOcrController {
   let hasFurigana = false;
   const settings = this.options.getSettings();
   const isolatePageScanners = isPopupLookupEnabled(settings);
-  line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
+  renderedWordsInRoot(line).forEach((word) => {
     const state2 = this.ocrWordRenderStates.get(word);
     if (!state2) return;
     this.applyOcrPitchClass(word, state2.token);
@@ -18050,7 +18937,7 @@ class ImageOcrController {
   }
   syncVideoFrameArtifactMount(video, frame) {
   const root = videoFrameArtifactRoot(video);
-  appendOcrArtifactToRoot(frame, root);
+  appendOcrArtifactToRoot(privateRasterHost(frame), root);
   const state2 = this.states.get(frame);
   if (state2) appendOcrArtifactToRoot(state2.overlay, root);
   const status = this.videoFrameStatuses.get(video);
@@ -18480,6 +19367,33 @@ function isBookwalkerReaderSourceImage(image) {
 function isYouTubeThumbnailImage(image) {
   return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
 }
+function readerRasterSurfaceIsVisible(surface, margin) {
+  return isNearViewport(surface, margin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
+}
+function rectHasArea(rect) {
+  return rect.width > 0 && rect.height > 0;
+}
+function canvasSnapshotBaseCommitAllowed(destroyed, canvas, hasCommittedFrame) {
+  return [!destroyed, canvas.isConnected, !hasCommittedFrame].every(Boolean);
+}
+function canvasSnapshotContentTokenMatches(captured, finished) {
+  return !captured || !finished || captured === finished;
+}
+function canvasFrameRectUnavailable(canvas, rect) {
+  return [
+  !rectHasArea(rect),
+  isHiddenByCss(canvas),
+  isInsideHiddenAncestor(canvas, false)
+  ].some(Boolean);
+}
+function syncStringMapEntry(map, key, value) {
+  if (value) map.set(key, value);
+  else map.delete(key);
+}
+function syncSetEntry(set, value, present) {
+  if (present) set.add(value);
+  else set.delete(value);
+}
 const OCR_BRAND_IMAGE_TEXT_RE = /(^|[\s/_.?#&=-])(?:app-?icon|apple-touch-icon|avatar|badge|brand|favicon|icon|logo|site-icon|touch-icon|yomu-icon)(?=$|[\s/_.?#&=-])/iu;
 const OCR_BRAND_IMAGE_CONTAINER_SELECTOR = [
   "header",
@@ -18518,22 +19432,6 @@ function isIconLikeImage(image, rect = image.getBoundingClientRect()) {
   const ratio = width / height;
   return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
 }
-function isVisibleOcrImage(image) {
-  return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
-}
-function isImageVisibleForOcr(image, rect) {
-  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && !isImageOccludedByVideo(image, rect);
-}
-function isInsideHiddenAncestor(element, includeAriaHidden = true) {
-  for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
-  if (isHiddenByCss(current) || current.hasAttribute("hidden") || includeAriaHidden && current.getAttribute("aria-hidden") === "true") return true;
-  }
-  return false;
-}
-function isHiddenByCss(element) {
-  const style = getComputedStyle(element);
-  return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
-}
 function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
   return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
 }
@@ -18543,47 +19441,11 @@ function hasCanvasOcrOptInSurface() {
 function isCanvasOcrOptInSurface(canvas) {
   return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
 }
-function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
-  if (image.dataset.yomuVideoFrame) return false;
-  const imageArea = rect.width * rect.height;
-  if (imageArea < 4) return false;
-  const imageRoot = image.getRootNode();
-  for (const video of document.querySelectorAll("video")) {
-  if (!isVisiblePeerVideo(video, image, imageRoot)) continue;
-  if (videoOccludesImage(video, rect, imageArea)) return true;
-  }
-  return false;
-}
-function isVisiblePeerVideo(video, image, imageRoot) {
-  return video.isConnected && video.getRootNode() === imageRoot && !isSameMediaNode(video, image) && visibleVideoRect(video) !== null && !isHiddenByCss(video);
-}
-function visibleVideoRect(video) {
-  const rect = video.getBoundingClientRect();
-  return rect.width >= 2 && rect.height >= 2 ? rect : null;
-}
-function videoOccludesImage(video, imageRect, imageArea) {
-  const videoRect = visibleVideoRect(video);
-  return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
-}
-function isSameMediaNode(video, image) {
-  return video === image.parentElement || image === video.parentElement;
-}
-function intersectionArea(a, b) {
-  const left = Math.max(a.left, b.left);
-  const top = Math.max(a.top, b.top);
-  const right = Math.min(a.right, b.right);
-  const bottom = Math.min(a.bottom, b.bottom);
-  return Math.max(0, right - left) * Math.max(0, bottom - top);
-}
 function shouldObserveImage(image, settings) {
   return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
 }
 function hasInlineOcrFallback(image) {
   return Boolean(readFallbackOcrResult(image, false));
-}
-function isNearViewport(element, margin) {
-  const rect = element.getBoundingClientRect();
-  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
 }
 function ocrConcurrencyLimit(settings) {
   return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
@@ -18770,141 +19632,6 @@ function visibleBookwalkerSpreadSurfaces(surfaces) {
   if (centerYGap > Math.max(first.height, second.height) * 0.2) return [];
   return first.right <= second.left || second.right <= first.left ? spread : [];
 }
-function captureVideoFrameDataUrl(video) {
-  try {
-  if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return void 0;
-  const canvas = document.createElement("canvas");
-  const maxWidth = 960;
-  const scale = Math.min(1, maxWidth / video.videoWidth);
-  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-  const context = canvas.getContext("2d");
-  if (!context) return void 0;
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.84);
-  } catch {
-  return void 0;
-  }
-}
-function isTwitterHost(hostname = location.hostname) {
-  return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
-}
-function isLikelyPausedVideoThumbnail(video) {
-  if (isTwitterHost()) return true;
-  if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
-  if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-  if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
-  return !isPrimaryPlayerSizedVideo(video);
-}
-function isPrimaryPlayerSizedVideo(video) {
-  const rect = video.getBoundingClientRect();
-  if (rect.width < 280 || rect.height < 160) return false;
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  if (!viewportWidth || !viewportHeight) return rect.width >= 480 && rect.height >= 270;
-  return rect.width >= viewportWidth * 0.6 || rect.width * rect.height >= viewportWidth * viewportHeight * 0.25;
-}
-function positionVideoFrameImage(frame, rect, video) {
-  const content = videoContentBox(rect, video);
-  setOcrArtifactPosition(frame, content.left, content.top);
-  frame.style.width = `${content.width}px`;
-  frame.style.height = `${content.height}px`;
-}
-function positionVideoFrameResumeControl(control, rect, video) {
-  const root = videoFrameArtifactRoot(video);
-  if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
-  attachVideoFrameResumeControlFallback(control, root);
-  const content = videoContentBox(rect, video);
-  setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
-}
-function positionVideoFrameStatus(status, rect, video) {
-  const content = videoContentBox(rect, video);
-  const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
-  setOcrArtifactPosition(status, Math.max(8, content.left + 12), Math.max(8, content.top + 12));
-  status.style.maxWidth = `${maxWidth}px`;
-}
-function positionOcrImageStatus(status, rect) {
-  const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-  setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
-  status.style.maxWidth = `${maxWidth}px`;
-}
-function appendOcrArtifactToRoot(element, root) {
-  const oldRoot = element.parentElement;
-  const fullscreenHosted = root !== document.body;
-  if (fullscreenHosted) prepareOcrFullscreenHost(root);
-  element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
-  if (oldRoot !== root) root.append(element);
-  clearOcrFullscreenHostMarker(oldRoot);
-}
-function removeOcrArtifact(element) {
-  const oldRoot = element.parentElement;
-  element.remove();
-  clearOcrFullscreenHostMarker(oldRoot);
-}
-function clearOcrFullscreenHostMarker(root) {
-  if (!(root instanceof HTMLElement) || root === document.body) return;
-  if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
-  delete root.dataset.yomuOcrFullscreenHost;
-  if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
-  root.style.position = "";
-  delete root.dataset.yomuOcrFullscreenHostPosition;
-  }
-}
-function prepareOcrFullscreenHost(root) {
-  root.dataset.yomuOcrFullscreenHost = "true";
-  const position = getComputedStyle(root).position;
-  if (position && position !== "static") return;
-  root.style.position = "relative";
-  root.dataset.yomuOcrFullscreenHostPosition = "relative";
-}
-function videoFrameArtifactRoot(video) {
-  return activeVideoFullscreenHost(video) ?? document.body;
-}
-function activeVideoFullscreenHost(video) {
-  const active = activeFullscreenElement();
-  if (active && (active === document.body || active === document.documentElement)) return document.body;
-  if (active instanceof HTMLVideoElement && active === video) return fullscreenVideoArtifactHost(video);
-  if (active && active.contains(video)) return active;
-  const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR);
-  if (host && host.isConnected && host !== video && host.contains(video)) return host;
-  return youtubeFullscreenHostForOcrVideo(video);
-}
-function fullscreenVideoArtifactHost(video) {
-  const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
-  if (host && host !== video && host.isConnected && host.contains(video)) return host;
-  return youtubeFullscreenHostForOcrVideo(video);
-}
-function youtubeFullscreenHostForOcrVideo(video) {
-  if (!isYouTubePageForOcr()) return null;
-  const scopedHost = [
-  video.closest('[data-yomu-inline-fullscreen="true"]'),
-  video.closest(".html5-video-player.ytp-fullscreen"),
-  video.closest("#movie_player.ytp-fullscreen"),
-  video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
-  video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
-  video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-  ].find((element) => Boolean(element && element !== video));
-  if (scopedHost) return scopedHost;
-  return [
-  document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-  document.querySelector(".html5-video-player.ytp-fullscreen"),
-  document.querySelector("#movie_player.ytp-fullscreen"),
-  document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
-  document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
-  document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-  ].find((element) => Boolean(element && element !== video && (element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element)))) ?? null;
-}
-function isYouTubePageForOcr() {
-  return isYouTubeAppHostname();
-}
-function isYouTubeMobileFullscreenHostForOcr(element) {
-  return /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
-}
-function activeFullscreenElement() {
-  const doc = document;
-  const element = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.mozFullScreenElement ?? doc.msFullscreenElement ?? null;
-  return element instanceof HTMLElement ? element : null;
-}
 function videoFrameStatusTextKey(status) {
   switch (status) {
   case "ready":
@@ -18916,74 +19643,6 @@ function videoFrameStatusTextKey(status) {
   case "loading":
   default:
     return "ocrPausedFrameScanning";
-  }
-}
-function attachVideoFrameResumeControlToSubtitleRail(control, root) {
-  const rail = subtitleRailForOcrRoot(root);
-  if (!rail?.isConnected) return false;
-  const oldParent = control.parentElement;
-  const oldRoot = subtitlePlayerRoot(control);
-  control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-  control.dataset.yomuOcrFullscreenHosted = "false";
-  control.style.left = "";
-  control.style.top = "";
-  const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
-  if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
-  clearOcrFullscreenHostMarker(oldParent);
-  updateSubtitleRailResumeState(oldRoot);
-  updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-  return true;
-}
-function attachVideoFrameResumeControlFallback(control, root) {
-  const oldRoot = subtitlePlayerRoot(control);
-  appendOcrArtifactToRoot(control, root);
-  control.classList.add("jpdb-ocr-video-frame-resume-fallback");
-  updateSubtitleRailResumeState(oldRoot);
-}
-function removeVideoFrameResumeControl(control) {
-  const root = subtitlePlayerRoot(control);
-  removeOcrArtifact(control);
-  updateSubtitleRailResumeState(root);
-}
-function subtitleRailForOcrRoot(root) {
-  const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
-  if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
-  return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
-}
-function subtitlePlayerRoot(control) {
-  return control.closest(".jpdb-subtitle-player");
-}
-function updateSubtitleRailResumeState(root) {
-  if (!root) return;
-  root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
-}
-function playVideoIcon() {
-  return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-}
-function videoContentBox(rect, video) {
-  const intrinsicWidth = video.videoWidth;
-  const intrinsicHeight = video.videoHeight;
-  if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
-  const style = getComputedStyle(video);
-  const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
-  const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object.width, rect.height - object.height);
-  return {
-  left: rect.left + offset.x,
-  top: rect.top + offset.y,
-  width: object.width,
-  height: object.height
-  };
-}
-function videoObjectFit(value) {
-  switch (value) {
-  case "contain":
-  case "cover":
-  case "none":
-  case "scale-down":
-    return value;
-  case "fill":
-  default:
-    return "contain";
   }
 }
 function ocrResultTextKey(result) {
@@ -19123,10 +19782,21 @@ function safeHost(value) {
   return "inline-or-invalid";
   }
 }
-const TARGET_OWNED_DOCUMENT_START_EVENT = "yomu:target-owned-document-start";
-addWindowEventListener(TARGET_OWNED_DOCUMENT_START_EVENT, () => {
+const TARGET_OWNED_DOCUMENT_START_SLOT = Symbol.for("yomu.target-owned-document-start.v1");
+function registerTargetOwnedDocumentStartActivator(activate) {
+  Object.defineProperty(globalThis, TARGET_OWNED_DOCUMENT_START_SLOT, {
+  configurable: true,
+  enumerable: false,
+  value: activate,
+  writable: false
+  });
+}
+let documentStartActivated = false;
+registerTargetOwnedDocumentStartActivator(() => {
+  if (documentStartActivated) return;
+  documentStartActivated = true;
   installCanvasMirrorRecorder();
-}, { once: true });
+});
 registerYomuCompanion("ocr", {
   ImageOcrController,
   normalizeOcrRenderedText

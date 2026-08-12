@@ -22,6 +22,18 @@ function chunkArray(items, size) {
   for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
   return chunks;
 }
+const VIDEO_FRAME_MAX_WIDTH = 960;
+const VIDEO_FRAME_JPEG_QUALITY = 0.84;
+function videoFrameDataUrl(video) {
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(1, VIDEO_FRAME_MAX_WIDTH / video.videoWidth);
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return void 0;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", VIDEO_FRAME_JPEG_QUALITY);
+}
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
@@ -485,6 +497,99 @@ async function fetchWithinAbortScope(url, init, signal) {
 }
 function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
+}
+const DOCS_PREVIEW_HOST = "yomureader.localhost";
+const WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+const TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_ORIGIN, "docs"],
+  [GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_PREVIEW_HOST, "docs-preview"],
+  ["127.0.0.1", "loopback"],
+  ["localhost", "loopback"],
+  ["[::1]", "loopback"]
+]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
+  "http://127.0.0.1:5174",
+  "http://localhost:5174",
+  "http://[::1]:5174"
+]);
+function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
+  return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+  url = new URL(value);
+  } catch {
+  return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
+}
+function trustedHttpsOriginKind(url, path) {
+  const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+  if (originKind !== "github-pages") return originKind ?? null;
+  return isYomuRepositoryPath(path) ? originKind : null;
+}
+function trustedWebHostKind(url) {
+  if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+  return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+function trustedExtensionOriginKind(url) {
+  if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+  return url.hostname ? "extension" : null;
+}
+const SETTINGS_PANEL_IDS = [
+  "appearance",
+  "backup",
+  "api",
+  "dictionaries",
+  "media",
+  "mining",
+  "newTab",
+  "shortcuts",
+  "help"
+];
+new Set(SETTINGS_PANEL_IDS);
+const STUDY_ROUTE_POLICIES = {
+  docs: isYomuStudyRoutePath,
+  "docs-preview": isYomuStudyRoutePath,
+  extension: isYomuStudyRoutePath,
+  "github-pages": isRepositoryStudyRoutePath,
+  loopback: isLoopbackStudyRoutePath
+};
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
 }
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
@@ -2584,6 +2689,12 @@ const COPY = {
   settingsSearch: "Search settings",
   settingsSearchPlaceholder: "Search settings",
   settingsSearchNoResults: "No matches.",
+  accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
+  accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
+  openAccountSettingsTrustedSurface: "Open Study settings",
+  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
+  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
+  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
   show: "Show",
@@ -2617,6 +2728,8 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
+  storedCredentialPlaceholder: "Saved — enter a replacement",
+  clearStoredCredential: "Remove saved credential",
   apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
   wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
   jpdbSettings: "JPDB settings",
@@ -4283,6 +4396,12 @@ translating	翻訳中...
   ...GRAMMAR_UI_COPY.ja
 };
 const JA_SETTINGS_COPY = {
+  accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
+  accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
+  openAccountSettingsTrustedSurface: "Studyの設定を開く",
+  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
+  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
+  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -4320,6 +4439,8 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
+storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
+clearStoredCredential	保存済みの認証情報を削除
 apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
@@ -5040,22 +5161,6 @@ const ANKI_CARD_COLOR_TOKENS = {
   metaLabelText: "#8f9aaa",
   tableBorder: "#353c47"
 };
-const HOSTED_LOCAL_SETTINGS_KEYS = [
-  "showFurigana",
-  "furiganaMode",
-  "showPitchAccent",
-  "wordUnderlineColorSource",
-  "subtitlePlayerEnabled",
-  "subtitleAutoDetect",
-  "subtitleOverlayVisible",
-  "subtitleControlsMode",
-  "subtitleTranscriptVisible",
-  "ocrEnabled",
-  "ocrVideoPauseFrames",
-  "ocrProvider",
-  "ocrOverlayTheme",
-  "preferJapaneseSiteLanguage"
-];
 const entries = [];
 const registeredEntryIndexes = /* @__PURE__ */ new Map();
 let resetWritesSuppressed = false;
@@ -5161,8 +5266,10 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  // Cloud settings sync handoff written before an OAuth redirect.
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  // Private, one-use cloud settings OAuth handoff. The old page-readable key
+  // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
+  { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
+  { owner: "settings/dialog-controller (legacy)", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
@@ -5430,6 +5537,150 @@ async function managedGmValue(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   return read.kind === "found" ? read.value : fallback;
 }
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
+  HOSTED_SETTINGS_BLOB_KEY,
+  "yomu:explicit-user-settings:v1"
+]);
+const HOSTED_SETTINGS_COORDINATION_FIELDS = [
+  HOSTED_SETTINGS_TRANSACTION_FIELD,
+  HOSTED_SETTINGS_COMMIT_FIELD
+];
+function isHostedSettingsStorageKey(key) {
+  return key === HOSTED_SETTINGS_BLOB_KEY;
+}
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+function hostedStoragePromotionValue(key, value, hostedOrigin) {
+  const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
+  return isRecord(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
+}
+function pendingHostedSettingsPatch(key, localValue, hostedOrigin) {
+  const localSettings = rawHostedSettingsRecord(key, localValue, hostedOrigin);
+  if (!localSettings) return void 0;
+  const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  if (!isRecord(patch)) return void 0;
+  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
+  return withoutSettingsCoordination(sanitized);
+}
+function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious) {
+  const current = sanitizedHostedSettingsRecord(key, value, hostedOrigin);
+  if (!current) return value;
+  const previousValue = readPrevious();
+  const previous = sanitizedHostedSettingsRecord(key, previousValue, hostedOrigin);
+  if (!previous) return current;
+  return {
+  ...current,
+  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: {
+    ...earlierHostedPatch(previousValue),
+    ...changedRecordFields(previous, current)
+  }
+  };
+}
+function sanitizedHostedStorageValue(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isRecord(value)) return value;
+  const record2 = { ...value };
+  const policy = hostedPolicyRecord(key, record2);
+  if (!policy) return value;
+  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
+  return record2;
+}
+function hostedPolicyRecord(key, record2) {
+  if (key === HOSTED_SETTINGS_INTENT_KEY) return hostedIntentRecords(record2);
+  return HOSTED_ROOT_POLICY_KEYS.has(key) ? record2 : null;
+}
+function hostedIntentRecords(record2) {
+  if (!isRecord(record2.records)) return null;
+  return record2.records = { ...record2.records };
+}
+function rawHostedSettingsRecord(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isHostedSettingsStorageKey(key)) return null;
+  return isRecord(value) ? value : null;
+}
+function sanitizedHostedSettingsRecord(key, value, hostedOrigin) {
+  const record2 = rawHostedSettingsRecord(key, value, hostedOrigin);
+  return record2 ? sanitizedHostedStorageValue(key, record2, hostedOrigin) : null;
+}
+function earlierHostedPatch(value) {
+  if (!isRecord(value)) return {};
+  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  return isRecord(patch) ? withoutSettingsCoordination(patch) : {};
+}
+function changedRecordFields(previous, current) {
+  const changed = {};
+  for (const [field, value] of Object.entries(current)) {
+  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
+  }
+  return withoutSettingsCoordination(changed);
+}
+function withoutSettingsCoordination(record2) {
+  const clean = { ...record2 };
+  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field) => delete clean[field]);
+  return clean;
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
@@ -5512,20 +5763,26 @@ async function gmStorageGet(key, fallback) {
   }
 }
 async function sharedManagedValue(getValue, key, fallback, epoch) {
-  const pendingPatch = pendingHostedLocalPatch();
-  if (pendingPatch) {
+  const pendingPatch = pendingHostedLocalPatch(key, epoch);
+  return pendingPatch ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
+}
+async function reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) {
   const shared2 = await managedGmValue(getValue, key, void 0, epoch);
   const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
   const reconciled = { ...sharedRecord, ...pendingPatch };
   await gmStorageSet(key, reconciled);
   return reconciled;
-  }
+}
+async function sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
+  return promoteLocalManagedValue(key, fallback, epoch);
+}
+async function promoteLocalManagedValue(key, fallback, epoch) {
   const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(migrated)) {
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   await gmStorageSet(key, promoted);
   return promoted;
   }
@@ -5542,7 +5799,13 @@ function failedManagedReadValue(error, key, fallback, epoch) {
 function localOnlyManagedValue(key, fallback, epoch) {
   const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(local)) return local;
+  mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch);
   return fallback;
+}
+function mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch) {
+  if (isHostedSettingsStorageKey(key) && isHostedYomuOrigin() && isPlainRecord(fallback)) {
+  mirrorManagedValueToHostedStorage(key, fallback, epoch);
+  }
 }
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -5584,75 +5847,58 @@ function migratedLocalStorageSyncValue(key, epoch) {
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
 }
-const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
-function sanitizedStrandedLocalValue(key, value) {
-  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
-  const record2 = { ...value };
-  let policy = record2;
-  if (key === "yomu:settings-intent:v2") {
-  if (!isPlainRecord(record2.records)) return value;
-  policy = record2.records = { ...record2.records };
-  } else if (key !== HOSTED_SETTINGS_BLOB_KEY && key !== "yomu:explicit-user-settings:v1") {
-  return value;
-  }
-  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
-  return record2;
-}
 function pendingHostedLocalPatch(key, epoch) {
-  return void 0;
+  if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return void 0;
+  if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
+  return pendingHostedSettingsPatch(key, localStorageGet(key, void 0), true);
 }
 function localFallbackValueForWrite(key, value) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const current = sanitizedStrandedLocalValue(key, value);
-  const previousValue = localStorageGet(key, void 0);
-  const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
-  const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
-  if (!previous) return current;
-  const changed = changedRecordFields(previous, current);
-  return {
-  ...current,
-  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
-  };
+  if (!isHostedSettingsStorageKey(key)) return value;
+  return hostedSettingsLocalFallbackValue(
+  key,
+  value,
+  isHostedYomuOrigin(),
+  () => localStorageGet(key, void 0)
+  );
 }
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field, value] of Object.entries(current)) {
-  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-  }
-  return changed;
-}
-async function gmStorageSet(key, value) {
+async function gmStorageSet(key, value, options = {}) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) {
-  let epoch2;
-  try {
-    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
-    epoch2 = await assertRealmManagedStateEpoch(getValue);
-    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
-    mirrorManagedValueToHostedStorage(key, value, epoch2);
-    return;
-  } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      epoch2 ??= await assertRealmManagedStateEpoch(null);
-      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
+  if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
   const epoch = await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+async function setSharedManagedValue(key, value, options, getValue, setValue) {
+  let epoch;
+  try {
+  if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+  epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  mirrorManagedValueToHostedStorage(key, value, epoch);
+  } catch (error) {
+  await handleSharedManagedWriteFailure(key, value, options, error, epoch);
+  }
+}
+async function handleSharedManagedWriteFailure(key, value, options, error, epoch) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("GM storage write failed", key, error);
+  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
+  throw storageWriteError(key, "GM storage write failed", error);
+  }
+  await writeFailedManagedValueFallback(key, value, error, epoch);
+  throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+}
+async function writeFailedManagedValueFallback(key, value, error, epoch) {
+  try {
+  const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
+  } catch (fallbackError) {
+  throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+  }
 }
 function gmStorageSetSync(key, value) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -5770,35 +6016,6 @@ function gmStorageDeleteSync(key) {
 function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  if (serialized === void 0) throw new Error("value is not JSON-serializable");
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  return serialized;
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
 function removeLocalStorageKey(key) {
   try {
   localStorage.removeItem(key);
@@ -5900,11 +6117,7 @@ function shouldMirrorManagedValueToHostedStorage(key) {
 }
 function isHostedYomuOrigin() {
   try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
   } catch {
   return false;
   }
@@ -10336,7 +10549,129 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
   }
+  const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+  const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
+  const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
+  function syntheticInteractionAllowedForTests() {
+    return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+  }
+  function isDirectTrustedReaderInteraction(event) {
+    return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+  }
+  const OWNED_STUDY_LAUNCHER_SELECTOR = "[data-yomu-owned-study-launcher]";
+  const launcherDocuments = /* @__PURE__ */ new WeakSet();
+  function isTrustedAccountDataSurface(value) {
+    const appUrl = readTrustedYomuUrl(value);
+    if (!appUrl) return false;
+    if (![isYomuNewTabUrl(value), appUrl.originKind !== "docs-preview"].every(Boolean)) return false;
+    return [
+      appUrl.originKind !== "loopback",
+      isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin)
+    ].some(Boolean);
+  }
+  function currentAccountDataSurfaceIsTrusted() {
+    return typeof location !== "undefined" && isTrustedAccountDataSurface(location.href);
+  }
+  function installOwnedStudyLauncher(ownerDocument = document) {
+    if (launcherDocuments.has(ownerDocument)) return;
+    launcherDocuments.add(ownerDocument);
+    const destination = NEW_TAB_PAGE_URL;
+    ownerDocument.addEventListener("click", ownedStudyLauncherClickHandler(destination), true);
+  }
+  function ownedStudyLauncherClickHandler(destination) {
+    return (event) => {
+      const target = ownedStudyLauncherTarget(event);
+      if (![Boolean(target), isDirectTrustedReaderInteraction(event)].every(Boolean)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const opened = window.open(destination, "_blank", "noopener,noreferrer");
+      if (!opened) return;
+      clearOpenedWindowOpener(opened);
+    };
+  }
+  function ownedStudyLauncherTarget(event) {
+    return event.target instanceof Element ? event.target.closest(OWNED_STUDY_LAUNCHER_SELECTOR) : null;
+  }
+  function clearOpenedWindowOpener(opened) {
+    try {
+      opened.opener = null;
+    } catch {
+    }
+  }
   new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const TOKEN_ATTRIBUTE = "data-yomu-private-token";
+  const MAX_PENDING_VALUES = 16384;
+  const valuesByElement = /* @__PURE__ */ new WeakMap();
+  const pendingValues = /* @__PURE__ */ new Map();
+  const replayableBlueprints = /* @__PURE__ */ new Map();
+  function createPrivateElementStateSlot(snapshot, options = {}) {
+    const slot = Symbol("yomu-private-element-state");
+    return {
+      attributes(value) {
+        const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+        return ` ${TOKEN_ATTRIBUTE}="${token}"`;
+      },
+      prepareSerialization(element, value) {
+        const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+        const current = element.getAttribute(TOKEN_ATTRIBUTE)?.trim();
+        element.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
+      },
+      bind(element, value) {
+        element.removeAttribute(TOKEN_ATTRIBUTE);
+        setPrivateValue(element, slot, snapshot(value));
+      },
+      read(element) {
+        return element ? valuesByElement.get(element)?.get(slot) : void 0;
+      }
+    };
+  }
+  function registerPendingValue(slot, value, replayable) {
+    const token = privateStateToken();
+    const pending = { slot, value };
+    pendingValues.set(token, pending);
+    if (replayable) replayableBlueprints.set(token, pending);
+    prunePendingValues();
+    return token;
+  }
+  function hydratePrivateElementState(root) {
+    const candidates = [];
+    if (root instanceof Element && root.hasAttribute(TOKEN_ATTRIBUTE)) candidates.push(root);
+    candidates.push(...root.querySelectorAll(`[${TOKEN_ATTRIBUTE}]`));
+    for (const element of candidates) hydratePrivateElement(element);
+  }
+  function hydratePrivateElement(element) {
+    const tokens = element.getAttribute(TOKEN_ATTRIBUTE)?.split(/\s+/u).filter(Boolean) ?? [];
+    element.removeAttribute(TOKEN_ATTRIBUTE);
+    for (const token of tokens) {
+      const pending = pendingValues.get(token);
+      pendingValues.delete(token);
+      if (pending) setPrivateValue(element, pending.slot, pending.value);
+    }
+  }
+  function setPrivateValue(element, slot, value) {
+    const values = valuesByElement.get(element) ?? /* @__PURE__ */ new Map();
+    values.set(slot, value);
+    valuesByElement.set(element, values);
+  }
+  function prunePendingValues() {
+    pruneOldestPrivateValues(pendingValues);
+    pruneOldestPrivateValues(replayableBlueprints);
+  }
+  function pruneOldestPrivateValues(values) {
+    while (values.size > MAX_PENDING_VALUES) {
+      const oldest = values.keys().next().value;
+      if (oldest === void 0) return;
+      values.delete(oldest);
+    }
+  }
+  function privateStateToken() {
+    const bytes = new Uint32Array(4);
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(36)).join("-");
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  }
   const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
   const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
   const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
@@ -10345,7 +10680,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
   let trustedHtmlPolicy;
   function setInnerHtml(element, html) {
-    if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+    if (!replaceWithHtmlFragment(element, html)) {
+      element.textContent = html;
+    }
   }
   function parseHtmlDocument(html) {
     const parsed = parseHtmlWithDomParser(html);
@@ -10357,20 +10694,31 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   function replaceWithHtmlFragment(element, html) {
     try {
       const ownerDocument = element.ownerDocument || document;
-      const { source, rootSelector } = contextualSanitizerSource(element, html);
-      const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-      const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+      const parsedRoot = parsedReplacementRoot(element, html);
       if (!parsedRoot) return false;
-      sanitizeChildren(parsedRoot, parsed);
-      const fragment = ownerDocument.createDocumentFragment();
-      fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-      sanitizeChildren(fragment, ownerDocument);
-      const target = element.localName === "template" && "content" in element ? element.content : element;
-      target.replaceChildren(fragment);
+      const fragment = sanitizedReplacementFragment(ownerDocument, parsedRoot);
+      hydratePrivateElementState(fragment);
+      htmlReplacementTarget(element).replaceChildren(fragment);
       return true;
     } catch {
       return false;
     }
+  }
+  function parsedReplacementRoot(element, html) {
+    const { source, rootSelector } = contextualSanitizerSource(element, html);
+    const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+    const root = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+    if (root) sanitizeChildren(root, parsed);
+    return root;
+  }
+  function sanitizedReplacementFragment(ownerDocument, parsedRoot) {
+    const fragment = ownerDocument.createDocumentFragment();
+    fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+    sanitizeChildren(fragment, ownerDocument);
+    return fragment;
+  }
+  function htmlReplacementTarget(element) {
+    return element.localName === "template" && "content" in element ? element.content : element;
   }
   function contextualSanitizerSource(element, html) {
     if (element.namespaceURI === SVG_NAMESPACE) {
@@ -12030,7 +12378,6 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       audioSubSourceFilterKey(source)
     ].join("\0");
   }
-  Logger.scope("Settings");
   const AUDIO_SOURCE_TYPE_VALUES = [
     "jpod101",
     "language-pod-101",
@@ -12059,6 +12406,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   new Set(
     DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
   );
+  Logger.scope("Settings");
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
     "kanji-doodle",
     "word",
@@ -12073,6 +12421,19 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
   });
   new Set(FURIGANA_HIDE_STATE_GROUPS);
+  const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+  function privateCommandAttributes(command) {
+    return commandCapabilities.attributes(command);
+  }
+  function preparePrivateCommandSerialization(element, command) {
+    commandCapabilities.prepareSerialization(element, command);
+  }
+  function immutableCommandSnapshot(command) {
+    if (command.kind === "card-action" && command.audioUrls) {
+      return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
+    }
+    return Object.freeze({ ...command });
+  }
   new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
@@ -12186,9 +12547,6 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   }
   Logger.scope("DictionaryArchiveCache");
   Logger.scope("Yomitan");
-  function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
   const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
   function glossaryValueToText(value) {
     return glossaryValueToProfileText(value, {
@@ -12496,7 +12854,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     ].join("");
   }
   function kanjiReferenceActionAttribute(link) {
-    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
+    if (!link.kanjiReference) return "";
+    const kanji = link.kanjiReference.kanji;
+    return ` data-action="kanji" data-kanji="${escapeHtml(kanji)}"${privateCommandAttributes({ kind: "kanji-lookup", kanji })}`;
   }
   function dictionaryAttribute(dictionary) {
     return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
@@ -15457,16 +15817,7 @@ function captureActiveVideoFrame() {
   return void 0;
   }
   try {
-  const canvas = document.createElement("canvas");
-  const maxWidth = 960;
-  const scale = Math.min(1, maxWidth / video.videoWidth);
-  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-  const context = canvas.getContext("2d");
-  if (!context) return void 0;
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
-  return dataUrl;
+  return videoFrameDataUrl(video);
   } catch (error) {
   log.warn("Active video frame capture failed", error);
   return void 0;
@@ -16737,13 +17088,21 @@ const CONTEXT_SOURCE_LABEL_KEYS = {
   image: "contextImage"
 };
 function renderAnkiActionRow(ankiLookup, settings) {
-  if (!settings.ankiEnabled) return "";
-  if (ankiLookup.primary) return "";
-  if (ankiLookup.state !== "not-in-deck") return "";
+  if (!ankiActionRowCanAdd(ankiLookup, settings)) return "";
   const mobileHandoff = shouldRenderMobileAnkiHandoffAction(ankiLookup, settings);
-  if (!mobileHandoff && ankiLookup.trusted === false) return "";
-  const label = mobileHandoff ? mobileAnkiHandoffButtonLabel(settings.interfaceLanguage) : uiText(settings.interfaceLanguage, "addToAnki");
-  return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml$1(label)}</button></div>`;
+  if (!ankiActionRowIsTrusted(ankiLookup, mobileHandoff)) return "";
+  const label = ankiActionRowLabel(settings.interfaceLanguage, mobileHandoff);
+  return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki"${privateCommandAttributes({ kind: "card-action", action: "anki" })}>${escapeHtml$1(label)}</button></div>`;
+}
+function ankiActionRowCanAdd(ankiLookup, settings) {
+  if (!settings.ankiEnabled) return false;
+  return !ankiLookup.primary && ankiLookup.state === "not-in-deck";
+}
+function ankiActionRowIsTrusted(ankiLookup, mobileHandoff) {
+  return mobileHandoff || ankiLookup.trusted !== false;
+}
+function ankiActionRowLabel(language, mobileHandoff) {
+  return mobileHandoff ? mobileAnkiHandoffButtonLabel(language) : uiText(language, "addToAnki");
 }
 function mobileAnkiHandoffButtonLabel(language) {
   const app = mobileAnkiHandoffAppName();
@@ -16753,10 +17112,16 @@ function shouldRenderMobileAnkiHandoffAction(ankiLookup, settings) {
   return canUseMobileAnkiHandoff(settings) && !ankiLookup.primary;
 }
 function renderAnkiExistingSection(ankiLookup, storedContext, settings, options = {}) {
-  if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return "";
+  if (!ankiSectionIsEnabled(settings)) return "";
   const notes = orderedExistingAnkiNotes(ankiLookup);
   const primary = notes[0];
   if (!primary) return "";
+  if (!accountDataSurfaceIsTrusted(options.trustedAccountDataSurface)) {
+  return renderPrivateAccountDataLauncher(settings.interfaceLanguage);
+  }
+  return renderTrustedAnkiExistingSection(ankiLookup, primary, notes, storedContext, settings, options);
+}
+function renderTrustedAnkiExistingSection(ankiLookup, primary, notes, storedContext, settings, options) {
   const language = settings.interfaceLanguage;
   const aggregateState = ankiLookup.state;
   const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
@@ -16764,17 +17129,36 @@ function renderAnkiExistingSection(ankiLookup, storedContext, settings, options 
   return `
     <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
         <summary class="jpdb-reader-local-title">
-            <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$1(title)}${notes.length > 1 ? ` (${notes.length})` : ""}</span>
+            <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$1(title)}${ankiNoteCountSuffix(notes)}</span>
             <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
         </summary>
-        ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ""}
-        ${notes.length === 1 ? renderAnkiExistingNote(primary, storedContext, settings, false, true, options) : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0, options)).join("")}
+        ${renderExistingAnkiCollisionSummary(notes, language)}
+        ${renderExistingAnkiNotes(notes, primary, storedContext, settings, options)}
     </details>
   `;
 }
-function renderAnkiNewCardPreview(card, sentence, settings, context = {}, fieldTargetPlan) {
-  if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return "";
-  const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? "", settings, context, fieldTargetPlan);
+function ankiSectionIsEnabled(settings) {
+  return settings.ankiEnabled && settings.ankiSectionEnabled;
+}
+function ankiNoteCountSuffix(notes) {
+  return notes.length > 1 ? ` (${notes.length})` : "";
+}
+function renderExistingAnkiCollisionSummary(notes, language) {
+  return notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : "";
+}
+function renderExistingAnkiNotes(notes, primary, storedContext, settings, options) {
+  if (notes.length === 1) return renderAnkiExistingNote(primary, storedContext, settings, false, true, options);
+  return notes.map((note, index) => renderAnkiExistingNote(note, ankiContextForNote(index, storedContext), settings, true, index === 0, options)).join("");
+}
+function ankiContextForNote(index, storedContext) {
+  return index === 0 ? storedContext : null;
+}
+function renderAnkiNewCardPreview(card, sentence, settings, context = {}, fieldTargetPlan, options = {}) {
+  if (!ankiSectionIsEnabled(settings)) return "";
+  if (!accountDataSurfaceIsTrusted(options.trustedAccountDataSurface)) {
+  return renderPrivateAccountDataLauncher(settings.interfaceLanguage);
+  }
+  const fields = buildYomuAnkiPreviewFields(card, ankiPreviewSentence(sentence, card), settings, context, fieldTargetPlan);
   const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
   if (!fieldPreview) return "";
   const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, "Anki");
@@ -16789,6 +17173,20 @@ function renderAnkiNewCardPreview(card, sentence, settings, context = {}, fieldT
         </div>
     </details>
   `;
+}
+function ankiPreviewSentence(sentence, card) {
+  return sentence ?? card.sentence ?? "";
+}
+function accountDataSurfaceIsTrusted(explicit) {
+  return explicit ?? currentAccountDataSurfaceIsTrusted();
+}
+function renderPrivateAccountDataLauncher(language) {
+  if (typeof document !== "undefined") installOwnedStudyLauncher(document);
+  return `<section class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-account-private-launcher" data-account-private-launcher>
+    <div class="jpdb-reader-local-title"><strong>${escapeHtml$1(uiText(language, "accountSettingsTrustedSurfaceTitle"))}</strong></div>
+    <p class="jpdb-reader-help">${escapeHtml$1(uiText(language, "accountSettingsTrustedSurfaceHelp"))}</p>
+    <button class="jpdb-reader-btn" type="button" data-yomu-owned-study-launcher>${escapeHtml$1(uiText(language, "openAccountSettingsTrustedSurface"))}</button>
+  </section>`;
 }
 function orderedExistingAnkiNotes(ankiLookup) {
   const notes = [];
@@ -16961,31 +17359,56 @@ function renderAnkiRenderedSideBody(html) {
 }
 function pruneRedundantAnkiGlyphRepeats(html) {
   if (typeof document === "undefined") return html;
-  const template = document.createElement("template");
-  setInnerHtml(template, html);
-  template.content.querySelectorAll("tts").forEach((element) => element.remove());
+  const root = parseHtmlDocument(html).body;
+  root.querySelectorAll("tts").forEach((element) => element.remove());
+  duplicateAnkiGlyphElements(root).forEach(removeAnkiGlyphElement);
+  root.querySelectorAll("br + br").forEach((element) => element.remove());
+  trimTrailingAnkiSpacing(root);
+  return root.innerHTML;
+}
+function duplicateAnkiGlyphElements(root) {
   const seen = /* @__PURE__ */ new Set();
-  const removable = [];
-  for (const element of Array.from(template.content.querySelectorAll("span, font, b, strong, div"))) {
-  if (element.children.length > 0) continue;
-  const text = element.textContent?.replace(/\s+/g, "") ?? "";
-  if (!text || text.length > 4 || !JAPANESE_GLYPH_RUN_RE.test(text)) continue;
-  if (seen.has(text)) removable.push(element);
-  else seen.add(text);
-  }
-  for (const element of removable) {
+  return Array.from(root.querySelectorAll("span, font, b, strong, div")).filter((element) => {
+  const text = standaloneAnkiGlyphText(element);
+  if (!text) return false;
+  if (seen.has(text)) return true;
+  seen.add(text);
+  return false;
+  });
+}
+function standaloneAnkiGlyphText(element) {
+  if (element.children.length > 0) return null;
+  const text = compactAnkiElementText(element);
+  return isShortJapaneseGlyph(text) ? text : null;
+}
+function compactAnkiElementText(element) {
+  return element.textContent ? element.textContent.replace(/\s+/g, "") : "";
+}
+function isShortJapaneseGlyph(text) {
+  if (!text) return false;
+  if (text.length > 4) return false;
+  return JAPANESE_GLYPH_RUN_RE.test(text);
+}
+function removeAnkiGlyphElement(element) {
   const before = element.previousSibling;
-  if (before?.nodeType === Node.TEXT_NODE && !before.textContent?.trim()) before.remove();
+  if (isBlankAnkiTextNode(before)) before.remove();
   element.remove();
-  }
-  template.content.querySelectorAll("br + br").forEach((element) => element.remove());
-  let last = template.content.lastChild;
-  while (last && (last.nodeType === Node.TEXT_NODE && !last.textContent?.trim() || last instanceof Element && last.tagName === "BR")) {
+}
+function trimTrailingAnkiSpacing(root) {
+  let last = root.lastChild;
+  while (last && isTrailingAnkiSpacing(last)) {
   const previous = last.previousSibling;
   last.remove();
   last = previous;
   }
-  return template.innerHTML;
+}
+function isTrailingAnkiSpacing(node) {
+  if (isBlankAnkiTextNode(node)) return true;
+  return node instanceof Element && node.tagName === "BR";
+}
+function isBlankAnkiTextNode(node) {
+  if (!(node instanceof Text)) return false;
+  return node.textContent.trim() === "";
 }
 const JAPANESE_GLYPH_RUN_RE = /^[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3005\u3006\u30f6]+$/;
 function renderAnkiRenderedCardStudyBody(card, revealed, language, soundFilenames = []) {
@@ -17047,15 +17470,15 @@ function renderFieldText(value, language, options = {}) {
 }
 function renderAnkiSoundChip(filename, language) {
   const title = ankiAudioLabel(filename, language);
-  return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(title)}">${speakerIcon()}</button>`;
+  return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}"${privateCommandAttributes({ kind: "card-action", action: "anki-media-audio", mediaFilename: filename })} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(title)}">${speakerIcon()}</button>`;
 }
 function renderAnkiNoteActions(note, language) {
   if (!Number.isFinite(note.noteId) || note.noteId <= 0) return "";
   return `<div class="jpdb-reader-anki-note-actions">
     ${renderAnkiAudioMergeSelect(note, language)}
     <div class="jpdb-reader-anki-note-action-row">
-        <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
-        <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml$1(uiText(language, "editInAnki"))}</button>
+        <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: "card-action", action: "anki-merge", noteId: note.noteId })} title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
+        <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: "card-action", action: "anki-edit", noteId: note.noteId })}>${escapeHtml$1(uiText(language, "editInAnki"))}</button>
     </div>
   </div>`;
 }
@@ -17064,9 +17487,9 @@ function renderAnkiAudioMergeSelect(note, language) {
   return `<label class="jpdb-reader-anki-audio-merge">
     <span>${escapeHtml$1(uiText(language, "audio"))}</span>
     <select data-anki-audio-merge>
-        <option value="both">${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
-        <option value="theirs">${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
-        <option value="ours">${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
+        <option value="both"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "both" })}>${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
+        <option value="theirs"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "theirs" })}>${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
+        <option value="ours"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "ours" })}>${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
     </select>
   </label>`;
 }
@@ -17239,6 +17662,7 @@ function ankiSoundMarkerNode(value, language) {
   chip.className = "jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control";
   chip.dataset.action = "anki-media-audio";
   chip.dataset.ankiMediaName = filename;
+  preparePrivateCommandSerialization(chip, { kind: "card-action", action: "anki-media-audio", mediaFilename: filename });
   chip.title = ankiAudioLabel(filename, language);
   chip.setAttribute("aria-label", chip.title);
   setInnerHtml(chip, speakerIcon());
@@ -17252,12 +17676,20 @@ function ankiPlaybackMarkerNode(value, soundFilenames, language) {
   chip.type = "button";
   chip.className = "jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-anki-playback-marker jpdb-reader-audio-control";
   chip.dataset.action = "anki-media-audio";
-  if (filename) chip.dataset.ankiMediaName = filename;
-  chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, "ankiAudioUnavailablePreview");
+  configureAnkiPlaybackMarker(chip, filename, language);
   chip.setAttribute("aria-label", chip.title);
-  chip.disabled = !filename;
   setInnerHtml(chip, speakerIcon());
   return chip;
+}
+function configureAnkiPlaybackMarker(chip, filename, language) {
+  if (!filename) {
+  chip.title = uiText(language, "ankiAudioUnavailablePreview");
+  chip.disabled = true;
+  return;
+  }
+  chip.dataset.ankiMediaName = filename;
+  preparePrivateCommandSerialization(chip, { kind: "card-action", action: "anki-media-audio", mediaFilename: filename });
+  chip.title = ankiAudioLabel(filename, language);
 }
 function ankiPlaybackMarkerFilename(value, soundFilenames) {
   const audioIndex = ankiPlaybackMarkerIndex(value);
@@ -17312,21 +17744,54 @@ function localizedContextSourceLabel(context, language) {
   return labelKey ? uiText(language, labelKey) : "";
 }
 function renderReviewButtons(settings, ankiNote = null, options = {}) {
-  const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
+  const ankiCardId = ankiReviewCardId(ankiNote);
   const grades = reviewButtonGrades(settings);
-  const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$1(options.targetLabel)}</div>` : "";
-  const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
-  const intervalSpan = (grade) => {
-  const interval = intervals?.[grade];
-  const label = interval?.buttonLabel || interval?.intervalLabel || "";
-  return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml$1(label)}</span>` : "";
-  };
+  const intervals = ankiReviewIntervals(options.intervals, ankiNote);
   return `
-    ${target}
-    <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}">
-        ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join("")}
+    ${renderAnkiReviewTarget(options.targetLabel)}
+    <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
+        ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage)).join("")}
     </div>
   `;
+}
+function ankiReviewCardId(note) {
+  return note?.primaryCardId ?? void 0;
+}
+function ankiReviewIntervals(intervals, note) {
+  return intervals ?? note?.reviewGradeIntervals;
+}
+function renderAnkiReviewTarget(targetLabel) {
+  return targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$1(targetLabel)}</div>` : "";
+}
+function ankiReviewGradesClass(grades) {
+  return grades.length === 5 ? " jpdb-reader-grades" : "";
+}
+function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, language) {
+  const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
+  const command = privateCommandAttributes({
+  kind: "card-action",
+  action: "grade",
+  grade,
+  reviewTarget: ankiReviewTarget(ankiCardId),
+  ankiCardId
+  });
+  return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, language)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
+}
+function ankiReviewCardAttributes(ankiCardId) {
+  return ankiCardId ? ` data-anki-card-id="${ankiCardId}"` : "";
+}
+function ankiReviewTarget(ankiCardId) {
+  return ankiCardId ? "anki" : void 0;
+}
+function ankiReviewIntervalSpan(intervals, grade) {
+  if (!intervals) return "";
+  const interval = intervals[grade];
+  if (!interval) return "";
+  const label = ankiReviewIntervalLabel(interval);
+  return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml$1(label)}</span>` : "";
+}
+function ankiReviewIntervalLabel(interval) {
+  return interval.buttonLabel || interval.intervalLabel || "";
 }
 function reviewButtonAttrs(options, buttonLabel, language) {
   const title = options.title || options.targetLabel || "";

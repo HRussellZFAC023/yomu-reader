@@ -9,6 +9,7 @@ import type { KanjiSourceInfo } from '../kanji/origin';
 import { isKanjiCharacter } from './pitch';
 import { renderKanjiKeywordChips } from './kanji-keyword-line';
 import { sourceStateAttribute } from './source-state';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 export interface RtkComponentSummary {
     kanji: string;
@@ -180,7 +181,7 @@ function renderRtkElementSection(elementChips: ReturnType<typeof buildRtkElement
 function renderRtkElementChip(chip: ReturnType<typeof buildRtkElementChips>[number], language: InterfaceLanguage): string {
     const content = `${chip.glyph ? `<strong>${escapeHtml(chip.glyph)}</strong>` : ''}<span>${escapeHtml(chip.keyword)}</span>`;
     return chip.kanji
-        ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${chip.kanji}`)}">${content}</button>`
+        ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}"${privateCommandAttributes({ kind: 'kanji-lookup', kanji: chip.kanji })} title="${escapeHtml(`${uiText(language, 'showKanji')}: ${chip.kanji}`)}">${content}</button>`
         : `<span>${content}</span>`;
 }
 

@@ -30,8 +30,10 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'settings (pre-ledger pins)', kind: 'gm', key: 'yomu:explicit-user-settings:v1' },
     { owner: 'settings/intent-ledger', kind: 'gm', key: 'yomu:settings-intent:v2' },
 
-    // Cloud settings sync handoff written before an OAuth redirect.
-    { owner: 'settings/dialog-controller', kind: 'gm', key: '__yomu_cloud_settings_sync_pending_action' },
+    // Private, one-use cloud settings OAuth handoff. The old page-readable key
+    // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
+    { owner: 'settings/dialog-controller', kind: 'gm', key: 'yomu:private:cloud-settings-sync-pending:v1' },
+    { owner: 'settings/dialog-controller (legacy)', kind: 'gm', key: '__yomu_cloud_settings_sync_pending_action' },
 
     // App-level signals / flags / caches.
     { owner: 'app/storage', kind: 'gm', key: 'yomu:factory-reset-signal' },

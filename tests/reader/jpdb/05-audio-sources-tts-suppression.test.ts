@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS } from '../../../src/reader/settings/audio-source-defaults';
 import {
     registerReaderHelpersCleanup,
     AudioPlayer,
@@ -29,6 +30,7 @@ import {
     mockSpeechSynthesis,
     normalizeAudioSources,
     normalizeJpdbAudioIds,
+    normalizeReaderSettings,
     parseJpdbAudioData,
     readFormSettings,
     renderGrammarHints,
@@ -71,28 +73,9 @@ describe('reader helpers', () => {
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: false });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: false });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: false });
+        expect(normalizeAudioSources(LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS)).toEqual(DEFAULT_AUDIO_SOURCES);
         expect(normalizeAudioSources([
-            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
-            { type: 'jpod101', url: '', voice: '', enabled: true },
-            { type: 'language-pod-101', url: '', voice: '', enabled: true },
-            { type: 'jisho', url: '', voice: '', enabled: true },
-            { type: 'text-to-speech', url: '', voice: '', enabled: true },
-        ])).toEqual([
-            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
-            { type: 'jpod101', url: '', voice: '', enabled: false },
-            { type: 'language-pod-101', url: '', voice: '', enabled: false },
-            { type: 'jisho', url: '', voice: '', enabled: false },
-            { type: 'bunpro', url: '', voice: '', enabled: false },
-            { type: 'jiten-tts', url: '', voice: '', enabled: false },
-            { type: 'jpdb-tts', url: '', voice: '', enabled: false },
-            { type: 'text-to-speech', url: '', voice: '', enabled: false },
-        ]);
-        expect(normalizeAudioSources([
-            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
-            { type: 'jpod101', url: '', voice: '', enabled: true },
-            { type: 'language-pod-101', url: '', voice: '', enabled: true },
-            { type: 'jisho', url: '', voice: '', enabled: true },
-            { type: 'text-to-speech', url: '', voice: '', enabled: true },
+            ...LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS,
             { type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}', voice: '', enabled: true },
         ])).toEqual([
             { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
@@ -1432,10 +1415,8 @@ describe('reader helpers', () => {
         }
     });
 
-    it('normalizes invalid persisted popup presentation settings', async () => {
-        const storageKey = 'jpdb-popup-reader-settings';
-        const previous = localStorage.getItem(storageKey);
-        localStorage.setItem(storageKey, JSON.stringify({
+    it('normalizes invalid persisted popup presentation settings', () => {
+        const settings = normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
             theme: 'neon',
             popupMode: 'toast',
@@ -1443,21 +1424,14 @@ describe('reader helpers', () => {
             popoverWidth: 42,
             popoverHeight: 1200,
             popoverHeightMode: 'giant',
-        }));
+        } as unknown as Partial<ReaderSettings>);
 
-        try {
-            const settings = await loadSettings();
-
-            expect(settings.theme).toBe(DEFAULT_SETTINGS.theme);
-            expect(settings.popupMode).toBe(DEFAULT_SETTINGS.popupMode);
-            expect(settings.stickyBottomSheet).toBe(DEFAULT_SETTINGS.stickyBottomSheet);
-            expect(settings.popoverWidth).toBe(280);
-            expect(settings.popoverHeight).toBe(900);
-            expect(settings.popoverHeightMode).toBe(DEFAULT_SETTINGS.popoverHeightMode);
-        } finally {
-            if (previous === null) localStorage.removeItem(storageKey);
-            else localStorage.setItem(storageKey, previous);
-        }
+        expect(settings.theme).toBe(DEFAULT_SETTINGS.theme);
+        expect(settings.popupMode).toBe(DEFAULT_SETTINGS.popupMode);
+        expect(settings.stickyBottomSheet).toBe(DEFAULT_SETTINGS.stickyBottomSheet);
+        expect(settings.popoverWidth).toBe(280);
+        expect(settings.popoverHeight).toBe(900);
+        expect(settings.popoverHeightMode).toBe(DEFAULT_SETTINGS.popoverHeightMode);
     });
 
     it('defaults legacy settings without a proxy URL to no proxy', async () => {

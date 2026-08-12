@@ -1,6 +1,4 @@
-import { primaryCardState } from '../cards/state';
-import { cardStateProvenance, setRenderedWordCardStatus } from './rendered-word-state';
-import { cardDeckMembership } from '../cards/deck-membership';
+import { setRenderedWordCardStatus } from './rendered-word-state';
 import { HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import { isTargetLanguageText, segmentTargetLanguageText } from '../lookup/target-text';
 import {
@@ -69,6 +67,8 @@ import {
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
 import { isYouTubeAppHostname } from '../app/youtube-host';
+export { remintRenderedWordPrivateTokens, renderedWordPrivateValue } from './rendered-word-private-state';
+export { renderedWordsInRoot } from './rendered-word-state';
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
@@ -86,24 +86,17 @@ import { stableCssPixels } from './inline-style';
 import { ensureReaderStylesForHost } from './shadow-styles';
 import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
-import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { bareFallbackCardFromText } from '../lookup/japanese-segments';
 import { activeLearningTargetLanguage } from '../languages/target-runtime';
 import { uncoveredJapaneseRanges } from '../lookup/uncovered-japanese-ranges';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import type { JPDBToken, ReaderSettings } from '../app/types';
 import {
     PITCH_CLASSES,
     effectiveTokenRubies,
-    isParticleCard,
     kanjiNavigationForElement,
     localRubyRange,
-    miningInsightTokenKey,
     miningInsightTokenKeys,
     nonOverlappingTokens,
-    readerCardId,
-    readerCardSource,
-    readerReadingIndex,
-    readerWordClassName,
     renderDetachedReadings,
     renderKanjiNavigationText,
     renderRuby,
@@ -111,6 +104,7 @@ import {
     tokenPitchClass,
     type TokenRenderOptions,
 } from './token-text-rendering';
+import { createRenderedWordSpan, renderRenderedWordHtml } from './rendered-word-markup';
 
 export {
     inferredInflectedSurfaceRubies,
@@ -6691,7 +6685,7 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
         if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
-        html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
+        html += renderRenderedWordHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
@@ -6713,30 +6707,67 @@ function renderToken(
     settings: ReaderSettings,
     options: TokenRenderOptions = {},
 ): HTMLElement {
-    const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
+    const span = createRenderedWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
     span.dataset.surface = surface;
+    prepareRenderedTokenShell(span, options);
+    renderTokenContent(span, surface, token, settings, options);
+    return span;
+}
+
+function prepareRenderedTokenShell(span: HTMLElement, options: TokenRenderOptions): void {
     // Detached is a render-channel decision, not proof that a reading was
     // available synchronously. Preserve it on fallback words so a later
     // public-vocabulary reading cannot silently switch the word to native
     // ruby and perturb a compact authored line box.
     if (options.detachedReadings) span.classList.add('jpdb-reader-detached-reading-word');
-    if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
+    if ([!options.kanjiNavigation?.enabled, options.passiveInteraction !== true].every(Boolean)) span.tabIndex = -1;
+}
 
-    const allowRuby = options.allowRuby !== false && !shouldSuppressLongProseRuby(surface, token, options);
-    const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
-    if (hasRuby) {
+type RenderedTokenContentMode = 'detached-ruby' | 'ruby' | 'kanji-navigation' | 'text';
+
+function renderTokenContent(
+    span: HTMLElement,
+    surface: string,
+    token: JPDBToken,
+    settings: ReaderSettings,
+    options: TokenRenderOptions,
+): void {
+    const ruby = () => {
         span.classList.add('jpdb-reader-has-furi');
-        if (options.detachedReadings) {
+        setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+    };
+    const handlers: Record<RenderedTokenContentMode, () => void> = {
+        'detached-ruby': () => {
+            span.classList.add('jpdb-reader-has-furi');
             setInnerHtml(span, renderDetachedReadings(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
-        } else {
-            setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
-        }
-    } else if (options.kanjiNavigation?.enabled) {
-        setInnerHtml(span, renderKanjiNavigationText(surface, options.kanjiNavigation));
-    } else {
-        span.textContent = surface;
-    }
-    return span;
+        },
+        ruby,
+        'kanji-navigation': () => setInnerHtml(span, renderKanjiNavigationText(surface, options.kanjiNavigation)),
+        text: () => { span.textContent = surface; },
+    };
+    handlers[renderedTokenContentMode(surface, token, settings, options)]();
+}
+
+function renderedTokenContentMode(
+    surface: string,
+    token: JPDBToken,
+    settings: ReaderSettings,
+    options: TokenRenderOptions,
+): RenderedTokenContentMode {
+    const allowRuby = renderedTokenAllowsRuby(surface, token, options);
+    const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
+    const rubyMode = options.detachedReadings ? 'detached-ruby' : 'ruby';
+    const modes: Array<[boolean, RenderedTokenContentMode]> = [
+        [hasRuby, rubyMode],
+        [Boolean(options.kanjiNavigation?.enabled), 'kanji-navigation'],
+        [true, 'text'],
+    ];
+    return modes.find(([matches]) => matches)![1];
+}
+
+function renderedTokenAllowsRuby(surface: string, token: JPDBToken, options: TokenRenderOptions): boolean {
+    if (options.allowRuby === false) return false;
+    return !shouldSuppressLongProseRuby(surface, token, options);
 }
 
 function shouldSuppressLongProseRuby(surface: string, token: JPDBToken, options: TokenRenderOptions): boolean {
@@ -6748,109 +6779,9 @@ function shouldSuppressLongProseRuby(surface: string, token: JPDBToken, options:
 }
 
 function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
-    const span = createReaderWordSpan(token, options);
+    const span = createRenderedWordSpan(token, options);
     if (options.passiveInteraction !== true) span.tabIndex = -1;
     return span;
-}
-
-// Builds the bare reader-word <span> (class + identity/pitch/sentence dataset) shared by every token renderer.
-// Callers add the tabindex and content afterward, since those vary by render mode.
-function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HTMLElement {
-    const span = document.createElement('span');
-    const state = primaryCardState(token.card.cardState);
-    const showPitchAccent = options.showPitchAccent !== false;
-    span.className = readerWordClassName(state, token, { showPitchAccent });
-    span.dataset.vid = String(token.card.vid);
-    span.dataset.sid = String(token.card.sid);
-    span.dataset.cardSource = readerCardSource(token.card);
-    span.dataset.cardId = String(readerCardId(token.card));
-    span.dataset.readingIndex = String(readerReadingIndex(token.card));
-    span.dataset.cardState = state;
-    span.dataset.stateProvenance = cardStateProvenance(token.card);
-    if (showPitchAccent) span.dataset.pitchClass = tokenPitchClass(token);
-    span.dataset.tokenStart = String(token.start);
-    span.dataset.tokenEnd = String(token.end);
-    span.dataset.sentence = token.sentence ?? '';
-    if (token.card.spelling) span.dataset.expression = token.card.spelling;
-    if (token.card.reading) span.dataset.reading = token.card.reading;
-    const pitchAccent = token.card.pitchAccent.join('|');
-    if (showPitchAccent && pitchAccent && !isParticleCard(token.card)) span.dataset.pitchAccent = pitchAccent;
-    if (showPitchAccent) applyPitchComponentGradient(span, token.card);
-    applyDeckMembershipDataset(span, token.card);
-    applyTokenRenderOptions(span, token, options);
-    return span;
-}
-
-function applyDeckMembershipDataset(span: HTMLElement, card: JPDBCard): void {
-    const membership = cardDeckMembership(card);
-    if (!membership.member) return;
-    span.dataset.deckMember = 'true';
-    span.dataset.deckSource = membership.source;
-    if (membership.names.length) span.dataset.deckNames = membership.names.join(', ');
-}
-
-function applyTokenRenderOptions(span: HTMLElement, token: JPDBToken, options: TokenRenderOptions): void {
-    if (options.scanWord) {
-        span.classList.add('jpdb-reader-scan-word');
-        if (!options.proseWrap) span.style.setProperty('display', 'inline', 'important');
-    }
-    if (options.proseWrap && !options.passiveInteraction) {
-        span.classList.add('jpdb-reader-prose-word');
-        span.dataset.jpdbReaderProse = 'true';
-    }
-    if (options.miningInsightKeys?.has(miningInsightTokenKey(token))) {
-        span.classList.add('jpdb-reader-i-plus-one');
-        span.dataset.miningInsight = 'i-plus-one';
-    }
-    if (options.passiveInteraction) {
-        span.classList.add('jpdb-reader-passive-word');
-        span.dataset.jpdbReaderPassive = 'true';
-    }
-}
-
-function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings, miningInsightKeys: ReadonlySet<string>): string {
-    const state = primaryCardState(token.card.cardState);
-    const hasRuby = shouldRenderRuby(surface, token, settings);
-    const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
-    const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-    const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : '';
-    const classes = [
-        readerWordClassName(state, token, settings),
-        hasRuby ? 'jpdb-reader-has-furi' : '',
-        hasMiningInsight ? 'jpdb-reader-i-plus-one' : '',
-    ].filter(Boolean).join(' ');
-    const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
-    const cardId = ` data-card-id="${readerCardId(token.card)}"`;
-    const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml(state)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
-    const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
-    const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
-    const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';
-    const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
-    const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
-    const pitchAccent = token.card.pitchAccent.join('|');
-    const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : '';
-    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== 'particle' ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
-    const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : '';
-    const pitchComponentMetadata = pitchComponentGradient
-        ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"`
-        : '';
-    const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
-}
-
-function applyPitchComponentGradient(word: HTMLElement, card: JPDBCard): void {
-    const gradient = pitchComponentUnderlineGradient(card);
-    if (!gradient) return;
-    word.dataset.pitchComponents = 'true';
-    word.style.setProperty('--jpdb-reader-inline-pitch-gradient', gradient);
-}
-
-function renderDeckMembershipAttributes(card: JPDBCard): string {
-    const membership = cardDeckMembership(card);
-    if (!membership.member) return '';
-    const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(', '))}"` : '';
-    return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
 
 /**

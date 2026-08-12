@@ -1,4 +1,4 @@
-import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
+import { escapeHtml, renderedWordsInRoot, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
 import { captureOcrTargetContext, claimOcrScan, ocrFallbackCardFromText, ocrTargetWork, ocrTargetWorkKey,
     releaseOcrScan, type OcrTargetContext, type OcrTargetWork } from './target-context';
 import { ocrRuntimeActive } from './mode';
@@ -16,11 +16,9 @@ import {
 } from './image-preprocess';
 import {
     composedOcrSurfaceTransform,
-    fittedObjectSize,
     forgetAllComposedOcrSurfaceTransforms,
     forgetComposedOcrSurfaceTransform,
     imageContentBox,
-    objectPositionOffset,
     ocrOverlayLayerPlacement,
     ocrOverlayTypeface,
     paintedImageFrame,
@@ -62,7 +60,6 @@ import {
     mutationsMayRemoveReaderRasterCandidate,
     ocrPointerHitElement,
     pageHasReaderRasterCandidates,
-    positionCanvasFrameImage,
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
@@ -91,7 +88,6 @@ import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { promiseWithTimeout } from '../core/async-utils';
 import { Logger } from '../app/logger';
-import { isYouTubeAppHostname } from '../app/youtube-host';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import {
@@ -113,9 +109,32 @@ import {
     classifyRenderableMediaMutations,
     type RenderableMediaMutationBatch,
 } from './renderable-media-mutations';
-
+import { subscribeToManualVideoFrameOcrRequests } from './video-frame-request-bus';
+import { trustedReaderEventHandler } from '../ui/trusted-interaction';
+import { createPrivateRasterImage, privateRasterHost, positionPrivateRasterImage, releasePrivateRasterImage, setPrivateRasterClass, setPrivateRasterSource } from './private-raster-presenter';
+import {
+    isHiddenByCss,
+    isImageOccludedByVideo,
+    isImageVisibleForOcr,
+    isInsideHiddenAncestor,
+    isNearViewport,
+    isVisibleOcrImage,
+} from './surface-visibility';
+import {
+    OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR,
+    appendOcrArtifactToRoot,
+    captureVideoFrameDataUrl,
+    isLikelyPausedVideoThumbnail,
+    playVideoIcon,
+    positionOcrImageStatus,
+    positionVideoFrameImage,
+    positionVideoFrameResumeControl,
+    positionVideoFrameStatus,
+    removeOcrArtifact,
+    removeVideoFrameResumeControl,
+    videoFrameArtifactRoot,
+} from './ocr-artifact-surface';
 type OcrVideoFrameStatus = 'loading' | 'ready' | 'empty' | 'failed';
-
 function isTerminalOcrStatus(status: string | undefined): status is 'empty' | 'failed' {
     return status === 'empty' || status === 'failed';
 }
@@ -218,67 +237,6 @@ const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settin
     'cloud-vision': settings => settings.ocrCloudVisionApiKey.trim() ? 'cloud-vision' : null,
     'local-service': localServiceProviderLabel,
 };
-const VIDEO_FRAME_PLAYER_SELECTOR = [
-    '#movie_player',
-    '.html5-video-player',
-    'ytd-player',
-    '#player',
-    '#player-container',
-    '#player-container-outer',
-    '[data-yomu-video-frame]',
-].join(',');
-const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
-    '[data-yomu-inline-fullscreen="true"]',
-    '[data-fullscreen-active="true"]',
-    '[fullscreen]',
-    '#movie_player.ytp-fullscreen',
-    '.html5-video-player.ytp-fullscreen',
-    'ytd-watch-flexy[fullscreen]',
-    'ytm-player[fullscreen]',
-    'ytm-player.fullscreen',
-    'ytm-player.ytp-fullscreen',
-].join(',');
-// YouTube feed/preview tile containers. A <video> OR thumbnail <img> inside one
-// of these is unambiguously a feed/preview surface, never the main watch player,
-// so OCR must skip it: neither the paused-frame snapshot card nor the image
-// auto-scan should fire on a thumbnail. `ytd-video-preview` is YouTube's
-// body-level inline hover preview — it reuses the real player markup
-// (#movie_player / ytd-player / #player-container), so without naming the
-// preview wrapper here its <video> matches VIDEO_FRAME_PLAYER_SELECTOR and gets
-// read as the main player. The `yt-*-view-model` tags wrap modern feed/Shorts
-// thumbnail images.
-const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
-    'ytd-thumbnail',
-    'ytd-rich-item-renderer',
-    'ytd-rich-grid-media',
-    'ytd-video-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-grid-video-renderer',
-    'ytd-reel-item-renderer',
-    'ytd-playlist-thumbnail',
-    'ytd-video-preview',
-    'yt-thumbnail-view-model',
-    'yt-lockup-view-model',
-    'ytm-rich-item-renderer',
-    'ytm-compact-video-renderer',
-    'ytm-video-card-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-    'ytm-shorts-lockup-view-model-v2',
-].join(',');
-// Weak link wrappers: these also wrap the MAIN player on m.youtube.com, so a
-// video matched ONLY by these is treated as a thumbnail only when it is not
-// player-sized (see isLikelyPausedVideoThumbnail).
-const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
-    'a[href*="/watch"]',
-    'a[href*="/shorts/"]',
-].join(',');
-const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
-    VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
-    'yt-image',
-    '.yt-core-image',
-].join(',');
-
 export { normalizeOcrResult, parseGoogleLensUploadHtml };
 export type { OcrResult };
 
@@ -369,6 +327,36 @@ function isFreshMiningPause(video: HTMLVideoElement): boolean {
     return Number.isFinite(marked) && Date.now() - marked < MINING_PAUSE_MARKER_TTL_MS;
 }
 
+function ocrVideoSnapshotEnabled(settings: ReaderSettings): boolean {
+    return ocrRuntimeActive(settings) && settings.ocrProvider !== 'off';
+}
+
+function automaticPausedVideoSnapshotAllowed(
+    video: HTMLVideoElement,
+    settings: ReaderSettings,
+    manual: boolean,
+): boolean {
+    if (manual) return true;
+    if (!settings.ocrVideoPauseFrames) return false;
+    if (isFreshMiningPause(video)) return false;
+    return !isLikelyPausedVideoThumbnail(video);
+}
+
+function pausedVideoSnapshotRectEligible(
+    video: HTMLVideoElement,
+    rect: DOMRect,
+    settings: ReaderSettings,
+    manual: boolean,
+): boolean {
+    return pausedVideoSnapshotAreaEligible(rect, settings, manual)
+        && isNearViewport(video, 0)
+        && !isHiddenByCss(video);
+}
+
+function pausedVideoSnapshotAreaEligible(rect: DOMRect, settings: ReaderSettings, manual: boolean): boolean {
+    return manual || rect.width * rect.height >= settings.ocrMinImageArea;
+}
+
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
     private cache = new Map<string, OcrResult | null>();
@@ -434,24 +422,22 @@ export class ImageOcrController {
     private readonly replacementOcrLines = new WeakMap<HTMLElement, HTMLElement>();
     private readonly lookupLineLeases = new Map<HTMLElement, Set<OcrLookupLineLease>>();
     private recentTouchOcrPoint?: { clientX: number; clientY: number; at: number };
-    private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
-    private readonly handleManualFrameRequest = (event: Event) => {
-        const video = (event as CustomEvent<{ video?: HTMLVideoElement }>).detail?.video;
-        if (video) this.snapshotPausedVideo(video, true);
-    };
-    private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
-    private readonly handleMediaSeeked = (event: Event) => this.refreshVideoFrameAfterSeek(event.target);
-    private readonly handleDocumentPointerDown = (event: Event) => {
+    private readonly handleMediaPause = trustedReaderEventHandler((event: Event) => this.snapshotPausedVideo(event.target));
+    private readonly handleManualFrameRequest = (video: HTMLVideoElement) => this.snapshotPausedVideo(video, true);
+    private unsubscribeManualFrameRequests: () => void = () => undefined;
+    private readonly handleMediaResume = trustedReaderEventHandler((event: Event) => this.releaseVideoFrame(event.target));
+    private readonly handleMediaSeeked = trustedReaderEventHandler((event: Event) => this.refreshVideoFrameAfterSeek(event.target));
+    private readonly handleDocumentPointerDown = trustedReaderEventHandler((event: Event) => {
         this.unpinOcrLinesFromDocumentEvent(event);
         this.requestOcrFromPointerEvent(event);
-    };
-    private readonly handleDocumentTouchStart = (event: Event) => {
+    });
+    private readonly handleDocumentTouchStart = trustedReaderEventHandler((event: Event) => {
         this.unpinOcrLinesFromDocumentEvent(event);
         this.requestOcrFromTouchEvent(event);
-    };
-    private readonly handleDocumentPointerOver = (event: Event) => this.requestOcrFromPointerEvent(event);
-    private readonly handleDocumentPointerMove = (event: Event) => this.requestOcrFromPointerEvent(event);
-    private readonly handleDocumentClick = (event: Event) => this.unpinOcrLinesFromDocumentEvent(event);
+    });
+    private readonly handleDocumentPointerOver = trustedReaderEventHandler((event: Event) => this.requestOcrFromPointerEvent(event));
+    private readonly handleDocumentPointerMove = trustedReaderEventHandler((event: Event) => this.requestOcrFromPointerEvent(event));
+    private readonly handleDocumentClick = trustedReaderEventHandler((event: Event) => this.unpinOcrLinesFromDocumentEvent(event));
     private readonly handleDocumentScroll = () => this.handleOcrViewportShift(120);
     private readonly handleWindowScroll = () => this.handleOcrViewportShift(240);
     private readonly handleWindowResize = () => {
@@ -487,7 +473,7 @@ export class ImageOcrController {
         document.addEventListener('click', this.handleDocumentClick, true);
         // Media events do not bubble.
         document.addEventListener('pause', this.handleMediaPause, true);
-        document.addEventListener('yomu-ocr-video-frame-request', this.handleManualFrameRequest, true);
+        this.unsubscribeManualFrameRequests(); this.unsubscribeManualFrameRequests = subscribeToManualVideoFrameOcrRequests(this.handleManualFrameRequest);
         document.addEventListener('play', this.handleMediaResume, true);
         document.addEventListener('emptied', this.handleMediaResume, true);
         document.addEventListener('seeked', this.handleMediaSeeked, true);
@@ -515,16 +501,26 @@ export class ImageOcrController {
         });
         this.startReaderRasterPollingIfNeeded();
     }
-
     destroy(): void {
         this.destroyed = true;
+        this.removeEventListeners();
+        this.releaseAllVideoFrames();
+        this.releaseAllCanvasFrames();
+        this.canvasTapRecapture.clear();
+        this.releaseAllBackgroundFrames();
+        this.cancelPendingWork();
+        this.mutationObserver?.disconnect();
+        if (this.positionFrame) window.cancelAnimationFrame(this.positionFrame);
+        this.clear();
+    }
+    private removeEventListeners(): void {
         document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
         document.removeEventListener('touchstart', this.handleDocumentTouchStart, true);
         document.removeEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.removeEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.removeEventListener('click', this.handleDocumentClick, true);
         document.removeEventListener('pause', this.handleMediaPause, true);
-        document.removeEventListener('yomu-ocr-video-frame-request', this.handleManualFrameRequest, true);
+        this.unsubscribeManualFrameRequests(); this.unsubscribeManualFrameRequests = () => undefined;
         document.removeEventListener('play', this.handleMediaResume, true);
         document.removeEventListener('emptied', this.handleMediaResume, true);
         document.removeEventListener('seeked', this.handleMediaSeeked, true);
@@ -532,25 +528,16 @@ export class ImageOcrController {
         window.removeEventListener('scroll', this.handleWindowScroll);
         window.removeEventListener('resize', this.handleWindowResize);
         window.removeEventListener('orientationchange', this.handleWindowResize);
-        for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
-            document.removeEventListener(eventName, this.handleWindowResize, true);
-        }
+        for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) document.removeEventListener(eventName, this.handleWindowResize, true);
         window.visualViewport?.removeEventListener('resize', this.handleVisualViewportResize);
         window.visualViewport?.removeEventListener('scroll', this.handleDocumentScroll);
-        for (const eventName of OCR_NAVIGATION_EVENTS) {
-            window.removeEventListener(eventName, this.handleSpaNavigation);
-        }
-        this.releaseAllVideoFrames();
-        this.releaseAllCanvasFrames();
-        this.canvasTapRecapture.clear();
-        this.releaseAllBackgroundFrames();
+        for (const eventName of OCR_NAVIGATION_EVENTS) window.removeEventListener(eventName, this.handleSpaNavigation);
+    }
+    private cancelPendingWork(): void {
         for (const pending of this.pendingCanvasSnapshots.values()) pending.cancelled = true;
         this.pendingCanvasSnapshots.clear();
         if (this.readerRasterPoll) { window.clearInterval(this.readerRasterPoll); this.readerRasterPoll = 0; }
         if (this.readerRasterRetryTimer) { window.clearTimeout(this.readerRasterRetryTimer); this.readerRasterRetryTimer = 0; }
-        this.mutationObserver?.disconnect();
-        if (this.positionFrame) window.cancelAnimationFrame(this.positionFrame);
-        this.clear();
     }
 
     refresh(options: { userRequested?: boolean } = {}): void {
@@ -1797,43 +1784,67 @@ export class ImageOcrController {
     // --- Paused-video frames (UT-27) ---
 
     private snapshotPausedVideo(target: EventTarget | null, manual = false): void {
-        if (this.destroyed) return;
-        if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
-        const settings = this.options.getSettings();
-        if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off') return;
-        // The automatic pause path stays heuristic-gated; an explicit rail-button
-        // request is an unambiguous ask, so it skips the auto-only filters.
-        if (!manual) {
-            if (!settings.ocrVideoPauseFrames) return;
-            if (isFreshMiningPause(target)) return;
-            if (isLikelyPausedVideoThumbnail(target)) return;
-        }
-        const rect = target.getBoundingClientRect();
-        if (!manual && rect.width * rect.height < settings.ocrMinImageArea) return;
-        if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
-        const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
+        const request = this.pausedVideoSnapshotRequest(target, manual);
+        if (!request) return;
+        const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(request.video);
         if (!dataUrl) return;
-        const frame = document.createElement('img');
-        frame.className = 'jpdb-ocr-video-frame';
-        frame.classList.add('jpdb-ocr-video-frame-pending');
+        const frame = this.createPausedVideoFrame(request.video, dataUrl);
+        this.mountPausedVideoFrame(request.video, frame, request.rect);
+    }
+
+    private pausedVideoSnapshotRequest(
+        target: EventTarget | null,
+        manual: boolean,
+    ): { video: HTMLVideoElement; rect: DOMRect } | undefined {
+        const video = this.pausedVideoTarget(target);
+        if (!video) return undefined;
+        const rect = this.pausedVideoSnapshotRect(video, this.options.getSettings(), manual);
+        if (!rect) return undefined;
+        return { video, rect };
+    }
+
+    private pausedVideoTarget(target: EventTarget | null): HTMLVideoElement | undefined {
+        if (this.destroyed) return undefined;
+        if (!(target instanceof HTMLVideoElement)) return undefined;
+        if (this.videoFrames.has(target)) return undefined;
+        return target;
+    }
+
+    private pausedVideoSnapshotRect(video: HTMLVideoElement, settings: ReaderSettings, manual: boolean): DOMRect | undefined {
+        if (!ocrVideoSnapshotEnabled(settings)) return undefined;
+        // An explicit rail request skips only the automatic pause heuristics.
+        if (!automaticPausedVideoSnapshotAllowed(video, settings, manual)) return undefined;
+        const rect = video.getBoundingClientRect();
+        if (!pausedVideoSnapshotRectEligible(video, rect, settings, manual)) return undefined;
+        return rect;
+    }
+
+    private createPausedVideoFrame(video: HTMLVideoElement, dataUrl: string): HTMLImageElement {
+        const frame = createPrivateRasterImage('jpdb-ocr-video-frame');
+        setPrivateRasterClass(frame, 'jpdb-ocr-video-frame-pending', true);
         frame.dataset.yomuVideoFrame = 'true';
         frame.dataset.ocrPending = 'true';
-        frame.alt = '';
+        privateRasterHost(frame).dataset.yomuVideoFrame = 'true';
+        privateRasterHost(frame).dataset.ocrPending = 'true';
         frame.addEventListener('load', () => {
-            if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
+            if (this.videoFrames.get(video) === frame) this.enqueue(frame, true);
         }, { once: true });
-        frame.src = dataUrl;
-        appendOcrArtifactToRoot(frame, videoFrameArtifactRoot(target));
-        this.videoFrames.set(target, frame);
-        this.videoFrameVideos.set(frame, target);
+        setPrivateRasterSource(frame, dataUrl);
+        return frame;
+    }
+
+    private mountPausedVideoFrame(video: HTMLVideoElement, frame: HTMLImageElement, rect: DOMRect): void {
+        appendOcrArtifactToRoot(privateRasterHost(frame), videoFrameArtifactRoot(video));
+        this.videoFrames.set(video, frame);
+        this.videoFrameVideos.set(frame, video);
         const status = this.createVideoFrameStatus('loading');
         // Keep the native player fully visible/usable until OCR actually has text
         // to show: the status spinner and the captured frame image stay gated
         // (hidden, not tappable), so the viewer can reach the player's
         // comment/like/scrubber controls while OCR runs.
         status.classList.add('jpdb-ocr-video-frame-pending');
-        this.videoFrameStatuses.set(target, status);
-        positionVideoFrameStatus(status, rect, target);
+        this.videoFrameStatuses.set(video, status);
+        positionVideoFrameStatus(status, rect, video);
         // Paused-frame escape hatch: recognized text areas swallow clicks for
         // lookups, so on text-dense frames the player itself becomes hard to
         // reach. The resume/play control therefore appears IMMEDIATELY on pause
@@ -1841,12 +1852,12 @@ export class ImageOcrController {
         // It is a single compact button (placed in the existing video rail when
         // available, with a fallback for pages without that rail), so it does
         // not cover the player chrome the way the full frame image would.
-        const resume = this.createVideoFrameResumeControl(target);
-        this.videoFrameControls.set(target, resume);
-        this.syncVideoFrameArtifactMount(target, frame);
-        positionVideoFrameImage(frame, rect, target);
-        positionVideoFrameStatus(status, rect, target);
-        positionVideoFrameResumeControl(resume, rect, target);
+        const resume = this.createVideoFrameResumeControl(video);
+        this.videoFrameControls.set(video, resume);
+        this.syncVideoFrameArtifactMount(video, frame);
+        positionVideoFrameImage(frame, rect, video);
+        positionVideoFrameStatus(status, rect, video);
+        positionVideoFrameResumeControl(resume, rect, video);
         this.schedulePosition();
     }
 
@@ -1855,8 +1866,9 @@ export class ImageOcrController {
     // moment the video paused), so the readable text appears with its status.
     private revealVideoFrameOverlay(image: HTMLImageElement): void {
         if (!this.videoFrameVideos.has(image)) return;
-        image.classList.remove('jpdb-ocr-video-frame-pending');
+        setPrivateRasterClass(image, 'jpdb-ocr-video-frame-pending', false);
         delete image.dataset.ocrPending;
+        delete privateRasterHost(image).dataset.ocrPending;
         this.revealVideoFrameStatusAndResume(image);
     }
 
@@ -2142,17 +2154,25 @@ export class ImageOcrController {
         const frame = this.videoFrames.get(target);
         if (!frame) return;
         this.videoFrames.delete(target);
-        const control = this.videoFrameControls.get(target);
+        this.releaseVideoFrameControls(target);
+        this.releaseVideoFrameImageState(frame);
+        this.videoFrameVideos.delete(frame);
+        releasePrivateRasterImage(frame);
+    }
+
+    private releaseVideoFrameControls(video: HTMLVideoElement): void {
+        const control = this.videoFrameControls.get(video);
         if (control) removeVideoFrameResumeControl(control);
-        this.videoFrameControls.delete(target);
-        const status = this.videoFrameStatuses.get(target);
+        this.videoFrameControls.delete(video);
+        const status = this.videoFrameStatuses.get(video);
         if (status) removeOcrArtifact(status);
-        this.videoFrameStatuses.delete(target);
+        this.videoFrameStatuses.delete(video);
+    }
+
+    private releaseVideoFrameImageState(frame: HTMLImageElement): void {
         const state = this.states.get(frame);
         if (state) this.releaseImageState(frame, state);
         else this.forgetImageWork(frame);
-        this.videoFrameVideos.delete(frame);
-        removeOcrArtifact(frame);
     }
 
     private releaseAllVideoFrames(): void {
@@ -2489,57 +2509,101 @@ export class ImageOcrController {
         captured: CanvasSnapshotCapture,
         userRequested: boolean,
     ): void {
-        if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-        if (!ocrRuntimeActive(this.options.getSettings())) return;
-        if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
+        if (!this.canvasSnapshotCommitAllowed(canvas, pendingSnapshot, userRequested)) return;
+        const identity = this.canvasSnapshotCommitIdentity(canvas, key, canvasRect, captured, userRequested);
+        if (!identity) return;
+        const frame = this.createCommittedCanvasFrame(canvas, canvasRect, captured, userRequested);
+        this.registerCommittedCanvasFrame(canvas, frame, key, canvasRect, captured, identity.finishContentToken, userRequested);
+    }
+
+    private canvasSnapshotCommitAllowed(
+        canvas: HTMLCanvasElement,
+        pendingSnapshot: PendingCanvasSnapshot,
+        userRequested: boolean,
+    ): boolean {
+        if (!canvasSnapshotBaseCommitAllowed(this.destroyed, canvas, this.canvasFrames.has(canvas))) return false;
+        if (!ocrRuntimeActive(this.options.getSettings())) return false;
+        return !this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested);
+    }
+
+    private canvasSnapshotCommitIdentity(
+        canvas: HTMLCanvasElement,
+        key: string,
+        canvasRect: DOMRect,
+        captured: CanvasSnapshotCapture,
+        userRequested: boolean,
+    ): { finishContentToken: string | undefined } | undefined {
         const finishContentToken = canvasStablePageContentToken(canvas);
-        if (captured.contentToken && finishContentToken && finishContentToken !== captured.contentToken) {
+        if (!canvasSnapshotContentTokenMatches(captured.contentToken, finishContentToken)) {
             this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, 'content identity');
-            return;
+            return undefined;
         }
         if (canvasSurfaceSnapshotKey(canvas) !== key) {
             this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, 'surface identity');
+            return undefined;
+        }
+        return { finishContentToken };
+    }
+
+    private createCommittedCanvasFrame(
+        canvas: HTMLCanvasElement,
+        canvasRect: DOMRect,
+        captured: CanvasSnapshotCapture,
+        userRequested: boolean,
+    ): HTMLImageElement {
+        const frame = createPrivateRasterImage('jpdb-ocr-canvas-frame');
+        frame.dataset.yomuCanvasFrame = 'true';
+        privateRasterHost(frame).dataset.yomuCanvasFrame = 'true';
+        if (captured.contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(captured.contentKey, canvas);
+        positionPrivateRasterImage(frame, captured.frameRect);
+        frame.addEventListener('load', () => this.finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, true), { once: true });
+        frame.addEventListener('error', () => this.finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, false), { once: true });
+        document.body.append(privateRasterHost(frame));
+        return frame;
+    }
+
+    private finishCommittedCanvasFrameLoad(
+        canvas: HTMLCanvasElement,
+        frame: HTMLImageElement,
+        canvasRect: DOMRect,
+        userRequested: boolean,
+        loaded: boolean,
+    ): void {
+        if (this.canvasFrames.get(canvas) !== frame) return;
+        this.clearCanvasFrameLoadTimer(frame);
+        if (loaded) {
+            this.removeCanvasPendingStatus(canvas);
+            this.clearCanvasCaptureRetry(canvas);
+            this.canvasCommitMismatches.delete(canvas);
+            this.enqueue(frame, userRequested);
             return;
         }
-        const frame = document.createElement('img');
-        frame.className = 'jpdb-ocr-canvas-frame';
-        frame.dataset.yomuCanvasFrame = 'true';
-        if (captured.contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(captured.contentKey, canvas);
-        frame.alt = '';
-        positionCanvasFrameImage(frame, captured.frameRect);
-        const finishFrameLoad = (loaded: boolean) => {
-            if (this.canvasFrames.get(canvas) !== frame) return;
-            const timer = this.canvasFrameLoadTimers.get(frame);
-            if (timer) window.clearTimeout(timer);
-            this.canvasFrameLoadTimers.delete(frame);
-            if (loaded) {
-                this.removeCanvasPendingStatus(canvas);
-                this.clearCanvasCaptureRetry(canvas);
-                this.canvasCommitMismatches.delete(canvas);
-                this.enqueue(frame, userRequested);
-                return;
-            }
-            this.discardUnloadedCanvasFrame(canvas, frame);
-            this.handleCanvasCaptureNotReady(canvas, canvasRect, userRequested);
-        };
-        frame.addEventListener('load', () => finishFrameLoad(true), { once: true });
-        frame.addEventListener('error', () => finishFrameLoad(false), { once: true });
-        document.body.append(frame);
+        this.discardUnloadedCanvasFrame(canvas, frame);
+        this.handleCanvasCaptureNotReady(canvas, canvasRect, userRequested, true);
+    }
+
+    private registerCommittedCanvasFrame(
+        canvas: HTMLCanvasElement,
+        frame: HTMLImageElement,
+        key: string,
+        canvasRect: DOMRect,
+        captured: CanvasSnapshotCapture,
+        finishContentToken: string | undefined,
+        userRequested: boolean,
+    ): void {
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
         this.canvasFrameKeys.set(canvas, key);
         const committedContentToken = captured.contentToken || finishContentToken;
-        if (committedContentToken) this.canvasFrameContentTokens.set(canvas, committedContentToken);
-        else this.canvasFrameContentTokens.delete(canvas);
+        syncStringMapEntry(this.canvasFrameContentTokens, canvas, committedContentToken);
         frame.dataset.ocrAttemptKey = canvasFrameOcrAttemptKey(canvas, key, committedContentToken);
         this.rememberCanvasSnapshotRegion(frame, canvasRect, captured.frameRect);
-        if (userRequested) this.canvasFrameUserRequested.add(canvas);
-        else this.canvasFrameUserRequested.delete(canvas);
+        syncSetEntry(this.canvasFrameUserRequested, canvas, userRequested);
         this.canvasFrameLoadTimers.set(frame, window.setTimeout(
-            () => finishFrameLoad(false),
+            () => this.finishCommittedCanvasFrameLoad(canvas, frame, canvasRect, userRequested, false),
             READER_RASTER_FRAME_LOAD_TIMEOUT_MS,
         ));
-        frame.src = captured.frameSrc;
+        setPrivateRasterSource(frame, captured.frameSrc);
         this.canvasReaderSignature = canvasReaderPageSignature();
         this.canvasReaderSamePageSignatureSkips = 0;
         this.schedulePosition();
@@ -2616,9 +2680,7 @@ export class ImageOcrController {
 
     private discardUnloadedCanvasFrame(canvas: HTMLCanvasElement, frame: HTMLImageElement): void {
         if (this.canvasFrames.get(canvas) !== frame) return;
-        const timer = this.canvasFrameLoadTimers.get(frame);
-        if (timer) window.clearTimeout(timer);
-        this.canvasFrameLoadTimers.delete(frame);
+        this.clearCanvasFrameLoadTimer(frame);
         this.canvasFrames.delete(canvas);
         this.canvasFrameSources.delete(frame);
         this.canvasFrameStaticRects.delete(frame);
@@ -2627,7 +2689,13 @@ export class ImageOcrController {
         this.canvasFrameContentTokens.delete(canvas);
         this.canvasFrameUserRequested.delete(canvas);
         this.removeImageStatusCard(frame);
-        frame.remove();
+        releasePrivateRasterImage(frame);
+    }
+
+    private clearCanvasFrameLoadTimer(frame: HTMLImageElement): void {
+        const timer = this.canvasFrameLoadTimers.get(frame);
+        if (timer) window.clearTimeout(timer);
+        this.canvasFrameLoadTimers.delete(frame);
     }
 
     private shouldDiscardCanvasSnapshot(
@@ -2683,17 +2751,38 @@ export class ImageOcrController {
     }
 
     private rebindExistingCanvasFrame(canvas: HTMLCanvasElement, key: string, userRequested: boolean): boolean {
-        const existing = this.findCanvasFrameBySnapshotKey(key, canvas);
-        if (!existing) return false;
-        const { canvas: previousCanvas, frame } = existing;
-        if (this.canvasFrameStaticRects.has(frame)) return false;
-        const rect = canvas.getBoundingClientRect();
-        if (!rect.width || !rect.height) return false;
-
+        const binding = this.rebindableCanvasFrame(canvas, key);
+        if (!binding) return false;
+        const { previousCanvas, frame, rect } = binding;
         this.removeCanvasPendingStatus(previousCanvas);
         this.removeCanvasPendingStatus(canvas);
         this.cancelCanvasSnapshot(previousCanvas);
         this.cancelCanvasSnapshot(canvas);
+        this.transferCanvasFrameBinding(previousCanvas, canvas, frame, key, userRequested);
+        positionPrivateRasterImage(frame, rect);
+        this.schedulePosition();
+        return true;
+    }
+
+    private rebindableCanvasFrame(
+        canvas: HTMLCanvasElement,
+        key: string,
+    ): { previousCanvas: HTMLCanvasElement; frame: HTMLImageElement; rect: DOMRect } | undefined {
+        const existing = this.findCanvasFrameBySnapshotKey(key, canvas);
+        if (!existing) return undefined;
+        if (this.canvasFrameStaticRects.has(existing.frame)) return undefined;
+        const rect = canvas.getBoundingClientRect();
+        if (!rectHasArea(rect)) return undefined;
+        return { previousCanvas: existing.canvas, frame: existing.frame, rect };
+    }
+
+    private transferCanvasFrameBinding(
+        previousCanvas: HTMLCanvasElement,
+        canvas: HTMLCanvasElement,
+        frame: HTMLImageElement,
+        key: string,
+        userRequested: boolean,
+    ): void {
         this.canvasFrames.delete(previousCanvas);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
@@ -2701,18 +2790,13 @@ export class ImageOcrController {
         this.canvasFrameKeys.set(canvas, key);
         const contentToken = this.canvasFrameContentTokens.get(previousCanvas) || canvasStablePageContentToken(canvas);
         this.canvasFrameContentTokens.delete(previousCanvas);
-        if (contentToken) this.canvasFrameContentTokens.set(canvas, contentToken);
-        else this.canvasFrameContentTokens.delete(canvas);
+        syncStringMapEntry(this.canvasFrameContentTokens, canvas, contentToken);
         this.canvasContentReadiness.delete(canvasContentReadinessKey(previousCanvas));
         this.canvasContentReadiness.set(canvasContentReadinessKey(canvas), canvasPageContentToken(canvas));
         this.canvasCaptureAttempts.delete(previousCanvas);
         this.canvasTapRecapture.delete(previousCanvas);
-        if (this.canvasFrameUserRequested.has(previousCanvas) || userRequested) this.canvasFrameUserRequested.add(canvas);
-        else this.canvasFrameUserRequested.delete(canvas);
+        syncSetEntry(this.canvasFrameUserRequested, canvas, this.canvasFrameUserRequested.has(previousCanvas) || userRequested);
         this.canvasFrameUserRequested.delete(previousCanvas);
-        positionCanvasFrameImage(frame, rect);
-        this.schedulePosition();
-        return true;
     }
 
     private findCanvasFrameBySnapshotKey(
@@ -2769,8 +2853,8 @@ export class ImageOcrController {
     // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
     // turn) and is bounded by its own attempt count, so it can never become permanent
     // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
-    private handleCanvasCaptureNotReady(canvas: HTMLCanvasElement, rect: DOMRect, userRequested: boolean): void {
-        if (this.deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested)) return;
+    private handleCanvasCaptureNotReady(canvas: HTMLCanvasElement, rect: DOMRect, userRequested: boolean, captured = false): void {
+        if (!captured && this.deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested)) return;
         if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
         this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
         this.updateCanvasPendingStatus(canvas, rect, 'failed');
@@ -2933,7 +3017,7 @@ export class ImageOcrController {
         this.canvasFailureContentTokens.delete(canvas);
         this.canvasTapRecapture.delete(canvas);
         this.canvasFrameUserRequested.delete(canvas);
-        frame.remove();
+        releasePrivateRasterImage(frame);
     }
 
     private releaseAllCanvasFrames(): void {
@@ -2960,68 +3044,98 @@ export class ImageOcrController {
 
     private positionCanvasFrames(): void {
         for (const [canvas, status] of [...this.canvasPendingStatuses]) {
-            if (!canvas.isConnected) {
-                this.cancelCanvasSnapshot(canvas);
-                this.removeCanvasPendingStatus(canvas);
-                continue;
-            }
-            const key = this.canvasPendingStatusKeys.get(canvas);
-            if (key && canvasSurfaceSnapshotKey(canvas) !== key) {
-                this.cancelCanvasSnapshot(canvas);
-                this.removeCanvasPendingStatus(canvas);
-                continue;
-            }
-            const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
-            if (!rect) {
-                if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
-                else status.hidden = true;
-                continue;
-            }
-            status.hidden = false;
-            positionOcrImageStatus(status, rect);
+            this.positionCanvasPendingStatus(canvas, status);
         }
         for (const [canvas, frame] of [...this.canvasFrames]) {
-            if (!canvas.isConnected) {
-                this.releaseCanvasFrame(canvas);
-                continue;
-            }
-            const rect = canvas.getBoundingClientRect();
-            // A modal lookup marks the visibly painted host aria-hidden for assistive tech.
-            // That must not look like a page turn and tear down the OCR anchor mid-lookup.
-            if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas, false)) {
-                this.releaseCanvasFrame(canvas);
-                continue;
-            }
-            const key = this.canvasFrameKeys.get(canvas);
-            if (key && key !== canvasSurfaceSnapshotKey(canvas)) {
-                this.releaseCanvasFrame(canvas);
-                this.scheduleReaderRasterRefresh(40);
-                continue;
-            }
-            // Content identity is checked by the debounced raster refresh. The rAF
-            // scroll path only repositions artifacts; sampling/pulling mirror state
-            // here made continuous scrolling stutter and could tear down a ready
-            // frame mid-gesture.
-            const staticRect = this.canvasFrameStaticRects.get(frame);
-            if (staticRect) {
-                const currentRegionRect = this.canvasFrameRegionRect(frame, rect);
-                if (this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, rect)) {
-                    if (this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame)) {
-                        this.releaseCanvasFrameForResnapshot(canvas);
-                        this.scheduleReaderRasterRefresh(40);
-                        continue;
-                    }
-                }
-                positionCanvasFrameImage(frame, currentRegionRect ?? staticRect);
-                continue;
-            }
-            // A CSS-only zoom/reflow does not invalidate a complete OCR map. Reader
-            // overlays use proportional provider coordinates, so resizing both the
-            // canvas and frame in place preserves alignment without another mirror
-            // capture or OCR request. Intrinsic bitmap and page-content changes are
-            // still rejected above through the snapshot key/content token.
-            positionCanvasFrameImage(frame, rect);
+            this.positionCanvasFrame(canvas, frame);
         }
+    }
+
+    private positionCanvasPendingStatus(canvas: HTMLCanvasElement, status: HTMLElement): void {
+        if (!this.canvasPendingStatusIsCurrent(canvas)) {
+            this.discardCanvasPendingStatus(canvas);
+            return;
+        }
+        const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+        if (!rect) {
+            this.hideUnavailableCanvasPendingStatus(canvas, status);
+            return;
+        }
+        status.hidden = false;
+        positionOcrImageStatus(status, rect);
+    }
+
+    private canvasPendingStatusIsCurrent(canvas: HTMLCanvasElement): boolean {
+        if (!canvas.isConnected) return false;
+        const key = this.canvasPendingStatusKeys.get(canvas);
+        if (!key) return true;
+        return canvasSurfaceSnapshotKey(canvas) === key;
+    }
+
+    private discardCanvasPendingStatus(canvas: HTMLCanvasElement): void {
+        this.cancelCanvasSnapshot(canvas);
+        this.removeCanvasPendingStatus(canvas);
+    }
+
+    private hideUnavailableCanvasPendingStatus(canvas: HTMLCanvasElement, status: HTMLElement): void {
+        if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
+        else status.hidden = true;
+    }
+
+    private positionCanvasFrame(canvas: HTMLCanvasElement, frame: HTMLImageElement): void {
+        const rect = this.connectedCanvasFrameRect(canvas);
+        if (!rect) return;
+        if (!this.canvasFrameKeyIsCurrent(canvas)) {
+            this.releaseCanvasFrame(canvas);
+            this.scheduleReaderRasterRefresh(40);
+            return;
+        }
+        // Content identity is checked by the debounced raster refresh. The rAF
+        // path only repositions artifacts, avoiding sampling while scrolling.
+        const staticRect = this.canvasFrameStaticRects.get(frame);
+        if (staticRect) {
+            this.positionStaticCanvasFrame(canvas, frame, rect, staticRect);
+            return;
+        }
+        // CSS-only zoom/reflow preserves proportional provider coordinates.
+        positionPrivateRasterImage(frame, rect);
+    }
+
+    private connectedCanvasFrameRect(canvas: HTMLCanvasElement): DOMRect | undefined {
+        if (!canvas.isConnected) {
+            this.releaseCanvasFrame(canvas);
+            return undefined;
+        }
+        const rect = canvas.getBoundingClientRect();
+        // A modal lookup may set aria-hidden on the painted host; ignore that
+        // accessibility-only marker while still rejecting genuinely hidden DOM.
+        if (canvasFrameRectUnavailable(canvas, rect)) {
+            this.releaseCanvasFrame(canvas);
+            return undefined;
+        }
+        return rect;
+    }
+
+    private canvasFrameKeyIsCurrent(canvas: HTMLCanvasElement): boolean {
+        const key = this.canvasFrameKeys.get(canvas);
+        if (!key) return true;
+        return key === canvasSurfaceSnapshotKey(canvas);
+    }
+
+    private positionStaticCanvasFrame(
+        canvas: HTMLCanvasElement,
+        frame: HTMLImageElement,
+        canvasRect: DOMRect,
+        staticRect: DOMRect,
+    ): void {
+        const currentRegionRect = this.canvasFrameRegionRect(frame, canvasRect);
+        const geometryChanged = this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect);
+        if (geometryChanged && this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame)) {
+            this.releaseCanvasFrameForResnapshot(canvas);
+            this.scheduleReaderRasterRefresh(40);
+            return;
+        }
+        positionPrivateRasterImage(frame, currentRegionRect ?? staticRect);
     }
 
     private releaseCanvasFrameForResnapshot(canvas: HTMLCanvasElement): void {
@@ -3150,27 +3264,40 @@ export class ImageOcrController {
     }
 
     private snapshotBackgroundImageSurface(surface: HTMLElement, settings: ReaderSettings, userRequested = false): void {
-        if (this.backgroundFrames.has(surface)) return;
-        const url = backgroundImageReaderUrl(surface);
+        const url = this.backgroundFrameSource(surface);
         if (!url) return;
-        const rect = surface.getBoundingClientRect();
-        if (rect.width * rect.height < settings.ocrMinImageArea) return;
-        if (!isNearViewport(surface, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
-        const frame = document.createElement('img');
-        frame.className = 'jpdb-ocr-background-frame';
+        const rect = this.backgroundFrameRect(surface, settings, userRequested);
+        if (!rect) return;
+        const frame = createPrivateRasterImage('jpdb-ocr-background-frame');
         frame.dataset.yomuBackgroundFrame = 'true';
-        frame.alt = '';
+        privateRasterHost(frame).dataset.yomuBackgroundFrame = 'true';
         frame.decoding = 'async';
-        positionCanvasFrameImage(frame, rect);
+        positionPrivateRasterImage(frame, rect);
         frame.addEventListener('load', () => {
             if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
         }, { once: true });
-        frame.src = url;
-        document.body.append(frame);
+        setPrivateRasterSource(frame, url);
+        document.body.append(privateRasterHost(frame));
         this.backgroundFrames.set(surface, frame);
         this.backgroundFrameSources.set(frame, surface);
         this.backgroundFrameKeys.set(surface, backgroundSurfaceCacheKey(surface));
         this.schedulePosition();
+    }
+
+    private backgroundFrameSource(surface: HTMLElement): string | undefined {
+        if (this.backgroundFrames.has(surface)) return undefined;
+        return backgroundImageReaderUrl(surface);
+    }
+
+    private backgroundFrameRect(
+        surface: HTMLElement,
+        settings: ReaderSettings,
+        userRequested: boolean,
+    ): DOMRect | undefined {
+        const rect = surface.getBoundingClientRect();
+        if (rect.width * rect.height < settings.ocrMinImageArea) return undefined;
+        if (!readerRasterSurfaceIsVisible(surface, readerRasterCaptureMargin(settings, userRequested))) return undefined;
+        return rect;
     }
 
     private releaseBackgroundFrame(surface: HTMLElement): void {
@@ -3182,7 +3309,7 @@ export class ImageOcrController {
         if (state) this.releaseImageState(frame, state);
         else this.forgetImageWork(frame);
         this.backgroundFrameSources.delete(frame);
-        frame.remove();
+        releasePrivateRasterImage(frame);
     }
 
     private releaseAllBackgroundFrames(): void {
@@ -3237,7 +3364,7 @@ export class ImageOcrController {
                 this.releaseBackgroundFrame(surface);
                 continue;
             }
-            positionCanvasFrameImage(frame, surface.getBoundingClientRect());
+            positionPrivateRasterImage(frame, surface.getBoundingClientRect());
         }
     }
 
@@ -3444,7 +3571,7 @@ export class ImageOcrController {
         let hasFurigana = false;
         const settings = this.options.getSettings();
         const isolatePageScanners = isPopupLookupEnabled(settings);
-        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
+        renderedWordsInRoot(line).forEach(word => {
             const state = this.ocrWordRenderStates.get(word);
             if (!state) return;
             this.applyOcrPitchClass(word, state.token);
@@ -3512,7 +3639,7 @@ export class ImageOcrController {
 
     private syncVideoFrameArtifactMount(video: HTMLVideoElement, frame: HTMLImageElement): void {
         const root = videoFrameArtifactRoot(video);
-        appendOcrArtifactToRoot(frame, root);
+        appendOcrArtifactToRoot(privateRasterHost(frame), root);
         const state = this.states.get(frame);
         if (state) appendOcrArtifactToRoot(state.overlay, root);
         const status = this.videoFrameStatuses.get(video);
@@ -4066,6 +4193,44 @@ function isYouTubeThumbnailImage(image: HTMLImageElement): boolean {
     return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
 }
 
+function readerRasterSurfaceIsVisible(surface: Element, margin: number): boolean {
+    return isNearViewport(surface, margin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
+}
+
+function rectHasArea(rect: DOMRect): boolean {
+    return rect.width > 0 && rect.height > 0;
+}
+
+function canvasSnapshotBaseCommitAllowed(
+    destroyed: boolean,
+    canvas: HTMLCanvasElement,
+    hasCommittedFrame: boolean,
+): boolean {
+    return [!destroyed, canvas.isConnected, !hasCommittedFrame].every(Boolean);
+}
+
+function canvasSnapshotContentTokenMatches(captured: string | undefined, finished: string | undefined): boolean {
+    return !captured || !finished || captured === finished;
+}
+
+function canvasFrameRectUnavailable(canvas: HTMLCanvasElement, rect: DOMRect): boolean {
+    return [
+        !rectHasArea(rect),
+        isHiddenByCss(canvas),
+        isInsideHiddenAncestor(canvas, false),
+    ].some(Boolean);
+}
+
+function syncStringMapEntry<Key>(map: Map<Key, string>, key: Key, value: string | undefined): void {
+    if (value) map.set(key, value);
+    else map.delete(key);
+}
+
+function syncSetEntry<Value>(set: Set<Value>, value: Value, present: boolean): void {
+    if (present) set.add(value);
+    else set.delete(value);
+}
+
 const OCR_BRAND_IMAGE_TEXT_RE = /(^|[\s/_.?#&=-])(?:app-?icon|apple-touch-icon|avatar|badge|brand|favicon|icon|logo|site-icon|touch-icon|yomu-icon)(?=$|[\s/_.?#&=-])/iu;
 const OCR_BRAND_IMAGE_CONTAINER_SELECTOR = [
     'header',
@@ -4108,35 +4273,6 @@ function isIconLikeImage(image: HTMLImageElement, rect = image.getBoundingClient
     return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
 }
 
-function isVisibleOcrImage(image: HTMLImageElement): boolean {
-    return !isHiddenByCss(image)
-        && !isInsideHiddenAncestor(image);
-}
-
-function isImageVisibleForOcr(image: HTMLImageElement, rect: DOMRect): boolean {
-    return rect.width > 0
-        && rect.height > 0
-        && rect.bottom >= 0
-        && rect.top <= window.innerHeight
-        && !isImageOccludedByVideo(image, rect);
-}
-
-function isInsideHiddenAncestor(element: Element, includeAriaHidden = true): boolean {
-    for (let current: Element | null = element.parentElement; current && current !== document.body; current = current.parentElement) {
-        if (isHiddenByCss(current)
-            || current.hasAttribute('hidden')
-            || (includeAriaHidden && current.getAttribute('aria-hidden') === 'true')) return true;
-    }
-    return false;
-}
-
-function isHiddenByCss(element: Element): boolean {
-    const style = getComputedStyle(element);
-    return style.visibility === 'hidden'
-        || style.display === 'none'
-        || Number(style.opacity || '1') <= 0;
-}
-
 function canAutoRefreshOcrAfterMutation(settings: ReaderSettings, shouldAutoScan: (() => boolean) | undefined): boolean {
     return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
 }
@@ -4150,49 +4286,6 @@ function isCanvasOcrOptInSurface(canvas: HTMLCanvasElement): boolean {
         || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
 }
 
-function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {
-    // Paused-video snapshots intentionally sit on their video.
-    if (image.dataset.yomuVideoFrame) return false;
-    const imageArea = rect.width * rect.height;
-    if (imageArea < 4) return false;
-    const imageRoot = image.getRootNode();
-    for (const video of document.querySelectorAll('video')) {
-        if (!isVisiblePeerVideo(video, image, imageRoot)) continue;
-        if (videoOccludesImage(video, rect, imageArea)) return true;
-    }
-    return false;
-}
-
-function isVisiblePeerVideo(video: HTMLVideoElement, image: HTMLImageElement, imageRoot: Node): boolean {
-    return video.isConnected
-        && video.getRootNode() === imageRoot
-        && !isSameMediaNode(video, image)
-        && visibleVideoRect(video) !== null
-        && !isHiddenByCss(video);
-}
-
-function visibleVideoRect(video: HTMLVideoElement): DOMRect | null {
-    const rect = video.getBoundingClientRect();
-    return rect.width >= 2 && rect.height >= 2 ? rect : null;
-}
-
-function videoOccludesImage(video: HTMLVideoElement, imageRect: DOMRect, imageArea: number): boolean {
-    const videoRect = visibleVideoRect(video);
-    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
-}
-
-function isSameMediaNode(video: HTMLVideoElement, image: HTMLImageElement): boolean {
-    return video === image.parentElement || image === video.parentElement;
-}
-
-function intersectionArea(a: DOMRect, b: DOMRect): number {
-    const left = Math.max(a.left, b.left);
-    const top = Math.max(a.top, b.top);
-    const right = Math.min(a.right, b.right);
-    const bottom = Math.min(a.bottom, b.bottom);
-    return Math.max(0, right - left) * Math.max(0, bottom - top);
-}
-
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     return settings.ocrProvider !== 'off'
         && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
@@ -4200,11 +4293,6 @@ function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): 
 
 function hasInlineOcrFallback(image: HTMLImageElement): boolean {
     return Boolean(readFallbackOcrResult(image, false));
-}
-
-function isNearViewport(element: Element, margin: number): boolean {
-    const rect = element.getBoundingClientRect();
-    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
 }
 
 function ocrConcurrencyLimit(settings: ReaderSettings): number {
@@ -4433,197 +4521,6 @@ function visibleBookwalkerSpreadSurfaces<T extends Element>(surfaces: T[]): T[] 
     return first.right <= second.left || second.right <= first.left ? spread : [];
 }
 
-function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
-    try {
-        if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return undefined;
-        const canvas = document.createElement('canvas');
-        const maxWidth = 960;
-        const scale = Math.min(1, maxWidth / video.videoWidth);
-        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-        const context = canvas.getContext('2d');
-        if (!context) return undefined;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        // Throws on DRM/cross-origin tainted frames — treated as "no frame".
-        return canvas.toDataURL('image/jpeg', 0.84);
-    } catch {
-        return undefined;
-    }
-}
-
-function isTwitterHost(hostname = location.hostname): boolean {
-    return hostname === 'twitter.com'
-        || hostname === 'x.com'
-        || hostname.endsWith('.twitter.com')
-        || hostname.endsWith('.x.com');
-}
-
-function isLikelyPausedVideoThumbnail(video: HTMLVideoElement): boolean {
-    // Twitter/X plays every video inline in the timeline/tweet — there is no
-    // distinct "watch" player as on YouTube (clicking a clip just routes to the
-    // tweet detail page, keeping the same <article> markup), so a paused-frame
-    // OCR card would pop over autoplay timeline clips. Treat all of them as
-    // thumbnails; posted photos still flow through the normal image OCR path.
-    if (isTwitterHost()) return true;
-    // A real feed/preview tile container (incl. the inline hover preview) is
-    // unambiguous — checked before the player selector so YouTube's preview,
-    // which reuses player markup, is still treated as a thumbnail.
-    if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
-    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-    // Otherwise only generic watch/shorts link wrappers are left — these also
-    // wrap the MAIN player on m.youtube.com, so a player-sized video here is the
-    // real player, not a hover-preview. Misclassifying it skipped the OCR pause
-    // snapshot on mobile entirely (regression v0.6.182).
-    if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
-    return !isPrimaryPlayerSizedVideo(video);
-}
-
-function isPrimaryPlayerSizedVideo(video: HTMLVideoElement): boolean {
-    const rect = video.getBoundingClientRect();
-    if (rect.width < 280 || rect.height < 160) return false;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return rect.width >= 480 && rect.height >= 270;
-    // Spans most of the viewport width (mobile full-bleed player) or covers a
-    // large share of the viewport area (desktop/theater) → the primary player.
-    return rect.width >= viewportWidth * 0.6
-        || rect.width * rect.height >= viewportWidth * viewportHeight * 0.25;
-}
-
-// UT-77a: pin the snapshot to the video's CONTENT box (contain-fit of the
-// intrinsic frame inside the element rect). Sizing to the element rect
-// stretched the capture across the letterbox bars, and a correctly-shaped
-// box keeps the OCR overlay's fractional line geometry aligned.
-function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: HTMLVideoElement): void {
-    const content = videoContentBox(rect, video);
-    setOcrArtifactPosition(frame, content.left, content.top);
-    frame.style.width = `${content.width}px`;
-    frame.style.height = `${content.height}px`;
-}
-
-function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
-    const root = videoFrameArtifactRoot(video);
-    if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
-    attachVideoFrameResumeControlFallback(control, root);
-    const content = videoContentBox(rect, video);
-    setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
-}
-
-function positionVideoFrameStatus(status: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
-    const content = videoContentBox(rect, video);
-    const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
-    setOcrArtifactPosition(status, Math.max(8, content.left + 12), Math.max(8, content.top + 12));
-    status.style.maxWidth = `${maxWidth}px`;
-}
-
-function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
-    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
-    status.style.maxWidth = `${maxWidth}px`;
-}
-
-// The layer is written to on every animation frame while the page scrolls, so the
-// transform is only touched when it actually changes: an identical style write still
-// invalidates the compositor's cached layer.
-function appendOcrArtifactToRoot(element: HTMLElement, root: HTMLElement): void {
-    const oldRoot = element.parentElement;
-    const fullscreenHosted = root !== document.body;
-    if (fullscreenHosted) prepareOcrFullscreenHost(root);
-    element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? 'true' : 'false';
-    if (oldRoot !== root) root.append(element);
-    clearOcrFullscreenHostMarker(oldRoot);
-}
-
-function removeOcrArtifact(element: HTMLElement): void {
-    const oldRoot = element.parentElement;
-    element.remove();
-    clearOcrFullscreenHostMarker(oldRoot);
-}
-
-function clearOcrFullscreenHostMarker(root: Element | null): void {
-    if (!(root instanceof HTMLElement) || root === document.body) return;
-    if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
-    delete root.dataset.yomuOcrFullscreenHost;
-    if (root.dataset.yomuOcrFullscreenHostPosition === 'relative') {
-        root.style.position = '';
-        delete root.dataset.yomuOcrFullscreenHostPosition;
-    }
-}
-
-function prepareOcrFullscreenHost(root: HTMLElement): void {
-    root.dataset.yomuOcrFullscreenHost = 'true';
-    const position = getComputedStyle(root).position;
-    if (position && position !== 'static') return;
-    root.style.position = 'relative';
-    root.dataset.yomuOcrFullscreenHostPosition = 'relative';
-}
-
-function videoFrameArtifactRoot(video: HTMLVideoElement): HTMLElement {
-    return activeVideoFullscreenHost(video) ?? document.body;
-}
-
-function activeVideoFullscreenHost(video: HTMLVideoElement): HTMLElement | null {
-    const active = activeFullscreenElement();
-    if (active && (active === document.body || active === document.documentElement)) return document.body;
-    if (active instanceof HTMLVideoElement && active === video) return fullscreenVideoArtifactHost(video);
-    if (active && active.contains(video)) return active;
-    const host = video.closest<HTMLElement>(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR);
-    if (host && host.isConnected && host !== video && host.contains(video)) return host;
-    return youtubeFullscreenHostForOcrVideo(video);
-}
-
-function fullscreenVideoArtifactHost(video: HTMLVideoElement): HTMLElement | null {
-    const host = video.closest<HTMLElement>(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR)
-        ?? video.closest<HTMLElement>(VIDEO_FRAME_PLAYER_SELECTOR);
-    if (host && host !== video && host.isConnected && host.contains(video)) return host;
-    return youtubeFullscreenHostForOcrVideo(video);
-}
-
-function youtubeFullscreenHostForOcrVideo(video: HTMLVideoElement): HTMLElement | null {
-    if (!isYouTubePageForOcr()) return null;
-    const scopedHost = [
-        video.closest<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
-        video.closest<HTMLElement>('.html5-video-player.ytp-fullscreen'),
-        video.closest<HTMLElement>('#movie_player.ytp-fullscreen'),
-        video.closest<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
-        video.closest<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
-        video.closest<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
-    ].find((element): element is HTMLElement => Boolean(element && element !== video));
-    if (scopedHost) return scopedHost;
-
-    return [
-        document.querySelector<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
-        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen'),
-        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen'),
-        document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
-        document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
-        document.querySelector<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
-    ].find(element => Boolean(element && element !== video && (element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element)))) ?? null;
-}
-
-function isYouTubePageForOcr(): boolean {
-    return isYouTubeAppHostname();
-}
-
-function isYouTubeMobileFullscreenHostForOcr(element: HTMLElement): boolean {
-    return /^m\.youtube\.com$/i.test(location.hostname)
-        && element.matches('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen');
-}
-
-function activeFullscreenElement(): HTMLElement | null {
-    const doc = document as Document & {
-        webkitFullscreenElement?: Element | null;
-        mozFullScreenElement?: Element | null;
-        msFullscreenElement?: Element | null;
-    };
-    const element = doc.fullscreenElement
-        ?? doc.webkitFullscreenElement
-        ?? doc.mozFullScreenElement
-        ?? doc.msFullscreenElement
-        ?? null;
-    return element instanceof HTMLElement ? element : null;
-}
-
 function videoFrameStatusTextKey(status: OcrVideoFrameStatus): UiCopyKey {
     switch (status) {
         case 'ready':
@@ -4635,87 +4532,6 @@ function videoFrameStatusTextKey(status: OcrVideoFrameStatus): UiCopyKey {
         case 'loading':
         default:
             return 'ocrPausedFrameScanning';
-    }
-}
-
-function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement, root: HTMLElement): boolean {
-    const rail = subtitleRailForOcrRoot(root);
-    if (!rail?.isConnected) return false;
-    const oldParent = control.parentElement;
-    const oldRoot = subtitlePlayerRoot(control);
-    control.classList.remove('jpdb-ocr-video-frame-resume-fallback');
-    control.dataset.yomuOcrFullscreenHosted = 'false';
-    control.style.left = '';
-    control.style.top = '';
-    const panelButton = rail.querySelector<HTMLElement>('.jpdb-subtitle-panel-toggle');
-    if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
-    clearOcrFullscreenHostMarker(oldParent);
-    updateSubtitleRailResumeState(oldRoot);
-    updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-    return true;
-}
-
-function attachVideoFrameResumeControlFallback(control: HTMLElement, root: HTMLElement): void {
-    const oldRoot = subtitlePlayerRoot(control);
-    appendOcrArtifactToRoot(control, root);
-    control.classList.add('jpdb-ocr-video-frame-resume-fallback');
-    updateSubtitleRailResumeState(oldRoot);
-}
-
-function removeVideoFrameResumeControl(control: HTMLElement): void {
-    const root = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    updateSubtitleRailResumeState(root);
-}
-
-function subtitleRailForOcrRoot(root: HTMLElement): HTMLElement | null {
-    const rails = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
-    if (root === document.body) return rails.find(rail => rail.isConnected) ?? null;
-    return rails.find(rail => rail.isConnected && root.contains(rail)) ?? null;
-}
-
-function subtitlePlayerRoot(control: HTMLElement): HTMLElement | null {
-    return control.closest<HTMLElement>('.jpdb-subtitle-player');
-}
-
-function updateSubtitleRailResumeState(root: HTMLElement | null): void {
-    if (!root) return;
-    root.classList.toggle('jpdb-ocr-video-frame-resume-active', Boolean(root.querySelector('.jpdb-ocr-video-frame-resume')));
-}
-
-function playVideoIcon(): string {
-    return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-}
-
-function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number; top: number; width: number; height: number } {
-    const intrinsicWidth = video.videoWidth;
-    const intrinsicHeight = video.videoHeight;
-    if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
-    const style = getComputedStyle(video);
-    const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
-    const offset = objectPositionOffset(style.objectPosition || '50% 50%', rect.width - object.width, rect.height - object.height);
-    return {
-        left: rect.left + offset.x,
-        top: rect.top + offset.y,
-        width: object.width,
-        height: object.height,
-    };
-}
-
-function videoObjectFit(value: string): string {
-    switch (value) {
-        case 'contain':
-        case 'cover':
-        case 'none':
-        case 'scale-down':
-            return value;
-        case 'fill':
-        default:
-            // YouTube commonly sizes the <video> as a player surface while the
-            // actual frame is aspect-preserved within it. Preserve the existing
-            // contain-fit behavior unless the page explicitly opts into another
-            // fit mode.
-            return 'contain';
     }
 }
 

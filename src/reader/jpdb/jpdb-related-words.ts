@@ -1,5 +1,6 @@
 import { readerWordSurfaceText } from '../dom';
 import type { JPDBCard, JPDBToken } from '../app/types';
+import { renderedWordNumericIdentity } from '../dom/rendered-word-policy';
 
 const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
 export const JPDB_RELATED_WORD_STATE = 'not-in-deck';
@@ -42,16 +43,16 @@ function renderedJpdbRelatedWord(word: HTMLElement): RenderedJpdbRelatedWord | n
 }
 
 function renderedJpdbRelatedWordCard(word: HTMLElement): JPDBCard | null {
-    const vid = Number(word.dataset.vid);
-    const sid = Number(word.dataset.sid);
-    const spelling = (word.dataset.expression ?? readerWordSurfaceText(word)).trim();
-    if (!Number.isFinite(vid) || vid <= 0 || !Number.isFinite(sid) || sid < 0 || !spelling) return null;
+    const { vid, sid } = renderedWordNumericIdentity(word);
+    const spelling = firstRenderedWordText(word.dataset.expression, readerWordSurfaceText(word));
+    const valid = [Number.isFinite(vid), vid > 0, Number.isFinite(sid), sid >= 0, Boolean(spelling)].every(Boolean);
+    if (!valid) return null;
     return {
         vid,
         sid,
         rid: 0,
         spelling,
-        reading: word.dataset.reading?.trim() || spelling,
+        reading: renderedWordTextOrFallback(word.dataset.reading, spelling),
         frequencyRank: null,
         partOfSpeech: [],
         meanings: [],
@@ -59,6 +60,14 @@ function renderedJpdbRelatedWordCard(word: HTMLElement): JPDBCard | null {
         pitchAccent: [],
         wordWithReading: null,
         source: 'jpdb',
-        sentence: word.dataset.sentence || spelling,
+        sentence: renderedWordTextOrFallback(word.dataset.sentence, spelling),
     };
+}
+
+function firstRenderedWordText(...values: Array<string | undefined>): string {
+    return values.map(value => value?.trim() ?? '').find(Boolean) ?? '';
+}
+
+function renderedWordTextOrFallback(value: string | undefined, fallback: string): string {
+    return firstRenderedWordText(value, fallback);
 }

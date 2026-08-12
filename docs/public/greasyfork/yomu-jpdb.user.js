@@ -104,6 +104,99 @@ const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+const DOCS_PREVIEW_HOST = "yomureader.localhost";
+const WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+const TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_ORIGIN, "docs"],
+  [GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_PREVIEW_HOST, "docs-preview"],
+  ["127.0.0.1", "loopback"],
+  ["localhost", "loopback"],
+  ["[::1]", "loopback"]
+]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
+  "http://127.0.0.1:5174",
+  "http://localhost:5174",
+  "http://[::1]:5174"
+]);
+function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
+  return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+  url = new URL(value);
+  } catch {
+  return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
+}
+function trustedHttpsOriginKind(url, path) {
+  const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+  if (originKind !== "github-pages") return originKind ?? null;
+  return isYomuRepositoryPath(path) ? originKind : null;
+}
+function trustedWebHostKind(url) {
+  if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+  return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+function trustedExtensionOriginKind(url) {
+  if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+  return url.hostname ? "extension" : null;
+}
+const SETTINGS_PANEL_IDS = [
+  "appearance",
+  "backup",
+  "api",
+  "dictionaries",
+  "media",
+  "mining",
+  "newTab",
+  "shortcuts",
+  "help"
+];
+new Set(SETTINGS_PANEL_IDS);
+const STUDY_ROUTE_POLICIES = {
+  docs: isYomuStudyRoutePath,
+  "docs-preview": isYomuStudyRoutePath,
+  extension: isYomuStudyRoutePath,
+  "github-pages": isRepositoryStudyRoutePath,
+  loopback: isLoopbackStudyRoutePath
+};
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
@@ -666,8 +759,10 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  // Cloud settings sync handoff written before an OAuth redirect.
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  // Private, one-use cloud settings OAuth handoff. The old page-readable key
+  // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
+  { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
+  { owner: "settings/dialog-controller (legacy)", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
@@ -995,6 +1090,99 @@ function removeStorageValue(storage, key, label) {
   throw new Error(`${label} could not be removed.`, { cause: error });
   }
 }
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
+  HOSTED_SETTINGS_BLOB_KEY,
+  "yomu:explicit-user-settings:v1"
+]);
+const HOSTED_SETTINGS_COORDINATION_FIELDS = [
+  HOSTED_SETTINGS_TRANSACTION_FIELD,
+  HOSTED_SETTINGS_COMMIT_FIELD
+];
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+function hostedStoragePromotionValue(key, value, hostedOrigin) {
+  const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
+  return isRecord(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
+}
+function sanitizedHostedStorageValue(key, value, hostedOrigin) {
+  if (!hostedOrigin || !isRecord(value)) return value;
+  const record2 = { ...value };
+  const policy = hostedPolicyRecord(key, record2);
+  if (!policy) return value;
+  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
+  return record2;
+}
+function hostedPolicyRecord(key, record2) {
+  return HOSTED_ROOT_POLICY_KEYS.has(key) ? record2 : null;
+}
+function withoutSettingsCoordination(record2) {
+  const clean = { ...record2 };
+  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field) => delete clean[field]);
+  return clean;
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
@@ -1099,45 +1287,47 @@ function migratedLocalStorageSyncValue(key, epoch) {
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
-}
-function sanitizedStrandedLocalValue(key, value) {
-  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
-  ({ ...value });
-  {
-  return value;
-  }
 }
 function localFallbackValueForWrite(key, value) {
   return value;
 }
-async function gmStorageSet(key, value) {
+async function gmStorageSet(key, value, options = {}) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) {
-  let epoch2;
-  try {
-    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
-    epoch2 = await assertRealmManagedStateEpoch(getValue);
-    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
-    mirrorManagedValueToHostedStorage(key, value, epoch2);
-    return;
-  } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      epoch2 ??= await assertRealmManagedStateEpoch(null);
-      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
+  if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
   const epoch = await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+async function setSharedManagedValue(key, value, options, getValue, setValue) {
+  let epoch;
+  try {
+  if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+  epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  mirrorManagedValueToHostedStorage(key, value, epoch);
+  } catch (error) {
+  await handleSharedManagedWriteFailure(key, value, options, error, epoch);
+  }
+}
+async function handleSharedManagedWriteFailure(key, value, options, error, epoch) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("GM storage write failed", key, error);
+  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
+  throw storageWriteError(key, "GM storage write failed", error);
+  }
+  await writeFailedManagedValueFallback(key, value, error, epoch);
+  throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+}
+async function writeFailedManagedValueFallback(key, value, error, epoch) {
+  try {
+  const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
+  } catch (fallbackError) {
+  throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+  }
 }
 function gmStorageSetSync(key, value) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -1255,35 +1445,6 @@ function gmStorageDeleteSync(key) {
 function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  if (serialized === void 0) throw new Error("value is not JSON-serializable");
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  return serialized;
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
 function removeLocalStorageKey(key) {
   try {
   localStorage.removeItem(key);
@@ -1384,11 +1545,7 @@ function shouldMirrorManagedValueToHostedStorage(key) {
 }
 function isHostedYomuOrigin() {
   try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
   } catch {
   return false;
   }
@@ -3352,6 +3509,18 @@ function deckProgressFields(vocabularyCount, knownCoverage) {
 function isDeckId(value) {
   return typeof value === "number" || typeof value === "string";
 }
+function isTrustedAccountDataSurface(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (![isYomuNewTabUrl(value), appUrl.originKind !== "docs-preview"].every(Boolean)) return false;
+  return [
+  appUrl.originKind !== "loopback",
+  isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin)
+  ].some(Boolean);
+}
+function currentAccountDataSurfaceIsTrusted() {
+  return typeof location !== "undefined" && isTrustedAccountDataSurface(location.href);
+}
 const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
 function wordSegmenter(locale) {
   const cached = SEGMENTER_BY_LOCALE.get(locale);
@@ -3380,6 +3549,64 @@ function icuWordSegments(text, locale) {
   });
   }
   return segments;
+}
+const TOKEN_ATTRIBUTE = "data-yomu-private-token";
+const MAX_PENDING_VALUES = 16384;
+const valuesByElement = /* @__PURE__ */ new WeakMap();
+const pendingValues = /* @__PURE__ */ new Map();
+const replayableBlueprints = /* @__PURE__ */ new Map();
+function createPrivateElementStateSlot(snapshot, options = {}) {
+  const slot = Symbol("yomu-private-element-state");
+  return {
+  attributes(value) {
+    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    return ` ${TOKEN_ATTRIBUTE}="${token}"`;
+  },
+  prepareSerialization(element, value) {
+    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const current = element.getAttribute(TOKEN_ATTRIBUTE)?.trim();
+    element.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
+  },
+  bind(element, value) {
+    element.removeAttribute(TOKEN_ATTRIBUTE);
+    setPrivateValue(element, slot, snapshot(value));
+  },
+  read(element) {
+    return element ? valuesByElement.get(element)?.get(slot) : void 0;
+  }
+  };
+}
+function registerPendingValue(slot, value, replayable) {
+  const token = privateStateToken();
+  const pending = { slot, value };
+  pendingValues.set(token, pending);
+  if (replayable) replayableBlueprints.set(token, pending);
+  prunePendingValues();
+  return token;
+}
+function setPrivateValue(element, slot, value) {
+  const values = valuesByElement.get(element) ?? /* @__PURE__ */ new Map();
+  values.set(slot, value);
+  valuesByElement.set(element, values);
+}
+function prunePendingValues() {
+  pruneOldestPrivateValues(pendingValues);
+  pruneOldestPrivateValues(replayableBlueprints);
+}
+function pruneOldestPrivateValues(values) {
+  while (values.size > MAX_PENDING_VALUES) {
+  const oldest = values.keys().next().value;
+  if (oldest === void 0) return;
+  values.delete(oldest);
+  }
+}
+function privateStateToken() {
+  const bytes = new Uint32Array(4);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (value) => value.toString(36)).join("-");
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 let trustedHtmlPolicy;
 function parseHtmlDocument(html) {
@@ -8335,6 +8562,12 @@ const COPY = {
   settingsSearch: "Search settings",
   settingsSearchPlaceholder: "Search settings",
   settingsSearchNoResults: "No matches.",
+  accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
+  accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
+  openAccountSettingsTrustedSurface: "Open Study settings",
+  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
+  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
+  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
   show: "Show",
@@ -8368,6 +8601,8 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
+  storedCredentialPlaceholder: "Saved — enter a replacement",
+  clearStoredCredential: "Remove saved credential",
   apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
   wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
   jpdbSettings: "JPDB settings",
@@ -10015,6 +10250,12 @@ translating	翻訳中...
   ...GRAMMAR_UI_COPY.ja
 };
 const JA_SETTINGS_COPY = {
+  accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
+  accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
+  openAccountSettingsTrustedSurface: "Studyの設定を開く",
+  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
+  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
+  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -10052,6 +10293,8 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
+storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
+clearStoredCredential	保存済みの認証情報を削除
 apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
@@ -11992,7 +12235,6 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-Logger.scope("Settings");
 const AUDIO_SOURCE_TYPE_VALUES = [
   "jpod101",
   "language-pod-101",
@@ -12021,6 +12263,7 @@ new Set(AUDIO_SOURCE_TYPE_VALUES);
 new Set(
   DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
 );
+Logger.scope("Settings");
 const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
   "kanji-doodle",
   "word",
@@ -12035,6 +12278,16 @@ new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
 });
 new Set(FURIGANA_HIDE_STATE_GROUPS);
+const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+function privateCommandAttributes(command) {
+  return commandCapabilities.attributes(command);
+}
+function immutableCommandSnapshot(command) {
+  if (command.kind === "card-action" && command.audioUrls) {
+  return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
+  }
+  return Object.freeze({ ...command });
+}
 new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
@@ -12082,6 +12335,47 @@ function isBetterHighlightMatch(candidate, current) {
 }
 function uniqueNonEmptyStrings(values) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+const privateStateSlot = createPrivateElementStateSlot(
+  (state) => Object.freeze({ ...state }),
+  { replayable: true }
+);
+const DATASET_KEYS = {
+  vid: "vid",
+  sid: "sid",
+  cardSource: "cardSource",
+  cardId: "cardId",
+  readingIndex: "readingIndex",
+  cardState: "cardState",
+  stateProvenance: "stateProvenance",
+  srsProvider: "srsProvider",
+  bunproState: "bunproState",
+  bunproPrefillState: "bunproPrefillState",
+  bunproPrefillProvenance: "bunproPrefillProvenance",
+  ankiState: "ankiState",
+  ankiDecks: "ankiDecks"
+};
+function renderedWordPrivateAttributesForState(privateState) {
+  const trustedAttributes = currentAccountDataSurfaceIsTrusted() ? Object.entries(privateState).map(([key, value]) => ` data-${datasetAttributeName(DATASET_KEYS[key])}="${escapeAttributeValue(String(value))}"`).join("") : "";
+  return ` data-yomu-word="true"${privateStateSlot.attributes(privateState)}${trustedAttributes}`;
+}
+function renderedWordPrivateValue(word, key) {
+  return readRenderedWordPrivateState(word)?.[key];
+}
+function readRenderedWordPrivateState(word) {
+  return privateStateSlot.read(word);
+}
+function datasetAttributeName(key) {
+  return String(key).replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
+}
+function escapeAttributeValue(value) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function renderedWordNumericIdentity(word) {
+  return {
+  vid: Number(renderedWordPrivateValue(word, "vid")),
+  sid: Number(renderedWordPrivateValue(word, "sid"))
+  };
 }
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
@@ -13385,9 +13679,18 @@ function cardHighlightScopeAttributes(card) {
   return [
   `data-card-highlight-spelling="${escapeHtml(spelling)}"`,
   `data-card-highlight-reading="${escapeHtml(cleanCardHighlightValue(card.reading))}"`,
-  card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml(String(card.vid))}"` : "",
-  card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml(String(card.sid))}"` : ""
+  ...cardHighlightIdentityAttributes(card)
   ].filter(Boolean).join(" ");
+}
+function cardHighlightIdentityAttributes(card) {
+  if (!currentAccountDataSurfaceIsTrusted()) return [];
+  return [
+  cardHighlightIdentityAttribute("vid", card.vid),
+  cardHighlightIdentityAttribute("sid", card.sid)
+  ];
+}
+function cardHighlightIdentityAttribute(key, value) {
+  return value === void 0 ? "" : `data-card-highlight-${key}="${escapeHtml(String(value))}"`;
 }
 const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
 const JPDB_RELATED_WORD_STATE = "not-in-deck";
@@ -13414,16 +13717,16 @@ function renderedJpdbRelatedWord(word) {
   };
 }
 function renderedJpdbRelatedWordCard(word) {
-  const vid = Number(word.dataset.vid);
-  const sid = Number(word.dataset.sid);
-  const spelling = (word.dataset.expression ?? readerWordSurfaceText(word)).trim();
-  if (!Number.isFinite(vid) || vid <= 0 || !Number.isFinite(sid) || sid < 0 || !spelling) return null;
+  const { vid, sid } = renderedWordNumericIdentity(word);
+  const spelling = firstRenderedWordText(word.dataset.expression, readerWordSurfaceText(word));
+  const valid = [Number.isFinite(vid), vid > 0, Number.isFinite(sid), sid >= 0, Boolean(spelling)].every(Boolean);
+  if (!valid) return null;
   return {
   vid,
   sid,
   rid: 0,
   spelling,
-  reading: word.dataset.reading?.trim() || spelling,
+  reading: renderedWordTextOrFallback(word.dataset.reading, spelling),
   frequencyRank: null,
   partOfSpeech: [],
   meanings: [],
@@ -13431,8 +13734,14 @@ function renderedJpdbRelatedWordCard(word) {
   pitchAccent: [],
   wordWithReading: null,
   source: "jpdb",
-  sentence: word.dataset.sentence || spelling
+  sentence: renderedWordTextOrFallback(word.dataset.sentence, spelling)
   };
+}
+function firstRenderedWordText(...values) {
+  return values.map((value) => value?.trim() ?? "").find(Boolean) ?? "";
+}
+function renderedWordTextOrFallback(value, fallback) {
+  return firstRenderedWordText(value, fallback);
 }
 function renderProviderExamples(provider, sourceId, collection, sourceAttributes, language) {
   const availability = collection.availability;
@@ -13479,7 +13788,40 @@ function renderProviderExample(example, language) {
 }
 function renderProviderExampleAudio(audio) {
   const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml(value)}"`).join("");
-  return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml(audio.action)}"${attributes} title="${escapeHtml(audio.label)}" aria-label="${escapeHtml(audio.label)}">${speakerIcon()}</button>`;
+  const command = providerExampleAudioCommand(audio);
+  const capability = command ? privateCommandAttributes(command) : "";
+  return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml(audio.action)}"${attributes}${capability} title="${escapeHtml(audio.label)}" aria-label="${escapeHtml(audio.label)}">${speakerIcon()}</button>`;
+}
+function providerExampleAudioCommand(audio) {
+  if (!isProviderExampleCardAction(audio.action)) return null;
+  const attributes = audio.attributes;
+  return {
+  kind: "card-action",
+  action: audio.action,
+  sentence: attributes["data-study-sentence"] || attributes["data-jpdb-example-sentence"],
+  audioUrl: attributes["data-audio-url"],
+  audioIds: attributes["data-jpdb-audio"],
+  audioUrls: parsedStringArray(attributes["data-jiten-audio-urls"]),
+  jitenSentenceId: finiteInteger(attributes["data-jiten-sentence-id"], 1),
+  jitenWordId: finiteInteger(attributes["data-jiten-word-id"], 1),
+  jitenReadingIndex: finiteInteger(attributes["data-jiten-reading-index"], 0)
+  };
+}
+function isProviderExampleCardAction(value) {
+  return value === "jpdb-example-audio" || value === "jiten-audio" || value === "bunpro-audio" || value === "wanikani-audio";
+}
+function parsedStringArray(value) {
+  if (!value) return void 0;
+  try {
+  const parsed = JSON.parse(value);
+  return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : void 0;
+  } catch {
+  return void 0;
+  }
+}
+function finiteInteger(value, minimum) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= minimum ? parsed : void 0;
 }
 function classes(...values) {
   return values.map((value) => value?.trim() ?? "").filter(Boolean).join(" ");
@@ -13589,7 +13931,7 @@ function renderJpdbExamples(info, sourceAttributes, language, card) {
 function renderJpdbExampleAudioButton(audioIds, sentence, language) {
   const audio = audioIds?.join(",") ?? "";
   const label = uiText(language, "playJpdbExampleAudio");
-  return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml(audio)}" data-jpdb-example-sentence="${escapeHtml(sentence)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${speakerIcon()}</button>` : "";
+  return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml(audio)}" data-jpdb-example-sentence="${escapeHtml(sentence)}"${privateCommandAttributes({ kind: "card-action", action: "jpdb-example-audio", audioIds: audio, sentence })} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${speakerIcon()}</button>` : "";
 }
 function renderJpdbExampleSentence(example, card) {
   if (example.sentenceHtml) return example.sentenceHtml;
@@ -13609,10 +13951,18 @@ function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
 }
 function renderPassiveJpdbRelatedWord(term, reading, url, options = {}) {
   const vid = jpdbVocabularyVidFromUrl(url);
-  const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
+  const identityAttributes = vid === null ? "" : renderedWordPrivateAttributesForState({
+  vid: String(vid),
+  sid: "0",
+  cardSource: "jpdb",
+  cardId: String(vid),
+  readingIndex: "0",
+  cardState: JPDB_RELATED_WORD_STATE,
+  stateProvenance: "provisional"
+  });
   const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : "";
   const { classes: classes2, content } = passiveJpdbRelatedWordContent(term, reading, options);
-  return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml(options.sentence ?? term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+  return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml(options.sentence ?? term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
 function passiveJpdbRelatedWordContent(term, reading, options) {
   const termHtml = options.termHtml?.trim() ?? "";

@@ -4,7 +4,7 @@ import { diagnoseAnkiConnectFailure } from '../anki/transport';
 import { copyText, openUrlInNewTab } from '../ui/browser';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
-import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
+import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_TITLE } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger } from '../app/logger';
@@ -22,9 +22,11 @@ import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOIC
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
+import { publishSettingsChange as publishPrivateSettingsChange } from './settings-change-bus';
 import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { WanikaniClient } from '../wanikani/wanikani';
-import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet, importStoredValues } from '../app/storage';
+import { bindAuthorizedReaderFormSubmit, dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
+import { exportManagedStoredValues, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
     activeTargetLanguageId,
@@ -74,7 +76,35 @@ import {
 } from './catalog-browse-disclosure';
 import { ankiModelUpdatePromptTarget, applyAnkiModelUpdatePrompt } from './anki-mining-panel';
 import { updateAnkiTagsEditor } from './form-tags';
-import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
+import {
+    CLOUD_SETTINGS_SYNC_ENABLED,
+    cloudSettingsAuthRedirectResult,
+    cloudSettingsSyncAvailable,
+    downloadCloudSettingsFromCloud,
+    uploadCloudSettingsToCloud,
+} from './cloud-sync';
+import {
+    resumePendingCloudSettingsAction,
+    type CloudSettingsAction,
+} from './cloud-settings-resume';
+import {
+    cloudSettingsRedirectHandoffRequired,
+    createCloudSettingsAuthorization,
+    type CloudSettingsAuthorization,
+} from './cloud-settings-auth-state';
+import {
+    clearCloudSettingsRedirectHandoff,
+    clearPendingCloudSettingsAction,
+    readPendingCloudSettingsAction,
+    rememberCloudSettingsRedirectHandoff,
+} from './cloud-settings-pending-action';
+import {
+    cloudSettingsActionEnabled,
+    notifyCloudSettingsPersistenceFailed,
+    reportCloudSettingsStatus,
+    setCloudSettingsActionButtonDisabled,
+    settingsForCloudAction,
+} from './cloud-settings-dialog-action';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -93,7 +123,6 @@ import {
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { markDictionaryReplicaFresh, requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
-import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
 import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
@@ -105,15 +134,14 @@ import {
     requestFirefoxAuthenticationInfoPermission,
     type FirefoxAuthenticationInfoConsent,
 } from './firefox-data-consent';
+import { currentSensitiveSettingsSurfaceIsTrusted, mountSensitiveSettingsLauncher } from './sensitive-settings-surface';
 import {
     liveDictionaryPanelContext,
     selectedTargetLanguage,
     type DictionaryStatusSummary,
 } from './dictionary-status-view';
 
-interface Refreshable {
-    refresh: () => void;
-}
+interface Refreshable { refresh: () => void }
 interface SettingsDialogDependencies {
     getSettings: () => ReaderSettings;
     // `transient` marks a temporary form-derived swap (Anki probes, audio
@@ -131,7 +159,7 @@ interface SettingsDialogDependencies {
     ocr: Refreshable;
     youtube: Refreshable;
     createBackdrop: () => HTMLElement;
-    mountDialog: (backdrop: HTMLElement, form: HTMLFormElement) => void;
+    mountDialog: (backdrop: HTMLElement, surface: HTMLElement) => void;
     dismiss: () => void;
     toast: (message: string) => void;
     applyTheme: (settings?: ReaderSettings) => void;
@@ -151,14 +179,6 @@ interface SettingsDialogDependencies {
 }
 
 type SettingsStatusSetter = (message: string) => void;
-type CloudSettingsAction = 'sync-cloud-settings' | 'restore-cloud-settings';
-
-interface PendingCloudSettingsAction {
-    action: CloudSettingsAction;
-    startedAt: number;
-    href: string;
-}
-
 function isSettingsCommandWord(word: HTMLElement): boolean {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
 }
@@ -194,9 +214,6 @@ const AUTO_REPLACE_ANKI_MODEL_NAMES = new Set(['', 'よむ Japanese', 'Yomu Japa
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-const CLOUD_SETTINGS_PENDING_ACTION_KEY = '__yomu_cloud_settings_sync_pending_action';
-const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1000;
-
 // Import/export lives in the Backup & sync panel while dictionary row actions
 // stay under Sources; both panels carry a [data-import-status] line. Feedback
 // writes ONLY to the panel the action originated from — broadcasting to every
@@ -339,7 +356,7 @@ function ankiScanSelection(controls: AnkiScanFormControls, scan: AnkiLibraryScan
 function applySettingsControlValue(control: AnkiScanSelectableInput | null, value: string): void {
     if (!control || !value) return;
     control.value = value;
-    control.dispatchEvent(new Event('input', { bubbles: true }));
+    dispatchAuthorizedReaderControlEvent(control, new Event('input', { bubbles: true }));
 }
 
 function ankiConnectionAction(action: string): AnkiConnectionAction | null {
@@ -465,9 +482,9 @@ export class SettingsDialogController {
     constructor(private readonly dependencies: SettingsDialogDependencies) {
         this.academyAccountSync = new AcademyAccountSyncSettingsController(message => dependencies.toast(message));
     }
-
     open(panel?: string): void {
         const trigger = settingsDialogTrigger(document.activeElement);
+        if (mountSensitiveSettingsLauncher(this.dependencies, this.modal, this.settings.interfaceLanguage, panel, trigger)) return;
         const form = this.createSettingsForm(panel);
         const backdrop = this.dependencies.createBackdrop();
         this.bindFormSubmit(form);
@@ -519,31 +536,21 @@ export class SettingsDialogController {
     }
 
     async resumePendingCloudSettingsSync(): Promise<boolean> {
-        if (!CLOUD_SETTINGS_SYNC_ENABLED || !cloudSettingsSyncAvailable()) return false;
-        const pending = await this.readPendingCloudSettingsAction();
-        if (!pending) return false;
-        const authResult = cloudSettingsAuthRedirectResult();
-        if (!authResult) return false;
-
-        await this.clearPendingCloudSettingsAction();
-        const language = this.settings.interfaceLanguage;
-        if (!authResult.ok) {
-            log.warn('Cloud settings authorization failed', { message: authResult.error });
-            const message = uiText(language, 'actionFailed');
-            this.dependencies.toast(message);
-            this.open('backup');
-            return true;
-        }
-
-        try {
-            await this.performCloudSettingsAction(pending.action, language, undefined);
-            if (pending.action === 'sync-cloud-settings') this.open('backup');
-        } catch (error) {
-            const message = userFacingErrorText(language, 'actionFailed', error);
-            this.dependencies.toast(message);
-            this.open('backup');
-        }
-        return true;
+        return resumePendingCloudSettingsAction({
+            trustedSurface: currentSensitiveSettingsSurfaceIsTrusted(this.dependencies),
+            available: CLOUD_SETTINGS_SYNC_ENABLED && cloudSettingsSyncAvailable(),
+            language: this.settings.interfaceLanguage,
+            readPending: readPendingCloudSettingsAction,
+            clearPending: clearPendingCloudSettingsAction,
+            consumeAuthorization: expectedState => cloudSettingsAuthRedirectResult(expectedState),
+            perform: (action, language) => this.performCloudSettingsAction(action, language, undefined),
+            authorizationFailed: (error, language) => {
+                log.warn('Cloud settings authorization failed', { message: error });
+                this.dependencies.toast(uiText(language, 'actionFailed'));
+            },
+            actionFailed: (error, language) => this.dependencies.toast(userFacingErrorText(language, 'actionFailed', error)),
+            openBackup: () => this.open('backup'),
+        });
     }
 
     private get settings(): ReaderSettings {
@@ -598,8 +605,7 @@ export class SettingsDialogController {
     }
 
     private bindFormSubmit(form: HTMLFormElement): void {
-        form.addEventListener('submit', event => {
-            event.preventDefault();
+        bindAuthorizedReaderFormSubmit(form, () => {
             if (this.pendingDictionaryOperations > 0) {
                 this.showDictionarySaveBlocked(form);
                 return;
@@ -1908,7 +1914,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsCloudSyncAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (!CLOUD_SETTINGS_SYNC_ENABLED || !isCloudSettingsAction(action)) return false;
+        if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action)) return false;
 
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         if (!cloudSettingsSyncAvailable()) {
@@ -1917,20 +1923,21 @@ export class SettingsDialogController {
         }
 
         const button = settingsActionButton(control);
-        button?.setAttribute('disabled', 'true');
-        await this.rememberPendingCloudSettingsAction(action);
+        setCloudSettingsActionButtonDisabled(button, true);
+        const authorization = createCloudSettingsAuthorization();
+        const redirectHandoff = cloudSettingsRedirectHandoffRequired();
+        await rememberCloudSettingsRedirectHandoff(redirectHandoff, action, authorization);
         const previousSettings = this.settings;
         try {
-            if (action === 'sync-cloud-settings') this.settings = readFormSettings(new FormData(form), this.settings);
-            await this.performCloudSettingsAction(action, language, setStatus, previousSettings);
-            await this.clearPendingCloudSettingsAction();
+            this.settings = settingsForCloudAction(action, form, this.settings);
+            await this.performCloudSettingsAction(action, language, setStatus, previousSettings, authorization);
             return true;
         } catch (error) {
-            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-            await this.clearPendingCloudSettingsAction();
+            notifyCloudSettingsPersistenceFailed(this.dependencies.onSettingsPersistenceFailed, previousSettings);
             throw error;
         } finally {
-            button?.removeAttribute('disabled');
+            await clearCloudSettingsRedirectHandoff(redirectHandoff);
+            setCloudSettingsActionButtonDisabled(button, false);
         }
     }
 
@@ -1939,19 +1946,20 @@ export class SettingsDialogController {
         language: InterfaceLanguage,
         setStatus?: SettingsStatusSetter,
         previousSettings = this.settings,
+        authorization?: CloudSettingsAuthorization,
     ): Promise<void> {
         if (action === 'sync-cloud-settings') {
             await this.saveCurrentSettings(previousSettings);
-            const metadata = await uploadCloudSettingsToCloud(this.settings);
+            const metadata = await uploadCloudSettingsToCloud(this.settings, authorization);
             const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
-            setStatus?.(message);
+            reportCloudSettingsStatus(setStatus, message);
             this.dependencies.toast(message);
             return;
         }
 
-        const snapshot = await downloadCloudSettingsFromCloud();
+        const snapshot = await downloadCloudSettingsFromCloud(authorization);
         if (!snapshot) {
-            setStatus?.(cloudSettingsNotFoundStatus(language));
+            reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language));
             return;
         }
         const settingsBeforeRestore = this.settings;
@@ -1963,7 +1971,7 @@ export class SettingsDialogController {
         await importStoredValues(snapshot.storage);
         await this.saveCurrentSettings(settingsBeforeRestore);
         const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
-        setStatus?.(message);
+        reportCloudSettingsStatus(setStatus, message);
         this.dependencies.toast(message);
         this.dependencies.applyTheme();
         void this.dependencies.refreshDictionaryStyles();
@@ -1974,31 +1982,6 @@ export class SettingsDialogController {
         this.dependencies.youtube.refresh();
         this.dependencies.clearSettingsPreview();
         this.open('backup');
-    }
-
-    private async rememberPendingCloudSettingsAction(action: CloudSettingsAction): Promise<void> {
-        await gmStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
-            action,
-            startedAt: Date.now(),
-            href: location.href,
-        } satisfies PendingCloudSettingsAction);
-    }
-
-    private async clearPendingCloudSettingsAction(): Promise<void> {
-        await gmStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
-    }
-
-    private async readPendingCloudSettingsAction(): Promise<PendingCloudSettingsAction | null> {
-        const pending = await gmStorageGet<unknown>(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
-        if (!isPendingCloudSettingsAction(pending)) {
-            await this.clearPendingCloudSettingsAction();
-            return null;
-        }
-        if (Date.now() - pending.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
-            await this.clearPendingCloudSettingsAction();
-            return null;
-        }
-        return pending;
     }
 
     private async handleSettingsImportExportAction(form: HTMLFormElement, action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2131,19 +2114,18 @@ export class SettingsDialogController {
         const input = namedSettingsControl<HTMLInputElement>(form, 'ankiFieldMappings');
         if (!input) return;
         const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
-        const next = { ...existing };
-        for (const model of scan.models) {
-            const currentMapping = next[model.modelName] ?? {};
+        const scannedMappings = Object.fromEntries(scan.models.flatMap(model => {
+            const currentMapping = existing[model.modelName] ?? {};
             const liveFields = new Set(model.fields);
             const mapping = Object.fromEntries(model.suggestions.flatMap(suggestion => {
                 const savedField = currentMapping[suggestion.role]?.trim();
                 const fieldName = liveFields.has(savedField ?? '') ? savedField : suggestion.fieldName?.trim();
                 return fieldName ? [[suggestion.role, fieldName] as const] : [];
             }));
-            if (Object.keys(mapping).length) next[model.modelName] = mapping;
-        }
-        input.value = JSON.stringify(next);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+            return Object.keys(mapping).length ? [[model.modelName, mapping]] : [];
+        }));
+        input.value = JSON.stringify({ ...existing, ...scannedMappings });
+        dispatchAuthorizedReaderControlEvent(input, new Event('input', { bubbles: true }));
     }
 
     private applyAnkiScanControlsToForm(
@@ -2208,7 +2190,7 @@ export class SettingsDialogController {
             ...visibleDisabled.filter(deck => !previousDisabledSet.has(deck)),
         ]);
         hidden.value = disabled.join(', ');
-        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        dispatchAuthorizedReaderControlEvent(hidden, new Event('input', { bubbles: true }));
         this.renderNewTabAnkiDeckToggles(form, visibleDecks, getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabled);
     }
 
@@ -2241,7 +2223,7 @@ export class SettingsDialogController {
         if (Object.keys(mapping).length) next[modelName] = mapping;
         else delete next[modelName];
         input.value = JSON.stringify(next);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+        dispatchAuthorizedReaderControlEvent(input, new Event('input', { bubbles: true }));
     }
 
     private ankiScanFieldsForModel(form: HTMLFormElement, modelName: string): string[] {
@@ -2712,20 +2694,6 @@ function isLookupLinkEditorAction(action: string): boolean {
     return action === 'lookup-link-add' || action === 'lookup-link-remove' || action === 'lookup-link-up' || action === 'lookup-link-down';
 }
 
-function isCloudSettingsAction(action: string): action is CloudSettingsAction {
-    return action === 'sync-cloud-settings' || action === 'restore-cloud-settings';
-}
-
-function isPendingCloudSettingsAction(value: unknown): value is PendingCloudSettingsAction {
-    if (!value || typeof value !== 'object') return false;
-    const record = value as Partial<PendingCloudSettingsAction>;
-    return typeof record.startedAt === 'number'
-        && Number.isFinite(record.startedAt)
-        && typeof record.href === 'string'
-        && typeof record.action === 'string'
-        && isCloudSettingsAction(record.action);
-}
-
 function getReaderStorageExport(value: unknown): unknown {
     if (!value || typeof value !== 'object') return null;
     const record = value as { formatName?: string; storage?: unknown };
@@ -2735,7 +2703,7 @@ function getReaderStorageExport(value: unknown): unknown {
 }
 
 function publishSettingsChange(settings: Partial<ReaderSettings>, options: { preview?: boolean } = {}): void {
-    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
+    publishPrivateSettingsChange({ preview: options.preview === true, settings });
 }
 
 function importSettingsStatus(restoredValues: number, dictionarySummary: ImportSummary | null, language: InterfaceLanguage): string {

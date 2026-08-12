@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingController } from '../../src/reader/app/onboarding';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { activeLanguageProfile } from '../../src/reader/languages';
@@ -39,9 +39,14 @@ function requiredDescendant<T extends Element>(root: ParentNode, selector: strin
 }
 
 describe('Slice 1 multilingual onboarding and settings', () => {
+    beforeEach(() => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+    });
+
     afterEach(() => {
         document.body.innerHTML = '';
         localStorage.clear();
+        vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 

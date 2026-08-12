@@ -32,6 +32,9 @@ import {
     testCardActionController,
     testCardPopoverRenderer,
     testCardPopoverRendererWithWordPills,
+    testJitenAudioActionController,
+    TEST_JITEN_AUDIO_URLS,
+    performTestJitenAudioAction,
     testIsJpdbBackedCard,
     updatePopoverReviewTargetSelection,
 } from './fixtures';
@@ -39,8 +42,16 @@ import type {
     AnkiLookupResult,
     JPDBCard,
 } from './fixtures';
+import { setInnerHtml } from '../../../src/reader/dom';
 
 registerReaderHelpersCleanup();
+
+function expectAnkiGradeButtons(cardId: string): void {
+    const buttons = popoverGradeButtons();
+    expect(buttons).toHaveLength(5);
+    expect(buttons.map(button => button.dataset.reviewTarget)).toEqual(Array(5).fill('anki'));
+    expect(buttons.map(button => button.dataset.ankiCardId)).toEqual(Array(5).fill(cardId));
+}
 
 describe('reader helpers', () => {
     it('does not parse settings help and status rows as reading text', async () => {
@@ -573,14 +584,8 @@ describe('reader helpers', () => {
             jpdbMiningEnabled: true,
             enableReviews: true,
         };
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, ...dualSettings }),
+        const renderer = testCardPopoverRenderer(dualSettings, {
             isJpdbBackedCard: testIsJpdbBackedCard,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
-            dictionaryLabel: name => name,
         });
 
         document.body.innerHTML = renderModalCard(renderer, dualCard, '食べる。');
@@ -596,14 +601,8 @@ describe('reader helpers', () => {
         // Only one provider switcher (the review-target gutter toggle), never a second selector on the grade row.
         expect(document.querySelector('[data-review-target-select]')).toBeNull();
 
-        const jitenRenderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, ...dualSettings, apiGradingProvider: 'jiten' as const }),
+        const jitenRenderer = testCardPopoverRenderer({ ...dualSettings, apiGradingProvider: 'jiten' }, {
             isJpdbBackedCard: testIsJpdbBackedCard,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
-            dictionaryLabel: name => name,
         });
         document.body.innerHTML = renderModalCard(jitenRenderer, dualCard, '食べる。');
         expect(document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]')).not.toBeNull();
@@ -619,14 +618,8 @@ describe('reader helpers', () => {
     });
 
     it('keeps the grading-provider toggle visible for dual-key Jiten-only popovers', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, enableReviews: true }),
+        const renderer = testCardPopoverRenderer({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, enableReviews: true }, {
             isJpdbBackedCard: () => false,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
-            dictionaryLabel: name => name,
         });
 
         document.body.innerHTML = renderModalCard(renderer, jitenTestCard(), '読む。');
@@ -641,14 +634,8 @@ describe('reader helpers', () => {
     });
 
     it('renders Jiten cards with the JPDB action pattern and no Mining/Suspended/Forget row', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, enableReviews: true }),
+        const renderer = testCardPopoverRenderer({ apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, enableReviews: true }, {
             isJpdbBackedCard: testIsJpdbBackedCard,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
-            dictionaryLabel: name => name,
         });
         const html = renderModalCard(renderer, jitenTestCard(), '読む。');
         expect(html).toContain('data-action="deck-picker"');
@@ -662,14 +649,8 @@ describe('reader helpers', () => {
     });
 
     it('hides Never forget and Blacklist for Bunpro-only cards where no provider can set deck state', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', bunproMiningEnabled: true, bunproFrontendApiToken: 'bunpro-token', enableReviews: true }),
+        const renderer = testCardPopoverRenderer({ apiKey: '', jitenApiKey: '', bunproMiningEnabled: true, bunproFrontendApiToken: 'bunpro-token', enableReviews: true }, {
             isJpdbBackedCard: testIsJpdbBackedCard,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
-            dictionaryLabel: name => name,
         });
         const html = renderModalCard(renderer, jitenTestCard({ source: 'bunpro', jitenWordId: undefined, jitenReadingIndex: undefined, bunproReviewId: '77', bunproReviewableType: 'vocabulary' }), '読む。');
         expect(html).toContain('data-action="deck-picker"');
@@ -679,22 +660,15 @@ describe('reader helpers', () => {
     });
 
     it('offers Bunpro mining for an ordinary popup word without offering an unsessioned grade', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                jitenApiKey: '',
-                yomuLocalSrsEnabled: false,
-                bunproMiningEnabled: true,
-                bunproFrontendApiToken: 'bunpro-token',
-                enableReviews: true,
-            }),
+        const renderer = testCardPopoverRenderer({
+            apiKey: '',
+            jitenApiKey: '',
+            yomuLocalSrsEnabled: false,
+            bunproMiningEnabled: true,
+            bunproFrontendApiToken: 'bunpro-token',
+            enableReviews: true,
+        }, {
             isJpdbBackedCard: () => false,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
-            dictionaryLabel: name => name,
         });
 
         const html = renderModalCard(renderer, { ...card, source: 'local', cardState: ['not-in-deck'] }, '食べる。');
@@ -1315,6 +1289,7 @@ describe('reader helpers', () => {
             ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
             isJpdbBackedCard: () => true,
             dictionaryLabel: name => name,
+            trustedAccountDataSurface: true,
         });
 
         expect(html).toContain('jpdb-reader-anki-pill');
@@ -1353,6 +1328,7 @@ describe('reader helpers', () => {
             },
             isJpdbBackedCard: () => true,
             dictionaryLabel: name => name,
+            trustedAccountDataSurface: true,
         });
 
         expect(html).toContain('jpdb-reader-anki-pill');
@@ -1437,6 +1413,7 @@ describe('reader helpers', () => {
             renderDefinitionSources: () => '',
             dictionarySourceAttributes: () => '',
             dictionaryLabel: name => name,
+            accountDataSurfaceTrusted: () => true,
             renderReviewButtonsFallback: () => '<div data-fallback-review><button data-action="grade" data-grade="pass">Pass</button></div>',
         });
 
@@ -1559,13 +1536,13 @@ describe('reader helpers', () => {
             lapses: 0,
         };
 
-        document.body.innerHTML = renderer.render(card, '本を読む。', 'modal', emptyCardRenderData({
+        setInnerHtml(document.body, renderer.render(card, '本を読む。', 'modal', emptyCardRenderData({
             ankiLookup: {
                 state: 'due',
                 notes: [secondary, primary],
                 primary,
             },
-        }));
+        })));
 
         const details = document.querySelector<HTMLElement>('.jpdb-reader-anki-existing')!;
         const notePreviews = [...details.querySelectorAll<HTMLElement>('.jpdb-reader-anki-card-preview')];
@@ -1573,13 +1550,15 @@ describe('reader helpers', () => {
         expect(details.querySelector('summary > span')?.textContent).toBe('Anki (2)');
         expect(details.querySelector('summary small')?.textContent).toContain('2 matches');
         expect(notePreviews.map(preview => preview.dataset.ankiNoteId)).toEqual(['10', '11']);
-        expect(notePreviews[0]?.textContent).toContain('Core');
-        expect(notePreviews[1]?.textContent).toContain('Mining');
-        expect(notePreviews[0]?.textContent).toContain('to read');
-        expect(notePreviews[1]?.textContent).toContain('read a book');
-        expect(popoverGradeButtons()).toHaveLength(5);
-        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'anki')).toBe(true);
-        expect(popoverGradeButtons().every(button => button.dataset.ankiCardId === '20')).toBe(true);
+        expect(notePreviews.map(preview => preview.textContent)).toEqual([
+            expect.stringContaining('Core'),
+            expect.stringContaining('Mining'),
+        ]);
+        expect(notePreviews.map(preview => preview.textContent)).toEqual([
+            expect.stringContaining('to read'),
+            expect.stringContaining('read a book'),
+        ]);
+        expectAnkiGradeButtons('20');
         expect(popoverGradeTargetCurrentText()).toBe('Core #20');
         expect(popoverGradeTargetText()).toBe('Grades Anki card: Core #20');
         expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
@@ -1592,9 +1571,8 @@ describe('reader helpers', () => {
         updatePopoverReviewTargetSelection(targetSelect);
         expect(popoverGradeTargetCurrentText()).toBe('Mining #21');
         expect(popoverGradeTargetText()).toBe('Grades Anki card: Mining #21');
-        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'anki')).toBe(true);
-        expect(popoverGradeButtons().every(button => button.dataset.ankiCardId === '21')).toBe(true);
-        expect(popoverGradeButtons()[0]?.title).toBe('Grades Anki card: Mining #21');
+        expectAnkiGradeButtons('21');
+        expect(popoverGradeButtons()[0]!.title).toBe('Grades Anki card: Mining #21');
     });
 
     it('renders unfamiliar Anki notes from their rendered card without exposing raw fields by default', () => {
@@ -1780,12 +1758,12 @@ describe('reader helpers', () => {
         const button = document.createElement('button');
         button.dataset.ankiMediaName = 'h2k-167.mp3';
 
-        await expect(controller.perform('anki-media-audio', button, card)).resolves.toBe(false);
+        await expect(controller.perform({ kind: 'card-action', action: 'anki-media-audio', mediaFilename: 'h2k-167.mp3' }, button, card)).resolves.toBe(false);
         expect(mediaFileDataUrl).toHaveBeenCalledWith('h2k-167.mp3');
         expect(playMediaUrl).toHaveBeenCalledWith('data:audio/mpeg;base64,audio-data');
         expect(playAudio).not.toHaveBeenCalled();
 
-        await expect(controller.perform('audio', document.createElement('button'), card)).resolves.toBe(false);
+        await expect(controller.perform({ kind: 'card-action', action: 'audio' }, document.createElement('button'), card)).resolves.toBe(false);
         expect(playAudio).toHaveBeenCalledWith(card, { userGesture: true });
         expect(mediaFileDataUrl).toHaveBeenCalledTimes(1);
         expect(playMediaUrl).toHaveBeenCalledTimes(1);
@@ -1795,23 +1773,12 @@ describe('reader helpers', () => {
         const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true)
             .mockRejectedValueOnce(new Error('first audio failed'))
             .mockResolvedValueOnce(true);
-        const playSentenceAudio = vi.fn(async () => undefined);
-        const controller = testCardActionController({
-            playMediaUrl,
-            playSentenceAudio,
-        });
-        const button = document.createElement('button');
-        button.dataset.jitenAudioUrls = JSON.stringify([
-            'https://audio.example.test/primary.mp3',
-            'https://audio.example.test/backup.mp3',
-        ]);
-        button.dataset.studySentence = '訓むこともある。';
-
-        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+        const { controller, playSentenceAudio } = testJitenAudioActionController({ playMediaUrl });
+        await performTestJitenAudioAction(controller);
 
         expect(playMediaUrl).toHaveBeenCalledTimes(2);
-        expect(playMediaUrl).toHaveBeenNthCalledWith(1, 'https://audio.example.test/primary.mp3');
-        expect(playMediaUrl).toHaveBeenNthCalledWith(2, 'https://audio.example.test/backup.mp3');
+        expect(playMediaUrl).toHaveBeenNthCalledWith(1, TEST_JITEN_AUDIO_URLS[0]);
+        expect(playMediaUrl).toHaveBeenNthCalledWith(2, TEST_JITEN_AUDIO_URLS[1]);
         expect(playSentenceAudio).not.toHaveBeenCalled();
     });
 

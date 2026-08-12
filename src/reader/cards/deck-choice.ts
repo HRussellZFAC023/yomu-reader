@@ -2,8 +2,10 @@ import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import type { ApiDeck, JPDBDeck, ReaderSettings } from '../app/types';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 type SrsDeckSource = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
+const NON_JPDB_DECK_SOURCES = new Set<SrsDeckSource>(['anki', 'jiten', 'bunpro', 'yomu-local']);
 
 export interface DeckChoiceRenderOptions {
     includeJpdb?: boolean;
@@ -69,9 +71,15 @@ function addDeckChoiceOption(
 }
 
 function renderDeckChoiceOption([value, label]: [string, string]): string {
-    const [source, ...idParts] = value.split(':');
+    const [rawSource, ...idParts] = value.split(':');
+    const source = deckChoiceSource(rawSource);
     const deckId = idParts.join(':');
-    return `<option value="${escapeHtml(value)}" data-deck-source="${escapeHtml(source)}" data-deck-id="${escapeHtml(deckId)}">${escapeHtml(label)}</option>`;
+    const capability = privateCommandAttributes({ kind: 'deck-choice', source, id: deckId });
+    return `<option value="${escapeHtml(value)}" data-deck-source="${escapeHtml(source)}" data-deck-id="${escapeHtml(deckId)}"${capability}>${escapeHtml(label)}</option>`;
+}
+
+function deckChoiceSource(value: string): SrsDeckSource {
+    return NON_JPDB_DECK_SOURCES.has(value as SrsDeckSource) ? value as SrsDeckSource : 'jpdb';
 }
 
 function deckChoicePlaceholderOption(settings: ReaderSettings): string {

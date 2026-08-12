@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
+import { publishSettingsChange } from '../../src/reader/settings/settings-change-bus';
 import { ReaderApp } from '../../src/reader/app/main';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
@@ -95,6 +96,25 @@ function expectLoadedColorChannels(settings: ReaderSettings, expected: LoadedCol
     }
 }
 
+function installSharedSettingsStore(entries: ReadonlyArray<readonly [string, unknown]>): Map<string, unknown> {
+    const store = new Map<string, unknown>(entries);
+    vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) =>
+        structuredClone(store.has(key) ? store.get(key) : fallback)));
+    vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+        store.set(key, structuredClone(value));
+    }));
+    return store;
+}
+
+function expectLoadedAndStoredSettings(
+    settings: ReaderSettings,
+    stored: Record<string, unknown>,
+    expected: Partial<ReaderSettings>,
+): void {
+    expect(settings).toMatchObject(expected);
+    expect(stored).toMatchObject(expected);
+}
+
 describe('reader theme', () => {
     afterEach(() => {
         vi.useRealTimers();
@@ -104,6 +124,7 @@ describe('reader theme', () => {
         document.documentElement.className = '';
         document.documentElement.removeAttribute('style');
         for (const key of SETTINGS_STORAGE_KEYS) localStorage.removeItem(key);
+        vi.unstubAllGlobals();
     });
 
     it('does not throw when the userscript starts before document.documentElement exists', () => {
@@ -854,7 +875,7 @@ describe('reader theme', () => {
         }, { once: true });
 
         try {
-            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { preview: true, settings: { theme: 'light' } } }));
+            publishSettingsChange({ preview: true, settings: { theme: 'light' } });
 
             expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(24, 27, 32)');
 
@@ -1213,7 +1234,7 @@ describe('reader theme', () => {
     });
 
     it('migrates legacy automatic channel sources using wordHighlightMode only at load time', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             ...DEFAULT_SETTINGS,
             wordHighlightMode: 'status',
             wordHighlightColorSource: 'auto',
@@ -1222,7 +1243,7 @@ describe('reader theme', () => {
             subtitleHighlightColorSource: 'auto',
             subtitleUnderlineColorSource: 'pitch',
             subtitleTextColorSource: 'auto',
-        }));
+        }]]);
 
         const settings = await loadSettings();
 
@@ -1237,7 +1258,7 @@ describe('reader theme', () => {
     });
 
     it('preserves explicit combined status color channels at load time', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             ...DEFAULT_SETTINGS,
             wordHighlightColorSource: 'status',
             wordUnderlineColorSource: 'status',
@@ -1245,7 +1266,7 @@ describe('reader theme', () => {
             subtitleHighlightColorSource: 'status',
             subtitleUnderlineColorSource: 'status',
             subtitleTextColorSource: 'status',
-        }));
+        }]]);
 
         const settings = await loadSettings();
 
@@ -1331,49 +1352,45 @@ describe('reader theme', () => {
     });
 
     it('promotes appearance settings saved under the previous storage key', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEYS[1], JSON.stringify({
+        const store = installSharedSettingsStore([[SETTINGS_STORAGE_KEYS[1], {
             ...DEFAULT_SETTINGS,
             theme: 'dark',
             accentColor: '#ff3366',
             wordColorKnown: '#123456',
-        }));
+        }]]);
 
         const settings = await loadSettings();
-        const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS[0]) ?? '{}');
+        const stored = store.get(SETTINGS_STORAGE_KEYS[0]) as Record<string, unknown>;
 
-        expect(settings.theme).toBe('dark');
-        expect(settings.accentColor).toBe('#ff3366');
-        expect(settings.wordColorKnown).toBe('#123456');
-        expect(stored.theme).toBe('dark');
-        expect(stored.accentColor).toBe('#ff3366');
-        expect(stored.wordColorKnown).toBe('#123456');
+        expectLoadedAndStoredSettings(settings, stored, {
+            theme: 'dark',
+            accentColor: '#ff3366',
+            wordColorKnown: '#123456',
+        });
     });
 
     it('recovers legacy appearance settings when the current key was written with defaults', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEYS[0], JSON.stringify({
+        const store = installSharedSettingsStore([[SETTINGS_STORAGE_KEYS[0], {
             ...DEFAULT_SETTINGS,
             interfaceLanguage: 'ja',
             popoverWidth: 640,
-        }));
-        localStorage.setItem(SETTINGS_STORAGE_KEYS[1], JSON.stringify({
+        }], [SETTINGS_STORAGE_KEYS[1], {
             ...DEFAULT_SETTINGS,
             theme: 'dark',
             accentColor: '#ff3366',
             interfaceLanguage: 'auto',
             popoverWidth: 480,
-        }));
+        }]]);
 
         const settings = await loadSettings();
-        const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS[0]) ?? '{}');
+        const stored = store.get(SETTINGS_STORAGE_KEYS[0]) as Record<string, unknown>;
 
-        expect(settings.theme).toBe('dark');
-        expect(settings.accentColor).toBe('#ff3366');
-        expect(settings.interfaceLanguage).toBe('ja');
-        expect(settings.popoverWidth).toBe(640);
-        expect(stored.theme).toBe('dark');
-        expect(stored.accentColor).toBe('#ff3366');
-        expect(stored.interfaceLanguage).toBe('ja');
-        expect(stored.popoverWidth).toBe(640);
+        expectLoadedAndStoredSettings(settings, stored, {
+            theme: 'dark',
+            accentColor: '#ff3366',
+            interfaceLanguage: 'ja',
+            popoverWidth: 640,
+        });
     });
 
     it('does not apply double pitch channels from stale in-memory settings', () => {

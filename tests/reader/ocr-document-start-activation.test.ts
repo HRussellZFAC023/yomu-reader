@@ -9,21 +9,25 @@ vi.mock('../../src/reader/ocr/canvas-mirror', async importOriginal => ({
     installCanvasMirrorRecorder: canvasMocks.installCanvasMirrorRecorder,
 }));
 
-const TARGET_OWNED_DOCUMENT_START_EVENT = 'yomu:target-owned-document-start';
-
 describe('OCR document-start activation', () => {
     beforeEach(() => {
         vi.resetModules();
         canvasMocks.installCanvasMirrorRecorder.mockReset();
     });
 
-    it('registers OCR capabilities without touching canvas prototypes before target choice', async () => {
+    it('keeps page-forged events inert and accepts only the sandbox-private activation', async () => {
         await import('../../src/reader/companions/ocr-manga');
 
         expect(canvasMocks.installCanvasMirrorRecorder).not.toHaveBeenCalled();
 
-        window.dispatchEvent(new Event(TARGET_OWNED_DOCUMENT_START_EVENT));
-        window.dispatchEvent(new Event(TARGET_OWNED_DOCUMENT_START_EVENT));
+        window.dispatchEvent(new Event('yomu:target-owned-document-start'));
+        expect(canvasMocks.installCanvasMirrorRecorder).not.toHaveBeenCalled();
+
+        const { activateTargetOwnedDocumentStartCompanions } = await import(
+            '../../src/reader/app/target-owned-document-start'
+        );
+        activateTargetOwnedDocumentStartCompanions();
+        activateTargetOwnedDocumentStartCompanions();
 
         expect(canvasMocks.installCanvasMirrorRecorder).toHaveBeenCalledOnce();
     });

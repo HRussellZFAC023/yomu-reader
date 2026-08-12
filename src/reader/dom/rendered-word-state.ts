@@ -4,6 +4,17 @@ import { primaryCardState } from '../cards/state';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
 import { isParticleCard } from './token-text-rendering';
+import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
+import {
+    renderedWordPrivateStateForCard,
+    renderedWordPrivateValue,
+    updateRenderedWordPrivateState,
+} from './rendered-word-private-state';
+import {
+    renderedWordNumericIdentity,
+    renderedWordProviderIdentity,
+    renderedWordRecordedSpan,
+} from './rendered-word-policy';
 
 const RENDERED_WORD_CARD_STATES = [
     'new',
@@ -34,15 +45,23 @@ export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
         .filter(className => className.startsWith('anki-'))
         .forEach(className => word.classList.remove(className));
-    delete word.dataset.ankiState;
-    delete word.dataset.ankiDecks;
+    const ankiState = renderedWordPrivateValue(word, 'ankiState');
+    const cardState = renderedWordPrivateValue(word, 'cardState');
+    clearOffhostProjectedAnkiState(word, ankiState, cardState);
+    updateRenderedWordPrivateState(word, { ankiState: undefined, ankiDecks: undefined });
     RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
     if (word.title.startsWith('Anki:')) word.removeAttribute('title');
 }
 
+function clearOffhostProjectedAnkiState(word: HTMLElement, ankiState: string | undefined, cardState: string | undefined): void {
+    if (currentAccountDataSurfaceIsTrusted()) return;
+    if (!ankiState || ankiState === cardState) return;
+    word.classList.remove(`jpdb-${ankiState}`);
+}
+
 export function renderedWordHasAnkiState(word: HTMLElement): boolean {
-    return Boolean(word.dataset.ankiState
-        || word.dataset.ankiDecks
+    return Boolean(renderedWordPrivateValue(word, 'ankiState')
+        || renderedWordPrivateValue(word, 'ankiDecks')
         || Array.from(word.classList).some(className => className.startsWith('anki-')));
 }
 
@@ -51,7 +70,10 @@ export function renderedWordCardKey(vid: number, sid: number): string {
 }
 
 export function renderedWordElementKey(word: HTMLElement): string {
-    return renderedWordCardKey(Number(word.dataset.vid), Number(word.dataset.sid));
+    return renderedWordCardKey(
+        Number(renderedWordPrivateValue(word, 'vid')),
+        Number(renderedWordPrivateValue(word, 'sid')),
+    );
 }
 
 export function isValidRenderedWordKey(key: string): boolean {
@@ -62,8 +84,9 @@ export function isValidRenderedWordKey(key: string): boolean {
 
 export function renderedWordSelectorForKey(key: string): string | null {
     if (!isValidRenderedWordKey(key)) return null;
-    const [vid, sid] = key.split(':');
-    return `.jpdb-reader-word[data-vid="${escapeCssAttributeValue(vid ?? '')}"][data-sid="${escapeCssAttributeValue(sid ?? '')}"]`;
+    if (!currentAccountDataSurfaceIsTrusted()) return '.jpdb-reader-word[data-yomu-word="true"]';
+    const parts = key.split(':').map(escapeCssAttributeValue);
+    return `.jpdb-reader-word[data-vid="${parts[0]}"][data-sid="${parts[1]}"]`;
 }
 
 export function rootContainsRenderedWord(root: ParentNode, word: HTMLElement): boolean {
@@ -74,35 +97,42 @@ export function rootContainsRenderedWord(root: ParentNode, word: HTMLElement): b
 
 export function renderedWordsInRoot(root: ParentNode): HTMLElement[] {
     const words = new Set<HTMLElement>();
-    if (root instanceof HTMLElement && root.matches('.jpdb-reader-word[data-vid][data-sid]')) words.add(root);
-    root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => words.add(word));
+    if (root instanceof HTMLElement && isRegisteredRenderedWord(root)) words.add(root);
+    root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-yomu-word="true"], .jpdb-reader-word[data-vid][data-sid]')
+        .forEach(word => words.add(word));
     return [...words];
 }
 
 export async function* renderedWordsInRootChunked(root: ParentNode, chunkSize: number): AsyncGenerator<HTMLElement> {
     let yielded = 0;
-    const maybeYield = async () => {
+    for (const word of registeredRenderedWordsInRoot(root)) {
+        yield word;
         yielded += 1;
         if (yielded % chunkSize === 0) await yieldToNextTask();
-    };
-    if (root instanceof HTMLElement && root.matches('.jpdb-reader-word[data-vid][data-sid]')) {
-        yield root;
-        await maybeYield();
     }
-    const ownerDocument = root instanceof Document ? root : root.ownerDocument ?? document;
+}
+
+function* registeredRenderedWordsInRoot(root: ParentNode): Generator<HTMLElement> {
+    if (root instanceof HTMLElement && isRegisteredRenderedWord(root)) yield root;
+    const ownerDocument = renderedWordOwnerDocument(root);
     const walker = ownerDocument.createTreeWalker(root as Node, NodeFilter.SHOW_ELEMENT, {
-        acceptNode(node) {
-            return node instanceof HTMLElement && node.matches('.jpdb-reader-word[data-vid][data-sid]')
-                ? NodeFilter.FILTER_ACCEPT
-                : NodeFilter.FILTER_SKIP;
-        },
+        acceptNode: registeredRenderedWordNodeFilter,
     });
     let node = walker.nextNode();
     while (node) {
         yield node as HTMLElement;
-        await maybeYield();
         node = walker.nextNode();
     }
+}
+
+function renderedWordOwnerDocument(root: ParentNode): Document {
+    return root instanceof Document ? root : root.ownerDocument ?? document;
+}
+
+function registeredRenderedWordNodeFilter(node: Node): number {
+    return [node instanceof HTMLElement, node instanceof HTMLElement && isRegisteredRenderedWord(node)].every(Boolean)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP;
 }
 
 export function uniqueParentNodes(roots: ParentNode[]): ParentNode[] {
@@ -110,15 +140,11 @@ export function uniqueParentNodes(roots: ParentNode[]): ParentNode[] {
 }
 
 export function renderedFallbackVocabularyCacheKey(word: HTMLElement): string {
-    const vid = Number(word.dataset.vid);
-    const sid = Number(word.dataset.sid);
+    const { vid, sid } = renderedWordNumericIdentity(word);
     const spelling = word.dataset.expression?.trim() ?? '';
-    const start = Number(word.dataset.tokenStart);
-    const end = Number(word.dataset.tokenEnd);
-    return Number.isFinite(vid) && Number.isFinite(sid) && spelling
-        && Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start
-        ? fallbackVocabularySpanCacheKeyParts(vid, sid, spelling, '', start, end)
-        : '';
+    const span = renderedWordRecordedSpan(word);
+    if (![Number.isFinite(vid), Number.isFinite(sid), Boolean(spelling), Boolean(span)].every(Boolean)) return '';
+    return fallbackVocabularySpanCacheKeyParts(vid, sid, spelling, '', span!.start, span!.end);
 }
 
 export function fallbackVocabularySpanCacheKey(
@@ -204,34 +230,69 @@ export function setRenderedWordCardIdentity(
 ): void {
     // Identity/pitch always refresh: preserving the status channel must not
     // block the late reading + pitch the repaint was scheduled to deliver.
-    word.dataset.vid = String(card.vid);
-    word.dataset.sid = String(card.sid);
+    const identity = renderedWordPrivateStateForCard(card, primaryCardState(card.cardState));
+    updateRenderedWordPrivateState(word, {
+        vid: identity.vid,
+        sid: identity.sid,
+        cardSource: identity.cardSource,
+        cardId: identity.cardId,
+        readingIndex: identity.readingIndex,
+    });
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
+    applyRenderedWordPitchIdentity(word, card, options);
+    applyRenderedWordCardStatus(word, card, options, true);
+}
+
+type RenderedWordPitchIdentityMode = 'clear' | 'particle' | 'card';
+
+function applyRenderedWordPitchIdentity(
+    word: HTMLElement,
+    card: JPDBCard,
+    options: RenderedWordCardIdentityOptions,
+): void {
     const particle = isParticleCard(card);
     word.classList.toggle('jpdb-reader-particle', particle);
-    if (options.pitchPolicy === 'clear') {
-        setRenderedWordPitchClass(word, '');
-        delete word.dataset.pitchAccent;
-        delete word.dataset.pitchComponents;
-        word.style.removeProperty('--jpdb-reader-inline-pitch-gradient');
-        if (particle) clearRenderedWordMiningInsight(word);
-    } else if (particle) {
-        // Public Jiten parse cards arrive without POS. A multi-character
-        // particle can therefore paint as an ordinary content word first; its
-        // later detail repaint must repair every derived particle invariant,
-        // not retain a lexical pitch/i+1 state from the sparse card.
-        setRenderedWordPitchClass(word, 'particle');
-        delete word.dataset.pitchAccent;
-        delete word.dataset.pitchComponents;
-        word.style.removeProperty('--jpdb-reader-inline-pitch-gradient');
-        clearRenderedWordMiningInsight(word);
-    } else {
-        if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
-        setRenderedWordPitchAccentPattern(word, card);
-        setRenderedWordPitchComponents(word, card);
-    }
-    applyRenderedWordCardStatus(word, card, options, true);
+    const handlers: Record<RenderedWordPitchIdentityMode, () => void> = {
+        clear: () => clearRenderedWordPitchIdentity(word, particle),
+        particle: () => applyRenderedParticlePitchIdentity(word),
+        card: () => applyRenderedCardPitchIdentity(word, card),
+    };
+    handlers[renderedWordPitchIdentityMode(options, particle)]();
+}
+
+function renderedWordPitchIdentityMode(
+    options: RenderedWordCardIdentityOptions,
+    particle: boolean,
+): RenderedWordPitchIdentityMode {
+    if (options.pitchPolicy === 'clear') return 'clear';
+    return particle ? 'particle' : 'card';
+}
+
+function clearRenderedWordPitchIdentity(word: HTMLElement, particle: boolean): void {
+    clearRenderedWordPitchMetadata(word, '');
+    if (particle) clearRenderedWordMiningInsight(word);
+}
+
+// Public Jiten parse cards arrive without POS. A multi-character particle can
+// therefore paint as an ordinary content word first; its later detail repaint
+// must repair every derived invariant, not retain lexical pitch/i+1 state.
+function applyRenderedParticlePitchIdentity(word: HTMLElement): void {
+    clearRenderedWordPitchMetadata(word, 'particle');
+    clearRenderedWordMiningInsight(word);
+}
+
+function clearRenderedWordPitchMetadata(word: HTMLElement, pitchClass: string): void {
+    setRenderedWordPitchClass(word, pitchClass);
+    delete word.dataset.pitchAccent;
+    delete word.dataset.pitchComponents;
+    word.style.removeProperty('--jpdb-reader-inline-pitch-gradient');
+}
+
+function applyRenderedCardPitchIdentity(word: HTMLElement, card: JPDBCard): void {
+    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+    setRenderedWordPitchAccentPattern(word, card);
+    setRenderedWordPitchComponents(word, card);
 }
 
 /**
@@ -259,22 +320,34 @@ function applyRenderedWordCardStatus(
     // channel. Even when a provisional public card is prevented from
     // downgrading an authoritative state, its canonical provider identity must
     // replace the sparse/fallback identity alongside vid/sid/reading above.
-    if (replaceCardIdentity) {
-        word.dataset.cardSource = source;
-        word.dataset.cardId = String(renderedWordCardId(card, source));
-        word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
-    }
+    projectRenderedWordCardIdentity(word, card, source, replaceCardIdentity);
     if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
     clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.srsProvider;
+    updateRenderedWordPrivateState(word, { bunproState: undefined, srsProvider: undefined });
     clearRenderedWordDeckMembershipClasses(word, ['anki']);
-    word.dataset.cardState = state;
-    word.dataset.stateProvenance = cardStateProvenance(card);
+    updateRenderedWordPrivateState(word, {
+        cardState: state,
+        stateProvenance: cardStateProvenance(card),
+    });
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
     word.classList.add(`jpdb-${state}`);
-    if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
+    projectRenderedWordSourceStateClass(word, source, state);
     applyRenderedWordDeckMembership(word, card);
+}
+
+function projectRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard, source: string, replace: boolean): void {
+    if (!replace) return;
+    updateRenderedWordPrivateState(word, {
+        cardSource: source,
+        cardId: String(renderedWordCardId(card, source)),
+        readingIndex: String(renderedWordReadingIndex(card, source)),
+    });
+}
+
+function projectRenderedWordSourceStateClass(word: HTMLElement, source: string, state: string): void {
+    if (source === 'jpdb') return;
+    if (!currentAccountDataSurfaceIsTrusted()) return;
+    word.classList.add(`${source}-${state}`);
 }
 
 /**
@@ -289,44 +362,60 @@ function applyRenderedWordCardStatus(
  */
 export function refreshRenderedMiningInsights(root: ParentNode): HTMLElement[] {
     const words = renderedWordsInRoot(root);
-    const sentenceCards = new Map<string, Map<string, { unknown: boolean }>>();
-    for (const word of words) {
-        const sentence = renderedMiningSentence(word);
-        const identity = renderedMiningCardIdentity(word);
-        if (!sentence || !identity || word.classList.contains('jpdb-reader-particle')) continue;
-        const cards = sentenceCards.get(sentence) ?? new Map<string, { unknown: boolean }>();
-        if (!sentenceCards.has(sentence)) sentenceCards.set(sentence, cards);
-        if (!cards.has(identity)) {
-            cards.set(identity, { unknown: RENDERED_WORD_MINING_INSIGHT_STATES.has(word.dataset.cardState ?? '') });
-        }
-    }
+    const insightKeys = renderedMiningInsightKeys(renderedMiningSentenceCards(words));
+    return words.filter(word => updateRenderedMiningInsight(word, insightKeys));
+}
 
+type RenderedMiningSentenceCards = Map<string, Map<string, { unknown: boolean }>>;
+
+function renderedMiningSentenceCards(words: HTMLElement[]): RenderedMiningSentenceCards {
+    const sentenceCards: RenderedMiningSentenceCards = new Map();
+    words.forEach(word => recordRenderedMiningCard(sentenceCards, word));
+    return sentenceCards;
+}
+
+function recordRenderedMiningCard(sentenceCards: RenderedMiningSentenceCards, word: HTMLElement): void {
+    const sentence = renderedMiningSentence(word);
+    const identity = renderedMiningCardIdentity(word);
+    if (![sentence, identity, !word.classList.contains('jpdb-reader-particle')].every(Boolean)) return;
+    const cards = sentenceCards.get(sentence) ?? new Map<string, { unknown: boolean }>();
+    sentenceCards.set(sentence, cards);
+    if (!cards.has(identity)) cards.set(identity, { unknown: renderedMiningStateIsUnknown(word) });
+}
+
+function renderedMiningStateIsUnknown(word: HTMLElement): boolean {
+    return RENDERED_WORD_MINING_INSIGHT_STATES.has(renderedWordPrivateValue(word, 'cardState') ?? '');
+}
+
+function renderedMiningInsightKeys(sentenceCards: RenderedMiningSentenceCards): Set<string> {
     const insightKeys = new Set<string>();
     sentenceCards.forEach((cards, sentence) => {
-        if (cards.size < 3) return;
         const unknown = [...cards.entries()].filter(([, state]) => state.unknown);
-        if (unknown.length === 1) insightKeys.add(`${sentence}\u0000${unknown[0]?.[0] ?? ''}`);
+        if ([cards.size >= 3, unknown.length === 1].every(Boolean)) {
+            insightKeys.add(`${sentence}\u0000${unknown[0]?.[0] ?? ''}`);
+        }
     });
+    return insightKeys;
+}
 
-    const changed: HTMLElement[] = [];
-    for (const word of words) {
-        const sentence = renderedMiningSentence(word);
-        const identity = renderedMiningCardIdentity(word);
-        const insight = Boolean(
-            sentence
-            && identity
-            && !word.classList.contains('jpdb-reader-particle')
-            && insightKeys.has(`${sentence}\u0000${identity}`),
-        );
-        const hasClass = word.classList.contains('jpdb-reader-i-plus-one');
-        const hasDataset = word.dataset.miningInsight === 'i-plus-one';
-        if (hasClass === insight && hasDataset === insight) continue;
-        word.classList.toggle('jpdb-reader-i-plus-one', insight);
-        if (insight) word.dataset.miningInsight = 'i-plus-one';
-        else delete word.dataset.miningInsight;
-        changed.push(word);
-    }
-    return changed;
+function updateRenderedMiningInsight(word: HTMLElement, insightKeys: Set<string>): boolean {
+    const sentence = renderedMiningSentence(word);
+    const identity = renderedMiningCardIdentity(word);
+    const insight = [
+        Boolean(sentence),
+        Boolean(identity),
+        !word.classList.contains('jpdb-reader-particle'),
+        insightKeys.has(`${sentence}\u0000${identity}`),
+    ].every(Boolean);
+    const unchanged = [
+        word.classList.contains('jpdb-reader-i-plus-one') === insight,
+        (word.dataset.miningInsight === 'i-plus-one') === insight,
+    ].every(Boolean);
+    if (unchanged) return false;
+    word.classList.toggle('jpdb-reader-i-plus-one', insight);
+    if (insight) word.dataset.miningInsight = 'i-plus-one';
+    else delete word.dataset.miningInsight;
+    return true;
 }
 
 function renderedMiningSentence(word: HTMLElement): string {
@@ -334,44 +423,61 @@ function renderedMiningSentence(word: HTMLElement): string {
 }
 
 function renderedMiningCardIdentity(word: HTMLElement): string {
-    const source = word.dataset.cardSource?.trim();
-    const cardId = word.dataset.cardId?.trim();
-    const readingIndex = word.dataset.readingIndex?.trim();
-    if (source && cardId && readingIndex) return `${source}:${cardId}/${readingIndex}`;
-    const vid = word.dataset.vid?.trim();
-    const sid = word.dataset.sid?.trim();
-    return vid && sid ? `${vid}:${sid}` : '';
+    return renderedWordProviderIdentity(word);
 }
 
 /** Repaints only the SRS status channel, preserving the dictionary card identity. */
 export function applyLocalYomuSrsStateToRenderedWord(word: HTMLElement, card: JPDBCard): boolean {
     const state = primaryCardState(card.cardState);
-    const expectedStateClasses = new Set([`jpdb-${state}`, `yomu-local-${state}`]);
-    const changed = word.dataset.cardState !== state
-        || word.dataset.srsProvider !== 'yomu-local'
-        || word.dataset.stateProvenance !== 'authoritative'
-        || word.dataset.bunproState !== undefined
-        || word.dataset.bunproPrefillState !== undefined
-        || word.dataset.bunproPrefillProvenance !== undefined
-        || [...expectedStateClasses].some(className => !word.classList.contains(className))
-        || Array.from(word.classList).some(className => (
-            isRenderedWordCardStateClass(className) && !expectedStateClasses.has(className)
-        ))
-        || (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state) && (
-            word.classList.contains('jpdb-reader-i-plus-one')
-            || word.dataset.miningInsight !== undefined
-        ));
-    if (!changed) return false;
+    const expectedStateClasses = new Set([
+        `jpdb-${state}`,
+        currentAccountDataSurfaceIsTrusted() ? `yomu-local-${state}` : '',
+    ].filter(Boolean));
+    if (!localYomuSrsWordNeedsUpdate(word, state, expectedStateClasses)) return false;
     clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.bunproPrefillState;
-    delete word.dataset.bunproPrefillProvenance;
-    word.dataset.cardState = state;
-    word.dataset.srsProvider = 'yomu-local';
-    word.dataset.stateProvenance = 'authoritative';
-    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
-    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    updateRenderedWordPrivateState(word, {
+        bunproState: undefined,
+        bunproPrefillState: undefined,
+        bunproPrefillProvenance: undefined,
+        cardState: state,
+        srsProvider: 'yomu-local',
+        stateProvenance: 'authoritative',
+    });
+    word.classList.add(`jpdb-${state}`);
+    addTrustedLocalYomuStateClass(word, state);
+    clearRenderedMiningInsightForKnownState(word, state);
     return true;
+}
+
+function localYomuSrsWordNeedsUpdate(word: HTMLElement, state: string, expectedClasses: Set<string>): boolean {
+    return [
+        renderedWordPrivateValue(word, 'cardState') !== state,
+        renderedWordPrivateValue(word, 'srsProvider') !== 'yomu-local',
+        renderedWordPrivateValue(word, 'stateProvenance') !== 'authoritative',
+        renderedWordPrivateValue(word, 'bunproState') !== undefined,
+        renderedWordPrivateValue(word, 'bunproPrefillState') !== undefined,
+        renderedWordPrivateValue(word, 'bunproPrefillProvenance') !== undefined,
+        [...expectedClasses].some(className => !word.classList.contains(className)),
+        Array.from(word.classList).some(className => (
+            isRenderedWordCardStateClass(className) && !expectedClasses.has(className)
+        )),
+        renderedMiningInsightIsStale(word, state),
+    ].some(Boolean);
+}
+
+function renderedMiningInsightIsStale(word: HTMLElement, state: string): boolean {
+    return [
+        !RENDERED_WORD_MINING_INSIGHT_STATES.has(state),
+        [word.classList.contains('jpdb-reader-i-plus-one'), word.dataset.miningInsight !== undefined].some(Boolean),
+    ].every(Boolean);
+}
+
+function addTrustedLocalYomuStateClass(word: HTMLElement, state: string): void {
+    if (currentAccountDataSurfaceIsTrusted()) word.classList.add(`yomu-local-${state}`);
+}
+
+function clearRenderedMiningInsightForKnownState(word: HTMLElement, state: string): void {
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
 }
 
 // The preserve guard fires only for the exact downgrade the public/pitch lane
@@ -386,11 +492,13 @@ function shouldPreserveAuthoritativeState(
     incomingState: string,
     options: RenderedWordCardIdentityOptions,
 ): boolean {
-    return options.statePolicy !== 'replace'
-        && cardStateProvenance(card) === 'provisional'
-        && incomingState === 'not-in-deck'
-        && word.dataset.stateProvenance === 'authoritative'
-        && Boolean(word.dataset.cardState);
+    return [
+        options.statePolicy !== 'replace',
+        cardStateProvenance(card) === 'provisional',
+        incomingState === 'not-in-deck',
+        renderedWordPrivateValue(word, 'stateProvenance') === 'authoritative',
+        Boolean(renderedWordPrivateValue(word, 'cardState')),
+    ].every(Boolean);
 }
 
 /**
@@ -401,55 +509,110 @@ function shouldPreserveAuthoritativeState(
  * word's classes changed.
  */
 export function applyBunproStateToRenderedWord(word: HTMLElement, state: string | null): boolean {
-    const previous = word.dataset.bunproState ?? '';
-    if (!previous && !BUNPRO_FILLABLE_CARD_STATES.has(word.dataset.cardState ?? '')) return false;
-    if (!state) {
-        if (!previous) return false;
-        clearRenderedWordBunproState(word);
-        return true;
-    }
-    if (previous === state) return false;
+    const previous = renderedWordPrivateValue(word, 'bunproState') ?? '';
+    const mode = bunproStateTransitionMode(word, previous, state);
+    const handlers: Record<BunproStateTransitionMode, () => boolean> = {
+        ignore: () => false,
+        clear: () => {
+            clearRenderedWordBunproState(word);
+            return true;
+        },
+        apply: () => applyNewBunproState(word, previous, String(state)),
+    };
+    return handlers[mode]();
+}
+
+type BunproStateTransitionMode = 'ignore' | 'clear' | 'apply';
+
+function bunproStateTransitionMode(
+    word: HTMLElement,
+    previous: string,
+    state: string | null,
+): BunproStateTransitionMode {
+    const fillable = BUNPRO_FILLABLE_CARD_STATES.has(renderedWordPrivateText(word, 'cardState'));
+    const transitions: Array<[boolean, BunproStateTransitionMode]> = [
+        [[!previous, !fillable].every(Boolean), 'ignore'],
+        [[!state, !previous].every(Boolean), 'ignore'],
+        [!state, 'clear'],
+        [previous === state, 'ignore'],
+        [true, 'apply'],
+    ];
+    return transitions.find(([matches]) => matches)![1];
+}
+
+function applyNewBunproState(word: HTMLElement, previous: string, state: string): true {
     if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
-    else {
-        word.dataset.bunproPrefillState = word.dataset.cardState ?? '';
-        word.dataset.bunproPrefillProvenance = word.dataset.stateProvenance ?? '';
-    }
-    const source = word.dataset.cardSource ?? 'jpdb';
+    else captureBunproPrefillState(word);
+    const source = renderedWordPrivateValue(word, 'cardSource') ?? 'jpdb';
     word.classList.remove('jpdb-not-in-deck', `${source}-not-in-deck`);
-    word.classList.add(`jpdb-${state}`, `bunpro-${state}`);
-    word.dataset.cardState = state;
-    word.dataset.bunproState = state;
+    word.classList.add(`jpdb-${state}`);
+    if (currentAccountDataSurfaceIsTrusted()) word.classList.add(`bunpro-${state}`);
     // A Bunpro fill is the user's authenticated SRS state: mark it authoritative
     // so a later provisional public repaint cannot downgrade it, and so the
     // known-state backfill never re-requests it.
-    word.dataset.stateProvenance = 'authoritative';
+    updateRenderedWordPrivateState(word, {
+        cardState: state,
+        bunproState: state,
+        stateProvenance: 'authoritative',
+    });
     return true;
 }
 
+function captureBunproPrefillState(word: HTMLElement): void {
+    updateRenderedWordPrivateState(word, {
+        bunproPrefillState: renderedWordPrivateValue(word, 'cardState') ?? '',
+        bunproPrefillProvenance: renderedWordPrivateValue(word, 'stateProvenance') ?? '',
+    });
+}
+
 function clearRenderedWordBunproState(word: HTMLElement): void {
-    const previous = word.dataset.bunproState ?? '';
-    if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
-    delete word.dataset.bunproState;
+    const previous = renderedWordPrivateText(word, 'bunproState');
+    removeRenderedBunproStateClasses(word, previous);
     // Restore the provider state captured before Bunpro filled the word — a
     // word the provider had no opinion on must go back to blank, not invent
     // a not-in-deck verdict.
-    const prefill = word.dataset.bunproPrefillState;
-    delete word.dataset.bunproPrefillState;
+    const prefill = renderedWordPrivateText(word, 'bunproPrefillState', 'not-in-deck');
     // The pre-fill state was only ever '' or not-in-deck (BUNPRO_FILLABLE), i.e.
     // provisional; restore that provenance so the word rejoins the backfill pool
     // and cannot masquerade as an authenticated verdict.
-    const prefillProvenance = word.dataset.bunproPrefillProvenance;
-    delete word.dataset.bunproPrefillProvenance;
-    if (prefillProvenance) word.dataset.stateProvenance = prefillProvenance;
-    else delete word.dataset.stateProvenance;
-    const restored = prefill ?? 'not-in-deck';
-    if (restored) {
-        const source = word.dataset.cardSource ?? 'jpdb';
-        word.classList.add(`jpdb-${restored}`);
-        if (source !== 'jpdb') word.classList.add(`${source}-${restored}`);
-        word.dataset.cardState = restored;
-    } else {
-        delete word.dataset.cardState;
+    const prefillProvenance = renderedWordPrivateText(word, 'bunproPrefillProvenance');
+    const restored = prefill;
+    updateRenderedWordPrivateState(word, {
+        bunproState: undefined,
+        bunproPrefillState: undefined,
+        bunproPrefillProvenance: undefined,
+        stateProvenance: undefinedIfEmpty(prefillProvenance),
+        cardState: undefinedIfEmpty(restored),
+    });
+    restoreRenderedProviderStateClasses(word, restored);
+}
+
+function renderedWordPrivateText(
+    word: HTMLElement,
+    key: Parameters<typeof renderedWordPrivateValue>[1],
+    fallback = '',
+): string {
+    return renderedWordPrivateValue(word, key) ?? fallback;
+}
+
+function undefinedIfEmpty(value: string): string | undefined {
+    return value ? value : undefined;
+}
+
+function removeRenderedBunproStateClasses(word: HTMLElement, previous: string): void {
+    if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
+}
+
+function restoreRenderedProviderStateClasses(word: HTMLElement, restored: string): void {
+    if (!restored) return;
+    const source = renderedWordPrivateValue(word, 'cardSource') ?? 'jpdb';
+    word.classList.add(`jpdb-${restored}`);
+    addTrustedProviderStateClass(word, source, restored);
+}
+
+function addTrustedProviderStateClass(word: HTMLElement, source: string, state: string): void {
+    if ([currentAccountDataSurfaceIsTrusted(), source !== 'jpdb'].every(Boolean)) {
+        word.classList.add(`${source}-${state}`);
     }
 }
 
@@ -494,19 +657,38 @@ function isRenderedWordDeckMembershipClass(className: string, preserveSources: s
 function applyRenderedWordDeckMembership(word: HTMLElement, card: JPDBCard): void {
     const membership = cardDeckMembership(card);
     if (!membership.member) {
-        if (!word.classList.contains('anki-deck-member')) {
-            word.classList.remove('yomu-deck-member');
-            delete word.dataset.deckMember;
-            delete word.dataset.deckSource;
-            delete word.dataset.deckNames;
-        }
+        clearRenderedWordDeckMembership(word);
         return;
     }
     word.classList.add(...cardDeckMembershipClassNames(card));
+    projectRenderedWordDeckMembership(word, membership);
+}
+
+function clearRenderedWordDeckMembership(word: HTMLElement): void {
+    if (word.classList.contains('anki-deck-member')) return;
+    word.classList.remove('yomu-deck-member');
+    clearRenderedWordDeckDataset(word);
+}
+
+function projectRenderedWordDeckMembership(word: HTMLElement, membership: ReturnType<typeof cardDeckMembership>): void {
+    if (!currentAccountDataSurfaceIsTrusted()) {
+        clearRenderedWordDeckDataset(word);
+        return;
+    }
     word.dataset.deckMember = 'true';
     word.dataset.deckSource = membership.source;
     if (membership.names.length) word.dataset.deckNames = membership.names.join(', ');
     else delete word.dataset.deckNames;
+}
+
+function clearRenderedWordDeckDataset(word: HTMLElement): void {
+    delete word.dataset.deckMember;
+    delete word.dataset.deckSource;
+    delete word.dataset.deckNames;
+}
+
+function isRegisteredRenderedWord(element: HTMLElement): boolean {
+    return element.matches('.jpdb-reader-word[data-yomu-word="true"], .jpdb-reader-word[data-vid][data-sid]');
 }
 
 function renderedWordCardSource(card: JPDBCard): string {

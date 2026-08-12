@@ -1,6 +1,7 @@
 import { Logger } from '../app/logger';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import type { ReaderSettings } from '../app/types';
+import { dispatchAuthorizedReaderControlClick } from '../ui/trusted-interaction';
 
 const log = Logger.scope('SettingsFileIO');
 
@@ -87,7 +88,7 @@ export function pickFiles(root: HTMLElement, type: 'settings' | 'dictionary'): P
             inputEl.value = '';
             resolve(files);
         };
-        inputEl.click();
+        dispatchAuthorizedReaderControlClick(inputEl);
     });
 }
 

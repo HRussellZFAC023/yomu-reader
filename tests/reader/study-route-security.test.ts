@@ -47,6 +47,17 @@ describe('trusted Study route', () => {
         expect(isYomuNewTabUrl('moz-extension://yomu-test/newtab/index.html')).toBe(true);
     });
 
+    it('does not grant privileged bridges to an unrelated localhost port', () => {
+        const unrelated = 'http://localhost:9999/study/';
+        expect(isYomuNewTabUrl(unrelated)).toBe(true);
+        expect(isYomuPrivilegedHostedAppUrl(unrelated)).toBe(false);
+        expect(isYomuStorageBridgeHostedUrl(unrelated)).toBe(false);
+
+        const yomuDev = 'http://localhost:5174/study/';
+        expect(isYomuPrivilegedHostedAppUrl(yomuDev)).toBe(true);
+        expect(isYomuStorageBridgeHostedUrl(yomuDev)).toBe(true);
+    });
+
     it.each(HOSTILE_STUDY_URLS)('rejects hostile or ambiguous Study URL %s', value => {
         expect(isYomuNewTabUrl(value)).toBe(false);
         expect(isYomuHostedAppUrl(value)).toBe(false);
@@ -83,6 +94,23 @@ describe('trusted Study route', () => {
 
         expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBeUndefined();
         expect(document.documentElement.dataset.yomuUserscriptStorageBridge).toBeUndefined();
+    });
+
+    it('does not install a storage bridge on an unrelated localhost Study-looking page', () => {
+        const getValue = vi.fn();
+        const setValue = vi.fn();
+        vi.stubGlobal('location', new URL('http://localhost:9999/study/'));
+        vi.stubGlobal('GM_getValue', getValue);
+        vi.stubGlobal('GM_setValue', setValue);
+
+        installUserscriptGmStorageBridge();
+        window.dispatchEvent(new CustomEvent('yomu-userscript-storage-request', {
+            detail: { id: 'forged', operation: 'get', key: 'jpdb-popup-reader-settings' },
+        }));
+
+        expect(document.documentElement.dataset.yomuUserscriptStorageBridge).toBeUndefined();
+        expect(getValue).not.toHaveBeenCalled();
+        expect(setValue).not.toHaveBeenCalled();
     });
 
     it('keeps the HTTP bridge off docs pages but lets the managed storage bridge cover the trusted origin', () => {
@@ -136,6 +164,14 @@ describe('hosted Study compatibility alias', () => {
         expect(academy.redirectedTo).toBe(
             'https://yomureader.com/study/?return=academy&card=%E8%AA%AD%E3%82%80%00%E3%82%88%E3%82%80&context=lesson-0#card=key&w=%E8%AA%AD%E3%82%80&r=%E3%82%88%E3%82%80',
         );
+    });
+
+    it('drops release-smoke cache busting state at the canonical Study boundary', async () => {
+        const result = await runAliasRedirect(
+            'https://yomureader.com/newtab/?yomu-smoke=release-1',
+        );
+
+        expect(result.redirectedTo).toBe('https://yomureader.com/study/');
     });
 });
 

@@ -29,6 +29,16 @@ const TRUSTED_WEB_HOST_KINDS = new Map<string, 'docs-preview' | 'loopback'>([
     ['localhost', 'loopback'],
     ['[::1]', 'loopback'],
 ]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = new Set([
+    'http://127.0.0.1:5174',
+    'http://localhost:5174',
+    'http://[::1]:5174',
+]);
+
+/** Exact local origin allowed to proxy privileged Yomu storage in development. */
+export function isPrivilegedYomuLocalDevelopmentOrigin(origin: string): boolean {
+    return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
 
 /**
  * Parses a URL only when its origin is allowed to host privileged Yomu UI.

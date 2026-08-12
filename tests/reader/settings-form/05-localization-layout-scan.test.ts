@@ -264,14 +264,18 @@ describe('settings form localization', () => {
     });
 
     it('renders and saves coexisting Jiten and JPDB API keys (UT-56)', () => {
-        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' });
+        const configured = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' };
+        const form = renderSettingsTestForm(configured);
         const jpdbInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
         const jitenInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJiten"]')!;
 
         expect(labelForControl(form, 'apiCredentialJpdb')).toContain('JPDB API key');
         expect(labelForControl(form, 'apiCredentialJiten')).toContain('Jiten API key');
-        expect(jpdbInput.value).toBe('jpdb-key');
-        expect(jitenInput.value).toBe('ak_jiten-key');
+        expect(jpdbInput.value).toBe('');
+        expect(jitenInput.value).toBe('');
+        expect(jpdbInput.placeholder).toContain('Saved');
+        expect(form.innerHTML).not.toContain('jpdb-key');
+        expect(form.innerHTML).not.toContain('ak_jiten-key');
         expect(form.querySelector<HTMLInputElement>('input[name="apiKey"]')).toBeNull();
         expect(form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')).toBeNull();
         expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
@@ -283,22 +287,31 @@ describe('settings form localization', () => {
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('saved before it is verified');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Academy reviews work locally without an account');
 
+        let saved = readFormSettings(new FormData(form), configured);
+        expect(saved.apiKey).toBe('jpdb-key');
+        expect(saved.jitenApiKey).toBe('ak_jiten-key');
+
         jpdbInput.value = '  next-jpdb  ';
         jitenInput.value = '';
-        let saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        saved = readFormSettings(new FormData(form), configured);
+        expect(saved.apiKey).toBe('next-jpdb');
+        expect(saved.jitenApiKey).toBe('ak_jiten-key');
+
+        form.querySelector<HTMLInputElement>('input[name="apiCredentialJiten.clearStoredCredential"]')!.checked = true;
+        saved = readFormSettings(new FormData(form), configured);
         expect(saved.apiKey).toBe('next-jpdb');
         expect(saved.jitenApiKey).toBe('');
 
         // Both at once stay both; a jiten-prefixed key in the JPDB slot routes.
         jpdbInput.value = 'next-jpdb';
         jitenInput.value = ' ak_next-jiten ';
-        saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        saved = readFormSettings(new FormData(form), configured);
         expect(saved.apiKey).toBe('next-jpdb');
         expect(saved.jitenApiKey).toBe('ak_next-jiten');
 
         jpdbInput.value = 'ak_misplaced';
         jitenInput.value = '';
-        saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        saved = readFormSettings(new FormData(form), configured);
         expect(saved.apiKey).toBe('');
         expect(saved.jitenApiKey).toBe('ak_misplaced');
 
@@ -317,6 +330,57 @@ describe('settings form localization', () => {
             apiKey: 'jpdb-key',
             jitenApiKey: 'ak_jiten-key',
         });
+    });
+
+    it('never renders stored provider or OCR credentials into the host-page DOM', () => {
+        const configured = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-private',
+            jitenApiKey: 'ak_jiten-private',
+            bunproFrontendApiToken: 'bunpro-private',
+            wanikaniApiToken: 'wanikani-private',
+            nadeshikoApiKey: 'nadeshiko-private',
+            ocrCloudVisionApiKey: 'cloud-private',
+            immersionKitExampleSource: 'nadeshiko' as const,
+            ocrProvider: 'cloud-vision' as const,
+        };
+        const form = renderSettingsTestForm(configured);
+        const secretFields = [
+            'apiCredentialJpdb',
+            'apiCredentialJiten',
+            'apiCredentialBunpro',
+            'apiCredentialWanikani',
+            'nadeshikoApiKey',
+            'ocrCloudVisionApiKey',
+        ];
+
+        for (const secret of [
+            configured.apiKey,
+            configured.jitenApiKey,
+            configured.bunproFrontendApiToken,
+            configured.wanikaniApiToken,
+            configured.nadeshikoApiKey,
+            configured.ocrCloudVisionApiKey,
+        ]) expect(form.innerHTML).not.toContain(secret);
+        for (const name of secretFields) {
+            expect(form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.value).toBe('');
+        }
+
+        const saved = readFormSettings(new FormData(form), configured);
+        expect(saved).toMatchObject({
+            apiKey: configured.apiKey,
+            jitenApiKey: configured.jitenApiKey,
+            bunproFrontendApiToken: configured.bunproFrontendApiToken,
+            wanikaniApiToken: configured.wanikaniApiToken,
+            nadeshikoApiKey: configured.nadeshikoApiKey,
+            ocrCloudVisionApiKey: configured.ocrCloudVisionApiKey,
+        });
+
+        localizeSettingsForm(form, 'en');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toContain('Jiten + JPDB');
+        expect(settingsText(form, '[data-jpdb-status]')).toContain('Jiten and JPDB');
+        expect(settingsText(form, '[data-bunpro-status]')).toContain('saved');
+        expect(settingsText(form, '[data-wanikani-status]')).toContain('saved');
     });
 
     it('moves a Jiten key (ak_) pasted into the JPDB box over to the Jiten box', () => {

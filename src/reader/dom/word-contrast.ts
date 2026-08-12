@@ -2,6 +2,7 @@ import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens
 import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, readableOnAll, rgbaToHex, type RgbaColor } from '../theme/color-utils';
 import { probePageBackground, type PageBackground, type ProbedPageBackground } from './page-background';
 import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
+import { renderedWordHasAnkiState } from './rendered-word-state';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
 const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen';
@@ -48,14 +49,34 @@ const appliedContrastState = new WeakMap<HTMLElement, {
 }>();
 
 export function refreshReaderWordContrast(root: ParentNode = document): void {
-    const words = readerWords(root);
-    const activeWords: HTMLElement[] = [];
-    const activeBackgrounds: PageBackground[] = [];
-    const unknownBackgroundWords: HTMLElement[] = [];
-    const unknownBackgrounds: PageBackground[] = [];
-    const neutralWords: HTMLElement[] = [];
-    const neutralPageWords: HTMLElement[] = [];
-    const neutralPageBackgrounds: PageBackground[] = [];
+    const plan = readerWordContrastPlan(readerWords(root));
+    const savedVars = temporarilyClearActiveContrastVars(plan);
+    const measurements = measureActiveReaderWords(plan.activeWords);
+    applyReaderWordContrastPlan(plan, savedVars, measurements);
+}
+
+type SavedContrastVar = { name: string; value: string; priority: string };
+
+interface ReaderWordContrastPlan {
+    activeWords: HTMLElement[];
+    activeBackgrounds: PageBackground[];
+    unknownBackgroundWords: HTMLElement[];
+    unknownBackgrounds: PageBackground[];
+    neutralWords: HTMLElement[];
+    neutralPageWords: HTMLElement[];
+    neutralPageBackgrounds: PageBackground[];
+}
+
+function readerWordContrastPlan(words: HTMLElement[]): ReaderWordContrastPlan {
+    const plan: ReaderWordContrastPlan = {
+        activeWords: [],
+        activeBackgrounds: [],
+        unknownBackgroundWords: [],
+        unknownBackgrounds: [],
+        neutralWords: [],
+        neutralPageWords: [],
+        neutralPageBackgrounds: [],
+    };
     // probePageBackground walks the word's ancestors calling getComputedStyle on
     // each — identical for every word under the same parent. Memoize per parent
     // for this pass so a paragraph of N words costs one ancestor walk, not N
@@ -71,75 +92,158 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
         backgroundByParent.set(parent, probed);
         return probed;
     };
+    words.forEach(word => classifyReaderWordContrast(plan, word, cachedPageBackgroundFor));
+    return plan;
+}
 
-    for (const word of words) {
-        const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue('--jpdb-reader-word-accessible-color'));
-        const hasInlineTextColor = Boolean(word.style.getPropertyValue('color'));
-        if (word.dataset.ankiPreserveContrast === 'true' && hasAnkiAccessibleColor && !hasInlineTextColor) {
-            delete word.dataset.ankiPreserveContrast;
-            continue;
-        }
-        if (word.closest(YOMU_SURFACE_SELECTOR)) {
-            neutralWords.push(word);
-            continue;
-        }
-        if (isNeutralReaderWord(word)) {
-            // Neutral only means "derives no colours of its own"; the status
-            // wash is still painted, so it needs the same sampled backdrop its
-            // coloured neighbours mix against. Falling back to the reader
-            // theme's own token rendered these words a different darkness from
-            // the rest of the line until a hover happened to recompute them.
-            neutralPageWords.push(word);
-            neutralPageBackgrounds.push(cachedPageBackgroundFor(word).background);
-            continue;
-        }
-        const probed = cachedPageBackgroundFor(word);
-        const background = probed.background;
-        if (probed.imageBackdrop) {
-            if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
-            unknownBackgroundWords.push(word);
-            unknownBackgrounds.push(background);
-            continue;
-        }
-        const isHovered = word.matches(':hover, :focus');
-        // Hover colours are derived against the hover overlay, and the settled
-        // poll is the only thing that ever notices the pointer leaving. Keep it
-        // alive on every pass that reads as hovered, short-circuiting ones
-        // included: a word that stopped changing while the pointer rested on it
-        // used to end the chain and keep its hover colours for good.
-        if (isHovered) scheduleHoverSettledContrastRefresh(word);
-        const previous = appliedContrastState.get(word);
-        const parentColor = getComputedStyle(word.parentElement ?? word).color;
-        if (previous
-            && previous.background === background.css
-            && previous.className === word.className
-            && previous.cssText === word.style.cssText
-            && previous.hovered === isHovered
-            && previous.parentColor === parentColor) {
-            continue;
-        }
-        if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-            continue;
-        }
-        activeWords.push(word);
-        activeBackgrounds.push(background);
+type ReaderWordContrastSurface = 'reader' | 'neutral-page' | 'active-page';
+
+function classifyReaderWordContrast(
+    plan: ReaderWordContrastPlan,
+    word: HTMLElement,
+    pageBackgroundFor: (word: HTMLElement) => ProbedPageBackground,
+): void {
+    const hasAccessibleColor = hasAnkiAccessibleWordColor(word);
+    const hasInlineTextColor = Boolean(word.style.getPropertyValue('color'));
+    if (preserveExistingAnkiContrast(word, hasAccessibleColor, hasInlineTextColor)) return;
+    const handlers: Record<ReaderWordContrastSurface, () => void> = {
+        reader: () => plan.neutralWords.push(word),
+        'neutral-page': () => addNeutralPageWord(plan, word, pageBackgroundFor(word).background),
+        'active-page': () => addActivePageWord(plan, word, pageBackgroundFor(word), hasAccessibleColor, hasInlineTextColor),
+    };
+    handlers[readerWordContrastSurface(word)]();
+}
+
+function hasAnkiAccessibleWordColor(word: HTMLElement): boolean {
+    return [
+        renderedWordHasAnkiState(word),
+        Boolean(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')),
+    ].every(Boolean);
+}
+
+function preserveExistingAnkiContrast(word: HTMLElement, hasAccessibleColor: boolean, hasInlineTextColor: boolean): boolean {
+    const preserve = [
+        word.dataset.ankiPreserveContrast === 'true',
+        hasAccessibleColor,
+        !hasInlineTextColor,
+    ].every(Boolean);
+    if (preserve) delete word.dataset.ankiPreserveContrast;
+    return preserve;
+}
+
+function readerWordContrastSurface(word: HTMLElement): ReaderWordContrastSurface {
+    return [
+        [Boolean(word.closest(YOMU_SURFACE_SELECTOR)), 'reader'],
+        [isNeutralReaderWord(word), 'neutral-page'],
+        [true, 'active-page'],
+    ].find(([matches]) => matches)?.[1] as ReaderWordContrastSurface;
+}
+
+function addNeutralPageWord(plan: ReaderWordContrastPlan, word: HTMLElement, background: PageBackground): void {
+    // Neutral only means "derives no colours of its own"; the status wash is
+    // still painted, so sample the same backdrop as coloured neighbours.
+    plan.neutralPageWords.push(word);
+    plan.neutralPageBackgrounds.push(background);
+}
+
+function addActivePageWord(
+    plan: ReaderWordContrastPlan,
+    word: HTMLElement,
+    probed: ProbedPageBackground,
+    hasAccessibleColor: boolean,
+    hasInlineTextColor: boolean,
+): void {
+    if (probed.imageBackdrop) {
+        addUnknownBackgroundWord(plan, word, probed.background, hasAccessibleColor, hasInlineTextColor);
+        return;
     }
+    addMeasuredActiveWord(plan, word, probed.background, hasAccessibleColor, hasInlineTextColor);
+}
 
-    const savedVars = activeWords.map((word, i) => {
+function addUnknownBackgroundWord(
+    plan: ReaderWordContrastPlan,
+    word: HTMLElement,
+    background: PageBackground,
+    hasAccessibleColor: boolean,
+    hasInlineTextColor: boolean,
+): void {
+    if ([hasAccessibleColor, !hasInlineTextColor].every(Boolean)) return;
+    plan.unknownBackgroundWords.push(word);
+    plan.unknownBackgrounds.push(background);
+}
+
+function addMeasuredActiveWord(
+    plan: ReaderWordContrastPlan,
+    word: HTMLElement,
+    background: PageBackground,
+    hasAccessibleColor: boolean,
+    hasInlineTextColor: boolean,
+): void {
+    const hovered = word.matches(':hover, :focus');
+    scheduleHoveredWordRefresh(word, hovered);
+    const parentColor = getComputedStyle(word.parentElement ?? word).color;
+    if (readerWordContrastStateUnchanged(word, background, hovered, parentColor)) return;
+    if (shouldPreserveAccessibleHoverColor(word, background, hasAccessibleColor, hasInlineTextColor, hovered)) return;
+    plan.activeWords.push(word);
+    plan.activeBackgrounds.push(background);
+}
+
+// Hover colours are derived against the hover overlay, and the settled poll is
+// the only thing that notices the pointer leaving. Keep it alive on every pass.
+function scheduleHoveredWordRefresh(word: HTMLElement, hovered: boolean): void {
+    if (hovered) scheduleHoverSettledContrastRefresh(word);
+}
+
+function readerWordContrastStateUnchanged(
+    word: HTMLElement,
+    background: PageBackground,
+    hovered: boolean,
+    parentColor: string,
+): boolean {
+    const previous = appliedContrastState.get(word);
+    if (!previous) return false;
+    return [
+        previous.background === background.css,
+        previous.className === word.className,
+        previous.cssText === word.style.cssText,
+        previous.hovered === hovered,
+        previous.parentColor === parentColor,
+    ].every(Boolean);
+}
+
+function shouldPreserveAccessibleHoverColor(
+    word: HTMLElement,
+    background: PageBackground,
+    hasAccessibleColor: boolean,
+    hasInlineTextColor: boolean,
+    hovered: boolean,
+): boolean {
+    const eligible = [
+        hasAccessibleColor,
+        hovered,
+        !hasInlineTextColor,
+    ].every(Boolean);
+    if (!eligible) return false;
+    return existingAccessibleColorRemainsReadableOnHover(word, background);
+}
+
+function temporarilyClearActiveContrastVars(plan: ReaderWordContrastPlan): SavedContrastVar[][] {
+    return plan.activeWords.map((word, index) => {
         const saved = RENDERED_WORD_CONTRAST_VARS.map(name => ({
             name,
             value: word.style.getPropertyValue(name),
             priority: word.style.getPropertyPriority(name),
         }));
         RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
-        word.style.setProperty('--jpdb-reader-highlight-backdrop', activeBackgrounds[i].css);
+        word.style.setProperty('--jpdb-reader-highlight-backdrop', plan.activeBackgrounds[index].css);
         return saved;
     });
+}
 
-    const measurements = activeWords.map((word) => {
+function measureActiveReaderWords(words: HTMLElement[]): WordContrastMeasurement[] {
+    return words.map((word) => {
         const style = getComputedStyle(word);
         const parentStyle = getComputedStyle(word.parentElement ?? word);
-
         return {
             bg: style.backgroundColor,
             hl: style.getPropertyValue('--jpdb-reader-word-highlight-source'),
@@ -150,22 +254,27 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             hovered: word.matches(':hover, :focus'),
         };
     });
+}
 
-    neutralWords.forEach(word => clearContrastVars(word));
-    neutralPageWords.forEach((word, i) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i]));
-    unknownBackgroundWords.forEach((word, i) => applyUnknownBackgroundFallback(word, unknownBackgrounds[i]));
-
-    activeWords.forEach((word, i) => {
-        savedVars[i].forEach(({ name, value, priority }) => {
+function applyReaderWordContrastPlan(
+    plan: ReaderWordContrastPlan,
+    savedVars: SavedContrastVar[][],
+    measurements: WordContrastMeasurement[],
+): void {
+    plan.neutralWords.forEach(word => clearContrastVars(word));
+    plan.neutralPageWords.forEach((word, index) => applyNeutralPageBackdrop(word, plan.neutralPageBackgrounds[index]));
+    plan.unknownBackgroundWords.forEach((word, index) => applyUnknownBackgroundFallback(word, plan.unknownBackgrounds[index]));
+    plan.activeWords.forEach((word, index) => {
+        savedVars[index].forEach(({ name, value, priority }) => {
             if (value) word.style.setProperty(name, value, priority);
         });
-        applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
+        applyWordContrastVars(word, plan.activeBackgrounds[index], measurements[index]);
         appliedContrastState.set(word, {
-            background: activeBackgrounds[i].css,
+            background: plan.activeBackgrounds[index].css,
             className: word.className,
             cssText: word.style.cssText,
-            hovered: measurements[i].hovered,
-            parentColor: measurements[i].parentFg,
+            hovered: measurements[index].hovered,
+            parentColor: measurements[index].parentFg,
         });
     });
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { privateRasterImageForHost } from '../../../src/reader/ocr/private-raster-presenter';
 import {
     registerReaderHelpersCleanup,
     AudioPlayer,
@@ -41,6 +42,7 @@ import {
     setupJpdbWordVoicePlayback,
     stubInstantIntersectionObserver,
     stubLocalHostedReaderLocation,
+    stubSharedReaderSettings,
     testDomRect,
     testReaderAppWithPageScanner,
     testTokenForCard,
@@ -56,6 +58,20 @@ import type {
 } from './fixtures';
 
 registerReaderHelpersCleanup();
+
+async function withHostedReaderSettings(assertSettings: (settings: ReaderSettings) => void): Promise<void> {
+    const app = new ReaderApp();
+    document.body.innerHTML = '<main>Hosted docs</main>';
+    vi.stubGlobal('location', new URL('https://hrussellzfac023.github.io/yomu-reader/'));
+    try {
+        await app.init({ showWelcome: false });
+        assertSettings((app as unknown as { settings: ReaderSettings }).settings);
+    } finally {
+        app.destroy();
+        vi.unstubAllGlobals();
+        document.body.replaceChildren();
+    }
+}
 
 describe('reader helpers', () => {
     it('skips local term matching when dictionaries are enabled but no term dictionaries are installed', async () => {
@@ -630,13 +646,12 @@ describe('reader helpers', () => {
 
     it('ignores obsolete disabled scan settings on hosted video-player pages', async () => {
         const rectSpy = mockElementBoundingClientRect();
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            ...DEFAULT_SETTINGS,
+        stubSharedReaderSettings({
             learningTargetChosen: true,
             interfaceLanguage: 'ja',
             autoScanJapanese: false,
             scanVisiblePage: false,
-        }));
+        });
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main data-app>
                 <section data-yomu-video-frame>
@@ -663,25 +678,13 @@ describe('reader helpers', () => {
             app.destroy();
             vi.unstubAllGlobals();
             rectSpy.mockRestore();
-            localStorage.removeItem(SETTINGS_STORAGE_KEY);
             document.body.replaceChildren();
         }
     });
 
     it('uses ordinary audio and word color settings on hosted docs', async () => {
         localStorage.clear();
-        const app = new ReaderApp();
-        document.body.innerHTML = '<main>Hosted docs</main>';
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-        });
-
-        try {
-            await app.init({ showWelcome: false });
-            const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
-
+        await withHostedReaderSettings(settings => {
             expect(settings.audioEnabled).toBe(DEFAULT_SETTINGS.audioEnabled);
             expect(settings.autoPlayAudio).toBe(DEFAULT_SETTINGS.autoPlayAudio);
             expect(settings.immersionKitAutoPlayAudio).toBe(DEFAULT_SETTINGS.immersionKitAutoPlayAudio);
@@ -690,41 +693,20 @@ describe('reader helpers', () => {
             expect(settings.wordHighlightColorSource).toBe(DEFAULT_SETTINGS.wordHighlightColorSource);
             expect(settings.wordUnderlineColorSource).toBe(DEFAULT_SETTINGS.wordUnderlineColorSource);
             expect(settings.wordTextColorSource).toBe(DEFAULT_SETTINGS.wordTextColorSource);
-        } finally {
-            app.destroy();
-            vi.unstubAllGlobals();
-            document.body.replaceChildren();
-        }
+        });
     });
 
     it('respects persisted disabled audio on hosted docs', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            ...DEFAULT_SETTINGS,
+        stubSharedReaderSettings({
             audioEnabled: false,
             autoPlayAudio: true,
             immersionKitAutoPlayAudio: true,
-        }));
-        const app = new ReaderApp();
-        document.body.innerHTML = '<main>Hosted docs</main>';
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
         });
-
-        try {
-            await app.init({ showWelcome: false });
-            const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
-
+        await withHostedReaderSettings(settings => {
             expect(settings.audioEnabled).toBe(false);
             expect(settings.autoPlayAudio).toBe(true);
             expect(settings.immersionKitAutoPlayAudio).toBe(true);
-        } finally {
-            app.destroy();
-            vi.unstubAllGlobals();
-            localStorage.removeItem(SETTINGS_STORAGE_KEY);
-            document.body.replaceChildren();
-        }
+        });
     });
 
     it('scans hosted docs text after VitePress route changes expose it', async () => {
@@ -796,10 +778,9 @@ describe('reader helpers', () => {
     });
 
     it('scans Japanese that hydrates after init inside an otherwise shadow-only generic page', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            ...DEFAULT_SETTINGS,
+        stubSharedReaderSettings({
             learningTargetChosen: true,
-        }));
+        });
         const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Loading</main><div id="late-shadow"></div>');
         vi.stubGlobal('location', {
             href: 'https://example.com/reader',
@@ -819,7 +800,6 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
-            localStorage.removeItem(SETTINGS_STORAGE_KEY);
             document.body.replaceChildren();
         }
     });
@@ -860,10 +840,9 @@ describe('reader helpers', () => {
 
     it('scans Japanese hydrating in an open root inside a scoped Reader Surface', async () => {
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            ...DEFAULT_SETTINGS,
+        stubSharedReaderSettings({
             learningTargetChosen: true,
-        }));
+        });
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main>Loading docs</main>
             <section data-yomu-runtime-surface><div id="surface-shadow"></div></section>
@@ -886,7 +865,6 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
-            localStorage.removeItem(SETTINGS_STORAGE_KEY);
             document.documentElement.removeAttribute('data-yomu-annotation-scope');
             document.body.replaceChildren();
         }
@@ -1249,7 +1227,7 @@ describe('reader helpers', () => {
             controller.init();
             video.dispatchEvent(new Event('pause'));
 
-            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            const frame = privateRasterImageForHost(document.querySelector('.jpdb-ocr-video-frame'))!;
             expect(frame).not.toBeNull();
             expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
             expect(frame.dataset.ocrPending).toBe('true');

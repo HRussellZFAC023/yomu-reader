@@ -198,6 +198,7 @@ function seedAcademyReaderDefaults(): void {
     try {
         if (localStorage.getItem(SETTINGS_KEY) !== null) return;
         localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+            learningTargetChosen: false,
             showFurigana: true,
             furiganaMode: 'all',
             showPitchAccent: true,

@@ -355,7 +355,7 @@ function liveProfileSettings() {
     return {
         onboardingSeen: true,
         interfaceLanguage: 'en',
-        apiKey: 'live-youtube-profile-key',
+        apiKey: 'test-youtube-profile-key',
         jitenApiKey: '',
         parserProvider: 'jpdb',
         ankiEnabled: false,

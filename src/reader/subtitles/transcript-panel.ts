@@ -5,7 +5,7 @@ import {
     formatSubtitleTime,
     type SubtitleCue,
 } from './subtitle-cues';
-import { renderDrawerHead, subtitleIcon, type PanelOptionsControlsState } from './subtitle-surface';
+import { renderDrawerHead, subtitleActionAttributes, subtitleIcon, type PanelOptionsControlsState } from './subtitle-surface';
 import { subtitleDrawerMetaText, type SubtitleTrackPanelTrack } from './subtitle-track-panel';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -110,7 +110,7 @@ export class SubtitleTranscriptPanel {
                 }),
                 canShowLines: this.deps.hasTranscriptSurface(),
                 options: this.deps.panelOptionsState(settings.subtitlePausePanel, language),
-                extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>`,
+                extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current"${subtitleActionAttributes('jump-current')} title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>`,
             })}
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${transcriptVirtualizedAttribute(state.virtual)}>
                 ${this.renderTranscriptVirtualSpacer(state.virtual, 'topSpacer')}
@@ -162,13 +162,13 @@ export class SubtitleTranscriptPanel {
         const parsedAttributes = transcriptParsedAttributes(parsed, parsedKey, htmlCache);
         const seekLabel = `${uiText(settings.interfaceLanguage, 'seekSubtitleLine')} ${formatSubtitleTime(cue.start)}`;
         return `
-            <div class="jpdb-subtitle-list-row ${transcriptActiveRowClass(index, currentIndex)}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml(seekLabel)}">
+            <div class="jpdb-subtitle-list-row ${transcriptActiveRowClass(index, currentIndex)}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}"${subtitleActionAttributes('cue', { rowIndex: index })} role="button" tabindex="0" aria-label="${escapeHtml(seekLabel)}">
                 <div class="jpdb-subtitle-row-body">
                     <strong class="jpdb-subtitle-row-text" ${subtitleContentAttributes(primaryContent)} data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedAttributes}>${transcriptRowHtml(parsed, cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
                     ${this.renderRowPeekButton(cue, index, settings)}
-                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}">${subtitleIcon('copy')}</button>
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}"${subtitleActionAttributes('copy-row', { rowIndex: index })} title="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}">${subtitleIcon('copy')}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
             </div>
@@ -190,7 +190,7 @@ export class SubtitleTranscriptPanel {
         const secondary = findAlignedCue(this.deps.getSecondaryCues(), cue);
         if (!secondary?.text.trim()) return '';
         const label = uiText(settings.interfaceLanguage, 'peekSubtitleTranslation');
-        return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${subtitleIcon('eye')}</button>`;
+        return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}"${subtitleActionAttributes('peek-row', { rowIndex: index })} aria-pressed="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${subtitleIcon('eye')}</button>`;
     }
 
     renderWaitingState(): string {

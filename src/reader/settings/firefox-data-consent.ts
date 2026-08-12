@@ -18,6 +18,7 @@ const AUTHENTICATION_FIELDS = [
     'jitenApiKey',
     'bunproApiKey',
     'bunproFrontendApiToken',
+    'wanikaniApiToken',
     'nadeshikoApiKey',
     'ocrCloudVisionApiKey',
 ] as const satisfies readonly (keyof ReaderSettings)[];

@@ -10,7 +10,7 @@ import type { ParsedSubtitleHtmlResult, SubtitleParseBatchItem } from './subtitl
 // Session-storage persistence for parsed cue html: parsed ruby survives a
 // reload of the same video/session. Keys are hashed so the raw parse key (which
 // embeds the full cue text) never lands verbatim in storage.
-const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v4:';
+const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v5:';
 const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function subtitleSessionParseHash(key: string): string {
@@ -53,6 +53,18 @@ export interface SubtitleParsedCueHtmlWriteResult {
     provisional: boolean;
 }
 
+type SubtitleParsedCueHtmlWriteOptions = {
+    provisional?: boolean;
+    forceNotify?: boolean;
+    enriched?: boolean;
+};
+
+type StoredParsedCueHtml = {
+    at: number;
+    html: string;
+    fallback?: boolean;
+};
+
 // Parsed subtitle/transcript HTML caching extracted from the controller: owns
 // every parsed-html store (authoritative + provisional tiers, empty-parse TTL,
 // in-flight promise dedupe, parsed-token cache, session persistence) plus the
@@ -62,6 +74,7 @@ export interface SubtitleParsedCueHtmlWriteResult {
 // SubtitleParsedHtmlCacheDeps.
 export class SubtitleParsedHtmlCache {
     readonly parsedHtmlCache = new Map<string, string>();
+    readonly fallbackParsedHtmlKeys = new Set<string>();
     readonly provisionalParsedHtmlCache = new Map<string, string>();
     readonly enrichedProvisionalParsedHtmlKeys = new Set<string>();
     readonly incompleteEnrichmentAttempts = new Map<string, number>();
@@ -102,6 +115,7 @@ export class SubtitleParsedHtmlCache {
     // prevent them from repopulating any tier after A -> B (or A -> B -> A).
     invalidateParseContext(): void {
         this.parsedHtmlCache.clear();
+        this.fallbackParsedHtmlKeys.clear();
         this.provisionalParsedHtmlCache.clear();
         this.enrichedProvisionalParsedHtmlKeys.clear();
         this.incompleteEnrichmentAttempts.clear();
@@ -171,57 +185,120 @@ export class SubtitleParsedHtmlCache {
         return false;
     }
 
-    rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): SubtitleParsedCueHtmlWriteResult {
+    rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: SubtitleParsedCueHtmlWriteOptions = {}): SubtitleParsedCueHtmlWriteResult {
         const provisional = options.provisional === true;
-        if (!this.isCurrentParseKey(key)) throw new Error(SUBTITLE_PARSE_CONTEXT_CHANGED);
+        this.assertWritableParseKey(key);
         if (!this.deps.shouldParseSubtitles()) return { html, provisional };
-        const existingAuthoritative = this.parsedHtmlCache.get(key);
-        const existingProvisional = this.provisionalParsedHtmlCache.get(key);
         const incomingHasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
+        const existing = this.existingParsedCueWinner(key, provisional, incomingHasReaderWords, options);
+        if (existing) return existing;
+        return incomingHasReaderWords
+            ? this.rememberParsedReaderWords(key, html, tokens, provisional, options)
+            : this.rememberEmptyParsedCue(key, html, provisional);
+    }
 
-        // Every parse consumer receives the cache's canonical HTML, not
-        // necessarily the result of the promise it happened to await. This is
-        // what makes overlap-safe storage useful to the live overlay and
-        // transcript too: a late cheap/empty parse cannot be returned and
-        // painted after richer work already won the key.
-        if ((provisional || !incomingHasReaderWords) && existingAuthoritative) {
-            return { html: existingAuthoritative, provisional: false };
+    private assertWritableParseKey(key: string): void {
+        if (!this.isCurrentParseKey(key)) throw new Error(SUBTITLE_PARSE_CONTEXT_CHANGED);
+    }
+
+    // Every parse consumer receives the cache's canonical HTML, not
+    // necessarily the result of the promise it happened to await. A late
+    // cheap/empty parse therefore cannot paint over richer work for the key.
+    private existingParsedCueWinner(
+        key: string,
+        provisional: boolean,
+        incomingHasReaderWords: boolean,
+        options: SubtitleParsedCueHtmlWriteOptions,
+    ): SubtitleParsedCueHtmlWriteResult | undefined {
+        const authoritative = this.authoritativeParsedCueWinner(key, provisional, incomingHasReaderWords);
+        if (authoritative) return authoritative;
+        return this.provisionalParsedCueWinner(key, provisional, incomingHasReaderWords, options);
+    }
+
+    private authoritativeParsedCueWinner(
+        key: string,
+        provisional: boolean,
+        incomingHasReaderWords: boolean,
+    ): SubtitleParsedCueHtmlWriteResult | undefined {
+        const html = this.parsedHtmlCache.get(key);
+        if (!html) return undefined;
+        if (provisional) return { html, provisional: false };
+        if (!incomingHasReaderWords) return { html, provisional: false };
+        return undefined;
+    }
+
+    private provisionalParsedCueWinner(
+        key: string,
+        provisional: boolean,
+        incomingHasReaderWords: boolean,
+        options: SubtitleParsedCueHtmlWriteOptions,
+    ): SubtitleParsedCueHtmlWriteResult | undefined {
+        const html = this.provisionalParsedHtmlCache.get(key);
+        if (!html) return undefined;
+        if (!incomingHasReaderWords) return { html, provisional: true };
+        if (this.keepsEnrichedProvisionalWinner(key, provisional, options.enriched === true)) return { html, provisional: true };
+        return undefined;
+    }
+
+    private keepsEnrichedProvisionalWinner(key: string, provisional: boolean, enriched: boolean): boolean {
+        return provisional && !enriched && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    }
+
+    private rememberParsedReaderWords(
+        key: string,
+        html: string,
+        tokens: JPDBToken[],
+        provisional: boolean,
+        options: SubtitleParsedCueHtmlWriteOptions,
+    ): SubtitleParsedCueHtmlWriteResult {
+        this.storeParsedReaderWords(key, html, provisional, options.enriched === true, tokens);
+        // UT-48: persist only a fully enriched cue; provisional work is durable
+        // only when no authoritative tier exists and visible enrichment won.
+        if (this.shouldPersistParsedCue(tokens, provisional, options.enriched === true)) {
+            this.persistSessionParsedCueHtml(key, html, containsFallbackToken(tokens));
         }
-        if (existingProvisional && (!incomingHasReaderWords
-            || (provisional && !options.enriched && this.enrichedProvisionalParsedHtmlKeys.has(key)))) {
-            return { html: existingProvisional, provisional: true };
-        }
-        if (incomingHasReaderWords) {
-            if (options.provisional) {
-                this.provisionalParsedHtmlCache.set(key, html);
-                if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
-                else this.enrichedProvisionalParsedHtmlKeys.delete(key);
-            }
-            else {
-                this.parsedHtmlCache.set(key, html);
-                this.provisionalParsedHtmlCache.delete(key);
-                this.enrichedProvisionalParsedHtmlKeys.delete(key);
-            }
-            // UT-48: refreshing the page must keep parsed ruby. Keyless cheap
-            // warmup is provisional-only; persist it only after visible
-            // enrichment has rebaked furigana/pitch into the HTML.
-            if (this.tokensFullyEnriched(tokens)
-                && (!options.provisional || (!this.deps.hasAuthoritativeParseTier() && options.enriched))) {
-                this.persistSessionParsedCueHtml(key, html);
-            }
-            this.emptyParsedHtmlCache.delete(key);
-            if (tokens.length) this.parsedTokenCache.set(key, tokens);
-            this.pruneParsedSubtitleCaches();
-            return { html, provisional };
-        } else {
-            // Provisional empties are cached too: keyless they ARE the final
-            // tier (re-parsing every tick rendered word-less cues as a
-            // perpetual loading shimmer), keyed the authoritative upgrade is
-            // already in flight and overwrites this entry when it lands.
-            this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-            this.pruneParsedSubtitleCaches();
-            return { html, provisional };
-        }
+        this.emptyParsedHtmlCache.delete(key);
+        if (tokens.length) this.parsedTokenCache.set(key, tokens);
+        this.pruneParsedSubtitleCaches();
+        return { html, provisional };
+    }
+
+    private storeParsedReaderWords(
+        key: string,
+        html: string,
+        provisional: boolean,
+        enriched: boolean,
+        tokens: JPDBToken[],
+    ): void {
+        if (provisional) this.storeProvisionalParsedReaderWords(key, html, enriched);
+        else this.storeAuthoritativeParsedReaderWords(key, html, tokens);
+    }
+
+    private storeProvisionalParsedReaderWords(key: string, html: string, enriched: boolean): void {
+        this.provisionalParsedHtmlCache.set(key, html);
+        if (enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
+        else this.enrichedProvisionalParsedHtmlKeys.delete(key);
+    }
+
+    private storeAuthoritativeParsedReaderWords(key: string, html: string, tokens: JPDBToken[]): void {
+        this.parsedHtmlCache.set(key, html);
+        syncSetMembership(this.fallbackParsedHtmlKeys, key, containsFallbackToken(tokens));
+        this.provisionalParsedHtmlCache.delete(key);
+        this.enrichedProvisionalParsedHtmlKeys.delete(key);
+    }
+
+    private shouldPersistParsedCue(tokens: JPDBToken[], provisional: boolean, enriched: boolean): boolean {
+        if (!this.tokensFullyEnriched(tokens)) return false;
+        if (!provisional) return true;
+        return enriched && !this.deps.hasAuthoritativeParseTier();
+    }
+
+    private rememberEmptyParsedCue(key: string, html: string, provisional: boolean): SubtitleParsedCueHtmlWriteResult {
+        // Provisional empties are final for keyless parsing; keyed authoritative
+        // work overwrites this retry-bounded entry when it lands.
+        this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+        this.pruneParsedSubtitleCaches();
+        return { html, provisional };
     }
 
     // Parser/enrichment rejection is different from an ordinary empty parse:
@@ -285,9 +362,9 @@ export class SubtitleParsedHtmlCache {
     // UT-48 session persistence: parsed cue html survives reloads of the
     // same video/session. Quota errors and disabled storage degrade to the
     // in-memory caches silently.
-    private persistSessionParsedCueHtml(key: string, html: string): void {
+    private persistSessionParsedCueHtml(key: string, html: string, fallback: boolean): void {
         try {
-            managedSessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
+            managedSessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html, fallback }));
         } catch {
             // Storage full or unavailable — in-memory cache still applies.
         }
@@ -296,18 +373,12 @@ export class SubtitleParsedHtmlCache {
     restoreSessionParsedCueHtml(key: string): string | undefined {
         if (this.sessionParseCacheChecked.has(key)) return undefined;
         this.sessionParseCacheChecked.add(key);
-        try {
-            const raw = managedSessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
-            if (!raw) return undefined;
-            const value = JSON.parse(raw) as { at?: number; html?: string };
-            if (typeof value.html !== 'string' || typeof value.at !== 'number') return undefined;
-            if (Date.now() - value.at > SUBTITLE_SESSION_PARSE_CACHE_TTL_MS) return undefined;
-            this.parsedHtmlCache.set(key, value.html);
-            this.pruneParsedSubtitleCaches();
-            return value.html;
-        } catch {
-            return undefined;
-        }
+        const value = readStoredParsedCueHtml(key);
+        if (!value) return undefined;
+        this.parsedHtmlCache.set(key, value.html);
+        syncSetMembership(this.fallbackParsedHtmlKeys, key, value.fallback === true);
+        this.pruneParsedSubtitleCaches();
+        return value.html;
     }
 
     private pruneParsedSubtitleCache(cache: Map<string, string>, limit = this.parsedSubtitleCacheLimit()): void {
@@ -319,6 +390,7 @@ export class SubtitleParsedHtmlCache {
     deleteParsedSubtitleKey(key: string): void {
         if (!key) return;
         this.parsedHtmlCache.delete(key);
+        this.fallbackParsedHtmlKeys.delete(key);
         this.provisionalParsedHtmlCache.delete(key);
         this.enrichedProvisionalParsedHtmlKeys.delete(key);
         this.incompleteEnrichmentAttempts.delete(key);
@@ -344,13 +416,23 @@ export class SubtitleParsedHtmlCache {
     }
 
     cachedParsedCueHtml(key: string, settings: ReaderSettings): string | undefined {
-        const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+        const cached = this.authoritativeCachedParsedCueHtml(key);
         if (!cached) return undefined;
-        if (this.deps.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
+        if (this.fallbackCueNeedsAuthoritativeUpgrade(key, settings)) {
             this.parsedHtmlCache.delete(key);
             return undefined;
         }
         return cached;
+    }
+
+    private authoritativeCachedParsedCueHtml(key: string): string | undefined {
+        const cached = this.parsedHtmlCache.get(key);
+        if (cached !== undefined) return cached;
+        return this.restoreSessionParsedCueHtml(key);
+    }
+
+    private fallbackCueNeedsAuthoritativeUpgrade(key: string, settings: ReaderSettings): boolean {
+        return this.deps.hasAuthoritativeParseTier(settings) && this.fallbackParsedHtmlKeys.has(key);
     }
 
     // Keyless both tiers produce the same local-tokenizer result, so an
@@ -362,4 +444,49 @@ export class SubtitleParsedHtmlCache {
         if (own || this.deps.hasAuthoritativeParseTier()) return own;
         return tier === 'provisional' ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
     }
+}
+
+function containsFallbackToken(tokens: JPDBToken[]): boolean {
+    return tokens.some(token => token.card.source === 'fallback');
+}
+
+function syncSetMembership(values: Set<string>, key: string, present: boolean): void {
+    if (present) values.add(key);
+    else values.delete(key);
+}
+
+function readStoredParsedCueHtml(key: string): StoredParsedCueHtml | undefined {
+    const raw = storedParsedCueHtmlRaw(key);
+    if (!raw) return undefined;
+    const value = parseStoredParsedCueHtml(raw);
+    if (!isFreshStoredParsedCueHtml(value)) return undefined;
+    return value;
+}
+
+function storedParsedCueHtmlRaw(key: string): string | null | undefined {
+    try {
+        return managedSessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
+    } catch {
+        return undefined;
+    }
+}
+
+function parseStoredParsedCueHtml(raw: string): unknown {
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return undefined;
+    }
+}
+
+function isFreshStoredParsedCueHtml(value: unknown): value is StoredParsedCueHtml {
+    if (!isObjectRecord(value)) return false;
+    const candidate = value as Partial<StoredParsedCueHtml>;
+    if (typeof candidate.html !== 'string') return false;
+    if (typeof candidate.at !== 'number') return false;
+    return Date.now() - candidate.at <= SUBTITLE_SESSION_PARSE_CACHE_TTL_MS;
+}
+
+function isObjectRecord(value: unknown): value is object {
+    return Boolean(value) && typeof value === 'object';
 }

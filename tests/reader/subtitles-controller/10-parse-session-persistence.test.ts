@@ -34,7 +34,7 @@ describe('subtitle parse session persistence (UT-48)', () => {
         };
         const html = await firstInternals.parseCueHtml('読む', settings, { allowProvisional: false });
         expect(html).toContain('jpdb-reader-word');
-        const storedKey = Object.keys(sessionStorage).find(key => key.startsWith('yomu:subtitle-parse:v4:'));
+        const storedKey = Object.keys(sessionStorage).find(key => key.startsWith('yomu:subtitle-parse:v5:'));
         expect(storedKey).toBeDefined();
 
         const secondParse = vi.fn(async () => [token]);
@@ -50,12 +50,12 @@ describe('subtitle parse session persistence (UT-48)', () => {
         expect(restored).toBe(html);
         expect(secondParse).not.toHaveBeenCalled();
 
-        // v3 could contain HTML cached before provisional parse quality became
-        // monotonic. Moving the same payload under that legacy prefix must not
+        // v4 can contain public identity attributes from before private word
+        // state. Moving the same payload under that legacy prefix must not
         // restore it and mask the fixed parser for the remainder of the TTL.
         const storedValue = sessionStorage.getItem(storedKey!);
         sessionStorage.removeItem(storedKey!);
-        sessionStorage.setItem(storedKey!.replace('subtitle-parse:v4:', 'subtitle-parse:v3:'), storedValue!);
+        sessionStorage.setItem(storedKey!.replace('subtitle-parse:v5:', 'subtitle-parse:v4:'), storedValue!);
         const thirdParse = vi.fn(async () => [token]);
         const third = new SubtitlePlayerController({
             getSettings: () => settings,
@@ -65,7 +65,9 @@ describe('subtitle parse session persistence (UT-48)', () => {
         const thirdInternals = third as unknown as {
             parseCueHtml(text: string, settings?: unknown, options?: { allowProvisional?: boolean }): Promise<string>;
         };
-        await expect(thirdInternals.parseCueHtml('読む', settings, { allowProvisional: false })).resolves.toBe(html);
+        const reparsed = await thirdInternals.parseCueHtml('読む', settings, { allowProvisional: false });
+        const withoutPrivateToken = (value: string) => value.replace(/ data-yomu-private-token="[^"]+"/g, '');
+        expect(withoutPrivateToken(reparsed)).toBe(withoutPrivateToken(html));
         expect(thirdParse).toHaveBeenCalledTimes(1);
         sessionStorage.clear();
     });

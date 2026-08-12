@@ -23,6 +23,7 @@ import {
     OnboardingTargetChoice,
     updateOnboardingLanguageProfile,
 } from './onboarding-target-choice';
+import { createOffhostOnboardingLauncher, type OffhostOnboardingLauncher } from './onboarding-surface';
 
 const log = Logger.scope('Onboarding');
 const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
@@ -107,7 +108,12 @@ export class OnboardingController {
         if (settings.onboardingSeen && settings.learningTargetChosen) {
             return false;
         }
-        this.show();
+        const launcher = createOffhostOnboardingLauncher(
+            location.href,
+            settings.interfaceLanguage,
+            () => this.dismiss(),
+        );
+        this.showOnCurrentSurface(launcher);
         return true;
     }
 
@@ -115,6 +121,23 @@ export class OnboardingController {
         const settings = this.options.getSettings();
         if (settings.onboardingSeen && settings.learningTargetChosen) return;
         await this.completionPromise;
+    }
+
+    private showOnCurrentSurface(launcher: OffhostOnboardingLauncher | null): void {
+        if (launcher) this.showOffhostLauncher(launcher);
+        else this.show();
+    }
+
+    private showOffhostLauncher(launcher: OffhostOnboardingLauncher): void {
+        this.close();
+        this.completionPromise = new Promise(resolve => {
+            this.resolveCompletion = resolve;
+        });
+        this.backdrop = launcher.backdrop;
+        this.panel = launcher.panel;
+        applyOverlayPageScale(this.panel);
+        document.body.append(this.backdrop, this.panel);
+        this.panel.focus();
     }
 
     private show(): void {

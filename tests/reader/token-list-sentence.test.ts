@@ -5,6 +5,8 @@ import { CardPopoverRenderer, type CardPopoverRendererDependencies } from '../..
 import type { CardRenderData } from '../../src/reader/cards/render-data';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { readTokenChoiceCommandCapability } from '../../src/reader/dom/private-command-capabilities';
+import { setInnerHtml } from '../../src/reader/dom/html';
 
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const NORMALIZED_POPOVER_CSS = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
@@ -44,8 +46,13 @@ function settings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
 
 function renderStrip(tokens: JPDBToken[], selected: string, extra: Partial<ReaderSettings> = {}): HTMLElement {
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = renderTokenListHtml(tokens, selected, undefined, settings(extra));
+    setInnerHtml(wrapper, renderTokenListHtml(tokens, selected, undefined, settings(extra)));
     return wrapper;
+}
+
+function tokenChoice(root: ParentNode, vid: number): HTMLButtonElement {
+    return [...root.querySelectorAll<HTMLButtonElement>('button[data-token-choice]')]
+        .find(button => readTokenChoiceCommandCapability(button)?.vid === vid)!;
 }
 
 describe('token list sentence strip', () => {
@@ -61,7 +68,8 @@ describe('token list sentence strip', () => {
         const strip = wrapper.querySelector<HTMLElement>('.jpdb-reader-meanings.jpdb-reader-token-sentence')!;
         expect(strip).not.toBeNull();
         const buttons = [...strip.querySelectorAll<HTMLButtonElement>('button[data-token-choice]')];
-        expect(buttons.map(button => button.dataset.vid)).toEqual(['11', '12', '13']);
+        expect(buttons.map(button => readTokenChoiceCommandCapability(button)?.vid)).toEqual([11, 12, 13]);
+        buttons.forEach(button => expect(button.dataset.vid).toBeUndefined());
         // The strip flows as a sentence (block container of inline words), not
         // the stacked full-width grid used for dictionary meanings.
         expect(NORMALIZED_POPOVER_CSS).toContain('.jpdb-reader-meanings.jpdb-reader-token-sentence { display: block;');
@@ -81,15 +89,15 @@ describe('token list sentence strip', () => {
 
     it('keeps the conjugated surface from the sentence for dictionary-form tokens', () => {
         const strip = renderStrip(tokens, selected).querySelector<HTMLElement>('.jpdb-reader-token-sentence')!;
-        const conjugated = strip.querySelector<HTMLButtonElement>('button[data-vid="13"]')!;
+        const conjugated = tokenChoice(strip, 13);
         expect(conjugated.dataset.surface).toBe('読んだ');
         expect(conjugated.dataset.expression).toBe('読む');
     });
 
     it('carries the same pitch and card-state classes as page words', () => {
         const strip = renderStrip(tokens, selected).querySelector<HTMLElement>('.jpdb-reader-token-sentence')!;
-        const first = strip.querySelector<HTMLButtonElement>('button[data-vid="11"]')!;
-        const read = strip.querySelector<HTMLButtonElement>('button[data-vid="13"]')!;
+        const first = tokenChoice(strip, 11);
+        const read = tokenChoice(strip, 13);
         expect(first.classList.contains('jpdb-reader-word')).toBe(true);
         expect(first.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(first.classList.contains('jpdb-not-in-deck')).toBe(true);

@@ -836,7 +836,7 @@
     const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
     const runtimeCompanionFiles = [
       // yomu:runtime-companions:start
-      'greasyfork/yomu-runtime.0c7958a11a04.user.js',
+      'greasyfork/yomu-runtime.b523824582e9.user.js',
       // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
@@ -991,10 +991,11 @@
     }
     function saveThemePreference(theme) {
       const settings = readSettings();
+      stampNeutralHostedTarget(settings);
       settings.theme = theme;
       localStorage.setItem(settingsKey, JSON.stringify(settings));
       localStorage.setItem(themeKey, theme);
-      window.dispatchEvent(new CustomEvent(settingsChangeEvent, { detail: { settings } }));
+      window.dispatchEvent(new CustomEvent(settingsChangeEvent, { detail: { settings: { theme } } }));
       applyTheme(theme);
       applyAccent();
     }
@@ -1056,10 +1057,16 @@
     /* ---- interface language ---- */
     function saveInterfaceLanguage(language) {
       const settings = readSettings();
+      stampNeutralHostedTarget(settings);
       settings.interfaceLanguage = language;
       localStorage.setItem(settingsKey, JSON.stringify(settings));
       window.dispatchEvent(new CustomEvent(languageEvent, { detail: { language } }));
       applyInterfaceLanguage(language);
+    }
+    function stampNeutralHostedTarget(settings) {
+      if (!Object.prototype.hasOwnProperty.call(settings, 'learningTargetChosen') && Object.keys(settings).length === 0) {
+        settings.learningTargetChosen = false;
+      }
     }
     function effectiveInterfaceLanguage() {
       const language = readSettings().interfaceLanguage;

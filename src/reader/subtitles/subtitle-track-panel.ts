@@ -1,7 +1,7 @@
 import { escapeHtml } from '../dom/index';
 import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
-import { renderDrawerHead } from './subtitle-surface';
+import { renderDrawerHead, subtitleActionAttributes } from './subtitle-surface';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { escapeRegExp } from './youtube-config';
 import { languageDisplayName } from '../languages/locale';
@@ -77,20 +77,38 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
                 language,
             },
         })}
-        <div class="jpdb-subtitle-list-scroll"${state.virtual ? ' data-virtualized="true"' : ''}>
+        <div class="jpdb-subtitle-list-scroll"${trackVirtualizedAttribute(state)}>
             <div class="jpdb-subtitle-track-tools">
-                <button type="button" data-action="load">${escapeHtml(formatUiText(language, 'loadTargetSubtitles', { language: targetName }))}</button>
-                <button type="button" data-action="load-secondary">${escapeHtml(formatUiText(language, 'loadOutputSubtitles', { language: outputName }))}</button>
-                ${state.targetLanguage === 'ja' ? `<a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml(uiText(language, 'searchAnimeSubtitles'))}</a>` : ''}
+                <button type="button" data-action="load"${subtitleActionAttributes('load')}>${escapeHtml(formatUiText(language, 'loadTargetSubtitles', { language: targetName }))}</button>
+                <button type="button" data-action="load-secondary"${subtitleActionAttributes('load-secondary')}>${escapeHtml(formatUiText(language, 'loadOutputSubtitles', { language: outputName }))}</button>
+                ${renderAnimeSubtitleSearchLink(state)}
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, 'subtitleTracksHint'))}</div>
-            ${state.virtual ? trackVirtualSpacer(state.virtual.topSpacer) : ''}
-            ${state.tracks.length ? trackPanelRows(state).map(track => renderSubtitleTrackRow(track, state)).join('') : ''}
-            ${state.virtual ? trackVirtualSpacer(state.virtual.bottomSpacer) : ''}
+            ${trackVirtualEdgeSpacer(state, 'topSpacer')}
+            ${trackPanelRows(state).map(track => renderSubtitleTrackRow(track, state)).join('')}
+            ${trackVirtualEdgeSpacer(state, 'bottomSpacer')}
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></div>
     `;
+}
+
+function trackVirtualizedAttribute(state: SubtitleTrackPanelRenderState): string {
+    return state.virtual ? ' data-virtualized="true"' : '';
+}
+
+function renderAnimeSubtitleSearchLink(state: SubtitleTrackPanelRenderState): string {
+    if (state.targetLanguage !== 'ja') return '';
+    const label = escapeHtml(uiText(state.language, 'searchAnimeSubtitles'));
+    return `<a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${label}</a>`;
+}
+
+function trackVirtualEdgeSpacer(
+    state: SubtitleTrackPanelRenderState,
+    edge: 'topSpacer' | 'bottomSpacer',
+): string {
+    if (!state.virtual) return '';
+    return trackVirtualSpacer(state.virtual[edge]);
 }
 
 function trackPanelRows(state: SubtitleTrackPanelRenderState): SubtitleTrackPanelTrack[] {
@@ -154,25 +172,50 @@ function renderSubtitleTrackRow(track: SubtitleTrackPanelTrack, state: SubtitleT
     const isSecondary = track.id === state.secondaryTrackId;
     const language = state.language;
     return `
-        <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? 'active' : ''}" data-track-id="${escapeHtml(track.id)}">
+        <div class="jpdb-subtitle-track-row ${trackActiveClass(isPrimary, isSecondary)}" data-track-id="${escapeHtml(track.id)}">
             <div class="jpdb-subtitle-track-title">
                     <strong title="${escapeHtml(localizedSubtitleTrackLabel(track, language))}">${escapeHtml(compactSubtitleTrackLabel(track, language))}</strong>
                     <span>${escapeHtml(formatTrackKind(track.kind, language))}</span>
                 </div>
             <span>${escapeHtml(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
             <div class="jpdb-subtitle-track-actions">
-                <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml(uiText(language, isPrimary ? 'unsetPrimarySubtitles' : 'primarySubtitles'))}</button>
-                <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml(uiText(language, isSecondary ? 'unsetNativeSubtitles' : 'nativeSubtitles'))}</button>
+                <button type="button" data-action="primary-track"${subtitleActionAttributes('primary-track', { trackId: track.id })} aria-pressed="${isPrimary}">${escapeHtml(trackRoleActionLabel(isPrimary, language, 'primary'))}</button>
+                <button type="button" data-action="secondary-track"${subtitleActionAttributes('secondary-track', { trackId: track.id })} aria-pressed="${isSecondary}">${escapeHtml(trackRoleActionLabel(isSecondary, language, 'secondary'))}</button>
             </div>
-            ${isPrimary || isSecondary ? renderSubtitleTrackTimingControls(track, language) : ''}
+            ${renderActiveTrackTimingControls(track, language, isPrimary, isSecondary)}
         </div>
     `;
+}
+
+function trackActiveClass(isPrimary: boolean, isSecondary: boolean): string {
+    return isPrimary || isSecondary ? 'active' : '';
+}
+
+function trackRoleActionLabel(
+    selected: boolean,
+    language: InterfaceLanguage,
+    role: 'primary' | 'secondary',
+): string {
+    const key = role === 'primary'
+        ? selected ? 'unsetPrimarySubtitles' : 'primarySubtitles'
+        : selected ? 'unsetNativeSubtitles' : 'nativeSubtitles';
+    return uiText(language, key);
+}
+
+function renderActiveTrackTimingControls(
+    track: SubtitleTrackPanelTrack,
+    language: InterfaceLanguage,
+    isPrimary: boolean,
+    isSecondary: boolean,
+): string {
+    if (!isPrimary && !isSecondary) return '';
+    return renderSubtitleTrackTimingControls(track, language);
 }
 
 function renderSubtitleTrackTimingControls(track: SubtitleTrackPanelTrack, language: InterfaceLanguage): string {
     const timing = track.timing;
     if (!timing) return '';
-    const disabled = timing.canAdjust ? '' : 'disabled';
+    const disabled = disabledAttribute(timing.canAdjust);
     const timingLabel = uiText(language, 'subtitleTrackTiming');
     const previousLabel = uiText(language, 'subtitleOffsetPrevious');
     const nextLabel = uiText(language, 'subtitleOffsetNext');
@@ -184,13 +227,17 @@ function renderSubtitleTrackTimingControls(track: SubtitleTrackPanelTrack, langu
     return `
         <div class="jpdb-subtitle-track-offset" role="group" aria-label="${escapeHtml(timingLabel)}">
             <span class="jpdb-subtitle-track-offset-value" title="${escapeHtml(timingLabel)}">${escapeHtml(formatSubtitleTrackOffset(timing.offsetSeconds))}</span>
-            <button type="button" data-action="offset-previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}" ${timing.canAlignPrevious ? '' : 'disabled'}>‹ ${escapeHtml(previousShort)}</button>
-            <button type="button" data-action="offset-earlier" title="${escapeHtml(earlierLabel)}" aria-label="${escapeHtml(earlierLabel)}" ${disabled}>−100</button>
-            <button type="button" data-action="offset-later" title="${escapeHtml(laterLabel)}" aria-label="${escapeHtml(laterLabel)}" ${disabled}>+100</button>
-            <button type="button" data-action="offset-next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}" ${timing.canAlignNext ? '' : 'disabled'}>${escapeHtml(nextShort)} ›</button>
-            <button type="button" data-action="offset-reset" title="${escapeHtml(resetLabel)}" aria-label="${escapeHtml(resetLabel)}" ${disabled}>0</button>
+            <button type="button" data-action="offset-previous"${subtitleActionAttributes('offset-previous', { trackId: track.id })} title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}" ${disabledAttribute(timing.canAlignPrevious)}>‹ ${escapeHtml(previousShort)}</button>
+            <button type="button" data-action="offset-earlier"${subtitleActionAttributes('offset-earlier', { trackId: track.id })} title="${escapeHtml(earlierLabel)}" aria-label="${escapeHtml(earlierLabel)}" ${disabled}>−100</button>
+            <button type="button" data-action="offset-later"${subtitleActionAttributes('offset-later', { trackId: track.id })} title="${escapeHtml(laterLabel)}" aria-label="${escapeHtml(laterLabel)}" ${disabled}>+100</button>
+            <button type="button" data-action="offset-next"${subtitleActionAttributes('offset-next', { trackId: track.id })} title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}" ${disabledAttribute(timing.canAlignNext)}>${escapeHtml(nextShort)} ›</button>
+            <button type="button" data-action="offset-reset"${subtitleActionAttributes('offset-reset', { trackId: track.id })} title="${escapeHtml(resetLabel)}" aria-label="${escapeHtml(resetLabel)}" ${disabled}>0</button>
         </div>
     `;
+}
+
+function disabledAttribute(enabled: boolean): string {
+    return enabled ? '' : 'disabled';
 }
 
 function formatSubtitleTrackOffset(seconds: number): string {

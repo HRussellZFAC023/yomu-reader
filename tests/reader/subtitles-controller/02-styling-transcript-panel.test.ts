@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { positionSubtitleStylePopover } from '../../../src/reader/subtitles/subtitle-style-popover';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import {
+    allowSyntheticReaderInteractionsForTests,
+    installTrustedReaderRootBoundary,
+} from '../../../src/reader/ui/trusted-interaction';
+import {
     DEFAULT_SETTINGS,
     registerSubtitleControllerCleanup,
     SUBTITLES_YOUTUBE_CSS,
@@ -195,6 +199,66 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(false);
         } finally {
             controller.destroy();
+        }
+    });
+
+    it('rejects hostile subtitle-style changes but persists one trusted change', () => {
+        const boundary = new AbortController();
+        installTrustedReaderRootBoundary(document, boundary.signal);
+        allowSyntheticReaderInteractionsForTests(false);
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleFontSize: 28,
+        }, { onSettingsChange });
+        const input = document.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]')!;
+
+        try {
+            input.value = '44';
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            expect(settings.subtitleFontSize).toBe(28);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+
+            allowSyntheticReaderInteractionsForTests(true);
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            expect(settings.subtitleFontSize).toBe(44);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            expect(onSettingsChange).toHaveBeenCalledWith(['subtitleFontSize']);
+        } finally {
+            controller.destroy();
+            boundary.abort();
+        }
+    });
+
+    it('rejects hostile keyboard layout changes but applies one trusted key', () => {
+        const boundary = new AbortController();
+        installTrustedReaderRootBoundary(document, boundary.signal);
+        allowSyntheticReaderInteractionsForTests(false);
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleBottomOffset: 16,
+        }, { onSettingsChange });
+        const handle = document.querySelector<HTMLElement>('[data-subtitle-drag-handle]')!;
+        const moveUp = () => handle.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'ArrowUp',
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        try {
+            moveUp();
+            expect(settings.subtitleBottomOffset).toBe(16);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+
+            allowSyntheticReaderInteractionsForTests(true);
+            moveUp();
+            expect(settings.subtitleBottomOffset).not.toBe(16);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            expect(onSettingsChange).toHaveBeenCalledWith(['subtitleBottomOffset']);
+        } finally {
+            controller.destroy();
+            boundary.abort();
         }
     });
 
@@ -943,7 +1007,10 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             parseJapanese: async () => [],
             onSettingsChange: () => undefined,
         });
-        const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+        let picker: HTMLInputElement | undefined;
+        const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function captureDetachedPicker(this: HTMLInputElement) {
+            picker = this;
+        });
 
         try {
             (controller as unknown as { install: () => void; openTracksPanel: () => void }).install();
@@ -954,17 +1021,17 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
             document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="load"]')!.click();
 
-            const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+            expect(picker).toBeDefined();
+            const detachedPicker = picker as HTMLInputElement;
             expect(root.querySelector('input[type="file"]')).toBeNull();
-            expect(picker.multiple).toBe(true);
-            expect(picker.accept).toContain('.ass');
-            expect(picker.accept).toContain('text/plain');
-            expect(picker.accept).toContain('application/x-subrip');
-            expect(picker.style.getPropertyValue('display')).toBe('none');
-            expect(picker.style.getPropertyPriority('display')).toBe('important');
+            expect(detachedPicker.isConnected).toBe(false);
+            expect(detachedPicker.multiple).toBe(true);
+            expect(detachedPicker.accept).toContain('.ass');
+            expect(detachedPicker.accept).toContain('text/plain');
+            expect(detachedPicker.accept).toContain('application/x-subrip');
             expect(clickSpy).toHaveBeenCalledTimes(1);
 
-            picker.dispatchEvent(new Event('cancel'));
+            detachedPicker.dispatchEvent(new Event('cancel'));
             expect(document.querySelector('input[type="file"]')).toBeNull();
         } finally {
             clickSpy.mockRestore();
@@ -972,9 +1039,12 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
-    it('keeps manual subtitle picker files readable until upload finishes', async () => {
+    it('copies manual subtitle picker files before releasing the detached picker', async () => {
         const { controller } = createSubtitleController(makeSubtitleSettings());
-        const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+        let picker: HTMLInputElement | undefined;
+        const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function captureDetachedPicker(this: HTMLInputElement) {
+            picker = this;
+        });
         const primary = new File([`
 [Script Info]
 Title: picker
@@ -993,16 +1063,17 @@ Watch the cat
             (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
             document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="load"]')!.click();
 
-            const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+            expect(picker).toBeDefined();
+            if (!picker) throw new Error('Detached subtitle picker was not opened.');
             Object.defineProperty(picker, 'files', { configurable: true, value: [native, primary] });
             picker.dispatchEvent(new Event('change'));
 
-            expect(document.querySelector('input[type="file"]')).toBe(picker);
+            expect(picker.isConnected).toBe(false);
+            expect(document.querySelector('input[type="file"]')).toBeNull();
 
             // Loaded CI runners can stretch the parse/upload path past the 1s
             // default; only patience changes here, not the contract.
             await vi.waitFor(() => {
-                expect(document.querySelector('input[type="file"]')).toBeNull();
                 const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list');
                 expect(panel?.textContent).toContain('episode.ja');
                 expect(panel?.textContent).toContain('episode.en');

@@ -15,6 +15,7 @@ import {
     MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX,
 } from '../../src/reader/app/managed-storage-keys';
 import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
+import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 import {
     MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
     STORAGE_LEASE_KEY_PREFIX,
@@ -213,6 +214,7 @@ beforeEach(() => {
     // before re-establishing our own. This also preserves the cleanup learned
     // from historical non-isolated runs.
     vi.unstubAllGlobals();
+    allowSyntheticReaderInteractionsForTests(true);
     if (typeof document !== 'undefined' && document.documentElement) delete document.documentElement.dataset.yomuHosted;
     resetPersistedManagedEpochForTests();
     resetManagedStateEpochSessionsForTests();
@@ -235,6 +237,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    allowSyntheticReaderInteractionsForTests(false);
     if (typeof document !== 'undefined' && document.documentElement) delete document.documentElement.dataset.yomuHosted;
     resetManagedStateEpochSessionsForTests();
     resetManagedWebStorageForTests();

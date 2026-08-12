@@ -19,18 +19,22 @@ import { isKanjiCharacter } from '../popup/render';
 import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { cardPronunciationReading } from '../popup/pitch';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { clearRenderedWordAnkiState, renderedWordHasAnkiState, setRenderedWordPitchClass } from '../dom/rendered-word-state';
+import { clearRenderedWordAnkiState, renderedWordHasAnkiState, renderedWordsInRoot, setRenderedWordPitchClass } from '../dom/rendered-word-state';
+import { renderedWordPrivateValue, updateRenderedWordPrivateState } from '../dom/rendered-word-private-state';
+import { currentAccountDataSurfaceIsTrusted } from './account-data-surface';
 import type { AnkiLookupResult } from '../anki/index';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 import { targetCanLookupCharacter } from '../languages/character-lookup';
 
 export function isOcrLineFrameWord(word: HTMLElement): boolean {
-    return word.classList.contains('jpdb-ocr-line') && !word.dataset.vid && !word.dataset.sid;
+    return word.classList.contains('jpdb-ocr-line')
+        && !renderedWordPrivateValue(word, 'vid')
+        && !renderedWordPrivateValue(word, 'sid');
 }
 
 export function ocrLineWordAtPoint(line: HTMLElement, x: number, y: number): HTMLElement | null {
-    const words = Array.from(line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]'));
+    const words = renderedWordsInRoot(line);
     const hits = words
         .map(word => ocrPointerWordHit(word, x, y))
         .filter((hit): hit is OcrPointerWordHit => hit !== null);
@@ -251,9 +255,9 @@ function publicVocabularyFuriganaCardState(word: HTMLElement, card: JPDBCard): R
     // status too; otherwise a known word can gain ruby from the provisional
     // card even though its color/state correctly stayed known.
     if (card.provisionalState === true
-        && word.dataset.stateProvenance === 'authoritative'
-        && word.dataset.cardState) {
-        return primaryCardState([word.dataset.cardState]);
+        && renderedWordPrivateValue(word, 'stateProvenance') === 'authoritative'
+        && renderedWordPrivateValue(word, 'cardState')) {
+        return primaryCardState([renderedWordPrivateValue(word, 'cardState') as string]);
     }
     return primaryCardState(card.cardState);
 }
@@ -304,29 +308,51 @@ export function applyAnkiLookupToRenderedWord(
     language: InterfaceLanguage,
     options: { preserveExistingEmpty?: boolean } = {},
 ): void {
-    if (!ankiLookup.primary) {
-        if (ankiLookup.trusted === false) return;
-        if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) {
-            word.dataset.ankiPreserveContrast = 'true';
-            return;
-        }
-        clearRenderedWordAnkiState(word);
-        word.classList.add(`anki-${ankiLookup.state}`);
-        word.dataset.ankiState = ankiLookup.state;
-        word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}`;
+    if (!ankiLookup.primary) return applyEmptyAnkiLookupToRenderedWord(word, ankiLookup, language, options);
+    applyExistingAnkiLookupToRenderedWord(word, ankiLookup.state, ankiLookup.primary, language);
+}
+
+function applyEmptyAnkiLookupToRenderedWord(
+    word: HTMLElement,
+    ankiLookup: AnkiLookupResult,
+    language: InterfaceLanguage,
+    options: { preserveExistingEmpty?: boolean },
+): void {
+    if (ankiLookup.trusted === false) return;
+    if ([options.preserveExistingEmpty, renderedWordHasAnkiState(word)].every(Boolean)) {
+        word.dataset.ankiPreserveContrast = 'true';
         return;
     }
     clearRenderedWordAnkiState(word);
-    word.classList.add(`anki-${ankiLookup.state}`);
-    word.dataset.ankiState = ankiLookup.state;
-    word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
-    applyAnkiDeckMembershipToRenderedWord(word, ankiLookup.primary?.deckNames ?? []);
-    word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+    applyRenderedWordAnkiState(word, ankiLookup.state, language);
+}
+
+function applyExistingAnkiLookupToRenderedWord(
+    word: HTMLElement,
+    state: string,
+    primary: NonNullable<AnkiLookupResult['primary']>,
+    language: InterfaceLanguage,
+): void {
+    const deckNames = primary.deckNames ?? [];
+    clearRenderedWordAnkiState(word);
+    applyRenderedWordAnkiState(word, state, language, deckNames);
+    applyAnkiDeckMembershipToRenderedWord(word, deckNames);
+}
+
+function applyRenderedWordAnkiState(word: HTMLElement, state: string, language: InterfaceLanguage, deckNames: string[] = []): void {
+    updateRenderedWordPrivateState(word, { ankiState: state, ankiDecks: deckNames.join(', ') || undefined });
+    if (!currentAccountDataSurfaceIsTrusted()) {
+        word.classList.add(`jpdb-${state}`);
+        word.removeAttribute('title');
+        return;
+    }
+    word.classList.add(`anki-${state}`);
+    word.title = `Anki: ${cardStateLabel(state, language)}${deckNames.length ? ` (${deckNames.join(', ')})` : ''}`;
 }
 
 function applyAnkiDeckMembershipToRenderedWord(word: HTMLElement, deckNames: string[]): void {
     if (!deckNames.length) return;
-    word.classList.add(...cardDeckMembershipClassNames({
+    const classes = cardDeckMembershipClassNames({
         vid: 0,
         sid: 0,
         rid: 0,
@@ -340,7 +366,10 @@ function applyAnkiDeckMembershipToRenderedWord(word: HTMLElement, deckNames: str
         wordWithReading: null,
         source: 'anki',
         ankiDeckNames: deckNames,
-    }).filter(className => !className.startsWith('yomu-')));
+    });
+    word.classList.add(...(currentAccountDataSurfaceIsTrusted()
+        ? classes.filter(className => !className.startsWith('yomu-'))
+        : classes));
 }
 
 function shouldApplyPublicVocabularyFurigana(

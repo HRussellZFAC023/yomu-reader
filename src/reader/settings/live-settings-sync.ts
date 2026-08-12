@@ -1,5 +1,5 @@
-import { SETTINGS_CHANGE_EVENT } from '../app/constants';
 import type { ReaderSettings } from '../app/types';
+import { subscribeToSettingsChanges, type SettingsChangeDetail } from './settings-change-bus';
 import {
     syncFontFamilyControls,
     syncSubtitlePreview,
@@ -24,10 +24,9 @@ export function bindLiveSettingsSync(
     dependencies: LiveSettingsSyncDependencies,
 ): void {
     let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
-    window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
+    subscribeToSettingsChanges(detail => {
         if (!dependencies.isActive()) return;
-        const detail = (event as CustomEvent<{ settings?: Partial<ReaderSettings>; preview?: boolean }>).detail;
-        if (detail?.settings && detail.preview !== true) {
+        if (detail.preview !== true) {
             const previousSettings = adoptedSettings;
             const settings = { ...previousSettings, ...detail.settings };
             dependencies.adoptSettings(settings);
@@ -37,7 +36,7 @@ export function bindLiveSettingsSync(
             syncFontFamilyControls(form);
             adoptedSettings = snapshotLiveSettings(settings);
         }
-        const theme = themeFromSettingsChangeEvent(event);
+        const theme = themeFromSettingsChange(detail);
         if (theme) dependencies.applyTheme(theme);
     });
 }
@@ -98,7 +97,7 @@ function changedSettingKeys(
         .filter(key => !Object.is(previousSettings[key], settings[key]));
 }
 
-function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {
-    const theme = (event as CustomEvent<{ settings?: { theme?: unknown } }>).detail?.settings?.theme;
+function themeFromSettingsChange(detail: SettingsChangeDetail): ReaderSettings['theme'] | undefined {
+    const theme = detail.settings.theme;
     return theme === 'auto' || theme === 'dark' || theme === 'light' ? theme : undefined;
 }

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Yomu Audio API",
-    "version": "1.9.0",
+    "version": "1.9.1",
     "description": "Pronunciation lookup, pitch-aware word synthesis, cast dialogue synthesis, and hosted audio delivery. Public read operations allow cross-origin GET/HEAD requests.",
     "contact": {
       "name": "Yomu",

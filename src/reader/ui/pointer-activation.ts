@@ -1,3 +1,8 @@
+import {
+    dispatchAuthorizedReaderControlClick,
+    isDirectTrustedReaderInteraction,
+} from './trusted-interaction';
+
 const CONTROL_POINTER_ACTIVATION_SELECTOR = [
     'button',
     'a[href]',
@@ -47,16 +52,14 @@ export function installReaderControlPointerActivation(root: HTMLElement): void {
     }, { capture: true });
 
     root.addEventListener('pointerup', event => {
-        const activeTap = tap;
-        if (!activeTap || activeTap.pointerId !== event.pointerId) return;
+        const activeTap = matchingPointerTap(tap, event);
+        if (!activeTap) return;
         tap = undefined;
-        if (!isDirectControlPointer(event)) return;
-        const target = controlPointerTarget(event.target, root);
-        if (!target || target !== activeTap.target) return;
-        if (Math.hypot(event.clientX - activeTap.x, event.clientY - activeTap.y) > CONTROL_POINTER_TAP_SLOP_PX) return;
+        const target = releasedControlTarget(activeTap, event, root);
+        if (!target) return;
         event.preventDefault();
         event.stopPropagation();
-        target.click();
+        dispatchAuthorizedReaderControlClick(target);
         clickGuard = { target, expiresAt: Date.now() + 750 };
     }, { capture: true });
 
@@ -80,8 +83,26 @@ export function installReaderControlPointerActivation(root: HTMLElement): void {
     }, { capture: true });
 }
 
+function matchingPointerTap(tap: ControlPointerTap | undefined, event: PointerEvent): ControlPointerTap | undefined {
+    if (!tap || tap.pointerId !== event.pointerId) return undefined;
+    return tap;
+}
+
+function releasedControlTarget(tap: ControlPointerTap, event: PointerEvent, root: HTMLElement): HTMLElement | null {
+    if (!isDirectControlPointer(event)) return null;
+    const target = controlPointerTarget(event.target, root);
+    if (target !== tap.target) return null;
+    return pointerTravel(tap, event) <= CONTROL_POINTER_TAP_SLOP_PX ? target : null;
+}
+
+function pointerTravel(tap: ControlPointerTap, event: PointerEvent): number {
+    return Math.hypot(event.clientX - tap.x, event.clientY - tap.y);
+}
+
 function isDirectControlPointer(event: PointerEvent): boolean {
-    return (event.pointerType === 'pen' || event.pointerType === 'touch') && event.isPrimary !== false;
+    return isDirectTrustedReaderInteraction(event)
+        && (event.pointerType === 'pen' || event.pointerType === 'touch')
+        && event.isPrimary !== false;
 }
 
 function controlPointerTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {

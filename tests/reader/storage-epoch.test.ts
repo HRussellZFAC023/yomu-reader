@@ -53,6 +53,19 @@ afterEach(() => {
 });
 
 describe('managed storage epoch boundary', () => {
+    it('does not recreate a transaction fallback after factory-reset deletion starts', async () => {
+        const registry = await import('../../src/reader/app/managed-state-registry');
+        const storage = await import('../../src/reader/app/storage');
+        registry.beginManagedStateReset();
+        localStorage.removeItem(SETTINGS_KEY);
+        try {
+            storage.restoreLocalFallbackStoredValue(SETTINGS_KEY, { learningTargetChosen: true }, true);
+            expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
+        } finally {
+            registry.endManagedStateReset();
+        }
+    });
+
     it('stores and reads only matching post-reset envelopes across async, private, and sync APIs', async () => {
         const currentEpoch = epoch(1, 'reset-one');
         const values = new Map<string, unknown>([[EPOCH_KEY, currentEpoch]]);
@@ -95,6 +108,20 @@ describe('managed storage epoch boundary', () => {
 
         expect(values.get(SETTINGS_KEY)).toEqual({ theme: 'legacy-dark' });
         expect([...values.keys()].some(key => key.startsWith(SLOT_PREFIX))).toBe(false);
+    });
+
+    it('never treats an unprovenanced page-local settings byte as shared learner intent', async () => {
+        const values = new Map<string, unknown>();
+        installGmStore(values);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+            subtitleFontSize: 48,
+            learningTargetChosen: true,
+        }));
+        const storage = await import('../../src/reader/app/storage');
+
+        await expect(storage.gmStorageGetShared(SETTINGS_KEY, null)).resolves.toBeNull();
+        expect(storage.gmStorageGetSharedSync(SETTINGS_KEY, null)).toBeNull();
+        expect(values.has(SETTINGS_KEY)).toBe(false);
     });
 
     it('rejects a delayed old-realm write and makes its late payload unreadable after reboot', async () => {

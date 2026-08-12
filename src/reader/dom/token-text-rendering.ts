@@ -1,5 +1,6 @@
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
+import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
 import { HAS_JAPANESE_LETTER } from './constants';
 import { escapeHtml } from './html';
 import {
@@ -15,6 +16,7 @@ import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/type
 import {
     type KanjiNavigationRenderOptions,
 } from './token-kanji-navigation';
+import { privateCommandAttributes } from './private-command-capabilities';
 
 export { kanjiNavigationForElement } from './token-kanji-navigation';
 export type { KanjiNavigationRenderOptions } from './token-kanji-navigation';
@@ -256,18 +258,21 @@ export function readerWordClassName(
     token: JPDBToken,
     settings: Pick<ReaderSettings, 'showPitchAccent'>,
 ): string {
-    const classes = ['jpdb-reader-word'];
-    if (isParticleCard(token.card)) {
-        classes.push('jpdb-reader-particle');
-    }
-    if (hasKnownCardState(token.card)) {
-        classes.push(`jpdb-${state}`);
-        const source = readerCardSource(token.card);
-        if (source !== 'jpdb') classes.push(`${source}-${state}`);
-    }
-    classes.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
-    return classes.join(' ');
+    const hasKnownState = hasKnownCardState(token.card);
+    return [
+        'jpdb-reader-word',
+        isParticleCard(token.card) ? 'jpdb-reader-particle' : '',
+        hasKnownState ? `jpdb-${state}` : '',
+        trustedProviderStateClass(token.card, state, hasKnownState),
+        ...cardDeckMembershipClassNames(token.card),
+        settings.showPitchAccent ? `jpdb-pitch-${tokenPitchClass(token)}` : '',
+    ].filter(Boolean).join(' ');
+}
+
+function trustedProviderStateClass(card: JPDBCard, state: string, hasKnownState: boolean): string {
+    const source = readerCardSource(card);
+    const visible = [hasKnownState, currentAccountDataSurfaceIsTrusted(), source !== 'jpdb'].every(Boolean);
+    return visible ? `${source}-${state}` : '';
 }
 
 function hasKnownCardState(card: JPDBToken['card']): boolean {
@@ -658,7 +663,7 @@ export function renderKanjiNavigationText(value: string, options?: KanjiNavigati
 
 function renderKanjiNavigationCharacter(character: string, label: string): string {
     const safeCharacter = escapeHtml(character);
-    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml(`${label}: ${character}`)}">${safeCharacter}</button>`;
+    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}"${privateCommandAttributes({ kind: 'kanji-lookup', kanji: character })} title="${escapeHtml(`${label}: ${character}`)}">${safeCharacter}</button>`;
 }
 
 function isKanjiForInlineNavigation(value: string): boolean {

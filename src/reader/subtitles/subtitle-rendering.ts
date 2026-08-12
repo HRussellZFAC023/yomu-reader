@@ -7,8 +7,10 @@ import {
 } from './subtitle-cues';
 import { uiText } from '../app/i18n';
 import { setInnerHtml } from '../dom/html';
+import { remintRenderedWordPrivateTokens } from '../dom/rendered-word-private-state';
 import type { InterfaceLanguage } from '../app/types';
 import { syncSubtitleContentLanguage, type SubtitleContentLanguage } from './subtitle-language-context';
+import { bindPrivateCommandCapability } from '../dom/private-command-capabilities';
 
 export interface SubtitlePrimaryRenderInput {
     cue?: SubtitleCue;
@@ -137,6 +139,7 @@ function createSubtitleSecondaryLine(): HTMLButtonElement {
     button.className = SUBTITLE_SECONDARY_CLASS;
     button.type = 'button';
     button.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
+    bindPrivateCommandCapability(button, { kind: 'subtitle-action', action: 'toggle-native-blur' });
     return button;
 }
 
@@ -178,7 +181,7 @@ function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleContentL
     const primary = document.createElement('div');
     primary.className = 'jpdb-subtitle-primary';
     syncSubtitleContentLanguage(primary, content);
-    setInnerHtml(primary, primaryHtml);
+    setInnerHtml(primary, remintRenderedWordPrivateTokens(primaryHtml));
     row.append(primary);
     return row;
 }
@@ -224,7 +227,7 @@ function reconcileVisibleSubtitlePrimaryRow(
     if (!primary) return createVisibleSubtitlePrimaryRow(input, row);
     syncSubtitleContentLanguage(primary, input.content);
     if (input.appliedHtml === input.html) return { changed: false, appliedHtml: input.appliedHtml };
-    setInnerHtml(primary, input.html);
+    setInnerHtml(primary, remintRenderedWordPrivateTokens(input.html));
     return { changed: true, appliedHtml: input.html };
 }
 

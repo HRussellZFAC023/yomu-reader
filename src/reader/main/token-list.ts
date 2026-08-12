@@ -5,6 +5,7 @@ import { uiText } from '../app/i18n';
 import { renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import { renderSelectionLookupPills } from '../sources/word-pills';
 import type { JPDBToken, ReaderSettings } from '../app/types';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 export type TokenListContext = {
     trigger: 'modal' | 'hover';
@@ -60,7 +61,7 @@ export function installTokenListHandlers(
             callbacks.showPrevious(anchor, context);
             return;
         }
-        const button = (event.target as HTMLElement).closest('button[data-token-choice][data-vid]') as HTMLButtonElement | null;
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-token-choice]');
         if (!button) return;
         callbacks.showCard(button, tokens, anchor, context);
     });
@@ -151,17 +152,42 @@ function sliceSharesTokenPrefix(selected: string, token: JPDBToken): boolean {
 }
 
 function renderTokenSentenceWord(token: JPDBToken, surface: string, settings: ReaderSettings): string {
-    const reading = token.card.reading?.trim() ?? '';
-    const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent ?? [], reading || surface);
+    const reading = tokenSentenceReading(token);
+    const pitchClass = tokenSentencePitchClass(token, reading, surface);
     const chipToken: JPDBToken = { ...token, pitchClass, start: 0, end: surface.length, length: surface.length, rubies: [] };
     const state = primaryCardState(normalizeCardStates(token.card.cardState));
     const withRuby = shouldRenderRuby(surface, chipToken, settings);
-    const classes = [
-        readerWordClassName(state, chipToken, settings),
+    const classes = tokenSentenceWordClasses(state, chipToken, settings, withRuby);
+    const content = tokenSentenceWordContent(surface, chipToken, withRuby);
+    return `<button type="button" class="${classes}" data-token-choice="true"${privateCommandAttributes({ kind: 'token-choice', vid: token.card.vid, sid: token.card.sid })} data-surface="${escapeHtml(surface)}" data-expression="${escapeHtml(token.card.spelling)}"${tokenSentenceReadingAttribute(reading)} data-pitch-class="${escapeHtml(pitchClass || 'unknown')}">${content}</button>`;
+}
+
+function tokenSentenceReading(token: JPDBToken): string {
+    return token.card.reading ? token.card.reading.trim() : '';
+}
+
+function tokenSentencePitchClass(token: JPDBToken, reading: string, surface: string): string {
+    if (token.pitchClass) return token.pitchClass;
+    return getPitchClass(token.card.pitchAccent ?? [], reading || surface);
+}
+
+function tokenSentenceWordClasses(
+    state: ReturnType<typeof primaryCardState>,
+    token: JPDBToken,
+    settings: ReaderSettings,
+    withRuby: boolean,
+): string {
+    return [
+        readerWordClassName(state, token, settings),
         'jpdb-reader-token-sentence-word',
         withRuby ? 'jpdb-reader-has-furi' : '',
     ].filter(Boolean).join(' ');
-    const content = withRuby ? renderRuby(surface, chipToken) : escapeHtml(surface);
-    const readingAttr = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
-    return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml(surface)}" data-expression="${escapeHtml(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml(pitchClass || 'unknown')}">${content}</button>`;
+}
+
+function tokenSentenceWordContent(surface: string, token: JPDBToken, withRuby: boolean): string {
+    return withRuby ? renderRuby(surface, token) : escapeHtml(surface);
+}
+
+function tokenSentenceReadingAttribute(reading: string): string {
+    return reading ? ` data-reading="${escapeHtml(reading)}"` : '';
 }

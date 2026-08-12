@@ -408,6 +408,9 @@
         let language = readLanguage();
         const saveLanguage = value => {
           const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+          if (!Object.prototype.hasOwnProperty.call(settings, 'learningTargetChosen') && Object.keys(settings).length === 0) {
+            settings.learningTargetChosen = false;
+          }
           settings.interfaceLanguage = value;
           localStorage.setItem(settingsKey, JSON.stringify(settings));
           window.dispatchEvent(new CustomEvent('yomu-interface-language-change', { detail: { language: value } }));

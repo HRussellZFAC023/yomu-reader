@@ -30,6 +30,11 @@ import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
 import { outputLanguageOf } from '../languages';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
+import {
+    readAnkiAudioMergeCapability,
+    readReviewTargetCapability,
+    type CardCommandCapability,
+} from '../dom/private-command-capabilities';
 
 interface ShowCardOptions {
     autoPlay?: boolean;
@@ -125,17 +130,17 @@ export class CardActionController {
         return reviewed;
     }
 
-    async perform(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
-        const studyAction = this.performStudyAction(action, button, sentence);
+    async perform(command: CardCommandCapability | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
+        const studyAction = this.performStudyAction(command, button, sentence);
         if (studyAction !== undefined) return await studyAction;
 
-        const readerAction = this.performReaderAction(action, card);
+        const readerAction = this.performReaderAction(cardCommandAction(command), card);
         if (readerAction !== undefined) return await readerAction;
 
-        const miningAction = await this.performMiningAction(action, button, card, sentence, context);
+        const miningAction = await this.performMiningAction(command, button, card, sentence, context);
         if (miningAction !== undefined) return miningAction;
 
-        return Boolean(action);
+        return Boolean(command);
     }
 
     private async addBatchMiningCard(card: JPDBCard, sentence: string | undefined): Promise<boolean> {
@@ -156,30 +161,31 @@ export class CardActionController {
         throw userFacingError('batchMiningNoDestination');
     }
 
-    private performStudyAction(action: string | undefined, button: HTMLButtonElement, sentence?: string): boolean | Promise<boolean> | undefined {
-        if (!action) return undefined;
-        return this.studyActionHandler(action, button, sentence)?.();
+    private performStudyAction(command: CardCommandCapability | undefined, button: HTMLButtonElement, sentence?: string): boolean | Promise<boolean> | undefined {
+        if (!command) return undefined;
+        return this.studyActionHandler(command, button, sentence)?.();
     }
 
-    private studyActionHandler(action: string, button: HTMLButtonElement, sentence?: string): StudyActionHandler | undefined {
+    private studyActionHandler(command: CardCommandCapability, button: HTMLButtonElement, sentence?: string): StudyActionHandler | undefined {
+        const action = command.action;
         const handlers: Record<string, StudyActionHandler> = {
-            'study-grammar-toggle-known': () => this.performStudyGrammarToggle(button, sentence),
-            'study-grammar-toggle-known-visibility': () => this.performStudyGrammarToggle(button, sentence),
+            'study-grammar-toggle-known': () => this.performStudyGrammarToggle(button, command, sentence),
+            'study-grammar-toggle-known-visibility': () => this.performStudyGrammarToggle(button, command, sentence),
             'study-translate': () => this.performStudyTool(button, action, sentence),
             'study-grammar': () => this.performStudyGrammarTool(button, sentence),
-            'study-read-sentence': () => this.performStudyReadSentence(button, sentence),
-            'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
-            'jiten-audio': () => this.performJitenAudio(button, sentence),
-            'bunpro-audio': () => this.performBunproAudio(button, sentence),
-            'wanikani-audio': () => this.performWanikaniAudio(button),
-            'anki-media-audio': () => this.performAnkiMediaAudio(button),
+            'study-read-sentence': () => this.performStudyReadSentence(button, command, sentence),
+            'jpdb-example-audio': () => this.performJpdbExampleAudio(command),
+            'jiten-audio': () => this.performJitenAudio(command, sentence),
+            'bunpro-audio': () => this.performBunproAudio(command, sentence),
+            'wanikani-audio': () => this.performWanikaniAudio(command),
+            'anki-media-audio': () => this.performAnkiMediaAudio(command),
         };
         return handlers[action];
     }
 
-    private performStudyGrammarToggle(button: HTMLButtonElement, sentence?: string): boolean {
+    private performStudyGrammarToggle(button: HTMLButtonElement, command: CardCommandCapability, sentence?: string): boolean {
         const settings = this.options.getSettings();
-        handleStudyGrammarAction(button, sentence, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
+        handleStudyGrammarAction(button, sentence, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled, command });
         void this.reparsePopoverJapanese(button);
         return false;
     }
@@ -201,70 +207,73 @@ export class CardActionController {
         return false;
     }
 
-    private async performStudyReadSentence(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
-        await this.options.playSentenceAudio(this.studySentenceFromButton(button) || sentence);
+    private async performStudyReadSentence(button: HTMLButtonElement, command: CardCommandCapability, sentence?: string): Promise<boolean> {
+        await this.options.playSentenceAudio(command.sentence?.trim() || this.studySentenceFromButton(button) || sentence);
         return false;
     }
 
     private studySentenceFromButton(button: HTMLButtonElement): string {
-        if (button.dataset.studySentence) return button.dataset.studySentence.trim();
         const original = button
             .closest<HTMLElement>('.jpdb-reader-study-sentence-block')
             ?.querySelector<HTMLElement>('[data-study-original-render]');
         return original ? readerWordSurfaceText(original).replace(/\s+/g, ' ').trim() : '';
     }
 
-    private async performJpdbExampleAudio(button: HTMLButtonElement): Promise<boolean> {
-        const audioIds = button.dataset.jpdbAudio ?? '';
-        const fallbackSentence = button.dataset.jpdbExampleSentence ?? '';
+    private async performJpdbExampleAudio(command: CardCommandCapability): Promise<boolean> {
+        const audioIds = command.audioIds ?? '';
+        const fallbackSentence = command.sentence ?? '';
         if (!this.options.playJpdbExampleAudio) await this.options.playSentenceAudio(fallbackSentence);
         else await this.options.playJpdbExampleAudio(audioIds, fallbackSentence);
         return false;
     }
 
-    private async performJitenAudio(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
-        const fallbackSentence = button.dataset.studySentence?.trim() || sentence;
-        const audioUrls = jitenAudioUrlsForButton(button, this.options.getSettings());
-        if (this.options.playMediaUrl) {
-            for (const audioUrl of audioUrls) {
-                try {
-                    const played = await this.options.playMediaUrl(audioUrl);
-                    if (played !== false) return false;
-                } catch {
-                    // Try the next Jiten URL before falling back to sentence TTS.
-                }
-            }
-        }
-        await this.options.playSentenceAudio(fallbackSentence);
+    private async performJitenAudio(command: CardCommandCapability, sentence?: string): Promise<boolean> {
+        const fallbackSentence = command.sentence?.trim() || sentence;
+        const audioUrls = jitenAudioUrlsForCommand(command, this.options.getSettings());
+        const played = await this.playFirstAvailableMediaUrl(audioUrls);
+        if (!played) await this.options.playSentenceAudio(fallbackSentence);
         return false;
     }
 
-    private async performBunproAudio(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
-        const fallbackSentence = button.dataset.studySentence?.trim() || sentence;
-        const audioUrl = button.dataset.audioUrl?.trim() ?? '';
-        if (audioUrl && this.options.playMediaUrl) {
-            try {
-                const played = await this.options.playMediaUrl(audioUrl);
-                if (played !== false) return false;
-            } catch {
-                // Bunpro CDN URLs occasionally 403; fall back to sentence TTS.
-            }
-        }
-        await this.options.playSentenceAudio(fallbackSentence);
+    private async performBunproAudio(command: CardCommandCapability, sentence?: string): Promise<boolean> {
+        const fallbackSentence = command.sentence?.trim() || sentence;
+        const audioUrl = command.audioUrl?.trim() ?? '';
+        const played = await this.playOptionalMediaUrl(audioUrl);
+        if (!played) await this.options.playSentenceAudio(fallbackSentence);
         return false;
     }
 
-    private async performWanikaniAudio(button: HTMLButtonElement): Promise<boolean> {
-        const audioUrl = button.dataset.audioUrl?.trim() ?? '';
+    private async performWanikaniAudio(command: CardCommandCapability): Promise<boolean> {
+        if (!this.options.playMediaUrl) return false;
+        const audioUrl = safeWanikaniAudioUrl(command);
+        if (!audioUrl) return false;
+        await this.options.playMediaUrl(audioUrl);
+        return false;
+    }
+
+    private async playFirstAvailableMediaUrl(audioUrls: string[]): Promise<boolean> {
+        if (!this.options.playMediaUrl) return false;
+        for (const audioUrl of audioUrls) {
+            if (await this.tryMediaUrl(audioUrl)) return true;
+        }
+        return false;
+    }
+
+    private async playOptionalMediaUrl(audioUrl: string): Promise<boolean> {
         if (!audioUrl || !this.options.playMediaUrl) return false;
-        const url = new URL(audioUrl);
-        if (url.protocol !== 'https:') throw new Error('Blocked an unsafe WaniKani audio URL.');
-        await this.options.playMediaUrl(url.href);
-        return false;
+        return this.tryMediaUrl(audioUrl);
     }
 
-    private async performAnkiMediaAudio(button: HTMLButtonElement): Promise<boolean> {
-        await this.playAnkiMediaAudio(button);
+    private async tryMediaUrl(audioUrl: string): Promise<boolean> {
+        try {
+            return await this.options.playMediaUrl?.(audioUrl) !== false;
+        } catch {
+            return false;
+        }
+    }
+
+    private async performAnkiMediaAudio(command: CardCommandCapability): Promise<boolean> {
+        await this.playAnkiMediaAudio(command);
         return false;
     }
 
@@ -295,26 +304,27 @@ export class CardActionController {
         return false;
     }
 
-    private async performMiningAction(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean | undefined> {
-        if (!action) return undefined;
-        if (action === 'grade-provider-toggle') {
+    private async performMiningAction(command: CardCommandCapability | undefined, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean | undefined> {
+        if (!command) return undefined;
+        if (command.action === 'grade-provider-toggle') {
             await this.toggleGradingProvider(card, sentence);
             return false;
         }
-        const handler = this.miningActionHandler(action, button, card, sentence, context);
+        const handler = this.miningActionHandler(command, button, card, sentence, context);
         if (handler) return this.finishMiningAction(handler());
-        return this.performApiDeckStateAction(action, card);
+        return this.performApiDeckStateAction(command.action, card);
     }
 
-    private miningActionHandler(action: string, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
+    private miningActionHandler(command: CardCommandCapability, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
         const handlers: Record<string, MiningActionHandler> = {
-            add: () => this.addToSelectedDeck(button, card, sentence, context),
+            add: () => this.addToSelectedDeck(command, card, sentence, context),
+            'add-default': () => this.addToPrivateDefaultDeck(card, sentence, context),
             anki: () => this.addToAnki(card, sentence, undefined, context),
-            'anki-edit': () => this.openAnkiNote(button),
-            'anki-merge': () => this.mergeExistingAnkiCard(button, card, sentence, context),
-            grade: () => this.gradeCard(button, card, sentence),
+            'anki-edit': () => this.openAnkiNote(command),
+            'anki-merge': () => this.mergeExistingAnkiCard(command, button, card, sentence, context),
+            grade: () => this.gradeCard(command, button, card, sentence),
         };
-        return handlers[action];
+        return handlers[command.action];
     }
 
     // Cycle the popover through the SRS services that can grade this word
@@ -453,59 +463,94 @@ export class CardActionController {
         this.assertApiProviderActionAllowed(provider, copyKey);
     }
 
-    private async addToSelectedDeck(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
+    private async addToSelectedDeck(command: CardCommandCapability, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
-        const deck = selectedDeckChoice(button, settings);
+        const deck = selectedDeckChoice(command, settings);
         if (deck.source === 'anki') {
             await this.addToAnki(card, sentence, deck.id, context);
             return;
         }
 
         const provider = this.apiProviderForDeckSource(deck.source, card, settings);
-        const fallbackKey = deck.source === 'jiten'
-            ? 'jitenAddApiKeyRequired'
-            : deck.source === 'bunpro'
-                ? 'bunproAddApiKeyRequired'
-                : deck.source === 'yomu-local'
-                    ? 'yomuLocalSrsDisabled'
-                    : 'jpdbAddApiKeyRequired';
-        this.assertApiProviderActionAllowed(provider, provider?.addApiKeyRequiredKey ?? fallbackKey);
+        this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, deck.source));
         const selectedDeckId = provider.selectedDeckId(deck.id, settings);
-        if (!selectedDeckId) throw userFacingError(provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey);
+        if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
+        await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
+    }
+
+    private async addToPrivateDefaultDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
+        const settings = this.options.getSettings();
+        const provider = this.privateDefaultApiProvider(card, settings);
+        if (!provider) {
+            return this.addToPrivateFallbackDeck(card, sentence, context, settings);
+        }
+        const selectedDeckId = await this.privateDefaultDeckId(provider, settings);
+        if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
+        await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
+    }
+
+    private privateDefaultApiProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
+        if (!isApiMiningEnabled(settings)) return null;
+        const candidate = this.apiProviderForCard(card, settings);
+        if (!candidate) return null;
+        return defaultApiProviderIsAvailable(candidate, settings) ? candidate : null;
+    }
+
+    private async addToPrivateFallbackDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext, settings: ReaderSettings): Promise<void> {
+        if (settings.ankiEnabled) return this.addToAnki(card, sentence, settings.ankiDeck, context);
+        throw userFacingError('batchMiningNoDestination');
+    }
+
+    private async privateDefaultDeckId(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string> {
+        if (provider.id !== 'jiten') return provider.selectedDeckId(settings.miningDeck, settings);
+        const decks = await this.options.jiten?.listStudyDecks?.().catch(() => []);
+        return String(decks?.[0]?.id ?? '');
+    }
+
+    private async addToApiProviderDeck(
+        provider: ApiSrsProviderAdapter,
+        selectedDeckId: string,
+        card: JPDBCard,
+        sentence: string | undefined,
+        context: CardActionContext,
+        settings: ReaderSettings,
+    ): Promise<void> {
         await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
         const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
         if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
         // Jiten/JPDB deck APIs cannot store media: when the user captured an
         // image or audio for this mine and no Anki note carries it, say so
         // instead of silently dropping it.
-        const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
-        const droppedMedia = provider.id !== 'bunpro' && !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
+        const droppedMedia = await this.apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence);
         const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
-        this.options.toast(droppedMedia
-            ? `${addedToast} ${uiText(settings.interfaceLanguage, 'apiDeckMediaNotSupported')}`
-            : addedToast);
+        this.options.toast(apiMiningToast(addedToast, droppedMedia, settings));
         this.notifyApiCardStateChanged(card);
     }
 
-    private async openAnkiNote(button: HTMLButtonElement): Promise<void> {
+    private async apiMiningDroppedMedia(provider: ApiSrsProviderAdapter, minedToAnkiToo: boolean, card: JPDBCard, sentence: string | undefined): Promise<boolean> {
+        if (!providerCanDropMedia(provider, minedToAnkiToo)) return false;
+        const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
+        return miningContextHasMedia(miningContext);
+    }
+
+    private async openAnkiNote(command: CardCommandCapability): Promise<void> {
         const settings = this.options.getSettings();
-        const noteId = Number(button.dataset.noteId);
-        if (!Number.isFinite(noteId)) throw userFacingError('ankiNoteNotFound');
+        const noteId = command.noteId;
+        if (typeof noteId !== 'number' || !Number.isFinite(noteId)) throw userFacingError('ankiNoteNotFound');
         await this.options.anki.browseNote(noteId);
         this.options.toast(uiText(settings.interfaceLanguage, 'openedInAnki'));
     }
 
-    private async playAnkiMediaAudio(button: HTMLButtonElement): Promise<void> {
-        const filename = button.dataset.ankiMediaName?.trim();
+    private async playAnkiMediaAudio(command: CardCommandCapability): Promise<void> {
+        const filename = command.mediaFilename?.trim();
         if (!filename) throw userFacingError('ankiAudioFileNotFound');
         if (!this.options.playMediaUrl) throw userFacingError('ankiAudioPlaybackUnavailable');
         await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
     }
 
-    private async mergeExistingAnkiCard(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, actionContext: CardActionContext): Promise<void> {
+    private async mergeExistingAnkiCard(command: CardCommandCapability, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, actionContext: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
-        const noteId = Number(button.dataset.noteId);
-        if (!Number.isFinite(noteId)) throw userFacingError('ankiNoteNotFound');
+        const noteId = requiredAnkiNoteId(command.noteId);
 
         const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
         const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
@@ -513,7 +558,7 @@ export class CardActionController {
             audioDataUrl: context.audioDataUrl,
             wordAudioDataUrl: wordAudio?.dataUrl,
             wordAudioUrl: wordAudio?.url,
-            audioMergeMode: selectedAnkiAudioMergeMode(button),
+            audioMergeMode: selectedAnkiAudioMergeMode(button, command),
             ...dictionaryContext,
             dictionaryPreferences: settings.dictionaryPreferences,
             sentenceTarget: actionContext.sentenceTarget,
@@ -524,7 +569,7 @@ export class CardActionController {
         this.options.toast(ankiMergeToast(result, settings));
         await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
-            trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
+            trigger: activePopoverTrigger(this.options.getActivePopoverMode()),
             navigation: 'preserve',
             preservePosition: true,
         });
@@ -571,9 +616,10 @@ export class CardActionController {
         return true;
     }
 
-    private async gradeCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
-        const grade = button.dataset.grade as JPDBGrade;
-        const selection = selectedPopoverReviewTarget(button);
+    private async gradeCard(command: CardCommandCapability, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+        const grade = command.grade;
+        if (!grade) throw userFacingError('actionFailed');
+        const selection = selectedPopoverReviewTarget(button, command);
         await this.reviewGrade(grade, card, sentence, {
             target: selection.kind,
             ankiCardId: selection.ankiCardId,
@@ -787,50 +833,90 @@ export class CardActionController {
 
 }
 
-function jitenAudioUrlsFromButton(button: HTMLButtonElement): string[] {
-    const raw = button.dataset.jitenAudioUrls?.trim();
-    if (!raw) return [];
-    try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (Array.isArray(parsed)) return uniqueTrimmed(parsed.filter((value): value is string => typeof value === 'string'));
-    } catch {
-        // Older rendered markup should still fall back to sentence TTS if the payload is malformed.
-    }
-    return [];
-}
-
-function jitenAudioUrlsForButton(button: HTMLButtonElement, settings: ReaderSettings): string[] {
+function jitenAudioUrlsForCommand(command: CardCommandCapability, settings: ReaderSettings): string[] {
     return uniqueTrimmed([
-        ...jitenAudioUrlsFromButton(button),
-        ...generatedJitenAudioUrlsForButton(button, settings),
+        ...(command.audioUrls ?? []),
+        ...generatedJitenAudioUrlsForCommand(command, settings),
     ]);
 }
 
-function generatedJitenAudioUrlsForButton(button: HTMLButtonElement, settings: ReaderSettings): string[] {
-    const sentenceId = finitePositiveDatasetInteger(button.dataset.jitenSentenceId);
+function cardCommandAction(command: CardCommandCapability | undefined): string | undefined {
+    return command ? command.action : undefined;
+}
+
+function safeWanikaniAudioUrl(command: CardCommandCapability): string | null {
+    if (typeof command.audioUrl !== 'string') return null;
+    const audioUrl = command.audioUrl.trim();
+    if (!audioUrl) return null;
+    const url = new URL(audioUrl);
+    if (url.protocol !== 'https:') throw new Error('Blocked an unsafe WaniKani audio URL.');
+    return url.href;
+}
+
+const PROVIDER_ADD_API_KEY_REQUIRED_KEYS: Record<ApiSrsDeckSource, UiCopyKey> = {
+    jpdb: 'jpdbAddApiKeyRequired',
+    jiten: 'jitenAddApiKeyRequired',
+    bunpro: 'bunproAddApiKeyRequired',
+    wanikani: 'wanikaniAddApiKeyRequired',
+    'yomu-local': 'yomuLocalSrsDisabled',
+};
+
+function providerAddApiKeyRequiredKey(provider: ApiSrsProviderAdapter | null, source: ApiSrsDeckSource): UiCopyKey {
+    return provider ? provider.addApiKeyRequiredKey : PROVIDER_ADD_API_KEY_REQUIRED_KEYS[source];
+}
+
+function missingProviderDeckKey(provider: ApiSrsProviderAdapter): UiCopyKey {
+    return provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey;
+}
+
+function defaultApiProviderIsAvailable(provider: ApiSrsProviderAdapter, settings: ReaderSettings): boolean {
+    return isApiSrsProviderEnabled(settings, provider.id) && provider.hasApiKey;
+}
+
+function providerCanDropMedia(provider: ApiSrsProviderAdapter, minedToAnkiToo: boolean): boolean {
+    return provider.id !== 'bunpro' && !minedToAnkiToo;
+}
+
+function miningContextHasMedia(context: MiningContext | null): boolean {
+    return Boolean(context?.imageDataUrl || context?.audioDataUrl);
+}
+
+function apiMiningToast(addedToast: string, droppedMedia: boolean, settings: ReaderSettings): string {
+    return droppedMedia
+        ? `${addedToast} ${uiText(settings.interfaceLanguage, 'apiDeckMediaNotSupported')}`
+        : addedToast;
+}
+
+function requiredAnkiNoteId(noteId: number | undefined): number {
+    if (typeof noteId !== 'number' || !Number.isFinite(noteId)) throw userFacingError('ankiNoteNotFound');
+    return noteId;
+}
+
+function activePopoverTrigger(mode: 'modal' | 'hover' | undefined): 'modal' | 'hover' {
+    return mode === 'hover' ? 'hover' : 'modal';
+}
+
+function generatedJitenAudioUrlsForCommand(command: CardCommandCapability, settings: ReaderSettings): string[] {
+    const sentenceId = finitePositiveInteger(command.jitenSentenceId);
     const voices = jitenTtsVoicesForSettings(settings);
     if (sentenceId !== undefined) return voices.map(voice => jitenSentenceTtsUrl(sentenceId, voice));
 
-    const wordId = finitePositiveDatasetInteger(button.dataset.jitenWordId);
-    const readingIndex = finiteNonNegativeDatasetInteger(button.dataset.jitenReadingIndex);
+    const wordId = finitePositiveInteger(command.jitenWordId);
+    const readingIndex = finiteNonNegativeInteger(command.jitenReadingIndex);
     if (wordId === undefined || readingIndex === undefined) return [];
     return voices.map(voice => jitenWordTtsUrl(wordId, readingIndex, voice));
 }
 
-function finitePositiveDatasetInteger(value: string | undefined): number | undefined {
-    const parsed = finiteDatasetInteger(value);
-    return parsed !== undefined && parsed > 0 ? parsed : undefined;
+function finitePositiveInteger(value: number | undefined): number | undefined {
+    if (typeof value !== 'number') return undefined;
+    if (!Number.isInteger(value)) return undefined;
+    return value > 0 ? value : undefined;
 }
 
-function finiteNonNegativeDatasetInteger(value: string | undefined): number | undefined {
-    const parsed = finiteDatasetInteger(value);
-    return parsed !== undefined && parsed >= 0 ? parsed : undefined;
-}
-
-function finiteDatasetInteger(value: string | undefined): number | undefined {
-    if (!value) return undefined;
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && Number.isFinite(parsed) ? parsed : undefined;
+function finiteNonNegativeInteger(value: number | undefined): number | undefined {
+    if (typeof value !== 'number') return undefined;
+    if (!Number.isInteger(value)) return undefined;
+    return value >= 0 ? value : undefined;
 }
 
 function uniqueTrimmed(values: string[]): string[] {
@@ -882,19 +968,36 @@ function ankiMergeToast(result: AnkiMergeYomuResult, settings: ReaderSettings): 
     return formatUiText(language, 'ankiMergeComplete', { parts: uiList(language, parts) });
 }
 
-function selectedAnkiAudioMergeMode(button: HTMLButtonElement): AnkiAudioMergeMode {
-    const value = button.closest('.jpdb-reader-anki-card-preview')
-        ?.querySelector<HTMLSelectElement>('[data-anki-audio-merge]')
-        ?.value;
-    return value === 'theirs' || value === 'ours' ? value : 'both';
+function selectedAnkiAudioMergeMode(button: HTMLButtonElement, command: CardCommandCapability): AnkiAudioMergeMode {
+    const option = selectedOption(button, '.jpdb-reader-anki-card-preview', '[data-anki-audio-merge]');
+    const selected = readAnkiAudioMergeCapability(option);
+    if (selected) return selected.mode;
+    return command.audioMergeMode ?? 'both';
 }
 
-function selectedPopoverReviewTarget(button: HTMLButtonElement): PopoverReviewTargetSelection {
-    const select = button.closest('.jpdb-reader-actions')?.querySelector<HTMLSelectElement>('[data-review-target-select]');
-    const option = select?.options[select.selectedIndex] ?? null;
-    const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
-    const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
-    return { kind: target, ankiCardId };
+function selectedPopoverReviewTarget(button: HTMLButtonElement, command: CardCommandCapability): PopoverReviewTargetSelection {
+    const option = selectedOption(button, '.jpdb-reader-actions', '[data-review-target-select]');
+    const selected = readReviewTargetCapability(option);
+    return {
+        kind: reviewTargetKind(selectedReviewTarget(selected, command)),
+        ankiCardId: selectedReviewAnkiCardId(selected, command),
+    };
+}
+
+function selectedOption(button: HTMLButtonElement, rootSelector: string, selectSelector: string): HTMLOptionElement | null {
+    const root = button.closest(rootSelector);
+    if (!root) return null;
+    const select = root.querySelector<HTMLSelectElement>(selectSelector);
+    if (!select) return null;
+    return select.options[select.selectedIndex] ?? null;
+}
+
+function selectedReviewTarget(selected: ReturnType<typeof readReviewTargetCapability>, command: CardCommandCapability): string | undefined {
+    return selected ? selected.target : command.reviewTarget;
+}
+
+function selectedReviewAnkiCardId(selected: ReturnType<typeof readReviewTargetCapability>, command: CardCommandCapability): number | undefined {
+    return selected ? selected.ankiCardId : command.ankiCardId;
 }
 
 function exactCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
@@ -925,11 +1028,6 @@ function isAnkiDeckState(state: ApiSrsDeckState): state is ApiSrsToggleDeckState
     return state === 'never-forget' || state === 'blacklisted';
 }
 
-function positiveNumber(value: string | undefined): number | undefined {
-    const number = Number(value);
-    return Number.isFinite(number) && number > 0 ? number : undefined;
-}
-
 function ankiSourceTitle(sourceTitle: string | undefined): string {
     return sourceTitle || document.title;
 }
@@ -938,26 +1036,12 @@ function ankiSourceUrl(sourceUrl: string | undefined): string {
     return sourceUrl || location.href;
 }
 
-function selectedDeckChoice(button: HTMLButtonElement, settings: ReaderSettings): SelectedDeckChoice {
-    const source = selectedDeckSource(button);
+function selectedDeckChoice(command: CardCommandCapability, settings: ReaderSettings): SelectedDeckChoice {
+    const source = command.deckSource ?? 'jpdb';
     return {
         source,
-        id: selectedDeckId(button, settings, source),
+        id: command.deckId?.trim() || defaultDeckIdForSource(source, settings),
     };
-}
-
-function selectedDeckSource(button: HTMLButtonElement): SelectedDeckChoice['source'] {
-    if (button.dataset.deckSource === 'anki') return 'anki';
-    if (button.dataset.deckSource === 'jiten') return 'jiten';
-    if (button.dataset.deckSource === 'bunpro') return 'bunpro';
-    if (button.dataset.deckSource === 'yomu-local') return 'yomu-local';
-    return 'jpdb';
-}
-
-function selectedDeckId(button: HTMLButtonElement, settings: ReaderSettings, source: SelectedDeckChoice['source']): string {
-    const id = button.dataset.deckId?.trim();
-    if (id) return id;
-    return defaultDeckIdForSource(source, settings);
 }
 
 function defaultDeckIdForSource(source: SelectedDeckChoice['source'], settings: ReaderSettings): string {

@@ -20,7 +20,8 @@ import {
 } from '../dom/index';
 import { formatUiText } from '../app/i18n';
 import { normalizeOcrScannerLinesInRoot } from './dom-helpers';
-import { refreshRenderedMiningInsights } from '../dom/rendered-word-state';
+import { refreshRenderedMiningInsights, renderedWordsInRoot } from '../dom/rendered-word-state';
+import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 import { activeTargetLanguageDisplayName } from './target-language-name';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
@@ -1124,7 +1125,7 @@ function visiblePageCoverageSummary(): VisiblePageCoverageSummary {
         known: 0,
         unknown: 0,
     };
-    for (const word of document.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-card-id][data-reading-index]')) {
+    for (const word of renderedWordsInRoot(document)) {
         addVisiblePageCoverageWord(summary, word);
     }
     return {
@@ -1143,9 +1144,21 @@ function addVisiblePageCoverageWord(summary: VisiblePageCoverageAccumulator, wor
 }
 
 function visiblePageCoverageCardKey(word: HTMLElement): string {
-    const cardId = word.dataset.cardId || word.dataset.vid || '';
+    const cardId = firstRenderedWordIdentityPart(
+        renderedWordPrivateValue(word, 'cardId'),
+        renderedWordPrivateValue(word, 'vid'),
+    );
     if (!cardId) return '';
-    return `${word.dataset.cardSource || 'jpdb'}:${cardId}/${word.dataset.readingIndex || word.dataset.sid || ''}`;
+    const source = firstRenderedWordIdentityPart(renderedWordPrivateValue(word, 'cardSource'), 'jpdb');
+    const readingIndex = firstRenderedWordIdentityPart(
+        renderedWordPrivateValue(word, 'readingIndex'),
+        renderedWordPrivateValue(word, 'sid'),
+    );
+    return `${source}:${cardId}/${readingIndex}`;
+}
+
+function firstRenderedWordIdentityPart(...parts: Array<string | undefined>): string {
+    return parts.find(Boolean) ?? '';
 }
 
 function countVisiblePageCoverageCard(summary: VisiblePageCoverageAccumulator, word: HTMLElement, key: string): void {

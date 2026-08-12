@@ -11,7 +11,7 @@ import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
-import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
+import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, redactedApiCredentialsFromForm } from './api-credential';
 import { CUSTOM_FONT_FAMILY_VALUE, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { FONT_FAMILY_PRESETS } from './font-presets';
@@ -65,6 +65,7 @@ import { renderLocalDictionaryStorageControls } from './local-dictionary-storage
 import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
 import { localizeCatalogBrowse } from './catalog-browse-localization';
 import { renderRecommendedDictionaries } from './dictionary-recommendations-view';
+import { PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, storedCredentialClearName } from './credential-form';
 
 export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -328,19 +329,20 @@ function colorSourceSelectOptions(text: SettingsText): Array<[string, string, st
     ];
 }
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
-const API_KEY_INPUT_ATTRIBUTES = {
-    autocapitalize: 'off',
-    autocorrect: 'off',
-    spellcheck: 'false',
-    enterkeyhint: 'done',
-    'data-1p-ignore': 'true',
-    'data-lpignore': 'true',
-    'data-bwignore': 'true',
-    'data-protonpass-ignore': 'true',
-    'data-form-type': 'other',
-} as const;
-const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+function protectedCredentialInput(
+    name: string, label: string, storedValue: string, language: InterfaceLanguage, emptyPlaceholder = '',
+): string {
+    const configured = Boolean(storedValue.trim());
+    const field = input(name, label, '', 'text', {
+        ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
+        class: 'jpdb-reader-masked-input',
+        placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : emptyPlaceholder,
+        ...(configured ? { 'data-stored-credential-placeholder': 'true' } : {}),
+    });
+    if (!configured) return field;
+    return `<div class="jpdb-reader-protected-credential" data-stored-credential="true">${field}<label class="inline"><input name="${escapeHtml(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language, 'clearStoredCredential')}</span></label></div>`;
+}
 const NEW_TAB_STUDY_STEP_LABEL_KEYS: Record<NewTabStudyChallengeStep, SettingsTextKey> = {
     'kanji-doodle': 'newTabStudyStepKanji',
     word: 'newTabStudyStepWord',
@@ -536,50 +538,56 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
     `;
 }
 
-function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
-    const language = settings.interfaceLanguage;
-    const text = settingsText(language);
-    const jpdbStatus = renderJpdbStatusLine(settings);
-    const bunproStatus = renderBunproStatusLine(settings);
-    const wanikaniStatus = renderWanikaniStatusLine(settings);
+function renderApiMiningControls(settings: ReaderSettings, text = settingsText(settings.interfaceLanguage)): string {
     return `
-            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
-                <legend>${escapedUiText(language, 'api')}</legend>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'apiAccess')}</div>
-                    <div class="grid">
-                        ${input('apiCredentialJiten', `${escapedUiText(language, 'apiCredentialJiten')} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jitenSettings')}</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
-                        ${input('apiCredentialJpdb', `${escapedUiText(language, 'apiCredentialJpdb')} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jpdbSettings')}</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
-                        ${input('apiCredentialBunpro', `${escapedUiText(language, 'apiCredentialBunpro')} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'bunproSettings')}</a>`, settings.bunproFrontendApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'frontend_api_token' })}
-                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
-                        ${input('apiCredentialWanikani', `${escapedUiText(language, 'apiCredentialWanikani')} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'wanikaniSettings')}</a>`, settings.wanikaniApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'wanikani personal access token' })}
-                    </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
-                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, 'wanikaniTokenHelp')}</div>
-                </div>
-                ${jpdbStatus}
-                ${bunproStatus}
-                ${wanikaniStatus}
-                <div data-jpdb-decks>
-                    ${renderJpdbDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
-                </div>
                 ${checkbox('jpdbMiningEnabled', text('jpdbMiningEnabled'), settings.jpdbMiningEnabled)}
                 ${checkbox('bunproMiningEnabled', text('bunproMiningEnabled'), settings.bunproMiningEnabled)}
                 ${checkbox('wanikaniReviewEnabled', text('wanikaniReviewEnabled'), settings.wanikaniReviewEnabled)}
-                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(language, 'wanikaniGradeMappingHelp')}</div>
+                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(settings.interfaceLanguage, 'wanikaniGradeMappingHelp')}</div>
                 ${checkbox('addToForq', text('addToForq'), settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox('enableReviews', text('enableReviews'), settings.enableReviews)}
                 ${select('apiGradingProvider', text('apiGradingProvider'), settings.apiGradingProvider === 'bunpro' ? 'jiten' : settings.apiGradingProvider, [['jiten', 'Jiten'], ['jpdb', 'JPDB']])}
-                <div class="jpdb-reader-help" data-grading-provider-help>${escapedUiText(language, 'apiGradingProviderHelp')}</div>
+                <div class="jpdb-reader-help" data-grading-provider-help>${escapedUiText(settings.interfaceLanguage, 'apiGradingProviderHelp')}</div>`;
+}
+
+function renderJpdbPageEnhancementControls(settings: ReaderSettings, text = settingsText(settings.interfaceLanguage)): string {
+    return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'jpdbPageEnhancements')}</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(settings.interfaceLanguage, 'jpdbPageEnhancements')}</div>
                     <div class="grid">
                         ${checkbox('jpdbPageEnhancementsEnabled', text('jpdbPageEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled)}
                         ${checkbox('jpdbPageWordEnhancementsEnabled', text('jpdbPageWordEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox('jpdbPageKanjiEnhancementsEnabled', text('jpdbPageKanjiEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
                     <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
+                </div>`;
+}
+
+function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
+    const language = settings.interfaceLanguage;
+    return `
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
+                <legend>${escapedUiText(language, 'api')}</legend>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'apiAccess')}</div>
+                    <div class="grid">
+                        ${protectedCredentialInput('apiCredentialJiten', `${escapedUiText(language, 'apiCredentialJiten')} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jitenSettings')}</a>`, effectiveJitenApiKey(settings), language)}
+                        ${protectedCredentialInput('apiCredentialJpdb', `${escapedUiText(language, 'apiCredentialJpdb')} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jpdbSettings')}</a>`, effectiveJpdbApiKey(settings), language)}
+                        ${protectedCredentialInput('apiCredentialBunpro', `${escapedUiText(language, 'apiCredentialBunpro')} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'bunproSettings')}</a>`, settings.bunproFrontendApiToken, language, 'frontend_api_token')}
+                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
+                        ${protectedCredentialInput('apiCredentialWanikani', `${escapedUiText(language, 'apiCredentialWanikani')} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'wanikaniSettings')}</a>`, settings.wanikaniApiToken, language, 'wanikani personal access token')}
+                    </div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
+                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, 'wanikaniTokenHelp')}</div>
                 </div>
+                ${renderJpdbStatusLine(settings)}
+                ${renderBunproStatusLine(settings)}
+                ${renderWanikaniStatusLine(settings)}
+                <div data-jpdb-decks>
+                    ${renderJpdbDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
+                </div>
+                ${renderApiMiningControls(settings)}
+                ${renderJpdbPageEnhancementControls(settings)}
             </fieldset>
     `;
 }
@@ -1087,7 +1095,7 @@ function renderNadeshikoApiKeyField(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? '' : 'hidden'}>
-                        ${input('nadeshikoApiKey', `${escapedUiText(language, 'nadeshikoApiKey')} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'getNadeshikoKey'))}</a>`, settings.nadeshikoApiKey, 'text', { class: 'jpdb-reader-masked-input' })}
+                        ${protectedCredentialInput('nadeshikoApiKey', `${escapedUiText(language, 'nadeshikoApiKey')} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'getNadeshikoKey'))}</a>`, settings.nadeshikoApiKey, language)}
                     </div>`;
 }
 
@@ -1216,7 +1224,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', text('ocrEngine'), settings.ocrEngine, ocrEngineOptions(text))}</div>
                     <label data-local-ocr ${localOcrHidden}>${escapedUiText(language, 'ocrEndpointUrl')}<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">${escapedUiText(language, 'ocrCloudHelp')}</div>
-                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language, 'cloudVisionApiKey')}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <div data-cloud-ocr ${cloudOcrHidden}>${protectedCredentialInput('ocrCloudVisionApiKey', escapedUiText(language, 'cloudVisionApiKey'), settings.ocrCloudVisionApiKey, language)}</div>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                     <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
@@ -1523,6 +1531,10 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     // relabel into its raw token on a live interface-language switch. Every
     // hand-rolled `key => uiText(language, key)` is a leak site for that (b20).
     const text = settingsText(language);
+    form.querySelectorAll<HTMLInputElement>('[data-stored-credential-placeholder]')
+        .forEach(input => { input.placeholder = text('storedCredentialPlaceholder'); });
+    form.querySelectorAll<HTMLElement>('[data-clear-stored-credential]')
+        .forEach(label => label.replaceChildren(text('clearStoredCredential')));
     withNamedControlIndex(form, () => {
         localizeSettingsShell(form, language, text);
         localizeSettingsLabels(form, text);
@@ -1778,18 +1790,6 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
     });
 }
 
-function apiCredentialSettingsFromForm(form: HTMLFormElement): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
-    const jpdbField = getNamedControl<HTMLInputElement>(form, 'apiCredentialJpdb');
-    const jitenField = getNamedControl<HTMLInputElement>(form, 'apiCredentialJiten');
-    if (jpdbField || jitenField) return mergeApiCredentialValues(jpdbField?.value ?? '', jitenField?.value ?? '');
-    const combined = getNamedControl<HTMLInputElement>(form, 'apiCredential')?.value ?? '';
-    if (combined.trim()) return { apiKey: combined, jitenApiKey: '' };
-    return {
-        apiKey: getNamedControl<HTMLInputElement>(form, 'apiKey')?.value ?? '',
-        jitenApiKey: getNamedControl<HTMLInputElement>(form, 'jitenApiKey')?.value ?? '',
-    };
-}
-
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
@@ -1885,7 +1885,7 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, language: Interface
     setSelectOptionLabels(form, 'parserProvider', localizedOptions(text, PARSER_PROVIDER_OPTIONS));
     setSelectOptionLabels(form, 'newTabSource', newTabSourceOptions(text));
     setSelectOptionLabels(form, 'newTabJpdbReviewMode', localizedOptions(text, NEW_TAB_JPDB_REVIEW_MODE_OPTIONS));
-    setSelectOptionLabels(form, 'newTabKanjiKeywordSource', kanjiKeywordSourceOptions(apiCredentialSettingsFromForm(form), text));
+    setSelectOptionLabels(form, 'newTabKanjiKeywordSource', kanjiKeywordSourceOptions(redactedApiCredentialsFromForm(form), text));
     setSelectOptionLabels(form, 'twoButtonReviews', localizedOptions(text, TWO_BUTTON_REVIEW_OPTIONS));
 }
 

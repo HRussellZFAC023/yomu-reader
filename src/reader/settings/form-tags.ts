@@ -2,6 +2,7 @@ import { escapeHtml, setInnerHtml } from '../dom';
 import { uiText } from '../app/i18n';
 import { uniqueStrings } from '../core/string-utils';
 import type { InterfaceLanguage } from '../app/types';
+import { dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
 
 export function renderAnkiTagsEditor(value: string, language: InterfaceLanguage): string {
     const tags = ankiTagList(value);
@@ -24,22 +25,31 @@ export function updateAnkiTagsEditor(form: HTMLFormElement, action: string, cont
     if (!editor || !hidden) return;
     const language = formInterfaceLanguage(form);
     const tags = ankiTagList(hidden.value);
-    if (action === 'anki-tag-add') {
-        const input = editor.querySelector<HTMLInputElement>('[data-anki-tag-input]');
-        ankiTagList(input?.value ?? '').forEach(tag => {
-            if (!tags.includes(tag)) tags.push(tag);
-        });
-        if (input) input.value = '';
-    } else {
-        const tag = control?.dataset.tag?.trim();
-        if (tag) {
-            const index = tags.indexOf(tag);
-            if (index >= 0) tags.splice(index, 1);
-        }
-    }
+    updateAnkiTagList(editor, tags, action, control);
     hidden.value = tags.join(' ');
-    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    dispatchAuthorizedReaderControlEvent(hidden, new Event('input', { bubbles: true }));
     renderAnkiTagChips(editor, tags, language);
+}
+
+function updateAnkiTagList(editor: HTMLElement, tags: string[], action: string, control: HTMLElement | null | undefined): void {
+    if (action === 'anki-tag-add') {
+        addAnkiTags(editor, tags);
+        return;
+    }
+    removeAnkiTag(tags, control?.dataset.tag?.trim());
+}
+
+function addAnkiTags(editor: HTMLElement, tags: string[]): void {
+    const input = editor.querySelector<HTMLInputElement>('[data-anki-tag-input]');
+    if (!input) return;
+    tags.push(...ankiTagList(input.value).filter(tag => !tags.includes(tag)));
+    input.value = '';
+}
+
+function removeAnkiTag(tags: string[], tag: string | undefined): void {
+    if (!tag) return;
+    const index = tags.indexOf(tag);
+    if (index >= 0) tags.splice(index, 1);
 }
 
 function ankiTagList(value: string): string[] {

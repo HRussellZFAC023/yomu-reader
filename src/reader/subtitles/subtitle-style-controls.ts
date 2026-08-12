@@ -11,6 +11,11 @@ import {
     setStylePropertyIfChanged,
     SUBTITLE_STYLE_FONT_FAMILY_VALUES,
 } from './subtitle-surface';
+import {
+    readSubtitleStyleControlCapability,
+    readSubtitleStyleOptionCapability,
+    type SubtitleStyleSetting,
+} from '../dom/private-command-capabilities';
 
 type SubtitleStyleNumberSetting =
     | 'subtitleNativeBlurStrength'
@@ -19,7 +24,47 @@ type SubtitleStyleNumberSetting =
     | 'subtitleBottomOffset'
     | 'subtitleBackgroundOpacity';
 
-type SubtitleStyleControl = HTMLInputElement | HTMLSelectElement;
+export interface SubtitleStyleControlValue {
+    setting: SubtitleStyleSetting;
+    value: string;
+    checked?: boolean;
+}
+
+/** Resolves a genuine style change through private control/Option authority. */
+export function subtitleStyleControlValueFromTarget(
+    root: HTMLElement | undefined,
+    eventTarget: EventTarget | null,
+): SubtitleStyleControlValue | undefined {
+    const target = subtitleStyleControlTarget(eventTarget);
+    if (!subtitleStyleControlBelongsTo(root, target)) return undefined;
+    const control = readSubtitleStyleControlCapability(target);
+    if (!control) return undefined;
+    if (target instanceof HTMLSelectElement) return selectedSubtitleStyleControl(target, control.setting);
+    return { setting: control.setting, value: target.value, checked: target.checked };
+}
+
+function subtitleStyleControlBelongsTo(
+    root: HTMLElement | undefined,
+    target: HTMLInputElement | HTMLSelectElement | null,
+): target is HTMLInputElement | HTMLSelectElement {
+    return Boolean(target && root?.contains(target));
+}
+
+function subtitleStyleControlTarget(eventTarget: EventTarget | null): HTMLInputElement | HTMLSelectElement | null {
+    if (!(eventTarget instanceof HTMLElement)) return null;
+    return eventTarget.closest<HTMLInputElement | HTMLSelectElement>('[data-subtitle-style-setting]');
+}
+
+function selectedSubtitleStyleControl(
+    target: HTMLSelectElement,
+    setting: SubtitleStyleSetting,
+): SubtitleStyleControlValue | undefined {
+    const option = readSubtitleStyleOptionCapability(target.options[target.selectedIndex]);
+    if (option?.setting !== setting) return undefined;
+    return { setting, value: option.value };
+}
+
+type SubtitleStyleApplier = (settings: ReaderSettings, control: SubtitleStyleControlValue) => readonly (keyof ReaderSettings)[] | undefined;
 
 const NATIVE_DISPLAY_EXPLICIT_KEYS = [
     'subtitleSecondaryVisible',
@@ -64,6 +109,34 @@ function updateNumberSetting(
     return true;
 }
 
+function numberStyleApplier(key: SubtitleStyleNumberSetting, min: number, max: number): SubtitleStyleApplier {
+    return (settings, control) => updateNumberSetting(settings, key, control.value, min, max) ? [key] : undefined;
+}
+
+function booleanStyleApplier(key: 'subtitleHoverPause' | 'subtitleMiningPause'): SubtitleStyleApplier {
+    return (settings, control) => {
+        if (typeof control.checked !== 'boolean' || settings[key] === control.checked) return undefined;
+        settings[key] = control.checked;
+        return [key];
+    };
+}
+
+const SUBTITLE_STYLE_APPLIERS: Record<SubtitleStyleSetting, SubtitleStyleApplier> = {
+    subtitleNativeDisplay: (settings, control) => isNativeSubtitleDisplayMode(control.value) && applyNativeSubtitleDisplayMode(settings, control.value) ? NATIVE_DISPLAY_EXPLICIT_KEYS : undefined,
+    subtitleNativeBlurStrength: numberStyleApplier('subtitleNativeBlurStrength', 4, 20),
+    subtitleFontSize: numberStyleApplier('subtitleFontSize', 16, 64),
+    subtitleFontWeight: numberStyleApplier('subtitleFontWeight', 300, 900),
+    subtitleBackgroundOpacity: numberStyleApplier('subtitleBackgroundOpacity', 0, 0.7),
+    subtitleFontFamily: (settings, control) => {
+        const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
+        if (settings.subtitleFontFamily === next) return undefined;
+        settings.subtitleFontFamily = next;
+        return ['subtitleFontFamily'];
+    },
+    subtitleHoverPause: booleanStyleApplier('subtitleHoverPause'),
+    subtitleMiningPause: booleanStyleApplier('subtitleMiningPause'),
+};
+
 /**
  * Applies one style-popover control and returns the settings keys that must be
  * protected from stale whole-settings writers. An undefined result means the
@@ -71,43 +144,9 @@ function updateNumberSetting(
  */
 export function applySubtitleStyleControl(
     settings: ReaderSettings,
-    control: SubtitleStyleControl,
+    control: SubtitleStyleControlValue,
 ): readonly (keyof ReaderSettings)[] | undefined {
-    const setting = control.dataset.subtitleStyleSetting;
-    if (setting === 'subtitleNativeDisplay' && isNativeSubtitleDisplayMode(control.value)) {
-        return applyNativeSubtitleDisplayMode(settings, control.value) ? NATIVE_DISPLAY_EXPLICIT_KEYS : undefined;
-    }
-    if (setting === 'subtitleNativeBlurStrength') {
-        return updateNumberSetting(settings, setting, control.value, 4, 20) ? [setting] : undefined;
-    }
-    if (setting === 'subtitleFontSize') {
-        return updateNumberSetting(settings, setting, control.value, 16, 64) ? [setting] : undefined;
-    }
-    if (setting === 'subtitleFontWeight') {
-        return updateNumberSetting(settings, setting, control.value, 300, 900) ? [setting] : undefined;
-    }
-    if (setting === 'subtitleBackgroundOpacity') {
-        return updateNumberSetting(settings, setting, control.value, 0, 0.7) ? [setting] : undefined;
-    }
-    if (setting === 'subtitleFontFamily') {
-        const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value)
-            ? control.value
-            : settings.subtitleFontFamily;
-        if (settings.subtitleFontFamily === next) return undefined;
-        settings.subtitleFontFamily = next;
-        return [setting];
-    }
-    if (setting === 'subtitleHoverPause' && control instanceof HTMLInputElement) {
-        if (settings.subtitleHoverPause === control.checked) return undefined;
-        settings.subtitleHoverPause = control.checked;
-        return [setting];
-    }
-    if (setting === 'subtitleMiningPause' && control instanceof HTMLInputElement) {
-        if (settings.subtitleMiningPause === control.checked) return undefined;
-        settings.subtitleMiningPause = control.checked;
-        return [setting];
-    }
-    return undefined;
+    return SUBTITLE_STYLE_APPLIERS[control.setting](settings, control);
 }
 
 /**

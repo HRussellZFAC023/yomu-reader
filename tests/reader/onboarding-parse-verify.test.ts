@@ -8,10 +8,12 @@ describe('OnboardingController furigana parse wiring', () => {
     afterEach(() => {
         document.body.innerHTML = '';
         localStorage.clear();
+        vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 
     it('opts the welcome panel into the nested furigana + pitch parse', async () => {
+        useOwnedOnboardingSurface();
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'ja' };
         const parseJapanese = vi.fn();
         const controller = new OnboardingController({
@@ -42,6 +44,7 @@ describe('OnboardingController furigana parse wiring', () => {
     });
 
     it('opens lookup for parsed welcome words without stealing action button clicks', async () => {
+        useOwnedOnboardingSurface();
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'ja' };
         const lookupText = vi.fn();
         let resolveSettingsOpened!: () => void;
@@ -87,6 +90,10 @@ describe('OnboardingController furigana parse wiring', () => {
         expect(settings.onboardingSeen).toBe(true);
     });
 });
+
+function useOwnedOnboardingSurface(): void {
+    vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+}
 
 function chooseTarget(target: string): void {
     const select = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;

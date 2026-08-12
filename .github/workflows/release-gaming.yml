@@ -44,8 +44,11 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: '.nvmrc'
           cache: npm
+
+      - name: Pin npm for reproducible release builds
+        run: npm install --global npm@11.9.0
 
       - run: npm ci
 

@@ -8,6 +8,7 @@ import { renderStudyEmpty, renderStudyMeaningBlock } from './section-render';
 import type { InterfaceLanguage } from '../app/types';
 import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 import { localeDirection } from '../languages/locale';
+import type { CardCommandCapability } from '../dom/private-command-capabilities';
 
 const log = Logger.scope('StudyRender');
 
@@ -83,21 +84,36 @@ function resolvedGrammarHints(sentence: string, grammarHints: GrammarHint[] | un
     return grammarHints ?? detectGrammarHints(sentence);
 }
 
-export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string, language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): boolean {
+export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string, language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean; command?: CardCommandCapability } = {}): boolean {
     if (!sentence) return false;
-    if (button.dataset.action === 'study-grammar-toggle-known') {
-        const ruleId = button.dataset.grammarRuleId;
-        if (!ruleId) return false;
-        setGrammarRuleKnown(ruleId, button.dataset.grammarKnown !== 'true');
-        void rerenderGrammarPanel(button, sentence, language, options);
-        return true;
-    }
-    if (button.dataset.action === 'study-grammar-toggle-known-visibility') {
-        setKnownGrammarVisible(button.getAttribute('aria-pressed') !== 'true');
-        void rerenderGrammarPanel(button, sentence, language, options);
-        return true;
-    }
-    return false;
+    return performStudyGrammarCommand(button, sentence, language, options);
+}
+
+type StudyGrammarCommandHandler = (button: HTMLButtonElement, sentence: string, language: InterfaceLanguage, options: { audioEnabled?: boolean; command?: CardCommandCapability }) => boolean;
+
+const STUDY_GRAMMAR_COMMAND_HANDLERS: Partial<Record<CardCommandCapability['action'], StudyGrammarCommandHandler>> = {
+    'study-grammar-toggle-known': (button, sentence, language, options) => toggleKnownGrammarRule(button, sentence, language, options),
+    'study-grammar-toggle-known-visibility': (button, sentence, language, options) => toggleKnownGrammarVisibility(button, sentence, language, options),
+};
+
+function performStudyGrammarCommand(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage, options: { audioEnabled?: boolean; command?: CardCommandCapability }): boolean {
+    if (!options.command) return false;
+    const handler = STUDY_GRAMMAR_COMMAND_HANDLERS[options.command.action];
+    return handler ? handler(button, sentence, language, options) : false;
+}
+
+function toggleKnownGrammarRule(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage, options: { audioEnabled?: boolean; command?: CardCommandCapability }): boolean {
+    const ruleId = options.command?.grammarRuleId;
+    if (!ruleId) return false;
+    setGrammarRuleKnown(ruleId, options.command?.grammarKnown !== true);
+    void rerenderGrammarPanel(button, sentence, language, options);
+    return true;
+}
+
+function toggleKnownGrammarVisibility(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage, options: { audioEnabled?: boolean }): boolean {
+    setKnownGrammarVisible(button.getAttribute('aria-pressed') !== 'true');
+    void rerenderGrammarPanel(button, sentence, language, options);
+    return true;
 }
 
 async function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage, options: { audioEnabled?: boolean }): Promise<void> {

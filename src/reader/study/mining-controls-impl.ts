@@ -1,7 +1,9 @@
 import type { JPDBCard } from '../app/types';
+import { readDeckChoiceCapability, type CardCommandCapability } from '../dom/private-command-capabilities';
+import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 
 type MiningControlLabel = (expanded: boolean) => string;
-type MiningCardAction = (button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined) => Promise<void> | void;
+type MiningCardAction = (button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void> | void;
 
 const MINING_ACTIONS_CLASS = 'jpdb-reader-actions';
 const MINING_COLLAPSED_CLASS = 'jpdb-reader-actions-mining-collapsed';
@@ -43,15 +45,21 @@ export function openDeckPickerForCardAdd(
 
     const controller = new AbortController();
     const cleanup = (): void => closeDeckPicker(picker, wrapper, toggle, controller);
-    picker.addEventListener('change', () => {
+    picker.addEventListener('change', trustedReaderEventHandler(() => {
         const option = picker.selectedOptions[0];
-        const deckId = option?.dataset.deckId?.trim();
-        if (!deckId) {
+        const deck = readDeckChoiceCapability(option);
+        if (!deck?.id) {
             cleanup();
             return;
         }
-        performDeckPickerCardAction(button, card, sentence, option, cleanup, performAction);
-    }, { signal: controller.signal });
+        cleanup();
+        void performAction(button, card, sentence, {
+            kind: 'card-action',
+            action: 'add',
+            deckSource: deck.source,
+            deckId: deck.id,
+        });
+    }), { signal: controller.signal });
     picker.addEventListener('blur', () => {
         window.setTimeout(() => {
             if (document.activeElement !== picker) cleanup();
@@ -66,32 +74,6 @@ function deckPickerForButton(button: HTMLButtonElement): HTMLSelectElement | nul
     return button
         .closest<HTMLElement>('.jpdb-reader-mining-details')
         ?.querySelector<HTMLSelectElement>('[data-add-deck-select]') ?? null;
-}
-
-function performDeckPickerCardAction(
-    button: HTMLButtonElement,
-    card: JPDBCard,
-    sentence: string | undefined,
-    option: HTMLOptionElement,
-    cleanup: () => void,
-    performAction: MiningCardAction,
-): void {
-    button.dataset.deckSource = selectedDeckSource(option.dataset.deckSource);
-    button.dataset.deckId = option.dataset.deckId?.trim() ?? '';
-    const originalAction = button.dataset.action;
-    button.dataset.action = 'add';
-    cleanup();
-    void Promise.resolve(performAction(button, card, sentence)).finally(() => {
-        if (originalAction) button.dataset.action = originalAction;
-        else delete button.dataset.action;
-        delete button.dataset.deckSource;
-        delete button.dataset.deckId;
-    });
-}
-
-function selectedDeckSource(value: string | undefined): 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki' {
-    if (value === 'anki' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local') return value;
-    return 'jpdb';
 }
 
 function closeDeckPicker(

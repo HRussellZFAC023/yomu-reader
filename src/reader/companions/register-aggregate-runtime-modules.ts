@@ -32,10 +32,12 @@ import {
     firstChangedTouch,
     getContainedClosest,
 } from '../popup/handle-drag';
+import * as deinflection from '../lookup/deinflect';
 import * as settings from '../settings';
 import { registerAggregateRuntimeModules } from './aggregate-runtime-modules';
 
 registerAggregateRuntimeModules({
+    deinflection,
     settings,
     tokenTextRendering: {
         PITCH_CLASSES,

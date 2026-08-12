@@ -7,6 +7,7 @@ import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import type { JitenVocabularyDefinition, JitenVocabularyExample, JitenVocabularyInfo, JitenVocabularyReading, JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
 import { renderAnnotatedReadingRuby, renderPassiveReference } from '../sources/passive-reference';
+import { privateCommandAttributes, type CardCommandCapability } from '../dom/private-command-capabilities';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 interface JitenMeaningGroup {
@@ -185,24 +186,42 @@ function renderJitenRelatedWords(
 
 function renderJitenRelatedWord(entry: JitenVocabularyWordSummary, language: InterfaceLanguage): string {
     const lookup = cleanJitenWordSurface(entry);
-    const reading = jitenAnnotatedKana(entry.readingFurigana) || cleanJitenAnnotatedText(entry.reading);
+    const reading = jitenRelatedWordReading(entry);
+    return `
+        <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
+            ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry), { kind: 'card-action', action: 'jiten-audio', sentence: lookup, audioUrls: entry.audioUrls, jitenWordId: entry.wordId, jitenReadingIndex: entry.readingIndex })}
+            <span class="jpdb-reader-jpdb-used-in-main jpdb-reader-jiten-related-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-jiten-related-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(lookup)}" data-dictionary-reading="${escapeHtml(reading)}" data-dictionary="Jiten" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${renderJitenRelatedReference(entry, lookup, reading)}</span>
+                </a>
+                ${renderJitenRelatedMeta(entry)}
+            </span>
+        </li>
+    `;
+}
+
+function jitenRelatedWordReading(entry: JitenVocabularyWordSummary): string {
+    return jitenAnnotatedKana(entry.readingFurigana) || cleanJitenAnnotatedText(entry.reading);
+}
+
+function renderJitenRelatedReference(entry: JitenVocabularyWordSummary, lookup: string, reading: string): string {
     const reference = renderPassiveJitenReference({
         text: lookup,
         reading,
         wordId: entry.wordId,
         readingIndex: entry.readingIndex,
     }, { annotatedReading: entry.readingFurigana });
-    return `
-        <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
-            ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry))}
-            <span class="jpdb-reader-jpdb-used-in-main jpdb-reader-jiten-related-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-jiten-related-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(lookup)}" data-dictionary-reading="${escapeHtml(reading)}" data-dictionary="Jiten" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${reference || renderJitenAnnotatedReading(entry.readingFurigana || entry.reading)}</span>
-                </a>
-                ${entry.frequencyRank ? `<small>#${escapeHtml(String(entry.frequencyRank))}${entry.mainDefinition ? ` · ${escapeHtml(entry.mainDefinition)}` : ''}</small>` : entry.mainDefinition ? `<small>${escapeHtml(entry.mainDefinition)}</small>` : ''}
-            </span>
-        </li>
-    `;
+    return reference || renderJitenAnnotatedReading(entry.readingFurigana || entry.reading);
+}
+
+function renderJitenRelatedMeta(entry: JitenVocabularyWordSummary): string {
+    if (!entry.frequencyRank) return renderJitenRelatedDefinition(entry.mainDefinition);
+    const definition = entry.mainDefinition ? ` · ${escapeHtml(entry.mainDefinition)}` : '';
+    return `<small>#${escapeHtml(String(entry.frequencyRank))}${definition}</small>`;
+}
+
+function renderJitenRelatedDefinition(definition: string | undefined): string {
+    return definition ? `<small>${escapeHtml(definition)}</small>` : '';
 }
 
 function renderJitenExamples(examples: JitenVocabularyExample[], sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget, info: JitenVocabularyInfo): string {
@@ -243,12 +262,12 @@ function renderJitenExampleSentence(example: JitenVocabularyExample, card: CardH
     return `${escapeHtml(before)}${targetHtml}${escapeHtml(after)}`;
 }
 
-function renderJitenAudioButton(text: string, language: InterfaceLanguage, extraAttributes = ''): string {
+function renderJitenAudioButton(text: string, language: InterfaceLanguage, extraAttributes = '', command?: CardCommandCapability): string {
     const audioText = text.trim();
     if (!audioText) return '';
     const label = uiText(language, 'playAudio');
     const attrs = extraAttributes ? ` ${extraAttributes}` : '';
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-jiten-audio" type="button" data-action="jiten-audio" data-study-sentence="${escapeHtml(audioText)}"${attrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${speakerIcon()}</button>`;
+    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-jiten-audio" type="button" data-action="jiten-audio" data-study-sentence="${escapeHtml(audioText)}"${attrs}${privateCommandAttributes(command ?? { kind: 'card-action', action: 'jiten-audio', sentence: audioText })} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${speakerIcon()}</button>`;
 }
 
 function renderJitenAnnotatedReading(value: string): string {

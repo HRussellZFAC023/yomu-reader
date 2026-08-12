@@ -23,6 +23,11 @@ if (!library) {
 }
 
 export default defineConfig({
+    // The aggregate runtime carries the 1,637-entry public dictionary catalogue.
+    // Emit that data as native JSON text instead of repeating object-literal
+    // syntax; source stays in the reviewed JSON file and JSON.parse is faster for
+    // a payload this large. Focused companions keep their existing representation.
+    json: { stringify: library.id === 'runtime' },
     define: {
         __YOMU_VERSION__: JSON.stringify(pkg.version),
         __YOMU_EXTENSION_BUILD__: JSON.stringify(false),

@@ -4,8 +4,16 @@ import { definitionSourceStateKey, kanjiSourceStateKey } from '../sources/defini
 import { KANJI_WANIKANI_SOURCE_ID } from '../sources/sections';
 import { WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
 import { WanikaniLookupClient, type WanikaniLookupInfo } from './wanikani-lookup';
-import { primaryMeaning, type WanikaniAudio } from './wanikani-subjects';
+import {
+    primaryMeaning,
+    type WanikaniAudio,
+    type WanikaniAuxiliaryMeaning,
+    type WanikaniMeaning,
+    type WanikaniReading,
+    type WanikaniSubject,
+} from './wanikani-subjects';
 import { renderWanikaniMarkup } from './wanikani-render';
+import { privateCommandAttributes } from '../dom/private-command-capabilities';
 
 type SourceAttributes = (key: string, initiallyExpanded?: boolean) => string;
 
@@ -83,47 +91,124 @@ export class WanikaniSourceController {
 
 export function renderWanikaniSource(info: WanikaniLookupInfo, settings: ReaderSettings, attributes: string, label = 'WaniKani'): string {
     const subject = info.subject;
-    const meanings = subject.meanings.map(item => `${escapeHtml(item.meaning)}${item.primary ? ' <strong>primary</strong>' : ''}${item.acceptedAsCorrect ? '' : ' <small>not accepted</small>'}`).join(', ');
-    const readings = subject.readings.map(item => `${escapeHtml(item.reading)}${item.type ? ` <small>${escapeHtml(item.type)}</small>` : ''}${item.acceptedAsCorrect ? '' : ' <small>not accepted</small>'}`).join(', ');
-    const acceptedAlternatives = subject.auxiliaryMeanings.filter(item => item.type === 'whitelist').map(item => escapeHtml(item.meaning)).join(', ');
-    const blockedAlternatives = subject.auxiliaryMeanings.filter(item => item.type === 'blacklist').map(item => escapeHtml(item.meaning)).join(', ');
-    const synonyms = info.studyMaterial?.meaningSynonyms.map(escapeHtml).join(', ') ?? '';
-    const stage = info.assignment ? wanikaniStageLabel(info.assignment.srsStage) : '';
-    const due = info.assignment?.availableAt ? formatDate(info.assignment.availableAt, settings.interfaceLanguage) : '';
-    const components = renderSubjectLinks('Components', info.components);
-    const similar = renderSubjectLinks('Visually similar', info.visuallySimilar);
-    const related = renderSubjectLinks('Related vocabulary', info.relatedVocabulary);
-    const sentences = subject.contextSentences.map(sentence => `<li><span lang="ja">${escapeHtml(sentence.ja)}</span><br>${escapeHtml(sentence.en)}</li>`).join('');
-    const audio = preferredWanikaniAudio(subject.audio).map((item, index) => `<button type="button" class="jpdb-reader-action-pill" data-action="wanikani-audio" data-audio-url="${escapeHtml(item.url)}" aria-label="Play WaniKani pronunciation ${index + 1}"${item.voiceDescription ? ` title="${escapeHtml(item.voiceDescription)}"` : ''}>▶ ${escapeHtml(item.voiceActorName || `Audio ${index + 1}`)}</button>`).join(' ');
-    const publicDefinitionPayload = [
-        ...subject.meanings.map(item => item.meaning),
-        ...subject.auxiliaryMeanings
-            .filter(item => item.type === 'whitelist' || item.type === 'blacklist')
-            .map(item => item.meaning),
-    ].filter(Boolean).join('\n');
     return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}>
         <summary class="jpdb-reader-local-title">${escapeHtml(label)}</summary>
         <div class="jpdb-reader-local-entry yomu-wanikani-body">
-            <div class="jpdb-reader-meta">Level ${subject.level}${stage ? ` · ${escapeHtml(stage)}` : ''}${due ? ` · due ${escapeHtml(due)}` : ''}${info.reviewStatistic ? ` · ${info.reviewStatistic.percentageCorrect}% correct` : ''}</div>
-            <div class="yomu-wanikani-public-definitions"${publicDefinitionPayload ? ` data-definition-translation-text data-definition-translation-payload="${escapeHtml(publicDefinitionPayload)}"` : ''}>
-                <p><strong>Meanings:</strong> ${meanings}</p>
-                ${acceptedAlternatives ? `<p><strong>Also accepted:</strong> ${acceptedAlternatives}</p>` : ''}
-                ${blockedAlternatives ? `<p><strong>Not accepted:</strong> ${blockedAlternatives}</p>` : ''}
-            </div>
-            ${readings ? `<p><strong>Readings:</strong> ${readings}</p>` : ''}
-            ${synonyms ? `<p><strong>Your synonyms:</strong> ${synonyms}</p>` : ''}
-            ${audio ? `<div class="yomu-wanikani-audio">${audio}</div>` : ''}
+            ${renderWanikaniMeta(info, settings)}
+            ${renderWanikaniPublicDefinitions(subject)}
+            ${renderWanikaniReadings(subject)}
+            ${renderWanikaniSynonyms(info)}
+            ${renderWanikaniAudio(subject.audio)}
             ${renderMnemonic('Meaning mnemonic', subject.meaningMnemonic)}
             ${renderMnemonic('Meaning hint', subject.meaningHint)}
             ${renderMnemonic('Reading mnemonic', subject.readingMnemonic)}
             ${renderMnemonic('Reading hint', subject.readingHint)}
             ${renderNote('Your meaning note', info.studyMaterial?.meaningNote)}
             ${renderNote('Your reading note', info.studyMaterial?.readingNote)}
-            ${components}${similar}${related}
-            ${sentences ? `<div><strong>Context sentences</strong><ul>${sentences}</ul></div>` : ''}
-            ${safeExternalUrl(subject.documentUrl) ? `<p><a href="${escapeHtml(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">Open ${escapeHtml(subject.characters || subject.slug)} on WaniKani</a></p>` : ''}
+            ${renderSubjectLinks('Components', info.components)}
+            ${renderSubjectLinks('Visually similar', info.visuallySimilar)}
+            ${renderSubjectLinks('Related vocabulary', info.relatedVocabulary)}
+            ${renderWanikaniContextSentences(subject)}
+            ${renderWanikaniExternalLink(subject)}
         </div>
     </details>`;
+}
+
+function renderWanikaniMeta(info: WanikaniLookupInfo, settings: ReaderSettings): string {
+    const parts = [
+        `Level ${info.subject.level}`,
+        renderWanikaniStage(info),
+        renderWanikaniDueDate(info, settings),
+        renderWanikaniAccuracy(info),
+    ].filter(Boolean);
+    return `<div class="jpdb-reader-meta">${parts.join(' · ')}</div>`;
+}
+
+function renderWanikaniStage(info: WanikaniLookupInfo): string {
+    return info.assignment ? escapeHtml(wanikaniStageLabel(info.assignment.srsStage)) : '';
+}
+
+function renderWanikaniDueDate(info: WanikaniLookupInfo, settings: ReaderSettings): string {
+    const availableAt = info.assignment?.availableAt;
+    if (!availableAt) return '';
+    const due = formatDate(availableAt, settings.interfaceLanguage);
+    return due ? `due ${escapeHtml(due)}` : '';
+}
+
+function renderWanikaniAccuracy(info: WanikaniLookupInfo): string {
+    return info.reviewStatistic ? `${info.reviewStatistic.percentageCorrect}% correct` : '';
+}
+
+function renderWanikaniPublicDefinitions(subject: WanikaniSubject): string {
+    const payload = wanikaniPublicDefinitionPayload(subject);
+    return `<div class="yomu-wanikani-public-definitions"${wanikaniDefinitionPayloadAttributes(payload)}>
+        <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(', ')}</p>
+        ${renderWanikaniAlternatives('Also accepted', subject.auxiliaryMeanings, 'whitelist')}
+        ${renderWanikaniAlternatives('Not accepted', subject.auxiliaryMeanings, 'blacklist')}
+    </div>`;
+}
+
+function renderWanikaniMeaning(item: WanikaniMeaning): string {
+    const primary = item.primary ? ' <strong>primary</strong>' : '';
+    const accepted = item.acceptedAsCorrect ? '' : ' <small>not accepted</small>';
+    return `${escapeHtml(item.meaning)}${primary}${accepted}`;
+}
+
+function renderWanikaniAlternatives(label: string, items: WanikaniAuxiliaryMeaning[], type: WanikaniAuxiliaryMeaning['type']): string {
+    const values = items.filter(item => item.type === type).map(item => escapeHtml(item.meaning)).join(', ');
+    return renderWanikaniParagraph(label, values);
+}
+
+function wanikaniPublicDefinitionPayload(subject: WanikaniSubject): string {
+    const publicAlternativeTypes = new Set<WanikaniAuxiliaryMeaning['type']>(['whitelist', 'blacklist']);
+    const alternatives = subject.auxiliaryMeanings.filter(item => publicAlternativeTypes.has(item.type));
+    return [...subject.meanings, ...alternatives].map(item => item.meaning).filter(Boolean).join('\n');
+}
+
+function wanikaniDefinitionPayloadAttributes(payload: string): string {
+    return payload ? ` data-definition-translation-text data-definition-translation-payload="${escapeHtml(payload)}"` : '';
+}
+
+function renderWanikaniReadings(subject: WanikaniSubject): string {
+    return renderWanikaniParagraph('Readings', subject.readings.map(renderWanikaniReading).join(', '));
+}
+
+function renderWanikaniReading(item: WanikaniReading): string {
+    const type = item.type ? ` <small>${escapeHtml(item.type)}</small>` : '';
+    const accepted = item.acceptedAsCorrect ? '' : ' <small>not accepted</small>';
+    return `${escapeHtml(item.reading)}${type}${accepted}`;
+}
+
+function renderWanikaniSynonyms(info: WanikaniLookupInfo): string {
+    const synonyms = info.studyMaterial?.meaningSynonyms.map(escapeHtml).join(', ') ?? '';
+    return renderWanikaniParagraph('Your synonyms', synonyms);
+}
+
+function renderWanikaniParagraph(label: string, value: string): string {
+    return value ? `<p><strong>${escapeHtml(label)}:</strong> ${value}</p>` : '';
+}
+
+function renderWanikaniAudio(items: WanikaniAudio[]): string {
+    const audio = preferredWanikaniAudio(items).map(renderWanikaniAudioButton).join(' ');
+    return audio ? `<div class="yomu-wanikani-audio">${audio}</div>` : '';
+}
+
+function renderWanikaniAudioButton(item: WanikaniAudio, index: number): string {
+    const ordinal = index + 1;
+    const title = item.voiceDescription ? ` title="${escapeHtml(item.voiceDescription)}"` : '';
+    const label = item.voiceActorName || `Audio ${ordinal}`;
+    return `<button type="button" class="jpdb-reader-action-pill" data-action="wanikani-audio" data-audio-url="${escapeHtml(item.url)}"${privateCommandAttributes({ kind: 'card-action', action: 'wanikani-audio', audioUrl: item.url })} aria-label="Play WaniKani pronunciation ${ordinal}"${title}>▶ ${escapeHtml(label)}</button>`;
+}
+
+function renderWanikaniContextSentences(subject: WanikaniSubject): string {
+    if (!subject.contextSentences.length) return '';
+    const sentences = subject.contextSentences.map(sentence => `<li><span lang="ja">${escapeHtml(sentence.ja)}</span><br>${escapeHtml(sentence.en)}</li>`).join('');
+    return `<div><strong>Context sentences</strong><ul>${sentences}</ul></div>`;
+}
+
+function renderWanikaniExternalLink(subject: WanikaniSubject): string {
+    if (!safeExternalUrl(subject.documentUrl)) return '';
+    return `<p><a href="${escapeHtml(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">Open ${escapeHtml(subject.characters || subject.slug)} on WaniKani</a></p>`;
 }
 
 function renderLoadingSource(label: string, attributes: string): string {

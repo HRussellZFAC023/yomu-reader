@@ -3,6 +3,7 @@ import { userFacingError } from '../../src/reader/app/user-facing-errors';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
+import { publishSettingsChange, subscribeToSettingsChanges, type SettingsChangeDetail } from '../../src/reader/settings/settings-change-bus';
 import {
     catalogBrowseLanguageSectionsForLearnerLanguage,
     recommendedDictionariesForLearnerLanguage,
@@ -16,6 +17,7 @@ import {
 } from '../../src/reader/settings';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
+import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
@@ -74,7 +76,7 @@ type RefreshableSettingsDialogController = {
     refreshDictionaryStatus: (form: HTMLFormElement) => Promise<void>;
 };
 
-function createSettingsDialog(overrides: Record<string, unknown> = {}): {
+function createSettingsDialog(overrides: Record<string, unknown> = {}, panel?: string): {
     dependencies: Record<string, any>;
     controller: SettingsDialogControllerInstance;
     dismiss: ReturnType<typeof vi.fn>;
@@ -101,7 +103,11 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         ocr: { refresh: vi.fn() },
         youtube: { refresh: vi.fn() },
         createBackdrop: () => document.createElement('div'),
-        mountDialog: (backdrop: HTMLElement, form: HTMLFormElement) => document.body.append(backdrop, form),
+        mountDialog: (backdrop: HTMLElement, surface: HTMLElement) => document.body.append(backdrop, surface),
+        sensitiveSettingsSurface: () => ({
+            trusted: true,
+            launcherUrl: 'https://yomureader.com/study/#settings=api',
+        }),
         dismiss,
         toast: vi.fn(),
         applyTheme: vi.fn(),
@@ -132,7 +138,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         refreshable.refreshDictionaryStatus = vi.fn().mockResolvedValue(undefined);
     }
 
-    controller.open();
+    controller.open(panel);
 
     return {
         controller,
@@ -412,6 +418,122 @@ function importSummary(dictionary: string): ImportSummary {
     };
 }
 
+describe('settings dialog sensitive-surface boundary', () => {
+    afterEach(() => {
+        settingsDialogTestState.useRealLocalization = false;
+        document.body.replaceChildren();
+        localStorage.clear();
+        resetAudioSubSourceDiscoveryForTests();
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+
+    it.each([
+        'https://yomureader.com/study/#settings=api',
+        'moz-extension://yomu/newtab/index.html#settings=api',
+    ])('keeps the offhost page outside authoritative settings and opens only captured %s', (launcherUrl) => {
+        const setSettings = vi.fn();
+        const listDecks = vi.fn();
+        const ping = vi.fn();
+        const isConnected = vi.fn();
+        const summary = vi.fn();
+        const setValue = vi.fn();
+        const open = vi.spyOn(window, 'open').mockReturnValue({ opener: null } as Window);
+        vi.stubGlobal('GM_setValue', setValue);
+        const configured = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-private',
+            jitenApiKey: 'ak_jiten-private',
+            bunproFrontendApiToken: 'bunpro-private',
+            wanikaniApiToken: 'wanikani-private',
+            nadeshikoApiKey: 'nadeshiko-private',
+            ocrCloudVisionApiKey: 'cloud-private',
+        };
+        const { dependencies } = createSettingsDialog({
+            getSettings: () => configured,
+            setSettings,
+            sensitiveSettingsSurface: () => ({ trusted: false, launcherUrl }),
+            jpdb: { clear: vi.fn(), listDecks, ping },
+            anki: { isConnected },
+            dictionaries: { summary },
+        }, 'backup');
+        const surface = document.querySelector<HTMLElement>('[data-sensitive-settings-launcher]')!;
+        const launcher = surface.querySelector<HTMLButtonElement>('[data-trusted-settings-launcher]')!;
+
+        expect(surface).not.toBeNull();
+        expect(document.querySelector('form')).toBeNull();
+        expect(surface.querySelectorAll('input, select, textarea, output')).toHaveLength(0);
+        expect(surface.innerHTML).not.toContain('type="file"');
+        for (const secret of [
+            configured.apiKey,
+            configured.jitenApiKey,
+            configured.bunproFrontendApiToken,
+            configured.wanikaniApiToken,
+            configured.nadeshikoApiKey,
+            configured.ocrCloudVisionApiKey,
+        ]) expect(surface.innerHTML).not.toContain(secret);
+
+        surface.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        surface.dispatchEvent(new Event('input', { bubbles: true }));
+        surface.dispatchEvent(new Event('change', { bubbles: true }));
+        allowSyntheticReaderInteractionsForTests(false);
+        launcher.click();
+        expect(open).not.toHaveBeenCalled();
+
+        launcher.setAttribute('formaction', 'https://attacker.example/phish');
+        launcher.dataset.target = 'https://attacker.example/phish';
+        launcher.textContent = 'Attacker settings';
+        allowSyntheticReaderInteractionsForTests(true);
+        launcher.click();
+
+        expect(open).toHaveBeenCalledOnce();
+        const expectedUrl = new URL(launcherUrl);
+        expectedUrl.hash = '#settings=backup';
+        expect(open).toHaveBeenCalledWith(expectedUrl.href, '_blank', 'noopener');
+        expect(setSettings).not.toHaveBeenCalled();
+        expect(setValue).not.toHaveBeenCalled();
+        expect(listDecks).not.toHaveBeenCalled();
+        expect(ping).not.toHaveBeenCalled();
+        expect(isConnected).not.toHaveBeenCalled();
+        expect(summary).not.toHaveBeenCalled();
+        expect(dependencies.beginSettingsPreview).not.toHaveBeenCalled();
+    });
+
+    it('keeps the full account, import, and recovery flow on a trusted Study surface', () => {
+        const configured = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-private',
+            jitenApiKey: 'ak_jiten-private',
+            bunproFrontendApiToken: 'bunpro-private',
+            wanikaniApiToken: 'wanikani-private',
+            nadeshikoApiKey: 'nadeshiko-private',
+            ocrCloudVisionApiKey: 'cloud-private',
+        };
+        const { form } = createSettingsDialog({
+            getSettings: () => configured,
+            sensitiveSettingsSurface: () => ({
+                trusted: true,
+                launcherUrl: 'moz-extension://yomu/newtab/index.html#settings=api',
+            }),
+        }, 'backup');
+
+        expect(form).toBeInstanceOf(HTMLFormElement);
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="backup"]')?.getAttribute('aria-selected')).toBe('true');
+        for (const name of [
+            'apiCredentialJpdb',
+            'apiCredentialJiten',
+            'apiCredentialBunpro',
+            'apiCredentialWanikani',
+            'nadeshikoApiKey',
+            'ocrCloudVisionApiKey',
+        ]) expect(form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.value).toBe('');
+        expect(form.querySelector<HTMLInputElement>('[data-academy-pairing-code]')).not.toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[data-file="settings"]')).not.toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[data-file="dictionary"]')).not.toBeNull();
+        expect(form.querySelector<HTMLOutputElement>('[data-academy-recovery-code]')).not.toBeNull();
+    });
+});
+
 describe('settings dialog keyboard dismissal', () => {
     afterEach(() => {
         settingsDialogTestState.useRealLocalization = false;
@@ -440,6 +562,24 @@ describe('settings dialog keyboard dismissal', () => {
         expect(opener.hasAttribute('aria-hidden')).toBe(false);
         expect((opener as HTMLElement & { inert?: boolean }).inert).not.toBe(true);
         expect(document.activeElement).toBe(opener);
+    });
+
+    it('rejects a host-page requestSubmit without a preceding Reader gesture', async () => {
+        const onSettingsPersisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({ onSettingsPersisted });
+        allowSyntheticReaderInteractionsForTests(false);
+
+        try {
+            form.requestSubmit();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(onSettingsPersisted).not.toHaveBeenCalled();
+            expect(dismiss).not.toHaveBeenCalled();
+            expect(form.isConnected).toBe(true);
+        } finally {
+            allowSyntheticReaderInteractionsForTests(true);
+        }
     });
 
     it('does not keep refreshing parsed settings text after cancel closes the dialog', async () => {
@@ -613,9 +753,7 @@ describe('settings dialog keyboard dismissal', () => {
                 languageProfiles: [profile],
                 activeLanguageProfileId: profile.id,
             };
-            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-                detail: { settings: current },
-            }));
+            publishSettingsChange({ settings: current });
 
             const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
             const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
@@ -688,16 +826,14 @@ describe('settings dialog keyboard dismissal', () => {
             setSettings: (settings: ReaderSettings) => { current = settings; },
         });
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: {
-                settings: {
-                    languageProfiles: current.languageProfiles.map(profile => ({
-                        ...profile,
-                        targetLanguage: 'yue-Hant',
-                    })),
-                },
+        publishSettingsChange({
+            settings: {
+                languageProfiles: current.languageProfiles.map(profile => ({
+                    ...profile,
+                    targetLanguage: 'yue-Hant',
+                })),
             },
-        }));
+        });
 
         const portableIds = new Set([custom.id, localFrequency.id]);
         const providerIds = lookupPillIds(form).filter(id => !portableIds.has(id));
@@ -734,9 +870,7 @@ describe('settings dialog keyboard dismissal', () => {
         });
         expect(reordered.map(link => link.id)).toEqual(current.dictionaryLookupLinks.map(link => link.id));
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: { settings: { dictionaryLookupLinks: reordered } },
-        }));
+        publishSettingsChange({ settings: { dictionaryLookupLinks: reordered } });
 
         expect(lookupPillIds(form).indexOf('spanishdict')).toBeLessThan(lookupPillIds(form).indexOf('rae'));
         expect(lookupPillUrlInput(form, 'rae').value).toBe('https://dle.rae.es/{query}');
@@ -772,19 +906,15 @@ describe('settings dialog keyboard dismissal', () => {
         expect(normalized.dictionaryLookupLinks.map(link => link.id)).toContain('nadeshiko');
         expect(normalized.dictionaryLookupLinks.find(link => link.id === 'jisho')?.urlTemplate)
             .toBe('https://jisho.org/search/{query}');
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: { settings: normalized },
-        }));
+        publishSettingsChange({ settings: normalized });
         expect(lookupPillIds(form)).toEqual(liveReorder);
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: {
-                settings: {
-                    ...normalized,
-                    dictionaryLookupLinks: [...normalized.dictionaryLookupLinks].reverse(),
-                },
+        publishSettingsChange({
+            settings: {
+                ...normalized,
+                dictionaryLookupLinks: [...normalized.dictionaryLookupLinks].reverse(),
             },
-        }));
+        });
         expect(lookupPillIds(form)).toEqual(liveReorder);
 
         target.value = 'es';
@@ -807,24 +937,20 @@ describe('settings dialog keyboard dismissal', () => {
             expect(definitionTranslationInput(form, '__jiten__').checked).toBe(true);
         };
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: { settings: { theme: 'dark' } },
-        }));
+        publishSettingsChange({ settings: { theme: 'dark' } });
         expectUnsavedFacets();
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: {
-                settings: {
-                    ...current,
-                    sheetCloseButtonOnLeft: !current.sheetCloseButtonOnLeft,
-                    languageProfiles: current.languageProfiles.map(profile => ({
-                        ...profile,
-                        definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds],
-                    })),
-                    dictionaryLookupLinks: current.dictionaryLookupLinks.map(link => ({ ...link })),
-                },
+        publishSettingsChange({
+            settings: {
+                ...current,
+                sheetCloseButtonOnLeft: !current.sheetCloseButtonOnLeft,
+                languageProfiles: current.languageProfiles.map(profile => ({
+                    ...profile,
+                    definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds],
+                })),
+                dictionaryLookupLinks: current.dictionaryLookupLinks.map(link => ({ ...link })),
             },
-        }));
+        });
         expectUnsavedFacets();
 
         await submitSettingsAndWait(form, dismiss, onSettingsPersisted);
@@ -865,9 +991,7 @@ describe('settings dialog keyboard dismissal', () => {
         const parser = form.querySelector<HTMLSelectElement>('select[name="parserProvider"]')!;
         const jitenTranslation = definitionTranslationInput(form, '__jiten__');
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: { settings: { activeLanguageProfileId: alternateProfile.id } },
-        }));
+        publishSettingsChange({ settings: { activeLanguageProfileId: alternateProfile.id } });
         expect(current.activeLanguageProfileId).toBe(alternateProfile.id);
         expect(output.value).toBe('ko');
         expect(parser.value).toBe('jpdb');
@@ -881,9 +1005,7 @@ describe('settings dialog keyboard dismissal', () => {
             parserProvider: 'local' as const,
             definitionTranslationProviderIds: [],
         };
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: { settings: { languageProfiles: [baseProfile, frenchOutputProfile] } },
-        }));
+        publishSettingsChange({ settings: { languageProfiles: [baseProfile, frenchOutputProfile] } });
         expect(output.value).toBe('fr');
         expect(parser.value).toBe('local');
         expect(jitenTranslation.checked).toBe(false);
@@ -1118,11 +1240,8 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('publishes and consumes shared theme changes', () => {
-        const events: Array<CustomEvent<{ preview?: boolean; settings?: { theme?: unknown } }>> = [];
-        const controller = new AbortController();
-        window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
-            events.push(event as CustomEvent<{ preview?: boolean; settings?: { theme?: unknown } }>);
-        }, { signal: controller.signal });
+        const events: SettingsChangeDetail[] = [];
+        const unsubscribe = subscribeToSettingsChanges(event => { events.push(event); });
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, theme: 'dark' };
         const { dependencies, form } = createSettingsDialog({
             getSettings: () => settings,
@@ -1136,26 +1255,23 @@ describe('settings dialog keyboard dismissal', () => {
 
             expect(input.value).toBe('light');
             expect(button.getAttribute('aria-checked')).toBe('false');
-            expect(events.at(-1)?.detail.settings?.theme).toBe('light');
-            expect(events.at(-1)?.detail.preview).toBe(true);
+            expect(events.at(-1)?.settings.theme).toBe('light');
+            expect(events.at(-1)?.preview).toBe(true);
 
-            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: 'dark' } } }));
+            publishSettingsChange({ settings: { theme: 'dark' } });
 
             expect(input.value).toBe('dark');
             expect(button.getAttribute('aria-checked')).toBe('true');
             expect(dependencies.getSettings().theme).toBe('dark');
             expect(dependencies.applyTheme).toHaveBeenCalled();
         } finally {
-            controller.abort();
+            unsubscribe();
         }
     });
 
     it('coalesces accent picker previews and publishes only committed color changes', async () => {
-        const events: Array<CustomEvent<{ preview?: boolean; settings?: { accentColor?: unknown } }>> = [];
-        const controller = new AbortController();
-        window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
-            events.push(event as CustomEvent<{ preview?: boolean; settings?: { accentColor?: unknown } }>);
-        }, { signal: controller.signal });
+        const events: SettingsChangeDetail[] = [];
+        const unsubscribe = subscribeToSettingsChanges(event => { events.push(event); });
         const { dependencies, form } = createSettingsDialog();
         const input = form.querySelector<HTMLInputElement>('input[name="accentColor"]')!;
 
@@ -1177,10 +1293,10 @@ describe('settings dialog keyboard dismissal', () => {
             input.dispatchEvent(new Event('change', { bubbles: true }));
 
             expect(dependencies.applyAccentColor).toHaveBeenCalledTimes(2);
-            expect(events.at(-1)?.detail.settings?.accentColor).toBe('#654321');
-            expect(events.at(-1)?.detail.preview).toBe(true);
+            expect(events.at(-1)?.settings.accentColor).toBe('#654321');
+            expect(events.at(-1)?.preview).toBe(true);
         } finally {
-            controller.abort();
+            unsubscribe();
         }
     });
 

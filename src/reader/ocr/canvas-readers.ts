@@ -727,13 +727,6 @@ export function canUseReaderCanvasSourceImageFallback(hostname: string = locatio
     return !isBookwalkerViewerHost(hostname);
 }
 
-export function positionCanvasFrameImage(frame: HTMLImageElement, rect: DOMRect): void {
-    frame.style.left = `${rect.left}px`;
-    frame.style.top = `${rect.top}px`;
-    frame.style.width = `${rect.width}px`;
-    frame.style.height = `${rect.height}px`;
-}
-
 export function backgroundImageReaderUrl(element: HTMLElement): string | undefined {
     const image = getComputedStyle(element).backgroundImage;
     return firstCssBackgroundUrl(image);

@@ -48,8 +48,25 @@ import type {
     JPDBToken,
     SubtitleTrackLoadable,
 } from './fixtures';
+import { renderedWordPrivateValue } from '../../../src/reader/dom/rendered-word-private-state';
 
 registerReaderHelpersCleanup();
+
+function fallbackVocabularyUpgradeCards(): { fallbackCard: JPDBCard; publicCard: JPDBCard } {
+    return {
+        fallbackCard: testFallbackCard({
+            vid: -2069890,
+            sid: -2069890,
+            spelling: 'あらゆる',
+        }),
+        publicCard: testPublicCard({
+            vid: 2069890,
+            spelling: 'あらゆる',
+            reading: 'あらゆる',
+            pitchAccent: ['LHHL'],
+        }),
+    };
+}
 
 describe('reader helpers', () => {
     it('recovers YouTube auto-translated tracks when translated timedtext is empty', async () => {
@@ -1411,19 +1428,38 @@ describe('reader helpers', () => {
         }
     });
 
+    it('ignores forged rendered-word datasets while repainting reader-bound identity', () => {
+        const app = new ReaderApp();
+        const { fallbackCard, publicCard } = fallbackVocabularyUpgradeCards();
+        const readerWord = appendRenderedReaderWord(fallbackCard);
+        const forgedWord = document.createElement('span');
+        forgedWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        forgedWord.dataset.vid = String(fallbackCard.vid);
+        forgedWord.dataset.sid = String(fallbackCard.sid);
+        forgedWord.textContent = fallbackCard.spelling;
+        document.body.append(forgedWord);
+        const internals = app as unknown as {
+            applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass: string): ParentNode[];
+        };
+
+        try {
+            internals.applyPublicVocabularyToRenderedWords(fallbackCard, publicCard, 'nakadaka');
+
+            expect(renderedWordPrivateValue(readerWord, 'vid')).toBe('2069890');
+            expect(readerWord.dataset.reading).toBe('あらゆる');
+            expect(renderedWordPrivateValue(forgedWord, 'vid')).toBeUndefined();
+            expect(forgedWord.dataset.vid).toBe(String(fallbackCard.vid));
+            expect(forgedWord.dataset.reading).toBeUndefined();
+        } finally {
+            readerWord.remove();
+            forgedWord.remove();
+            app.destroy();
+        }
+    });
+
     it('upgrades fallback rendered popup words before applying pitch accent colors', async () => {
         const app = new ReaderApp();
-        const fallbackCard = testFallbackCard({
-            vid: -2069890,
-            sid: -2069890,
-            spelling: 'あらゆる',
-        });
-        const publicCard = testPublicCard({
-            vid: 2069890,
-            spelling: 'あらゆる',
-            reading: 'あらゆる',
-            pitchAccent: ['LHHL'],
-        });
+        const { fallbackCard, publicCard } = fallbackVocabularyUpgradeCards();
         const word = appendRenderedReaderWord(fallbackCard);
 
         const search = vi.fn(async () => [publicCard]);
@@ -1439,7 +1475,7 @@ describe('reader helpers', () => {
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(token.pitchClass).toBe('nakadaka');
-            expect(word.dataset.vid).toBe('2069890');
+            expect(renderedWordPrivateValue(word, 'vid')).toBe('2069890');
             expect(word.dataset.reading).toBe('あらゆる');
             expectRenderedPitchWord(word, 'nakadaka');
         } finally {
@@ -1534,7 +1570,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([firstToken]);
             expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
-            expect(firstWord.dataset.vid).toBe('1556420');
+            expect(renderedWordPrivateValue(firstWord, 'vid')).toBe('1556420');
 
             const laterFallbackCard = { ...fallbackCard, pitchAccent: [] };
             const laterWord = appendRenderedReaderWord(laterFallbackCard, {
@@ -1547,7 +1583,7 @@ describe('reader helpers', () => {
 
             expect(search).not.toHaveBeenCalled();
             expect(laterToken.card).toBe(publicCard);
-            expect(laterWord.dataset.vid).toBe('1556420');
+            expect(renderedWordPrivateValue(laterWord, 'vid')).toBe('1556420');
             expect(laterWord.dataset.reading).toBe('よむ');
             expect(laterWord.dataset.pitchClass).toBe('atamadaka');
             expect(laterWord.querySelector('rt')?.textContent).toBe('よ');
@@ -1639,8 +1675,8 @@ describe('reader helpers', () => {
             });
 
             expect(search).not.toHaveBeenCalled();
-            expect(firstWord.dataset.vid).toBe(String(firstFallbackCard.vid));
-            expect(secondWord.dataset.vid).toBe(String(secondFallbackCard.vid));
+            expect(renderedWordPrivateValue(firstWord, 'vid')).toBe(String(firstFallbackCard.vid));
+            expect(renderedWordPrivateValue(secondWord, 'vid')).toBe(String(secondFallbackCard.vid));
         } finally {
             firstWord.remove();
             secondWord.remove();
@@ -1691,10 +1727,10 @@ describe('reader helpers', () => {
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([firstPublicCard, secondPublicCard]);
-            expect(firstWord.dataset.vid).toBe('1381470');
+            expect(renderedWordPrivateValue(firstWord, 'vid')).toBe('1381470');
             expect(firstWord.dataset.reading).toBe('あおぞら');
             expect(firstWord.dataset.pitchClass).toBe('nakadaka');
-            expect(secondWord.dataset.vid).toBe('1556420');
+            expect(renderedWordPrivateValue(secondWord, 'vid')).toBe('1556420');
             expect(secondWord.dataset.reading).toBe('よむ');
             expect(secondWord.dataset.pitchClass).toBe('atamadaka');
         } finally {

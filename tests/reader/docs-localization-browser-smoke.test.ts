@@ -33,9 +33,16 @@ describe('docs localization browser smoke readiness', () => {
 
     it('gates userscript side effects behind installed or hosted ownership', () => {
         const gate = 'if (installedRuntime || (docEl && shouldInstallHostedReaderRuntime())) {';
+        const activationDeclaration = 'function activateTargetOwnedDocumentStart(): void {';
         const gateStart = USERSCRIPT_ENTRY_SOURCE.indexOf(gate);
-        const gateEnd = USERSCRIPT_ENTRY_SOURCE.indexOf('\n}\n\nfunction bootWhenDocumentIsReady', gateStart);
+        const gateEnd = USERSCRIPT_ENTRY_SOURCE.indexOf(`\n}\n\n${activationDeclaration}`, gateStart);
         const guardedBoot = USERSCRIPT_ENTRY_SOURCE.slice(gateStart, gateEnd);
+        const activationStart = USERSCRIPT_ENTRY_SOURCE.indexOf(activationDeclaration, gateEnd);
+        const activationEnd = USERSCRIPT_ENTRY_SOURCE.indexOf(
+            '\n}\n\nfunction installMokuroToggleNoteWhenReady',
+            activationStart,
+        );
+        const privateActivation = USERSCRIPT_ENTRY_SOURCE.slice(activationStart, activationEnd);
 
         expect(USERSCRIPT_ENTRY_SOURCE).toContain('const installedRuntime = announceInstalledReaderRuntime();');
         expect(USERSCRIPT_ENTRY_SOURCE).toContain('const docEl = document.documentElement;');
@@ -45,8 +52,15 @@ describe('docs localization browser smoke readiness', () => {
         expect(gateEnd).toBeGreaterThan(gateStart);
         expect(guardedBoot).toContain("if (!installedRuntime) docEl.dataset.yomuHosted = '';");
         expect(guardedBoot).toContain('installPreferredJapaneseSiteLanguageFromStoredSettings()');
-        expect(guardedBoot).toContain('installTargetOwnedDocumentStartActivation(pageOwnedLearningTarget)');
-        expect(guardedBoot).toContain('installUserscriptHttpBridgeWhenReady()');
+        expect(guardedBoot).toContain(
+            'installDocumentStartTargetPolicy(pageOwnedLearningTarget, activateTargetOwnedDocumentStart)',
+        );
+        expect(guardedBoot).not.toContain('installUserscriptHttpBridgeWhenReady()');
+        expect(activationStart).toBeGreaterThan(gateEnd);
+        expect(activationEnd).toBeGreaterThan(activationStart);
+        expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('export function activateTargetOwnedDocumentStart');
+        expect(privateActivation).toContain('installUserscriptHttpBridgeWhenReady()');
+        expect(USERSCRIPT_ENTRY_SOURCE.match(/installUserscriptHttpBridgeWhenReady\(\)/g)).toHaveLength(1);
         expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady()');
         expect(guardedBoot).toContain('promoteStrandedHostedSettingsToGmStorage()');
         expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('installPageOpenShadowRootDiscoveryBridge');

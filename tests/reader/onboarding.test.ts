@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { OnboardingController } from '../../src/reader/app/onboarding';
 import { uiText } from '../../src/reader/app/i18n';
@@ -30,6 +30,10 @@ function offlineDictionaryOnboardingHarness(): {
 }
 
 describe('OnboardingController', () => {
+    beforeEach(() => {
+        vi.stubGlobal('location', new URL('moz-extension://yomu/newtab/index.html'));
+    });
+
     afterEach(() => {
         document.body.innerHTML = '';
         localStorage.clear();

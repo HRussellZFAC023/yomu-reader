@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 import { waitForExpect } from './test-utils';
+import { privateRasterImageForHost } from '../../src/reader/ocr/private-raster-presenter';
 
 // mokuro's own "OCR enabled" toggle flips the reader between deferring to
 // mokuro's text layer (on) and running its own image OCR (off). The reader
@@ -255,7 +256,7 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
         try {
             controller.init();
             await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-background-frame')).not.toBeNull());
-            await scanImage(controller, document.querySelector<HTMLImageElement>('.jpdb-ocr-background-frame')!);
+            await scanImage(controller, privateRasterImageForHost(document.querySelector('.jpdb-ocr-background-frame'))!);
             expect(document.querySelectorAll('.jpdb-ocr-line').length).toBeGreaterThan(0);
 
             defer = true;

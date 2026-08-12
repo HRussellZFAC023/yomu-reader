@@ -461,7 +461,7 @@ describe('audio module boundaries', () => {
             ...DEFAULT_SETTINGS,
             ankiEnabled: true,
             ankiSectionEnabled: true,
-        });
+        }, { trustedAccountDataSurface: true });
 
         expect(container.querySelector('[data-action="anki-media-audio"][data-anki-media-name="core-start.mp3"]')).not.toBeNull();
         expect(container.querySelector('[data-action="search-word-audio"], [data-action="jpdb-example-audio"], [data-action="audio"]')).toBeNull();

@@ -36,14 +36,15 @@ import {
 import { OnboardingController } from '../../../src/reader/app/onboarding';
 import { ReaderApp } from '../../../src/reader/app/main';
 import { bindReaderRuntimeEvents } from '../../../src/reader/app/runtime-events';
+import { publishSettingsChange } from '../../../src/reader/settings/settings-change-bus';
 import {
     hostedPageOwnedLearningTarget,
     loadReaderStartupSettings,
     shouldShowReaderOnboarding,
 } from '../../../src/reader/app/startup';
-import { SETTINGS_CHANGE_EVENT } from '../../../src/reader/app/constants';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../../src/reader/settings/index';
 import type { JPDBCard, ReaderSettings } from '../../../src/reader/app/types';
+import { HOSTED_DEMO_READER_SETTINGS } from '../../../src/reader/app/hosted-demo-settings';
 
 // Boot reads settings through settings/index. Only the storage read is
 // stubbed; normalization, migration and URL bootstrap stay real, so this
@@ -115,44 +116,117 @@ describe('a stored learning target survives normalization', () => {
         expect(normalized.profiles[0]?.targetLanguage).toBe('ja');
     });
 
-    it('requires positive legacy evidence before treating a stored payload as a target choice', () => {
-        const legacyDefaultProfile = createDefaultLanguageProfile();
-        expect(normalizeReaderSettings({}).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ theme: 'dark' }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ interfaceLanguage: 'ja' }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ parserProvider: 'auto' }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({
-            onboardingSeen: false,
-            activeLanguageProfileId: legacyDefaultProfile.id,
-            languageProfiles: [legacyDefaultProfile],
-        }).learningTargetChosen).toBe(false);
+    it('preserves the historical Japanese target for pre-1.9 settings records', () => {
         const {
-            uiLocale: _uiLocale,
-            parserProvider: _parserProvider,
-            ...profileWithoutInheritedAxes
-        } = legacyDefaultProfile;
+            learningTargetChosen: _learningTargetChosen,
+            ...legacyDefaultSettings
+        } = DEFAULT_SETTINGS;
+
+        expect(normalizeReaderSettings(null).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({}).learningTargetChosen).toBe(false);
+        expect(_learningTargetChosen).toBe(false);
+        expect(legacyDefaultSettings.languageProfiles[0]?.targetLanguage).toBe('ja');
+        expect(normalizeReaderSettings(legacyDefaultSettings).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ subtitleFontSize: 48 }).learningTargetChosen).toBe(true);
         expect(normalizeReaderSettings({
-            interfaceLanguage: 'ja',
-            parserProvider: 'auto',
-            activeLanguageProfileId: profileWithoutInheritedAxes.id,
-            languageProfiles: [profileWithoutInheritedAxes as unknown as ReaderSettings['languageProfiles'][number]],
-        }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ onboardingSeen: true }).learningTargetChosen).toBe(true);
-        expect(normalizeReaderSettings({
-            languageProfiles: [{ ...createDefaultLanguageProfile(), targetLanguage: 'ko' }],
+            apiKey: 'legacy-jpdb-key',
+            parserProvider: 'jpdb',
         }).learningTargetChosen).toBe(true);
-        expect(normalizeReaderSettings({
-            languageProfiles: [{
-                ...createDefaultLanguageProfile(),
-                outputLanguage: 'fr',
-                learnerLanguage: 'fr',
-            }],
-        }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ onboardingSeen: true }).learningTargetChosen).toBe(false);
         expect(normalizeReaderSettings({
             learningTargetChosen: false,
             onboardingSeen: true,
             languageProfiles: [{ ...createDefaultLanguageProfile(), targetLanguage: 'ko' }],
         }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ learningTargetChosen: true }).learningTargetChosen).toBe(true);
+    });
+
+    it('keeps passive hosted policy neutral while preserving actual legacy Reader settings', () => {
+        expect(normalizeReaderSettings({
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+            interfaceLanguage: 'en',
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+            interfaceLanguage: 'ja',
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ interfaceLanguage: 'en' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ interfaceLanguage: 'ja' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ theme: 'dark' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ accentColor: '#5ea780', interfaceLanguage: 'en', theme: 'dark' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+            interfaceLanguage: 'ja',
+            theme: 'light',
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            ...HOSTED_DEMO_READER_SETTINGS,
+            theme: 'dark',
+        }).learningTargetChosen).toBe(false);
+
+        expect(normalizeReaderSettings({ subtitleFontSize: 48 }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ subtitlePlayerEnabled: true }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ apiKey: 'legacy-jpdb-key' }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+            subtitleFontSize: 48,
+        }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ interfaceLanguage: 'auto', subtitleFontSize: 48 }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ theme: 'sepia' as 'dark' }).learningTargetChosen).toBe(false);
+    });
+
+    it('requires positive Reader, subtitle, or independent-profile evidence for unmarked legacy records', () => {
+        const defaultProfile = createDefaultLanguageProfile();
+        expect(normalizeReaderSettings({
+            onboardingSeen: true,
+            activeLanguageProfileId: defaultProfile.id,
+            languageProfiles: [defaultProfile],
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            immersionKitExpandedLimitMigrated20260721: true,
+            youtubeFilterNoticeRestored20260711: true,
+            themeAutoRestored20260730: true,
+            ankiSentenceAudioMappingMigrated: true,
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ unknownBootstrapMarker: true } as Partial<ReaderSettings>)
+            .learningTargetChosen).toBe(false);
+
+        expect(normalizeReaderSettings({
+            languageProfiles: [{ ...defaultProfile, targetLanguage: 'ko' }],
+        }).learningTargetChosen).toBe(true);
+    });
+
+    it('lets an explicit boolean choice override both passive and substantive legacy evidence', () => {
+        expect(normalizeReaderSettings({
+            learningTargetChosen: false,
+            subtitleFontSize: 48,
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            learningTargetChosen: true,
+            interfaceLanguage: 'en',
+            theme: 'dark',
+        }).learningTargetChosen).toBe(true);
+    });
+
+    it('round-trips a fresh 1.9 full settings write with an explicit false choice', () => {
+        const freshSettings = normalizeReaderSettings(null);
+
+        expect(Object.hasOwn(freshSettings, 'learningTargetChosen')).toBe(true);
+        expect(freshSettings.learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ ...freshSettings }).learningTargetChosen).toBe(false);
     });
 
     it('carries the target into a profile created for a new definition language', () => {
@@ -325,6 +399,7 @@ describe('hosted surfaces own only their deliberate demo target', () => {
 
 describe('onboarding chooses the definition language, not the target', () => {
     it('leaves an already-selected target alone when the learner language changes', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         let settings: ReaderSettings = normalizeReaderSettings({
             ...settingsStoringTarget('ko'),
             onboardingSeen: false,
@@ -373,11 +448,11 @@ describe('the active target follows a profile change while running', () => {
         let settings = DEFAULT_SETTINGS;
         const controller = bind(() => settings);
 
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+        publishSettingsChange({ settings });
         expect(activeLearningTarget()).toBe(JAPANESE_LEARNING_TARGET);
 
         settings = settingsStoringTarget('ko');
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+        publishSettingsChange({ settings });
 
         expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
         expect(targetSpeechSynthesisLocale()).toBe('ko-KR');
@@ -386,7 +461,7 @@ describe('the active target follows a profile change while running', () => {
         // A fresh/partial record is not an instruction to switch back to the
         // compatibility Japanese profile.
         settings = DEFAULT_SETTINGS;
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+        publishSettingsChange({ settings });
 
         expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
         expect(isLookupableTargetLanguageText('한국어')).toBe(true);
@@ -400,9 +475,7 @@ describe('the active target follows a profile change while running', () => {
         internals.bindEvents();
 
         try {
-            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-                detail: { settings: DEFAULT_SETTINGS, remote: true },
-            }));
+            publishSettingsChange({ settings: DEFAULT_SETTINGS, remote: true });
 
             expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
             expect(isLookupableTargetLanguageText('한국어')).toBe(true);

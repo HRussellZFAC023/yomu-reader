@@ -12,13 +12,18 @@ import {
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
-import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
+import { gmStorageGetShared, gmStorageSet, withGmStorageLease } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from './hosted-demo-settings';
 import {
     loadHostedReaderRuntime,
     type HostedRuntimeLoadResult,
     type HostedRuntimeScript,
 } from '../../../src/reader/app/hosted-runtime-graph';
+import {
+    mergeHostedSharedSettingsPatch,
+    mergeHostedSettingsPatch,
+} from '../../../src/reader/settings/hosted-settings-provenance';
+import { SETTINGS_PERSISTENCE_STORAGE_LEASE } from '../../../src/reader/settings/settings-persistence-transaction';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
 import { hostedOverflowLinks } from '../shared/nav';
@@ -351,9 +356,9 @@ function installHostedAppearanceProvider(): void {
 }
 
 function setHostedThemePreference(theme: HostedThemePreference): void {
-    const settings = writeStoredThemePreference(theme);
+    writeStoredThemePreference(theme);
     syncHostedThemeFromSettings(theme);
-    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme } } }));
 }
 
 function writeStoredThemePreference(theme: HostedThemePreference): Record<string, any> {
@@ -408,7 +413,7 @@ function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, 
 }
 
 function writeStoredSettingsPatch(patch: Record<string, any>, options: { shared?: boolean } = {}): Record<string, any> {
-    const settings = { ...readStoredSettings(), ...patch };
+    const settings = mergeHostedSettingsPatch(readStoredSettings(), patch);
     hostedSettingsEventPatch = { ...hostedSettingsEventPatch, ...patch };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     if (options.shared !== false) propagateSettingsPatchToSharedStorage(patch);
@@ -420,11 +425,17 @@ function writeStoredSettingsPatch(patch: Record<string, any>, options: { shared?
 // edits (theme toggle, HUD language) follow the user to every other site.
 // Read-modify-write against the shared copy so a stale hosted blob never
 // clobbers settings saved elsewhere.
-function propagateSettingsPatchToSharedStorage(patch: Record<string, any>): void {
+function propagateSettingsPatchToSharedStorage(
+    patch: Record<string, any>,
+): void {
     hostedSharedSettingsWrite = hostedSharedSettingsWrite.then(async () => {
         try {
-            const shared = await gmStorageGet<Record<string, any> | null>(SETTINGS_STORAGE_KEY, null);
-            await gmStorageSet(SETTINGS_STORAGE_KEY, { ...(shared ?? {}), ...patch });
+            await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+                const shared = await gmStorageGetShared<Record<string, any> | null>(SETTINGS_STORAGE_KEY, null);
+                const sharedRecord = isHostedSettingsRecord(shared) ? shared : {};
+                const merged = mergeHostedSharedSettingsPatch(sharedRecord, patch);
+                if (merged) await gmStorageSet(SETTINGS_STORAGE_KEY, merged);
+            });
         } catch {
             // Bridge unavailable: the localStorage copy stays authoritative here.
         }

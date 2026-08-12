@@ -103,6 +103,7 @@ describe('reader helpers', () => {
     });
 
     it('applies shared theme changes from hosted docs and settings toggles', () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/docs/'));
         const app = new ReaderApp();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
@@ -1407,7 +1408,7 @@ describe('reader helpers', () => {
             toast: vi.fn(),
         } as unknown as ConstructorParameters<typeof CardActionController>[0]);
 
-        await controller.perform('study-grammar', button, card, sentence);
+        await controller.perform({ kind: 'card-action', action: 'study-grammar' }, button, card, sentence);
 
         expect(parsePopoverJapanese).toHaveBeenCalledTimes(1);
         expect(document.querySelector('.jpdb-reader-study-original')?.textContent).toBe(sentence);
@@ -1460,7 +1461,7 @@ describe('reader helpers', () => {
         try {
             body.scrollTop = 280;
 
-            await controller.perform('study-grammar-toggle-known', button, card, sentence);
+            await controller.perform({ kind: 'card-action', action: 'study-grammar-toggle-known', grammarRuleId: 'aspect-te-iru', grammarKnown: false }, button, card, sentence);
 
             await waitForExpect(() => {
                 expect(panel.querySelector('[data-grammar-rule-id="aspect-te-iru"]')).toBeNull();

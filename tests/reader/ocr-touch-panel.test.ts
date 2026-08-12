@@ -10,9 +10,11 @@ import {
     setActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 import { dispatchPointerEvent } from './helpers/browser-fixtures';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 import { waitForExpect } from './test-utils';
+import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 
 const OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 type ImageOcrControllerOptions = ConstructorParameters<typeof ImageOcrController>[0];
@@ -604,7 +606,11 @@ describe('OCR sentence focus', () => {
             controller.init();
 
             await waitForExpect(() => {
-                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word[data-vid="10"][data-sid="20"]')).not.toBeNull();
+                const word = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word[data-yomu-word="true"]');
+                expect(word).not.toBeNull();
+                expect(word?.dataset.vid).toBeUndefined();
+                expect(renderedWordPrivateValue(word!, 'vid')).toBe('10');
+                expect(renderedWordPrivateValue(word!, 'sid')).toBe('20');
             });
 
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
@@ -1258,8 +1264,13 @@ describe('OCR sentence focus', () => {
             controller.init();
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
 
+            allowSyntheticReaderInteractionsForTests(false);
             dispatchPointerEvent(image, 'pointerover');
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
 
+            allowSyntheticReaderInteractionsForTests(true);
+            dispatchPointerEvent(image, 'pointerover');
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe(sentence);
             });

@@ -1,6 +1,7 @@
 import { exportManagedStoredValues } from '../app/storage';
 import { isPromiseLike } from '../core/async-utils';
 import type { ReaderSettings } from '../app/types';
+import type { CloudSettingsAuthorization } from './cloud-settings-auth-state';
 
 type ExtensionRuntimeApi = {
     id?: string;
@@ -50,11 +51,14 @@ export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED && Boolean(extension?.runtime.id && extension.runtime.sendMessage);
 }
 
-export function cloudSettingsAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
+export function cloudSettingsAuthRedirectResult(_expectedState?: string): CloudSettingsAuthRedirectResult | null {
     return null;
 }
 
-export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Promise<CloudSettingsSyncMetadata> {
+export async function uploadCloudSettingsToCloud(
+    settings: ReaderSettings,
+    _authorization?: CloudSettingsAuthorization,
+): Promise<CloudSettingsSyncMetadata> {
     const snapshot: CloudSettingsSyncSnapshot = {
         formatName: 'yomu-google-drive-settings-sync',
         formatVersion: 1,
@@ -66,7 +70,9 @@ export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Prom
     return response.metadata ?? { syncedAt: snapshot.syncedAt };
 }
 
-export async function downloadCloudSettingsFromCloud(): Promise<CloudSettingsSyncSnapshot | null> {
+export async function downloadCloudSettingsFromCloud(
+    _authorization?: CloudSettingsAuthorization,
+): Promise<CloudSettingsSyncSnapshot | null> {
     const response = await sendCloudSettingsSyncMessage({ command: 'download' });
     return response.snapshot ?? null;
 }

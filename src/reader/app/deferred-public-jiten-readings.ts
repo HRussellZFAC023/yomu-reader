@@ -5,7 +5,8 @@ import {
     publicJitenBackoffRemainingMs,
 } from '../dictionaries/jiten-public-vocabulary';
 import { readerWordSurfaceText } from '../dom';
-import { fallbackVocabularySpanCacheKey } from '../dom/rendered-word-state';
+import { fallbackVocabularySpanCacheKey, renderedWordsInRoot } from '../dom/rendered-word-state';
+import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { jitenWordCardForMassReview } from '../main/rendered-word-lookup';
 import { isKanjiCharacter } from '../popup/pitch';
@@ -538,20 +539,9 @@ export class DeferredPublicJitenReadingCoordinator {
     }
 
     private sparseRenderedWords(): HTMLElement[] {
-        const seen = new Set<HTMLElement>();
-        const words: HTMLElement[] = [];
-        const selector = [
-            '.jpdb-reader-word[data-card-source="jiten"]:not([data-reading])',
-            '.jpdb-reader-word[data-card-source="jiten"][data-reading=""]',
-        ].join(', ');
-        for (const root of this.dependencies.renderedAnnotationRoots()) {
-            for (const word of root.querySelectorAll<HTMLElement>(selector)) {
-                if (seen.has(word)) continue;
-                seen.add(word);
-                words.push(word);
-            }
-        }
-        return words;
+        const words = Array.from(this.dependencies.renderedAnnotationRoots())
+            .flatMap(root => renderedWordsInRoot(root));
+        return [...new Set(words)].filter(isSparseRenderedJitenWord);
     }
 
     private normalizeRefillWindow(wordCount: number): void {
@@ -597,6 +587,10 @@ export class DeferredPublicJitenReadingCoordinator {
             sentence: word.dataset.sentence || surface,
         };
     }
+}
+
+function isSparseRenderedJitenWord(word: HTMLElement): boolean {
+    return [renderedWordPrivateValue(word, 'cardSource') === 'jiten', !word.dataset.reading].every(Boolean);
 }
 
 export async function resolvePublicFallbackPitchTokens(

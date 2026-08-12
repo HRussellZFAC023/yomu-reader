@@ -1,10 +1,16 @@
-import { escapeHtml } from '../dom/index';
+import { escapeHtml, setInnerHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { clampNumber } from '../core/number-utils';
 import { FONT_FAMILY_PRESETS } from '../settings/font-presets';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { subtitleText } from './i18n';
 import { nativeSubtitleDisplayMode } from './native-subtitle-display';
+import {
+    privateCommandAttributes,
+    type SubtitleCommandAction,
+    type SubtitleCommandCapability,
+    type SubtitleStyleSetting,
+} from '../dom/private-command-capabilities';
 
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
@@ -21,15 +27,91 @@ export interface SubtitleElementLayout {
     height: number;
 }
 
+export interface SubtitlePlayerSurfaceElements {
+    root: HTMLElement;
+    subtitleLines: HTMLElement;
+    transcriptPanel: HTMLElement;
+    stylePopover?: HTMLElement;
+}
+
 export type SubtitlePanelMode = 'lines' | 'shadow' | 'tracks' | 'mine';
+
+export function createSubtitlePlayerSurface(settings: ReaderSettings): SubtitlePlayerSurfaceElements {
+    const root = document.createElement('div');
+    root.className = 'jpdb-subtitle-player';
+    root.dataset.jpdbReaderRoot = 'true';
+    setInnerHtml(root, renderSubtitlePlayerSurface(settings));
+    return {
+        root,
+        subtitleLines: requiredSubtitleSurfaceElement(root, '.jpdb-subtitle-lines'),
+        transcriptPanel: requiredSubtitleSurfaceElement(root, '.jpdb-subtitle-list'),
+        stylePopover: root.querySelector<HTMLElement>('[data-subtitle-style-popover]') ?? undefined,
+    };
+}
+
+function requiredSubtitleSurfaceElement(root: HTMLElement, selector: string): HTMLElement {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (!element) throw new Error(`Missing subtitle surface element: ${selector}`);
+    return element;
+}
+
+function renderSubtitlePlayerSurface(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const previousLabel = uiText(language, 'previousSubtitle');
+    const nextLabel = uiText(language, 'nextSubtitle');
+    const visibilityLabel = uiText(language, 'subtitleOverlayVisible');
+    const panelLabel = uiText(language, 'openSubtitlePanel');
+    const moveLabel = uiText(language, 'moveSubtitles');
+    const moveAccessibleLabel = uiText(language, 'moveSubtitlesAccessible');
+    const moveControlsLabel = uiText(language, 'moveSubtitleControls');
+    return `
+        <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
+        <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
+        <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
+            <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand"${subtitleActionAttributes('rail-expand')} data-subtitle-rail-drag-handle title="${escapeHtml(moveControlsLabel)}" aria-label="${escapeHtml(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon('grip')}</button>
+            <button type="button" data-action="previous"${subtitleActionAttributes('previous')} title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
+            <button type="button" data-action="next"${subtitleActionAttributes('next')} title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+            ${renderSubtitleOcrTrigger(settings)}
+            <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility"${subtitleActionAttributes('visibility')} title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(subtitleVisibilityIcon(settings))}</button>
+            <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel"${subtitleActionAttributes('panel')} title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
+            ${renderSubtitleStyleControls(settings, language)}
+        </div>
+        <div class="jpdb-subtitle-list" hidden></div>
+    `;
+}
+
+function renderSubtitleOcrTrigger(settings: ReaderSettings): string {
+    if (!settings.ocrEnabled || settings.ocrProvider === 'off') return '';
+    const label = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? 'readVideoFrameStop' : 'readVideoFrame');
+    return `<button class="jpdb-subtitle-ocr-trigger${subtitleOcrActiveClass(settings)}" type="button" data-action="ocr"${subtitleActionAttributes('ocr')} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon('scan')}</button>`;
+}
+
+function subtitleOcrActiveClass(settings: ReaderSettings): string {
+    return settings.ocrVideoPauseFrames ? ' jpdb-subtitle-ocr-active' : '';
+}
+
+function subtitleVisibilityIcon(settings: ReaderSettings): SubtitleIconName {
+    return settings.subtitleOverlayVisible ? 'eye' : 'eye-off';
+}
+
+export function subtitleActionAttributes(
+    action: SubtitleCommandAction,
+    details: Omit<SubtitleCommandCapability, 'kind' | 'action'> = {},
+): string {
+    return privateCommandAttributes({ kind: 'subtitle-action', action, ...details });
+}
+
+function subtitleStyleControlAttributes(setting: SubtitleStyleSetting): string {
+    return privateCommandAttributes({ kind: 'subtitle-style-control', setting });
+}
 
 function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: boolean, language: InterfaceLanguage): string {
     return `
         <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
-            <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>
-            <button type="button" data-action="panel-shadow" aria-pressed="${mode === 'shadow'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'shadow'))}</button>
-            <button type="button" data-action="panel-mine" aria-pressed="${mode === 'mine'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(subtitleText(language, 'bmTab'))}</button>
-            <button type="button" data-action="panel-tracks" aria-pressed="${mode === 'tracks'}">${escapeHtml(uiText(language, 'subtitleTracks'))}</button>
+            <button type="button" data-action="panel-lines"${subtitleActionAttributes('panel-lines')} aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>
+            <button type="button" data-action="panel-shadow"${subtitleActionAttributes('panel-shadow')} aria-pressed="${mode === 'shadow'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'shadow'))}</button>
+            <button type="button" data-action="panel-mine"${subtitleActionAttributes('panel-mine')} aria-pressed="${mode === 'mine'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(subtitleText(language, 'bmTab'))}</button>
+            <button type="button" data-action="panel-tracks"${subtitleActionAttributes('panel-tracks')} aria-pressed="${mode === 'tracks'}">${escapeHtml(uiText(language, 'subtitleTracks'))}</button>
         </div>
     `;
 }
@@ -55,12 +137,12 @@ function renderPanelOptionsControls(state: PanelOptionsControlsState): string {
     const placementLabel = uiText(language, 'subtitleTranscriptPlacement');
     return `
         <div class="jpdb-subtitle-panel-options" data-panel-options>
-            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="${state.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state.placement))}</button>
+            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options"${subtitleActionAttributes('panel-options')} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="${state.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state.placement))}</button>
             <div class="jpdb-subtitle-panel-options-menu" role="group" aria-label="${escapeHtml(label)}" ${state.menuOpen ? '' : 'hidden'}>
                 <div class="jpdb-subtitle-panel-options-placement" role="group" aria-label="${escapeHtml(placementLabel)}">
                     ${TRANSCRIPT_PLACEMENTS.map(placement => renderPanelOptionsPlacementItem(placement, state.placement, placementLabel, language)).join('')}
                 </div>
-                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml(autoTitle)}" aria-pressed="${state.pausePanelEnabled}">
+                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel"${subtitleActionAttributes('toggle-pause-panel')} title="${escapeHtml(autoTitle)}" aria-pressed="${state.pausePanelEnabled}">
                     ${subtitleIcon('auto-hide')}
                     <span>${escapeHtml(autoLabel)}</span>
                 </button>
@@ -74,7 +156,7 @@ function renderPanelOptionsControls(state: PanelOptionsControlsState): string {
 // action so it sits at the trailing edge of the drawer bar.
 function renderPanelCloseButton(language: InterfaceLanguage): string {
     const closeLabel = uiText(language, 'closeSubtitlePanel');
-    return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${subtitleIcon('close')}</button>`;
+    return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel"${subtitleActionAttributes('close-panel')} title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${subtitleIcon('close')}</button>`;
 }
 
 export interface DrawerHeadState {
@@ -126,8 +208,8 @@ function renderDrawerPlayback(language: InterfaceLanguage): string {
     const nextLabel = uiText(language, 'nextSubtitle');
     return `
         <div class="jpdb-subtitle-drawer-playback">
-            <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
-            <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+            <button type="button" data-action="previous"${subtitleActionAttributes('previous')} title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
+            <button type="button" data-action="next"${subtitleActionAttributes('next')} title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
         </div>
     `;
 }
@@ -141,7 +223,7 @@ function renderPanelOptionsPlacementItem(
     const placementLabel = uiText(language, placement);
     const label = `${groupLabel}: ${placementLabel}`;
     return `
-        <button class="jpdb-subtitle-panel-options-item" type="button" data-action="transcript-placement" data-placement="${placement}" title="${escapeHtml(label)}" aria-pressed="${placement === currentPlacement}">
+        <button class="jpdb-subtitle-panel-options-item" type="button" data-action="transcript-placement" data-placement="${placement}"${subtitleActionAttributes('transcript-placement', { placement })} title="${escapeHtml(label)}" aria-pressed="${placement === currentPlacement}">
             ${subtitleIcon(transcriptPlacementIcon(placement))}
             <span>${escapeHtml(placementLabel)}</span>
         </button>
@@ -152,14 +234,12 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
     const label = uiText(language, 'subtitleStyle');
     const nativeDisplay = nativeSubtitleDisplayMode(settings);
     return `
-        <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon('style')}</button>
+        <button class="jpdb-subtitle-style-toggle" type="button" data-action="style"${subtitleActionAttributes('style')} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon('style')}</button>
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
                 <span>${escapeHtml(uiText(language, 'subtitleNativeDisplay'))}</span>
-                <select data-subtitle-style-setting="subtitleNativeDisplay">
-                    <option value="blurred" ${nativeDisplay === 'blurred' ? 'selected' : ''}>${escapeHtml(uiText(language, 'subtitleNativeDisplayBlurred'))}</option>
-                    <option value="shown" ${nativeDisplay === 'shown' ? 'selected' : ''}>${escapeHtml(uiText(language, 'subtitleNativeDisplayShown'))}</option>
-                    <option value="hidden" ${nativeDisplay === 'hidden' ? 'selected' : ''}>${escapeHtml(uiText(language, 'subtitleNativeDisplayHidden'))}</option>
+                <select data-subtitle-style-setting="subtitleNativeDisplay"${subtitleStyleControlAttributes('subtitleNativeDisplay')}>
+                    ${renderNativeSubtitleDisplayOptions(nativeDisplay, language)}
                 </select>
             </label>
             ${renderSubtitleStyleRange('subtitleNativeBlurStrength', uiText(language, 'subtitleNativeBlurStrength'), settings.subtitleNativeBlurStrength, 4, 20, 1, 'px', nativeDisplay !== 'blurred')}
@@ -168,21 +248,44 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
             ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, '')}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
                 <span>${escapeHtml(uiText(language, 'subtitleFontFamily'))}</span>
-                <select data-subtitle-style-setting="subtitleFontFamily">
+                <select data-subtitle-style-setting="subtitleFontFamily"${subtitleStyleControlAttributes('subtitleFontFamily')}>
                     ${SUBTITLE_STYLE_FONT_PRESETS.map(preset => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join('')}
                 </select>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
-                <input type="checkbox" data-subtitle-style-setting="subtitleMiningPause" ${settings.subtitleMiningPause ? 'checked' : ''}>
+                <input type="checkbox" data-subtitle-style-setting="subtitleMiningPause"${subtitleStyleControlAttributes('subtitleMiningPause')} ${checkedAttribute(settings.subtitleMiningPause)}>
                 <span>${escapeHtml(uiText(language, 'subtitleMiningPause'))}</span>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
-                <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? 'checked' : ''}>
+                <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause"${subtitleStyleControlAttributes('subtitleHoverPause')} ${checkedAttribute(settings.subtitleHoverPause)}>
                 <span>${escapeHtml(uiText(language, 'subtitleHoverPause'))}</span>
             </label>
-            <button class="jpdb-subtitle-style-reset" type="button" data-action="style-reset">${escapeHtml(uiText(language, 'subtitleResetDefaults'))}</button>
+            <button class="jpdb-subtitle-style-reset" type="button" data-action="style-reset"${subtitleActionAttributes('style-reset')}>${escapeHtml(uiText(language, 'subtitleResetDefaults'))}</button>
         </div>
     `;
+}
+
+function renderNativeSubtitleDisplayOptions(
+    current: ReturnType<typeof nativeSubtitleDisplayMode>,
+    language: InterfaceLanguage,
+): string {
+    const options = [
+        { value: 'blurred', label: 'subtitleNativeDisplayBlurred' },
+        { value: 'shown', label: 'subtitleNativeDisplayShown' },
+        { value: 'hidden', label: 'subtitleNativeDisplayHidden' },
+    ] as const;
+    return options.map(option => {
+        const authority = privateCommandAttributes({ kind: 'subtitle-style-option', setting: 'subtitleNativeDisplay', value: option.value });
+        return `<option value="${option.value}"${authority} ${selectedAttribute(option.value === current)}>${escapeHtml(uiText(language, option.label))}</option>`;
+    }).join('');
+}
+
+function selectedAttribute(selected: boolean): string {
+    return selected ? 'selected' : '';
+}
+
+function checkedAttribute(checked: boolean): string {
+    return checked ? 'checked' : '';
 }
 
 function renderSubtitleStyleRange(
@@ -199,7 +302,7 @@ function renderSubtitleStyleRange(
         <label class="jpdb-subtitle-style-field" data-subtitle-style-field="${setting}" ${hidden ? 'hidden' : ''}>
             <span>${escapeHtml(label)}</span>
             <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
-            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}">
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}"${subtitleStyleControlAttributes(setting)}>
         </label>
     `;
 }
@@ -209,7 +312,7 @@ function renderSubtitleStyleFontOption(
     current: string,
     language: InterfaceLanguage,
 ): string {
-    return `<option value="${escapeHtml(preset.value)}" ${preset.value === current ? 'selected' : ''}>${escapeHtml(uiText(language, preset.labelKey))}</option>`;
+    return `<option value="${escapeHtml(preset.value)}"${privateCommandAttributes({ kind: 'subtitle-style-option', setting: 'subtitleFontFamily', value: preset.value })} ${preset.value === current ? 'selected' : ''}>${escapeHtml(uiText(language, preset.labelKey))}</option>`;
 }
 
 function subtitleStyleDisplayValue(value: number, suffix: string): string {
