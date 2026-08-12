@@ -195,8 +195,6 @@ export function setRenderedWordPitchComponents(word: HTMLElement, card: JPDBCard
 // Does a rendered word's SRS state come from an authenticated known-state
 // source? Stamped alongside dataset.cardState so a repaint can decide whether
 // the incoming card is allowed to change the status channel.
-export type RenderedWordStateProvenance = 'authoritative' | 'provisional';
-
 export interface RenderedWordCardIdentityOptions {
     // Merge policy for the SRS-status channel (state classes +
     // dataset.cardState + deck membership). Identity
@@ -219,7 +217,7 @@ export interface RenderedWordCardIdentityOptions {
     pitchPolicy?: 'replace' | 'clear';
 }
 
-export function cardStateProvenance(card: JPDBCard): RenderedWordStateProvenance {
+function cardStateProvenance(card: JPDBCard): 'authoritative' | 'provisional' {
     return card.provisionalState === true ? 'provisional' : 'authoritative';
 }
 

@@ -17,7 +17,7 @@ export const HOSTED_LOCAL_SETTINGS_KEYS = [
     'preferJapaneseSiteLanguage',
 ] as const;
 
-export type HostedLocalSettingKey = typeof HOSTED_LOCAL_SETTINGS_KEYS[number];
+type HostedLocalSettingKey = typeof HOSTED_LOCAL_SETTINGS_KEYS[number];
 
 export const HOSTED_DEMO_READER_SETTINGS = {
     showFurigana: true,

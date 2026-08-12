@@ -64,7 +64,6 @@ export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED;
 }
 
-// fallow-ignore-next-line unused-export
 export function cloudSettingsAuthRedirectResult(expectedState?: string): CloudSettingsAuthRedirectResult | null {
     const candidate = takeAuthRedirectCandidate();
     if (!candidate) return null;

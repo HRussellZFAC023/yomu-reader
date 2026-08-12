@@ -230,7 +230,7 @@ function renderPanelOptionsPlacementItem(
     `;
 }
 
-export function renderSubtitleStyleControls(settings: ReaderSettings, language: InterfaceLanguage): string {
+function renderSubtitleStyleControls(settings: ReaderSettings, language: InterfaceLanguage): string {
     const label = uiText(language, 'subtitleStyle');
     const nativeDisplay = nativeSubtitleDisplayMode(settings);
     return `

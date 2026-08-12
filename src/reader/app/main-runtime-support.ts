@@ -11,7 +11,6 @@ import {
     SUBTITLE_SURFACE_SELECTOR,
     type DismissOptions,
     type MountedCardShell,
-    type ReviewShortcutContext,
 } from './main-helpers';
 import type { UiCopyKey } from './i18n';
 import type { LocalPitchResolution } from '../lookup/pitch-meta';
@@ -42,12 +41,6 @@ export const VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS = 1_500;
 
 export function eventTargetsReaderRoot(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SELECTOR));
-}
-
-export function reviewShortcutTargetKind(value: string): ReviewShortcutContext['reviewTarget'] {
-    if (value === 'both' || value === 'anki') return value;
-    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local') return value;
-    return undefined;
 }
 
 // True when the gesture's POINT is over Yomu's overlay/popover. On touch, WebKit
