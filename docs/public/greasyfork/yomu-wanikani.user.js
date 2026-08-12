@@ -2878,6 +2878,31 @@ async function assertManagedStateMutationFence(getValue, expected) {
 function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
+function sandboxSharedState(key, create) {
+  const realm = globalThis;
+  const slot = Symbol.for(key);
+  const existing = realm[slot];
+  if (existing && typeof existing === "object") return existing;
+  const created = create();
+  Object.defineProperty(realm, slot, {
+  configurable: true,
+  enumerable: false,
+  value: created,
+  writable: true
+  });
+  return created;
+}
+const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", () => ({
+  guardedDocuments: /* @__PURE__ */ new WeakSet(),
+  guards: /* @__PURE__ */ new WeakMap()
+}));
+sandboxSharedState("yomu.trusted-interaction.v1", () => ({
+  pendingClick: {},
+  authorizedClicks: /* @__PURE__ */ new WeakSet(),
+  authorizedEvents: /* @__PURE__ */ new WeakSet(),
+  localActivationRoots: /* @__PURE__ */ new WeakSet(),
+  documentActivation: /* @__PURE__ */ new WeakMap()
+}));
 const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
 function hanIdeographSegments(text) {
   return [...text.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({

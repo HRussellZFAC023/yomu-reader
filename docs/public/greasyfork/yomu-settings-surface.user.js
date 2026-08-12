@@ -8457,14 +8457,36 @@ function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
 const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
-let pendingReaderControlClick;
-const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
-const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
-function syntheticInteractionAllowedForTests() {
+function syntheticEventsAllowed() {
   return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
 }
+function sandboxSharedState(key, create) {
+  const realm = globalThis;
+  const slot = Symbol.for(key);
+  const existing = realm[slot];
+  if (existing && typeof existing === "object") return existing;
+  const created = create();
+  Object.defineProperty(realm, slot, {
+  configurable: true,
+  enumerable: false,
+  value: created,
+  writable: true
+  });
+  return created;
+}
+const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", () => ({
+  guardedDocuments: /* @__PURE__ */ new WeakSet(),
+  guards: /* @__PURE__ */ new WeakMap()
+}));
+const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
+  pendingClick: {},
+  authorizedClicks: /* @__PURE__ */ new WeakSet(),
+  authorizedEvents: /* @__PURE__ */ new WeakSet(),
+  localActivationRoots: /* @__PURE__ */ new WeakSet(),
+  documentActivation: /* @__PURE__ */ new WeakMap()
+}));
 function isDirectTrustedReaderInteraction(event) {
-  return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+  return event.isTrusted || sharedState.authorizedClicks.has(event) || sharedState.authorizedEvents.has(event) || syntheticEventsAllowed();
 }
 function isTrustedReaderInteraction(event) {
   return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();
@@ -8475,22 +8497,22 @@ function trustedReaderEventHandler(handler) {
   };
 }
 function dispatchAuthorizedReaderControlEvent(target, event) {
-  authorizedReaderControlEvents.add(event);
+  sharedState.authorizedEvents.add(event);
   try {
   return target.dispatchEvent(event);
   } finally {
-  authorizedReaderControlEvents.delete(event);
+  sharedState.authorizedEvents.delete(event);
   }
 }
 function dispatchAuthorizedReaderControlClick(target) {
-  if (pendingReaderControlClick) return;
+  if (sharedState.pendingClick.grant) return;
   const grant = { target };
-  pendingReaderControlClick = grant;
+  sharedState.pendingClick.grant = grant;
   try {
   target.click();
   } finally {
-  if (grant.event) authorizedReaderControlClicks.delete(grant.event);
-  if (pendingReaderControlClick === grant) pendingReaderControlClick = void 0;
+  if (grant.event) sharedState.authorizedClicks.delete(grant.event);
+  if (sharedState.pendingClick.grant === grant) sharedState.pendingClick.grant = void 0;
   }
 }
 class ReaderFormSubmitAuthorization {
@@ -67792,7 +67814,21 @@ ${glossaryKey}`;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
       const trigger = settingsDialogTrigger(document.activeElement);
-      if (mountSensitiveSettingsLauncher(this.dependencies, this.modal, this.settings.interfaceLanguage, panel, trigger)) return;
+      const launcher = mountSensitiveSettingsLauncher(
+        this.dependencies,
+        this.modal,
+        this.settings.interfaceLanguage,
+        panel,
+        trigger
+      );
+      if (launcher) {
+        installSettingsDrawerHandle(
+          launcher,
+          uiText(this.settings.interfaceLanguage, "resizeSettings"),
+          () => this.dismissSettings()
+        );
+        return;
+      }
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);

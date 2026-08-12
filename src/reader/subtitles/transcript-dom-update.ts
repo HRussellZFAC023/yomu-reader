@@ -1,4 +1,5 @@
 import { remintRenderedWordPrivateTokens, setInnerHtml } from '../dom/index';
+import { closestHtmlElementMatching } from '../ui/control-pointer-target';
 import { shouldApplyParsedTranscriptHtml } from './subtitle-parse-policy';
 
 export interface ParsedTranscriptUpdateOptions {
@@ -8,7 +9,9 @@ export interface ParsedTranscriptUpdateOptions {
 }
 
 export function mouseEventElement(event: MouseEvent): HTMLElement | null {
-    return event.target instanceof HTMLElement ? event.target : null;
+    const target = event.target;
+    if (target instanceof HTMLElement) return target;
+    return closestHtmlElementMatching(target, '[data-action], .jpdb-reader-word, [data-subtitle-style-popover]');
 }
 
 export function flashSubtitleCopyFeedback(target: HTMLElement): void {

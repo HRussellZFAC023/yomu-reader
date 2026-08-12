@@ -2044,13 +2044,44 @@ function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
 const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
-const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
-const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
-function syntheticInteractionAllowedForTests() {
+function syntheticEventsAllowed() {
   return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
 }
+function sandboxSharedState(key, create) {
+  const realm = globalThis;
+  const slot = Symbol.for(key);
+  const existing = realm[slot];
+  if (existing && typeof existing === "object") return existing;
+  const created = create();
+  Object.defineProperty(realm, slot, {
+  configurable: true,
+  enumerable: false,
+  value: created,
+  writable: true
+  });
+  return created;
+}
+const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", () => ({
+  guardedDocuments: /* @__PURE__ */ new WeakSet(),
+  guards: /* @__PURE__ */ new WeakMap()
+}));
+function closestHtmlElementMatching(target, selector) {
+  let element = target instanceof Element ? target : null;
+  while (element) {
+  if (element instanceof HTMLElement && element.matches(selector)) return element;
+  element = element.parentElement;
+  }
+  return null;
+}
+const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
+  pendingClick: {},
+  authorizedClicks: /* @__PURE__ */ new WeakSet(),
+  authorizedEvents: /* @__PURE__ */ new WeakSet(),
+  localActivationRoots: /* @__PURE__ */ new WeakSet(),
+  documentActivation: /* @__PURE__ */ new WeakMap()
+}));
 function isDirectTrustedReaderInteraction(event) {
-  return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+  return event.isTrusted || sharedState.authorizedClicks.has(event) || sharedState.authorizedEvents.has(event) || syntheticEventsAllowed();
 }
 function isTrustedReaderInteraction(event) {
   return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();
@@ -21531,7 +21562,9 @@ function transcriptPeekRowBody(row) {
   return row.querySelector(".jpdb-subtitle-row-body") ?? row;
 }
 function mouseEventElement(event) {
-  return event.target instanceof HTMLElement ? event.target : null;
+  const target = event.target;
+  if (target instanceof HTMLElement) return target;
+  return closestHtmlElementMatching(target, "[data-action], .jpdb-reader-word, [data-subtitle-style-popover]");
 }
 function flashSubtitleCopyFeedback(target) {
   const button = target.closest("button") ?? target;

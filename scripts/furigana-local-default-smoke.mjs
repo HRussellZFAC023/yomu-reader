@@ -3,151 +3,220 @@
 // setup (parserProvider 'local' + imported term/pitch dictionaries) must still
 // decorate page text automatically — furigana on difficult kanji (including
 // deinflected verbs) and pitch-accent classes at rest, with no API keys.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { deflateRawSync } from 'node:zlib';
 import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
     closeSmokeBrowserAndServer,
+    createReaderSmokeSettings,
     createSmokePaths,
     launchSmokeBrowser,
-    startLoopbackServer,
+    startHtmlFixtureServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
+const YOMITAN_STORE_SOURCE_PATH = path.join(ROOT, 'src', 'reader', 'dictionaries', 'yomitan', 'index.ts');
+const YOMITAN_DB_NAME = readYomitanDbName(YOMITAN_STORE_SOURCE_PATH);
 const PAGE_PATH = '/furigana-local-default.html';
+const REQUEST_BRIDGE_NAME = '__yomuFuriganaLocalSmokeRequest';
+const DICTIONARY_TITLE = 'Mini Jitendex';
+const LANGUAGE_PROFILE_ID = 'furigana-local-default-smoke';
 const SENTENCE = '図書館で漢字を調べています。練習をします。';
 const NOUNS = ['図書館', '漢字', '練習'];
 
-const settings = {
-    // Everything else stays at DEFAULT_SETTINGS: parserProvider 'local',
-    // localDictionariesEnabled true, furiganaMode 'difficult-kanji',
-    // showPitchAccent true — the real post-onboarding keyless profile.
+const settings = createReaderSmokeSettings({
     onboardingSeen: true,
-    interfaceLanguage: 'en',
+    learningTargetChosen: true,
+    activeLanguageProfileId: LANGUAGE_PROFILE_ID,
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: LANGUAGE_PROFILE_ID,
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'en',
+        parserProvider: 'local',
+        dictionaries: {
+            installed: [DICTIONARY_TITLE],
+            enabled: [DICTIONARY_TITLE],
+            order: [DICTIONARY_TITLE],
+        },
+        definitionTranslationProviderIds: [],
+    }],
     apiKey: '',
-    jitenApiKey: '',
-    audioEnabled: false,
-    autoPlayAudio: false,
-    immersionKitEnabled: false,
-    showFloatingButton: false,
+    parserProvider: 'local',
+    localDictionariesEnabled: true,
+    dictionaryPreferences: [{
+        name: DICTIONARY_TITLE,
+        alias: DICTIONARY_TITLE,
+        enabled: true,
+        priority: 0,
+        type: 'terms',
+    }],
+    showFurigana: true,
+    furiganaMode: 'difficult-kanji',
+    showPitchAccent: true,
     enableLogging: Boolean(process.env.SMOKE_DEBUG),
-};
+});
 
 mkdirSync(ARTIFACTS, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
 
-const server = await startLoopbackServer((request, response) => {
-    if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== PAGE_PATH) {
-        response.writeHead(404, { 'content-type': 'text/plain' });
-        return response.end('Not found');
-    }
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>furigana local default smoke</title></head>
-<body><main><p data-smoke-sentence>${SENTENCE}</p></main></body></html>`);
-}, 'Could not bind furigana local default smoke server');
+const server = await startHtmlFixtureServer(
+    PAGE_PATH,
+    `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>furigana local default smoke</title></head>
+    <body><main><p data-smoke-sentence>${SENTENCE}</p></main></body></html>`,
+    'Could not bind furigana local default smoke server',
+);
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
 try {
+    await runFuriganaLocalDefaultSmoke(browser, server.origin);
+} finally {
+    await closeSmokeBrowserAndServer(browser, server.server);
+}
+
+async function runFuriganaLocalDefaultSmoke(browser, fixtureOrigin) {
+    const { context, page, externalRequests } = await createFuriganaSmokePage(browser);
+    await prepareLocalDictionaryFixture(page, fixtureOrigin);
+    let state = await readWordState(page);
+    assertOffhostPrivacy(state);
+    assertVisibleLocalFurigana(state);
+    await waitForLibraryPitch(page);
+    state = await readWordState(page);
+    assertLibraryPitch(state);
+    assertNoExternalDictionaryEnrichment(externalRequests);
+    await recordFuriganaSmoke(page, state, externalRequests);
+    await context.close();
+}
+
+function assertNoExternalDictionaryEnrichment(externalRequests) {
+    const seededTerms = ['図書館', '漢字', '調べる', '練習'];
+    const leakedSeededTerms = externalRequests.filter(url => seededTerms.some(term => decodeURIComponent(url).includes(term)));
+    assert(leakedSeededTerms.length === 0, 'Seeded local dictionary terms leaked to a provider request', { leakedSeededTerms });
+}
+
+async function createFuriganaSmokePage(browser) {
     const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1024, height: 768 } });
     const page = await context.newPage();
-    if (process.env.SMOKE_DEBUG) {
-        page.on('console', message => console.error('[console]', message.type(), message.text().slice(0, 300)));
-        page.on('pageerror', error => console.error('[pageerror]', error.message.slice(0, 300)));
-    }
+    installSmokeDebugLogging(page);
     const externalRequests = [];
-    await page.exposeFunction('__yomuFuriganaLocalSmokeRequest', request => {
+    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => {
         externalRequests.push(request.url);
         return { status: 503, responseText: '' };
     });
     await addGmStorageBridgeInitScript(page, {
         key: YOMU_SETTINGS_KEY,
         value: settings,
-        requestBridgeName: '__yomuFuriganaLocalSmokeRequest',
+        requestBridgeName: REQUEST_BRIDGE_NAME,
     });
+    return { context, page, externalRequests };
+}
 
-    const inject = async () => {
-        await installUserscriptCssResource(page, CSS_PATH);
-        await addScriptTagWithCspFallback(page, SETTINGS_COMPANION_PATH);
-        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-        await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')), null, { timeout: 8000 });
-    };
+function installSmokeDebugLogging(page) {
+    if (!process.env.SMOKE_DEBUG) return;
+    page.on('console', message => console.error('[console]', message.type(), message.text().slice(0, 300)));
+    page.on('pageerror', error => console.error('[pageerror]', error.message.slice(0, 300)));
+}
 
-    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-    await inject();
-
-    // Import the mini offline dictionaries the way onboarding/settings does.
-    // Re-dispatch until the panel exists: the settings-surface companion
-    // registers its listener asynchronously after the runtime owner appears,
-    // so a single dispatch can be lost on slow CI runners.
-    await page.waitForFunction(() => {
-        if (document.querySelector('.jpdb-reader-settings')) return true;
-        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'backup' } }));
-        return false;
-    }, null, { timeout: 30_000, polling: 500 });
-    const importButton = page.locator('[data-action="import-yomitan-dictionary"]');
-    await importButton.scrollIntoViewIfNeeded();
-    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 10_000 });
-    await importButton.click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({
-        name: 'mini-jitendex.zip',
-        mimeType: 'application/zip',
-        buffer: miniDictionaryZip(),
-    });
-    await page.waitForFunction(() => {
-        const statusText = [...document.querySelectorAll('.jpdb-reader-settings [data-import-status], .jpdb-reader-settings [data-dictionary-status], .jpdb-reader-settings [role="status"]')]
-            .map(element => element.textContent ?? '')
-            .join(' ');
-        return /Imported [\d,]+|インポートしました/.test(statusText);
-    }, null, { timeout: 30_000 });
-
-    // Fresh page load: the parser must confirm the local store and decorate
-    // automatically, offline, without any manual scan.
-    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-    await inject();
+async function prepareLocalDictionaryFixture(page, fixtureOrigin) {
+    // Prepare the post-import backend state before Yomu boots. The harness owns
+    // this fixture database; an off-host page never receives settings/import UI.
+    await page.goto(`${fixtureOrigin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await seedMiniDictionaryBackend(page);
+    await injectLocalDictionaryReader(page);
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 4, null, { timeout: 20_000 });
+}
 
-    const wordState = async () => page.evaluate(nouns => {
-        const words = [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')].map(word => {
-            const ruby = word.querySelector('ruby rt');
-            const rubyVisible = ruby instanceof HTMLElement
-                && getComputedStyle(ruby).display !== 'none'
-                && getComputedStyle(ruby).visibility !== 'hidden'
-                && (ruby.textContent ?? '').trim().length > 0
-                && ruby.getBoundingClientRect().height > 0;
-            return {
-                surface: word.getAttribute('data-surface') ?? word.textContent ?? '',
-                expression: word.getAttribute('data-expression') ?? '',
-                source: word.getAttribute('data-card-source') ?? '',
-                hasFuri: word.classList.contains('jpdb-reader-has-furi'),
-                rubyVisible,
-                pitchClass: word.getAttribute('data-pitch-class') ?? '',
-                pitchAccent: word.getAttribute('data-pitch-accent') ?? '',
-            };
-        });
+async function readWordState(page) {
+    return page.evaluate(nouns => {
+        const words = [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
+            .map(renderedWordState);
         const bySurface = surface => words.find(word => word.expression === surface || word.surface.startsWith(surface));
-        return { words, nouns: nouns.map(noun => ({ noun, word: bySurface(noun) })), verb: words.find(word => word.expression === '調べる' || word.surface.startsWith('調')) };
+        return {
+            words,
+            nouns: nouns.map(noun => ({ noun, word: bySurface(noun) })),
+            verb: words.find(word => word.expression === '調べる' || word.surface.startsWith('調')),
+            settingsSurfaceCount: document.querySelectorAll('.jpdb-reader-settings').length,
+            importControlCount: document.querySelectorAll('[data-action="import-yomitan-dictionary"]').length,
+        };
+
+        function renderedWordState(word) {
+            return {
+                surface: surfaceText(word),
+                expression: attributeValue(word, 'data-expression'),
+                hasFuri: word.classList.contains('jpdb-reader-has-furi'),
+                rubyVisible: visibleRuby(word.querySelector('ruby rt')),
+                pitchClass: attributeValue(word, 'data-pitch-class'),
+                pitchAccent: attributeValue(word, 'data-pitch-accent'),
+                privateProviderAttributes: privateProviderAttributes(word),
+            };
+        }
+
+        function visibleRuby(ruby) {
+            if (!(ruby instanceof HTMLElement)) return false;
+            return [rubyStyleIsVisible, rubyHasText, rubyHasHeight].every(predicate => predicate(ruby));
+        }
+
+        function rubyStyleIsVisible(ruby) {
+            const style = getComputedStyle(ruby);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        }
+
+        function rubyHasText(ruby) {
+            return (ruby.textContent || '').trim().length > 0;
+        }
+
+        function rubyHasHeight(ruby) {
+            return ruby.getBoundingClientRect().height > 0;
+        }
+
+        function surfaceText(word) {
+            return word.getAttribute('data-surface') || word.textContent || '';
+        }
+
+        function attributeValue(word, name) {
+            return word.getAttribute(name) || '';
+        }
+
+        function privateProviderAttributes(word) {
+            return [
+                'data-vid',
+                'data-sid',
+                'data-card-source',
+                'data-card-id',
+                'data-reading-index',
+            ].filter(attribute => word.hasAttribute(attribute));
+        }
     }, NOUNS);
+}
 
-    let state = await wordState();
+function assertOffhostPrivacy(state) {
     assert(state.words.length >= 4, 'Local-first parse did not annotate the fixture sentence', state);
+    assert(state.settingsSurfaceCount + state.importControlCount === 0, 'Off-host fixture exposed settings or dictionary-import DOM', state);
+    const identityLeaks = state.words.filter(word => word.privateProviderAttributes.length > 0);
+    assert(identityLeaks.length === 0, 'Off-host reader words exposed private provider identity', identityLeaks);
+}
 
+function assertVisibleLocalFurigana(state) {
     // Furigana must be present at rest immediately after the scan applies.
     for (const { noun, word } of state.nouns) {
         assert(word, `No reader word rendered for ${noun}`, state);
-        assert(word.source === 'local', `${noun} was not parsed by the local dictionary`, word);
-        assert(word.hasFuri && word.rubyVisible, `${noun} lost its at-rest furigana in local-first parsing`, word);
+        assert(word.hasFuri, `${noun} lost its furigana markup in local-first parsing`, word);
+        assert(word.rubyVisible, `${noun} furigana was not visible at rest`, word);
     }
     assert(state.verb, 'No reader word rendered for the inflected verb 調べて', state);
-    assert(state.verb.hasFuri && state.verb.rubyVisible, 'Deinflected verb 調べて lost its furigana in local-first parsing', state.verb);
+    assert(state.verb.hasFuri, 'Deinflected verb 調べて lost its furigana markup', state.verb);
+    assert(state.verb.rubyVisible, 'Deinflected verb 調べて furigana was not visible at rest', state.verb);
+}
 
+async function waitForLibraryPitch(page) {
     // Pitch accent must resolve from the imported pitch bank shortly after
     // apply (local IndexedDB enrichment — no network involved).
     await page.waitForFunction(() => {
@@ -157,8 +226,14 @@ try {
         const pitchClass = word.getAttribute('data-pitch-class') ?? '';
         return pitchClass !== '' && pitchClass !== 'unknown';
     }, null, { timeout: 15_000 });
-    state = await wordState();
+}
 
+function assertLibraryPitch(state) {
+    const library = state.nouns.find(({ noun }) => noun === '図書館')?.word;
+    assert(library && library.pitchClass !== '' && library.pitchClass !== 'unknown', 'Imported local pitch was not painted on 図書館', state);
+}
+
+async function recordFuriganaSmoke(page, state, externalRequests) {
     const screenshotPath = path.join(ARTIFACTS, 'furigana-local-default-smoke.png');
     await page.screenshot({ path: screenshotPath, fullPage: false });
     const report = {
@@ -171,83 +246,91 @@ try {
     writeFileSync(path.join(ARTIFACTS, 'furigana-local-default-smoke.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     console.log('furigana-local-default smoke passed');
-    await context.close();
-} finally {
-    await closeSmokeBrowserAndServer(browser, server.server);
 }
 
-// Minimal Yomitan-format ZIP (stored entries) with a term bank and a
-// Kanjium-style pitch bank covering the fixture words.
-function miniDictionaryZip() {
-    return zipBuffer({
-        'index.json': { title: 'Mini Jitendex', format: 3, revision: 'smoke-1' },
-        'term_bank_1.json': [
-            ['図書館', 'としょかん', '', '', 10, ['library'], 1, ''],
-            ['漢字', 'かんじ', '', '', 10, ['kanji'], 2, ''],
-            ['調べる', 'しらべる', '', 'v1', 10, ['to look up'], 3, ''],
-            ['練習', 'れんしゅう', '', 'vs', 10, ['practice'], 4, ''],
-        ],
-        'term_meta_bank_1.json': [
-            ['図書館', 'pitch', { reading: 'としょかん', pitches: [{ position: 2 }] }],
-            ['漢字', 'pitch', { reading: 'かんじ', pitches: [{ position: 0 }] }],
-            ['調べる', 'pitch', { reading: 'しらべる', pitches: [{ position: 3 }] }],
-            ['練習', 'pitch', { reading: 'れんしゅう', pitches: [{ position: 0 }] }],
-        ],
-    });
+function readYomitanDbName(sourcePath) {
+    const source = readFileSync(sourcePath, 'utf8');
+    const name = source.match(/^const DB_NAME = '([^']+)';/m)?.[1];
+    if (!name) throw new Error(`Could not read the Yomitan DB name from ${sourcePath}`);
+    return name;
 }
 
-function zipBuffer(files) {
-    const encoder = new TextEncoder();
-    const localParts = [];
-    const centralParts = [];
-    let offset = 0;
-    for (const [name, value] of Object.entries(files)) {
-        const nameBytes = Buffer.from(encoder.encode(name));
-        const data = Buffer.from(encoder.encode(typeof value === 'string' ? value : JSON.stringify(value)));
-        const crc = crc32(data);
-        const local = Buffer.alloc(30 + nameBytes.length);
-        local.writeUInt32LE(0x04034b50, 0);
-        local.writeUInt16LE(20, 4);
-        local.writeUInt16LE(0x0800, 6);
-        local.writeUInt16LE(0, 8); // stored
-        local.writeUInt32LE(crc, 14);
-        local.writeUInt32LE(data.length, 18);
-        local.writeUInt32LE(data.length, 22);
-        local.writeUInt16LE(nameBytes.length, 26);
-        nameBytes.copy(local, 30);
-        localParts.push(local, data);
-        const central = Buffer.alloc(46 + nameBytes.length);
-        central.writeUInt32LE(0x02014b50, 0);
-        central.writeUInt16LE(20, 4);
-        central.writeUInt16LE(20, 6);
-        central.writeUInt16LE(0x0800, 8);
-        central.writeUInt16LE(0, 10);
-        central.writeUInt32LE(crc, 16);
-        central.writeUInt32LE(data.length, 20);
-        central.writeUInt32LE(data.length, 24);
-        central.writeUInt16LE(nameBytes.length, 28);
-        central.writeUInt32LE(offset, 42);
-        nameBytes.copy(central, 46);
-        centralParts.push(central);
-        offset += local.length + data.length;
+async function injectLocalDictionaryReader(page) {
+    await installUserscriptCssResource(page, CSS_PATH);
+    for (const scriptPath of [SETTINGS_COMPANION_PATH, SCRIPT_PATH]) {
+        await addScriptTagWithCspFallback(page, scriptPath);
     }
-    const centralSize = centralParts.reduce((size, part) => size + part.length, 0);
-    const end = Buffer.alloc(22);
-    end.writeUInt32LE(0x06054b50, 0);
-    end.writeUInt16LE(Object.keys(files).length, 8);
-    end.writeUInt16LE(Object.keys(files).length, 10);
-    end.writeUInt32LE(centralSize, 12);
-    end.writeUInt32LE(offset, 16);
-    return Buffer.concat([...localParts, ...centralParts, end]);
+    await page.locator('#jpdb-reader-runtime-owner').waitFor({ state: 'attached', timeout: 8000 });
 }
 
-function crc32(buffer) {
-    let crc = 0xffffffff;
-    for (const byte of buffer) {
-        crc ^= byte;
-        for (let bit = 0; bit < 8; bit += 1) {
-            crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+async function seedMiniDictionaryBackend(page) {
+    await page.evaluate(async ({ dbName, dictionaryTitle }) => {
+        await new Promise((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(dbName);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => reject(new Error('Fixture dictionary database deletion was blocked'));
+        });
+        const db = await new Promise((resolve, reject) => {
+            // Version 1 is deliberate: production owns every later migration,
+            // including derived indexes and the managed-state epoch marker.
+            const request = indexedDB.open(dbName, 1);
+            request.onupgradeneeded = () => installFixtureStores(request);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        const terms = [
+            term('図書館', 'としょかん', '', 'library', 1),
+            term('漢字', 'かんじ', '', 'kanji', 2),
+            term('調べる', 'しらべる', 'v1', 'to look up', 3),
+            term('練習', 'れんしゅう', 'vs', 'practice', 4),
+        ];
+        const pitch = [
+            meta('図書館', 'としょかん', 2),
+            meta('漢字', 'かんじ', 0),
+            meta('調べる', 'しらべる', 3),
+            meta('練習', 'れんしゅう', 0),
+        ];
+        const tx = db.transaction(['dictionaryInfo', 'terms', 'termMeta'], 'readwrite');
+        const complete = transactionCompletion(tx);
+        tx.objectStore('dictionaryInfo').put({
+            title: dictionaryTitle,
+            alias: dictionaryTitle,
+            enabled: true,
+            priority: 0,
+            type: 'terms',
+            counts: { terms: terms.length, termMeta: pitch.length },
+        });
+        terms.forEach(entry => tx.objectStore('terms').add(entry));
+        pitch.forEach(entry => tx.objectStore('termMeta').add(entry));
+        await complete;
+        db.close();
+
+        function installFixtureStores(request) {
+            const terms = request.result.createObjectStore('terms', { keyPath: 'id', autoIncrement: true });
+            terms.createIndex('expression', 'expression');
+            terms.createIndex('reading', 'reading');
+            terms.createIndex('dictionary', 'dictionary');
+            const termMeta = request.result.createObjectStore('termMeta', { keyPath: 'id', autoIncrement: true });
+            termMeta.createIndex('expression', 'expression');
+            termMeta.createIndex('dictionary', 'dictionary');
+            request.result.createObjectStore('dictionaryInfo', { keyPath: 'title' });
         }
-    }
-    return (crc ^ 0xffffffff) >>> 0;
+
+        function term(expression, reading, rules, gloss, sequence) {
+            return { expression, reading, definitionTags: '', rules, score: 10, glossary: [gloss], sequence, termTags: '', dictionary: dictionaryTitle };
+        }
+
+        function meta(expression, reading, position) {
+            return { expression, mode: 'pitch', data: { reading, pitches: [{ position }] }, dictionary: dictionaryTitle };
+        }
+
+        function transactionCompletion(transaction) {
+            return new Promise((resolve, reject) => {
+                transaction.addEventListener('complete', () => resolve(), { once: true });
+                transaction.addEventListener('error', () => reject(transaction.error), { once: true });
+                transaction.addEventListener('abort', () => reject(transaction.error), { once: true });
+            });
+        }
+    }, { dbName: YOMITAN_DB_NAME, dictionaryTitle: DICTIONARY_TITLE });
 }

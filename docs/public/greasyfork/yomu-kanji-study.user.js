@@ -3325,13 +3325,36 @@ function safeHost(url) {
   }
 }
 const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
-const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
-const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
-function syntheticInteractionAllowedForTests() {
+function syntheticEventsAllowed() {
   return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
 }
+function sandboxSharedState(key, create) {
+  const realm = globalThis;
+  const slot = Symbol.for(key);
+  const existing = realm[slot];
+  if (existing && typeof existing === "object") return existing;
+  const created = create();
+  Object.defineProperty(realm, slot, {
+  configurable: true,
+  enumerable: false,
+  value: created,
+  writable: true
+  });
+  return created;
+}
+const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", () => ({
+  guardedDocuments: /* @__PURE__ */ new WeakSet(),
+  guards: /* @__PURE__ */ new WeakMap()
+}));
+const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
+  pendingClick: {},
+  authorizedClicks: /* @__PURE__ */ new WeakSet(),
+  authorizedEvents: /* @__PURE__ */ new WeakSet(),
+  localActivationRoots: /* @__PURE__ */ new WeakSet(),
+  documentActivation: /* @__PURE__ */ new WeakMap()
+}));
 function isDirectTrustedReaderInteraction(event) {
-  return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+  return event.isTrusted || sharedState.authorizedClicks.has(event) || sharedState.authorizedEvents.has(event) || syntheticEventsAllowed();
 }
 function isTrustedReaderInteraction(event) {
   return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();

@@ -33,6 +33,7 @@ const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 const JITEN_API_ORIGIN = 'https://api.jiten.moe';
 const JITEN_API_PREFIX = '/api/';
+const LANGUAGE_PROFILE_ID = 'google-search-smoke';
 
 const VOCABULARY = [
     ['アプリ', 'アプリ', 'アプリ', 'app', 'n', 100, ['not-in-deck'], ['LHH']],
@@ -61,6 +62,19 @@ const VOCABULARY = [
 ];
 
 const settings = createReaderSmokeSettings({
+    learningTargetChosen: true,
+    activeLanguageProfileId: LANGUAGE_PROFILE_ID,
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: LANGUAGE_PROFILE_ID,
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'en',
+        parserProvider: 'auto',
+        dictionaries: { installed: [], enabled: [], order: [] },
+        definitionTranslationProviderIds: [],
+    }],
     apiKey: 'mock-jpdb-token',
     preferJapaneseSiteLanguage: false,
 });
@@ -175,10 +189,11 @@ async function runKeylessGooglePitchCase(engineName, browserType) {
         await page.goto(KEYLESS_GOOGLE_URL, { waitUntil: 'domcontentloaded' });
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+        // Provider identity is private on an off-host page. Wait on the visible
+        // pitch result; the request log below proves which provider supplied it.
         await page.waitForFunction(() => {
             const word = document.querySelector('.LC20lb .jpdb-reader-word[data-expression="コツ"]');
             return word
-                && word.getAttribute('data-card-source') === 'jiten'
                 && word.getAttribute('data-pitch-class') === 'atamadaka'
                 && word.classList.contains('jpdb-pitch-atamadaka');
         }, null, { timeout: 20_000 });
@@ -187,17 +202,19 @@ async function runKeylessGooglePitchCase(engineName, browserType) {
             const word = document.querySelector('.LC20lb .jpdb-reader-word[data-expression="コツ"]');
             return {
                 wordCount: document.querySelectorAll('.jpdb-reader-word').length,
-                text: word?.textContent?.trim() ?? '',
-                pitchClass: word?.getAttribute('data-pitch-class') ?? '',
-                cardSource: word?.getAttribute('data-card-source') ?? '',
-                pitchAccent: word?.getAttribute('data-pitch-accent') ?? '',
-                className: word?.className ?? '',
+                text: word.textContent.trim(),
+                pitchClass: word.getAttribute('data-pitch-class'),
+                pitchAccent: word.getAttribute('data-pitch-accent'),
+                className: word.className,
+                hasPublicCardSource: word.hasAttribute('data-card-source'),
             };
         });
         assert(snapshot.text === 'コツ', 'Keyless Google pitch word text changed', snapshot);
         assert(snapshot.pitchClass === 'atamadaka', 'Keyless Google pitch did not hydrate before selection', { snapshot, requests, consoleErrors });
         assert(snapshot.pitchAccent === 'HLL', 'Keyless Google pitch metadata was not stamped onto the rendered word', snapshot);
+        assert(!snapshot.hasPublicCardSource, 'Keyless Google word leaked its private provider identity into the host DOM', snapshot);
         assert(requests.some(request => request.kind === 'jiten' && request.endpoint === 'vocabulary/parse' && request.text === 'コツ'), 'Keyless Google pitch did not request the fallback term', requests);
+        assert(requests.some(request => request.kind === 'jiten' && request.endpoint === 'vocabulary/424200/0/info'), 'Keyless Google pitch did not hydrate from Jiten detail', requests);
         await page.screenshot({ path: path.join(ARTIFACTS, `google-search-keyless-pitch-${engineName}.png`), fullPage: true });
         return { snapshot, requests: requests.length };
     } finally {

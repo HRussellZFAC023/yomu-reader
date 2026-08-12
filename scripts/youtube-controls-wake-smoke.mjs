@@ -22,12 +22,26 @@ const ENGINE_NAME = process.env.YOMU_YOUTUBE_CONTROLS_WAKE_ENGINE?.trim()
     || 'chromium';
 const ENGINE = ENGINE_NAME === 'webkit' ? webkit : chromium;
 const FOCUS_ONLY = process.env.YOMU_YOUTUBE_CONTROLS_WAKE_FOCUS_ONLY === '1';
+const LANGUAGE_PROFILE_ID = 'youtube-controls-wake-smoke';
 if (!['chromium', 'webkit'].includes(ENGINE_NAME)) {
     throw new Error(`Unknown YOMU_YOUTUBE_CONTROLS_WAKE_ENGINE: ${ENGINE_NAME}`);
 }
 
 const baseSettings = {
     onboardingSeen: true,
+    learningTargetChosen: true,
+    activeLanguageProfileId: LANGUAGE_PROFILE_ID,
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: LANGUAGE_PROFILE_ID,
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'en',
+        parserProvider: 'auto',
+        dictionaries: { installed: [], enabled: [], order: [] },
+        definitionTranslationProviderIds: [],
+    }],
     interfaceLanguage: 'en',
     apiKey: '',
     ankiEnabled: false,
@@ -125,8 +139,13 @@ async function nudgeVisualViewport(page, enabled) {
 }
 
 async function focusSubtitleRail(page, enabled) {
-    if (!enabled) return false;
+    return enabled ? focusActiveSubtitleRail(page) : false;
+}
+
+async function focusActiveSubtitleRail(page) {
     const railControl = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+    const modeBefore = await railControl.evaluate((_control, settingsKey) => window.GM_getValue(settingsKey).subtitleControlsMode, SETTINGS_KEY);
+    assert(modeBefore === 'auto', `ipad-focused-rail: expected auto rail before trusted tap, got ${modeBefore}`);
     // Automated WebKit does not retain the focus seen on iPad Safari, so the
     // click hook models only that post-click sticky-focus tail.
     await railControl.evaluate(control => {
@@ -136,6 +155,9 @@ async function focusSubtitleRail(page, enabled) {
     });
     await railControl.tap({ force: true });
     await page.waitForTimeout(50);
+    const activation = await railControl.evaluate(readRailActivation, SETTINGS_KEY);
+    assert(Object.values(activation).every(Boolean),
+        'ipad-focused-rail: trusted touch did not pin and reveal the subtitle rail', activation);
     const focused = await railControl.evaluate(control => document.activeElement === control);
     const dragging = await railControl.evaluate(control => (
         control.closest('.jpdb-subtitle-rail')?.classList.contains('jpdb-subtitle-rail-dragging') ?? false
@@ -144,43 +166,94 @@ async function focusSubtitleRail(page, enabled) {
     return focused;
 }
 
+function readRailActivation(control, settingsKey) {
+    return {
+        expanded: control.getAttribute('aria-expanded') === 'true',
+        mode: window.GM_getValue(settingsKey).subtitleControlsMode === 'always',
+        rootPinned: control.closest('.jpdb-subtitle-player').classList.contains('jpdb-subtitle-controls-always'),
+        styleVisible: getComputedStyle(document.querySelector('[data-action="style"]')).display !== 'none',
+    };
+}
+
+async function exposeStyleControl(page) {
+    const styleButton = page.locator('.jpdb-subtitle-rail [data-action="style"]');
+    const displayed = await styleButton.evaluate(button => getComputedStyle(button).display !== 'none');
+    if (!displayed) await page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]').click({ force: true });
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.jpdb-subtitle-rail [data-action="style"]')).display !== 'none');
+    return styleButton;
+}
+
+async function clickStyleSvgTarget(page, styleButton) {
+    await styleButton.evaluate(button => {
+        // Host pages may make nested SVG geometry independently hit-testable;
+        // reproduce that browser target shape explicitly rather than relying
+        // on this fixture's incidental SVG pointer-events cascade.
+        button.style.pointerEvents = 'none';
+        button.querySelectorAll('svg, svg *').forEach(element => {
+            element.style.pointerEvents = 'all';
+        });
+        button.addEventListener('click', event => {
+            window.__yomuStyleTrustedClick = {
+                trusted: event.isTrusted,
+                targetTag: event.target instanceof Element ? event.target.localName : '',
+            };
+        }, { capture: true, once: true });
+    });
+    await styleButton.locator('circle').first().click({ force: true });
+}
+
+async function readSelectionUiProof(page) {
+    const styleOpen = await page.locator('[data-subtitle-style-popover]').evaluate(popover => !popover.hasAttribute('hidden'));
+    const hasStatus = await page.locator('[data-selection-proof="status"]').evaluate(status => status.textContent.includes('No subtitle tracks detected yet.'));
+    const hasReset = await page.getByText('Reset defaults', { exact: true }).count() > 0;
+    const styleClick = await page.evaluate(() => window.__yomuStyleTrustedClick);
+    return {
+        styleOpen,
+        hasStatus,
+        hasReset,
+        styleClickTrusted: styleClick.trusted === true,
+        styleTargetTag: styleClick.targetTag,
+    };
+}
+
+async function selectedPageText(page) {
+    const shortcut = process.platform === 'darwin' ? 'Meta' : 'Control';
+    const previousClipboard = ENGINE_NAME === 'chromium'
+        ? await page.evaluate(() => navigator.clipboard.readText()).catch(() => '')
+        : null;
+    await page.keyboard.press(`${shortcut}+A`);
+    if (ENGINE_NAME !== 'chromium') return page.evaluate(() => document.getSelection().toString());
+    try {
+        await page.keyboard.press(`${shortcut}+C`);
+        return await page.evaluate(() => navigator.clipboard.readText());
+    } finally {
+        await page.evaluate(text => navigator.clipboard.writeText(text), previousClipboard).catch(() => {});
+    }
+}
+
 async function capturePageCopyBoundary(page) {
     await page.locator('#selection-proof').click({ force: true });
-    const selectionUiReady = await page.evaluate(() => {
+    await page.evaluate(() => {
         const root = document.querySelector('.jpdb-subtitle-player');
         const status = document.createElement('div');
         status.className = 'jpdb-subtitle-status';
         status.dataset.selectionProof = 'status';
         status.append(document.createTextNode('No subtitle tracks detected yet.'));
         root?.append(status);
-        document.querySelector('[data-action="style"]')?.click();
         const transcript = document.querySelector('.jpdb-subtitle-list');
         if (transcript) {
             transcript.hidden = false;
             transcript.textContent = 'Transcript panel UI must not enter page copy.';
         }
         document.getSelection()?.removeAllRanges();
-        return {
-            styleOpen: !document.querySelector('[data-subtitle-style-popover]')?.hasAttribute('hidden'),
-            hasStatus: status.textContent?.includes('No subtitle tracks detected yet.') ?? false,
-            hasReset: document.body.textContent?.includes('Reset defaults') ?? false,
-        };
     });
-
-    const shortcut = process.platform === 'darwin' ? 'Meta' : 'Control';
-    const previousClipboard = ENGINE_NAME === 'chromium'
-        ? await page.evaluate(() => navigator.clipboard.readText()).catch(() => '')
-        : null;
-    await page.keyboard.press(`${shortcut}+A`);
-    let copiedText = await page.evaluate(() => document.getSelection()?.toString() ?? '');
-    if (ENGINE_NAME === 'chromium') {
-        try {
-            await page.keyboard.press(`${shortcut}+C`);
-            copiedText = await page.evaluate(() => navigator.clipboard.readText());
-        } finally {
-            await page.evaluate(text => navigator.clipboard.writeText(text), previousClipboard).catch(() => {});
-        }
-    }
+    // Expand the idle rail through its real grip, then click nested SVG artwork.
+    // This proves both browser-authenticated input and SVG retargeting; a
+    // page-script `.click()` would be rejected by the Reader trust boundary.
+    const styleButton = await exposeStyleControl(page);
+    await clickStyleSvgTarget(page, styleButton);
+    const selectionUiReady = await readSelectionUiProof(page);
+    const copiedText = await selectedPageText(page);
     return {
         ...selectionUiReady,
         ordinaryPageTextSelected: copiedText.includes('Ordinary YouTube page text remains selectable.'),
@@ -232,7 +305,7 @@ async function createControlsWakeContext(browser, { viewport, settings, inlineFu
 }
 
 async function runMode(browser, scenario) {
-    const { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport, focusRail } = scenario;
+    const { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport, focusRail, expectedPanelMode = 'Lines' } = scenario;
     const ctx = await createControlsWakeContext(browser, { viewport, settings, inlineFullscreen });
     const page = await ctx.newPage();
     const pageErrors = [];
@@ -296,7 +369,23 @@ async function runMode(browser, scenario) {
         focusedRailBeforeIdle,
         railFocusedAtEnd,
         railInsidePlayer,
+        expectedPanelMode,
         selectionProof,
+    };
+}
+
+async function openShadowPanel(page) {
+    await page.locator('[data-action="panel-shadow"]').click({ force: true });
+    await page.waitForTimeout(800);
+}
+
+function shadowScenario(name, options = {}) {
+    return {
+        name,
+        expectedPanelMode: 'Shadow',
+        settings: baseSettings,
+        prepare: openShadowPanel,
+        ...options,
     };
 }
 
@@ -307,33 +396,14 @@ if (!FOCUS_ONLY) {
 results.push(await runMode(browser, { name: 'lines-drawer', settings: baseSettings }));
 results.push(await runMode(browser, { name: 'lines-drawer-ipad', settings: baseSettings, viewport: { width: 810, height: 1080 } }));
 results.push(await runMode(browser, { name: 'lines-drawer-phone', settings: baseSettings, viewport: { width: 390, height: 844 } }));
-results.push(await runMode(browser, {
-    name: 'shadow-drawer-phone',
-    settings: baseSettings,
+results.push(await runMode(browser, shadowScenario('shadow-drawer-phone', {
     viewport: { width: 390, height: 844 },
     screenshot: process.env.SHADOW_SHOT || undefined,
-    prepare: async page => {
-        await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
-        await page.waitForTimeout(800);
-    },
-}));
-results.push(await runMode(browser, {
-    name: 'shadow-drawer-ipad',
-    settings: baseSettings,
+})));
+results.push(await runMode(browser, shadowScenario('shadow-drawer-ipad', {
     viewport: { width: 810, height: 1080 },
-    prepare: async page => {
-        await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
-        await page.waitForTimeout(800);
-    },
-}));
-results.push(await runMode(browser, {
-    name: 'shadow-drawer',
-    settings: baseSettings,
-    prepare: async page => {
-        await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
-        await page.waitForTimeout(800);
-    },
-}));
+})));
+results.push(await runMode(browser, shadowScenario('shadow-drawer')));
 
 // iPad in-browser YouTube with the side drawer open and the viewport jittering
 // (URL-bar/orientation churn). This exercises the named inset-relayout path
@@ -357,34 +427,22 @@ results.push(await runMode(browser, {
     inlineFullscreen: true,
     nudgeViewport: true,
 }));
-results.push(await runMode(browser, {
-    name: 'ipad-inline-fullscreen-shadow',
-    settings: baseSettings,
+results.push(await runMode(browser, shadowScenario('ipad-inline-fullscreen-shadow', {
     viewport: { width: 1024, height: 768 },
     inlineFullscreen: true,
     nudgeViewport: true,
-    prepare: async page => {
-        await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
-        await page.waitForTimeout(800);
-    },
-}));
+})));
 results.push(await runMode(browser, {
     name: 'mobile-lines',
     settings: baseSettings,
     viewport: { width: 390, height: 844 },
     mobile: true,
 }));
-results.push(await runMode(browser, {
-    name: 'mobile-shadow',
-    settings: baseSettings,
+results.push(await runMode(browser, shadowScenario('mobile-shadow', {
     viewport: { width: 390, height: 844 },
     mobile: true,
     screenshot: process.env.MOBILE_SHADOW_SHOT || undefined,
-    prepare: async page => {
-        await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
-        await page.waitForTimeout(800);
-    },
-}));
+})));
 }
 
 // Reproduce iPad Safari's sticky-focus path in YouTube's CSS fullscreen. The
@@ -418,6 +476,7 @@ for (const result of results) {
         focusedRailBeforeIdle: result.focusedRailBeforeIdle,
         railFocusedAtEnd: result.railFocusedAtEnd,
         railInsidePlayer: result.railInsidePlayer,
+        expectedPanelMode: result.expectedPanelMode,
         selectionProof: result.selectionProof,
         lastWakes: wake.wakes.slice(-6),
         pageErrors: result.pageErrors.slice(0, 3),
@@ -426,6 +485,7 @@ for (const result of results) {
     try {
         assert(result.playing, `${result.name}: video still playing at end`);
         assert(result.yomuState.overlay && result.yomuState.drawer, `${result.name}: yomu subtitle overlay + drawer mounted`);
+        assert(result.yomuState.panelModePressed.trim() === result.expectedPanelMode, `${result.name}: expected ${result.expectedPanelMode} panel mode, got ${result.yomuState.panelModePressed}`);
         // The core regression: Yomu must never dispatch a SYNTHETIC global resize
         // on YouTube. YouTube treats it as user activity and resets the controls
         // idle-hide timer, which on iPad fullscreen kept the chrome permanently
@@ -446,6 +506,8 @@ for (const result of results) {
         }
         assert(result.controlsHidden, `${result.name}: native controls auto-hid during hands-off playback`);
         assert(result.selectionProof.styleOpen, `${result.name}: subtitle style UI was not visible for selection proof`);
+        assert(result.selectionProof.styleClickTrusted, `${result.name}: subtitle style proof was not browser-trusted`);
+        assert(result.selectionProof.styleTargetTag === 'circle', `${result.name}: subtitle style proof did not target the painted SVG child`);
         assert(result.selectionProof.hasStatus && result.selectionProof.hasReset, `${result.name}: reported subtitle UI strings were absent`);
         assert(result.selectionProof.ordinaryPageTextSelected, `${result.name}: Select All no longer included ordinary page text`);
         assert(!result.selectionProof.subtitleStatusSelected, `${result.name}: Select All included subtitle status UI`);

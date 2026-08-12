@@ -67,8 +67,16 @@ try {
     const entry = path.join(workspace, 'entry.ts');
     const out = path.join(workspace, 'bundle.js');
     const controllerPath = path.join(ROOT, 'src', 'reader', 'ocr', 'controller').replaceAll('\\', '/');
+    const privateRasterPath = path.join(ROOT, 'src', 'reader', 'ocr', 'private-raster-presenter').replaceAll('\\', '/');
     const settingsPath = path.join(ROOT, 'src', 'reader', 'settings', 'index').replaceAll('\\', '/');
-    writeFileSync(entry, `export { ImageOcrController } from '${controllerPath}';\nexport { DEFAULT_SETTINGS } from '${settingsPath}';\n`);
+    const videoFrameRequestPath = path.join(ROOT, 'src', 'reader', 'ocr', 'video-frame-request-bus').replaceAll('\\', '/');
+    writeFileSync(entry, [
+        `export { ImageOcrController } from '${controllerPath}';`,
+        `export { privateRasterImageForHost } from '${privateRasterPath}';`,
+        `export { DEFAULT_SETTINGS } from '${settingsPath}';`,
+        `export { requestManualVideoFrameOcr } from '${videoFrameRequestPath}';`,
+        '',
+    ].join('\n'));
     buildSync({
         absWorkingDir: ROOT,
         entryPoints: [entry],
@@ -146,10 +154,28 @@ window.__register = (async () => {
         captureVideoFrame: () => frameDataUrl,
     });
     controller.init();
-    video.dispatchEvent(new Event('pause'));
 
-    const frame = document.querySelector('.jpdb-ocr-video-frame');
-    if (!frame) throw new Error('paused-frame snapshot was not created');
+    // Page-authored media events are no longer OCR authority. Keep this forged pause in
+    // the real-engine fixture so a future regression cannot reopen that public capability.
+    video.dispatchEvent(new Event('pause'));
+    if (document.querySelector('.jpdb-ocr-video-frame')) {
+        throw new Error('an untrusted page event created a paused-frame snapshot');
+    }
+    // The subtitle rail calls this private same-realm request bus for an explicit scan.
+    // It reaches the same paused-frame capture and register layout without teaching the
+    // fixture (or a hostile page) to bypass the trusted-event boundary.
+    YomuReaderOcr.requestManualVideoFrameOcr(video);
+
+    const frameHost = document.querySelector('.jpdb-ocr-video-frame');
+    if (!frameHost) throw new Error('paused-frame snapshot was not created');
+    if (frameHost.shadowRoot || frameHost.hasAttribute('src')) {
+        throw new Error('paused-frame raster escaped its closed presentation');
+    }
+    // Pixel bytes live on the image inside the closed shadow root. This accessor is
+    // bundled only into the smoke fixture as its trusted test seam; ordinary DOM queries
+    // can see the geometry host but cannot recover the raster source.
+    const frame = YomuReaderOcr.privateRasterImageForHost(frameHost);
+    if (!frame) throw new Error('paused-frame private raster was not created');
     // The inline OCR result must be readable when the snapshot finishes decoding, exactly
     // as a provider response would be by the time the overlay is built.
     frame.dataset.ocrLines = JSON.stringify([{ text: ${JSON.stringify(SENTENCE)}, box: ink, vertical: false }]);
@@ -161,7 +187,7 @@ window.__register = (async () => {
     }
     await new Promise(resolve => setTimeout(resolve, 250)); // let the fitted layout settle
 
-    const frameRect = frame.getBoundingClientRect();
+    const frameRect = frameHost.getBoundingClientRect();
     const line = document.querySelector('.jpdb-ocr-line').getBoundingClientRect();
     const source = {
         top: frameRect.top + ink.top,

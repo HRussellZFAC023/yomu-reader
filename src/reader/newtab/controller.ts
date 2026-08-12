@@ -77,7 +77,7 @@ import { Logger } from '../app/logger';
 import { BUNPRO_FSRS_REVIEW_SHORTCUTS, FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
-import { installReaderControlPointerActivation } from '../ui/pointer-activation';
+import { installLocalTapActivation } from '../ui/pointer-activation';
 import { matchesShortcut } from '../settings/index';
 import {
     activeLearningTarget,
@@ -1493,7 +1493,7 @@ export class NewTabController {
         const controller = new AbortController();
         const options = { signal: controller.signal };
 
-        installReaderControlPointerActivation(root);
+        installLocalTapActivation(root);
         for (const [type, handle] of this.rootEventBindings(root)) {
             root.addEventListener(type, handle, options);
         }

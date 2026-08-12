@@ -14197,14 +14197,120 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
   }
   const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
-  let pendingReaderControlClick;
-  const authorizedReaderControlClicks = /* @__PURE__ */ new WeakSet();
-  const authorizedReaderControlEvents = /* @__PURE__ */ new WeakSet();
-  function syntheticInteractionAllowedForTests() {
+  function syntheticEventsAllowed() {
     return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
   }
+  function sandboxSharedState(key, create) {
+    const realm = globalThis;
+    const slot = Symbol.for(key);
+    const existing = realm[slot];
+    if (existing && typeof existing === "object") return existing;
+    const created = create();
+    Object.defineProperty(realm, slot, {
+      configurable: true,
+      enumerable: false,
+      value: created,
+      writable: true
+    });
+    return created;
+  }
+  const GUARD_LIFETIME_MS = 750;
+  const COORDINATE_SLOP_PX = 16;
+  const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", () => ({
+    guardedDocuments: /* @__PURE__ */ new WeakSet(),
+    guards: /* @__PURE__ */ new WeakMap()
+  }));
+  function installCompatibilityGuard(target) {
+    if (guardedDocuments.has(target)) return;
+    guardedDocuments.add(target);
+    const clear = (event) => {
+      if (blockable(event)) guards.delete(target);
+    };
+    for (const eventName of ["pointerdown", "pointerover", "pointermove", "pointercancel"]) {
+      target.defaultView?.addEventListener(eventName, clear, { capture: true, passive: true });
+      target.addEventListener(eventName, clear, { capture: true, passive: true });
+    }
+    for (const eventName of ["mouseover", "mouseenter", "mousemove", "mousedown", "mouseup", "click"]) {
+      target.addEventListener(eventName, (event) => suppressCompatibilityEvent(event, target), {
+        capture: true,
+        passive: false
+      });
+    }
+  }
+  function armCompatibilityGuard(target, event, startX, startY) {
+    installCompatibilityGuard(target);
+    guards.set(target, {
+      minX: Math.min(startX, event.clientX),
+      maxX: Math.max(startX, event.clientX),
+      minY: Math.min(startY, event.clientY),
+      maxY: Math.max(startY, event.clientY),
+      expiresAt: Date.now() + GUARD_LIFETIME_MS
+    });
+  }
+  function suppressCompatibilityEvent(event, target) {
+    const guard = guards.get(target);
+    if (!guard || !blockable(event)) return;
+    if (Date.now() > guard.expiresAt) return void guards.delete(target);
+    if (!withinGestureEnvelope(event, guard) || !isCompatibilityMouseEvent(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.type === "click") guards.delete(target);
+  }
+  function blockable(event) {
+    return event.isTrusted || syntheticEventsAllowed();
+  }
+  function withinGestureEnvelope(event, guard) {
+    return event.clientX >= guard.minX - COORDINATE_SLOP_PX && event.clientX <= guard.maxX + COORDINATE_SLOP_PX && event.clientY >= guard.minY - COORDINATE_SLOP_PX && event.clientY <= guard.maxY + COORDINATE_SLOP_PX;
+  }
+  function isCompatibilityMouseEvent(event) {
+    return event.type !== "click" || event.detail > 0;
+  }
+  const CONTROL_POINTER_ACTIVATION_SELECTOR = [
+    "button",
+    "a[href]",
+    "summary",
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="option"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    "[data-action]",
+    "[data-token-choice]"
+  ].join(",");
+  function closestReaderControlElement(target) {
+    return closestHtmlElementMatching(target, CONTROL_POINTER_ACTIVATION_SELECTOR);
+  }
+  function closestHtmlElementMatching(target, selector) {
+    let element2 = target instanceof Element ? target : null;
+    while (element2) {
+      if (element2 instanceof HTMLElement && element2.matches(selector)) return element2;
+      element2 = element2.parentElement;
+    }
+    return null;
+  }
+  function readerControlIsDisabled(control) {
+    if (control.closest('[aria-disabled="true"]')) return true;
+    return control.matches(":disabled, fieldset[disabled] *");
+  }
+  const TAP_SLOP_PX = 12;
+  const DRAG_HANDLE_SLOP_PX = 8;
+  const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
+    pendingClick: {},
+    authorizedClicks: /* @__PURE__ */ new WeakSet(),
+    authorizedEvents: /* @__PURE__ */ new WeakSet(),
+    localActivationRoots: /* @__PURE__ */ new WeakSet(),
+    documentActivation: /* @__PURE__ */ new WeakMap()
+  }));
+  function claimLocalTapActivation(root) {
+    if (sharedState.localActivationRoots.has(root)) return false;
+    sharedState.localActivationRoots.add(root);
+    return true;
+  }
   function isDirectTrustedReaderInteraction(event) {
-    return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+    return event.isTrusted || sharedState.authorizedClicks.has(event) || sharedState.authorizedEvents.has(event) || syntheticEventsAllowed();
   }
   function isTrustedReaderInteraction(event) {
     return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();
@@ -14214,23 +14320,87 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (isTrustedReaderInteraction(event)) handler(event);
     };
   }
+  function installControlTapActivation(listenTarget, ownerDocument, resolveControl, options = {}) {
+    const state2 = {};
+    const listenerOptions = { capture: true, passive: false, signal: options.signal };
+    listenTarget.addEventListener("pointerdown", (event) => updatePointerTap(state2, event, resolveControl), listenerOptions);
+    listenTarget.addEventListener("pointerup", (event) => activatePointerTap(state2, event, ownerDocument, resolveControl, options), listenerOptions);
+    listenTarget.addEventListener("pointermove", (event) => invalidateMovedTap(state2, event), listenerOptions);
+    listenTarget.addEventListener("pointercancel", (event) => clearPointerTap(state2, event), listenerOptions);
+  }
+  function updatePointerTap(state2, event, resolveControl) {
+    const control = downControl(event, resolveControl);
+    if (control) state2.tap = { pointerId: event.pointerId, target: control.target, root: control.root, x: event.clientX, y: event.clientY };
+    else clearPointerTap(state2, event);
+  }
+  function downControl(event, resolveControl) {
+    if (event.button !== 0) return null;
+    return isDirectControlPointer(event) ? resolveControl(event.target) : null;
+  }
+  function activatePointerTap(state2, event, ownerDocument, resolveControl, options) {
+    const tap = consumePointerTap(state2, event);
+    if (!tap) return;
+    const control = releasedControl(tap, event, resolveControl);
+    if (!control) return;
+    event.preventDefault();
+    if (options.stopOnActivate) event.stopPropagation();
+    armCompatibilityGuard(ownerDocument, event, tap.x, tap.y);
+    dispatchAuthorizedReaderControlClick(control.target);
+  }
+  function consumePointerTap(state2, event) {
+    if (state2.tap?.pointerId !== event.pointerId) return void 0;
+    const tap = state2.tap;
+    state2.tap = void 0;
+    return tap;
+  }
+  function releasedControl(tap, event, resolveControl) {
+    if (!isDirectControlPointer(event)) return null;
+    if (!tapWithinSlop(tap, event)) return null;
+    const control = resolveControl(event.target);
+    return matchesTap(control, tap) ? control : null;
+  }
+  function matchesTap(control, tap) {
+    return control?.target === tap.target && control.root === tap.root;
+  }
+  function invalidateMovedTap(state2, event) {
+    if (state2.tap?.pointerId !== event.pointerId) return;
+    if (!tapWithinSlop(state2.tap, event)) state2.tap = void 0;
+  }
+  function clearPointerTap(state2, event) {
+    if (state2.tap?.pointerId === event.pointerId) state2.tap = void 0;
+  }
+  function tapWithinSlop(tap, event) {
+    const deltaX = Math.abs(event.clientX - tap.x);
+    const deltaY = Math.abs(event.clientY - tap.y);
+    if (tap.target.hasAttribute("data-subtitle-rail-drag-handle")) {
+      return deltaX + deltaY <= DRAG_HANDLE_SLOP_PX;
+    }
+    return Math.hypot(deltaX, deltaY) <= TAP_SLOP_PX;
+  }
+  function isDirectControlPointer(event) {
+    return isDirectTrustedReaderInteraction(event) && (event.pointerType === "pen" || event.pointerType === "touch") && event.isPrimary !== false;
+  }
+  function enabledReaderControl(target) {
+    const control = closestReaderControlElement(target);
+    return control && !readerControlIsDisabled(control) ? control : null;
+  }
   function dispatchAuthorizedReaderControlEvent(target, event) {
-    authorizedReaderControlEvents.add(event);
+    sharedState.authorizedEvents.add(event);
     try {
       return target.dispatchEvent(event);
     } finally {
-      authorizedReaderControlEvents.delete(event);
+      sharedState.authorizedEvents.delete(event);
     }
   }
   function dispatchAuthorizedReaderControlClick(target) {
-    if (pendingReaderControlClick) return;
+    if (sharedState.pendingClick.grant) return;
     const grant = { target };
-    pendingReaderControlClick = grant;
+    sharedState.pendingClick.grant = grant;
     try {
       target.click();
     } finally {
-      if (grant.event) authorizedReaderControlClicks.delete(grant.event);
-      if (pendingReaderControlClick === grant) pendingReaderControlClick = void 0;
+      if (grant.event) sharedState.authorizedClicks.delete(grant.event);
+      if (sharedState.pendingClick.grant === grant) sharedState.pendingClick.grant = void 0;
     }
   }
   class ReaderFormSubmitAuthorization {
@@ -107533,7 +107703,21 @@ ${reading}`);
     settingsJapaneseParseRefreshTimer;
     open(panel) {
       const trigger = settingsDialogTrigger(document.activeElement);
-      if (mountSensitiveSettingsLauncher(this.dependencies, this.modal, this.settings.interfaceLanguage, panel, trigger)) return;
+      const launcher = mountSensitiveSettingsLauncher(
+        this.dependencies,
+        this.modal,
+        this.settings.interfaceLanguage,
+        panel,
+        trigger
+      );
+      if (launcher) {
+        installSettingsDrawerHandle(
+          launcher,
+          uiText(this.settings.interfaceLanguage, "resizeSettings"),
+          () => this.dismissSettings()
+        );
+        return;
+      }
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);
@@ -119272,7 +119456,9 @@ ${reading}`);
     return row.querySelector(".jpdb-subtitle-row-body") ?? row;
   }
   function mouseEventElement(event) {
-    return event.target instanceof HTMLElement ? event.target : null;
+    const target = event.target;
+    if (target instanceof HTMLElement) return target;
+    return closestHtmlElementMatching(target, "[data-action], .jpdb-reader-word, [data-subtitle-style-popover]");
   }
   function flashSubtitleCopyFeedback(target) {
     const button2 = target.closest("button") ?? target;
@@ -138537,90 +138723,14 @@ ${entry.url}`),
   function jitenReviewKey(wordId, readingIndex) {
     return Number.isFinite(wordId) && Number.isFinite(readingIndex) ? `${wordId}:${readingIndex}` : "";
   }
-  const CONTROL_POINTER_ACTIVATION_SELECTOR = [
-    "button",
-    "a[href]",
-    "summary",
-    '[role="button"]',
-    '[role="checkbox"]',
-    '[role="link"]',
-    '[role="menuitem"]',
-    '[role="option"]',
-    '[role="radio"]',
-    '[role="switch"]',
-    '[role="tab"]',
-    "[data-action]",
-    "[data-token-choice]"
-  ].join(",");
-  const CONTROL_POINTER_TAP_SLOP_PX = 12;
-  function installReaderControlPointerActivation(root) {
-    if (root.dataset.yomuPointerActivationInstalled === "true") return;
+  function installLocalTapActivation(root) {
+    if (!claimLocalTapActivation(root)) return;
     root.dataset.yomuPointerActivationInstalled = "true";
-    let tap;
-    let clickGuard;
-    root.addEventListener("pointerdown", (event) => {
-      if (!isDirectControlPointer(event) || event.button !== 0) {
-        if (tap?.pointerId === event.pointerId) tap = void 0;
-        return;
-      }
-      const target = controlPointerTarget(event.target, root);
-      tap = target ? { pointerId: event.pointerId, target, x: event.clientX, y: event.clientY } : void 0;
-    }, { capture: true });
-    root.addEventListener("pointerup", (event) => {
-      const activeTap = matchingPointerTap(tap, event);
-      if (!activeTap) return;
-      tap = void 0;
-      const target = releasedControlTarget(activeTap, event, root);
-      if (!target) return;
-      event.preventDefault();
-      event.stopPropagation();
-      dispatchAuthorizedReaderControlClick(target);
-      clickGuard = { target, expiresAt: Date.now() + 750 };
-    }, { capture: true });
-    root.addEventListener("pointercancel", (event) => {
-      if (tap?.pointerId === event.pointerId) tap = void 0;
-    }, { capture: true });
-    root.addEventListener("click", (event) => {
-      const guard = clickGuard;
-      if (!guard) return;
-      if (Date.now() > guard.expiresAt) {
-        clickGuard = void 0;
-        return;
-      }
-      const target = controlPointerTarget(event.target, root);
-      if (target !== guard.target) return;
-      if (event.detail === 0 && !event.isTrusted) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      clickGuard = void 0;
-    }, { capture: true });
-  }
-  function matchingPointerTap(tap, event) {
-    if (!tap || tap.pointerId !== event.pointerId) return void 0;
-    return tap;
-  }
-  function releasedControlTarget(tap, event, root) {
-    if (!isDirectControlPointer(event)) return null;
-    const target = controlPointerTarget(event.target, root);
-    if (target !== tap.target) return null;
-    return pointerTravel(tap, event) <= CONTROL_POINTER_TAP_SLOP_PX ? target : null;
-  }
-  function pointerTravel(tap, event) {
-    return Math.hypot(event.clientX - tap.x, event.clientY - tap.y);
-  }
-  function isDirectControlPointer(event) {
-    return isDirectTrustedReaderInteraction(event) && (event.pointerType === "pen" || event.pointerType === "touch") && event.isPrimary !== false;
-  }
-  function controlPointerTarget(target, root) {
-    const element2 = target instanceof Element ? target : null;
-    const control = element2?.closest(CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
-    if (!control || !root.contains(control) || isDisabledControl(control)) return null;
-    return control;
-  }
-  function isDisabledControl(control) {
-    if (control.getAttribute("aria-disabled") === "true") return true;
-    if (control.closest('[aria-disabled="true"]')) return true;
-    return control.matches(":disabled, fieldset[disabled] *");
+    const resolveControl = (target) => {
+      const control = enabledReaderControl(target);
+      return control && root.contains(control) ? { target: control, root } : null;
+    };
+    installControlTapActivation(root, root.ownerDocument, resolveControl, { stopOnActivate: true });
   }
   const CONCEALED_CARD_TOKEN = /^study-card-\d+$/u;
   const SAFE_CONTEXT = /^[a-z0-9:_-]{1,80}$/iu;
@@ -146395,7 +146505,7 @@ ${options.version}`;
       this.rootEventController?.abort();
       const controller = new AbortController();
       const options = { signal: controller.signal };
-      installReaderControlPointerActivation(root);
+      installLocalTapActivation(root);
       for (const [type, handle] of this.rootEventBindings(root)) {
         root.addEventListener(type, handle, options);
       }

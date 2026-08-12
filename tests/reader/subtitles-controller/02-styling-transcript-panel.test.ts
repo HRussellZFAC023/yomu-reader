@@ -202,6 +202,24 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
+    it('routes a visible SVG icon click to its private subtitle command', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const toggle = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="style"]')!;
+        const iconPath = toggle.querySelector<SVGPathElement>('path')!;
+        const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
+
+        try {
+            iconPath.setAttribute('data-action', 'host-forgery');
+            iconPath.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(popover.hidden).toBe(false);
+            expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('rejects hostile subtitle-style changes but persists one trusted change', () => {
         const boundary = new AbortController();
         installTrustedReaderRootBoundary(document, boundary.signal);

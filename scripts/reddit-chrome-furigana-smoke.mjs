@@ -35,7 +35,10 @@ const playwrightModule = await import(process.env.YOMU_REDDIT_PLAYWRIGHT_MODULE
 const { chromium, webkit } = playwrightModule;
 
 const REQUEST_BRIDGE = '__yomuRedditChromeRequest';
+const TRUSTED_SETTINGS_OPEN_BRIDGE = '__yomuRedditChromeSettingsOpen';
 const PAGE_PATH = '/reddit-ipad-annotation-regression.html';
+const TRUSTED_SETTINGS_URL = 'https://yomureader.com/study/#settings=appearance';
+const LANGUAGE_PROFILE_ID = 'reddit-chrome-smoke';
 const smokePaths = createSmokePaths(import.meta.dirname);
 const ROOT = smokePaths.root;
 const ARTIFACTS = smokePaths.artifacts;
@@ -89,6 +92,19 @@ const MOCK_PITCH_EXPRESSIONS = new Set(VOCABULARY
     .map(entry => entry[0]));
 
 const settings = createReaderSmokeSettings({
+    learningTargetChosen: true,
+    activeLanguageProfileId: LANGUAGE_PROFILE_ID,
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: LANGUAGE_PROFILE_ID,
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'en',
+        parserProvider: 'auto',
+        dictionaries: { installed: [], enabled: [], order: [] },
+        definitionTranslationProviderIds: [],
+    }],
     preferJapaneseSiteLanguage: false,
     showFloatingButton: true,
     popupMode: 'popover',
@@ -790,37 +806,61 @@ function userscriptCompanionPaths(userscriptPath) {
 async function exerciseCompensatedFixedChrome(page) {
     const radialSurface = await snapshotFixedSurface(page, '.jpdb-reader-fab-radial.is-open');
     await clickSettledRadialAction(page, 'settings');
-    const settingsRoot = page.locator('.jpdb-reader-settings');
+    const settingsRoot = page.locator('[data-sensitive-settings-launcher]');
     await settingsRoot.waitFor({ timeout: 10_000 });
     await page.waitForTimeout(250);
-    const settingsSurface = await snapshotFixedSurface(page, '.jpdb-reader-settings');
-    const settingsDrag = await dragFixedSurface(page, '.jpdb-reader-settings', '.jpdb-reader-settings-drag-handle', 40);
-
-    await settingsRoot.locator('select[name="popupMode"]').selectOption('sheet');
-    await settingsRoot.locator('button[type="submit"]').click();
+    const settingsSurface = await snapshotFixedSurface(page, '[data-sensitive-settings-launcher]');
+    const settingsBoundary = await settingsRoot.evaluate((root, configuredSecret) => {
+        const launcher = root.querySelector('[data-trusted-settings-launcher]');
+        const elements = [root, ...root.querySelectorAll('*')];
+        return {
+            markedSensitiveLauncher: root.getAttribute('data-sensitive-settings-launcher') === 'true',
+            formCount: root.querySelectorAll('form').length,
+            authoritativeControlCount: root.querySelectorAll('input, select, textarea, output').length,
+            dragHandleCount: root.querySelectorAll('.jpdb-reader-settings-drag-handle').length,
+            configuredSecretExposed: elements.some(element =>
+                element.textContent?.includes(configuredSecret)
+                || [...element.attributes].some(attribute => attribute.value.includes(configuredSecret))),
+            launcherPresent: launcher instanceof HTMLButtonElement,
+            launcherPublicTarget: launcher?.getAttribute('href')
+                ?? launcher?.getAttribute('formaction')
+                ?? launcher?.getAttribute('data-target')
+                ?? '',
+        };
+    }, settings.apiKey);
+    const trustedLauncher = settingsRoot.locator('[data-trusted-settings-launcher]');
+    let resolveTrustedSettingsLaunch;
+    const trustedSettingsLaunchPromise = new Promise(resolve => {
+        resolveTrustedSettingsLaunch = resolve;
+    });
+    await page.exposeFunction(TRUSTED_SETTINGS_OPEN_BRIDGE, (url, target, features) => {
+        resolveTrustedSettingsLaunch({ url, target, features });
+    });
+    await page.evaluate(openBridge => {
+        const reportOpen = window[openBridge];
+        window.open = (url, target, features) => {
+            void reportOpen(String(url ?? ''), String(target ?? ''), String(features ?? ''));
+            return null;
+        };
+    }, TRUSTED_SETTINGS_OPEN_BRIDGE);
+    await trustedLauncher.evaluate(launcher => {
+        launcher.setAttribute('formaction', 'https://attacker.example/phish');
+        launcher.setAttribute('data-target', 'https://attacker.example/phish');
+        launcher.textContent = 'Attacker settings';
+    });
+    await trustedLauncher.evaluate(launcher => launcher.focus());
+    await page.keyboard.press('Enter');
+    let launchTimeout;
+    const trustedSettingsLaunch = await Promise.race([
+        trustedSettingsLaunchPromise,
+        new Promise((_, reject) => {
+            launchTimeout = setTimeout(() => reject(new Error('Trusted settings launcher did not request navigation')), 10_000);
+        }),
+    ]).finally(() => clearTimeout(launchTimeout));
+    await page.keyboard.press('Escape');
     await settingsRoot.waitFor({ state: 'detached', timeout: 10_000 });
-    const toastStack = page.locator('.jpdb-reader-toast-stack');
-    await toastStack.waitFor({ timeout: 10_000 });
-    const toastSurface = await snapshotFixedSurface(page, '.jpdb-reader-toast-stack');
 
     const popupAnchor = page.locator('#popup-anchor .jpdb-reader-word').first();
-    await popupAnchor.click();
-    const sheet = page.locator('.jpdb-reader-popover.jpdb-reader-sheet');
-    await sheet.waitFor({ timeout: 10_000 });
-    await page.waitForTimeout(250);
-    const sheetSurface = await snapshotFixedSurface(page, '.jpdb-reader-popover.jpdb-reader-sheet');
-    const sheetDrag = await dragFixedSurface(page, '.jpdb-reader-popover.jpdb-reader-sheet', '.jpdb-reader-sheet-handle', -40);
-    await page.keyboard.press('Escape');
-    await sheet.waitFor({ state: 'detached', timeout: 10_000 });
-
-    await page.locator('.jpdb-reader-fab').click();
-    await clickSettledRadialAction(page, 'settings');
-    await settingsRoot.waitFor({ timeout: 10_000 });
-    await settingsRoot.locator('select[name="popupMode"]').selectOption('popover');
-    await settingsRoot.locator('input[name="popoverWidth"]').fill('520');
-    await settingsRoot.locator('button[type="submit"]').click();
-    await settingsRoot.waitFor({ state: 'detached', timeout: 10_000 });
-
     await popupAnchor.click();
     const popover = page.locator('.jpdb-reader-popover:not(.jpdb-reader-sheet)');
     await popover.waitFor({ timeout: 10_000 });
@@ -840,10 +880,8 @@ async function exerciseCompensatedFixedChrome(page) {
     return {
         radial: radialSurface,
         settings: settingsSurface,
-        settingsDrag,
-        toast: toastSurface,
-        sheet: sheetSurface,
-        sheetDrag,
+        settingsBoundary,
+        trustedSettingsLaunch,
         popover: popoverSurface,
         popupControlClick,
     };
@@ -977,58 +1015,6 @@ async function snapshotFixedSurface(page, selector) {
     });
 }
 
-async function dragFixedSurface(page, rootSelector, handleSelector, deltaLayoutY) {
-    return page.evaluate(async ({ rootSelector, handleSelector, deltaLayoutY }) => {
-        const root = document.querySelector(rootSelector);
-        const handle = root?.querySelector(handleSelector);
-        if (!(root instanceof HTMLElement) || !(handle instanceof HTMLElement)) {
-            return { available: false };
-        }
-        const before = root.getBoundingClientRect();
-        const pageScale = outerWidth / innerWidth;
-        const compensatedRectScale = measuredCompensatedRectScale(root, before, pageScale);
-        const init = {
-            bubbles: true,
-            cancelable: true,
-            pointerId: 73,
-            pointerType: 'touch',
-            isPrimary: true,
-            button: 0,
-            buttons: 1,
-            clientX: 120,
-            clientY: 220,
-        };
-        handle.dispatchEvent(new PointerEvent('pointerdown', init));
-        document.dispatchEvent(new PointerEvent('pointermove', {
-            ...init,
-            clientY: init.clientY + deltaLayoutY,
-        }));
-        document.dispatchEvent(new PointerEvent('pointerup', {
-            ...init,
-            buttons: 0,
-            clientY: init.clientY + deltaLayoutY,
-        }));
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        const after = root.getBoundingClientRect();
-        return {
-            available: true,
-            pageScale,
-            compensatedRectScale,
-            deltaLayoutY,
-            expectedHeightChange: -deltaLayoutY * pageScale,
-            beforeHeight: before.height * compensatedRectScale,
-            afterHeight: after.height * compensatedRectScale,
-            actualHeightChange: (after.height - before.height) * compensatedRectScale,
-        };
-
-        function measuredCompensatedRectScale(element, rect, scale) {
-            if (scale <= 1 || !element.offsetWidth) return 1;
-            const measured = rect.width / element.offsetWidth;
-            return Math.abs(measured - 1 / scale) < Math.abs(measured - 1) ? scale : 1;
-        }
-    }, { rootSelector, handleSelector, deltaLayoutY });
-}
-
 async function snapshotAnchoredPopover(page) {
     return page.evaluate(() => {
         const popover = document.querySelector('.jpdb-reader-popover:not(.jpdb-reader-sheet)');
@@ -1103,66 +1089,116 @@ async function snapshotAnchoredPopover(page) {
 
 function assertCompensatedFixedChrome(engineName, result) {
     const expectedAdapter = engineName === 'webkit' ? 'apple-touch-page-scale' : '';
-    assert(result.radial.adapter === expectedAdapter,
-        `${engineName}: radial menu has the wrong Reddit scale ownership`, result.radial);
-    assert(Math.abs(result.radial.rect.width - result.radial.browser.width) <= 2
-        && Math.abs(result.radial.rect.height - result.radial.browser.height) <= 2,
-    `${engineName}: compensated radial menu did not cover the physical browser viewport`, result.radial);
-    if (engineName === 'webkit') {
-        assert(result.radial.inlineZoom === '0.625' && result.radial.zoomPriority === 'important',
-            `${engineName}: radial menu did not receive inverse page-scale isolation`, result.radial);
-    } else {
-        assert(result.radial.inlineZoom === '',
-            `${engineName}: radial menu received unnecessary scale compensation`, result.radial);
-    }
-    for (const [name, surface] of Object.entries({
-        settings: result.settings,
-        toast: result.toast,
-        sheet: result.sheet,
-    })) {
-        assert(surface.adapter === expectedAdapter,
-            `${engineName}: ${name} fixed surface has the wrong Reddit scale ownership`, surface);
-        assert(surface.rect.width > 0 && surface.rect.width <= surface.browser.width + 1
-            && surface.rect.height > 0 && surface.rect.height <= surface.browser.height + 1,
-        `${engineName}: ${name} fixed surface escaped the physical browser viewport`, surface);
-        assert(surface.textRect && surface.textRect.height >= 10 && surface.textRect.height <= 32,
-            `${engineName}: ${name} text remained physically enlarged`, surface);
-        if (engineName === 'webkit') {
-            assert(surface.inlineZoom === '0.625' && surface.zoomPriority === 'important',
-                `${engineName}: ${name} did not receive inverse page-scale isolation`, surface);
-        } else {
-            assert(surface.inlineZoom === '',
-                `${engineName}: ${name} received unnecessary scale compensation`, surface);
-        }
-    }
-    assert(result.settings.backdrop && result.settings.backdrop.inlineZoom === '' && result.settings.backdrop.adapter === '',
-        `${engineName}: settings scrim was inverse-scaled with its content root`, result.settings);
-    assert(Math.abs(result.settings.backdrop.physicalWidth - result.settings.browser.width) <= 2
-        && Math.abs(result.settings.backdrop.physicalHeight - result.settings.browser.height) <= 2,
-    `${engineName}: unscaled settings scrim did not cover the physical browser viewport`, result.settings);
-    assert(result.settingsDrag.available
-        && Math.abs(result.settingsDrag.actualHeightChange - result.settingsDrag.expectedHeightChange) <= 4,
-    `${engineName}: compensated settings drag did not track physical movement`, result.settingsDrag);
-    assert(result.sheetDrag.available
-        && Math.abs(result.sheetDrag.actualHeightChange - result.sheetDrag.expectedHeightChange) <= 4,
-    `${engineName}: compensated sheet drag did not track physical movement`, result.sheetDrag);
-    assert(Math.abs(result.sheet.rect.width - result.sheet.browser.width) <= 2,
-        `${engineName}: compensated bottom sheet did not span the physical browser width`, result.sheet);
+    assertCompensatedRadial(engineName, result.radial, expectedAdapter);
+    assertCompensatedSurface(engineName, 'settings', result.settings, expectedAdapter);
+    assertSettingsScrim(engineName, result.settings);
+    assertOffhostSettingsBoundary(engineName, result.settingsBoundary);
+    assertTrustedSettingsLaunch(engineName, result.trustedSettingsLaunch);
+    assertCompensatedPopover(engineName, result, expectedAdapter);
+}
 
+function assertCompensatedRadial(engineName, radial, expectedAdapter) {
+    assert(radial.adapter === expectedAdapter,
+        `${engineName}: radial menu has the wrong Reddit scale ownership`, radial);
+    const coversViewport = Math.abs(radial.rect.width - radial.browser.width) <= 2
+        && Math.abs(radial.rect.height - radial.browser.height) <= 2;
+    assert(coversViewport,
+        `${engineName}: compensated radial menu did not cover the physical browser viewport`, radial);
+    assertCompensatedZoom(engineName, 'radial menu', radial);
+}
+
+function assertCompensatedSurface(engineName, name, surface, expectedAdapter) {
+    assert(surface.adapter === expectedAdapter,
+        `${engineName}: ${name} fixed surface has the wrong Reddit scale ownership`, surface);
+    assert(surface.rect.width > 0,
+        `${engineName}: ${name} fixed surface had no physical width`, surface);
+    assert(surface.rect.width <= surface.browser.width + 1,
+        `${engineName}: ${name} fixed surface escaped the physical browser width`, surface);
+    assert(surface.rect.height > 0,
+        `${engineName}: ${name} fixed surface had no physical height`, surface);
+    assert(surface.rect.height <= surface.browser.height + 1,
+        `${engineName}: ${name} fixed surface escaped the physical browser viewport`, surface);
+    assert(surface.textRect,
+        `${engineName}: ${name} text did not produce a physical rectangle`, surface);
+    assert(surface.textRect.height >= 10,
+        `${engineName}: ${name} text collapsed below its physical minimum`, surface);
+    assert(surface.textRect.height <= 32,
+        `${engineName}: ${name} text remained physically enlarged`, surface);
+    assertCompensatedZoom(engineName, name, surface);
+}
+
+function assertCompensatedZoom(engineName, name, surface) {
+    if (engineName === 'webkit') {
+        const isolated = surface.inlineZoom === '0.625' && surface.zoomPriority === 'important';
+        assert(isolated, `${engineName}: ${name} did not receive inverse page-scale isolation`, surface);
+        return;
+    }
+    assert(surface.inlineZoom === '',
+        `${engineName}: ${name} received unnecessary scale compensation`, surface);
+}
+
+function assertSettingsScrim(engineName, settingsSurface) {
+    const backdrop = settingsSurface.backdrop;
+    const unscaled = backdrop && backdrop.inlineZoom === '' && backdrop.adapter === '';
+    assert(unscaled,
+        `${engineName}: settings scrim was inverse-scaled with its content root`, settingsSurface);
+    const coversViewport = Math.abs(backdrop.physicalWidth - settingsSurface.browser.width) <= 2
+        && Math.abs(backdrop.physicalHeight - settingsSurface.browser.height) <= 2;
+    assert(coversViewport,
+        `${engineName}: unscaled settings scrim did not cover the physical browser viewport`, settingsSurface);
+}
+
+function assertOffhostSettingsBoundary(engineName, boundary) {
+    assert(boundary.markedSensitiveLauncher,
+        `${engineName}: Reddit settings launcher was not marked as sensitive`, boundary);
+    assert(boundary.formCount === 0,
+        `${engineName}: Reddit exposed an authoritative settings form`, boundary);
+    assert(boundary.authoritativeControlCount === 0,
+        `${engineName}: Reddit exposed authoritative settings controls`, boundary);
+    assert(boundary.dragHandleCount === 0,
+        `${engineName}: Reddit exposed a settings drag surface`, boundary);
+    assert(!boundary.configuredSecretExposed,
+        `${engineName}: Reddit exposed a configured secret`, boundary);
+    assert(boundary.launcherPresent,
+        `${engineName}: Reddit did not render the safe settings launcher`, boundary);
+    assert(boundary.launcherPublicTarget === '',
+        `${engineName}: Reddit exposed authoritative settings instead of the offhost launcher`, boundary);
+}
+
+function assertTrustedSettingsLaunch(engineName, launch) {
+    const canonicalLaunch = launch.url === TRUSTED_SETTINGS_URL
+        && launch.target === '_blank'
+        && launch.features === 'noopener';
+    assert(canonicalLaunch,
+        `${engineName}: the offhost launcher did not use its captured trusted settings target`, launch);
+}
+
+function assertCompensatedPopover(engineName, result, expectedAdapter) {
     const popup = result.popover;
-    assert(popup && popup.adapter === expectedAdapter,
+    assert(popup, `${engineName}: anchored popover did not render`);
+    assert(popup.adapter === expectedAdapter,
         `${engineName}: anchored popover has the wrong Reddit scale ownership`, popup);
     assert(Math.abs(popup.rect.width - 520) <= 2,
         `${engineName}: Reddit page scale enlarged the configured popup width`, popup);
-    assert(popup.rect.left >= -1 && popup.rect.top >= -1
-        && popup.rect.right <= popup.browser.width + 1 && popup.rect.bottom <= popup.browser.height + 1,
-    `${engineName}: anchored popup was not clamped to the physical browser viewport`, popup);
-    assert(popup.placementSide === 'above'
-        && popup.rect.top < popup.anchorOverlay.top
-        && popup.rect.bottom >= popup.anchorOverlay.top - 24
-        && popup.rect.bottom <= popup.anchorOverlay.bottom + 1,
+    assert(popup.rect.left >= -1,
+        `${engineName}: anchored popup escaped the left browser edge`, popup);
+    assert(popup.rect.top >= -1,
+        `${engineName}: anchored popup escaped the top browser edge`, popup);
+    assert(popup.rect.right <= popup.browser.width + 1,
+        `${engineName}: anchored popup escaped the right browser edge`, popup);
+    assert(popup.rect.bottom <= popup.browser.height + 1,
+        `${engineName}: anchored popup was not clamped to the physical browser viewport`, popup);
+    assert(popup.placementSide === 'above',
+        `${engineName}: anchored popup chose the wrong placement side`, popup);
+    assert(popup.rect.top < popup.anchorOverlay.top,
+        `${engineName}: anchored popup did not start above its normalized host anchor`, popup);
+    assert(popup.rect.bottom >= popup.anchorOverlay.top - 24,
+        `${engineName}: anchored popup was detached above its normalized host anchor`, popup);
+    assert(popup.rect.bottom <= popup.anchorOverlay.bottom + 1,
         `${engineName}: anchored popup was not placed against the normalized host anchor`, popup);
-    assert(popup.textHeight >= 12 && popup.textHeight <= 32,
+    assert(popup.textHeight >= 12,
+        `${engineName}: popup title text collapsed below its physical minimum`, popup);
+    assert(popup.textHeight <= 32,
         `${engineName}: popup title text remained physically enlarged`, popup);
     if (popup.componentCount > 0) {
         assert(popup.headerDisplay === 'grid',

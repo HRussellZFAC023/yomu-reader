@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.b523824582e9.user.js#sha256=tSOCRYLph49tPPfTDxkgOpJfJux/hIou4F6H4PJAtfQ=
+// @require https://yomureader.com/greasyfork/yomu-runtime.fb8133848e5a.user.js#sha256=+4EzhI5a7VxNhYRkUGTCD3WdUai+tenq5ajbYOFmMb8=
 // @resource yomuCss  https://yomureader.com/yomu.98ece4dc43de.css#sha256=mOzk3EPeHxDtuAU1ik6q9lmdhjIaPbqmPMex3VScNKI=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -3508,8 +3508,108 @@ cacheManagedValueForHostedStartup,
 isHostedYomuOrigin
 });
 const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+function syntheticEventsAllowed() {
+return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+}
+function sandboxSharedState(key, create) {
+const realm = globalThis;
+const slot = Symbol.for(key);
+const existing = realm[slot];
+if (existing && typeof existing === "object") return existing;
+const created = create();
+Object.defineProperty(realm, slot, {
+configurable: true,
+enumerable: false,
+value: created,
+writable: true
+});
+return created;
+}
+const GUARD_LIFETIME_MS = 750;
+const COORDINATE_SLOP_PX = 16;
+const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", () => ({
+guardedDocuments: new WeakSet(),
+guards: new WeakMap()
+}));
+function installCompatibilityGuard(target) {
+if (guardedDocuments.has(target)) return;
+guardedDocuments.add(target);
+const clear = (event) => {
+if (blockable(event)) guards.delete(target);
+};
+for (const eventName of ["pointerdown", "pointerover", "pointermove", "pointercancel"]) {
+target.defaultView?.addEventListener(eventName, clear, { capture: true, passive: true });
+target.addEventListener(eventName, clear, { capture: true, passive: true });
+}
+for (const eventName of ["mouseover", "mouseenter", "mousemove", "mousedown", "mouseup", "click"]) {
+target.addEventListener(eventName, (event) => suppressCompatibilityEvent(event, target), {
+capture: true,
+passive: false
+});
+}
+}
+function armCompatibilityGuard(target, event, startX, startY) {
+installCompatibilityGuard(target);
+guards.set(target, {
+minX: Math.min(startX, event.clientX),
+maxX: Math.max(startX, event.clientX),
+minY: Math.min(startY, event.clientY),
+maxY: Math.max(startY, event.clientY),
+expiresAt: Date.now() + GUARD_LIFETIME_MS
+});
+}
+function suppressCompatibilityEvent(event, target) {
+const guard = guards.get(target);
+if (!guard || !blockable(event)) return;
+if (Date.now() > guard.expiresAt) return void guards.delete(target);
+if (!withinGestureEnvelope(event, guard) || !isCompatibilityMouseEvent(event)) return;
+event.preventDefault();
+event.stopImmediatePropagation();
+if (event.type === "click") guards.delete(target);
+}
+function blockable(event) {
+return event.isTrusted || syntheticEventsAllowed();
+}
+function withinGestureEnvelope(event, guard) {
+return event.clientX >= guard.minX - COORDINATE_SLOP_PX && event.clientX <= guard.maxX + COORDINATE_SLOP_PX && event.clientY >= guard.minY - COORDINATE_SLOP_PX && event.clientY <= guard.maxY + COORDINATE_SLOP_PX;
+}
+function isCompatibilityMouseEvent(event) {
+return event.type !== "click" || event.detail > 0;
+}
+const CONTROL_POINTER_ACTIVATION_SELECTOR = [
+"button",
+"a[href]",
+"summary",
+'[role="button"]',
+'[role="checkbox"]',
+'[role="link"]',
+'[role="menuitem"]',
+'[role="option"]',
+'[role="radio"]',
+'[role="switch"]',
+'[role="tab"]',
+"[data-action]",
+"[data-token-choice]"
+].join(",");
+function closestReaderControlElement(target) {
+return closestHtmlElementMatching(target, CONTROL_POINTER_ACTIVATION_SELECTOR);
+}
+function closestHtmlElementMatching(target, selector) {
+let element = target instanceof Element ? target : null;
+while (element) {
+if (element instanceof HTMLElement && element.matches(selector)) return element;
+element = element.parentElement;
+}
+return null;
+}
+function readerControlIsDisabled(control) {
+if (control.closest('[aria-disabled="true"]')) return true;
+return control.matches(":disabled, fieldset[disabled] *");
+}
 const READER_ROOT_SELECTOR$4 = "[data-jpdb-reader-root]";
-const READER_ROOT_INTERACTION_EVENTS = [
+const TAP_SLOP_PX = 12;
+const DRAG_HANDLE_SLOP_PX = 8;
+const BOUNDARY_EVENTS = [
 "click",
 "dblclick",
 "auxclick",
@@ -3539,14 +3639,20 @@ const READER_ROOT_INTERACTION_EVENTS = [
 "touchcancel",
 "wheel"
 ];
-let pendingReaderControlClick;
-const authorizedReaderControlClicks = new WeakSet();
-const authorizedReaderControlEvents = new WeakSet();
-function syntheticInteractionAllowedForTests() {
-return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
+pendingClick: {},
+authorizedClicks: new WeakSet(),
+authorizedEvents: new WeakSet(),
+localActivationRoots: new WeakSet(),
+documentActivation: new WeakMap()
+}));
+function claimLocalTapActivation(root) {
+if (sharedState.localActivationRoots.has(root)) return false;
+sharedState.localActivationRoots.add(root);
+return true;
 }
 function isDirectTrustedReaderInteraction(event) {
-return event.isTrusted || authorizedReaderControlClicks.has(event) || authorizedReaderControlEvents.has(event) || syntheticInteractionAllowedForTests();
+return event.isTrusted || sharedState.authorizedClicks.has(event) || sharedState.authorizedEvents.has(event) || syntheticEventsAllowed();
 }
 function isTrustedReaderInteraction(event) {
 return isDirectTrustedReaderInteraction(event) || isHostedYomuOrigin();
@@ -3556,15 +3662,14 @@ return (event) => {
 if (isTrustedReaderInteraction(event)) handler(event);
 };
 }
-function blockUntrustedReaderRootInteraction(event) {
+function blockUntrustedRootInteraction(event) {
 const target = event.target instanceof Element ? event.target : null;
-if (claimReaderControlClick(event, target)) return false;
-if (!readerRootInteractionMustBeBlocked(event, target)) return false;
+if (claimReaderControlClick(event, target)) return;
+if (!mustBlockRootInteraction(event, target)) return;
 event.preventDefault();
 event.stopImmediatePropagation();
-return true;
 }
-function readerRootInteractionMustBeBlocked(event, target) {
+function mustBlockRootInteraction(event, target) {
 return Boolean(readerRootFromEvent(event, target)) && !isTrustedReaderInteraction(event);
 }
 function readerRootFromEvent(event, target) {
@@ -3577,31 +3682,130 @@ function eventComposedPath(event) {
 return typeof event.composedPath === "function" ? event.composedPath() : [];
 }
 function installTrustedReaderRootBoundary(target, signal) {
-for (const eventName of READER_ROOT_INTERACTION_EVENTS) {
-target.addEventListener(eventName, blockUntrustedReaderRootInteraction, {
+installCompatibilityGuard(target);
+for (const eventName of BOUNDARY_EVENTS) {
+target.addEventListener(eventName, blockUntrustedRootInteraction, {
 capture: true,
 passive: false,
 signal
 });
 }
+installDocumentTapActivation(target, signal);
+}
+function installDocumentTapActivation(documentTarget, signal) {
+if (!claimDocumentActivation(documentTarget, signal)) return;
+const resolveControl = (target) => documentControlTarget(target, documentTarget);
+installControlTapActivation(documentTarget, documentTarget, resolveControl, { signal });
+}
+function installControlTapActivation(listenTarget, ownerDocument, resolveControl, options = {}) {
+const state = {};
+const listenerOptions = { capture: true, passive: false, signal: options.signal };
+listenTarget.addEventListener("pointerdown", (event) => updatePointerTap(state, event, resolveControl), listenerOptions);
+listenTarget.addEventListener("pointerup", (event) => activatePointerTap(state, event, ownerDocument, resolveControl, options), listenerOptions);
+listenTarget.addEventListener("pointermove", (event) => invalidateMovedTap(state, event), listenerOptions);
+listenTarget.addEventListener("pointercancel", (event) => clearPointerTap(state, event), listenerOptions);
+}
+function claimDocumentActivation(target, signal) {
+if (documentActivationHeld(target)) return false;
+const lifecycle = signal ?? null;
+sharedState.documentActivation.set(target, lifecycle);
+lifecycle?.addEventListener("abort", () => {
+if (sharedState.documentActivation.get(target) === lifecycle) sharedState.documentActivation.delete(target);
+}, { once: true });
+return true;
+}
+function documentActivationHeld(target) {
+if (!sharedState.documentActivation.has(target)) return false;
+const lifecycle = sharedState.documentActivation.get(target);
+return lifecycle === null || !lifecycle.aborted;
+}
+function updatePointerTap(state, event, resolveControl) {
+const control = downControl(event, resolveControl);
+if (control) state.tap = { pointerId: event.pointerId, target: control.target, root: control.root, x: event.clientX, y: event.clientY };
+else clearPointerTap(state, event);
+}
+function downControl(event, resolveControl) {
+if (event.button !== 0) return null;
+return isDirectControlPointer(event) ? resolveControl(event.target) : null;
+}
+function activatePointerTap(state, event, ownerDocument, resolveControl, options) {
+const tap = consumePointerTap(state, event);
+if (!tap) return;
+const control = releasedControl(tap, event, resolveControl);
+if (!control) return;
+event.preventDefault();
+if (options.stopOnActivate) event.stopPropagation();
+armCompatibilityGuard(ownerDocument, event, tap.x, tap.y);
+dispatchAuthorizedReaderControlClick(control.target);
+}
+function consumePointerTap(state, event) {
+if (state.tap?.pointerId !== event.pointerId) return void 0;
+const tap = state.tap;
+state.tap = void 0;
+return tap;
+}
+function releasedControl(tap, event, resolveControl) {
+if (!isDirectControlPointer(event)) return null;
+if (!tapWithinSlop(tap, event)) return null;
+const control = resolveControl(event.target);
+return matchesTap(control, tap) ? control : null;
+}
+function matchesTap(control, tap) {
+return control?.target === tap.target && control.root === tap.root;
+}
+function invalidateMovedTap(state, event) {
+if (state.tap?.pointerId !== event.pointerId) return;
+if (!tapWithinSlop(state.tap, event)) state.tap = void 0;
+}
+function clearPointerTap(state, event) {
+if (state.tap?.pointerId === event.pointerId) state.tap = void 0;
+}
+function tapWithinSlop(tap, event) {
+const deltaX = Math.abs(event.clientX - tap.x);
+const deltaY = Math.abs(event.clientY - tap.y);
+if (tap.target.hasAttribute("data-subtitle-rail-drag-handle")) {
+return deltaX + deltaY <= DRAG_HANDLE_SLOP_PX;
+}
+return Math.hypot(deltaX, deltaY) <= TAP_SLOP_PX;
+}
+function isDirectControlPointer(event) {
+return isDirectTrustedReaderInteraction(event) && (event.pointerType === "pen" || event.pointerType === "touch") && event.isPrimary !== false;
+}
+function documentControlTarget(target, documentTarget) {
+const control = enabledReaderControl(target);
+if (!control) return null;
+const root = documentControlRoot(control, documentTarget);
+return root ? { target: control, root } : null;
+}
+function enabledReaderControl(target) {
+const control = closestReaderControlElement(target);
+return control && !readerControlIsDisabled(control) ? control : null;
+}
+function documentControlRoot(control, target) {
+const root = control.closest(READER_ROOT_SELECTOR$4);
+if (!root || root.ownerDocument !== target) return null;
+return hasLocalTapActivation(root) ? null : root;
+}
+function hasLocalTapActivation(root) {
+return root instanceof HTMLElement && sharedState.localActivationRoots.has(root);
 }
 function dispatchAuthorizedReaderControlClick(target) {
-if (pendingReaderControlClick) return;
+if (sharedState.pendingClick.grant) return;
 const grant = { target };
-pendingReaderControlClick = grant;
+sharedState.pendingClick.grant = grant;
 try {
 target.click();
 } finally {
-if (grant.event) authorizedReaderControlClicks.delete(grant.event);
-if (pendingReaderControlClick === grant) pendingReaderControlClick = void 0;
+if (grant.event) sharedState.authorizedClicks.delete(grant.event);
+if (sharedState.pendingClick.grant === grant) sharedState.pendingClick.grant = void 0;
 }
 }
 function claimReaderControlClick(event, target) {
-const grant = pendingReaderControlClick;
+const grant = sharedState.pendingClick.grant;
 if (!grant || event.type !== "click" || target !== grant.target) return false;
-pendingReaderControlClick = void 0;
+sharedState.pendingClick.grant = void 0;
 grant.event = event;
-authorizedReaderControlClicks.add(event);
+sharedState.authorizedClicks.add(event);
 return true;
 }
 function isTrustedAccountDataSurface(value) {
@@ -12466,90 +12670,14 @@ function getPlacementSide(writingMode, position) {
 if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
 return position.after ? "right" : "left";
 }
-const CONTROL_POINTER_ACTIVATION_SELECTOR = [
-"button",
-"a[href]",
-"summary",
-'[role="button"]',
-'[role="checkbox"]',
-'[role="link"]',
-'[role="menuitem"]',
-'[role="option"]',
-'[role="radio"]',
-'[role="switch"]',
-'[role="tab"]',
-"[data-action]",
-"[data-token-choice]"
-].join(",");
-const CONTROL_POINTER_TAP_SLOP_PX = 12;
-function installReaderControlPointerActivation(root) {
-if (root.dataset.yomuPointerActivationInstalled === "true") return;
+function installLocalTapActivation(root) {
+if (!claimLocalTapActivation(root)) return;
 root.dataset.yomuPointerActivationInstalled = "true";
-let tap;
-let clickGuard;
-root.addEventListener("pointerdown", (event) => {
-if (!isDirectControlPointer(event) || event.button !== 0) {
-if (tap?.pointerId === event.pointerId) tap = void 0;
-return;
-}
-const target = controlPointerTarget(event.target, root);
-tap = target ? { pointerId: event.pointerId, target, x: event.clientX, y: event.clientY } : void 0;
-}, { capture: true });
-root.addEventListener("pointerup", (event) => {
-const activeTap = matchingPointerTap(tap, event);
-if (!activeTap) return;
-tap = void 0;
-const target = releasedControlTarget(activeTap, event, root);
-if (!target) return;
-event.preventDefault();
-event.stopPropagation();
-dispatchAuthorizedReaderControlClick(target);
-clickGuard = { target, expiresAt: Date.now() + 750 };
-}, { capture: true });
-root.addEventListener("pointercancel", (event) => {
-if (tap?.pointerId === event.pointerId) tap = void 0;
-}, { capture: true });
-root.addEventListener("click", (event) => {
-const guard = clickGuard;
-if (!guard) return;
-if (Date.now() > guard.expiresAt) {
-clickGuard = void 0;
-return;
-}
-const target = controlPointerTarget(event.target, root);
-if (target !== guard.target) return;
-if (event.detail === 0 && !event.isTrusted) return;
-event.preventDefault();
-event.stopImmediatePropagation();
-clickGuard = void 0;
-}, { capture: true });
-}
-function matchingPointerTap(tap, event) {
-if (!tap || tap.pointerId !== event.pointerId) return void 0;
-return tap;
-}
-function releasedControlTarget(tap, event, root) {
-if (!isDirectControlPointer(event)) return null;
-const target = controlPointerTarget(event.target, root);
-if (target !== tap.target) return null;
-return pointerTravel(tap, event) <= CONTROL_POINTER_TAP_SLOP_PX ? target : null;
-}
-function pointerTravel(tap, event) {
-return Math.hypot(event.clientX - tap.x, event.clientY - tap.y);
-}
-function isDirectControlPointer(event) {
-return isDirectTrustedReaderInteraction(event) && (event.pointerType === "pen" || event.pointerType === "touch") && event.isPrimary !== false;
-}
-function controlPointerTarget(target, root) {
-const element = target instanceof Element ? target : null;
-const control = element?.closest(CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
-if (!control || !root.contains(control) || isDisabledControl(control)) return null;
-return control;
-}
-function isDisabledControl(control) {
-if (control.getAttribute("aria-disabled") === "true") return true;
-if (control.closest('[aria-disabled="true"]')) return true;
-return control.matches(":disabled, fieldset[disabled] *");
+const resolveControl = (target) => {
+const control = enabledReaderControl(target);
+return control && root.contains(control) ? { target: control, root } : null;
+};
+installControlTapActivation(root, root.ownerDocument, resolveControl, { stopOnActivate: true });
 }
 const CORE_COLOR_TOKENS = {
 black: "#000000",
@@ -37155,7 +37283,7 @@ this.installReaderControlPointerActivation(root);
 root.addEventListener("click", trustedReaderEventHandler((event) => this.handleJpdbPageAddonClick(event, root, fallbackCard)));
 }
 installReaderControlPointerActivation(root) {
-installReaderControlPointerActivation(root);
+installLocalTapActivation(root);
 }
 handleJpdbPageAddonClick(event, root, fallbackCard) {
 if (!(event instanceof MouseEvent)) return;

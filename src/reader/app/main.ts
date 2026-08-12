@@ -10,7 +10,7 @@ import {
     overlayViewport,
     sourceRectToOverlay,
 } from '../ui/page-scale';
-import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
+import { installLocalTapActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary, isTrustedReaderInteraction, trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { CardActionController } from '../cards/action-controller';
 import { refreshAfterCardAction, reportCardActionFailure, runCardActionOperation } from '../cards/action-operation';

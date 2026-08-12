@@ -484,7 +484,21 @@ export class SettingsDialogController {
     }
     open(panel?: string): void {
         const trigger = settingsDialogTrigger(document.activeElement);
-        if (mountSensitiveSettingsLauncher(this.dependencies, this.modal, this.settings.interfaceLanguage, panel, trigger)) return;
+        const launcher = mountSensitiveSettingsLauncher(
+            this.dependencies,
+            this.modal,
+            this.settings.interfaceLanguage,
+            panel,
+            trigger,
+        );
+        if (launcher) {
+            installSettingsDrawerHandle(
+                launcher,
+                uiText(this.settings.interfaceLanguage, 'resizeSettings'),
+                () => this.dismissSettings(),
+            );
+            return;
+        }
         const form = this.createSettingsForm(panel);
         const backdrop = this.dependencies.createBackdrop();
         this.bindFormSubmit(form);

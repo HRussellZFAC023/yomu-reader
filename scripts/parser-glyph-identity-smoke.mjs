@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium, firefox } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
     closeServer,
+    createReaderSmokeSettings,
     createSmokePaths,
     launchSmokeBrowser,
     startLoopbackServer,
@@ -17,20 +18,24 @@ import {
     installUserscriptCssResource,
 } from './lib/smoke-test-helpers.mjs';
 import { TARGET_AUDIT_FIXTURES } from './lib/multilingual-capability-audit-fixtures.ts';
-import { yomitanZipBuffer } from './lib/yomitan-zip.mjs';
 
-const {
-    root: ROOT,
-    artifacts: ARTIFACTS,
-    scriptPath: SCRIPT_PATH,
-    cssPath: CSS_PATH,
-} = createSmokePaths(import.meta.dirname);
+const SMOKE_PATHS = createSmokePaths(import.meta.dirname);
+const ROOT = SMOKE_PATHS.root;
+const ARTIFACTS = SMOKE_PATHS.artifacts;
+const SCRIPT_PATH = SMOKE_PATHS.scriptPath;
+const CSS_PATH = SMOKE_PATHS.cssPath;
+const SETTINGS_COMPANION_PATH = path.resolve(ROOT, 'dist/greasyfork/yomu-settings-surface.user.js');
+const YOMITAN_DB_NAME = yomitanDbNameFromSource(
+    readFileSync(path.resolve(ROOT, 'src/reader/dictionaries/yomitan/index.ts'), 'utf8'),
+);
 const PAGE_PATH = '/parser-glyph-identity.html';
+const REQUEST_BRIDGE_NAME = '__yomuParserGlyphRequest';
 const DICTIONARY_TITLE = 'Yomu Parser Glyph Identity [2026-08-04]';
 const LOOKUP_GLYPH = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々〆ヵヶ]/u;
 const ENGINE_MATRIX = [
     { name: 'chromium', browserType: chromium },
     { name: 'firefox', browserType: firefox },
+    { name: 'webkit', browserType: webkit },
 ];
 const requestedEngineNames = new Set(process.argv.slice(2));
 const ENGINES = requestedEngineNames.size
@@ -49,12 +54,36 @@ const EXPECTED_TOKENS = SENTENCES.flatMap(sentence => sentence.tokens.map(token 
 })));
 const GLYPH_PROBES = glyphProbes(SENTENCES);
 
-const BASE_SETTINGS = {
+const BASE_SETTINGS = createReaderSmokeSettings({
     onboardingSeen: true,
+    learningTargetChosen: true,
     interfaceLanguage: 'en',
     apiKey: '',
     jitenApiKey: '',
     parserProvider: 'local',
+    activeLanguageProfileId: 'parser-glyph-smoke',
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: 'parser-glyph-smoke',
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'en',
+        parserProvider: 'local',
+        dictionaries: {
+            installed: [DICTIONARY_TITLE],
+            enabled: [DICTIONARY_TITLE],
+            order: [DICTIONARY_TITLE],
+        },
+        definitionTranslationProviderIds: [],
+    }],
+    dictionaryPreferences: [{
+        name: DICTIONARY_TITLE,
+        alias: DICTIONARY_TITLE,
+        enabled: true,
+        priority: 0,
+        type: 'terms',
+    }],
     jpdbDefinitionsEnabled: false,
     jitenDefinitionsEnabled: false,
     bunproDefinitionsEnabled: false,
@@ -81,12 +110,12 @@ const BASE_SETTINGS = {
     wordUnderlineColorSource: 'off',
     wordTextColorSource: 'off',
     enableLogging: false,
-};
+});
 
 mkdirSync(ARTIFACTS, { recursive: true });
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, SETTINGS_COMPANION_PATH], ROOT, 'Run npm run build first.');
 assert(ENGINES.length > 0 && ENGINES.length === (requestedEngineNames.size || ENGINE_MATRIX.length),
-    'Parser glyph identity engine must be chromium or firefox.', {
+    'Parser glyph identity engine must be chromium, firefox, or webkit.', {
         requested: [...requestedEngineNames],
     });
 assert(GLYPH_PROBES.length === 36, 'Fixture no longer covers the expected 36 Japanese glyphs.', {
@@ -174,7 +203,7 @@ async function preparedEnginePage(browser, engine) {
     });
     const page = await context.newPage();
     attachSmokeDebugLogging(page, engine.name);
-    await page.exposeFunction('__yomuParserGlyphRequest', () => ({
+    await page.exposeFunction(REQUEST_BRIDGE_NAME, () => ({
         status: 503,
         statusText: 'Deterministic parser glyph identity fixture',
         responseText: '',
@@ -183,12 +212,14 @@ async function preparedEnginePage(browser, engine) {
     await addGmStorageBridgeInitScript(page, {
         key: YOMU_SETTINGS_KEY,
         value: BASE_SETTINGS,
-        requestBridgeName: '__yomuParserGlyphRequest',
+        requestBridgeName: REQUEST_BRIDGE_NAME,
         initialize: 'ifMissing',
     });
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    // Seed the post-import backend state before Yomu boots. The fixture owns
+    // its database; an off-host page never receives settings/import controls.
+    await seedFixtureDictionaryBackend(page);
     await injectReader(page);
-    await importFixtureDictionary(page);
     await waitForImportedDictionaryStore(page);
     return page;
 }
@@ -225,47 +256,25 @@ async function runMultilingualScenarioMatrix(page, engineName, scenarios) {
 
 async function injectReader(page) {
     await installUserscriptCssResource(page, CSS_PATH);
-    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+    for (const scriptPath of [SETTINGS_COMPANION_PATH, SCRIPT_PATH]) {
+        await addScriptTagWithCspFallback(page, scriptPath);
+    }
     await page.waitForFunction(
         () => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')),
         null,
         { timeout: 20_000 },
     );
-}
-
-async function importFixtureDictionary(page) {
-    await page.waitForFunction(() => {
-        if (document.querySelector('.jpdb-reader-settings')) return true;
-        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'backup' } }));
-        return false;
-    }, null, { timeout: 30_000, polling: 250 });
-
-    const importButton = page.locator('[data-action="import-yomitan-dictionary"]');
-    await importButton.scrollIntoViewIfNeeded();
-    const chooserPromise = page.waitForEvent('filechooser', { timeout: 10_000 });
-    await importButton.click();
-    const chooser = await chooserPromise;
-    await chooser.setFiles({
-        name: `${DICTIONARY_TITLE}.zip`,
-        mimeType: 'application/zip',
-        buffer: fixtureDictionaryArchive(),
-    });
-    await page.waitForFunction(({ settingsKey, dictionaryTitle }) => {
-        const raw = localStorage.getItem(settingsKey);
-        const settings = raw == null ? null : JSON.parse(raw);
-        return Boolean(settings?.dictionaryPreferences?.some(row => row.name === dictionaryTitle));
-    }, {
-        settingsKey: YOMU_SETTINGS_KEY,
-        dictionaryTitle: DICTIONARY_TITLE,
-    }, { timeout: 30_000, polling: 250 });
-    await page.keyboard.press('Escape').catch(() => undefined);
-    await page.locator('.jpdb-reader-settings').waitFor({ state: 'detached', timeout: 3000 })
-        .catch(() => page.evaluate(() => document.querySelector('.jpdb-reader-settings')?.remove()));
+    const exposedControls = await page.evaluate(() => ({
+        settingsSurfaceCount: document.querySelectorAll('.jpdb-reader-settings').length,
+        importControlCount: document.querySelectorAll('[data-action="import-yomitan-dictionary"]').length,
+    }));
+    assert(exposedControls.settingsSurfaceCount + exposedControls.importControlCount === 0,
+        'Off-host parser fixture exposed settings or dictionary-import DOM.', exposedControls);
 }
 
 async function waitForImportedDictionaryStore(page) {
-    await page.waitForFunction(dictionaryTitle => new Promise(resolve => {
-        const request = indexedDB.open('jpdb-popup-reader-yomitan');
+    await page.waitForFunction(({ dbName, dictionaryTitle }) => new Promise(resolve => {
+        const request = indexedDB.open(dbName);
         request.onerror = () => resolve(false);
         request.onsuccess = () => {
             const database = request.result;
@@ -291,7 +300,7 @@ async function waitForImportedDictionaryStore(page) {
                 resolve(false);
             };
         };
-    }), DICTIONARY_TITLE, { timeout: 30_000, polling: 250 });
+    }), { dbName: YOMITAN_DB_NAME, dictionaryTitle: DICTIONARY_TITLE }, { timeout: 30_000, polling: 250 });
 }
 
 async function configureScenario(page, furiganaMode, interaction) {
@@ -351,16 +360,10 @@ async function configureMultilingualScenario(page, fixture) {
 
 async function waitForMultilingualFixtureReady(page, fixture) {
     try {
-        await page.waitForFunction(sentenceId =>
-            [...document.querySelectorAll(`[data-parser-sentence="${sentenceId}"] .jpdb-reader-word`)]
-                .some(word => word.getAttribute('data-card-source') === 'local'),
-        fixture.id, {
-            timeout: 45_000,
-            polling: 250,
-        });
+        await waitForPaintedTokens(page, [fixture], 45_000);
     } catch (error) {
         const diagnostics = await collectParserDiagnostics(page);
-        throw new Error(`Multilingual local dictionary fixture never became the paint source.\n${JSON.stringify(diagnostics, null, 2)}`, {
+        throw new Error(`Multilingual fixture never painted its expected source ranges.\n${JSON.stringify(diagnostics, null, 2)}`, {
             cause: error,
         });
     }
@@ -377,16 +380,10 @@ async function waitForFixtureReady(page, furiganaMode) {
         return;
     }
     try {
-        await page.waitForFunction(sentenceIds => sentenceIds.every(id =>
-            [...document.querySelectorAll(`[data-parser-sentence="${id}"] .jpdb-reader-word`)]
-                .some(word => word.getAttribute('data-card-source') === 'local')),
-        SENTENCES.map(sentence => sentence.id), {
-            timeout: 90_000,
-            polling: 250,
-        });
+        await waitForPaintedTokens(page, SENTENCES, 90_000);
     } catch (error) {
         const diagnostics = await collectParserDiagnostics(page);
-        throw new Error(`Local dictionary never became the fixture's paint source.\n${JSON.stringify(diagnostics, null, 2)}`, {
+        throw new Error(`Fixture never painted its expected source ranges.\n${JSON.stringify(diagnostics, null, 2)}`, {
             cause: error,
         });
     }
@@ -394,6 +391,17 @@ async function waitForFixtureReady(page, furiganaMode) {
     // window lets any queued late-card restamp finish before span evidence is
     // captured, without waiting on disabled network providers.
     await page.waitForTimeout(250);
+}
+
+async function waitForPaintedTokens(page, sentences, timeout) {
+    await page.waitForFunction(expectedSentences => expectedSentences.every(sentence => {
+        const words = [...document.querySelectorAll(`[data-parser-sentence="${sentence.id}"] .jpdb-reader-word`)];
+        return sentence.tokens.every(token => words.some(word =>
+            Number(word.getAttribute('data-token-start')) === token.start
+            && Number(word.getAttribute('data-token-end')) === token.end
+            && word.getAttribute('data-surface') === token.surface
+            && word.getAttribute('data-expression') === token.headword));
+    }), sentences.map(({ id, tokens }) => ({ id, tokens })), { timeout, polling: 250 });
 }
 
 async function collectParserDiagnostics(page) {
@@ -430,7 +438,13 @@ async function parserSentenceSnapshots(page) {
             expression: word.dataset.expression,
             start: Number(word.dataset.tokenStart),
             end: Number(word.dataset.tokenEnd),
-            source: word.dataset.cardSource,
+            privateProviderAttributes: [
+                'data-vid',
+                'data-sid',
+                'data-card-source',
+                'data-card-id',
+                'data-reading-index',
+            ].filter(attribute => word.hasAttribute(attribute)),
         })),
     })));
 }
@@ -438,6 +452,7 @@ async function parserSentenceSnapshots(page) {
 async function exerciseScenario(page, scenario) {
     const rubyCount = await page.locator('[data-parser-sentence] rt.jpdb-reader-furi').count();
     const painted = await parserSentenceSnapshots(page);
+    assertPrivateWordIdentityAbsent(painted, scenario);
     assertJapaneseScenarioPaint(rubyCount, painted, scenario);
     const probes = await exerciseGlyphProbes(
         page,
@@ -465,6 +480,7 @@ async function exerciseMultilingualScenario(page, scenario, fixture) {
     });
 
     const painted = await parserSentenceSnapshots(page);
+    assertPrivateWordIdentityAbsent(painted, scenario);
     const expectedTokens = fixture.tokens.map(token => ({
         sentenceId: fixture.id,
         selector,
@@ -488,6 +504,16 @@ function assertJapaneseScenarioPaint(rubyCount, painted, scenario) {
         return;
     }
     assert(rubyCount === 0, 'furiganaMode=off still painted ruby annotations.', { ...scenario, rubyCount });
+}
+
+function assertPrivateWordIdentityAbsent(painted, scenario) {
+    const identityLeaks = painted.flatMap(sentence => sentence.words
+        .filter(word => word.privateProviderAttributes.length > 0)
+        .map(word => ({ sentenceId: sentence.sentenceId, ...word })));
+    assert(identityLeaks.length === 0, 'Off-host reader words exposed private provider identity.', {
+        ...scenario,
+        identityLeaks,
+    });
 }
 
 async function multilingualContentSnapshot(page, selector) {
@@ -578,11 +604,6 @@ function assertPaintedTokens(painted, scenario, expectedTokens = EXPECTED_TOKENS
             painted: matches[0],
         });
         assert(matches[0].expression === expected.headword, 'Painted card identity disagreed with its source span.', {
-            ...scenario,
-            expected,
-            painted: matches[0],
-        });
-        assert(matches[0].source === 'local', 'Acceptance fixture was not resolved by the local dictionary.', {
             ...scenario,
             expected,
             painted: matches[0],
@@ -746,41 +767,105 @@ async function dismissPopover(page) {
     }), null, { timeout: 2000, polling: 25 }).catch(() => undefined);
 }
 
-function fixtureDictionaryArchive() {
-    return yomitanZipBuffer({
-        'index.json': {
-            title: DICTIONARY_TITLE,
-            format: 3,
-            revision: 'glyph-identity-1',
-        },
-        'term_bank_1.json': [
-            ['やさしい', 'やさしい', '', 'adj-i', 100, ['easy; gentle'], 1, ''],
-            ['ことば', 'ことば', '', 'n', 100, ['word; language'], 2, ''],
-            ['で', 'で', '', 'prt', 100, ['at; by'], 3, ''],
-            ['書く', 'かく', '', 'v5k', 100, ['to write'], 4, ''],
-            ['ニュース', 'ニュース', '', 'n', 100, ['news'], 5, ''],
-            ['です', 'です', '', 'cop', 100, ['polite copula'], 6, ''],
-            ['優しい', 'やさしい', '', 'adj-i', 100, ['kind; gentle'], 7, ''],
-            ['言葉', 'ことば', '', 'n', 100, ['word; language'], 8, ''],
-            ['を', 'を', '', 'prt', 100, ['object marker'], 9, ''],
-            ['かける', 'かける', '', 'v1', 100, ['to address; to call out'], 10, ''],
-            ['台風', 'たいふう', '', 'n', 100, ['typhoon'], 11, ''],
-            ['の', 'の', '', 'prt', 100, ['possessive marker'], 12, ''],
-            ['被害', 'ひがい', '', 'n', 100, ['damage'], 13, ''],
-            ['が', 'が', '', 'prt', 100, ['subject marker'], 14, ''],
-            ['出る', 'でる', '', 'v1', 100, ['to come out'], 15, ''],
-            ...MULTILINGUAL_SENTENCES.flatMap((sentence, sentenceIndex) => sentence.tokens.map((token, tokenIndex) => [
-                token.headword,
-                '',
-                '',
-                '',
-                100,
-                [`${sentence.targetId} parser identity fixture`],
-                100 + sentenceIndex * 10 + tokenIndex,
-                '',
-            ])),
-        ],
-    });
+function yomitanDbNameFromSource(source) {
+    const name = source.match(/^const DB_NAME = '([^']+)';/m)?.[1];
+    if (!name) throw new Error('Could not read the production Yomitan DB name.');
+    return name;
+}
+
+async function seedFixtureDictionaryBackend(page) {
+    const terms = fixtureDictionaryTerms();
+    await page.evaluate(async ({ dbName, dictionaryTitle, fixtureTerms }) => {
+        await requestResult(indexedDB.deleteDatabase(dbName), 'Fixture dictionary database deletion was blocked');
+        // Version 1 is deliberate: production owns every later migration,
+        // including derived indexes and managed-state metadata.
+        const openRequest = indexedDB.open(dbName, 1);
+        openRequest.addEventListener('upgradeneeded', () => createFixtureSchema(openRequest.result), { once: true });
+        const database = await requestResult(openRequest);
+        const transaction = database.transaction(['dictionaryInfo', 'terms', 'termMeta'], 'readwrite');
+        const complete = new Promise((resolve, reject) => {
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+        transaction.objectStore('dictionaryInfo').put({
+            title: dictionaryTitle,
+            alias: dictionaryTitle,
+            enabled: true,
+            priority: 0,
+            type: 'terms',
+            counts: { terms: fixtureTerms.length, termMeta: 0 },
+        });
+        fixtureTerms.forEach(entry => transaction.objectStore('terms').add(entry));
+        await complete;
+        database.close();
+
+        function createFixtureSchema(value) {
+            const schema = {
+                terms: ['expression', 'reading', 'dictionary'],
+                termMeta: ['expression', 'dictionary'],
+            };
+            for (const [storeName, indexes] of Object.entries(schema)) {
+                const store = value.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+                indexes.forEach(index => store.createIndex(index, index));
+            }
+            value.createObjectStore('dictionaryInfo', { keyPath: 'title' });
+        }
+
+        function requestResult(request, blockedMessage = '') {
+            return new Promise((resolve, reject) => {
+                request.addEventListener('success', () => resolve(request.result), { once: true });
+                request.addEventListener('error', () => reject(request.error), { once: true });
+                if (blockedMessage) {
+                    request.addEventListener('blocked', () => reject(new Error(blockedMessage)), { once: true });
+                }
+            });
+        }
+    }, { dbName: YOMITAN_DB_NAME, dictionaryTitle: DICTIONARY_TITLE, fixtureTerms: terms });
+}
+
+function fixtureDictionaryTerms() {
+    const terms = [
+        term('やさしい', 'やさしい', 'adj-i', 'easy; gentle', 1),
+        term('ことば', 'ことば', 'n', 'word; language', 2),
+        term('で', 'で', 'prt', 'at; by', 3),
+        term('書く', 'かく', 'v5k', 'to write', 4),
+        term('ニュース', 'ニュース', 'n', 'news', 5),
+        term('です', 'です', 'cop', 'polite copula', 6),
+        term('優しい', 'やさしい', 'adj-i', 'kind; gentle', 7),
+        term('言葉', 'ことば', 'n', 'word; language', 8),
+        term('を', 'を', 'prt', 'object marker', 9),
+        term('かける', 'かける', 'v1', 'to address; to call out', 10),
+        term('台風', 'たいふう', 'n', 'typhoon', 11),
+        term('の', 'の', 'prt', 'possessive marker', 12),
+        term('被害', 'ひがい', 'n', 'damage', 13),
+        term('が', 'が', 'prt', 'subject marker', 14),
+        term('出る', 'でる', 'v1', 'to come out', 15),
+    ];
+    for (const [sentenceIndex, sentence] of MULTILINGUAL_SENTENCES.entries()) {
+        sentence.tokens.forEach((token, tokenIndex) => terms.push(term(
+            token.headword,
+            token.headword,
+            '',
+            `${sentence.targetId} parser identity fixture`,
+            100 + sentenceIndex * 10 + tokenIndex,
+        )));
+    }
+    return terms;
+
+    function term(expression, reading, rules, gloss, sequence) {
+        return {
+            expression,
+            reading,
+            definitionTags: '',
+            rules,
+            score: 100,
+            glossary: [gloss],
+            sequence,
+            termTags: '',
+            dictionary: DICTIONARY_TITLE,
+        };
+    }
 }
 
 function fixtureSentences() {

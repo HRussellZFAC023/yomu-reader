@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { createYomuPaths } from './lib/paths.mjs';
-import { assert, closeServer, createFixtureServer, launchSmokeBrowser, serveFile } from './lib/smoke-harness.mjs';
+import {
+    addGmStorageBridgeInitScript,
+    assert,
+    closeServer,
+    createFixtureServer,
+    launchSmokeBrowser,
+    serveFile,
+    YOMU_SETTINGS_KEY,
+} from './lib/smoke-harness.mjs';
 import {
     addScriptTagWithCspFallback,
     installUserscriptCssResource,
@@ -17,11 +25,11 @@ const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
 const COMPANION_SCRIPT_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 const PUBLIC_DIR = path.join(ROOT, 'docs', 'public');
 const VIDEO_PLAYER_PATH = path.join(ROOT, 'docs', 'public', 'video-player', 'index.html');
-const SETTINGS_KEY = 'jpdb-popup-reader-settings';
-const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
+const SETTINGS_KEY = YOMU_SETTINGS_KEY;
+const HOSTED_FIXTURE_ORIGIN = 'https://yomureader.com';
+const hostedFixturePages = new WeakSet();
 const JPDB_FONT_STACK = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-const SETTINGS_FONT_SELECTOR = 'select[name="popupFontFamily"], input[name="popupFontFamily"]';
-const SETTINGS_WEIGHT_SELECTOR = 'input[name="popupFontWeight"]';
+const LANGUAGE_PROFILE_ID = 'feedback-smoke';
 
 mkdirSync(ARTIFACTS, { recursive: true });
 
@@ -45,6 +53,19 @@ writeFileSync(primaryVttPath, `WEBVTT
 
 const baseSettings = {
     onboardingSeen: true,
+    learningTargetChosen: true,
+    activeLanguageProfileId: LANGUAGE_PROFILE_ID,
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: LANGUAGE_PROFILE_ID,
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'en',
+        parserProvider: 'auto',
+        dictionaries: { installed: [], enabled: [], order: [] },
+        definitionTranslationProviderIds: [],
+    }],
     apiKey: '',
     interfaceLanguage: 'en',
     jpdbDefinitionsEnabled: false,
@@ -254,9 +275,7 @@ function serveFeedbackNotFound(response) {
 
 async function newPage(browser, settings = baseSettings, viewport = { width: 1360, height: 900 }) {
     const page = await browser.newPage({ viewport });
-    await page.addInitScript(({ key, value }) => {
-        localStorage.setItem(key, JSON.stringify(value));
-    }, { key: SETTINGS_KEY, value: settings });
+    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
     return page;
 }
 
@@ -266,131 +285,22 @@ async function injectUserscript(page) {
     await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')), null, { timeout: 6000 });
 }
 
-async function openSettings(page, panel = 'basics') {
-    const logs = [];
-    const onConsole = message => {
-        const type = message.type();
-        if (type === 'error' || type === 'warning') logs.push(`[${type}] ${message.text()}`);
-    };
-    const onPageError = error => logs.push(`[pageerror] ${error.stack || error.message}`);
-    page.on('console', onConsole);
-    page.on('pageerror', onPageError);
-    await page.evaluate(({ eventName, panelName }) => {
-        window.dispatchEvent(new CustomEvent(eventName, { detail: { panel: panelName } }));
-    }, { eventName: OPEN_SETTINGS_EVENT, panelName: panel });
-    try {
-        await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
-    } catch (error) {
-        const active = await page.evaluate(() => ({
-            hasRoot: Boolean(document.querySelector('[data-jpdb-reader-root]')),
-            bodyClasses: document.body.className,
-            yomuReady: Boolean(document.querySelector('.jpdb-reader-float')),
-        }));
-        throw new Error(`Settings did not open for panel ${panel}: ${error.message}\n${logs.join('\n')}\n${JSON.stringify(active)}`);
-    } finally {
-        page.off('console', onConsole);
-        page.off('pageerror', onPageError);
-    }
-}
-
 async function verifySettingsDiscoverability(page, baseUrl) {
     await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    // The popup font controls live on the appearance panel since the 0.5.0
-    // settings polish; 'basics' aliases to the JPDB panel and hides them.
-    await openSettings(page, 'appearance');
-    await verifyAppearanceSettings(page);
-    await verifyShortcutSettings(page);
-    await verifyMediaSettings(page);
-}
-
-async function verifyAppearanceSettings(page) {
-    await page.locator('select[name="popupFontFamily"], input[name="popupFontFamily"]').first().scrollIntoViewIfNeeded();
-    await page.locator('.jpdb-reader-settings').screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-font.png') });
-
-    const appearance = await readAppearanceSettings(page);
-    assertAppearanceSettings(appearance);
-}
-
-async function readAppearanceSettings(page) {
-    const font = page.locator(SETTINGS_FONT_SELECTOR).first();
-    const weight = page.locator(SETTINGS_WEIGHT_SELECTOR).first();
-    const [title, fontValue, weightValue, fontBox, weightBox] = await Promise.all([
-        settingsTitle(page),
-        font.inputValue(),
-        weight.inputValue(),
-        font.boundingBox(),
-        weight.boundingBox(),
-    ]);
-    return {
-        title,
-        fontValue,
-        weightValue,
-        fontVisible: boxAtLeast(fontBox, 100, 24),
-        weightVisible: boxAtLeast(weightBox, 60, 24),
+    await page.locator('.jpdb-reader-fab').click();
+    const settingsAction = page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]');
+    await settingsAction.waitFor({ state: 'visible', timeout: 6000 });
+    await settingsAction.click();
+    const launcher = page.locator('.jpdb-reader-settings-launcher');
+    await launcher.waitFor({ state: 'visible', timeout: 6000 });
+    const state = {
+        trustedLauncherVisible: await launcher.locator('[data-trusted-settings-launcher]').isVisible(),
+        pageWritableControls: await launcher.locator('input, select, textarea, [data-file]').count(),
     };
-}
-
-async function settingsTitle(page) {
-    return trimText(await page.locator('.jpdb-reader-settings h2').textContent());
-}
-
-function assertAppearanceSettings(appearance) {
-    assert(appearance.title === 'よむ Settings', 'Settings dialog did not open');
-    assert(includesText(appearance.fontValue, 'Nunito Sans'), 'JPDB-like popup font setting was not visible or correct', appearance);
-    assert(includesText(appearance.fontValue, 'Noto Sans JP'), 'JPDB-like popup font setting was not visible or correct', appearance);
-    assert(appearance.weightValue === '400', 'Popup Japanese weight did not default to readable regular weight', appearance);
-    assert(appearance.fontVisible, 'Popup font controls were clipped or hidden', appearance);
-    assert(appearance.weightVisible, 'Popup font controls were clipped or hidden', appearance);
-}
-
-function boxAtLeast(box, minWidth, minHeight) {
-    if (!box) return false;
-    if (box.width <= minWidth) return false;
-    return box.height >= minHeight;
-}
-
-async function verifyShortcutSettings(page) {
-    await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
-    const shortcuts = await readShortcutSettings(page);
-    assert(shortcuts.previous === 'Shift+ArrowLeft', 'Previous word shortcut missing from settings', shortcuts);
-    assert(shortcuts.next === 'Shift+ArrowRight', 'Next word shortcut missing from settings', shortcuts);
-    assert(includesText(shortcuts.visibleText, 'Previous word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
-    assert(includesText(shortcuts.visibleText, 'Next word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
-}
-
-async function readShortcutSettings(page) {
-    const [previous, next, visibleText] = await Promise.all([
-        page.locator('input[name="shortcuts.previousLookupWord"]').inputValue(),
-        page.locator('input[name="shortcuts.nextLookupWord"]').inputValue(),
-        settingsDialogText(page),
-    ]);
-    return { previous, next, visibleText };
-}
-
-async function verifyMediaSettings(page) {
-    await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
-    const media = await readMediaSettings(page);
-    assert(media.pausePanel, 'Pause-only subtitle panel setting was not discoverable', media);
-    assert(media.clickPause, 'Subtitle click-pause setting was not discoverable', media);
-    assert(media.hoverPause, 'Subtitle hover-pause setting was not discoverable', media);
-    assert(includesText(media.text, 'Open side panel when paused'), 'Pause-only subtitle panel setting was not discoverable', media);
-    assert(includesText(media.text, 'Pause video on subtitle click'), 'Subtitle click-pause setting was not discoverable', media);
-    assert(includesText(media.text, 'Pause video on subtitle hover'), 'Subtitle hover-pause setting was not discoverable', media);
-}
-
-async function readMediaSettings(page) {
-    const [pausePanelCount, clickPauseCount, hoverPauseCount, text] = await Promise.all([
-        page.locator('input[name="subtitlePausePanel"]').count(),
-        page.locator('input[name="subtitleMiningPause"]').count(),
-        page.locator('input[name="subtitleHoverPause"]').count(),
-        settingsDialogText(page),
-    ]);
-    return { pausePanel: pausePanelCount > 0, clickPause: clickPauseCount > 0, hoverPause: hoverPauseCount > 0, text };
-}
-
-async function settingsDialogText(page) {
-    return trimText(await page.locator('.jpdb-reader-settings').textContent());
+    assert(state.trustedLauncherVisible, 'Settings did not expose the trusted Study launcher', state);
+    assert(state.pageWritableControls === 0, 'Off-host settings exposed page-writable controls', state);
+    await launcher.screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-launcher.png') });
 }
 
 function trimText(value) {
@@ -668,49 +578,22 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-pause-panel.png'), fullPage: false });
 }
 
-async function verifyHostedFullscreenPausedOcrTapabilityMobile(page, baseUrl) {
+async function verifyHostedFullscreenPausedOcrPrivacyMobile(page, baseUrl) {
     await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndSubtitleTogether(page);
     await closeHostedTranscriptPanel(page);
     await enterHostedInlineFullscreenFallback(page);
     await installHostedPausedVideoCaptureStub(page);
     await requestHostedPausedVideoFrameOcr(page);
-    await injectHostedPausedFrameOcrLines(page);
-    await page.waitForSelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word', { timeout: 6000 });
+    await page.waitForSelector('[data-yomu-video-frame] .jpdb-ocr-video-frame', { state: 'attached', timeout: 6000 });
     const ready = await readHostedFullscreenPausedOcrTapState(page);
-    assert(hostedFullscreenPausedOcrReady(ready), 'Fullscreen paused-frame OCR did not render tappable words in the active fullscreen host', ready);
-
-    const lineBox = await page.locator('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line').first().boundingBox();
-    assert(lineBox && lineBox.width > 0 && lineBox.height > 0, 'Fullscreen paused-frame OCR line had no clickable browser box', { lineBox });
-    await page.evaluate(({ x, y }) => {
-        const line = document.querySelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line');
-        if (!(line instanceof HTMLElement)) throw new Error('Fullscreen OCR line missing');
-        line.dispatchEvent(new PointerEvent('pointerdown', {
-            bubbles: true,
-            cancelable: true,
-            button: 0,
-            clientX: x,
-            clientY: y,
-        }));
-        line.dispatchEvent(new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            button: 0,
-            clientX: x,
-            clientY: y,
-        }));
-    }, { x: lineBox.x + lineBox.width / 2, y: lineBox.y + lineBox.height / 2 });
-    await page.waitForFunction(() => {
-        const line = document.querySelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line');
-        return line?.classList.contains('jpdb-ocr-line-active') && line?.getAttribute('data-pinned') === 'true';
-    }, null, { timeout: 3000 });
-    const tapped = await readHostedFullscreenPausedOcrTapState(page);
-    assert(hostedFullscreenPausedOcrTapped(tapped), 'Fullscreen paused-frame OCR word tap did not activate the OCR line', tapped);
+    assert(hostedFullscreenPausedOcrReady(ready), 'Fullscreen paused-frame OCR exposed raster bytes or escaped the active fullscreen host', ready);
     await captureAndExitHostedInlineFullscreen(page, 'feedback-video-fullscreen-paused-ocr.png');
 }
 
 async function openHostedVideoPlayer(page, baseUrl) {
-    await page.goto(`${baseUrl}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
+    await installHostedFixtureRoutes(page, baseUrl);
+    await page.goto(`${HOSTED_FIXTURE_ORIGIN}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     try {
         await page.waitForFunction(
             () => Boolean(window.__yomuReaderAppInitialized && (
@@ -748,6 +631,16 @@ async function openHostedVideoPlayer(page, baseUrl) {
         }), SETTINGS_KEY);
         throw new Error(`Hosted video player did not initialize: ${JSON.stringify(state)}`, { cause: error });
     }
+}
+
+async function installHostedFixtureRoutes(page, baseUrl) {
+    if (hostedFixturePages.has(page)) return;
+    hostedFixturePages.add(page);
+    await page.route(`${HOSTED_FIXTURE_ORIGIN}/**`, async route => {
+        const requested = new URL(route.request().url());
+        const response = await route.fetch({ url: `${baseUrl}${requested.pathname}${requested.search}` });
+        await route.fulfill({ response });
+    });
 }
 
 async function assertHostedEmptyState(page, variant) {
@@ -841,9 +734,9 @@ function rectWidth(rect) {
 async function openHostedSettingsFromOverflow(page) {
     await page.locator('[data-overflow-summary]').click();
     await page.locator('[data-settings-trigger]').click();
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const hostedSettings = await readHostedSettingsState(page);
-    assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the Yomu settings dialog', hostedSettings);
+    assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the trusted Study launcher', hostedSettings);
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
     const closeState = await page.evaluate(() => {
@@ -868,14 +761,14 @@ async function openHostedSettingsFromOverflow(page) {
 
 async function readHostedSettingsState(page) {
     return page.evaluate(() => ({
-        title: document.querySelector('.jpdb-reader-settings h2')?.textContent?.trim(),
-        visible: Boolean(document.querySelector('.jpdb-reader-settings')),
-        hasFontControl: Boolean(document.querySelector('select[name="popupFontFamily"], input[name="popupFontFamily"]')),
+        visible: Boolean(document.querySelector('.jpdb-reader-settings-launcher')),
+        hasLauncher: Boolean(document.querySelector('[data-trusted-settings-launcher]')),
+        writableControls: document.querySelectorAll('.jpdb-reader-settings-launcher input, .jpdb-reader-settings-launcher select, .jpdb-reader-settings-launcher textarea, .jpdb-reader-settings-launcher [data-file]').length,
     }));
 }
 
 function hostedSettingsReady(hostedSettings) {
-    return hostedSettings.title === 'よむ Settings' && hostedSettings.visible && hostedSettings.hasFontControl;
+    return hostedSettings.visible && hostedSettings.hasLauncher && hostedSettings.writableControls === 0;
 }
 
 async function assertSubtitleOpenRequiresVideo(page) {
@@ -1157,7 +1050,8 @@ async function pinHostedSubtitleControlRail(page) {
 
 async function assertHostedSubtitleStyleControls(page) {
     await pinHostedSubtitleControlRail(page);
-    await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
+    const styleButton = page.locator('.jpdb-subtitle-rail [data-action="style"]');
+    await styleButton.click();
     await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
     await setHostedSubtitleStyleControl(page, 'subtitleFontSize', '34');
     const bottomOffset = await setHostedSubtitleBottomOffsetByDrag(page, 24);
@@ -1184,30 +1078,21 @@ async function assertHostedSubtitleStyleControls(page) {
 }
 
 async function assertHostedSubtitleSettingsSyncedFromCompactControls(page, expectedBottomOffset) {
-    await page.evaluate(() => {
-        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'media' } }));
-    });
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
-    await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
+    await page.locator('[data-overflow-summary]').click();
+    await page.locator('[data-settings-trigger]').click();
+    await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const state = await readHostedSubtitleSettingsSyncState(page);
-    assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not stay in sync with the Settings dialog', state);
+    assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not persist before opening trusted Study settings', state);
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
 }
 
 async function readHostedSubtitleSettingsSyncState(page) {
     return page.evaluate(() => {
-        const value = selector => document.querySelector(selector)?.value ?? '';
-        const checked = selector => document.querySelector(selector)?.checked ?? null;
         const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
         return {
-            text: document.querySelector('.jpdb-reader-settings')?.textContent ?? '',
-            fontSize: value('input[name="subtitleFontSize"]'),
-            bottomOffset: value('input[name="subtitleBottomOffset"]'),
-            backgroundOpacity: value('input[name="subtitleBackgroundOpacity"]'),
-            fontFamily: value('select[name="subtitleFontFamily"]'),
-            miningPause: checked('input[name="subtitleMiningPause"]'),
-            hoverPause: checked('input[name="subtitleHoverPause"]'),
+            hasLauncher: Boolean(document.querySelector('[data-trusted-settings-launcher]')),
+            writableControls: document.querySelectorAll('.jpdb-reader-settings-launcher input, .jpdb-reader-settings-launcher select, .jpdb-reader-settings-launcher textarea, .jpdb-reader-settings-launcher [data-file]').length,
             saved: {
                 fontSize: settings.subtitleFontSize,
                 bottomOffset: settings.subtitleBottomOffset,
@@ -1221,27 +1106,20 @@ async function readHostedSubtitleSettingsSyncState(page) {
 }
 
 function hostedSubtitleSettingsSynced(state, expectedBottomOffset) {
-    return includesText(state.text, 'Pause video on subtitle click')
-        && includesText(state.fontFamily, 'Noto Serif JP')
-        && state.fontSize === '34'
-        && state.bottomOffset === String(expectedBottomOffset)
-        && Number(state.backgroundOpacity) === 0.35
-        && state.miningPause === false
-        && state.hoverPause === false
-        && state.saved.fontSize === 34
-        && state.saved.bottomOffset === expectedBottomOffset
-        && state.saved.backgroundOpacity === 0.35
-        && includesText(state.saved.fontFamily, 'Noto Serif JP')
-        && state.saved.miningPause === false
-        && state.saved.hoverPause === false;
+    return [
+        state.hasLauncher,
+        state.writableControls === 0,
+        state.saved.fontSize === 34,
+        state.saved.bottomOffset === expectedBottomOffset,
+        state.saved.backgroundOpacity === 0.35,
+        includesText(state.saved.fontFamily, 'Noto Serif JP'),
+        state.saved.miningPause === false,
+        state.saved.hoverPause === false,
+    ].every(Boolean);
 }
 
 async function setHostedSubtitleStyleControl(page, name, value) {
-    await page.locator(`[data-subtitle-style-setting="${name}"]`).evaluate((control, nextValue) => {
-        control.value = nextValue;
-        control.dispatchEvent(new Event('input', { bubbles: true }));
-        control.dispatchEvent(new Event('change', { bubbles: true }));
-    }, value);
+    await page.locator(`[data-subtitle-style-setting="${name}"]`).fill(value);
 }
 
 async function setHostedSubtitleBottomOffsetByDrag(page, targetBottomOffset) {
@@ -1278,12 +1156,12 @@ async function setHostedSubtitleBottomOffsetByDrag(page, targetBottomOffset) {
 }
 
 async function setHostedSubtitleStyleFont(page) {
-    await page.locator('[data-subtitle-style-setting="subtitleFontFamily"]').evaluate(select => {
-        const option = Array.from(select.options).find(item => item.value.includes('Noto Serif JP'));
-        if (!option) throw new Error('Japanese serif subtitle font preset not found');
-        select.value = option.value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const select = page.locator('[data-subtitle-style-setting="subtitleFontFamily"]');
+    const value = await select.locator('option').evaluateAll(options => (
+        options.find(option => option.value.includes('Noto Serif JP'))?.value ?? ''
+    ));
+    if (!value) throw new Error('Japanese serif subtitle font preset not found');
+    await select.selectOption(value);
 }
 
 async function readHostedSubtitleStyleState(page) {
@@ -1434,20 +1312,6 @@ async function enterHostedInlineFullscreenFallback(page) {
     }, null, { timeout: 6000 });
 }
 
-async function injectHostedPausedFrameOcrLines(page) {
-    await page.waitForSelector('[data-yomu-video-frame] .jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
-    await page.evaluate(() => {
-        const frame = document.querySelector('[data-yomu-video-frame] .jpdb-ocr-video-frame');
-        if (!(frame instanceof HTMLImageElement)) throw new Error('Paused OCR frame missing');
-        Object.defineProperty(frame, 'naturalWidth', { configurable: true, value: 640 });
-        Object.defineProperty(frame, 'naturalHeight', { configurable: true, value: 360 });
-        frame.dataset.ocrLines = JSON.stringify([
-            { text: '日本語', box: { left: 64, top: 72, width: 192, height: 54 } },
-        ]);
-        frame.dispatchEvent(new Event('load'));
-    });
-}
-
 async function closeHostedTranscriptPanel(page) {
     const hidden = await page.evaluate(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true);
     if (hidden) return;
@@ -1458,120 +1322,87 @@ async function closeHostedTranscriptPanel(page) {
 
 async function readHostedFullscreenPausedOcrTapState(page) {
     return page.evaluate(() => {
-        const rect = element => {
-            const box = element?.getBoundingClientRect();
-            return box ? {
+        function rect(element) {
+            if (!(element instanceof Element)) return null;
+            const box = element.getBoundingClientRect();
+            return {
                 width: box.width,
                 height: box.height,
                 left: box.left,
                 top: box.top,
                 right: box.right,
                 bottom: box.bottom,
-            } : null;
-        };
+            };
+        }
+        function attribute(element, name) {
+            return element instanceof Element ? element.getAttribute(name) : null;
+        }
+        function hasAttribute(element, name) {
+            return element instanceof Element ? element.hasAttribute(name) : false;
+        }
+        function hasClass(element, className, fallback = false) {
+            return element instanceof Element ? element.classList.contains(className) : fallback;
+        }
+        function hasParent(element, parent) {
+            return element instanceof Element && element.parentElement === parent;
+        }
+        function containsElement(parent, child) {
+            return parent instanceof Element && child instanceof Element && parent.contains(child);
+        }
+        function publicRasterSourceExposed(element) {
+            return !(element instanceof Element) || /(?:data:|blob:|\bsrc=)/iu.test(element.outerHTML);
+        }
         const stage = document.querySelector('[data-yomu-video-frame]');
         const root = document.querySelector('.jpdb-subtitle-player');
         const rail = document.querySelector('.jpdb-subtitle-rail');
         const frame = document.querySelector('.jpdb-ocr-video-frame');
-        const overlay = document.querySelector('.jpdb-ocr-layer');
-        const line = document.querySelector('.jpdb-ocr-layer .jpdb-ocr-line');
-        const word = document.querySelector('.jpdb-ocr-layer .jpdb-reader-word');
-        const lineStyle = line ? getComputedStyle(line) : null;
-        const visualGlyphs = line
-            ? [...line.querySelectorAll('[data-yomu-ocr-visual-text]')]
-            : [];
-        const visualGlyphState = visualGlyphs.map(glyph => {
-            const style = getComputedStyle(glyph);
-            return {
-                text: glyph.getAttribute('data-yomu-ocr-visual-text') ?? '',
-                ariaHidden: glyph.getAttribute('aria-hidden'),
-                display: style.display,
-                visibility: style.visibility,
-                opacity: style.opacity,
-                rect: rect(glyph),
-            };
-        });
-        const underlyingTextNodes = (() => {
-            if (!line) return -1;
-            const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
-            let count = 0;
-            while (walker.nextNode()) count += 1;
-            return count;
-        })();
+        const status = document.querySelector('.jpdb-ocr-video-frame-status');
+        const resume = document.querySelector('.jpdb-ocr-video-frame-resume');
         return {
-            stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
-            stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
-            rootParentIsBody: root?.parentElement === document.body,
-            stageContainsRoot: Boolean(stage && root && stage.contains(root)),
-            rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
-            rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
+            stageInline: attribute(stage, 'data-yomu-inline-fullscreen'),
+            stageActive: hasAttribute(stage, 'data-fullscreen-active'),
+            rootParentIsBody: hasParent(root, document.body),
+            stageContainsRoot: containsElement(stage, root),
+            rootFullscreenClass: hasClass(root, 'jpdb-subtitle-fullscreen'),
+            rootOutOfView: hasClass(root, 'jpdb-subtitle-video-out-of-view', true),
             railActions: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => button.getAttribute('data-action')),
             railRect: rect(rail),
-            frameParentIsStage: Boolean(stage && frame?.parentElement === stage),
-            overlayParentIsStage: Boolean(stage && overlay?.parentElement === stage),
-            frameHosted: frame?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
-            overlayHosted: overlay?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
-            ocrWords: document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word').length,
-            scannerIsolated: line?.querySelector('.jpdb-ocr-line-text')
-                ?.classList.contains('jpdb-ocr-page-scanner-isolated') ?? false,
-            visualGlyphText: visualGlyphState.map(glyph => glyph.text).join(''),
-            visualGlyphState,
-            underlyingTextNodes,
-            lineAriaLabel: line?.getAttribute('aria-label') ?? '',
-            lineOcrText: line?.getAttribute('data-ocr-text') ?? '',
-            lineSentence: line?.getAttribute('data-sentence') ?? '',
-            wordSurfaces: [...document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word')]
-                .map(element => element.getAttribute('data-surface') ?? ''),
-            linePointerEvents: lineStyle?.pointerEvents ?? '',
-            lineActive: line?.classList.contains('jpdb-ocr-line-active') ?? false,
-            linePinned: line?.getAttribute('data-pinned') ?? '',
-            lineRect: rect(line),
-            wordRect: rect(word),
+            frameParentIsStage: hasParent(frame, stage),
+            frameHosted: attribute(frame, 'data-yomu-ocr-fullscreen-hosted'),
+            privateRasterHost: attribute(frame, 'data-yomu-private-raster-host'),
+            closedShadowRoot: frame instanceof HTMLElement && frame.shadowRoot === null,
+            publicPixelElements: frame instanceof Element ? frame.querySelectorAll('img, canvas').length : -1,
+            publicSourceAttributes: publicRasterSourceExposed(frame),
+            frameRect: rect(frame),
+            statusRect: rect(status),
+            resumeRect: rect(resume),
         };
     });
 }
 
 function hostedFullscreenPausedOcrReady(state) {
-    return state.stageInline === 'true'
-        && state.stageActive === true
-        && state.rootParentIsBody
-        && !state.stageContainsRoot
-        && state.rootFullscreenClass
-        && !state.rootOutOfView
+    return [
+        state.stageInline === 'true',
+        state.stageActive === true,
+        state.rootParentIsBody,
+        !state.stageContainsRoot,
+        state.rootFullscreenClass,
+        !state.rootOutOfView,
         // The rail is transport-free (no fullscreen/playback buttons); the
         // panel toggle proves it re-rendered inside the fullscreen host.
-        && state.railActions.includes('panel')
-        && !state.railActions.includes('fullscreen')
-        && (state.railRect?.width ?? 0) > 0
-        && state.frameParentIsStage
-        && state.overlayParentIsStage
-        && state.frameHosted === 'true'
-        && state.overlayHosted === 'true'
-        && state.ocrWords > 0
-        && state.scannerIsolated === true
-        && state.visualGlyphText.endsWith('日本語')
-        && state.visualGlyphState.length > 0
-        && state.visualGlyphState.every(glyph => glyph.text.length > 0
-            && glyph.ariaHidden === 'true'
-            && glyph.display !== 'none'
-            && glyph.visibility !== 'hidden'
-            && Number(glyph.opacity) > 0
-            && (glyph.rect?.width ?? 0) > 0
-            && (glyph.rect?.height ?? 0) > 0)
-        && state.underlyingTextNodes === 0
-        && state.lineAriaLabel === '日本語'
-        && state.lineOcrText === '日本語'
-        && state.lineSentence === '日本語'
-        && state.wordSurfaces.join('') === '日本語'
-        && state.linePointerEvents !== 'none'
-        && (state.lineRect?.width ?? 0) > 0
-        && (state.wordRect?.width ?? 0) > 0;
-}
-
-function hostedFullscreenPausedOcrTapped(state) {
-    return hostedFullscreenPausedOcrReady(state)
-        && state.lineActive === true
-        && state.linePinned === 'true';
+        state.railActions.includes('panel'),
+        !state.railActions.includes('fullscreen'),
+        rectWidth(state.railRect) > 0,
+        state.frameParentIsStage,
+        state.frameHosted === 'true',
+        state.privateRasterHost === 'true',
+        state.closedShadowRoot,
+        state.publicPixelElements === 0,
+        !state.publicSourceAttributes,
+        rectWidth(state.frameRect) > 0,
+        rectWidth(state.statusRect) > 0,
+        rectWidth(state.resumeRect) > 0,
+    ].every(Boolean);
 }
 
 async function openHostedLinesPanel(page) {
@@ -1917,7 +1748,10 @@ async function enableHostedPausePanel(page) {
     });
     assert(playback.present && playback.paused === true && playback.ended === false, 'Hosted pause-panel smoke did not establish a paused video', playback);
     // The auto toggle sits inside the collapsed panel-options popover.
-    await page.locator('[data-action="toggle-pause-panel"]').evaluate(button => button.click());
+    await page.locator('[data-action="panel-options"]').click();
+    const autoToggle = page.locator('[data-action="toggle-pause-panel"]');
+    await autoToggle.waitFor({ state: 'visible', timeout: 6000 });
+    await autoToggle.click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
     const autoHideEnabled = await readHostedAutoHideState(page);
     assert(autoHideEnabled.saved === true && autoHideEnabled.pressed === 'true', 'Auto-hide toggle did not save the pause panel mode', autoHideEnabled);
@@ -1961,11 +1795,8 @@ async function dispatchHostedVideoEvent(page, eventName) {
 }
 
 async function requestHostedPausedVideoFrameOcr(page) {
-    await page.evaluate(() => {
-        const video = document.querySelector('video');
-        if (!video) throw new Error('Hosted video element missing');
-        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
-    });
+    await pinHostedSubtitleControlRail(page);
+    await page.locator('.jpdb-subtitle-rail [data-action="ocr"]').click();
 }
 
 async function readHostedPlayerLayoutState(page) {
@@ -2149,7 +1980,7 @@ const { server, baseUrl } = await createFixtureServer(serveFeedbackFixtureReques
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
 try {
-    const settingsPage = await newPage(browser);
+    const settingsPage = await newPage(browser, { ...baseSettings, showFloatingButton: true });
     await verifySettingsDiscoverability(settingsPage, baseUrl);
     await settingsPage.close();
 
@@ -2179,13 +2010,13 @@ try {
     await mobileFullscreenPage.close();
 
     const mobileFullscreenOcrPage = await newPage(browser, baseSettings, { width: 390, height: 844 });
-    await verifyHostedFullscreenPausedOcrTapabilityMobile(mobileFullscreenOcrPage, baseUrl);
+    await verifyHostedFullscreenPausedOcrPrivacyMobile(mobileFullscreenOcrPage, baseUrl);
     await mobileFullscreenOcrPage.close();
 
     console.log(JSON.stringify({
         ok: true,
         artifacts: [
-            path.join(ARTIFACTS, 'feedback-settings-font.png'),
+            path.join(ARTIFACTS, 'feedback-settings-launcher.png'),
             path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'),
             path.join(ARTIFACTS, 'feedback-generic-style-containment.png'),
             path.join(ARTIFACTS, 'feedback-video-empty-desktop.png'),
