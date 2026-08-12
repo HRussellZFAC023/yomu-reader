@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { applyTokensToScanTarget, applyTokensToTextNode, readerWordSurfaceText, removeNonDestructiveScanMirrors } from '../../src/reader/dom/index';
+import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
 import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -212,7 +213,7 @@ describe('public vocabulary repaint', () => {
 
     it('updates state classes and removes stale furigana when a reviewed word enters a hidden group', () => {
         document.body.innerHTML = `
-            <span class="jpdb-reader-word jpdb-learning jiten-learning jpdb-reader-has-furi jpdb-reader-i-plus-one" data-vid="11" data-sid="22" data-card-state="learning" data-expression="読む" data-mining-insight="i-plus-one">
+            <span class="jpdb-reader-word jpdb-learning jpdb-reader-has-furi jpdb-reader-i-plus-one" data-expression="読む" data-mining-insight="i-plus-one">
                 <ruby><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む
             </span>
         `;
@@ -227,9 +228,9 @@ describe('public vocabulary repaint', () => {
         setRenderedWordCardIdentity(word, reviewed);
         applyPublicVocabularyFurigana(word, reviewed, settings);
 
-        expect(word.dataset.cardState).toBe('known');
+        expect(renderedWordPrivateValue(word, 'cardState')).toBe('known');
         expect(word.classList.contains('jpdb-known')).toBe(true);
-        expect(word.classList.contains('jiten-known')).toBe(true);
+        expect(word.classList.contains('jiten-known')).toBe(false);
         expect(word.classList.contains('jpdb-learning')).toBe(false);
         expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
         expect(word.classList.contains('jpdb-reader-i-plus-one')).toBe(false);

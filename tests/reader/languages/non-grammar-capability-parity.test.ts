@@ -5,6 +5,7 @@ import { getOrderedAudioSources } from '../../../src/reader/audio/source-resolut
 import { contextOccurrenceCount } from '../../../src/reader/cards/frequency-ranks';
 import { effectiveTokenRubies, nonOverlappingTokens } from '../../../src/reader/dom/token-text-rendering';
 import { applyTokensToScanTarget, collectFragmentTextTargetsIn } from '../../../src/reader/dom';
+import { renderedWordPrivateValue } from '../../../src/reader/dom/rendered-word-private-state';
 import {
     targetCanHandwriteText,
     targetCanLookupCharacter,
@@ -165,7 +166,7 @@ describe('A47 non-grammar capability parity', () => {
             expect(word?.dataset.tokenStart, `${rosterTarget.id} start boundary`).toBe('0');
             expect(word?.dataset.tokenEnd, `${rosterTarget.id} end boundary`).toBe(String(probe.length));
             expect(word?.dataset.expression, `${rosterTarget.id} lookup identity`).toBe(probe);
-            expect(word?.dataset.cardState, `${rosterTarget.id} learning state`).toBe('learning');
+            expect(renderedWordPrivateValue(word!, 'cardState'), `${rosterTarget.id} learning state`).toBe('learning');
             expect(word?.classList.contains('jpdb-learning'), `${rosterTarget.id} state decoration`).toBe(true);
             expect(word?.getAttribute('tabindex'), `${rosterTarget.id} pointer/focus affordance`).toBe('-1');
             expect(word?.querySelector('rt'), `${rosterTarget.id} no invented JP reading`).toBeNull();

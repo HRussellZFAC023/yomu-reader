@@ -8,6 +8,7 @@ import {
     ObjectUrlCache,
     ReaderApp,
     TEST_PROXY_URL,
+    bindPrivateCommandCapability,
     card,
     createPageMediaUrl,
     deferred,
@@ -21,6 +22,8 @@ import {
     mockProxyAudioBlobFetch,
     mockSpeechSynthesis,
     publicProxyUrlFor,
+    registerRenderedWordPrivateState,
+    renderedWordPrivateStateForCard,
     resolveUserscriptBlobResponse,
     resolveUserscriptTextResponse,
     stubAudioConstructorPlayback,
@@ -1734,9 +1737,15 @@ describe('reader helpers', () => {
             await internals.showKanjiCard(originalWord, '漢', '漢字です。');
             document.querySelector('.jpdb-reader-popover')?.insertAdjacentHTML(
                 'beforeend',
-                '<button type="button" data-action="similar-word" data-expression="漢語">漢語</button>',
+                '<button type="button" data-action="similar-word" data-expression="漢語" data-reading="かんご">漢語</button>',
             );
-            document.querySelector<HTMLButtonElement>('[data-action="similar-word"]')?.click();
+            const similarWord = document.querySelector<HTMLButtonElement>('[data-action="similar-word"]')!;
+            bindPrivateCommandCapability(similarWord, {
+                kind: 'kanji-word',
+                expression: relatedWord.spelling,
+                reading: relatedWord.reading,
+            });
+            similarWord.click();
 
             await expectKanjiRelatedWordBackNavigation();
         } finally {
@@ -1756,7 +1765,12 @@ describe('reader helpers', () => {
                 'beforeend',
                 '<a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="漢語" data-dictionary-reading="かんご" data-dictionary="JPDB"><span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="11" data-sid="21" data-sentence="漢語" tabindex="-1">漢語</span></a>',
             );
-            document.querySelector<HTMLElement>('a.gloss-link[data-dictionary-lookup] .jpdb-reader-word')?.click();
+            const linkedElement = document.querySelector<HTMLElement>('a.gloss-link[data-dictionary-lookup] .jpdb-reader-word')!;
+            registerRenderedWordPrivateState(
+                linkedElement,
+                renderedWordPrivateStateForCard(linkedWord, 'not-in-deck'),
+            );
+            linkedElement.click();
 
             await expectKanjiRelatedWordBackNavigation();
         } finally {

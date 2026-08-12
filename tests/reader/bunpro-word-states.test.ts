@@ -5,6 +5,10 @@ import {
     effectiveBunproWordState,
     fetchBunproWordStates,
 } from '../../src/reader/bunpro/word-states';
+import {
+    registerRenderedWordPrivateState,
+    renderedWordPrivateValue,
+} from '../../src/reader/dom/rendered-word-private-state';
 import { applyBunproStateToRenderedWord } from '../../src/reader/dom/rendered-word-state';
 import { shouldLookupBunproWordStates } from '../../src/reader/settings/index';
 
@@ -211,11 +215,15 @@ describe('BunproWordStateStore', () => {
 });
 
 describe('applyBunproStateToRenderedWord', () => {
-    function renderedWord(className: string, cardState: string): HTMLElement {
+    function renderedWord(className: string, cardState: string, cardSource = 'local'): HTMLElement {
         const word = document.createElement('span');
         word.className = className;
-        word.dataset.cardState = cardState;
         word.dataset.expression = '読む';
+        registerRenderedWordPrivateState(word, {
+            cardSource,
+            cardState: cardState || undefined,
+            stateProvenance: 'provisional',
+        });
         return word;
     }
 
@@ -223,18 +231,18 @@ describe('applyBunproStateToRenderedWord', () => {
         const word = renderedWord('jpdb-reader-word jpdb-not-in-deck local-not-in-deck', 'not-in-deck');
         expect(applyBunproStateToRenderedWord(word, 'learning')).toBe(true);
         expect(word.classList.contains('jpdb-learning')).toBe(true);
-        expect(word.classList.contains('bunpro-learning')).toBe(true);
+        expect(word.classList.contains('bunpro-learning')).toBe(false);
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(false);
-        expect(word.dataset.cardState).toBe('learning');
-        expect(word.dataset.bunproState).toBe('learning');
+        expect(renderedWordPrivateValue(word, 'cardState')).toBe('learning');
+        expect(renderedWordPrivateValue(word, 'bunproState')).toBe('learning');
     });
 
     it('never clobbers a real jpdb/jiten card state', () => {
-        const word = renderedWord('jpdb-reader-word jpdb-mature jiten-mature', 'mature');
+        const word = renderedWord('jpdb-reader-word jpdb-mature', 'mature', 'jiten');
         expect(applyBunproStateToRenderedWord(word, 'learning')).toBe(false);
         expect(word.classList.contains('jpdb-mature')).toBe(true);
         expect(word.classList.contains('bunpro-learning')).toBe(false);
-        expect(word.dataset.cardState).toBe('mature');
+        expect(renderedWordPrivateValue(word, 'cardState')).toBe('mature');
     });
 
     it('swaps tiers in place when the Bunpro state changes', () => {
@@ -242,7 +250,7 @@ describe('applyBunproStateToRenderedWord', () => {
         applyBunproStateToRenderedWord(word, 'learning');
         expect(applyBunproStateToRenderedWord(word, 'due')).toBe(true);
         expect(word.classList.contains('jpdb-due')).toBe(true);
-        expect(word.classList.contains('bunpro-due')).toBe(true);
+        expect(word.classList.contains('bunpro-due')).toBe(false);
         expect(word.classList.contains('jpdb-learning')).toBe(false);
         expect(word.classList.contains('bunpro-learning')).toBe(false);
     });
@@ -254,8 +262,8 @@ describe('applyBunproStateToRenderedWord', () => {
         expect(word.classList.contains('jpdb-known')).toBe(false);
         expect(word.classList.contains('bunpro-known')).toBe(false);
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(true);
-        expect(word.dataset.cardState).toBe('not-in-deck');
-        expect(word.dataset.bunproState).toBeUndefined();
+        expect(renderedWordPrivateValue(word, 'cardState')).toBe('not-in-deck');
+        expect(renderedWordPrivateValue(word, 'bunproState')).toBeUndefined();
     });
 
     it('restores a blank provider state instead of inventing not-in-deck', () => {
@@ -264,20 +272,19 @@ describe('applyBunproStateToRenderedWord', () => {
         expect(applyBunproStateToRenderedWord(word, null)).toBe(true);
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(false);
         expect(word.classList.contains('jpdb-known')).toBe(false);
-        expect(word.dataset.cardState).toBeUndefined();
+        expect(renderedWordPrivateValue(word, 'cardState')).toBeUndefined();
     });
 
-    it('clears the source-prefixed not-in-deck class when filling a jiten word', () => {
-        const word = renderedWord('jpdb-reader-word jpdb-not-in-deck jiten-not-in-deck', 'not-in-deck');
-        word.dataset.cardSource = 'jiten';
+    it('clears a stale source-prefixed class without restoring it offhost', () => {
+        const word = renderedWord('jpdb-reader-word jpdb-not-in-deck jiten-not-in-deck', 'not-in-deck', 'jiten');
         expect(applyBunproStateToRenderedWord(word, 'learning')).toBe(true);
         expect(word.classList.contains('jiten-not-in-deck')).toBe(false);
         expect(word.classList.contains('jpdb-learning')).toBe(true);
-        // Leaving the index restores the jiten verdict, source class included.
+        // Leaving the index restores the generic verdict without exposing its provider.
         applyBunproStateToRenderedWord(word, null);
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(true);
-        expect(word.classList.contains('jiten-not-in-deck')).toBe(true);
-        expect(word.dataset.cardState).toBe('not-in-deck');
+        expect(word.classList.contains('jiten-not-in-deck')).toBe(false);
+        expect(renderedWordPrivateValue(word, 'cardState')).toBe('not-in-deck');
     });
 
     it('is a no-op for untracked words that stay untracked', () => {

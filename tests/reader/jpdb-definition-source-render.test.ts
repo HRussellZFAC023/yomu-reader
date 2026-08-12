@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { JPDBCard } from '../../src/reader/app/types';
+import { setInnerHtml } from '../../src/reader/dom';
 import { renderJpdbDefinitionSource } from '../../src/reader/jpdb/jpdb-definition-source-render';
 import { renderedJpdbRelatedWords } from '../../src/reader/jpdb/jpdb-related-words';
 import type { JpdbVocabularyInfo } from '../../src/reader/jpdb/jpdb-vocabulary';
@@ -25,7 +26,7 @@ function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
 describe('JPDB definition source rendering', () => {
     it('uses the configured source title', () => {
         const mount = document.createElement('div');
-        mount.innerHTML = renderJpdbDefinitionSource(card(), key => `data-source-state-key="${key}"`, null, 'en', 'Cards API');
+        setInnerHtml(mount, renderJpdbDefinitionSource(card(), key => `data-source-state-key="${key}"`, null, 'en', 'Cards API'));
 
         expect(mount.querySelector('summary')?.textContent?.trim()).toBe('Cards API');
     });
@@ -49,7 +50,7 @@ describe('JPDB definition source rendering', () => {
             }],
         };
         const mount = document.createElement('div');
-        mount.innerHTML = renderJpdbDefinitionSource(card(), key => `data-source-state-key="${key}"`, info, 'en');
+        setInnerHtml(mount, renderJpdbDefinitionSource(card(), key => `data-source-state-key="${key}"`, info, 'en'));
 
         const related = renderedJpdbRelatedWords(mount);
         expect(related).toHaveLength(1);

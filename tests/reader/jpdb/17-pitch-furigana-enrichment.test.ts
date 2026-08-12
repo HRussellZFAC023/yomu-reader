@@ -17,9 +17,14 @@ import {
     configurePublicVocabularyEnrichment,
     deferred,
     expectDeferredPitchPopoverUpdated,
+    expectHydratedOcrPitchWord,
     expectHydratedPopupAnkiRender,
+    expectReaderWordFurigana,
     expectRenderedPitchWord,
+    registerRenderedWordPrivateState,
     readerWordSurfaceText,
+    renderedWordPrivateStateForCard,
+    renderedWordPrivateValue,
     setupHydratedPopupAnkiLookup,
     testAozoraCard,
     testFallbackCard,
@@ -90,19 +95,14 @@ describe('reader helpers', () => {
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(token.pitchClass).toBe('atamadaka');
-            expect(word.dataset.vid).toBe('1556420');
-            expect(word.dataset.reading).toBe('よむ');
-            expect(word.dataset.pitchClass).toBe('atamadaka');
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(line.dataset.hasFuri).toBe('true');
+            expectHydratedOcrPitchWord(word, line, {
+                vid: '1556420',
+                reading: 'よむ',
+                pitchClass: 'atamadaka',
+                surface: '読む',
+                visualText: ['よ', '読', 'む'],
+            });
             expect(word.querySelector('ruby')).toBeNull();
-            expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
-                .map(element => element.dataset.yomuOcrVisualText)).toEqual(['よ', '読', 'む']);
-            expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
-            expect(word.textContent).toBe('');
-            expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
             line.remove();
             app.destroy();
@@ -140,17 +140,13 @@ describe('reader helpers', () => {
 
             expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
-            expect(word.dataset.vid).toBe('1556420');
-            expect(word.dataset.reading).toBe('よむ');
-            expect(word.dataset.pitchClass).toBe('atamadaka');
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(line.dataset.hasFuri).toBe('true');
-            expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
-                .map(element => element.dataset.yomuOcrVisualText)).toEqual(['よ', '読', 'む']);
-            expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
-            expect(word.textContent).toBe('');
-            expect(readerWordSurfaceText(word)).toBe('読む');
+            expectHydratedOcrPitchWord(word, line, {
+                vid: '1556420',
+                reading: 'よむ',
+                pitchClass: 'atamadaka',
+                surface: '読む',
+                visualText: ['よ', '読', 'む'],
+            });
         } finally {
             line.remove();
             app.destroy();
@@ -206,8 +202,10 @@ describe('reader helpers', () => {
         };
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-pitch-unknown';
-        word.dataset.vid = String(lookupCard.vid);
-        word.dataset.sid = String(lookupCard.sid);
+        registerRenderedWordPrivateState(
+            word,
+            renderedWordPrivateStateForCard(lookupCard, 'not-in-deck'),
+        );
         word.textContent = '青空';
         document.body.append(word);
 
@@ -355,13 +353,12 @@ describe('reader helpers', () => {
             expect(search).not.toHaveBeenCalled();
             expect(publicPitch).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([jitenCard]);
-            expect(word.dataset.vid).toBe('1381470');
-            expect(word.dataset.sid).toBe('0');
-            expect(word.dataset.reading).toBe('あおぞら');
-            expect(word.dataset.pitchClass).toBe('nakadaka');
-            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
+            expect(renderedWordPrivateValue(word, 'vid')).toBe('1381470');
+            expect(renderedWordPrivateValue(word, 'sid')).toBe('0');
+            expect(word.dataset.vid).toBeUndefined();
+            expect(word.dataset.sid).toBeUndefined();
+            expectReaderWordFurigana(word, 'あおぞら');
+            expectRenderedPitchWord(word, 'nakadaka');
         } finally {
             word.remove();
             app.destroy();
@@ -569,12 +566,20 @@ describe('reader helpers', () => {
         const app = new ReaderApp();
         document.body.innerHTML = Array.from({ length: 150 }, (_, index) => [
             '<span class="jpdb-reader-word"',
-            ' data-card-source="jiten"',
-            ` data-vid="${700000 + index}"`,
-            ' data-sid="0"',
             index % 2 ? ' data-reading=""' : '',
             ` data-expression="未踏語${index}">未踏語${index}</span>`,
         ].join('')).join('');
+        document.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach((word, index) => {
+            registerRenderedWordPrivateState(word, {
+                vid: String(700000 + index),
+                sid: '0',
+                cardSource: 'jiten',
+                cardId: String(700000 + index),
+                readingIndex: '0',
+                cardState: 'not-in-deck',
+                stateProvenance: 'provisional',
+            });
+        });
         const rect = {
             x: 0,
             y: 2_000,
@@ -1763,8 +1768,10 @@ describe('reader helpers', () => {
         };
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-pitch-unknown';
-        word.dataset.vid = String(contentFallback.vid);
-        word.dataset.sid = String(contentFallback.sid);
+        registerRenderedWordPrivateState(
+            word,
+            renderedWordPrivateStateForCard(contentFallback, 'not-in-deck'),
+        );
         // Span-keyed repaints only touch words whose stamped token span
         // matches the resolved token, exactly like production markup.
         word.dataset.tokenStart = '12';
@@ -1832,7 +1839,8 @@ describe('reader helpers', () => {
             expect(search).not.toHaveBeenCalledWith('の', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(tokens[tokens.length - 1]!.card).toBe(publicCard);
             expect(tokens[tokens.length - 1]!.pitchClass).toBe('nakadaka');
-            expect(word.dataset.vid).toBe('1381470');
+            expect(renderedWordPrivateValue(word, 'vid')).toBe('1381470');
+            expect(word.dataset.vid).toBeUndefined();
             expect(word.dataset.reading).toBe('あおぞら');
             expectRenderedPitchWord(word, 'nakadaka');
         } finally {
@@ -1856,8 +1864,10 @@ describe('reader helpers', () => {
         };
         const urgentWord = document.createElement('span');
         urgentWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
-        urgentWord.dataset.vid = String(urgentCard.vid);
-        urgentWord.dataset.sid = String(urgentCard.sid);
+        registerRenderedWordPrivateState(
+            urgentWord,
+            renderedWordPrivateStateForCard(urgentCard, 'not-in-deck'),
+        );
         urgentWord.textContent = urgentCard.spelling;
         document.body.append(urgentWord);
         const backgroundTokens = Array.from({ length: 12 }, (_, index) => testTokenForCard({
@@ -1898,9 +1908,7 @@ describe('reader helpers', () => {
 
             expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
             expect(urgentCard.pitchAccent).toEqual(['HLL']);
-            expect(urgentWord.dataset.pitchClass).toBe('atamadaka');
-            expect(urgentWord.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
-            expect(urgentWord.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expectRenderedPitchWord(urgentWord, 'atamadaka');
         } finally {
             stalledPitch.resolve([]);
             await background?.catch(() => undefined);
@@ -1919,8 +1927,10 @@ describe('reader helpers', () => {
         ];
         const localWord = document.createElement('span');
         localWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
-        localWord.dataset.vid = String(cards[2]!.vid);
-        localWord.dataset.sid = String(cards[2]!.sid);
+        registerRenderedWordPrivateState(
+            localWord,
+            renderedWordPrivateStateForCard(cards[2]!, 'not-in-deck'),
+        );
         localWord.textContent = cards[2]!.spelling;
         document.body.append(localWord);
         const lookupTermMeta = vi.fn(async (term: string) => term === '局所'
@@ -1956,8 +1966,7 @@ describe('reader helpers', () => {
             expect(publicPitch).not.toHaveBeenCalledWith('局所', 'きょくしょ');
             expect(publicPitch).not.toHaveBeenCalledWith('余分', 'よぶん');
             expect(cards[2]!.pitchAccent).toEqual(['LHHH']);
-            expect(localWord.dataset.pitchClass).toBe('heiban');
-            expect(localWord.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expectRenderedPitchWord(localWord, 'heiban');
         } finally {
             localWord.remove();
             app.destroy();
@@ -2068,8 +2077,10 @@ describe('reader helpers', () => {
 
             expect(lookupMany).toHaveBeenCalledWith(['コツ'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
-            expect(word.dataset.vid).toBe('424200');
-            expect(word.dataset.cardSource).toBe('jiten');
+            expect(renderedWordPrivateValue(word, 'vid')).toBe('424200');
+            expect(renderedWordPrivateValue(word, 'cardSource')).toBe('jiten');
+            expect(word.dataset.vid).toBeUndefined();
+            expect(word.dataset.cardSource).toBeUndefined();
             expect(word.dataset.reading).toBe('コツ');
             expect(word.dataset.pitchAccent).toBe('HL');
             expectRenderedPitchWord(word, 'atamadaka');

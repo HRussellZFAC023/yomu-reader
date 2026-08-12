@@ -26,6 +26,7 @@ import {
     readerTextMirrorForSource,
     readerWordsForSource,
     readerWordSurfaceText,
+    renderedWordPrivateValue,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
 } from './fixtures';
@@ -37,6 +38,26 @@ import type {
 
 registerReaderHelpersCleanup();
 afterEach(() => document.documentElement.removeAttribute('data-yomu-annotation-scope'));
+
+function isContinuableActiveTarget(target: ScanTextTarget): boolean {
+    return target.passiveInteraction !== true && target.singlePassScan !== true;
+}
+
+function hasDirectTextNode(host: HTMLElement, text: string): boolean {
+    return Array.from(host.childNodes).some(node =>
+        node.nodeType === Node.TEXT_NODE && node.textContent === text);
+}
+
+function expectActiveNonDestructiveTarget(target: ScanTextTarget): void {
+    expect(target).toMatchObject({ nonDestructive: true });
+    expect(target.passiveInteraction).not.toBe(true);
+    expect(target.forceInlineRender).not.toBe(true);
+    expect(target.suppressRepaintLoopMirror).not.toBe(true);
+}
+
+function expectElementText(root: ParentNode, selector: string, text: string): void {
+    expect(root.querySelector(selector)?.textContent).toBe(text);
+}
 
 describe('reader helpers', () => {
     it('scans Google Docs menubar entries as passive ruby targets', () => {
@@ -1052,11 +1073,11 @@ describe('reader helpers', () => {
         // Watch metadata chrome (view counts, subscribe labels) is no longer
         // dropped: the residual pass collects it as a passive non-destructive
         // target so every visible Japanese surface gets decoration.
-        const metadataRow = targets.find(target => target.text.includes('回視聴') || target.text.includes('チャンネル登録'));
+        const metadataRow = targets.find(target => /回視聴|チャンネル登録/u.test(target.text));
         expect(metadataRow).toBeTruthy();
-        expect(metadataRow?.passiveInteraction).toBe(true);
-        expect(metadataRow?.nonDestructive).toBe(true);
-        expect(targets.some(target => !target.passiveInteraction && target.singlePassScan !== true)).toBe(true);
+        expect(metadataRow!.passiveInteraction).toBe(true);
+        expect(metadataRow!.nonDestructive).toBe(true);
+        expect(targets.some(isContinuableActiveTarget)).toBe(true);
 
         const title = targets.find(target => target.text === '新卒エンジニア、仕事終わりにプログラミング勉強をする！！');
         const description = targets.find(target => target.text.startsWith('Webアプリ開発'));
@@ -1084,13 +1105,16 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const titleHost = document.querySelector<HTMLElement>('ytd-watch-metadata h1 yt-formatted-string')!;
-        expect(Array.from(titleHost.childNodes).some(node => node.nodeType === Node.TEXT_NODE
-            && node.textContent === '新卒エンジニア、仕事終わりにプログラミング勉強をする！！')).toBe(true);
+        expect(hasDirectTextNode(
+            titleHost,
+            '新卒エンジニア、仕事終わりにプログラミング勉強をする！！',
+        )).toBe(true);
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
         const titleWord = document.querySelector<HTMLElement>('ytd-watch-metadata h1 .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('新卒');
-        expect(titleWord.dataset.cardSource).toBe('jpdb');
-        expect(titleWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('しんそつ');
+        expect(renderedWordPrivateValue(titleWord, 'cardSource')).toBe('jpdb');
+        expect(titleWord.dataset.cardSource).toBeUndefined();
+        expectElementText(titleWord, 'rt, .jpdb-reader-detached-furi', 'しんそつ');
         expectRenderedPitchWord(titleWord, 'heiban');
         applyTokensToScanTarget(title!, [{
             card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ', source: 'jpdb' },
@@ -1107,7 +1131,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('ruby ruby')).toBeNull();
         expect(Array.from(document.querySelectorAll<HTMLElement>('ytd-watch-metadata .jpdb-reader-word'))
             .some(word => readerWordSurfaceText(word) === '視聴')).toBe(false);
-        expect(document.querySelector('ytd-watch-metadata #description-inline-expander .jpdb-reader-word.jpdb-known')?.textContent).toBe('アプリ');
+        expectElementText(document, 'ytd-watch-metadata #description-inline-expander .jpdb-reader-word.jpdb-known', 'アプリ');
     });
 
     it('keeps non-destructive YouTube mirrors visible until native title rerenders are rescanned', async () => {
@@ -1250,10 +1274,7 @@ describe('reader helpers', () => {
         expect(ask).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(transcript).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(nav).toMatchObject({ passiveInteraction: true, nonDestructive: true });
-        expect(comment).toMatchObject({ nonDestructive: true });
-        expect('passiveInteraction' in comment && comment.passiveInteraction).not.toBe(true);
-        expect('forceInlineRender' in comment && comment.forceInlineRender).not.toBe(true);
-        expect('suppressRepaintLoopMirror' in comment && comment.suppressRepaintLoopMirror).not.toBe(true);
+        expectActiveNonDestructiveTarget(comment);
         expect(more).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         applyTokensToScanTarget(title, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
@@ -1303,19 +1324,20 @@ describe('reader helpers', () => {
 
         const titleWord = document.querySelector<HTMLElement>('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('日本語');
-        expect(titleWord.dataset.cardSource).toBe('jpdb');
-        expect(titleWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
+        expect(renderedWordPrivateValue(titleWord, 'cardSource')).toBe('jpdb');
+        expect(titleWord.dataset.cardSource).toBeUndefined();
+        expectElementText(titleWord, 'rt, .jpdb-reader-detached-furi', 'にほんご');
         expectRenderedPitchWord(titleWord, 'heiban');
         expect(document.querySelector('ytm-button-renderer .jpdb-reader-word rt')).toBeNull();
-        expect(document.querySelector('ytm-button-renderer .jpdb-reader-detached-furi')?.textContent).toBe('しつもん');
+        expectElementText(document, 'ytm-button-renderer .jpdb-reader-detached-furi', 'しつもん');
         expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word rt')).toBeNull();
-        expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-detached-furi')?.textContent).toBe('もじ');
-        expect(document.querySelector('ytm-pivot-bar-renderer .jpdb-reader-word rt, ytm-pivot-bar-renderer .jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
+        expectElementText(document, 'ytm-video-description-transcript-section-renderer .jpdb-reader-detached-furi', 'もじ');
+        expectElementText(document, 'ytm-pivot-bar-renderer .jpdb-reader-word rt, ytm-pivot-bar-renderer .jpdb-reader-detached-furi', 'とうろく');
         const commentHost = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text')!;
         const commentMirror = readerTextMirrorForSource(commentHost)!;
         const commentWord = readerWordsForSource(commentHost)[0]!;
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
-        expect(commentWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
+        expectElementText(commentWord, 'rt, .jpdb-reader-detached-furi', 'はいしん');
         expectRenderedPitchWord(commentWord, 'heiban');
         expect(commentMirror).toBeTruthy();
         expect(commentHost.contains(commentMirror)).toBe(false);

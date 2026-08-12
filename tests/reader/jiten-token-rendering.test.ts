@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderTokensToHtml } from '../../src/reader/dom/index';
+import { renderTokensToHtml, setInnerHtml } from '../../src/reader/dom/index';
+import { readRenderedWordPrivateState } from '../../src/reader/dom/rendered-word-private-state';
 import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from '../../src/reader/cards/reading-display';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
@@ -12,17 +13,30 @@ const JITEN_SETTINGS: ReaderSettings = {
     ankiEnabled: false,
 };
 
+function expectSingleRenderedRuby(
+    html: string,
+    expectedSurface: string,
+    expectedBase: string,
+    expectedReading: string,
+): void {
+    setInnerHtml(document.body, html);
+    const ruby = document.querySelector('ruby')!;
+
+    expect(ruby.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe(expectedBase);
+    expect(ruby.querySelector('rt')?.textContent).toBe(expectedReading);
+    expect(document.body.textContent).toContain(expectedSurface);
+}
+
 describe('Jiten token rendering', () => {
-    it('renders Jiten Young with provider and colorable status classes', () => {
+    it('renders Jiten Young with generic colorable status and private provider state', () => {
         const html = renderJitenToken('読む', 'young', { furiganaMode: 'all' });
 
-        document.body.innerHTML = html;
+        setInnerHtml(document.body, html);
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
 
         expect(word.classList.contains('jpdb-young')).toBe(true);
-        expect(word.classList.contains('jiten-young')).toBe(true);
-        expect(word.dataset.cardSource).toBe('jiten');
-        expect(word.dataset.cardState).toBe('young');
+        expect(word.classList.contains('jiten-young')).toBe(false);
+        expect(readRenderedWordPrivateState(word)).toMatchObject({ cardSource: 'jiten', cardState: 'young' });
         expect(word.querySelector('rt')?.textContent).toBe('よ');
     });
 
@@ -31,9 +45,12 @@ describe('Jiten token rendering', () => {
             const html = renderJitenToken('読む', state, { furiganaMode: 'known-status' });
 
             expect(html).toContain(`jpdb-${state}`);
-            expect(html).toContain(`jiten-${state}`);
+            expect(html).not.toContain(`jiten-${state}`);
             expect(html).not.toContain('<rt');
             expect(html).not.toContain('jpdb-reader-has-furi');
+            setInnerHtml(document.body, html);
+            expect(readRenderedWordPrivateState(document.querySelector<HTMLElement>('.jpdb-reader-word')!))
+                .toMatchObject({ cardSource: 'jiten', cardState: state });
         }
         // Learning-family words keep their ruby unless the user opts the
         // "learning" group into hiding.
@@ -58,21 +75,22 @@ describe('Jiten token rendering', () => {
         expect(html).toContain('<rt class="jpdb-reader-furi">よ</rt>');
     });
 
-    it('stamps Jiten deck membership on rendered words for deck-based styling', () => {
+    it('keeps Jiten deck membership generic on an offhost rendered word', () => {
         const html = renderJitenToken('読む', 'young', { furiganaMode: 'all' }, {
             deckNames: ['Yomu E2E Seed'],
         });
 
-        document.body.innerHTML = html;
+        setInnerHtml(document.body, html);
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
 
         expect(word.classList.contains('yomu-deck-member')).toBe(true);
-        expect(word.classList.contains('jiten-deck-member')).toBe(true);
-        expect(word.classList.contains('yomu-deck-yomu-e2e-seed')).toBe(true);
-        expect(word.classList.contains('jiten-deck-yomu-e2e-seed')).toBe(true);
-        expect(word.dataset.deckMember).toBe('true');
-        expect(word.dataset.deckSource).toBe('jiten');
-        expect(word.dataset.deckNames).toBe('Yomu E2E Seed');
+        expect(word.classList.contains('jiten-deck-member')).toBe(false);
+        expect(word.classList.contains('yomu-deck-yomu-e2e-seed')).toBe(false);
+        expect(word.classList.contains('jiten-deck-yomu-e2e-seed')).toBe(false);
+        expect(word.dataset.deckMember).toBeUndefined();
+        expect(word.dataset.deckSource).toBeUndefined();
+        expect(word.dataset.deckNames).toBeUndefined();
+        expect(readRenderedWordPrivateState(word)).toMatchObject({ cardSource: 'jiten' });
     });
 
     it('anchors full-surface ruby readings to the kanji inside kana-mixed tokens', () => {
@@ -84,12 +102,7 @@ describe('Jiten token rendering', () => {
             rubies: [{ text: 'たち', start: 0, end: 4, length: 4 }],
         }], { ...JITEN_SETTINGS, furiganaMode: 'all' });
 
-        document.body.innerHTML = html;
-        const ruby = document.querySelector('ruby')!;
-
-        expect(ruby.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
-        expect(ruby.querySelector('rt')?.textContent).toBe('たち');
-        expect(document.body.textContent).toContain('あなた達');
+        expectSingleRenderedRuby(html, 'あなた達', '達', 'たち');
     });
 
     it('anchors popup wordWithReading ruby to 達 instead of all of あなた達', () => {
@@ -100,12 +113,7 @@ describe('Jiten token rendering', () => {
             wordWithReading: 'あなた達[たち]',
         }, { ...JITEN_SETTINGS, furiganaMode: 'all' });
 
-        document.body.innerHTML = html;
-        const ruby = document.querySelector('ruby')!;
-
-        expect(ruby.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
-        expect(ruby.querySelector('rt')?.textContent).toBe('たち');
-        expect(document.body.textContent).toContain('あなた達');
+        expectSingleRenderedRuby(html, 'あなた達', '達', 'たち');
     });
 
     it('binds bracket readings to the trailing kanji run across interleaved kana', () => {
@@ -166,7 +174,7 @@ describe('scan-word furigana segment pairing', () => {
     }
 
     function renderedRuby(surface: string, token: JPDBToken): { bases: (string | null)[]; readings: (string | null)[] } {
-        document.body.innerHTML = renderTokensToHtml(surface, [token], { ...JITEN_SETTINGS, furiganaMode: 'all' });
+        setInnerHtml(document.body, renderTokensToHtml(surface, [token], { ...JITEN_SETTINGS, furiganaMode: 'all' }));
         return {
             bases: [...document.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.textContent),
             readings: [...document.querySelectorAll('rt')].map(rt => rt.textContent),

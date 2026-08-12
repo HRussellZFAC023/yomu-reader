@@ -18,7 +18,7 @@ import { deinflectJapaneseTerm, termRulesMatch } from '../../../src/reader/looku
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../../src/reader/sources/definition-render';
 import { renderDefinitionSourcesStack } from '../../../src/reader/sources/definition-stack';
 import { DictionarySourceStateController } from '../../../src/reader/sources/state';
-import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../../src/reader/dom/index';
+import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords, type ScanTextTarget } from '../../../src/reader/dom/index';
 import { FloatingButtonController, type FloatingButtonActions } from '../../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../../src/reader/immersion/kit';
 import type { JitenApiClient, JitenKanjiInfo } from '../../../src/reader/dictionaries/jiten';
@@ -125,8 +125,14 @@ import { registerYomuCompanion } from '../../../src/reader/companions/registry';
 import {
     registerRenderedWordPrivateState,
     renderedWordPrivateStateForCard,
+    renderedWordPrivateValue,
     updateRenderedWordPrivateState,
 } from '../../../src/reader/dom/rendered-word-private-state';
+import {
+    bindPrivateCommandCapability,
+    readCardCommandCapability,
+    readTokenChoiceCommandCapability,
+} from '../../../src/reader/dom/private-command-capabilities';
 
 registerYomuCompanion('ocr', { ImageOcrController, normalizeOcrRenderedText });
 
@@ -815,9 +821,32 @@ export function testReviewGradeController(options: {
 }
 
 export function expectRenderedPitchWord(word: HTMLElement, pitchClass: string): void {
-    expect(word.dataset.pitchClass).toBe(pitchClass);
-    expect(word.classList.contains(`jpdb-pitch-${pitchClass}`)).toBe(true);
-    expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+    expect([...word.classList]).toContain(`jpdb-pitch-${pitchClass}`);
+    expect([...word.classList]).not.toContain('jpdb-pitch-unknown');
+}
+
+export function expectReaderWordFurigana(word: HTMLElement, reading: string): void {
+    expect(word.dataset.reading).toBe(reading);
+    expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+    expect(word.querySelector('rt')?.textContent).toBe(reading);
+}
+
+export function expectHydratedOcrPitchWord(
+    word: HTMLElement,
+    line: HTMLElement,
+    expected: { vid: string; reading: string; pitchClass: string; surface: string; visualText: string[] },
+): void {
+    expect(renderedWordPrivateValue(word, 'vid')).toBe(expected.vid);
+    expect(word.dataset.vid).toBeUndefined();
+    expect(word.dataset.reading).toBe(expected.reading);
+    expectRenderedPitchWord(word, expected.pitchClass);
+    expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+    expect(line.dataset.hasFuri).toBe('true');
+    expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+        .map(element => element.dataset.yomuOcrVisualText)).toEqual(expected.visualText);
+    expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+    expect(word.textContent).toBe('');
+    expect(readerWordSurfaceText(word)).toBe(expected.surface);
 }
 
 export function cardDetailLoaderSettings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
@@ -2240,16 +2269,20 @@ export function appendDeferredPitchPopover(lookupCard: JPDBCard): { popover: HTM
         </div>
     `;
     document.body.append(popover);
+    const originalWord = popover.querySelector<HTMLElement>('.jpdb-reader-spelling .jpdb-reader-word')!;
+    registerRenderedWordPrivateState(
+        originalWord,
+        renderedWordPrivateStateForCard(lookupCard, primaryCardState(lookupCard.cardState)),
+    );
     return {
         popover,
-        originalWord: popover.querySelector<HTMLElement>('.jpdb-reader-spelling .jpdb-reader-word')!,
+        originalWord,
     };
 }
 
 export function expectDeferredPitchPopoverUpdated(popover: HTMLElement, originalWord: HTMLElement): void {
     expect(popover.querySelector('.jpdb-reader-spelling .jpdb-reader-word')).toBe(originalWord);
-    expect(originalWord.dataset.pitchClass).toBe('nakadaka');
-    expect(originalWord.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
+    expect([...originalWord.classList]).toContain('jpdb-pitch-nakadaka');
     expect(popover.querySelector('.jpdb-reader-pitch')).not.toBeNull();
 }
 
@@ -2482,9 +2515,7 @@ export async function expectPublicVocabularyFurigana(settings: Partial<ReaderSet
     try {
         await internals.enrichPitchWords([token]);
 
-        expect(word.dataset.reading).toBe('あおぞら');
-        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
-        expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
+        expectReaderWordFurigana(word, 'あおぞら');
     } finally {
         word.remove();
         app.destroy();
@@ -3209,6 +3240,7 @@ export {
     buildKanjiOriginGraph,
     buildNewTabPalette,
     buildYomuAnkiFields,
+    bindPrivateCommandCapability,
     collectFragmentTextTargetsIn,
     collectPageSubtitleSources,
     collectScanTargets,
@@ -3315,13 +3347,16 @@ export {
     proxyUrlCandidates,
     readDictionaryLookupLinks,
     readFallbackOcrResult,
+    readCardCommandCapability,
     readFileSync,
     readFormSettings,
+    registerRenderedWordPrivateState,
     readerRenderRejectionRescanDelay,
     readerTextMirrorForSource,
     readerWordAtPointInScope,
     readerWordsForSource,
     readerWordSurfaceText,
+    readTokenChoiceCommandCapability,
     renderAudioSourceEditor,
     renderDefinitionSourcesStack,
     renderDictionaryLookupLinkEditor,
@@ -3343,6 +3378,8 @@ export {
     renderControllerPrimarySubtitle,
     renderSubtitlePrimary,
     renderTokensToHtml,
+    renderedWordPrivateStateForCard,
+    renderedWordPrivateValue,
     renderWordPills,
     resolveAnkiWordAudio,
     resolveNewTabBrandAssets,
@@ -3353,6 +3390,7 @@ export {
     searchWordDetailHtml,
     shouldReplaceWaitingNativeTrack,
     shouldUseSheet,
+    setInnerHtml,
     splitJapaneseSentences,
     stubInstantIntersectionObserver,
     summarizeLearnerGlossary,

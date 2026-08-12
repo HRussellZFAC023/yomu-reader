@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
     DEFAULT_SETTINGS,
@@ -30,9 +30,19 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../../src/reader/languages/active';
+import { primaryCardState } from '../../../src/reader/cards/state';
+import { bindPrivateCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+import {
+    registerRenderedWordPrivateState,
+    renderedWordPrivateStateForCard,
+    renderedWordPrivateValue,
+} from '../../../src/reader/dom/rendered-word-private-state';
 
 describe('new tab review — hosted segmented fallback & lookup grade statuses', () => {
     registerNewTabReviewCleanup();
+    beforeEach(() => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+    });
 
     it('blocks stale hosted kanji actions and Japanese public providers after a target switch', async () => {
         setActiveLearningTargetLanguage('zh');
@@ -184,7 +194,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             await waitForExpect(() => {
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-word');
                 expect(word?.dataset.expression).toBe('会話');
-                expect(word?.dataset.vid).toBe('1234');
+                expect(word && renderedWordPrivateValue(word, 'vid')).toBe('1234');
                 expect(word?.dataset.reading).toBe('かいわ');
                 expect(word?.dataset.pitchClass).toBe('heiban');
                 expect(word?.querySelector('rt')?.textContent).toBe('かいわ');
@@ -386,6 +396,13 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             </div>
         `;
         document.body.append(popover);
+        const [dictionaryWord, relatedWord, unknownWord] = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        registerRenderedWordPrivateState(dictionaryWord!, { vid: '11', sid: '12' });
+        registerRenderedWordPrivateState(
+            relatedWord!,
+            renderedWordPrivateStateForCard(related, primaryCardState(related.cardState)),
+        );
+        registerRenderedWordPrivateState(unknownWord!, { vid: '991', sid: '992' });
 
         try {
             internals.installLookupPopoverHandlers(popover, card, card.sentence);
@@ -515,11 +532,12 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 </div>
             `;
             const card = newTabTestCard({ spelling: '設定', reading: 'せってい' });
+            const button = lookup.querySelector<HTMLButtonElement>('[data-action="kanji"]')!;
+            bindPrivateCommandCapability(button, { kind: 'kanji-lookup', kanji: '設' });
             internals.mountLookupPopover(lookup, anchor);
             internals.installLookupPopoverHandlers(lookup, card, '設定する。', anchor);
             await new Promise(resolve => window.setTimeout(resolve, 0));
 
-            const button = lookup.querySelector<HTMLButtonElement>('[data-action="kanji"]')!;
             button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
             button.click();
 
@@ -1043,6 +1061,8 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         };
         button.dataset.action = 'grade';
         button.dataset.grade = 'easy';
+        const command = { kind: 'card-action', action: 'grade', grade: 'easy' } as const;
+        bindPrivateCommandCapability(button, command);
         document.body.append(backdrop, popover);
         internals.activeLookupPopover = popover;
         internals.activeLookupBackdrop = backdrop;
@@ -1052,7 +1072,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         try {
             await internals.handleCardAction(button, card, '日本語を読む。');
 
-            expect(perform).toHaveBeenCalledWith('grade', button, card, '日本語を読む。');
+            expect(perform).toHaveBeenCalledWith(command, button, card, '日本語を読む。');
             expect(showLookupCard).not.toHaveBeenCalled();
             expect(popover.isConnected).toBe(false);
             expect(backdrop.isConnected).toBe(false);
@@ -1439,9 +1459,10 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             visibleWords: [card],
             index: 0,
         });
+        const button = root.querySelector<HTMLButtonElement>('button')!;
+        bindPrivateCommandCapability(button, { kind: 'kanji-lookup', kanji: '寸' });
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
-        const button = root.querySelector<HTMLButtonElement>('button')!;
         button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
         expect(lookupText).toHaveBeenCalledWith('寸', '寸', button, expect.objectContaining({

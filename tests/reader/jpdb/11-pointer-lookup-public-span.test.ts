@@ -19,6 +19,8 @@ import {
     pointerTextCandidate,
     pointerTextLookupFromTextNode,
     renderTokensToHtml,
+    readTokenChoiceCommandCapability,
+    setInnerHtml,
     testFallbackCard,
     testPublicCard,
     waitForExpect,
@@ -324,7 +326,7 @@ describe('reader helpers', () => {
             sentence: text,
         };
 
-        document.body.innerHTML = renderTokensToHtml(text, [token], DEFAULT_SETTINGS);
+        setInnerHtml(document.body, renderTokensToHtml(text, [token], DEFAULT_SETTINGS));
 
         try {
             const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
@@ -354,7 +356,7 @@ describe('reader helpers', () => {
             pitchClass: 'heiban',
             sentence,
         };
-        document.body.innerHTML = `<main><article>${renderTokensToHtml(sentence, [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' })}</article></main>`;
+        setInnerHtml(document.body, `<main><article>${renderTokensToHtml(sentence, [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' })}</article></main>`);
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const showRenderedWordCard = vi.fn(async () => undefined);
         const scheduleVisiblePageReparse = vi.fn();
@@ -998,12 +1000,19 @@ describe('reader helpers', () => {
 
         try {
             const wrapper = document.createElement('div');
-            wrapper.innerHTML = internals.renderTokenListHtml([token], '日本語訳');
+            setInnerHtml(wrapper, internals.renderTokenListHtml([token], '日本語訳'));
+            const tokenChoice = wrapper.querySelector<HTMLButtonElement>('button[data-token-choice]')!;
 
             expect(wrapper.querySelector('.jpdb-reader-selection-pills')).not.toBeNull();
             expect([...wrapper.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-selection-pills a')].map(link => link.textContent?.trim())).toEqual(expect.arrayContaining(['Yomu', 'Jiten', 'JPDB']));
             expect(wrapper.querySelector<HTMLButtonElement>('.jpdb-reader-selection-pills [data-action="copy-selection"]')).not.toBeNull();
-            expect(wrapper.querySelector<HTMLButtonElement>('button[data-token-choice][data-vid="20"][data-sid="30"]')).not.toBeNull();
+            expect(readTokenChoiceCommandCapability(tokenChoice)).toEqual({
+                kind: 'token-choice',
+                vid: 20,
+                sid: 30,
+            });
+            expect(tokenChoice.dataset.vid).toBeUndefined();
+            expect(tokenChoice.dataset.sid).toBeUndefined();
             // Pills sit above the parsed word list so the actions are reachable
             // without scrolling past a long selection's tokens.
             const pills = wrapper.querySelector('.jpdb-reader-selection-pills')!;
@@ -1050,7 +1059,7 @@ describe('reader helpers', () => {
             ...DEFAULT_SETTINGS,
             dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
         };
-        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳');
+        setInnerHtml(popover, internals.renderTokenListHtml([token], '日本語訳'));
         internals.installTokenListHandlers(popover, [token], undefined, { trigger: 'modal', navigation: 'reset' });
 
         try {

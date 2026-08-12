@@ -6,6 +6,7 @@ import {
     removeNonDestructiveScanMirrors,
     setRubyDistortsConstrainedRowsForTest,
 } from '../../src/reader/dom';
+import { readRenderedWordPrivateState } from '../../src/reader/dom/rendered-word-private-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -241,14 +242,17 @@ describe('non-destructive mirror preserves page-owned clips', () => {
             const preservedWord = preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word');
             expect(preservedWord?.dataset.pitchClass).toBe('heiban');
             expect(preservedWord?.dataset.reading).toBe('にほんご');
-            expect(preservedWord?.dataset.cardState).toBe('learning');
+            expect(readRenderedWordPrivateState(preservedWord!)).toMatchObject({
+                cardState: 'learning',
+                vid: '1',
+                sid: '1',
+                cardSource: 'jiten',
+                cardId: '1',
+                readingIndex: '1',
+            });
             expect(preservedWord?.classList.contains('jpdb-learning')).toBe(true);
-            expect(preservedWord?.dataset.deckNames).toBe('Current deck');
-            expect(preservedWord?.dataset.vid).toBe('1');
-            expect(preservedWord?.dataset.sid).toBe('1');
-            expect(preservedWord?.dataset.cardSource).toBe('jiten');
-            expect(preservedWord?.dataset.cardId).toBe('1');
-            expect(preservedWord?.dataset.readingIndex).toBe('1');
+            expect(preservedWord?.classList.contains('yomu-deck-member')).toBe(true);
+            expect(preservedWord?.dataset.deckNames).toBeUndefined();
 
             applyTokensToScanTarget({ ...target, nonDestructive: true }, [authoritativeToken], renderSettings);
             const replacedMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;

@@ -5,6 +5,11 @@ import {
     hydrateYomuLocalSrsCardStates,
     repaintYomuLocalSrsRenderedWords,
 } from '../../src/reader/srs/local-yomu-state';
+import {
+    readRenderedWordPrivateState,
+    registerRenderedWordPrivateState,
+    renderedWordPrivateValue,
+} from '../../src/reader/dom/rendered-word-private-state';
 import type { YomuSrsLookupItem, YomuSrsReviewable } from '../../src/reader/srs/types';
 
 function card(expression: string, reading: string, overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -66,17 +71,27 @@ describe('Academy local SRS state hydration', () => {
     it('repaints every matching rendered word by expression and reading without changing provider ids', () => {
         const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '#ffffff' } as never);
         document.body.innerHTML = `
-            <span class="jpdb-reader-word jpdb-not-in-deck local-not-in-deck" data-expression="読む" data-reading="よむ" data-vid="1" data-sid="1" data-card-state="not-in-deck"></span>
-            <span class="jpdb-reader-word jpdb-known jiten-known" data-expression="読む" data-reading="よむ" data-vid="99" data-sid="4" data-card-state="known"></span>
-            <span class="jpdb-reader-word jpdb-new" data-expression="生" data-reading="せい" data-vid="3" data-sid="3" data-card-state="new"></span>`;
+            <span class="jpdb-reader-word jpdb-not-in-deck" data-expression="読む" data-reading="よむ"></span>
+            <span class="jpdb-reader-word jpdb-known" data-expression="読む" data-reading="よむ"></span>
+            <span class="jpdb-reader-word jpdb-new" data-expression="生" data-reading="せい"></span>`;
+        const [first, second, other] = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+        registerRenderedWordPrivateState(first!, { vid: '1', sid: '1', cardSource: 'local', cardState: 'not-in-deck' });
+        registerRenderedWordPrivateState(second!, { vid: '99', sid: '4', cardSource: 'jiten', cardState: 'known' });
+        registerRenderedWordPrivateState(other!, { vid: '3', sid: '3', cardSource: 'local', cardState: 'new' });
         const academy = card('読む', 'よむ', { cardState: ['due'], reviewSource: 'yomu-local', provisionalState: false });
 
         expect(repaintYomuLocalSrsRenderedWords(academy)).toBe(2);
         const matches = [...document.querySelectorAll<HTMLElement>('[data-expression="読む"]')];
-        expect(matches.every(word => word.classList.contains('jpdb-due') && word.classList.contains('yomu-local-due'))).toBe(true);
-        expect(matches.map(word => [word.dataset.vid, word.dataset.sid])).toEqual([['1', '1'], ['99', '4']]);
-        expect(matches.every(word => word.dataset.srsProvider === 'yomu-local' && word.dataset.stateProvenance === 'authoritative')).toBe(true);
-        expect(document.querySelector<HTMLElement>('[data-expression="生"]')?.dataset.cardState).toBe('new');
+        expect(matches.every(word => word.classList.contains('jpdb-due') && !word.classList.contains('yomu-local-due'))).toBe(true);
+        expect(matches.map(word => {
+            const state = readRenderedWordPrivateState(word);
+            return [state?.vid, state?.sid];
+        })).toEqual([['1', '1'], ['99', '4']]);
+        expect(matches.every(word => {
+            const state = readRenderedWordPrivateState(word);
+            return state?.srsProvider === 'yomu-local' && state.stateProvenance === 'authoritative';
+        })).toBe(true);
+        expect(renderedWordPrivateValue(other!, 'cardState')).toBe('new');
         getContext.mockRestore();
     });
 });

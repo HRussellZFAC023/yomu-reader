@@ -37,6 +37,7 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../../src/reader/languages/active';
+import { privateCommandAttributes } from '../../../src/reader/dom/private-command-capabilities';
 
 describe('new tab review — search mode', () => {
     registerNewTabReviewCleanup();
@@ -1142,8 +1143,18 @@ describe('new tab review — search mode', () => {
                 <details open>
                     <summary>Popup sources</summary>
                     <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="黒猫" data-dictionary-reading="くろねこ" data-dictionary="Local">黒猫</a>
-                    <button type="button" data-action="jpdb-example-audio" data-jpdb-audio="example-audio" data-jpdb-example-sentence="猫が寝る。">audio</button>
-                    <button type="button" data-action="jiten-audio" data-study-sentence="猫が鳴く。" data-jiten-audio-urls='["https://audio.example.test/cat.mp3"]'>jiten audio</button>
+                    <button type="button" data-action="jpdb-example-audio" data-jpdb-audio="example-audio" data-jpdb-example-sentence="猫が寝る。" ${privateCommandAttributes({
+                        kind: 'card-action',
+                        action: 'jpdb-example-audio',
+                        audioIds: 'example-audio',
+                        sentence: '猫が寝る。',
+                    })}>audio</button>
+                    <button type="button" data-action="jiten-audio" data-study-sentence="猫が鳴く。" data-jiten-audio-urls='["https://audio.example.test/cat.mp3"]' ${privateCommandAttributes({
+                        kind: 'card-action',
+                        action: 'jiten-audio',
+                        audioUrls: ['https://audio.example.test/cat.mp3'],
+                        sentence: '猫が鳴く。',
+                    })}>jiten audio</button>
                 </details>
             </div>
         `);
@@ -1154,8 +1165,8 @@ describe('new tab review — search mode', () => {
         const renderSearchWordPills = vi.fn(() => `
             <div class="jpdb-reader-word-pills">
                 <a class="jpdb-reader-pill jpdb-reader-action-pill" href="https://jisho.org/search/%E7%8C%AB" target="_blank" rel="noopener"><span>Jisho</span></a>
-                <button type="button" data-action="copy-word">Copy</button>
-                <button type="button" data-action="anki">Anki</button>
+                <button type="button" data-action="copy-word" ${privateCommandAttributes({ kind: 'card-action', action: 'copy-word' })}>Copy</button>
+                <button type="button" data-action="anki" ${privateCommandAttributes({ kind: 'card-action', action: 'anki' })}>Anki</button>
                 <span>Freq Local 1600</span>
             </div>
         `);
@@ -1287,7 +1298,12 @@ describe('new tab review — search mode', () => {
 
             const jitenAudio = root.querySelector<HTMLButtonElement>('[data-action="jiten-audio"]')!;
             jitenAudio.click();
-            expect(performCardAction).toHaveBeenCalledWith(jitenAudio, catCard, '猫が鳴く。', jitenAudio);
+            expect(performCardAction).toHaveBeenCalledWith(jitenAudio, catCard, '猫が鳴く。', jitenAudio, {
+                kind: 'card-action',
+                action: 'jiten-audio',
+                audioUrls: ['https://audio.example.test/cat.mp3'],
+                sentence: '猫が鳴く。',
+            });
 
             const openInTab = vi.fn();
             vi.stubGlobal('GM_openInTab', openInTab);
@@ -1299,11 +1315,17 @@ describe('new tab review — search mode', () => {
 
             const copyPill = root.querySelector<HTMLButtonElement>('[data-action="copy-word"]')!;
             copyPill.click();
-            expect(performCardAction).toHaveBeenCalledWith(copyPill, catCard, '猫', copyPill);
+            expect(performCardAction).toHaveBeenCalledWith(copyPill, catCard, '猫', copyPill, {
+                kind: 'card-action',
+                action: 'copy-word',
+            });
 
             const ankiPill = root.querySelector<HTMLButtonElement>('[data-action="anki"]')!;
             ankiPill.click();
-            expect(performCardAction).toHaveBeenCalledWith(ankiPill, catCard, '猫', ankiPill);
+            expect(performCardAction).toHaveBeenCalledWith(ankiPill, catCard, '猫', ankiPill, {
+                kind: 'card-action',
+                action: 'anki',
+            });
 
             root.querySelector<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')?.click();
             await waitForExpect(() => {

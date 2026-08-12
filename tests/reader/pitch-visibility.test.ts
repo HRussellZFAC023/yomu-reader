@@ -6,6 +6,7 @@ import {
     LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS,
     type PitchEnrichmentOptions,
 } from '../../src/reader/app/main-helpers';
+import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 interface AppInternals {
@@ -65,10 +66,9 @@ function pitchToken(card: JPDBCard): JPDBToken {
 function renderedPitchWord(card: JPDBCard): HTMLElement {
     const word = document.createElement('span');
     word.className = 'jpdb-reader-word jpdb-pitch-unknown';
-    word.dataset.vid = String(card.vid);
-    word.dataset.sid = String(card.sid);
     word.dataset.pitchClass = 'unknown';
     word.textContent = card.spelling;
+    setRenderedWordCardIdentity(word, card);
     document.body.append(word);
     return word;
 }

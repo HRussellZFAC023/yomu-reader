@@ -10,6 +10,7 @@ import {
     setActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import type { JitenKanjiWordsPage } from '../../src/reader/dictionaries/jiten';
+import { bindPrivateCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 
 function jitenWordsRoot(): {
     root: HTMLElement;
@@ -39,10 +40,26 @@ function jitenWordsRoot(): {
         </div>
     `;
     document.body.append(root);
+    const filter = root.querySelector<HTMLButtonElement>('[data-action="jiten-kanji-reading"]')!;
+    const more = root.querySelector<HTMLButtonElement>('[data-action="jiten-kanji-more"]')!;
+    bindPrivateCommandCapability(filter, {
+        kind: 'jiten-kanji-words',
+        action: 'filter',
+        character: '学',
+        reading: 'がく',
+    });
+    bindPrivateCommandCapability(more, {
+        kind: 'jiten-kanji-words',
+        action: 'more',
+        character: '学',
+        reading: '',
+        page: 2,
+        pageSize: 9,
+    });
     return {
         root,
-        filter: root.querySelector('[data-action="jiten-kanji-reading"]')!,
-        more: root.querySelector('[data-action="jiten-kanji-more"]')!,
+        filter,
+        more,
         grid: root.querySelector('.jpdb-reader-jiten-kanji-vocabulary')!,
     };
 }

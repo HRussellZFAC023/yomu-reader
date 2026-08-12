@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
+import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { PitchEnrichmentOptions } from '../../src/reader/app/main-helpers';
@@ -122,15 +123,18 @@ describe('local pitch misses feed the deferred public lane (class F)', () => {
         const app = makeApp({ localDictionariesEnabled: false });
         app.waitForIdle = async () => undefined;
         app.jpdbPublicPitch = { lookup: vi.fn(async () => ['LHHH']) };
-        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-pitch-unknown" data-vid="6" data-sid="6" data-pitch-class="">財源</span>';
-
         const miss = token(card(6, '財源', 'ざいげん'));
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.pitchClass = 'unknown';
+        word.textContent = miss.card.spelling;
+        setRenderedWordCardIdentity(word, miss.card);
+        document.body.append(word);
         app.queueDeferredPublicPitchTokens([miss]);
         expect(app.deferredPublicPitchQueue).toHaveLength(1);
         await app.drainDeferredPublicPitchQueue();
 
         expect(app.jpdbPublicPitch.lookup).toHaveBeenCalled();
-        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(word.dataset.pitchClass).toBeTruthy();
         expect(word.dataset.pitchClass).not.toBe('unknown');
         expect(Array.from(word.classList).some(name => name.startsWith('jpdb-pitch-') && name !== 'jpdb-pitch-unknown')).toBe(true);

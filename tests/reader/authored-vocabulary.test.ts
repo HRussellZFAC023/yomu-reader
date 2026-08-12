@@ -7,6 +7,7 @@ import {
 } from '../../src/reader/lookup/authored-vocabulary';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 
 describe('authored vocabulary disambiguation', () => {
     it('replaces a valid but contextually wrong homograph without changing unrelated tokens', () => {
@@ -116,7 +117,7 @@ describe('authored vocabulary disambiguation', () => {
             expect(word?.dataset.expression).toBe('行って');
             expect(word?.dataset.reading).toBe('いって');
             expect(word?.dataset.pitchClass).toBe('heiban');
-            expect(word?.dataset.cardSource).toBe('fallback');
+            expect(word && renderedWordPrivateValue(word, 'cardSource')).toBe('fallback');
             // The Reader correctly keeps okurigana on the base and only puts
             // the non-visible reading for 行 above the kanji.
             expect(word?.querySelector('rt')?.textContent).toBe('い');

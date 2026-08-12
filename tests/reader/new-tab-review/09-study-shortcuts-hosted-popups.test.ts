@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
     WORD_ONLY_STUDY_DISABLED_STEPS,
@@ -22,6 +22,8 @@ import type {
     JPDBToken,
 } from './fixtures';
 import { cardKey } from '../../../src/reader/cards/utils';
+import { bindPrivateCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+import { renderedWordPrivateValue } from '../../../src/reader/dom/rendered-word-private-state';
 import { isolate } from '../../../src/reader/locales/direction';
 
 function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]): { root: HTMLElement; clicks: string[] } {
@@ -50,6 +52,9 @@ function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]
 
 describe('new tab review — study shortcuts & hosted popup lookups', () => {
     registerNewTabReviewCleanup();
+    beforeEach(() => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+    });
 
 
     it('continues to the reveal step, then reveals word study cards with Space and Enter', () => {
@@ -576,6 +581,13 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             visibleWords: [card],
             index: 0,
         });
+        const [similarWord, kanji] = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
+        bindPrivateCommandCapability(similarWord!, {
+            kind: 'kanji-word',
+            expression: '何事',
+            reading: 'なにごと',
+        });
+        bindPrivateCommandCapability(kanji!, { kind: 'kanji-lookup', kanji: '事' });
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
         root.querySelector<HTMLAnchorElement>('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -638,8 +650,14 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             expect(trigger.getAttribute('aria-hidden')).toBe('true');
             expect(popover.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
 
-            popover.insertAdjacentHTML('beforeend', '<button type="button" data-action="kanji" data-kanji="字">字</button>');
-            popover.querySelector<HTMLButtonElement>('[data-kanji="字"]')?.click();
+            const nextKanji = document.createElement('button');
+            nextKanji.type = 'button';
+            nextKanji.dataset.action = 'kanji';
+            nextKanji.dataset.kanji = '字';
+            nextKanji.textContent = '字';
+            bindPrivateCommandCapability(nextKanji, { kind: 'kanji-lookup', kanji: '字' });
+            popover.append(nextKanji);
+            nextKanji.click();
 
             await waitForExpect(() => {
                 const active = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
@@ -1004,8 +1022,8 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             await waitForExpect(() => {
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-word')!;
                 expect(word.classList.contains('anki-known')).toBe(true);
-                expect(word.dataset.ankiState).toBe('known');
-                expect(word.dataset.ankiDecks).toBe('Core');
+                expect(renderedWordPrivateValue(word, 'ankiState')).toBe('known');
+                expect(renderedWordPrivateValue(word, 'ankiDecks')).toBe('Core');
                 expect(word.title).toContain('Anki: Known');
             });
             expect(findCachedStatusBatch).toHaveBeenCalledWith([card]);

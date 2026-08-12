@@ -9,6 +9,7 @@ import type { CardState, JPDBToken } from '../../src/reader/app/types';
 import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 import { documentPortalReaderWordScopeForSource } from '../../src/reader/dom/index';
+import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 
 type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
 
@@ -1672,7 +1673,7 @@ describe('VisiblePageScanner', () => {
             const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
             expect(order).toEqual(['apply', 'reading']);
             expect(enrichPitchWords).toHaveBeenCalledTimes(1);
-            expect(word.dataset.cardSource).toBe('jiten');
+            expect(renderedWordPrivateValue(word, 'cardSource')).toBe('jiten');
             expect(word.dataset.reading ?? '').toBe('');
             expect(word.querySelector('rt')).toBeNull();
             expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
@@ -1792,7 +1793,7 @@ describe('VisiblePageScanner', () => {
             // preceding 700-character mobile chunk.
             expect(Math.max(...parsedParagraphs.map(text => text.length))).toBeLessThan(980);
             expect(parsedParagraphs.reduce((length, text) => length + text.length, 0)).toBe(longText.length);
-            expect(words.map(word => word.dataset.vid).sort())
+            expect(words.map(word => renderedWordPrivateValue(word, 'vid')).sort())
                 .toEqual(parsedTokenIds.sort());
             expect(document.querySelector('p .jpdb-reader-text-mirror'), 'chunk slices must not impersonate a repaint loop').toBeNull();
             expect(document.querySelector('p')?.textContent).toBe(longText);
@@ -1998,8 +1999,8 @@ describe('VisiblePageScanner', () => {
             expect(toast).toHaveBeenCalledWith('67% known · 2/3 · 1 new · 1 i+1');
             const insight = document.querySelector<HTMLElement>('[data-mining-insight="i-plus-one"]')!;
             expect(insight.textContent).toBe('本');
-            expect(insight.dataset.cardSource).toBe('jiten');
-            expect(insight.dataset.cardId).toBe('42');
+            expect(renderedWordPrivateValue(insight, 'cardSource')).toBe('jiten');
+            expect(renderedWordPrivateValue(insight, 'cardId')).toBe('42');
         } finally {
             restoreRects();
             document.body.innerHTML = '';
@@ -2226,7 +2227,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('renders Jiten status classes and hides known-status furigana during visible page scans', async () => {
+    it('renders generic Jiten status classes and hides known-status furigana during visible page scans', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<main><p>読む</p></main>';
         const parseJapanese = vi.fn(async (paragraphs: string[]) => {
@@ -2252,9 +2253,9 @@ describe('VisiblePageScanner', () => {
             const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
             expect(word.textContent).toBe('読む');
             expect(word.classList.contains('jpdb-young')).toBe(true);
-            expect(word.classList.contains('jiten-young')).toBe(true);
-            expect(word.dataset.cardSource).toBe('jiten');
-            expect(word.dataset.cardState).toBe('young');
+            expect(word.classList.contains('jiten-young')).toBe(false);
+            expect(renderedWordPrivateValue(word, 'cardSource')).toBe('jiten');
+            expect(renderedWordPrivateValue(word, 'cardState')).toBe('young');
             expect(word.querySelector('rt')).toBeNull();
         } finally {
             restoreRects();

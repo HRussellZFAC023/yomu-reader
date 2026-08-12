@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
@@ -11,11 +11,15 @@ import {
     createRepeatedAnkiWordCacheFixture,
     deferred,
     emptyCardRenderData,
+    registerRenderedWordPrivateState,
+    renderedWordPrivateValue,
     searchWordDetailHtml,
+    setInnerHtml,
     testAozoraCard,
     testFallbackCard,
     waitForExpect,
 } from './fixtures';
+import { updateRenderedWordPrivateState } from '../../../src/reader/dom/rendered-word-private-state';
 import type {
     AnkiLookupResult,
     CardRenderData,
@@ -26,6 +30,9 @@ import type {
 } from './fixtures';
 
 registerReaderHelpersCleanup();
+beforeEach(() => {
+    vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+});
 
 type DeferredPopoverRenderData = {
     localEntries: Promise<YomitanTermEntry[]>;
@@ -71,6 +78,26 @@ type DeferredPopoverInternals = {
         instantLocalEntries: null,
     ): void;
 };
+
+function expectKnownRenderedAnkiWord(word: HTMLElement, decks: string): void {
+    expect(word.classList.contains('anki-known')).toBe(true);
+    expect(renderedWordPrivateValue(word, 'ankiState')).toBe('known');
+    expect(renderedWordPrivateValue(word, 'ankiDecks')).toBe(decks);
+}
+
+function expectClearedRenderedAnkiWord(word: HTMLElement): void {
+    expect(word.classList.contains('anki-known')).toBe(false);
+    expect(renderedWordPrivateValue(word, 'ankiState')).toBeUndefined();
+    expect(renderedWordPrivateValue(word, 'ankiDecks')).toBeUndefined();
+    expect(word.title).toBe('');
+}
+
+function expectNotInDeckRenderedAnkiWord(word: HTMLElement): void {
+    expect(word.classList.contains('anki-known')).toBe(false);
+    expect(word.classList.contains('anki-not-in-deck')).toBe(true);
+    expect(renderedWordPrivateValue(word, 'ankiState')).toBe('not-in-deck');
+    expect(renderedWordPrivateValue(word, 'ankiDecks')).toBeUndefined();
+}
 
 function deferredPopoverHarness(settings: Partial<typeof DEFAULT_SETTINGS> = {}) {
     const app = new ReaderApp();
@@ -198,13 +225,13 @@ describe('reader helpers', () => {
         } }).searchController;
 
         try {
-            document.body.innerHTML = searchWordDetailHtml(lookupCard, {
+            setInnerHtml(document.body, searchWordDetailHtml(lookupCard, {
                 localEntries: [],
                 kanjiEntries: [],
                 metaEntries: [],
                 ankiLookup,
                 jpdbVocabularyInfo: null,
-            }, internals.searchDetailViewContext());
+            }, internals.searchDetailViewContext()));
 
             const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-card-preview')!;
 
@@ -239,7 +266,10 @@ describe('reader helpers', () => {
         };
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
-        popover.innerHTML = `<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="${lookupCard.vid}" data-sid="${lookupCard.sid}">動画</span>`;
+        const word = appendRenderedReaderWord(lookupCard, {
+            className: 'jpdb-reader-word jpdb-not-in-deck',
+            parent: popover,
+        });
         document.body.append(popover);
         const ankiLookup: AnkiLookupResult = {
             state: 'known',
@@ -284,11 +314,8 @@ describe('reader helpers', () => {
                 sentence: '動画を見る。',
             }]);
 
-            const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
             expect(findCachedStatusBatch).toHaveBeenCalledWith([lookupCard]);
-            expect(word.classList.contains('anki-known')).toBe(true);
-            expect(word.dataset.ankiState).toBe('known');
-            expect(word.dataset.ankiDecks).toBe('Anime::Mining');
+            expectKnownRenderedAnkiWord(word, 'Anime::Mining');
             expect(word.title).toBe('Anki: Known (Anime::Mining)');
         } finally {
             popover.remove();
@@ -469,15 +496,9 @@ describe('reader helpers', () => {
             rubies: [],
             pitchClass: '',
         }));
-        const words = tokens.map(token => {
-            const word = document.createElement('span');
-            word.className = 'jpdb-reader-word jpdb-pitch-unknown';
-            word.dataset.vid = String(token.card.vid);
-            word.dataset.sid = String(token.card.sid);
-            word.textContent = token.card.spelling;
-            document.body.append(word);
-            return word;
-        });
+        const words = tokens.map(token => appendRenderedReaderWord(token.card, {
+            className: 'jpdb-reader-word jpdb-pitch-unknown',
+        }));
         const publicPitch = vi.fn(async () => ['LHHLL']);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
@@ -519,14 +540,12 @@ describe('reader helpers', () => {
             rubies: [],
             pitchClass: '',
         };
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word jpdb-not-in-deck';
-        word.dataset.vid = String(token.card.vid);
-        word.dataset.sid = String(token.card.sid);
-        word.textContent = token.card.spelling;
+        const word = appendRenderedReaderWord(token.card, {
+            className: 'jpdb-reader-word jpdb-not-in-deck',
+            parent: document.createElement('div'),
+        });
         const outside = word.cloneNode(true) as HTMLElement;
-        const container = document.createElement('div');
-        container.append(word);
+        const container = word.parentElement!;
         document.body.append(container, outside);
         const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [{
             state: 'known',
@@ -561,10 +580,7 @@ describe('reader helpers', () => {
             await internals.enrichAnkiWords([token], [container]);
 
             expect(findCachedStatusBatch).not.toHaveBeenCalled();
-            expect(word.classList.contains('anki-known')).toBe(false);
-            expect(word.dataset.ankiState).toBeUndefined();
-            expect(word.dataset.ankiDecks).toBeUndefined();
-            expect(word.title).toBe('');
+            expectClearedRenderedAnkiWord(word);
             expect(outside.classList.contains('anki-known')).toBe(false);
         } finally {
             container.remove();
@@ -584,15 +600,9 @@ describe('reader helpers', () => {
             reading: 'どうが',
             source: 'jpdb',
         };
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-known';
-        word.dataset.vid = String(lookupCard.vid);
-        word.dataset.sid = String(lookupCard.sid);
-        word.dataset.ankiState = 'known';
-        word.dataset.ankiDecks = 'Anime::Mining';
+        const word = appendKnownAnkiRenderedWord(lookupCard);
+        updateRenderedWordPrivateState(word, { ankiDecks: 'Anime::Mining' });
         word.title = 'Anki: Known (Anime::Mining)';
-        word.textContent = lookupCard.spelling;
-        document.body.append(word);
         const lookup: AnkiLookupResult = {
             state: 'known',
             notes: [],
@@ -623,10 +633,7 @@ describe('reader helpers', () => {
         try {
             internals.applyAnkiLookupToRenderedWords(lookupCard, lookup);
 
-            expect(word.classList.contains('anki-known')).toBe(false);
-            expect(word.dataset.ankiState).toBeUndefined();
-            expect(word.dataset.ankiDecks).toBeUndefined();
-            expect(word.title).toBe('');
+            expectClearedRenderedAnkiWord(word);
         } finally {
             word.remove();
             app.destroy();
@@ -685,10 +692,7 @@ describe('reader helpers', () => {
                 jpdbVocabularyInfo: null,
             });
 
-            expect(word.classList.contains('anki-known')).toBe(false);
-            expect(word.classList.contains('anki-not-in-deck')).toBe(true);
-            expect(word.dataset.ankiState).toBe('not-in-deck');
-            expect(word.dataset.ankiDecks).toBeUndefined();
+            expectNotInDeckRenderedAnkiWord(word);
             staleContrastVars.forEach(name => {
                 expect(word.style.getPropertyValue(name)).not.toBe('#58a6ff');
             });
@@ -747,8 +751,8 @@ describe('reader helpers', () => {
 
             expect(word.classList.contains('anki-known')).toBe(true);
             expect(word.classList.contains('anki-not-in-deck')).toBe(false);
-            expect(word.dataset.ankiState).toBe('known');
-            expect(word.dataset.ankiDecks).toBe('Mining');
+            expect(renderedWordPrivateValue(word, 'ankiState')).toBe('known');
+            expect(renderedWordPrivateValue(word, 'ankiDecks')).toBe('Mining');
             expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('#58a6ff');
             expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).toBe('#58a6ff');
         } finally {
@@ -855,17 +859,17 @@ describe('reader helpers', () => {
         for (let index = 0; index < 2400; index += 1) {
             const word = document.createElement('span');
             word.className = 'jpdb-reader-word jpdb-not-in-deck';
-            word.dataset.vid = String(901000 + index);
-            word.dataset.sid = String(index);
+            registerRenderedWordPrivateState(word, {
+                vid: String(901000 + index),
+                sid: String(index),
+            });
             word.textContent = `単語${index}`;
             container.append(word);
         }
-        const target = document.createElement('span');
-        target.className = 'jpdb-reader-word jpdb-not-in-deck';
-        target.dataset.vid = String(lookupCard.vid);
-        target.dataset.sid = String(lookupCard.sid);
-        target.textContent = lookupCard.spelling;
-        container.append(target);
+        const target = appendRenderedReaderWord(lookupCard, {
+            className: 'jpdb-reader-word jpdb-not-in-deck',
+            parent: container,
+        });
         document.body.append(container);
         const querySelectorAll = vi.spyOn(Document.prototype, 'querySelectorAll');
         const internals = app as unknown as {
@@ -916,14 +920,10 @@ describe('reader helpers', () => {
             reading: 'さいてん',
             source: 'jpdb',
         };
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-due';
-        word.dataset.vid = String(lookupCard.vid);
-        word.dataset.sid = String(lookupCard.sid);
-        word.dataset.ankiState = 'due';
-        word.dataset.ankiDecks = 'Mining';
-        word.textContent = lookupCard.spelling;
-        document.body.append(word);
+        const word = appendRenderedReaderWord(lookupCard, {
+            className: 'jpdb-reader-word jpdb-not-in-deck anki-due',
+        });
+        updateRenderedWordPrivateState(word, { ankiState: 'due', ankiDecks: 'Mining' });
         const refreshedLookup: AnkiLookupResult = {
             state: 'known',
             notes: [],
@@ -958,9 +958,7 @@ describe('reader helpers', () => {
 
             expect(findExistingCards).toHaveBeenCalledWith(lookupCard);
             expect(word.classList.contains('anki-due')).toBe(false);
-            expect(word.classList.contains('anki-known')).toBe(true);
-            expect(word.dataset.ankiState).toBe('known');
-            expect(word.dataset.ankiDecks).toBe('Mining');
+            expectKnownRenderedAnkiWord(word, 'Mining');
             expect(word.title).toBe('Anki: Known (Mining)');
         } finally {
             word.remove();
@@ -1009,10 +1007,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichAnkiWords([token], [container]);
 
-            expect(word.classList.contains('anki-known')).toBe(false);
-            expect(word.classList.contains('anki-not-in-deck')).toBe(true);
-            expect(word.dataset.ankiState).toBe('not-in-deck');
-            expect(word.dataset.ankiDecks).toBeUndefined();
+            expectNotInDeckRenderedAnkiWord(word);
             expect(word.title).toContain('Anki:');
         } finally {
             container.remove();
@@ -1062,9 +1057,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichAnkiWords([token], [container]);
 
-            expect(word.classList.contains('anki-known')).toBe(true);
-            expect(word.dataset.ankiState).toBe('known');
-            expect(word.dataset.ankiDecks).toBe('Mining');
+            expectKnownRenderedAnkiWord(word, 'Mining');
         } finally {
             container.remove();
             app.destroy();
@@ -1092,12 +1085,10 @@ describe('reader helpers', () => {
             pitchClass: '',
         }));
         tokens.forEach(token => {
-            const word = document.createElement('span');
-            word.className = 'jpdb-reader-word jpdb-not-in-deck';
-            word.dataset.vid = String(token.card.vid);
-            word.dataset.sid = String(token.card.sid);
-            word.textContent = token.card.spelling;
-            container.append(word);
+            appendRenderedReaderWord(token.card, {
+                className: 'jpdb-reader-word jpdb-not-in-deck',
+                parent: container,
+            });
         });
         document.body.append(container);
         const findCachedStatusBatch = vi.fn(async (cards: JPDBCard[]): Promise<AnkiLookupResult[]> => cards.map((lookupCard, index) => ({
@@ -1245,17 +1236,14 @@ describe('reader helpers', () => {
             source: 'local',
         }));
         cards.forEach(lookupCard => {
-            const word = document.createElement('span');
-            word.className = 'jpdb-reader-word jpdb-not-in-deck';
-            word.dataset.vid = String(lookupCard.vid);
-            word.dataset.sid = String(lookupCard.sid);
-            word.textContent = lookupCard.spelling;
-            container.append(word);
+            appendRenderedReaderWord(lookupCard, {
+                className: 'jpdb-reader-word jpdb-not-in-deck',
+                parent: container,
+            });
         });
         const indexedOnly = document.createElement('span');
         indexedOnly.className = 'jpdb-reader-word jpdb-not-in-deck';
-        indexedOnly.dataset.vid = '123456';
-        indexedOnly.dataset.sid = '789';
+        registerRenderedWordPrivateState(indexedOnly, { vid: '123456', sid: '789' });
         indexedOnly.textContent = '既存';
         container.append(indexedOnly);
         document.body.append(container);

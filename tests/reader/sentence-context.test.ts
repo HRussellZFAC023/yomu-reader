@@ -8,7 +8,9 @@ import {
     nearestReadableSentenceForElement,
     renderTokensToHtml,
     sentenceAroundRange,
+    setInnerHtml,
 } from '../../src/reader/dom/index';
+import { readRenderedWordPrivateState } from '../../src/reader/dom/rendered-word-private-state';
 import { ReaderApp } from '../../src/reader/app/main';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -69,7 +71,7 @@ describe('reader sentence context', () => {
             token('読む', 3, sentence, { vid: 12, sid: 1, cardState: ['known'] }),
         ];
 
-        document.body.innerHTML = renderTokensToHtml(sentence, tokens, DEFAULT_SETTINGS);
+        setInnerHtml(document.body, renderTokensToHtml(sentence, tokens, DEFAULT_SETTINGS));
 
         const insight = document.querySelector<HTMLElement>('.jpdb-reader-i-plus-one')!;
         expect(insight?.textContent).toBe('本');
@@ -84,7 +86,7 @@ describe('reader sentence context', () => {
             token('読む', 3, sentence, { vid: 12, sid: 1, cardState: ['not-in-deck'] }),
         ];
 
-        document.body.innerHTML = renderTokensToHtml(sentence, tokens, DEFAULT_SETTINGS);
+        setInnerHtml(document.body, renderTokensToHtml(sentence, tokens, DEFAULT_SETTINGS));
 
         expect(document.querySelector('.jpdb-reader-i-plus-one')).toBeNull();
     });
@@ -115,13 +117,15 @@ describe('reader sentence context', () => {
             }),
         ], DEFAULT_SETTINGS);
 
-        document.body.innerHTML = html;
+        setInnerHtml(document.body, html);
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        expect(word.dataset.vid).toBe('999');
-        expect(word.dataset.sid).toBe('9');
-        expect(word.dataset.cardSource).toBe('jiten');
-        expect(word.dataset.cardId).toBe('42');
-        expect(word.dataset.readingIndex).toBe('2');
+        expect(readRenderedWordPrivateState(word)).toMatchObject({
+            vid: '999',
+            sid: '9',
+            cardSource: 'jiten',
+            cardId: '42',
+            readingIndex: '2',
+        });
     });
 
     it('uses the clicked rendered word occurrence when a surface appears more than once', () => {

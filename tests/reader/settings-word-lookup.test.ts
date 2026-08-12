@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
 import type { JPDBCard } from '../../src/reader/app/types';
+import { primaryCardState } from '../../src/reader/cards/state';
+import {
+    registerRenderedWordPrivateState,
+    renderedWordPrivateStateForCard,
+} from '../../src/reader/dom/rendered-word-private-state';
 
 // Clicking an annotated word inside the settings dialog used to show the
 // cached parse skeleton (reading/pitch, no meanings) — a popup with search
@@ -34,7 +39,9 @@ function settingsWordFixture(card: JPDBCard): { internals: ShowWordInternals; wo
     const app = new ReaderApp();
     const internals = app as unknown as ShowWordInternals;
     internals.parser.cacheCards([card]);
-    return { internals, word: document.querySelector<HTMLElement>('.jpdb-reader-word')! };
+    const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    registerRenderedWordPrivateState(word, renderedWordPrivateStateForCard(card, primaryCardState(card.cardState)));
+    return { internals, word };
 }
 
 function settingsCard(meanings: JPDBCard['meanings']): JPDBCard {

@@ -5,6 +5,7 @@ import { RenderedWordIndex } from '../../src/reader/app/rendered-word-index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { ReaderApp } from '../../src/reader/app/main';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
+import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
 import type { ImageOcrController } from '../../src/reader/ocr/controller';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
@@ -113,6 +114,40 @@ function settings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
     };
 }
 
+function expectKnownWord(word: HTMLElement): void {
+    expect(renderedWordPrivateValue(word, 'cardState')).toBe('known');
+}
+
+function expectFuriganaHidden(word: HTMLElement, rubySelector = 'rt,.jpdb-reader-furi'): void {
+    expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+    expect(word.querySelector(rubySelector)).toBeNull();
+}
+
+async function resolveKnownLocalWord(
+    localLookup: { resolve(value: YomuSrsReviewable[]): void },
+    word: HTMLElement,
+    expression: string,
+    reading: string,
+): Promise<void> {
+    localLookup.resolve([{
+        providerId: 'yomu-local',
+        providerCardId: `${expression}\u0000${reading}`,
+        kind: 'vocabulary',
+        expression,
+        reading,
+        meanings: [],
+        state: ['known'],
+    }]);
+    await vi.waitFor(() => expect(renderedWordPrivateValue(word, 'srsProvider')).toBe('yomu-local'));
+    expectKnownWord(word);
+}
+
+function expectKnownLocalOcrWord(word: HTMLElement): void {
+    expectKnownWord(word);
+    expect(renderedWordPrivateValue(word, 'srsProvider')).toBe('yomu-local');
+    expectFuriganaHidden(word, 'rt,.jpdb-ocr-furi');
+}
+
 describe('late canonical card reconciliation', () => {
     it('keeps authoritative known-status furigana hidden during provisional detail repaint', async () => {
         vi.useFakeTimers();
@@ -142,11 +177,10 @@ describe('late canonical card reconciliation', () => {
         try {
             await internals.applyResolvedPitchCardToToken(token, authoritative, provisional, 'heiban');
 
-            expect(word.dataset.cardState).toBe('known');
-            expect(word.dataset.stateProvenance).toBe('authoritative');
-            expect(word.dataset.cardSource).toBe('jiten');
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-            expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expectKnownWord(word);
+            expect(renderedWordPrivateValue(word, 'stateProvenance')).toBe('authoritative');
+            expect(renderedWordPrivateValue(word, 'cardSource')).toBe('jiten');
+            expectFuriganaHidden(word);
         } finally {
             app.destroy();
         }
@@ -219,20 +253,8 @@ describe('late canonical card reconciliation', () => {
             expect(lookupCards.mock.calls[0]?.[0]).toEqual([
                 expect.objectContaining({ expression: '名古屋城', reading: 'なごやじょう' }),
             ]);
-            localLookup.resolve([{
-                providerId: 'yomu-local',
-                providerCardId: '名古屋城\u0000なごやじょう',
-                kind: 'vocabulary',
-                expression: '名古屋城',
-                reading: 'なごやじょう',
-                meanings: [],
-                state: ['known'],
-            }]);
-            await vi.waitFor(() => expect(word.dataset.srsProvider).toBe('yomu-local'));
-
-            expect(word.dataset.cardState).toBe('known');
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-            expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            await resolveKnownLocalWord(localLookup, word, '名古屋城', 'なごやじょう');
+            expectFuriganaHidden(word);
         } finally {
             app.destroy();
         }
@@ -269,18 +291,7 @@ describe('late canonical card reconciliation', () => {
 
             await vi.advanceTimersByTimeAsync(0);
             expect(lookupCards).toHaveBeenCalledTimes(1);
-            localLookup.resolve([{
-                providerId: 'yomu-local',
-                providerCardId: '名古屋城\u0000なごやじょう',
-                kind: 'vocabulary',
-                expression: '名古屋城',
-                reading: 'なごやじょう',
-                meanings: [],
-                state: ['known'],
-            }]);
-            await vi.waitFor(() => expect(word.dataset.srsProvider).toBe('yomu-local'));
-
-            expect(word.dataset.cardState).toBe('known');
+            await resolveKnownLocalWord(localLookup, word, '名古屋城', 'なごやじょう');
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
         } finally {
             app.destroy();
@@ -349,28 +360,12 @@ describe('late canonical card reconciliation', () => {
 
             await vi.advanceTimersByTimeAsync(0);
             expect(lookupCards).toHaveBeenCalledTimes(1);
-            localLookup.resolve([{
-                providerId: 'yomu-local',
-                providerCardId: '神社\u0000じんじゃ',
-                kind: 'vocabulary',
-                expression: '神社',
-                reading: 'じんじゃ',
-                meanings: [],
-                state: ['known'],
-            }]);
-            await vi.waitFor(() => expect(word.dataset.srsProvider).toBe('yomu-local'));
-
-            expect(word.dataset.cardState).toBe('known');
-            expect(word.dataset.srsProvider).toBe('yomu-local');
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-            expect(word.querySelector('rt,.jpdb-ocr-furi')).toBeNull();
+            await resolveKnownLocalWord(localLookup, word, '神社', 'じんじゃ');
+            expectKnownLocalOcrWord(word);
 
             line.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 
-            expect(word.dataset.cardState).toBe('known');
-            expect(word.dataset.srsProvider).toBe('yomu-local');
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-            expect(word.querySelector('rt,.jpdb-ocr-furi')).toBeNull();
+            expectKnownLocalOcrWord(word);
             expect(line.dataset.hasFuri).toBe('false');
         } finally {
             app.destroy();
@@ -458,14 +453,14 @@ describe('late canonical card reconciliation', () => {
         try {
             const span = tokenFor(fallback, '名古屋城を見る。');
             internals.scheduleCachedPublicVocabularyHydration(root, { fallback, card: firstCanonical, span });
-            expect(first.dataset.vid).toBe('70');
+            expect(renderedWordPrivateValue(first, 'vid')).toBe('70');
 
             // A framework recycler paints the old sparse identity later in the
             // same task, after the repaint index has already been primed.
             const recycled = appendWord(fallback, root, '名古屋城を見る。');
             internals.scheduleCachedPublicVocabularyHydration(root, { fallback, card: secondCanonical, span });
 
-            expect(recycled.dataset.vid).toBe('71');
+            expect(renderedWordPrivateValue(recycled, 'vid')).toBe('71');
             expect(recycled.dataset.reading).toBe('なごやじょう');
         } finally {
             app.destroy();
@@ -494,8 +489,8 @@ describe('late canonical card reconciliation', () => {
                 span: { start: 0, end: 5 },
             });
 
-            expect(first.dataset.vid).toBe('72');
-            expect(second.dataset.vid).toBe('-72');
+            expect(renderedWordPrivateValue(first, 'vid')).toBe('72');
+            expect(renderedWordPrivateValue(second, 'vid')).toBe('-72');
             expect(second.dataset.expression).toBe('優しい言葉');
         } finally {
             app.destroy();
@@ -584,8 +579,8 @@ describe('late canonical card reconciliation', () => {
             await localLookup.promise;
             await Promise.resolve();
 
-            expect(word.dataset.srsProvider).toBeUndefined();
-            expect(word.dataset.cardState).toBe('not-in-deck');
+            expect(renderedWordPrivateValue(word, 'srsProvider')).toBeUndefined();
+            expect(renderedWordPrivateValue(word, 'cardState')).toBe('not-in-deck');
         } finally {
             app.destroy();
         }
@@ -706,7 +701,7 @@ describe('late canonical card reconciliation', () => {
             expect(pitchWord.dataset.pitchAccent).toBe('LHHHHH');
             expect(pitchWord.dataset.pitchClass).toBe('heiban');
             expect(pitchWord.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(pitchWord.dataset.cardState).toBe('known');
+            expect(renderedWordPrivateValue(pitchWord, 'cardState')).toBe('known');
 
             expect(componentToken.card).toBe(poorerComponentDetail);
             expect(poorerComponentDetail.pitchComponents).toEqual(richComponents.pitchComponents);
@@ -716,7 +711,7 @@ describe('late canonical card reconciliation', () => {
                 .toContain('--jpdb-reader-pitch-atamadaka');
             expect(componentWord.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient'))
                 .toContain('--jpdb-reader-pitch-heiban');
-            expect(componentWord.dataset.cardState).toBe('known');
+            expect(renderedWordPrivateValue(componentWord, 'cardState')).toBe('known');
         } finally {
             app.destroy();
         }
@@ -739,7 +734,7 @@ describe('late canonical card reconciliation', () => {
 
         try {
             await internals.applyBunproWordStatesToRoots([root]);
-            expect(reading.dataset.cardState).toBe('known');
+            expect(renderedWordPrivateValue(reading, 'cardState')).toBe('known');
             expect(adventure.classList.contains('jpdb-reader-i-plus-one')).toBe(false);
 
             await vi.advanceTimersByTimeAsync(50);

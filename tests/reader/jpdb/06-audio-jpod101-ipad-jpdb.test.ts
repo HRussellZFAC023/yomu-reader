@@ -47,6 +47,7 @@ import {
     resolveUserscriptTextResponse,
     stubHostedNewTabLocation,
     stubJishoAudioPlayback,
+    stubSharedReaderSettings,
     summarizeLearnerGlossary,
     testBlobAudioPlayerForSources,
     testJpdbSentenceAudioPlayer,
@@ -1421,47 +1422,37 @@ describe('reader helpers', () => {
     });
 
     it('enables the JPDB lookup pill for old saved default lookup links', async () => {
-        const storageKey = 'jpdb-popup-reader-settings';
-        const previous = localStorage.getItem(storageKey);
-        localStorage.setItem(storageKey, JSON.stringify({
-            ...DEFAULT_SETTINGS,
+        stubSharedReaderSettings({
             dictionaryLookupLinks: [
                 { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: false },
                 { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
                 { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' },
             ],
-        }));
+        });
 
-        try {
-            const settings = await loadSettings();
+        const settings = await loadSettings();
 
-            expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
-                ['yomu-search', true],
-                ['jiten', true],
-                ['jiten-frequency', true],
-                ['jpdb', true],
-                ['jpdb-frequency', true],
-                ['bunpro', true],
-                ['bunpro-frequency', true],
-                ['jisho', false],
-                ['weblio', false],
-                ['kotobank', false],
-                ['takoboto', false],
-                ['wiktionary-ja', false],
-                ['immersion-kit', false],
-                ['nadeshiko', false],
-                ['uchisen', false],
-                ['copy', true],
-            ]);
-        } finally {
-            if (previous === null) localStorage.removeItem(storageKey);
-            else localStorage.setItem(storageKey, previous);
-        }
+        expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
+            ['yomu-search', true],
+            ['jiten', true],
+            ['jiten-frequency', true],
+            ['jpdb', true],
+            ['jpdb-frequency', true],
+            ['bunpro', true],
+            ['bunpro-frequency', true],
+            ['jisho', false],
+            ['weblio', false],
+            ['kotobank', false],
+            ['takoboto', false],
+            ['wiktionary-ja', false],
+            ['immersion-kit', false],
+            ['nadeshiko', false],
+            ['uchisen', false],
+            ['copy', true],
+        ]);
     });
 
     it('moves the previous built-in lookup pill order to Yomu first on load', async () => {
-        const storageKey = 'jpdb-popup-reader-settings';
-        const previous = localStorage.getItem(storageKey);
         const linksById = new Map(defaultDictionaryLookupLinks('local').map(link => [link.id, link]));
         const previousDefaultOrder = [
             'yomu-search',
@@ -1480,21 +1471,15 @@ describe('reader helpers', () => {
             ? { id: 'goo', label: 'goo', urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/', enabled: false }
             : { ...linksById.get(id)! });
         previousDefaultOrder[3]!.enabled = true;
-        localStorage.setItem(storageKey, JSON.stringify({
-            ...DEFAULT_SETTINGS,
+        stubSharedReaderSettings({
             dictionaryLookupLinks: previousDefaultOrder,
-        }));
+        });
 
-        try {
-            const settings = await loadSettings();
+        const settings = await loadSettings();
 
-            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 5)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
-            expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
-            expect(settings.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
-        } finally {
-            if (previous === null) localStorage.removeItem(storageKey);
-            else localStorage.setItem(storageKey, previous);
-        }
+        expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 5)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
+        expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
+        expect(settings.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
     });
 
 

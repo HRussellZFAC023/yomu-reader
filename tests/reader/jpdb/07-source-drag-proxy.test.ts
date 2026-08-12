@@ -46,6 +46,7 @@ import {
     parsedExampleSentenceInternals,
     proxyUrlCandidates,
     publicProxyUrlFor,
+    readCardCommandCapability,
     readDictionaryLookupLinks,
     readFormSettings,
     readerWordSurfaceText,
@@ -56,6 +57,8 @@ import {
     renderKanjiSourceRows,
     renderModalCard,
     renderSettingsForm,
+    renderedWordPrivateValue,
+    setInnerHtml,
     stubHostedNewTabLocation,
     stubJpdbFetchRoutes,
     stubLocalAppLocation,
@@ -760,6 +763,10 @@ describe('reader helpers', () => {
             reading: 'こっかしゅせき',
             meanings: [{ glosses: ['head of state'], partOfSpeech: ['noun'] }],
         }, (key, initiallyExpanded) => `data-source-state-key="${key}" data-source-initial-open="${String(initiallyExpanded ?? true)}"${initiallyExpanded ? ' open' : ''}`, info);
+        const source = document.createElement('div');
+        setInnerHtml(source, html);
+        const usedInWord = source.querySelector<HTMLElement>('.jpdb-reader-jpdb-used-in-term .jpdb-reader-word')!;
+        const usedInAudio = source.querySelector<HTMLButtonElement>('.jpdb-reader-jpdb-used-in .jpdb-reader-jpdb-example-audio')!;
 
         expect(html).toContain('head of state');
         expect(html).not.toContain('Composed of');
@@ -786,14 +793,20 @@ describe('reader helpers', () => {
         expect(html).toContain('jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term');
         expect(html).toContain('data-expression="国家主義"');
         expect(html).toContain('data-jpdb-reader-related-word="true"');
-        expect(html).toContain('data-card-source="jpdb"');
-        expect(html).toContain('data-card-state="not-in-deck"');
+        expect(html).not.toContain('data-card-source="jpdb"');
+        expect(html).not.toContain('data-card-state="not-in-deck"');
+        expect(renderedWordPrivateValue(usedInWord, 'vid')).toBe('4');
+        expect(renderedWordPrivateValue(usedInWord, 'cardSource')).toBe('jpdb');
+        expect(renderedWordPrivateValue(usedInWord, 'cardState')).toBe('not-in-deck');
+        expect(usedInWord.dataset.vid).toBeUndefined();
         expect(html).toContain('data-pitch-class="unknown"');
         expect(html).toContain('jpdb-reader-passive-word jpdb-not-in-deck jpdb-pitch-unknown');
         expect(html).not.toContain('jpdb-reader-jpdb-used-in-term jpdb-reader-parseable');
-        expect(html).toContain('data-action="jpdb-example-audio"');
-        expect(html).toContain('data-jpdb-audio="m1/used-in-audio"');
-        expect(html).toContain('data-jpdb-example-sentence="国家主義"');
+        expect(readCardCommandCapability(usedInAudio)).toMatchObject({
+            action: 'jpdb-example-audio',
+            audioIds: 'm1/used-in-audio',
+            sentence: '国家主義',
+        });
         expect(html).toContain('data-reading="こっかしゅぎ"');
         expect(html).toContain('<rt class="jpdb-reader-furi">こっか</rt>');
         expect(html).toContain('jpdb-reader-has-furi');
@@ -845,12 +858,12 @@ describe('reader helpers', () => {
 
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
-        popover.innerHTML = renderJpdbDefinitionSource({
+        setInnerHtml(popover, renderJpdbDefinitionSource({
             ...card,
             spelling: '下',
             reading: 'した',
             meanings: [{ glosses: ['below; under'], partOfSpeech: ['noun'] }],
-        }, key => `data-source-state-key="${key}"`, info);
+        }, key => `data-source-state-key="${key}"`, info));
         document.body.append(popover);
 
         const parse = vi.fn(async (texts: string[]) => texts.map(text => [
@@ -913,7 +926,8 @@ describe('reader helpers', () => {
             expect(usedInWords.map(word => readerWordSurfaceText(word))).toEqual(['年下']);
             expect(usedInWords[0]?.dataset.expression).toBe('年下');
             expect(usedInWords[0]?.dataset.reading).toBe('としした');
-            expect(usedInWords[0]?.dataset.vid).toBe('1419500');
+            expect(usedInWords[0] && renderedWordPrivateValue(usedInWords[0], 'vid')).toBe('1419500');
+            expect(usedInWords[0]?.dataset.vid).toBeUndefined();
             expect(usedInWords[0]?.classList.contains('jpdb-reader-has-furi')).toBe(true);
             expect(Array.from(usedInWords[0]?.querySelectorAll('rt') ?? []).map(rt => rt.textContent)).toEqual(['とし', 'した']);
             expect(Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-jpdb-example .jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['年', '下']);
@@ -938,7 +952,7 @@ describe('reader helpers', () => {
 
     it('renders plain JPDB example targets as passive ruby/pitch words', () => {
         const host = document.createElement('div');
-        host.innerHTML = renderJpdbDefinitionSource({
+        setInnerHtml(host, renderJpdbDefinitionSource({
             ...card,
             vid: 1456360,
             sid: 0,
@@ -955,7 +969,7 @@ describe('reader helpers', () => {
                 translation: 'Read the room.',
                 audioIds: ['m1/plain-example'],
             }],
-        });
+        }));
 
         const target = host.querySelector<HTMLElement>('.jpdb-reader-jpdb-example .jpdb-reader-word[data-expression="読む"]');
         expect(target).not.toBeNull();
@@ -964,8 +978,10 @@ describe('reader helpers', () => {
         expect(target?.classList.contains('jpdb-pitch-unknown')).toBe(true);
         expect(target?.classList.contains('jpdb-reader-has-furi')).toBe(true);
         expect(target?.dataset.jpdbReaderRelatedWord).toBe('true');
-        expect(target?.dataset.vid).toBe('1456360');
-        expect(target?.dataset.sid).toBe('0');
+        expect(target && renderedWordPrivateValue(target, 'vid')).toBe('1456360');
+        expect(target && renderedWordPrivateValue(target, 'sid')).toBe('0');
+        expect(target?.dataset.vid).toBeUndefined();
+        expect(target?.dataset.sid).toBeUndefined();
         expect(target?.dataset.reading).toBe('よむ');
         expect(target?.dataset.sentence).toBe('空気を読む。');
         expect(target?.querySelector('rt')?.textContent).toBe('よむ');

@@ -40,7 +40,9 @@ import {
     renderPitch,
     renderSettingsForm,
     renderTokensToHtml,
+    renderedWordPrivateValue,
     restoreWindowDescriptor,
+    setInnerHtml,
     settingsJapaneseParserFixture,
     shouldUseSheet,
     waitForExpect,
@@ -634,14 +636,15 @@ describe('reader helpers', () => {
             },
         ];
 
-        document.body.innerHTML = renderTokensToHtml(text, tokens, DEFAULT_SETTINGS);
+        setInnerHtml(document.body, renderTokensToHtml(text, tokens, DEFAULT_SETTINGS));
         const particle = document.querySelector<HTMLElement>('[data-expression="の"]');
         const fallbackParticle = document.querySelector<HTMLElement>('[data-expression="で"]');
 
         try {
             expect(particle?.classList.contains('jpdb-reader-word')).toBe(true);
             expect(particle?.classList.contains('jpdb-reader-particle')).toBe(true);
-            expect(particle?.dataset.vid).toBe('11');
+            expect(particle && renderedWordPrivateValue(particle, 'vid')).toBe('11');
+            expect(particle?.dataset.vid).toBeUndefined();
             expect(particle?.classList.contains('jpdb-known')).toBe(true);
             // Particles are deliberately accentless: a leaked homophone
             // pattern must not paint an underline, and ALL particles share the
@@ -649,7 +652,9 @@ describe('reader helpers', () => {
             expect(particle?.classList.contains('jpdb-pitch-particle')).toBe(true);
             expect(particle?.classList.contains('jpdb-pitch-heiban')).toBe(false);
             expect(fallbackParticle?.classList.contains('jpdb-reader-particle')).toBe(true);
-            expect(fallbackParticle?.classList.contains('fallback-not-in-deck')).toBe(true);
+            expect(fallbackParticle?.classList.contains('jpdb-not-in-deck')).toBe(true);
+            expect(fallbackParticle?.classList.contains('fallback-not-in-deck')).toBe(false);
+            expect(fallbackParticle && renderedWordPrivateValue(fallbackParticle, 'cardSource')).toBe('fallback');
             expect(fallbackParticle?.classList.contains('jpdb-pitch-particle')).toBe(true);
         } finally {
             document.body.replaceChildren();

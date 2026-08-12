@@ -107,7 +107,7 @@ describe('Reader Academy account sync', () => {
         const deleted = await repository.snapshot();
         expect(deleted.cards[newer.id]).toBeUndefined();
         expect(deleted.tombstones?.[newer.id]).toBe(deletedAt);
-        const signal = gmValues.get('yomu:card-state-signal') as { card?: { spelling?: string; cardState?: string[] } };
+        const signal = gmValues.get('yomu:private:card-state-signal:v1') as { card?: { spelling?: string; cardState?: string[] } };
         expect(signal.card).toMatchObject({ spelling: '読む', cardState: ['not-in-deck'] });
     });
 

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController, type NewTabControllerOptions } from '../../src/reader/newtab/controller';
 import { setInnerHtml } from '../../src/reader/dom/index';
+import { bindPrivateCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -499,6 +500,7 @@ describe('study flow: composed-of chip drilldown', () => {
             const stale = document.createElement('button');
             stale.dataset.action = 'kanji';
             stale.dataset.kanji = '学';
+            bindPrivateCommandCapability(stale, { kind: 'kanji-lookup', kanji: '学' });
             root.querySelector('[data-newtab-meaning]')?.append(stale);
             const event = new MouseEvent('click', { bubbles: true, cancelable: true });
             stale.dispatchEvent(event);

@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../../src/reader/companions/settings-surface';
 import { ReaderApp } from '../../src/reader/app/main';
+import {
+    readRenderedWordPrivateState,
+    registerRenderedWordPrivateState,
+    renderedWordPrivateValue,
+} from '../../src/reader/dom/rendered-word-private-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
@@ -19,18 +24,20 @@ interface BackfillInternals {
 const activeApps = new Set<BackfillInternals>();
 
 // A provisional word as the LOCAL parser fallback renders it: a negative hash id
-// and data-state-provenance="provisional". Only an authenticated surface parse
-// can resolve its real Jiten state.
+// and private provisional provenance. Only an authenticated surface parse can
+// resolve its real Jiten state.
 function provisionalLocalWord(id: number, surface: string): HTMLElement {
     const word = document.createElement('span');
-    word.className = 'jpdb-reader-word jpdb-not-in-deck local-not-in-deck';
-    word.dataset.vid = String(id);
-    word.dataset.sid = String(id);
-    word.dataset.cardSource = 'local';
-    word.dataset.cardState = 'not-in-deck';
-    word.dataset.stateProvenance = 'provisional';
+    word.className = 'jpdb-reader-word jpdb-not-in-deck';
     word.dataset.expression = surface;
     word.textContent = surface;
+    registerRenderedWordPrivateState(word, {
+        vid: String(id),
+        sid: String(id),
+        cardSource: 'local',
+        cardState: 'not-in-deck',
+        stateProvenance: 'provisional',
+    });
     return word;
 }
 
@@ -111,20 +118,24 @@ describe('known-state backfill (Cluster I1)', () => {
         expect([...parse.mock.calls[0][0]].sort()).toEqual(['書く', '読む']);
 
         const prosework = document.querySelector<HTMLElement>('p .jpdb-reader-word')!;
-        expect(prosework.dataset.cardState).toBe('known');
-        expect(prosework.classList.contains('jiten-known')).toBe(true);
+        expect(readRenderedWordPrivateState(prosework)).toMatchObject({
+            cardState: 'known',
+            stateProvenance: 'authoritative',
+            vid: '1001',
+            cardSource: 'jiten',
+        });
+        expect(prosework.classList.contains('jiten-known')).toBe(false);
         expect(prosework.classList.contains('jpdb-known')).toBe(true);
         expect(prosework.classList.contains('local-not-in-deck')).toBe(false);
-        expect(prosework.dataset.stateProvenance).toBe('authoritative');
-        // Identity was upgraded to the real Jiten ids so grading can reach it.
-        expect(prosework.dataset.vid).toBe('1001');
-        expect(prosework.dataset.cardSource).toBe('jiten');
+        // Private identity was upgraded to the real Jiten ids so grading can reach it.
 
         const mirrorWord = document.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror .jpdb-reader-word')!;
-        expect(mirrorWord.dataset.cardState).toBe('learning');
-        expect(mirrorWord.classList.contains('jiten-learning')).toBe(true);
-        expect(mirrorWord.dataset.stateProvenance).toBe('authoritative');
-        expect(mirrorWord.dataset.vid).toBe('1002');
+        expect(readRenderedWordPrivateState(mirrorWord)).toMatchObject({
+            cardState: 'learning',
+            stateProvenance: 'authoritative',
+            vid: '1002',
+        });
+        expect(mirrorWord.classList.contains('jiten-learning')).toBe(false);
     });
 
     it('does not re-request a surface whose authenticated state resolved to not-in-deck', async () => {
@@ -137,7 +148,7 @@ describe('known-state backfill (Cluster I1)', () => {
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         // Genuine authenticated not-in-deck: marked authoritative so it leaves
         // the provisional pool and is never looked up again.
-        expect(word.dataset.stateProvenance).toBe('authoritative');
+        expect(renderedWordPrivateValue(word, 'stateProvenance')).toBe('authoritative');
 
         await app.runReaderKnownStateBackfill();
         expect(parse).toHaveBeenCalledTimes(1);
@@ -157,8 +168,8 @@ describe('known-state backfill (Cluster I1)', () => {
         document.body.appendChild(recycled);
         await app.runReaderKnownStateBackfill();
         expect(parse).toHaveBeenCalledTimes(1);
-        expect(recycled.dataset.cardState).toBe('known');
-        expect(recycled.dataset.stateProvenance).toBe('authoritative');
+        expect(renderedWordPrivateValue(recycled, 'cardState')).toBe('known');
+        expect(renderedWordPrivateValue(recycled, 'stateProvenance')).toBe('authoritative');
     });
 
     it('clears its pending timer on hide and refuses to schedule while hidden (zero-timer idle)', () => {
