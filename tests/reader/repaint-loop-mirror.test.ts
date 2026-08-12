@@ -14,31 +14,18 @@ import {
 } from '../../src/reader/dom';
 import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import type { JPDBToken } from '../../src/reader/app/types';
+import { MIRROR_TEXT as TEXT, mirrorToken as token, paintMirrorToken } from './helpers/japanese-token-fixtures';
+import { settleProjectionFrame } from './helpers/projection-frame';
 
-const TEXT = '日本語';
-const CARD: JPDBCard = {
-    vid: 1, sid: 1, rid: 0, spelling: TEXT, reading: 'にほんご', frequencyRank: null,
-    partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null, source: 'jpdb',
-};
-function token(): JPDBToken {
-    return { card: CARD, start: 0, end: TEXT.length, length: TEXT.length, rubies: [{ text: 'にほんご', start: 0, end: TEXT.length, length: TEXT.length }], pitchClass: '', sentence: TEXT };
-}
+const CARD = token().card;
+
 function paint(host: HTMLElement): void {
-    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
-    expect(target).toBeTruthy();
-    applyTokensToScanTarget(target!, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+    paintMirrorToken(host);
 }
 function paintForcedInline(host: HTMLElement): void {
-    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
-    expect(target).toBeTruthy();
-    applyTokensToScanTarget({ ...target!, forceInlineRender: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+    paintMirrorToken(host, { forceInlineRender: true });
 }
-
-const projectionFrame = async (): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 0));
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-};
 
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
@@ -70,7 +57,7 @@ describe('repaint-loop mirror fallback', () => {
             [unresolved('先生', 0, 11), unresolved('学生', 2, 12)],
             { ...DEFAULT_SETTINGS, furiganaMode: 'all' },
         );
-        await projectionFrame();
+        await settleProjectionFrame();
 
         const words = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-document-annotation-portal .jpdb-reader-word')];
         expect(words).toHaveLength(2);
@@ -86,7 +73,7 @@ describe('repaint-loop mirror fallback', () => {
 
         // Neither word may synchronously Range-project the whole comment.
         expect(documentPortalProjectionCountsForTest().mirrors).toBe(before);
-        await projectionFrame();
+        await settleProjectionFrame();
         expect(documentPortalProjectionCountsForTest().mirrors - before).toBe(1);
     });
 

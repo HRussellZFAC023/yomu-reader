@@ -57,8 +57,7 @@ import {
     renderJitenKanjiInfoWithAttributes,
 } from '../jiten/jiten-kanji-info-render';
 import {
-    filterJitenKanjiWords as filterSharedJitenKanjiWords,
-    loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords,
+    runJitenKanjiWordsAction,
     type JitenKanjiWordsActionContext,
 } from '../jiten/jiten-kanji-words-actions';
 import type { JpdbClient } from '../jpdb/jpdb';
@@ -930,8 +929,7 @@ export class NewTabController {
                 if (!this.showNestedSourceReviewCard(anchor)) this.lookupNestedTerm(expression, reading, anchor);
             },
             loadJitenWords: (button, action) => {
-                if (action === 'more') void this.loadMoreJitenKanjiWords(button);
-                else void this.filterJitenKanjiWords(button);
+                void runJitenKanjiWordsAction(button, action, this.jitenKanjiWordsActionContext());
             },
             playJpdbExampleAudio: dependencies.playJpdbExampleAudio,
             cardForTarget: target => this.nestedCardActionCard(target),
@@ -2522,16 +2520,6 @@ export class NewTabController {
             lookupKanjiWords: (character, options) => lookupKanjiWords.call(jiten, character, options),
             language: () => this.dependencies.getSettings().interfaceLanguage,
         };
-    }
-
-    private async loadMoreJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
-        const context = this.jitenKanjiWordsActionContext();
-        if (context) await loadMoreSharedJitenKanjiWords(button, context);
-    }
-
-    private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
-        const context = this.jitenKanjiWordsActionContext();
-        if (context) await filterSharedJitenKanjiWords(button, context);
     }
 
     private nestedCardActionCard(target: HTMLElement): JPDBCard | undefined {

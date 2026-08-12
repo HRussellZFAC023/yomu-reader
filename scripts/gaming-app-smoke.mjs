@@ -23,6 +23,20 @@ const userDataDir = path.join(appRoot, 'qa-artifacts', 'gaming-electron-user-dat
 const captureShortcutPath = path.join(userDataDir, 'capture-shortcut-v1.json');
 const ambiguousScanCopyPattern = new RegExp(['Manual scan', 'only'].join(' '), 'i');
 const SMOKE_TIMEOUT_MS = Number(process.env.YOMU_GAMING_SMOKE_TIMEOUT_MS || 90_000);
+const PUBLIC_OCR_WORD_ATTRIBUTES = [
+    'data-expression',
+    'data-jpdb-reader-prose',
+    'data-mining-insight',
+    'data-pitch-accent',
+    'data-pitch-class',
+    'data-pitch-components',
+    'data-reading',
+    'data-sentence',
+    'data-surface',
+    'data-token-end',
+    'data-token-start',
+    'data-yomu-word',
+];
 
 // The simulated screen: a dark scene with a dialogue box, and a line of "text" painted in
 // it. The line is drawn as one ink block per character on an em pitch, NOT as a stripe.
@@ -99,11 +113,13 @@ try {
     if (savedShortcut.shortcut !== 'Control+Shift+U') {
         throw new Error(`Capture shortcut was not persisted: ${JSON.stringify(savedShortcut)}`);
     }
+    await page.evaluate(() => localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ apiKey: 'obsolete-reader-copy' })));
     step('relaunch and verify the app still lands on home');
     await closeElectronApp(app);
     app = undefined;
     page = await launchGamingApp();
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
+    await assertLegacyReaderSettingsCopyAbsent(page, 'packaged relaunch cleanup');
     await assertFirstRunClarity(page);
     await openSettingsPanel(page, 'shortcuts');
     const restoredShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first().inputValue();
@@ -137,6 +153,7 @@ try {
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
     await assertInlineOcrResult(overlay, 'instant capture', instantResultScreenshotPath);
+    await assertInlineReaderShortcutStaysPrivate(overlay);
     const fullScreenRequest = fixtureOcr.requests.at(-1);
     if (!fullScreenRequest) throw new Error('Fixture OCR endpoint did not receive an instant full-screen capture.');
     if (fullScreenRequest.png.width < 900 || fullScreenRequest.png.height < 500) {
@@ -662,6 +679,36 @@ function isTransparentPaint(value) {
 }
 
 async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
+    const horizontalLine = await assertInlineOcrSurface(overlay, label);
+    const annotatedTerm = await assertInlineOcrWord(overlay, label);
+    const readingPaint = await assertDeferredOcrReadingPaint(overlay, annotatedTerm, label);
+    // Capture the proof while the in-place annotation is visible and before a
+    // lookup popover can cover it.
+    await overlay.screenshot({ path: paintScreenshotPath });
+    await activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, label);
+    await assertInlineOcrGeometry(overlay, horizontalLine, label);
+}
+
+async function assertInlineReaderShortcutStaysPrivate(overlay) {
+    const popover = overlay.locator('.jpdb-reader-popover').first();
+    if (await popover.count()) {
+        await overlay.keyboard.press('Escape');
+        await popover.waitFor({ state: 'detached', timeout: 10_000 });
+    }
+    await overlay.keyboard.press('Shift+H');
+    await overlay.locator('.jpdb-reader-toast')
+        .filter({ hasText: /Subtitle overlay (?:enabled|hidden)\./ })
+        .first()
+        .waitFor({ state: 'visible', timeout: 10_000 });
+    await assertLegacyReaderSettingsCopyAbsent(overlay, 'inline Reader shortcut save');
+}
+
+async function assertLegacyReaderSettingsCopyAbsent(page, label) {
+    const copy = await page.evaluate(() => localStorage.getItem('jpdb-popup-reader-settings'));
+    if (copy !== null) throw new Error(`Yomu Gaming ${label} recreated the obsolete page-readable Reader settings copy.`);
+}
+
+async function assertInlineOcrSurface(overlay, label) {
     await overlay.locator('[data-overlay-inline]').waitFor({ timeout: 10_000 });
     // The frozen capture is shown as a backdrop and a persistent toolbar offers re-capture.
     await overlay.locator('img.overlay-backdrop').waitFor({ state: 'attached', timeout: 10_000 });
@@ -686,70 +733,114 @@ async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
     if (await overlay.locator('.overlay-inline-terms').count()) {
         throw new Error(`Yomu Gaming ${label} reintroduced the detached term breakdown.`);
     }
-    // The real reader wraps the OCR'd line into scanner-isolated words. Their
-    // identity and visible glyphs live in data attributes rather than Text
-    // nodes, so external caret scanners cannot claim the same tap.
-    const annotatedTerm = overlay.locator(
-        '[data-ocr-line] .jpdb-reader-word[data-expression="冒険"][data-surface="冒険"]',
-    ).first();
-    await annotatedTerm.waitFor({ state: 'attached', timeout: 15_000 });
-    const termPaint = await annotatedTerm.evaluate(node => {
-        const style = getComputedStyle(node);
-        const rect = node.getBoundingClientRect();
-        const lineText = node.closest('.jpdb-ocr-line-text');
-        const visualText = [...node.querySelectorAll('[data-yomu-ocr-visual-text]')]
-            .filter(element => !element.closest('.jpdb-ocr-furi'))
-            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
-            .join('');
-        const textWalker = document.createTreeWalker(lineText || node, NodeFilter.SHOW_TEXT);
-        let textNodeCount = 0;
-        while (textWalker.nextNode()) textNodeCount += 1;
-        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-        return {
-            expression: node.getAttribute('data-expression') || '',
-            surface: node.getAttribute('data-surface') || '',
-            visualText,
-            textNodeCount,
-            scannerIsolated: Boolean(lineText?.classList.contains('jpdb-ocr-page-scanner-isolated')),
-            hitTargetsWord: Boolean(hit && (hit === node || node.contains(hit))),
-            color: style.color,
-            textFill: style.getPropertyValue('-webkit-text-fill-color'),
-            background: style.backgroundColor,
-            opacity: style.opacity,
-            width: rect.width,
-            height: rect.height,
-        };
-    });
-    if (
-        termPaint.expression !== '冒険'
-        || termPaint.surface !== '冒険'
-        || !termPaint.visualText.includes(termPaint.surface)
-    ) {
-        throw new Error(`Yomu Gaming ${label} lost scanner-isolated OCR word identity: ${JSON.stringify(termPaint)}`);
+    return horizontalLine;
+}
+
+async function assertInlineOcrWord(overlay, label) {
+    // The real reader wraps the OCR'd line into scanner-isolated words. Public
+    // visual glyphs identify the painted word for this browser proof; lookup
+    // identity remains in Yomu's private element state rather than becoming a
+    // page-readable data-* contract.
+    const annotatedTerm = await ocrWordForVisualText(overlay, '冒険');
+    const termPaint = await readInlineOcrWordPaint(annotatedTerm);
+    assertOcrWordAuthority(termPaint, label);
+    assertOcrWordScannerIsolation(termPaint, label);
+    assertOcrWordVisiblePaint(termPaint, label);
+    assertOcrWordPaintBox(termPaint, label);
+    assertOcrWordHitTarget(termPaint, label);
+    console.log(`[gaming-smoke] ${label} OCR word paint: ${JSON.stringify(termPaint)}`);
+    return annotatedTerm;
+}
+
+async function readInlineOcrWordPaint(annotatedTerm) {
+    const [paint, visualTexts] = await Promise.all([
+        annotatedTerm.evaluate((node, publicDataAttributes) => {
+            function countTextNodes(root) {
+                const textWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+                let count = 0;
+                while (textWalker.nextNode()) count += 1;
+                return count;
+            }
+
+            function scannerIsolated(lineText) {
+                return Boolean(lineText?.classList.contains('jpdb-ocr-page-scanner-isolated'));
+            }
+
+            function hitTargetsWord(hit, word) {
+                if (!hit) return false;
+                return hit === word || word.contains(hit);
+            }
+
+            const style = getComputedStyle(node);
+            const rect = node.getBoundingClientRect();
+            const lineText = node.closest('.jpdb-ocr-line-text');
+            const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            return {
+                unexpectedDataAttributes: node.getAttributeNames()
+                    .filter(name => name.startsWith('data-') && !publicDataAttributes.includes(name)),
+                textNodeCount: countTextNodes(lineText || node),
+                scannerIsolated: scannerIsolated(lineText),
+                hitTargetsWord: hitTargetsWord(hit, node),
+                color: style.color,
+                textFill: style.getPropertyValue('-webkit-text-fill-color'),
+                background: style.backgroundColor,
+                opacity: style.opacity,
+                width: rect.width,
+                height: rect.height,
+            };
+        }, PUBLIC_OCR_WORD_ATTRIBUTES),
+        annotatedTerm.evaluateAll(readOcrWordVisualTexts),
+    ]);
+    return { ...paint, visualText: visualTexts[0] || '' };
+}
+
+function assertOcrWordAuthority(termPaint, label) {
+    if (termPaint.visualText !== '冒険' || termPaint.unexpectedDataAttributes.length > 0) {
+        throw new Error(`Yomu Gaming ${label} lost private scanner-isolated OCR word authority: ${JSON.stringify(termPaint)}`);
     }
+}
+
+function assertOcrWordScannerIsolation(termPaint, label) {
     if (!termPaint.scannerIsolated || termPaint.textNodeCount !== 0) {
         throw new Error(`Yomu Gaming ${label} exposed OCR Text nodes to page scanners: ${JSON.stringify(termPaint)}`);
     }
+}
+
+function assertOcrWordVisiblePaint(termPaint, label) {
     if (isTransparentPaint(termPaint.color) || isTransparentPaint(termPaint.textFill) || Number(termPaint.opacity) <= 0.05) {
         throw new Error(`Yomu Gaming ${label} rendered inline OCR words invisibly: ${JSON.stringify(termPaint)}`);
     }
+}
+
+function assertOcrWordPaintBox(termPaint, label) {
     if (termPaint.width < 8 || termPaint.height < 8) {
         throw new Error(`Yomu Gaming ${label} inline OCR word paint box is too small: ${JSON.stringify(termPaint)}`);
     }
+}
+
+function assertOcrWordHitTarget(termPaint, label) {
     if (!termPaint.hitTargetsWord) {
         throw new Error(`Yomu Gaming ${label} inline OCR word is not tappable at its painted center: ${JSON.stringify(termPaint)}`);
     }
-    console.log(`[gaming-smoke] ${label} OCR word paint: ${JSON.stringify(termPaint)}`);
+}
+
+async function assertDeferredOcrReadingPaint(overlay, annotatedTerm, label) {
     // Scanner isolation is a first-paint invariant, while public Jiten detail
     // hydration is intentionally deferred. Keep an explicit packaged check for
     // the later reading repaint so moving isolation earlier cannot hide a
     // stalled or lost furigana round-trip.
     await annotatedTerm.locator('.jpdb-ocr-furi [data-yomu-ocr-visual-text]').first()
         .waitFor({ state: 'attached', timeout: 15_000 });
-    await overlay.locator(
-        '[data-ocr-line] .jpdb-reader-word[data-expression="冒険"][data-surface="冒険"]'
-        + '[data-pitch-class]:not([data-pitch-class="unknown"])',
-    ).first().waitFor({ state: 'attached', timeout: 15_000 });
+    const annotatedTermHandle = await annotatedTerm.elementHandle();
+    if (!annotatedTermHandle) throw new Error(`Yomu Gaming ${label} lost the annotated OCR word before enrichment.`);
+    await overlay.waitForFunction(
+        node => node instanceof HTMLElement
+            && Boolean(node.dataset.pitchClass)
+            && node.dataset.pitchClass !== 'unknown',
+        annotatedTermHandle,
+        { timeout: 15_000 },
+    );
+    await annotatedTermHandle.dispose();
     const readingPaint = await readOcrReadingPaint(annotatedTerm);
     assertOcrReadingPaint(readingPaint, label, 'before activation');
     console.log(`[gaming-smoke] ${label} OCR reading paint: ${JSON.stringify(readingPaint)}`);
@@ -761,9 +852,10 @@ async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
     }
     assertOcrReadingVisualPaint(hoveredReadingPaint, label, 'while hovered');
     console.log(`[gaming-smoke] ${label} OCR visible reading/pitch paint: ${JSON.stringify(hoveredReadingPaint)}`);
-    // Capture the proof while the in-place annotation is visible and before a
-    // lookup popover can cover it.
-    await overlay.screenshot({ path: paintScreenshotPath });
+    return readingPaint;
+}
+
+async function activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, label) {
     await annotatedTerm.click({ force: true });
     let popoverOpened = false;
     try {
@@ -787,13 +879,29 @@ async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
     assertOcrReadingPaint(activatedReadingPaint, label, 'after click activation');
     assertOcrReadingVisualPaint(activatedReadingPaint, label, 'after click activation');
     console.log(`[gaming-smoke] ${label} OCR retained reading/pitch paint: ${JSON.stringify(activatedReadingPaint)}`);
-    if (activatedReadingPaint.reading !== readingPaint.reading
-        || activatedReadingPaint.pitchClass !== readingPaint.pitchClass) {
+    assertStableOcrReadingPaint(readingPaint, activatedReadingPaint, label);
+}
+
+function assertStableOcrReadingPaint(readingPaint, activatedReadingPaint, label) {
+    if (
+        activatedReadingPaint.reading !== readingPaint.reading
+        || activatedReadingPaint.pitchClass !== readingPaint.pitchClass
+    ) {
         throw new Error(`Yomu Gaming ${label} changed OCR reading/pitch during click activation: ${JSON.stringify({
             before: readingPaint,
             after: activatedReadingPaint,
         })}`);
     }
+}
+
+async function assertInlineOcrGeometry(overlay, horizontalLine, label) {
+    await assertVerticalOcrLine(overlay, label);
+    await assertDetachedOcrSurfacesAbsent(overlay, label);
+    await assertInlineOcrGeometryBox(horizontalLine, label);
+    await assertOcrLineRegister(overlay, label);
+}
+
+async function assertVerticalOcrLine(overlay, label) {
     // Vertical line renders as an upright vertical column (writing-mode), not a clipped pill.
     const verticalLine = overlay.locator('[data-ocr-line][data-vertical="true"]').first();
     await verticalLine.waitFor({ state: 'attached', timeout: 10_000 });
@@ -801,17 +909,44 @@ async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
     if (!/vertical/.test(writingMode)) {
         throw new Error(`Yomu Gaming ${label} did not render the vertical line with a vertical writing-mode: ${writingMode}`);
     }
+}
+
+async function assertDetachedOcrSurfacesAbsent(overlay, label) {
     if (await overlay.locator('.overlay-result').count()) {
         throw new Error(`Yomu Gaming ${label} used the detached result panel even though OCR geometry was available.`);
     }
     if (await overlay.locator('.overlay-selection').count()) {
         throw new Error(`Yomu Gaming ${label} left the crop rectangle visible over inline OCR results.`);
     }
+}
+
+async function assertInlineOcrGeometryBox(horizontalLine, label) {
     const lineBox = await horizontalLine.boundingBox();
     if (!lineBox || lineBox.width < 40 || lineBox.height < 12) {
         throw new Error(`Yomu Gaming ${label} inline OCR geometry was not visible: ${JSON.stringify(lineBox)}`);
     }
-    await assertOcrLineRegister(overlay, label);
+}
+
+async function ocrWordForVisualText(overlay, expectedText) {
+    const words = overlay.locator('[data-ocr-line] .jpdb-reader-word[data-yomu-word="true"]');
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+        const visualTexts = await words.evaluateAll(readOcrWordVisualTexts);
+        const index = visualTexts.indexOf(expectedText);
+        if (index >= 0) return words.nth(index);
+        await overlay.waitForTimeout(50);
+    }
+    const visibleWords = await words.evaluateAll(readOcrWordVisualTexts);
+    throw new Error(`Yomu Gaming did not paint OCR word ${expectedText}: ${JSON.stringify(visibleWords)}`);
+}
+
+function readOcrWordVisualTexts(nodes) {
+    return nodes.map(node => (
+        [...node.querySelectorAll('[data-yomu-ocr-visual-text]')]
+            .filter(element => !element.closest('.jpdb-ocr-furi'))
+            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
+            .join('')
+    ));
 }
 
 async function readOcrReadingPaint(annotatedTerm) {

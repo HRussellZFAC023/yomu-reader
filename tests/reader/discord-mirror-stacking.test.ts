@@ -2,30 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { MIRROR_TEXT as TEXT, mirrorToken as token, paintMirrorToken } from './helpers/japanese-token-fixtures';
 
-const TEXT = '日本語';
-const CARD: JPDBCard = {
-    vid: 1, sid: 1, rid: 0, spelling: TEXT, reading: 'にほんご', frequencyRank: null,
-    partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null, source: 'jpdb',
-};
-
-function token(): JPDBToken {
-    return {
-        card: CARD,
-        start: 0,
-        end: TEXT.length,
-        length: TEXT.length,
-        rubies: [{ text: 'にほんご', start: 0, end: TEXT.length, length: TEXT.length }],
-        pitchClass: '',
-        sentence: TEXT,
-    };
-}
+const CARD = token().card;
 
 function paint(host: HTMLElement): void {
-    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
-    expect(target).toBeTruthy();
-    applyTokensToScanTarget({ ...target!, nonDestructive: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+    paintMirrorToken(host, { nonDestructive: true });
 }
 
 function mirrorsIn(host: HTMLElement): NodeListOf<HTMLElement> {

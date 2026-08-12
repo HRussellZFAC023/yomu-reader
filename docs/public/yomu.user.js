@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.fb8133848e5a.user.js#sha256=+4EzhI5a7VxNhYRkUGTCD3WdUai+tenq5ajbYOFmMb8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.a19ea5d259dc.user.js#sha256=oZ6l0lncaEqGA6zTHHwP2sWUXsMMdma8d887db66lA0=
 // @resource yomuCss  https://yomureader.com/yomu.98ece4dc43de.css#sha256=mOzk3EPeHxDtuAU1ik6q9lmdhjIaPbqmPMex3VScNKI=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -2035,10 +2035,10 @@ MANAGED_STATE_EPOCH_KEY
 ]);
 const managedStateEpochSession = managedStateEpochSessionForRealm();
 class ManagedStateResetError extends Error {
-yomuUiCopyKey = "factoryResetStorageIncomplete";
 epochMayHaveCommitted;
 constructor(diagnostic, options = {}, epochMayHaveCommitted = false) {
 super(diagnostic, options);
+Object.assign(this, { yomuUiCopyKey: "factoryResetStorageIncomplete" });
 this.name = "ManagedStateResetError";
 this.epochMayHaveCommitted = epochMayHaveCommitted;
 }
@@ -3559,10 +3559,23 @@ expiresAt: Date.now() + GUARD_LIFETIME_MS
 });
 }
 function suppressCompatibilityEvent(event, target) {
+const guard = eligibleCompatibilityGuard(event, target);
+if (!guard) return;
+if (!shouldSuppressCompatibilityEvent(event, guard)) return;
+consumeCompatibilityEvent(event, target);
+}
+function eligibleCompatibilityGuard(event, target) {
 const guard = guards.get(target);
-if (!guard || !blockable(event)) return;
-if (Date.now() > guard.expiresAt) return void guards.delete(target);
-if (!withinGestureEnvelope(event, guard) || !isCompatibilityMouseEvent(event)) return;
+if (!guard) return null;
+if (!blockable(event)) return null;
+if (Date.now() <= guard.expiresAt) return guard;
+guards.delete(target);
+return null;
+}
+function shouldSuppressCompatibilityEvent(event, guard) {
+return withinGestureEnvelope(event, guard) && isCompatibilityMouseEvent(event);
+}
+function consumeCompatibilityEvent(event, target) {
 event.preventDefault();
 event.stopImmediatePropagation();
 if (event.type === "click") guards.delete(target);
@@ -3597,10 +3610,16 @@ return closestHtmlElementMatching(target, CONTROL_POINTER_ACTIVATION_SELECTOR);
 function closestHtmlElementMatching(target, selector) {
 let element = target instanceof Element ? target : null;
 while (element) {
-if (element instanceof HTMLElement && element.matches(selector)) return element;
+const match = matchingHtmlElement(element, selector);
+if (match) return match;
 element = element.parentElement;
 }
 return null;
+}
+function matchingHtmlElement(element, selector) {
+if (!(element instanceof HTMLElement)) return null;
+if (!element.matches(selector)) return null;
+return element;
 }
 function readerControlIsDisabled(control) {
 if (control.closest('[aria-disabled="true"]')) return true;
@@ -4331,6 +4350,8 @@ aggregateRuntimeMember(value, "deinflection", "termRulesMatch"),
 aggregateRuntimeMember(value, "settings", "normalizeReaderSettings"),
 aggregateRuntimeMember(value, "tokenTextRendering", "renderRuby"),
 aggregateRuntimeMember(value, "localYomuDeck", "normalizeStoredYomuSrsDeck"),
+aggregateRuntimeMember(value, "interfaceDirection", "applyInterfaceLocaleToRoot"),
+aggregateRuntimeMember(value, "interfaceLocaleResolution", "resolveInterfaceLocale"),
 aggregateRuntimeMember(value, "handleDrag", "createHandleDragController")
 ].every((member) => typeof member === "function");
 }
@@ -23445,6 +23466,48 @@ this.styleElement = style;
 this.options.onRefreshed?.(css.length);
 }
 }
+function createReaderDictionaryStyleController(getSettings, loadDictionaryCss, onUnavailable) {
+return new DictionaryStyleController({
+loadCss: () => {
+const settings2 = getSettings();
+return settings2.localDictionariesEnabled ? loadDictionaryCss(settings2.dictionaryPreferences) : Promise.resolve("");
+},
+onUnavailable
+});
+}
+class OfflineDictionarySetupController {
+constructor(options) {
+this.options = options;
+}
+running = false;
+async run() {
+if (this.running) return;
+const install = yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
+if (!install) return;
+this.running = true;
+try {
+const result = await install({
+dictionaries: this.options.dictionaries,
+getSettings: this.options.getSettings,
+applySettings: this.options.applySettings,
+onProgress: this.options.notify
+});
+await this.finish(result);
+} finally {
+this.running = false;
+}
+}
+async finish(result) {
+if (result.installed.length) await this.options.afterInstalled();
+const copyKey = offlineDictionarySetupCopyKey(result);
+if (copyKey) this.options.notify(uiText(this.options.getSettings().interfaceLanguage, copyKey));
+}
+}
+function offlineDictionarySetupCopyKey(result) {
+if (result.failed.length) return "offlineDictionarySetupFailed";
+if (result.installed.length) return "offlineDictionarySetupComplete";
+return void 0;
+}
 const log$6 = Logger.scope("FactoryReset");
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
@@ -30373,578 +30436,12 @@ states.push(...discovered);
 familyNodesByRoot.set(root, states);
 return states;
 }
-const locales = [
-{
-tag: "en",
-reviewStatus: "source-approved",
-rtlVerified: true,
-humanReview: {
-reviewer: "source locale",
-evidence: "English is the source of record for every message ID."
-},
-available: true,
-blockers: []
-},
-{
-tag: "ja",
-reviewStatus: "native-reviewed",
-rtlVerified: true,
-humanReview: {
-reviewer: "owner",
-evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
-},
-available: true,
-blockers: []
-},
-{
-tag: "ar",
-reviewStatus: "machine-draft",
-rtlVerified: false,
-humanReview: null,
-available: false,
-blockers: [
-"rtl-verification-pending",
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "fa",
-reviewStatus: "machine-draft",
-rtlVerified: false,
-humanReview: null,
-available: false,
-blockers: [
-"rtl-verification-pending",
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "sq",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "grc",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "yue",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "zh",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "da",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "nl",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "fi",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "fr",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "de",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "el",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "hu",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "id",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "it",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "km",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "ko",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "lo",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "la",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "mn",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "pl",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "pt",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "ro",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "ru",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "sh",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "es",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "sv",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "tl",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "th",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "tr",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-},
-{
-tag: "vi",
-reviewStatus: "machine-draft",
-rtlVerified: true,
-humanReview: null,
-available: false,
-blockers: [
-"translation-incomplete",
-"human-review-pending"
-]
-}
-];
-const rtlGate = {
-items: [
-{
-id: "direction-propagation",
-done: true,
-note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
-},
-{
-id: "logical-css-properties",
-done: false,
-note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
-},
-{
-id: "bidi-isolation",
-done: false,
-note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
-},
-{
-id: "font-stacks",
-done: true,
-note: "Per-script interface font stacks in the locale manifest."
-},
-{
-id: "geometry-verification",
-done: false,
-note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
-},
-{
-id: "viewport-and-zoom-matrix",
-done: false,
-note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
-},
-{
-id: "real-app-screenshots",
-done: false,
-note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
-},
-{
-id: "owner-acceptance",
-done: false,
-note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
-}
-]
-};
-const interfaceLocaleLedger = {
-locales,
-rtlGate
-};
-const JAPANESE_INTERFACE_LOCALE = Object.freeze({
-id: "ja",
-runtimeLocale: "ja",
-englishName: "Japanese",
-nativeName: "日本語",
-defaultScript: "Jpan",
-direction: "ltr"
-});
-const RTL_SCRIPTS = new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
-const SCRIPT_FONT_STACKS = Object.freeze({
-Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
-Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
-Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
-Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
-Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
-Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
-Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
-Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
-Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
-});
-const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
-function scriptFontStack(script) {
-return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
-}
-function directionForScript(script) {
-return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
-}
-const LEDGER_ROWS = new Map(
-interfaceLocaleLedger.locales.map((row) => [row.tag, row])
-);
-function fallbackChainFor(tag, id) {
-const chain = [];
-const push = (value) => {
-if (value !== tag && !chain.includes(value)) chain.push(value);
-};
-const base = tag.split("-")[0];
-push(base);
-push(id);
-if (id === "sh") {
-push("sr");
-push("hr");
-push("bs");
-}
-if (id === "tl") push("fil");
-if (id !== "en") push("en");
-return Object.freeze(chain);
-}
-function buildLocale(source) {
-const ledger = LEDGER_ROWS.get(source.id);
-if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
-return Object.freeze({
-tag: source.runtimeLocale,
-id: source.id,
-fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
-nativeName: source.nativeName,
-englishName: source.englishName,
-script: source.defaultScript,
-direction: directionForScript(source.defaultScript),
-fontStack: scriptFontStack(source.defaultScript),
-reviewStatus: ledger.reviewStatus,
-available: ledger.available,
-blockers: Object.freeze([...ledger.blockers])
-});
-}
-const INTERFACE_LOCALES = Object.freeze(
-[
-...LEARNER_LANGUAGES.map(
-(language) => buildLocale({ ...language, direction: language.direction })
-),
-buildLocale(JAPANESE_INTERFACE_LOCALE)
-].sort((left, right) => {
-const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
-return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
-})
-);
-const LOCALE_BY_KEY = new Map([
-...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
-...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
-]);
-function interfaceLocaleByTag(tag) {
-return LOCALE_BY_KEY.get(tag);
-}
-const ENGLISH_INTERFACE_LOCALE = (() => {
-const english = LOCALE_BY_KEY.get("en");
-if (!english) throw new Error("The interface manifest must always contain English");
-return english;
-})();
-Object.freeze(
-INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-);
-Object.freeze(
-interfaceLocaleLedger.rtlGate.items.map(
-(item) => Object.freeze({ ...item })
-)
-);
-const READER_INTERFACE_DIR_ATTRIBUTE = "data-yomu-interface-dir";
-const READER_INTERFACE_LOCALE_ATTRIBUTE = "data-yomu-interface-locale";
-function applyInterfaceLocaleToRoot(root, locale) {
-if (!root) return;
-root.setAttribute("lang", locale.tag);
-root.setAttribute("dir", locale.direction);
-root.setAttribute(READER_INTERFACE_DIR_ATTRIBUTE, locale.direction);
-root.setAttribute(READER_INTERFACE_LOCALE_ATTRIBUTE, locale.tag);
-root.style?.setProperty("--jpdb-reader-interface-font", locale.fontStack);
-}
-function matchAvailable(tag) {
-const locale = interfaceLocaleByTag(tag);
-if (locale?.available) return locale;
-const base = tag.split("-")[0].toLowerCase();
-const byBase = interfaceLocaleByTag(base);
-if (byBase?.available) return byBase;
-return INTERFACE_LOCALES.find(
-(candidate) => candidate.available && candidate.fallbacks.includes(base)
-);
-}
-function resolveInterfaceLocale(requested, options = {}) {
-const raw = (requested ?? "auto").trim();
-if (!raw || raw === "auto") {
-for (const preference of options.browserLocales ?? []) {
-const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
-if (match) {
-return { locale: match, requested: "auto", substituted: false, blockers: [] };
-}
-}
-return {
-locale: ENGLISH_INTERFACE_LOCALE,
-requested: "auto",
-substituted: false,
-blockers: []
-};
-}
-const exact = interfaceLocaleByTag(raw);
-if (exact?.available) {
-return { locale: exact, requested: raw, substituted: false, blockers: [] };
-}
-if (exact) {
-return {
-locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
-requested: raw,
-substituted: true,
-blockers: exact.blockers
-};
-}
-const byFallback = matchAvailable(raw);
-if (byFallback) {
-return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
-}
-return {
-locale: ENGLISH_INTERFACE_LOCALE,
-requested: raw,
-substituted: true,
-blockers: []
-};
-}
+const {
+applyInterfaceLocaleToRoot,
+formatIsolated,
+isRtlInterface
+} = aggregateRuntimeModules().interfaceDirection;
+const { resolveInterfaceLocale } = aggregateRuntimeModules().interfaceLocaleResolution;
 const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
 function detectInstalledReaderRuntime(globals = globalThis) {
 if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
@@ -31700,14 +31197,14 @@ return false;
 }
 }
 const initJpdbReviewPageBridge = () => yomuJpdbCompanion()?.initJpdbReviewPageBridge?.();
-async function loadReaderStartupSettings(options) {
-const loadedSettings = adoptHostedInterfaceLanguage(await loadSettings());
+async function loadReaderStartupSettings(options = {}) {
+const loadedSettings = adoptHostedInterfaceLanguage(options.startupSettings ?? await loadSettings());
 const settings2 = applyUrlBootstrapSettings(loadedSettings);
 const pageOwnedLearningTarget2 = activateReaderStartupTarget(settings2);
 return {
 settings: settings2,
 settingsSummary: loggingSettingsSummary(settings2),
-shouldShowWelcome: options?.showWelcome ?? true,
+shouldShowWelcome: options.showWelcome ?? true,
 pageOwnedLearningTarget: pageOwnedLearningTarget2
 };
 }
@@ -32042,65 +31539,6 @@ return prefersLightMode() ? READER_THEME_COLORS.light.surface2 : READER_THEME_CO
 }
 function prefersLightMode() {
 return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
-}
-const HOST_DARK_CLASS = "dark-mode";
-const JITEN_THEME_COOKIE = "jiten-theme-mode";
-function currentThemeHost() {
-if (isYomuHostedAppUrl(location.href)) return "yomu-hosted";
-const host = location.hostname;
-if (host === "jpdb.io" || host.endsWith(".jpdb.io")) return "jpdb";
-if (host === "jiten.moe" || host.endsWith(".jiten.moe")) return "jiten";
-return null;
-}
-function isThemeSyncHost() {
-return currentThemeHost() !== null;
-}
-function prefersDark() {
-return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
-}
-function detectHostTheme() {
-if (currentThemeHost() === "yomu-hosted") return document.documentElement.classList.contains("dark") ? "dark" : "light";
-if (document.documentElement.classList.contains(HOST_DARK_CLASS)) return "dark";
-if (currentThemeHost() === "jiten") {
-const mode = readJitenThemeCookie();
-if (mode === "dark" || mode === "light") return mode;
-return prefersDark() ? "dark" : "light";
-}
-return "light";
-}
-function applyHostTheme(theme) {
-const root = document.documentElement;
-if (currentThemeHost() === "yomu-hosted") {
-root.classList.toggle("dark", theme === "dark");
-root.style.colorScheme = theme;
-return;
-}
-root.classList.toggle(HOST_DARK_CLASS, theme === "dark");
-root.style.colorScheme = theme;
-if (currentThemeHost() === "jiten") writeJitenThemeCookie(theme);
-}
-function jitenThemeCookieMatches(theme) {
-return currentThemeHost() === "jiten" && readJitenThemeCookie() === theme;
-}
-function readJitenThemeCookie() {
-const match = document.cookie.match(/(?:^|;\s*)jiten-theme-mode=([^;]+)/);
-return match ? decodeURIComponent(match[1]).trim() : "";
-}
-function writeJitenThemeCookie(theme) {
-document.cookie = `${JITEN_THEME_COOKIE}=${theme}; path=/; max-age=31536000; samesite=lax`;
-}
-function observeHostTheme(onChange) {
-if (typeof MutationObserver !== "function") return () => void 0;
-const root = document.documentElement;
-let last = detectHostTheme();
-const observer = new MutationObserver(() => {
-const next = detectHostTheme();
-if (next === last) return;
-last = next;
-onChange(next);
-});
-observer.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
-return () => observer.disconnect();
 }
 const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
 const TOAST_VISIBLE_CLASS = "is-visible";
@@ -35660,8 +35098,168 @@ queuedTokens.push(token);
 dependencies.queueSubtitleRefresh(token.sentence);
 }
 }
+const HOST_DARK_CLASS = "dark-mode";
+const JITEN_THEME_COOKIE = "jiten-theme-mode";
+function currentThemeHost() {
+if (isYomuHostedAppUrl(location.href)) return "yomu-hosted";
+const host = location.hostname;
+if (host === "jpdb.io" || host.endsWith(".jpdb.io")) return "jpdb";
+if (host === "jiten.moe" || host.endsWith(".jiten.moe")) return "jiten";
+return null;
+}
+function isThemeSyncHost() {
+return currentThemeHost() !== null;
+}
+function prefersDark() {
+return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function detectHostTheme() {
+if (currentThemeHost() === "yomu-hosted") return document.documentElement.classList.contains("dark") ? "dark" : "light";
+if (document.documentElement.classList.contains(HOST_DARK_CLASS)) return "dark";
+if (currentThemeHost() === "jiten") {
+const mode = readJitenThemeCookie();
+if (mode === "dark" || mode === "light") return mode;
+return prefersDark() ? "dark" : "light";
+}
+return "light";
+}
+function applyHostTheme(theme) {
+const root = document.documentElement;
+if (currentThemeHost() === "yomu-hosted") {
+root.classList.toggle("dark", theme === "dark");
+root.style.colorScheme = theme;
+return;
+}
+root.classList.toggle(HOST_DARK_CLASS, theme === "dark");
+root.style.colorScheme = theme;
+if (currentThemeHost() === "jiten") writeJitenThemeCookie(theme);
+}
+function jitenThemeCookieMatches(theme) {
+return currentThemeHost() === "jiten" && readJitenThemeCookie() === theme;
+}
+function readJitenThemeCookie() {
+const match = document.cookie.match(/(?:^|;\s*)jiten-theme-mode=([^;]+)/);
+return match ? decodeURIComponent(match[1]).trim() : "";
+}
+function writeJitenThemeCookie(theme) {
+document.cookie = `${JITEN_THEME_COOKIE}=${theme}; path=/; max-age=31536000; samesite=lax`;
+}
+function observeHostTheme(onChange) {
+if (typeof MutationObserver !== "function") return () => void 0;
+const root = document.documentElement;
+let last = detectHostTheme();
+const observer = new MutationObserver(() => {
+const next = detectHostTheme();
+if (next === last) return;
+last = next;
+onChange(next);
+});
+observer.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
+return () => observer.disconnect();
+}
+class HostThemeController {
+constructor(options) {
+this.options = options;
+}
+disposeObserver;
+enforceTimer;
+sync(settings2) {
+if (!isThemeSyncHost()) {
+this.applyAmbient(settings2);
+return;
+}
+this.observe();
+window.clearTimeout(this.enforceTimer);
+this.syncHost(settings2);
+}
+refreshAmbient(settings2) {
+if (!isThemeSyncHost()) this.applyAmbient(settings2);
+}
+destroy() {
+this.disposeObserver?.();
+window.clearTimeout(this.enforceTimer);
+}
+observe() {
+if (this.disposeObserver) return;
+this.disposeObserver = observeHostTheme((theme) => this.handleChange(theme));
+}
+syncHost(settings2) {
+if (isYomuHostedPassivePage(location.href)) {
+this.applyPassive(settings2.theme);
+return;
+}
+this.syncOrdinary(settings2.theme);
+}
+syncOrdinary(setting) {
+if (setting === "auto") this.applyClasses(detectHostTheme());
+else this.enforce(setting, HOST_THEME_ENFORCE_STEPS);
+}
+applyPassive(setting, detected = detectHostTheme()) {
+const theme = setting === "auto" ? detected : setting;
+applyHostTheme(theme);
+this.applyClasses(theme);
+}
+syncAuthoritative(settings2) {
+const hostTheme = detectHostTheme();
+this.applyClasses(hostTheme);
+if (settings2 !== this.options.getSettings() || settings2.theme === "auto" || settings2.theme === hostTheme) return;
+this.options.adoptTheme(hostTheme);
+this.options.publishThemeChange();
+}
+enforce(theme, remaining) {
+applyHostTheme(theme);
+if (remaining <= 0 || this.options.isDestroyed()) return;
+this.enforceTimer = window.setTimeout(() => this.enforce(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
+}
+applyAmbient(settings2) {
+if (settings2.theme === "dark" || settings2.theme === "light") return;
+this.applyClasses(documentBackgroundLooksDark() ? "dark" : "light");
+}
+applyClasses(theme) {
+const root = document.documentElement;
+if (!root) return;
+root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
+root.classList.toggle("jpdb-reader-theme-light", theme === "light");
+}
+handleChange(hostTheme) {
+if (this.options.isDestroyed()) return;
+const setting = this.options.getSettings().theme;
+if (isYomuHostedPassivePage(location.href)) {
+this.applyPassive(setting, hostTheme);
+refreshReaderWordContrast(document);
+return;
+}
+this.applyActiveChange(setting, hostTheme);
+}
+applyActiveChange(setting, hostTheme) {
+if (setting === hostTheme || this.restoreExplicitJitenTheme(setting)) return;
+if (setting === "auto") {
+this.applyContrast(hostTheme);
+return;
+}
+const settings2 = this.options.adoptTheme(hostTheme);
+applyReaderTheme(settings2);
+refreshReaderWordContrast(document);
+this.options.publishThemeChange();
+}
+restoreExplicitJitenTheme(setting) {
+if (setting !== "light" && setting !== "dark") return false;
+if (!jitenThemeCookieMatches(setting)) return false;
+applyHostTheme(setting);
+return true;
+}
+applyContrast(hostTheme) {
+this.applyClasses(hostTheme);
+refreshReaderWordContrast(document);
+}
+}
 const log = Logger.scope("ReaderApp");
 class ReaderApp {
+constructor(persistSettings = saveSettings, observesSettingsStorage = true) {
+this.persistSettings = persistSettings;
+this.observesSettingsStorage = observesSettingsStorage;
+configureLogger({ settingsProvider: () => this.settings });
+}
 abortController = new AbortController();
 isDestroyed = false;
 settings = DEFAULT_SETTINGS;
@@ -35669,8 +35267,16 @@ settings = DEFAULT_SETTINGS;
 pageOwnedLearningTargetActive = false;
 targetOwnedCoreInstalled = false;
 topLevelTargetLifecycle = new TopLevelTargetLifecycle();
-disposeHostThemeObserver;
-hostThemeEnforceTimer;
+hostTheme = new HostThemeController({
+getSettings: () => this.settings,
+adoptTheme: (theme) => {
+this.settings = { ...this.settings, theme };
+void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+return this.settings;
+},
+publishThemeChange: () => this.publishThemeSettingsChange(),
+isDestroyed: () => this.isDestroyed
+});
 themeContrastRefreshFrame;
 themeContrastRefreshTimer;
 cardHydrationRenderPasses = new WeakMap();
@@ -35683,7 +35289,7 @@ immersionKitRevealTranslationOnClick: blurred
 document.querySelectorAll('input[name="immersionKitRevealTranslationOnClick"]').forEach((input) => {
 input.checked = blurred;
 });
-void saveSettings(this.settings, { explicitUserChoiceKeys: ["immersionKitRevealTranslationOnClick"] });
+void this.persistSettings(this.settings, { explicitUserChoiceKeys: ["immersionKitRevealTranslationOnClick"] });
 };
 jpdb = new CompanionBackedJpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
 jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -35800,9 +35406,19 @@ renderDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVoc
 dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
 dictionaryLabel: (name) => this.dictionaryLabel(name)
 });
-dictionaryStyles = new DictionaryStyleController({
-loadCss: () => this.settings.localDictionariesEnabled ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences) : Promise.resolve(""),
-onUnavailable: (error) => log.warn("Dictionary styles unavailable", error)
+dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, (preferences) => this.dictionaries.dictionaryStyleCss(preferences), (error) => log.warn("Dictionary styles unavailable", error));
+offlineDictionaries = new OfflineDictionarySetupController({
+dictionaries: this.dictionaries,
+getSettings: () => this.settings,
+applySettings: async (settings2) => {
+this.settings = settings2;
+await this.persistSettings(settings2, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+},
+notify: (message) => this.toast(message),
+afterInstalled: async () => {
+await this.refreshDictionaryStyles();
+this.scheduleDictionaryRescan();
+}
 });
 studySources = new CompanionBackedStudySourceController({
 getSettings: () => this.settings,
@@ -35840,7 +35456,7 @@ toast: (message) => this.toast(message),
 invalidateCardData: () => this.cardRenderData.clear(),
 setApiGradingProvider: (provider) => {
 this.settings.apiGradingProvider = provider;
-void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
 },
 onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
 onApiCardStateChanged: (card) => {
@@ -36142,14 +35758,12 @@ tapLookup;
 linkPressLookup;
 suppressLinkContextMenuUntil = 0;
 suppressMiddleAuxClickUntil = 0;
-constructor() {
-configureLogger({ settingsProvider: () => this.settings });
-}
 createOnboardingController() {
 const Controller = yomuOnboardingController();
 if (!Controller) return void 0;
 return new Controller({
 getSettings: () => this.settings,
+saveSettings: (settings2, options) => this.persistSettings(settings2, options),
 setSettings: (settings2) => {
 const previous = this.settings;
 this.settings = settings2;
@@ -36160,7 +35774,7 @@ if (settings2.learningTargetChosen) this.stagePreferredJapaneseSiteLanguage(prev
 showSettings: (panel) => this.showSettings(panel),
 parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
 lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
-installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
+installOfflineDictionaries: () => void this.offlineDictionaries.run(),
 onComplete: (settings2) => this.completePreferredJapaneseSiteLanguageSave(settings2),
 onPersistenceFailed: (settings2) => this.rollbackOnboardingSettings(settings2)
 });
@@ -36185,7 +35799,7 @@ mineBatchMiningCandidates: (candidates) => this.cardActions.addBatchMiningCards(
 gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
 toast: (message) => this.toast(message),
 onTranscriptPanelClosed: () => this.scheduleVisiblePageRescan(),
-onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void saveSettings(this.settings, {
+onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void this.persistSettings(this.settings, {
 explicitUserChoiceKeys,
 clearExplicitUserChoiceKeys
 })
@@ -36308,9 +35922,14 @@ if (this.hasLearningTargetRuntimePolicy()) this.installTargetOwnedCoreSurfaces()
 installTargetOwnedCoreSurfaces() {
 if (this.targetOwnedCoreInstalled) return;
 this.targetOwnedCoreInstalled = true;
+this.installTargetOwnedStorageSurfaces();
+if (!this.embeddedFrame) this.installTopLevelCoreSurfaces();
+}
+installTargetOwnedStorageSurfaces() {
 void this.refreshDictionaryStyles();
-this.installSettingsStorageSubscription();
-if (this.embeddedFrame) return;
+if (this.observesSettingsStorage) this.installSettingsStorageSubscription();
+}
+installTopLevelCoreSurfaces() {
 this.registerMenuCommands();
 this.bindEvents();
 this.disposeJpdbReviewBridge?.();
@@ -36387,7 +36006,7 @@ getSettings: () => this.settings,
 setSettings: (settings2) => {
 this.settings = settings2;
 },
-saveSettings,
+saveSettings: (settings2, options) => this.persistSettings(settings2, options),
 toast: (message) => this.toast(message),
 language: () => this.settings.interfaceLanguage
 });
@@ -36537,7 +36156,7 @@ registerMenuCommands() {
 registerReaderMenuCommands({
 cycleOcr: () => this.cycleOcrMode(),
 getSettings: () => this.settings,
-saveSettings: (settings2, explicitUserChoiceKeys) => saveSettings(settings2, { explicitUserChoiceKeys }),
+saveSettings: (settings2, explicitUserChoiceKeys) => this.persistSettings(settings2, { explicitUserChoiceKeys }),
 installFloatingButton: () => this.installFab(),
 showSettings: () => this.showSettings(),
 toggleAnnotations: () => this.toggleAnnotationsPaused(),
@@ -36561,7 +36180,7 @@ this.settings.youtubeImmersionEnabledChosen = true;
 this.youtube.refresh();
 this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
 try {
-await saveSettings(this.settings, {
+await this.persistSettings(this.settings, {
 explicitUserChoiceKeys: ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"]
 });
 } catch (error) {
@@ -36581,7 +36200,7 @@ this.settings.youtubeImmersionEnabledChosen
 }
 async setYoutubeFilterNoticeVisible(visible) {
 this.settings.youtubeShowFilterNotice = visible;
-await saveSettings(this.settings, { explicitUserChoiceKeys: ["youtubeShowFilterNotice"] });
+await this.persistSettings(this.settings, { explicitUserChoiceKeys: ["youtubeShowFilterNotice"] });
 this.youtube.refresh();
 }
 async togglePreferredJapaneseSiteLanguage() {
@@ -36591,7 +36210,7 @@ async setPreferredJapaneseSiteLanguage(enabled) {
 const previous = this.settings.preferJapaneseSiteLanguage;
 if (previous === enabled) return;
 this.settings.preferJapaneseSiteLanguage = enabled;
-const save = saveSettings(this.settings, {
+const save = this.persistSettings(this.settings, {
 persistPreferredJapaneseSiteLanguage: true,
 explicitUserChoiceKeys: ["preferJapaneseSiteLanguage"]
 });
@@ -36608,7 +36227,7 @@ this.applyPreferredJapaneseSiteLanguage(this.settings, !enabled);
 async setYoutubeChannelRecommendationsVisible(visible) {
 this.settings.youtubeShowChannelRecommendations = visible;
 this.settings.youtubeShowChannelRecommendationsChosen = true;
-await saveSettings(this.settings, {
+await this.persistSettings(this.settings, {
 explicitUserChoiceKeys: [
 "youtubeShowChannelRecommendations",
 "youtubeShowChannelRecommendationsChosen"
@@ -36619,7 +36238,7 @@ this.youtube.refresh();
 async setInterfaceLanguage(language) {
 if (this.settings.interfaceLanguage === language) return;
 this.settings.interfaceLanguage = language;
-await saveSettings(this.settings, { explicitUserChoiceKeys: ["interfaceLanguage"] });
+await this.persistSettings(this.settings, { explicitUserChoiceKeys: ["interfaceLanguage"] });
 this.settingsDialog?.refreshLanguage(language);
 this.clearHostedPageReaderWords();
 this.installFab();
@@ -36690,7 +36309,7 @@ log.warn("Reader CSS fallback load failed", error);
 }
 applyTheme(settings2 = this.settings) {
 applyReaderTheme(settings2);
-this.syncHostTheme(settings2);
+this.hostTheme.sync(settings2);
 refreshReaderWordContrast(document);
 this.scheduleDeferredThemeContrastRefresh();
 }
@@ -36700,80 +36319,15 @@ window.clearTimeout(this.themeContrastRefreshTimer);
 this.themeContrastRefreshFrame = window.requestAnimationFrame(() => {
 this.themeContrastRefreshFrame = void 0;
 if (this.isDestroyed) return;
-if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
+this.hostTheme.refreshAmbient(this.settings);
 refreshReaderWordContrast(document);
 this.themeContrastRefreshTimer = window.setTimeout(() => {
 this.themeContrastRefreshTimer = void 0;
 if (this.isDestroyed) return;
-if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
+this.hostTheme.refreshAmbient(this.settings);
 refreshReaderWordContrast(document);
 }, 80);
 });
-}
-initHostThemeSync() {
-if (this.disposeHostThemeObserver || !isThemeSyncHost()) return;
-this.disposeHostThemeObserver = observeHostTheme((theme) => this.handleHostThemeChange(theme));
-}
-syncHostTheme(settings2 = this.settings) {
-if (!isThemeSyncHost()) {
-this.applyAmbientReaderThemeClasses(settings2);
-return;
-}
-this.initHostThemeSync();
-window.clearTimeout(this.hostThemeEnforceTimer);
-if (isYomuHostedPassivePage(location.href)) {
-const theme = settings2.theme === "auto" ? detectHostTheme() : settings2.theme;
-applyHostTheme(theme);
-this.applyReaderThemeClasses(theme);
-return;
-}
-if (settings2.theme === "auto") this.applyReaderThemeClasses(detectHostTheme());
-else this.enforceHostTheme(settings2.theme, HOST_THEME_ENFORCE_STEPS);
-}
-enforceHostTheme(theme, remaining) {
-applyHostTheme(theme);
-if (remaining <= 0 || this.isDestroyed) return;
-this.hostThemeEnforceTimer = window.setTimeout(() => this.enforceHostTheme(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
-}
-applyAmbientReaderThemeClasses(settings2) {
-if (settings2.theme === "dark" || settings2.theme === "light") return;
-this.applyReaderThemeClasses(documentBackgroundLooksDark() ? "dark" : "light");
-}
-applyReaderThemeClasses(theme) {
-const root = document.documentElement;
-if (!root) return;
-if (root.classList.contains("jpdb-reader-theme-dark") !== (theme === "dark")) {
-root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
-}
-if (root.classList.contains("jpdb-reader-theme-light") !== (theme === "light")) {
-root.classList.toggle("jpdb-reader-theme-light", theme === "light");
-}
-}
-handleHostThemeChange(hostTheme) {
-if (this.isDestroyed) return;
-const setting = this.settings.theme;
-if (isYomuHostedPassivePage(location.href)) {
-const theme = setting === "auto" ? hostTheme : setting;
-applyHostTheme(theme);
-this.applyReaderThemeClasses(theme);
-refreshReaderWordContrast(document);
-return;
-}
-if (setting === hostTheme) return;
-if ((setting === "light" || setting === "dark") && jitenThemeCookieMatches(setting)) {
-applyHostTheme(setting);
-return;
-}
-if (setting === "auto") {
-this.applyReaderThemeClasses(hostTheme);
-refreshReaderWordContrast(document);
-return;
-}
-this.settings = { ...this.settings, theme: hostTheme };
-void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-applyReaderTheme(this.settings);
-refreshReaderWordContrast(document);
-this.publishThemeSettingsChange();
 }
 applyPreferredJapaneseSiteLanguage(settings2 = this.settings, options, deferCookieResponseReloadUntilPersisted) {
 applyPreferredJapaneseSiteLanguage(
@@ -36825,32 +36379,6 @@ publishSettingsChange({ settings: settings2 });
 }
 async refreshDictionaryStyles() {
 await this.dictionaryStyles.refresh();
-}
-offlineDictionarySetupInFlight = false;
-async installOfflineParsingDictionaries() {
-if (this.offlineDictionarySetupInFlight) return;
-const installOfflineParsingDictionaries = yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
-if (!installOfflineParsingDictionaries) return;
-this.offlineDictionarySetupInFlight = true;
-try {
-const result = await installOfflineParsingDictionaries({
-dictionaries: this.dictionaries,
-getSettings: () => this.settings,
-applySettings: async (settings2) => {
-this.settings = settings2;
-await saveSettings(settings2, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-},
-onProgress: (message) => this.toast(message)
-});
-if (result.installed.length) {
-await this.refreshDictionaryStyles();
-this.scheduleDictionaryRescan();
-}
-if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupFailed"));
-else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupComplete"));
-} finally {
-this.offlineDictionarySetupInFlight = false;
-}
 }
 clearBridgeBackedCaches() {
 this.audio.clearCaches();
@@ -37322,7 +36850,7 @@ applyReaderWordColors(settings2);
 installFab() {
 this.floatingButton.install(
 this.settings,
-() => void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
+() => void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
 {
 openSettings: () => this.showSettings(),
 openStudyPage: () => this.openStudyPage(),
@@ -37345,7 +36873,7 @@ hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && this.subtitles.ha
 }
 async toggleAutoSubtitles() {
 this.settings.subtitleAutoDetect = !this.settings.subtitleAutoDetect;
-await saveSettings(this.settings, { explicitUserChoiceKeys: ["subtitleAutoDetect"] });
+await this.persistSettings(this.settings, { explicitUserChoiceKeys: ["subtitleAutoDetect"] });
 this.subtitles.destroy();
 this.subtitles.init();
 }
@@ -37358,16 +36886,22 @@ const previous = this.settings.annotationsPaused;
 this.settings.annotationsPaused = paused;
 if (changed) this.applyAnnotationsPausedState();
 try {
-await saveSettings(this.settings, {
-explicitUserChoiceKeys: ["annotationsPaused"]
-});
+await this.persistAnnotationPauseChoice();
 } catch (error) {
+this.rollbackAnnotationPauseChoice(previous, changed);
+throw error;
+}
+if (changed) this.toastAnnotationPauseChoice(paused);
+}
+persistAnnotationPauseChoice() {
+return this.persistSettings(this.settings, { explicitUserChoiceKeys: ["annotationsPaused"] });
+}
+rollbackAnnotationPauseChoice(previous, changed) {
 this.settings.annotationsPaused = previous;
 if (changed) this.applyAnnotationsPausedState();
 this.toast(uiText(this.settings.interfaceLanguage, "settingsSaveFailed"));
-throw error;
 }
-if (!changed) return;
+toastAnnotationPauseChoice(paused) {
 this.toast(uiText(this.settings.interfaceLanguage, paused ? "annotationsPausedToast" : "annotationsResumedToast"));
 }
 applyAnnotationsPausedState() {
@@ -37395,7 +36929,7 @@ async toggleAutoPlayAudio() {
 const enabled = this.isAutoPlayAudioEnabled();
 this.settings.autoPlayAudio = !enabled;
 if (!enabled && this.settings.audioAutoPlayMode === "off") this.settings.audioAutoPlayMode = "all";
-await saveSettings(this.settings, { explicitUserChoiceKeys: ["autoPlayAudio", "audioAutoPlayMode"] });
+await this.persistSettings(this.settings, { explicitUserChoiceKeys: ["autoPlayAudio", "audioAutoPlayMode"] });
 this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
 }
 puckPowerState() {
@@ -37422,7 +36956,7 @@ await this.setAnnotationsPaused(false);
 async applyFuriganaMode(mode) {
 this.settings.showFurigana = this.settings.showFurigana || mode !== "off";
 this.settings.furiganaMode = mode;
-await saveSettings(this.settings, {
+await this.persistSettings(this.settings, {
 explicitUserChoiceKeys: ["showFurigana", "furiganaMode", "puckFuriganaModeBeforeHide"]
 });
 this.clearAllAnnotations();
@@ -37434,7 +36968,7 @@ if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) this.s
 async cycleOcrMode() {
 const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
 applyOcrInteractionMode(this.settings, nextMode);
-await saveSettings(this.settings, { explicitUserChoiceKeys: ["ocrEnabled", "ocrAutoScanImages"] });
+await this.persistSettings(this.settings, { explicitUserChoiceKeys: ["ocrEnabled", "ocrAutoScanImages"] });
 this.ocr.refreshForModeChange();
 this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
 }
@@ -37462,19 +36996,33 @@ changedParents.forEach((parent) => parent.normalize());
 }
 destroy(options = {}) {
 this.isDestroyed = true;
+this.destroySubscriptions();
+this.destroyScanningInfrastructure();
+this.destroyReaderServices();
+this.clearReaderRuntimeWork();
+this.destroyReaderSurfaces(options);
+}
+destroySubscriptions() {
+this.destroyIntegrationSubscriptions();
+this.destroyStateSubscriptions();
+}
+destroyIntegrationSubscriptions() {
 this.disposeMokuroOcrToggleWatch?.();
 this.disposeMokuroOcrToggleWatch = void 0;
 this.disposeJpdbReviewBridge?.();
 this.disposeJpdbReviewBridge = void 0;
+}
+destroyStateSubscriptions() {
 this.unsubscribeCardStateSignals?.();
 this.unsubscribeCardStateSignals = void 0;
 this.unsubscribeSettingsStorageChanges?.();
 this.unsubscribeSettingsStorageChanges = void 0;
+}
+destroyScanningInfrastructure() {
 this.pageScanner.destroy?.();
 this.factoryReset.destroy();
 this.abortController.abort();
-this.disposeHostThemeObserver?.();
-window.clearTimeout(this.hostThemeEnforceTimer);
+this.hostTheme.destroy();
 window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
 window.clearTimeout(this.themeContrastRefreshTimer);
 document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
@@ -37491,11 +37039,15 @@ this.documentBodyRecoveryPending = false;
 this.clearMiningPauseReassert();
 this.clearSubtitleHoverMiningResumeTimer();
 this.activePlainSubtitleHoverSurface = void 0;
+}
+destroyReaderServices() {
 this.ocr.destroy();
 this.subtitles.destroy();
 this.youtube.destroy();
 this.anki.destroy?.();
 this.audio.destroy?.();
+}
+clearReaderRuntimeWork() {
 window.clearTimeout(this.autoScanTimer);
 this.autoScanForced = false;
 window.clearTimeout(this.asbScanTimer);
@@ -37535,6 +37087,8 @@ this.hoverPointerMoveFrame = void 0;
 this.pendingHoverPointerMove = void 0;
 this.activePopoverResizeObserver?.disconnect();
 this.nativeTitleGuard.restore();
+}
+destroyReaderSurfaces(options) {
 this.floatingButton.destroy();
 this.settingsDialog?.releaseModalBackground();
 this.lookupModal.release();
@@ -37825,7 +37379,7 @@ isDestroyed: () => this.isDestroyed,
 showSettings: (panel) => this.showSettings(panel),
 setInterfaceLanguage: (language) => this.setInterfaceLanguage(language),
 applyTheme: () => this.applyTheme(),
-saveSettings: (settings2, explicitUserChoiceKeys) => saveSettings(settings2, { explicitUserChoiceKeys }),
+saveSettings: (settings2, explicitUserChoiceKeys) => this.persistSettings(settings2, { explicitUserChoiceKeys }),
 clearBridgeCaches: () => this.clearBridgeBackedCaches()
 }, this.abortController.signal);
 subscribeToSettingsChanges(() => {
@@ -38408,7 +37962,7 @@ toggleSubtitleOverlayFromShortcut(event) {
 event.preventDefault();
 this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
 this.settings.subtitleOverlayVisibleChosen = true;
-void saveSettings(this.settings, {
+void this.persistSettings(this.settings, {
 explicitUserChoiceKeys: ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"]
 });
 this.subtitles.refresh();
@@ -40909,35 +40463,35 @@ return this.settings.rtkEnabled && this.rtk ? this.rtk.lookup(kanji).catch(() =>
 }
 renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language) {
 setInnerHtml(popover, `
-<div class="jpdb-reader-sheet-handle"></div>
-<div class="jpdb-reader-popover-body">
-${renderModalNavigation({
-...this.navigation.kanjiModalBack(card, language),
-controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
-})}
-<div class="jpdb-reader-header">
-<div class="jpdb-reader-heading">
-<div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
-<div class="jpdb-reader-kanji-display">${escapeHtml(kanji)}</div>
-<div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml(uiText(language, "loadingKanjiDetails"))}</div></div>
-${renderWordPills({
-card,
-jpdbUrl,
-settings: this.settings,
-metaEntries: [],
-overrideQuery: kanji,
-isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
-dictionaryLabel: (name) => this.dictionaryLabel(name)
-})}
-</div>
-</div>
-</div>
-<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
-${this.renderKanjiSourceMounts(kanji, language)}
-</div>
-</div>
-${this.renderKanjiActionBar(card)}
-`);
+            <div class="jpdb-reader-sheet-handle"></div>
+            <div class="jpdb-reader-popover-body">
+                ${renderModalNavigation({
+      ...this.navigation.kanjiModalBack(card, language),
+      controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
+    })}
+                <div class="jpdb-reader-header">
+                    <div class="jpdb-reader-heading">
+                        <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
+                            <div class="jpdb-reader-kanji-display">${escapeHtml(kanji)}</div>
+                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml(uiText(language, "loadingKanjiDetails"))}</div></div>
+                            ${renderWordPills({
+      card,
+      jpdbUrl,
+      settings: this.settings,
+      metaEntries: [],
+      overrideQuery: kanji,
+      isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
+      dictionaryLabel: (name) => this.dictionaryLabel(name)
+    })}
+                        </div>
+                    </div>
+                </div>
+                <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${this.renderKanjiSourceMounts(kanji, language)}
+                </div>
+            </div>
+            ${this.renderKanjiActionBar(card)}
+        `);
 }
 renderKanjiNavigationControls(kanjiCharacters, kanji, language) {
 if (kanjiCharacters.length <= 1) return "";
@@ -40945,9 +40499,9 @@ const index = Math.max(0, kanjiCharacters.indexOf(kanji));
 const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
 const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
 return `
-<button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}"${privateCommandAttributes({ kind: "kanji-lookup", kanji: previous })} title="${escapeHtml(uiText(language, "previousKanji"))}">‹</button>
-<button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}"${privateCommandAttributes({ kind: "kanji-lookup", kanji: next })} title="${escapeHtml(uiText(language, "nextKanji"))}">›</button>
-`;
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}"${privateCommandAttributes({ kind: "kanji-lookup", kanji: previous })} title="${escapeHtml(uiText(language, "previousKanji"))}">‹</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}"${privateCommandAttributes({ kind: "kanji-lookup", kanji: next })} title="${escapeHtml(uiText(language, "nextKanji"))}">›</button>
+        `;
 }
 installKanjiCardActions(popover, card, kanji, sentence, anchor) {
 installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
@@ -41042,14 +40596,14 @@ return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => t
 renderKanjiActionBar(card) {
 const reviewButtons = this.renderKanjiReviewButtons(card);
 return `
-<div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
-<div class="jpdb-reader-actions-gutter" hidden>
-<button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: "card-ui", action: "mining-collapse" })} aria-expanded="false" title="${escapeHtml(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
-</div>
-<div data-kanji-mining-mount hidden></div>
-${reviewButtons}
-</div>
-`;
+            <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
+                <div class="jpdb-reader-actions-gutter" hidden>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: "card-ui", action: "mining-collapse" })} aria-expanded="false" title="${escapeHtml(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
+                </div>
+                <div data-kanji-mining-mount hidden></div>
+                ${reviewButtons}
+            </div>
+        `;
 }
 renderKanjiReviewButtons(card) {
 if (!this.settings.enableReviews) return "";
@@ -42762,6 +42316,7 @@ this.settings = nextSettings;
 if (transient) return;
 this.applyDialogSettingsTransitions(previous, nextSettings, pauseChanged);
 },
+saveSettings: (settings2, options) => this.persistSettings(settings2, options),
 onSettingsPersisted: (settings2) => this.completePreferredJapaneseSiteLanguageSave(settings2),
 onSettingsPersistenceFailed: (settings2) => this.failPreferredJapaneseSiteLanguageSave(settings2),
 jpdb: this.jpdb,
@@ -43387,43 +42942,66 @@ attributeFilter: ["data-yomu-runtime-kind", "data-yomu-runtime-owner"]
 const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
 const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?)(?:[/?#]|$)/i;
 let activeRuntime;
-let bootInFlight;
+let storageBootInFlight;
+let retainedStartupSettings;
 function bootReaderApp() {
-if (bootInFlight) return;
-try {
-if (ensureManagedWebStorageCurrentSync()) {
-bootReaderAppAfterStorageBarrier();
-return;
+void requestReaderBoot();
 }
+function requestReaderBoot(replaceMismatchedRuntime = false) {
+const existingRequest = reusableBootRequest(replaceMismatchedRuntime);
+if (existingRequest) return existingRequest;
+const synchronousBoot = bootReaderAppThroughSynchronousStorageGate();
+if (synchronousBoot) return synchronousBoot;
+return startStorageGatedBoot();
+}
+function reusableBootRequest(replaceMismatchedRuntime) {
+if (!replaceMismatchedRuntime) return storageBootInFlight;
+const runtime2 = activeRuntime;
+if (!runtime2) return storageBootInFlight;
+return packagedRuntimeRequest(runtime2);
+}
+function packagedRuntimeRequest(runtime2) {
+if (runtime2.startupSettings === retainedStartupSettings) return runtime2.initialization;
+releaseActiveRuntime(runtime2);
+const gate = storageBootInFlight;
+if (!gate) return void 0;
+return gate.then(() => requestReaderBoot(true));
+}
+function startStorageGatedBoot() {
+storageBootInFlight = bootReaderAppAfterStorageGate().catch((error) => {
+console.error("[Yomu Reader] Failed to initialize managed web storage", error);
+return false;
+}).finally(() => {
+storageBootInFlight = void 0;
+});
+return storageBootInFlight;
+}
+function bootReaderAppThroughSynchronousStorageGate() {
+try {
+if (!ensureManagedWebStorageCurrentSync()) return null;
+return bootReaderAppAfterStorageBarrier();
 } catch (error) {
 console.error("[Yomu Reader] Failed to initialize managed web storage", error);
-return;
+return Promise.resolve(false);
 }
-bootInFlight ??= bootReaderAppAfterStorageGate().catch((error) => console.error("[Yomu Reader] Failed to initialize managed web storage", error)).finally(() => {
-bootInFlight = void 0;
-});
 }
 async function bootReaderAppAfterStorageGate() {
 await ensureManagedWebStorageCurrent();
-bootReaderAppAfterStorageBarrier();
+return bootReaderAppAfterStorageBarrier();
 }
 function bootReaderAppAfterStorageBarrier() {
 reconcileActiveRuntimeMarker();
 const context = resolveBootContext();
-if (!context) return;
-bootResolvedContext(context);
+if (!context) return Promise.resolve(false);
+return bootResolvedContext(context);
 }
 function bootResolvedContext(context) {
 const runtime2 = createOwnedRuntime(context);
-if (!runtime2) return;
+if (!runtime2) return Promise.resolve(false);
 registerRuntime(context.bootWindow, runtime2, isInstalledRuntime(runtime2.kind));
-startRuntime(
-runtime2.app,
-runtime2.ownerId,
-runtime2.kind,
-context.embeddedFrame,
-() => releaseActiveRuntime(runtime2)
-);
+runtime2.startupSettings = retainedStartupSettings;
+runtime2.initialization = startRuntime(runtime2, context.embeddedFrame);
+return runtime2.initialization;
 }
 function resolveBootContext() {
 const embeddedFrame = isEmbeddedFrameWindow();
@@ -43448,12 +43026,15 @@ const { bootWindow, runtimeKind } = context;
 destroyExistingApps(bootWindow);
 const ownerId = claimRuntime(runtimeKind);
 if (!ownerId) return void 0;
-const app = new ReaderApp();
+const app = createReaderApp();
 const runtime2 = { app, kind: runtimeKind, ownerId };
 activeRuntime = runtime2;
 writeBootWindowOwner(bootWindow, runtime2);
 runtime2.release = bindClaims(runtime2);
 return runtime2;
+}
+function createReaderApp() {
+return new ReaderApp();
 }
 function isInstalledRuntime(runtimeKind) {
 return runtimeKind === "userscript" || runtimeKind === "extension";
@@ -43522,15 +43103,23 @@ removeWindowEventListener("yomu-extension-loaded", onExtensionLoaded);
 releaseClaims?.();
 };
 }
-function startRuntime(app, ownerId, runtimeKind, embeddedFrame, releaseClaims) {
-void app.init({
+function startRuntime(runtime2, embeddedFrame) {
+const { app, ownerId, kind: runtimeKind, startupSettings } = runtime2;
+const initOptions = {
 embeddedFrame,
-showWelcome: runtimeKind === "userscript" || runtimeKind === "extension"
-}).then(() => {
-publishReaderRuntimeHealth(ownerId);
+showWelcome: runtimeKind === "userscript" || runtimeKind === "extension",
+...startupSettings ? { startupSettings } : {}
+};
+return app.init(initOptions).then(() => {
+if (activeRuntime !== runtime2) return false;
+const health = publishReaderRuntimeHealth(ownerId);
+if (health) return true;
+releaseActiveRuntime(runtime2);
+return false;
 }).catch((error) => {
-releaseClaims();
+if (activeRuntime === runtime2) releaseActiveRuntime(runtime2);
 console.error("[Yomu Reader] Failed to initialize", error);
+return false;
 });
 }
 function isEmbeddedFrameWindow() {
@@ -43656,7 +43245,7 @@ const context = claimableBootContext(true);
 if (!context) return;
 embeddedFrameEligibilityObserver?.disconnect();
 embeddedFrameEligibilityObserver = void 0;
-bootResolvedContext(context);
+void bootResolvedContext(context);
 disposeEmbeddedFrameTargetPolicyAfterChosenBoot();
 }
 function disposeEmbeddedFrameTargetPolicyAfterChosenBoot() {

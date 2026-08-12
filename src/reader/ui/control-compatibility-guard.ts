@@ -57,10 +57,26 @@ export function armCompatibilityGuard(
 }
 
 function suppressCompatibilityEvent(event: MouseEvent, target: Document): void {
+    const guard = eligibleCompatibilityGuard(event, target);
+    if (!guard) return;
+    if (!shouldSuppressCompatibilityEvent(event, guard)) return;
+    consumeCompatibilityEvent(event, target);
+}
+
+function eligibleCompatibilityGuard(event: MouseEvent, target: Document): CompatibilityGuard | null {
     const guard = guards.get(target);
-    if (!guard || !blockable(event)) return;
-    if (Date.now() > guard.expiresAt) return void guards.delete(target);
-    if (!withinGestureEnvelope(event, guard) || !isCompatibilityMouseEvent(event)) return;
+    if (!guard) return null;
+    if (!blockable(event)) return null;
+    if (Date.now() <= guard.expiresAt) return guard;
+    guards.delete(target);
+    return null;
+}
+
+function shouldSuppressCompatibilityEvent(event: MouseEvent, guard: CompatibilityGuard): boolean {
+    return withinGestureEnvelope(event, guard) && isCompatibilityMouseEvent(event);
+}
+
+function consumeCompatibilityEvent(event: MouseEvent, target: Document): void {
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type === 'click') guards.delete(target);

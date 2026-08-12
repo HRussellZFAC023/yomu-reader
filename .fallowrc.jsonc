@@ -127,6 +127,8 @@
     // through Vite aliases, so the source graph sees only lookup/deinflect.
     "src/reader/lookup/deinflect-companion.ts",
     "src/reader/srs/local-yomu-deck-companion.ts",
+    "src/reader/locales/direction-companion.ts",
+    "src/reader/locales/resolve-companion.ts",
     // Greasy Fork companion builds substitute these facade modules through
     // string-valued Vite aliases, so the static import graph cannot discover
     // them from their source import specifiers.

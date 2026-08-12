@@ -651,17 +651,7 @@ async function assertHostedEmptyState(page, variant) {
 
 async function readHostedEmptyState(page) {
     return page.evaluate(() => {
-        const rect = element => {
-            const box = element?.getBoundingClientRect();
-            return box ? {
-                width: box.width,
-                height: box.height,
-                left: box.left,
-                top: box.top,
-                right: box.right,
-                bottom: box.bottom,
-            } : null;
-        };
+        const rect = element => element?.getBoundingClientRect().toJSON() ?? null;
         const empty = document.querySelector('[data-empty-open]');
         const status = document.querySelector('[data-status]');
         const chips = [...document.querySelectorAll('.empty-file-chip')];
@@ -934,17 +924,7 @@ async function installHostedPausedVideoCaptureStub(page) {
 
 async function readHostedPausedVideoOcrState(page) {
     return page.evaluate(() => {
-        const rect = element => {
-            const box = element?.getBoundingClientRect();
-            return box ? {
-                width: box.width,
-                height: box.height,
-                left: box.left,
-                top: box.top,
-                right: box.right,
-                bottom: box.bottom,
-            } : null;
-        };
+        const rect = element => element?.getBoundingClientRect().toJSON() ?? null;
         const style = element => {
             const computed = element ? getComputedStyle(element) : null;
             return computed ? {
@@ -1415,17 +1395,7 @@ async function openHostedLinesPanel(page) {
 
 async function readHostedFullscreenSubtitleState(page) {
     return page.evaluate(() => {
-        const rect = element => {
-            const box = element?.getBoundingClientRect();
-            return box ? {
-                width: box.width,
-                height: box.height,
-                left: box.left,
-                top: box.top,
-                right: box.right,
-                bottom: box.bottom,
-            } : null;
-        };
+        const rect = element => element?.getBoundingClientRect().toJSON() ?? null;
         const stage = document.querySelector('[data-yomu-video-frame]');
         const root = document.querySelector('.jpdb-subtitle-player');
         const line = document.querySelector('.jpdb-subtitle-lines');

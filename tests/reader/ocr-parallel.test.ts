@@ -2,23 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
+import { ocrToken as token } from './helpers/japanese-token-fixtures';
 import { waitForExpect } from './test-utils';
 
 // The OCR queue used to be strictly serial (one this.busy flag). Manga readers
 // surface many page images/canvases at once, so it now runs a small concurrency
 // pool (settings.ocrConcurrency) that also deduplicates queued elements sharing
 // the same image content. These tests pin that behavior.
-
-function token(sentence: string): JPDBToken {
-    const card: JPDBCard = {
-        vid: 1, sid: 1, rid: 1, spelling: '日本語', reading: 'にほんご', frequencyRank: 1,
-        partOfSpeech: ['n'], meanings: [], cardState: ['not-in-deck'], pitchAccent: [],
-        wordWithReading: null,
-    };
-    return { card, start: 0, end: 3, length: 3, rubies: [], pitchClass: 'unknown', sentence };
-}
 
 function makeImage(src: string, naturalWidth = 1000, naturalHeight = 600): HTMLImageElement {
     const image = document.createElement('img');

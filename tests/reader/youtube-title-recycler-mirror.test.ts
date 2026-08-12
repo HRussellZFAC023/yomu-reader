@@ -1,34 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-    applyTokensToScanTarget,
-    collectTextTargetsIn,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     removeNonDestructiveScanMirrors,
 } from '../../src/reader/dom';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
-
-const TEXT = '日本語';
-const CARD: JPDBCard = {
-    vid: 1, sid: 1, rid: 0, spelling: TEXT, reading: 'にほんご', frequencyRank: null,
-    partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null, source: 'jpdb',
-};
-
-function token(spelling = TEXT, reading = 'にほんご'): JPDBToken {
-    return {
-        card: { ...CARD, spelling, reading },
-        start: 0, end: spelling.length, length: spelling.length,
-        rubies: [{ text: reading, start: 0, end: spelling.length, length: spelling.length }],
-        pitchClass: '', sentence: spelling,
-    };
-}
-
-function paint(host: HTMLElement): void {
-    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT)!;
-    expect(target).toBeTruthy();
-    applyTokensToScanTarget({ ...target, nonDestructive: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-}
+import { MIRROR_TEXT as TEXT, paintMirrorToken as paint } from './helpers/japanese-token-fixtures';
 
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
@@ -44,7 +20,7 @@ describe('YouTube title recycler mirror coordination', () => {
     it('queues a re-scan when a recycler wipes the mirror via textContent (new title not left bare)', async () => {
         document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
         const host = document.getElementById('title')!;
-        paint(host);
+        paint(host, { nonDestructive: true });
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
 
         let staleEvents = 0;
@@ -69,7 +45,7 @@ describe('YouTube title recycler mirror coordination', () => {
     it('never leaves a hidden host without a matching mirror after a recycler text-node swap', async () => {
         document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
         const host = document.getElementById('title')!;
-        paint(host);
+        paint(host, { nonDestructive: true });
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
 

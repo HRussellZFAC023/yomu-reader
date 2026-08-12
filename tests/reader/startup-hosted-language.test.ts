@@ -9,7 +9,7 @@ vi.mock('../../src/reader/settings/index', async importOriginal => {
 });
 
 import { loadReaderStartupSettings } from '../../src/reader/app/startup';
-import { SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 
 const HOSTED_URL = 'https://yomureader.com/getting-started';
 
@@ -51,5 +51,20 @@ describe('hosted interface-language adoption at startup', () => {
         const startup = await loadReaderStartupSettings();
 
         expect(startup.settings.interfaceLanguage).toBe('en');
+    });
+
+    it('accepts an explicit packaged settings snapshot without consulting off-host page storage', async () => {
+        setLocation('file:///Applications/Yomu Gaming/renderer/index.html');
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ learningTargetChosen: false }));
+        const startupSettings = {
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
+            interfaceLanguage: 'ja' as const,
+        };
+
+        const startup = await loadReaderStartupSettings({ startupSettings });
+
+        expect(startup.settings.learningTargetChosen).toBe(true);
+        expect(startup.settings.interfaceLanguage).toBe('ja');
     });
 });

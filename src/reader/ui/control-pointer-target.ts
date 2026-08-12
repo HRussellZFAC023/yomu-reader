@@ -26,10 +26,17 @@ export function closestReaderControlElement(target: EventTarget | null): HTMLEle
 export function closestHtmlElementMatching(target: EventTarget | null, selector: string): HTMLElement | null {
     let element = target instanceof Element ? target : null;
     while (element) {
-        if (element instanceof HTMLElement && element.matches(selector)) return element;
+        const match = matchingHtmlElement(element, selector);
+        if (match) return match;
         element = element.parentElement;
     }
     return null;
+}
+
+function matchingHtmlElement(element: Element, selector: string): HTMLElement | null {
+    if (!(element instanceof HTMLElement)) return null;
+    if (!element.matches(selector)) return null;
+    return element;
 }
 
 export function readerControlIsDisabled(control: HTMLElement): boolean {

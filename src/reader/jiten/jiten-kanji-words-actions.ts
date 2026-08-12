@@ -35,6 +35,17 @@ interface JitenMoreRequest {
     pageSize: number;
 }
 
+export function runJitenKanjiWordsAction(
+    button: HTMLButtonElement,
+    action: JitenKanjiWordsCommandCapability['action'],
+    context: JitenKanjiWordsActionContext | null,
+): Promise<void> {
+    if (!context) return Promise.resolve();
+    return action === 'more'
+        ? loadMoreJitenKanjiWords(button, context)
+        : filterJitenKanjiWords(button, context);
+}
+
 export async function filterJitenKanjiWords(button: HTMLButtonElement, context: JitenKanjiWordsActionContext): Promise<void> {
     const request = jitenFilterRequest(button);
     if (!request) return;

@@ -35,6 +35,16 @@ export interface AggregateRuntimeModules {
         | 'removeAcademyVocabularyProvenance'
         | 'upsertAcademyVocabulary'
     >;
+    readonly interfaceDirection: Pick<
+        typeof import('../locales/direction'),
+        | 'applyInterfaceLocaleToRoot'
+        | 'formatIsolated'
+        | 'isRtlInterface'
+    >;
+    readonly interfaceLocaleResolution: Pick<
+        typeof import('../locales/resolve'),
+        'resolveInterfaceLocale'
+    >;
     readonly handleDrag: Pick<
         typeof import('../popup/handle-drag'),
         | 'addViewportChangeListeners'
@@ -77,6 +87,8 @@ function isAggregateRuntimeModules(value: unknown): value is AggregateRuntimeMod
         aggregateRuntimeMember(value, 'settings', 'normalizeReaderSettings'),
         aggregateRuntimeMember(value, 'tokenTextRendering', 'renderRuby'),
         aggregateRuntimeMember(value, 'localYomuDeck', 'normalizeStoredYomuSrsDeck'),
+        aggregateRuntimeMember(value, 'interfaceDirection', 'applyInterfaceLocaleToRoot'),
+        aggregateRuntimeMember(value, 'interfaceLocaleResolution', 'resolveInterfaceLocale'),
         aggregateRuntimeMember(value, 'handleDrag', 'createHandleDragController'),
     ].every(member => typeof member === 'function');
 }

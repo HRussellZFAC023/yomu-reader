@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const appMocks = vi.hoisted(() => ({
+    constructionArgs: [] as unknown[][],
     destroy: vi.fn(),
     init: vi.fn(),
 }));
@@ -20,10 +21,13 @@ const settingsMocks = vi.hoisted(() => {
 });
 
 vi.mock('../../src/reader/app/main', () => ({
-    ReaderApp: vi.fn(() => ({
-        destroy: appMocks.destroy,
-        init: appMocks.init,
-    })),
+    ReaderApp: vi.fn((...args: unknown[]) => {
+        appMocks.constructionArgs.push(args);
+        return {
+            destroy: appMocks.destroy,
+            init: appMocks.init,
+        };
+    }),
 }));
 
 vi.mock('../../src/reader/settings/index', async importOriginal => ({
@@ -32,7 +36,7 @@ vi.mock('../../src/reader/settings/index', async importOriginal => ({
     subscribeToSettingsStorageChanges: settingsMocks.subscribeToSettingsStorageChanges,
 }));
 
-import { bootReaderApp, resetReaderBootStateForTests } from '../../src/reader/app/boot';
+import { bootReaderApp, bootReaderAppWithStartupSettings, resetReaderBootStateForTests } from '../../src/reader/app/boot';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, pageCompartmentDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/platform/window-events';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
@@ -89,6 +93,7 @@ async function bootEmbeddedFrameAndWait(): Promise<void> {
 describe('reader boot', () => {
     beforeEach(() => {
         resetReaderBootStateForTests();
+        appMocks.constructionArgs.length = 0;
         appMocks.destroy.mockReset();
         appMocks.init.mockReset();
         appMocks.init.mockResolvedValue(undefined);
@@ -119,6 +124,82 @@ describe('reader boot', () => {
 
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
+    it('passes a first-party packaged settings snapshot into Reader startup', async () => {
+        const startupSettings = settingsForStoredTarget('ja');
+
+        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+
+        expect(appMocks.init).toHaveBeenCalledWith({
+            embeddedFrame: false,
+            showWelcome: true,
+            startupSettings,
+        });
+        expect(appMocks.constructionArgs).toEqual([[expect.any(Function), false]]);
+    });
+
+    it('replaces an ordinary initialization already in flight with the packaged snapshot', async () => {
+        let resolveOrdinaryBoot!: () => void;
+        const ordinaryBoot = new Promise<void>(resolve => { resolveOrdinaryBoot = resolve; });
+        appMocks.init.mockReturnValueOnce(ordinaryBoot).mockResolvedValueOnce(undefined);
+        bootReaderApp();
+        const startupSettings = settingsForStoredTarget('ja');
+
+        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenNthCalledWith(2, {
+            embeddedFrame: false,
+            showWelcome: true,
+            startupSettings,
+        });
+        resolveOrdinaryBoot();
+        await ordinaryBoot;
+    });
+
+    it('retains packaged settings for a later Reader retry in the same document', async () => {
+        const startupSettings = settingsForStoredTarget('ja');
+        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+        document.getElementById('jpdb-reader-runtime-owner')?.remove();
+        appMocks.init.mockClear();
+
+        bootReaderApp();
+
+        expect(appMocks.destroy).toHaveBeenCalled();
+        expect(appMocks.init).toHaveBeenCalledWith({
+            embeddedFrame: false,
+            showWelcome: true,
+            startupSettings,
+        });
+    });
+
+    it('reports packaged Reader initialization failure and permits a retry', async () => {
+        const startupSettings = settingsForStoredTarget('ja');
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        appMocks.init.mockRejectedValueOnce(new Error('packaged boot failed')).mockResolvedValueOnce(undefined);
+
+        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(false);
+        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
+        expect(consoleError).toHaveBeenCalledWith('[Yomu Reader] Failed to initialize', expect.any(Error));
+    });
+
+    it('releases a packaged runtime whose ownership marker disappears during initialization', async () => {
+        let resolveInitialization!: () => void;
+        appMocks.init.mockReturnValueOnce(new Promise<void>(resolve => { resolveInitialization = resolve; }))
+            .mockResolvedValueOnce(undefined);
+        const startupSettings = settingsForStoredTarget('ja');
+        const firstBoot = bootReaderAppWithStartupSettings(startupSettings);
+        document.getElementById('jpdb-reader-runtime-owner')?.remove();
+
+        resolveInitialization();
+        await expect(firstBoot).resolves.toBe(false);
+        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
     });
 
     it('releases a failed runtime so the same userscript can initialize on retry', async () => {

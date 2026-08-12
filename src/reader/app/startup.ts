@@ -19,6 +19,7 @@ import { scanScopeRoots } from './annotation-scope';
 export interface ReaderAppInitOptions {
     embeddedFrame?: boolean;
     showWelcome?: boolean;
+    startupSettings?: ReaderSettings;
 }
 
 export interface ReaderStartupSettings {
@@ -28,8 +29,11 @@ export interface ReaderStartupSettings {
     pageOwnedLearningTarget: 'ja' | null;
 }
 
-export async function loadReaderStartupSettings(options?: ReaderAppInitOptions): Promise<ReaderStartupSettings> {
-    const loadedSettings = adoptHostedInterfaceLanguage(await loadSettings());
+export async function loadReaderStartupSettings(options: ReaderAppInitOptions = {}): Promise<ReaderStartupSettings> {
+    // Packaged first-party surfaces can already own a normalized settings
+    // snapshot without exposing it through page-readable storage. Ordinary
+    // userscript/extension boot remains storage-backed.
+    const loadedSettings = adoptHostedInterfaceLanguage(options.startupSettings ?? await loadSettings());
     const settings = applyUrlBootstrapSettings(loadedSettings);
     const pageOwnedLearningTarget = activateReaderStartupTarget(settings);
     // Every surface that resolves a language capability reads the active
@@ -43,7 +47,7 @@ export async function loadReaderStartupSettings(options?: ReaderAppInitOptions):
     return {
         settings,
         settingsSummary: loggingSettingsSummary(settings),
-        shouldShowWelcome: options?.showWelcome ?? true,
+        shouldShowWelcome: options.showWelcome ?? true,
         pageOwnedLearningTarget,
     };
 }

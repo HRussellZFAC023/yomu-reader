@@ -18,7 +18,7 @@ import {
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -149,6 +149,7 @@ interface SettingsDialogDependencies {
     // values (dependency calls read getSettings) but skip side-effectful
     // transitions such as the annotations-off instant clear.
     setSettings: (settings: ReaderSettings, options?: { transient?: boolean }) => void;
+    saveSettings: (settings: ReaderSettings, options: SaveSettingsOptions) => Promise<void>;
     onSettingsPersisted?: (settings: ReaderSettings) => void;
     onSettingsPersistenceFailed?: (previousSettings: ReaderSettings) => void;
     jpdb: JpdbClient;
@@ -591,7 +592,7 @@ export class SettingsDialogController {
     private async saveCurrentSettings(previousSettings: ReaderSettings): Promise<void> {
         const settings = this.settings;
         try {
-            await saveSettings(settings, {
+            await this.dependencies.saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
                 explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
@@ -1565,7 +1566,7 @@ export class SettingsDialogController {
         // saving only the root rows lets profile normalization disable the rows
         // discovered here and push them behind every profile-known dictionary.
         this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-        await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+        await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
 
     private async enqueueDictionaryOperation<T>(form: HTMLFormElement, task: () => Promise<T>): Promise<T> {
@@ -2472,7 +2473,7 @@ export class SettingsDialogController {
         this.dictionaryRefreshId++;
         await clearNewTabOfflineCache().catch(() => undefined);
         this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences'] });
+        await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
         await this.refreshDictionaryStatus(form);
@@ -2568,7 +2569,7 @@ export class SettingsDialogController {
             dictionaryPreferences,
         );
         await markDictionaryReplicaFresh();
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
+        await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
     }

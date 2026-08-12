@@ -193,6 +193,20 @@ function readerResolveConfig(command: string) {
             'local-yomu-deck-companion.ts',
         );
         alias['./local-yomu-deck'] = localYomuDeckCompanion;
+        alias['../locales/direction'] = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'locales',
+            'direction-companion.ts',
+        );
+        alias['../locales/resolve'] = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'locales',
+            'resolve-companion.ts',
+        );
         const handleDragCompanion = path.join(
             configRoot,
             'src',

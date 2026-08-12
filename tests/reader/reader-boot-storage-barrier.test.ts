@@ -21,10 +21,11 @@ afterEach(() => {
 });
 
 describe('reader boot managed web-storage barrier', () => {
-    it('waits for an async shared reset epoch before OCR-capable runtime construction', async () => {
+    it('waits for an async shared reset epoch before runtime construction and preserves startup options', async () => {
         let resolveEpoch!: (value: unknown) => void;
         const delayedEpoch = new Promise<unknown>(resolve => { resolveEpoch = resolve; });
         const cacheSeenByConstructor: Array<string | null> = [];
+        const initOptionsSeen: unknown[] = [];
         localStorage.setItem('yomu-ocr-cache-v2', '{"stale-before-reset":true}');
         localStorage.setItem('foreign-host-token', 'keep');
 
@@ -42,20 +43,33 @@ describe('reader boot managed web-storage barrier', () => {
                     // epoch reconciliation.
                     cacheSeenByConstructor.push(localStorage.getItem('yomu-ocr-cache-v2'));
                 }
-                init(): Promise<void> { return Promise.resolve(); }
+                init(options: unknown): Promise<void> {
+                    initOptionsSeen.push(options);
+                    return Promise.resolve();
+                }
                 destroy(): void { /* no-op test runtime */ }
             },
         }));
 
         const { installFreshManagedStateEpochSessionForTests } = await import('../../src/reader/app/managed-state-epoch');
         installFreshManagedStateEpochSessionForTests();
-        const { bootReaderApp } = await import('../../src/reader/app/boot');
+        const { DEFAULT_SETTINGS } = await import('../../src/reader/settings/index');
+        const { bootReaderApp, bootReaderAppWithStartupSettings } = await import('../../src/reader/app/boot');
+        const startupSettings = { ...DEFAULT_SETTINGS, learningTargetChosen: true };
         bootReaderApp();
+        const packagedBoot = bootReaderAppWithStartupSettings(startupSettings);
         await Promise.resolve();
         expect(cacheSeenByConstructor).toEqual([]);
+        expect(initOptionsSeen).toEqual([]);
 
         resolveEpoch({ version: 1, generation: 1, resetId: 'remote-reset', committedAt: 1_000 });
         await vi.waitFor(() => expect(cacheSeenByConstructor).toEqual([null]));
+        await expect(packagedBoot).resolves.toBe(true);
+        expect(initOptionsSeen).toEqual([{
+            embeddedFrame: false,
+            showWelcome: true,
+            startupSettings,
+        }]);
 
         expect(localStorage.getItem('foreign-host-token')).toBe('keep');
     });

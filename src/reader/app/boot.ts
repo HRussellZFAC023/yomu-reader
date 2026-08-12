@@ -1,6 +1,7 @@
 import { appendToDocumentHead } from '../dom/index';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { ReaderApp } from './main';
+import type { ReaderAppInitOptions } from './startup';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 import {
     clearReaderRuntimeHealth,
@@ -27,6 +28,8 @@ interface ActiveRuntime {
     app: ReaderApp;
     kind: YomuRuntimeKind;
     ownerId: string;
+    startupSettings?: ReaderSettings;
+    initialization?: Promise<boolean>;
     release?: () => void;
 }
 
@@ -46,7 +49,8 @@ const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
 // without an explicit path match it never booted (class Z).
 const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?)(?:[/?#]|$)/i;
 let activeRuntime: ActiveRuntime | undefined;
-let bootInFlight: Promise<void> | undefined;
+let storageBootInFlight: Promise<boolean> | undefined;
+let retainedStartupSettings: ReaderSettings | undefined;
 
 // Vitest can deliberately reuse one jsdom module graph across cases. Production
 // gets one graph per document; this reset makes that same ownership boundary
@@ -61,51 +65,89 @@ export function resetReaderBootStateForTests(): void {
     embeddedFrameLearningTargetChosen = false;
     embeddedFrameTargetPolicyRevision += 1;
     embeddedFrameTargetPolicyInFlight = undefined;
-    bootInFlight = undefined;
+    storageBootInFlight = undefined;
+    retainedStartupSettings = undefined;
 }
 
 export function bootReaderApp(): void {
-    if (bootInFlight) return;
+    void requestReaderBoot();
+}
+
+/**
+ * Boot a first-party packaged Reader from its authoritative in-memory settings.
+ * The snapshot is retained for every later retry in this document and supersedes
+ * an ordinary boot that may already be waiting on the managed-storage gate.
+ */
+export function bootReaderAppWithStartupSettings(startupSettings: ReaderSettings): Promise<boolean> {
+    retainedStartupSettings = startupSettings;
+    return requestReaderBoot(true);
+}
+
+function requestReaderBoot(replaceMismatchedRuntime = false): Promise<boolean> {
+    const existingRequest = reusableBootRequest(replaceMismatchedRuntime);
+    if (existingRequest) return existingRequest;
+    const synchronousBoot = bootReaderAppThroughSynchronousStorageGate();
+    if (synchronousBoot) return synchronousBoot;
+    return startStorageGatedBoot();
+}
+
+function reusableBootRequest(replaceMismatchedRuntime: boolean): Promise<boolean> | undefined {
+    if (!replaceMismatchedRuntime) return storageBootInFlight;
+    const runtime = activeRuntime;
+    if (!runtime) return storageBootInFlight;
+    return packagedRuntimeRequest(runtime);
+}
+
+function packagedRuntimeRequest(runtime: ActiveRuntime): Promise<boolean> | undefined {
+    if (runtime.startupSettings === retainedStartupSettings) return runtime.initialization;
+    releaseActiveRuntime(runtime);
+    const gate = storageBootInFlight;
+    if (!gate) return undefined;
+    return gate.then(() => requestReaderBoot(true));
+}
+
+function startStorageGatedBoot(): Promise<boolean> {
+    storageBootInFlight = bootReaderAppAfterStorageGate()
+        .catch(error => {
+            console.error('[Yomu Reader] Failed to initialize managed web storage', error);
+            return false;
+        })
+        .finally(() => {
+            storageBootInFlight = undefined;
+        });
+    return storageBootInFlight;
+}
+
+function bootReaderAppThroughSynchronousStorageGate(): Promise<boolean> | null {
     try {
-        if (ensureManagedWebStorageCurrentSync()) {
-            bootReaderAppAfterStorageBarrier();
-            return;
-        }
+        if (!ensureManagedWebStorageCurrentSync()) return null;
+        return bootReaderAppAfterStorageBarrier();
     } catch (error) {
         console.error('[Yomu Reader] Failed to initialize managed web storage', error);
-        return;
+        return Promise.resolve(false);
     }
-    bootInFlight ??= bootReaderAppAfterStorageGate()
-        .catch(error => console.error('[Yomu Reader] Failed to initialize managed web storage', error))
-        .finally(() => {
-            bootInFlight = undefined;
-        });
 }
 
-async function bootReaderAppAfterStorageGate(): Promise<void> {
+async function bootReaderAppAfterStorageGate(): Promise<boolean> {
     await ensureManagedWebStorageCurrent();
-    bootReaderAppAfterStorageBarrier();
+    return bootReaderAppAfterStorageBarrier();
 }
 
-function bootReaderAppAfterStorageBarrier(): void {
+function bootReaderAppAfterStorageBarrier(): Promise<boolean> {
     reconcileActiveRuntimeMarker();
     const context = resolveBootContext();
-    if (!context) return;
-    bootResolvedContext(context);
+    if (!context) return Promise.resolve(false);
+    return bootResolvedContext(context);
 }
 
-function bootResolvedContext(context: BootContext): void {
+function bootResolvedContext(context: BootContext): Promise<boolean> {
     const runtime = createOwnedRuntime(context);
-    if (!runtime) return;
+    if (!runtime) return Promise.resolve(false);
 
     registerRuntime(context.bootWindow, runtime, isInstalledRuntime(runtime.kind));
-    startRuntime(
-        runtime.app,
-        runtime.ownerId,
-        runtime.kind,
-        context.embeddedFrame,
-        () => releaseActiveRuntime(runtime),
-    );
+    runtime.startupSettings = retainedStartupSettings;
+    runtime.initialization = startRuntime(runtime, context.embeddedFrame);
+    return runtime.initialization;
 }
 
 function resolveBootContext(): BootContext | undefined {
@@ -134,12 +176,21 @@ function createOwnedRuntime(context: BootContext): ActiveRuntime | undefined {
     const ownerId = claimRuntime(runtimeKind);
     if (!ownerId) return undefined;
 
-    const app = new ReaderApp();
+    const app = createReaderApp();
     const runtime: ActiveRuntime = { app, kind: runtimeKind, ownerId };
     activeRuntime = runtime;
     writeBootWindowOwner(bootWindow, runtime);
     runtime.release = bindClaims(runtime);
     return runtime;
+}
+
+function createReaderApp(): ReaderApp {
+    if (retainedStartupSettings) return new ReaderApp(retainReaderSettingsInMemory, false);
+    return new ReaderApp();
+}
+
+function retainReaderSettingsInMemory(): Promise<void> {
+    return Promise.resolve();
 }
 
 function isInstalledRuntime(runtimeKind: YomuRuntimeKind): boolean {
@@ -223,31 +274,33 @@ function registerRuntime(bootWindow: YomuBootWindow, runtime: ActiveRuntime, isR
     };
 }
 
-function startRuntime(
-    app: ReaderApp,
-    ownerId: string,
-    runtimeKind: YomuRuntimeKind,
-    embeddedFrame: boolean,
-    releaseClaims: () => void,
-): void {
-    void app.init({
+function startRuntime(runtime: ActiveRuntime, embeddedFrame: boolean): Promise<boolean> {
+    const { app, ownerId, kind: runtimeKind, startupSettings } = runtime;
+    const initOptions: ReaderAppInitOptions = {
         embeddedFrame,
         // Both real installs (userscript manager and browser extension) get the
         // first-run welcome/onboarding. The page/dev runtimes never do.
         showWelcome: runtimeKind === 'userscript' || runtimeKind === 'extension',
-    }).then(() => {
+        ...(startupSettings ? { startupSettings } : {}),
+    };
+    return app.init(initOptions).then(() => {
+        if (activeRuntime !== runtime) return false;
         // A claim marker only means this runtime won ownership. Publish the
         // typed service contract after initialization so hosted consumers do
         // not mistake a claimed shell for a usable Reader.
-        publishReaderRuntimeHealth(ownerId);
+        const health = publishReaderRuntimeHealth(ownerId);
+        if (health) return true;
+        releaseActiveRuntime(runtime);
+        return false;
     }).catch(error => {
         // A failed initialization must relinquish every ownership signal, not
         // only the DOM marker. Otherwise the initialized window flag and
         // module-local runtime make a same-priority reinjection look redundant,
         // so a transient startup error leaves Yomu absent until the whole tab
         // is recreated.
-        releaseClaims();
+        if (activeRuntime === runtime) releaseActiveRuntime(runtime);
         console.error('[Yomu Reader] Failed to initialize', error);
+        return false;
     });
 }
 
@@ -412,7 +465,7 @@ function bootPreparedEmbeddedFrame(): void {
     if (!context) return;
     embeddedFrameEligibilityObserver?.disconnect();
     embeddedFrameEligibilityObserver = undefined;
-    bootResolvedContext(context);
+    void bootResolvedContext(context);
     disposeEmbeddedFrameTargetPolicyAfterChosenBoot();
 }
 

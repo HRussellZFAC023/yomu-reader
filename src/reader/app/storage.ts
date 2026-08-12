@@ -90,11 +90,11 @@ const FACTORY_RESET_CONTROL_STORAGE_KEYS = new Set([
 const managedStateEpochSession = managedStateEpochSessionForRealm();
 
 export class ManagedStateResetError extends Error {
-    readonly yomuUiCopyKey = 'factoryResetStorageIncomplete';
     readonly epochMayHaveCommitted: boolean;
 
     constructor(diagnostic: string, options: ErrorOptions = {}, epochMayHaveCommitted = false) {
         super(diagnostic, options);
+        Object.assign(this, { yomuUiCopyKey: 'factoryResetStorageIncomplete' as const });
         this.name = 'ManagedStateResetError';
         this.epochMayHaveCommitted = epochMayHaveCommitted;
     }

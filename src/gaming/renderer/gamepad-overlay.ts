@@ -17,6 +17,8 @@
 // synthetic-click guard accepts it), so the word lights up exactly as if the
 // user had clicked it.
 
+import { renderedWordsInRoot } from '../../reader/dom/index';
+
 const AXIS_DEADZONE = 0.55;
 const REPEAT_INITIAL_MS = 360;
 const REPEAT_INTERVAL_MS = 140;
@@ -44,6 +46,11 @@ export interface GamepadOverlayHandlers {
     back(): void;
     recapture(): void;
     settings(): void;
+}
+
+/** Reader-owned words inside Gaming OCR surfaces, independent of public card IDs. */
+export function gamingOcrWordTargets(root: ParentNode): HTMLElement[] {
+    return renderedWordsInRoot(root).filter(word => Boolean(word.closest('[data-ocr-line]')));
 }
 
 interface HeldButton {

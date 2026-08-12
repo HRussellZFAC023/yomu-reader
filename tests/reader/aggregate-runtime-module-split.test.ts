@@ -3,6 +3,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as tokenTextRendering from '../../src/reader/dom/token-text-rendering';
 import * as localYomuDeck from '../../src/reader/srs/local-yomu-deck';
+import * as interfaceDirection from '../../src/reader/locales/direction';
+import * as interfaceLocaleResolution from '../../src/reader/locales/resolve';
 import * as handleDrag from '../../src/reader/popup/handle-drag';
 import * as deinflection from '../../src/reader/lookup/deinflect';
 import * as settings from '../../src/reader/settings';
@@ -31,6 +33,8 @@ describe('aggregate runtime implementation sharing', () => {
             settings,
             tokenTextRendering,
             localYomuDeck,
+            interfaceDirection,
+            interfaceLocaleResolution,
             handleDrag,
         });
     });
@@ -50,6 +54,8 @@ describe('aggregate runtime implementation sharing', () => {
         expect(modules.settings).toBe(settings);
         expect(modules.tokenTextRendering).toBe(tokenTextRendering);
         expect(modules.localYomuDeck).toBe(localYomuDeck);
+        expect(modules.interfaceDirection).toBe(interfaceDirection);
+        expect(modules.interfaceLocaleResolution).toBe(interfaceLocaleResolution);
         expect(modules.handleDrag).toBe(handleDrag);
         expect(Object.getOwnPropertyDescriptor(globalThis, AGGREGATE_RUNTIME_MODULES_SLOT)).toMatchObject({
             enumerable: false,
@@ -108,12 +114,16 @@ describe('aggregate runtime implementation sharing', () => {
             'deinflect-companion.ts',
             'token-text-rendering-companion.ts',
             'local-yomu-deck-companion.ts',
+            'direction-companion.ts',
+            'resolve-companion.ts',
             'handle-drag-companion.ts',
         ]) expect(viteConfig).toContain(facade);
         expect(viteConfig).toContain("alias['./token-text-rendering']");
         expect(viteConfig).toContain("alias['./deinflect']");
         expect(viteConfig).toContain("alias['../dom/token-text-rendering']");
         expect(viteConfig).toContain("alias['./local-yomu-deck']");
+        expect(viteConfig).toContain("alias['../locales/direction']");
+        expect(viteConfig).toContain("alias['../locales/resolve']");
         expect(viteConfig).toContain("alias['./handle-drag']");
         expect(viteConfig).toContain("alias['../popup/handle-drag']");
         expect(viteConfig).toContain("alias['../settings/index']");
@@ -142,6 +152,14 @@ describe('aggregate runtime implementation sharing', () => {
             'popup',
             'handle-drag-companion',
         );
+        const directionFacade = await importRuntimeFacade<typeof interfaceDirection>(
+            'locales',
+            'direction-companion',
+        );
+        const resolutionFacade = await importRuntimeFacade<typeof interfaceLocaleResolution>(
+            'locales',
+            'resolve-companion',
+        );
 
         expect(settingsFacade.normalizeReaderSettings).toBe(settings.normalizeReaderSettings);
         expect(settingsFacade.saveSettings).toBe(settings.saveSettings);
@@ -166,6 +184,10 @@ describe('aggregate runtime implementation sharing', () => {
             .toBe(tokenTextRendering.renderDetachedReadings('食', representativeToken, navigation).replace(privateToken, ''));
         expect(deckFacade.normalizeStoredYomuSrsDeck).toBe(localYomuDeck.normalizeStoredYomuSrsDeck);
         expect(deckFacade.mergeStoredYomuSrsDecks).toBe(localYomuDeck.mergeStoredYomuSrsDecks);
+        expect(directionFacade.applyInterfaceLocaleToRoot).toBe(interfaceDirection.applyInterfaceLocaleToRoot);
+        expect(directionFacade.formatIsolated).toBe(interfaceDirection.formatIsolated);
+        expect(directionFacade.isRtlInterface).toBe(interfaceDirection.isRtlInterface);
+        expect(resolutionFacade.resolveInterfaceLocale).toBe(interfaceLocaleResolution.resolveInterfaceLocale);
         expect(dragFacade.createHandleDragController).toBe(handleDrag.createHandleDragController);
         expect(dragFacade.addViewportChangeListeners).toBe(handleDrag.addViewportChangeListeners);
     });

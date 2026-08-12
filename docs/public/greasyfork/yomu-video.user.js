@@ -1438,10 +1438,10 @@ const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
 class ManagedStateResetError extends Error {
-  yomuUiCopyKey = "factoryResetStorageIncomplete";
   epochMayHaveCommitted;
   constructor(diagnostic, options = {}, epochMayHaveCommitted = false) {
   super(diagnostic, options);
+  Object.assign(this, { yomuUiCopyKey: "factoryResetStorageIncomplete" });
   this.name = "ManagedStateResetError";
   this.epochMayHaveCommitted = epochMayHaveCommitted;
   }
@@ -2068,10 +2068,16 @@ const { guardedDocuments, guards } = sandboxSharedState("yomu.compat-guard.v1", 
 function closestHtmlElementMatching(target, selector) {
   let element = target instanceof Element ? target : null;
   while (element) {
-  if (element instanceof HTMLElement && element.matches(selector)) return element;
+  const match = matchingHtmlElement(element, selector);
+  if (match) return match;
   element = element.parentElement;
   }
   return null;
+}
+function matchingHtmlElement(element, selector) {
+  if (!(element instanceof HTMLElement)) return null;
+  if (!element.matches(selector)) return null;
+  return element;
 }
 const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
   pendingClick: {},

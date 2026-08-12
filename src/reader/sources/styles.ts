@@ -1,4 +1,5 @@
 import { appendToDocumentHead } from '../dom';
+import type { ReaderSettings } from '../app/types';
 
 const DICTIONARY_STYLE_ID = 'jpdb-reader-yomitan-dictionary-styles';
 
@@ -56,4 +57,20 @@ export class DictionaryStyleController {
         this.styleElement = style;
         this.options.onRefreshed?.(css.length);
     }
+}
+
+export function createReaderDictionaryStyleController(
+    getSettings: () => ReaderSettings,
+    loadDictionaryCss: (preferences: ReaderSettings['dictionaryPreferences']) => Promise<string>,
+    onUnavailable: (error: unknown) => void,
+): DictionaryStyleController {
+    return new DictionaryStyleController({
+        loadCss: () => {
+            const settings = getSettings();
+            return settings.localDictionariesEnabled
+                ? loadDictionaryCss(settings.dictionaryPreferences)
+                : Promise.resolve('');
+        },
+        onUnavailable,
+    });
 }

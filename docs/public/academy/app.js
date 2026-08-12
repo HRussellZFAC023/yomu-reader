@@ -28889,10 +28889,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   ]);
   const managedStateEpochSession = managedStateEpochSessionForRealm();
   class ManagedStateResetError extends Error {
-    yomuUiCopyKey = "factoryResetStorageIncomplete";
     epochMayHaveCommitted;
     constructor(diagnostic, options = {}, epochMayHaveCommitted = false) {
       super(diagnostic, options);
+      Object.assign(this, { yomuUiCopyKey: "factoryResetStorageIncomplete" });
       this.name = "ManagedStateResetError";
       this.epochMayHaveCommitted = epochMayHaveCommitted;
     }
@@ -33384,10 +33384,23 @@ ${spelling}`);
     });
   }
   function suppressCompatibilityEvent(event, target2) {
+    const guard = eligibleCompatibilityGuard(event, target2);
+    if (!guard) return;
+    if (!shouldSuppressCompatibilityEvent(event, guard)) return;
+    consumeCompatibilityEvent(event, target2);
+  }
+  function eligibleCompatibilityGuard(event, target2) {
     const guard = guards.get(target2);
-    if (!guard || !blockable(event)) return;
-    if (Date.now() > guard.expiresAt) return void guards.delete(target2);
-    if (!withinGestureEnvelope(event, guard) || !isCompatibilityMouseEvent(event)) return;
+    if (!guard) return null;
+    if (!blockable(event)) return null;
+    if (Date.now() <= guard.expiresAt) return guard;
+    guards.delete(target2);
+    return null;
+  }
+  function shouldSuppressCompatibilityEvent(event, guard) {
+    return withinGestureEnvelope(event, guard) && isCompatibilityMouseEvent(event);
+  }
+  function consumeCompatibilityEvent(event, target2) {
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type === "click") guards.delete(target2);
@@ -33422,10 +33435,16 @@ ${spelling}`);
   function closestHtmlElementMatching(target2, selector) {
     let element2 = target2 instanceof Element ? target2 : null;
     while (element2) {
-      if (element2 instanceof HTMLElement && element2.matches(selector)) return element2;
+      const match = matchingHtmlElement(element2, selector);
+      if (match) return match;
       element2 = element2.parentElement;
     }
     return null;
+  }
+  function matchingHtmlElement(element2, selector) {
+    if (!(element2 instanceof HTMLElement)) return null;
+    if (!element2.matches(selector)) return null;
+    return element2;
   }
   function readerControlIsDisabled(control2) {
     if (control2.closest('[aria-disabled="true"]')) return true;
@@ -309261,6 +309280,48 @@ ${component.reading}`;
       this.options.onRefreshed?.(css.length);
     }
   }
+  function createReaderDictionaryStyleController(getSettings, loadDictionaryCss, onUnavailable) {
+    return new DictionaryStyleController({
+      loadCss: () => {
+        const settings = getSettings();
+        return settings.localDictionariesEnabled ? loadDictionaryCss(settings.dictionaryPreferences) : Promise.resolve("");
+      },
+      onUnavailable
+    });
+  }
+  class OfflineDictionarySetupController {
+    constructor(options) {
+      this.options = options;
+    }
+    running = false;
+    async run() {
+      if (this.running) return;
+      const install = yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
+      if (!install) return;
+      this.running = true;
+      try {
+        const result2 = await install({
+          dictionaries: this.options.dictionaries,
+          getSettings: this.options.getSettings,
+          applySettings: this.options.applySettings,
+          onProgress: this.options.notify
+        });
+        await this.finish(result2);
+      } finally {
+        this.running = false;
+      }
+    }
+    async finish(result2) {
+      if (result2.installed.length) await this.options.afterInstalled();
+      const copyKey = offlineDictionarySetupCopyKey(result2);
+      if (copyKey) this.options.notify(uiText(this.options.getSettings().interfaceLanguage, copyKey));
+    }
+  }
+  function offlineDictionarySetupCopyKey(result2) {
+    if (result2.failed.length) return "offlineDictionarySetupFailed";
+    if (result2.installed.length) return "offlineDictionarySetupComplete";
+    return void 0;
+  }
   const log$i = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
@@ -313915,6 +313976,10 @@ ${key2}`] = { t: now, v: value };
     const source2 = word;
     const rawPitch = Array.isArray(source2.pitchAccents) ? source2.pitchAccents : Array.isArray(source2.pitchAccent) ? source2.pitchAccent : [];
     return rawPitch.filter((pitch) => Number.isInteger(pitch) && pitch >= 0).slice(0, 3);
+  }
+  function runJitenKanjiWordsAction(button2, action2, context2) {
+    if (!context2) return Promise.resolve();
+    return action2 === "more" ? loadMoreJitenKanjiWords(button2, context2) : filterJitenKanjiWords(button2, context2);
   }
   async function filterJitenKanjiWords(button2, context2) {
     const request2 = jitenFilterRequest(button2);
@@ -323677,8 +323742,7 @@ ${options.version}`;
           if (!this.showNestedSourceReviewCard(anchor2)) this.lookupNestedTerm(expression, reading, anchor2);
         },
         loadJitenWords: (button2, action2) => {
-          if (action2 === "more") void this.loadMoreJitenKanjiWords(button2);
-          else void this.filterJitenKanjiWords(button2);
+          void runJitenKanjiWordsAction(button2, action2, this.jitenKanjiWordsActionContext());
         },
         playJpdbExampleAudio: dependencies.playJpdbExampleAudio,
         cardForTarget: (target2) => this.nestedCardActionCard(target2),
@@ -325303,14 +325367,6 @@ ${options.version}`;
         lookupKanjiWords: (character, options) => lookupKanjiWords.call(jiten, character, options),
         language: () => this.dependencies.getSettings().interfaceLanguage
       };
-    }
-    async loadMoreJitenKanjiWords(button2) {
-      const context2 = this.jitenKanjiWordsActionContext();
-      if (context2) await loadMoreJitenKanjiWords(button2, context2);
-    }
-    async filterJitenKanjiWords(button2) {
-      const context2 = this.jitenKanjiWordsActionContext();
-      if (context2) await filterJitenKanjiWords(button2, context2);
     }
     nestedCardActionCard(target2) {
       const key2 = cleanNestedLookupValue(target2.closest("[data-newtab-card]")?.dataset.newtabCard);
@@ -376106,7 +376162,7 @@ ${options.version}`;
     async saveCurrentSettings(previousSettings) {
       const settings = this.settings;
       try {
-        await saveSettings(settings, {
+        await this.dependencies.saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
           explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
@@ -376990,7 +377046,7 @@ ${options.version}`;
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
       this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-      await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
     async enqueueDictionaryOperation(form2, task2) {
       this.pendingDictionaryOperations++;
@@ -377748,7 +377804,7 @@ ${options.version}`;
       this.dictionaryRefreshId++;
       await clearNewTabOfflineCache().catch(() => void 0);
       this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item2) => item2.name !== dictionary);
-      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
+      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form2);
@@ -377837,7 +377893,7 @@ ${options.version}`;
         dictionaryPreferences
       );
       await markDictionaryReplicaFresh();
-      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
+      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
     }
@@ -379977,7 +380033,6 @@ ${rank2.detail}` : baseTitle;
     settingsPreviewOriginalAccent;
     settingsPreviewOriginalTheme;
     newTab;
-    offlineDictionarySetupInFlight = false;
     jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     kanjiCompanion = yomuKanjiStudyCompanion();
@@ -380063,10 +380118,17 @@ ${rank2.detail}` : baseTitle;
     lastAutoAudioKey = "";
     lastAutoAudioAt = 0;
     externalRefreshController;
-    dictionaryStyles = new DictionaryStyleController({
-      loadCss: () => this.settings.localDictionariesEnabled ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences) : Promise.resolve(""),
-      onUnavailable: (error) => log.warn("Dictionary styles unavailable", error)
+    offlineDictionaries = new OfflineDictionarySetupController({
+      dictionaries: this.dictionaries,
+      getSettings: () => this.settings,
+      applySettings: async (settings) => {
+        this.settings = settings;
+        await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+      },
+      notify: (message) => this.toast(message),
+      afterInstalled: () => this.refreshDictionaryStyles()
     });
+    dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, (preferences) => this.dictionaries.dictionaryStyleCss(preferences), (error) => log.warn("Dictionary styles unavailable", error));
     studySources = new StudySourceController({
       getSettings: () => this.settings,
       dictionarySourceAttributes: (key2) => this.dictionarySourceState.attributes(key2),
@@ -380165,6 +380227,7 @@ ${rank2.detail}` : baseTitle;
     });
     settingsDialog = new SettingsDialogController({
       getSettings: () => this.settings,
+      saveSettings,
       setSettings: (settings, options) => {
         const nextSettings = this.settingsDialogTargetChoice(settings, options?.transient === true);
         this.settings = nextSettings;
@@ -380257,7 +380320,7 @@ ${rank2.detail}` : baseTitle;
         showSettings: (panel) => this.showSettings(panel),
         parseJapanese: (panel) => void this.parseNewTabContent(panel),
         lookupText: (text2, sentence, anchor2) => void this.lookupText(text2, sentence || text2, anchor2, { stackOverSettings: true }),
-        installOfflineDictionaries: () => void this.installOfflineDictionaries(),
+        installOfflineDictionaries: () => void this.offlineDictionaries.run(),
         onComplete: (settings) => this.applyRemoteSettings(settings),
         onPersistenceFailed: (settings) => this.rollbackOnboardingSettings(settings)
       });
@@ -380296,28 +380359,6 @@ ${rank2.detail}` : baseTitle;
       this.syncRuntimeTarget(previousSettings);
       this.applyTheme(previousSettings);
       this.applyWordColors(previousSettings);
-    }
-    async installOfflineDictionaries() {
-      if (this.offlineDictionarySetupInFlight) return;
-      const installOfflineParsingDictionaries = yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
-      if (!installOfflineParsingDictionaries) return;
-      this.offlineDictionarySetupInFlight = true;
-      try {
-        const result2 = await installOfflineParsingDictionaries({
-          dictionaries: this.dictionaries,
-          getSettings: () => this.settings,
-          applySettings: async (settings) => {
-            this.settings = settings;
-            await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-          },
-          onProgress: (message) => this.toast(message)
-        });
-        if (result2.installed.length) await this.refreshDictionaryStyles();
-        if (result2.failed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupFailed"));
-        else if (result2.installed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupComplete"));
-      } finally {
-        this.offlineDictionarySetupInFlight = false;
-      }
     }
     assertSessionVocabularyReadOnly() {
       for (const item2 of this.options.sessionVocabulary ?? []) {
@@ -380973,7 +381014,7 @@ ${rank2.detail}` : baseTitle;
           void this.lookupText(command.expression, command.reading || command.expression, button2, { navigation: "push-current", reuseActivePopover: true, userGesture: true });
         },
         "jiten-kanji-words": (command) => {
-          void (command.action === "more" ? this.loadMoreJitenKanjiWords(button2) : this.filterJitenKanjiWords(button2));
+          void runJitenKanjiWordsAction(button2, command.action, this.jitenKanjiWordsActionContext());
         }
       });
     }
@@ -380997,14 +381038,6 @@ ${rank2.detail}` : baseTitle;
         afterRender: () => this.repositionLookupPopover(),
         onError: (details, error) => log.warn("Jiten kanji words lookup failed", details, error)
       };
-    }
-    async loadMoreJitenKanjiWords(button2) {
-      const context2 = this.jitenKanjiWordsActionContext();
-      if (context2) await loadMoreJitenKanjiWords(button2, context2);
-    }
-    async filterJitenKanjiWords(button2) {
-      const context2 = this.jitenKanjiWordsActionContext();
-      if (context2) await filterJitenKanjiWords(button2, context2);
     }
     async renderKanjiLookupDetails(popover, card, kanji, requestId = this.lookupTarget.currentRenderRequest()) {
       if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;

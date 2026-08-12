@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 import { testEnSettings } from './helpers/settings-fixture';
 import { isEditableEventContext, isEditableTarget } from '../../src/reader/ui/browser';
 
@@ -61,8 +61,8 @@ describe('reader shortcuts', () => {
         }
     });
 
-    it('toggles the subtitle overlay with the configured shortcut', () => {
-        const app = new ReaderApp();
+    it('toggles the subtitle overlay without persisting a packaged memory-only snapshot', async () => {
+        const app = new ReaderApp(() => Promise.resolve(), false);
         const internals = app as unknown as ReaderShortcutInternals;
         const refresh = vi.fn();
         const destroy = vi.fn();
@@ -78,6 +78,7 @@ describe('reader shortcuts', () => {
         };
         internals.subtitles = { refresh, destroy };
         internals.toast = toast;
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
 
         try {
             const event = new KeyboardEvent('keydown', {
@@ -93,6 +94,8 @@ describe('reader shortcuts', () => {
             expect(internals.settings.subtitleOverlayVisible).toBe(true);
             expect(refresh).toHaveBeenCalledTimes(1);
             expect(toast).toHaveBeenCalledWith('Subtitle overlay enabled.');
+            await Promise.resolve();
+            expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         } finally {
             app.destroy();
         }

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     filterJitenKanjiWords,
     loadMoreJitenKanjiWords,
+    runJitenKanjiWordsAction,
     type JitenKanjiWordsActionContext,
 } from '../../src/reader/jiten/jiten-kanji-words-actions';
 import {
@@ -77,6 +78,17 @@ afterEach(() => {
 });
 
 describe('Jiten kanji word actions', () => {
+    it('routes shared filter and paging commands and treats an unavailable provider as inert', async () => {
+        const lookupKanjiWords = vi.fn(async () => null);
+        const fixture = jitenWordsRoot();
+
+        await runJitenKanjiWordsAction(fixture.filter, 'filter', context(lookupKanjiWords));
+        await runJitenKanjiWordsAction(fixture.more, 'more', context(lookupKanjiWords));
+        await runJitenKanjiWordsAction(fixture.more, 'more', null);
+
+        expect(lookupKanjiWords).toHaveBeenCalledTimes(2);
+    });
+
     it('does not call the Japanese character provider for stale controls on another target', async () => {
         setActiveLearningTargetLanguage('zh');
         const lookupKanjiWords = vi.fn(async () => null);

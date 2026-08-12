@@ -8,6 +8,7 @@
 - Fresh installs remain language-neutral: Academy and hosted appearance preferences now stamp their neutral target state, and a rejected onboarding save cannot become active after reload.
 - Reader controls are now isolated from host-page scripts: arbitrary sites cannot trigger privileged settings, subtitle, card, or OCR actions; rewrite values behind a real click; or read credentials, account details, imported files, recovery codes, and captured raster data. Sensitive setup opens on Yomu-owned Study and extension new-tab surfaces while ordinary reading stays on the page.
 - Subtitle rail icons respond reliably when a mouse, pen, or finger lands on their nested SVG artwork, without turning a drag into a click or keeping YouTube's native controls awake. The off-site Study settings launcher also stays fully visible on iPhone and iPad WebKit.
+- Yomu Gaming's packaged overlay again annotates captured text after the private-storage hardening, and Steam Deck/gamepad navigation finds those words without exposing card identifiers in the page DOM.
 
 ## [1.9.0] - 2026-08-11
 

@@ -7,16 +7,8 @@ import {
     withMirrorTokenApply,
 } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { MIRROR_TEXT as TEXT, mirrorToken as token, paintMirrorToken } from './helpers/japanese-token-fixtures';
 
-const TEXT = '日本語';
-const CARD: JPDBCard = {
-    vid: 1, sid: 1, rid: 0, spelling: TEXT, reading: 'にほんご', frequencyRank: null,
-    partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null, source: 'jpdb',
-};
-function token(): JPDBToken {
-    return { card: CARD, start: 0, end: TEXT.length, length: TEXT.length, rubies: [{ text: 'にほんご', start: 0, end: TEXT.length, length: TEXT.length }], pitchClass: '', sentence: TEXT };
-}
 // React expando so the host is treated as framework-managed (chat surface).
 function markReactOwned(element: Element): void {
     (element as unknown as Record<string, unknown>).__reactFiber$abc123 = {};
@@ -28,9 +20,7 @@ function paintStyledConcealHost(): HTMLElement {
     document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown" style="background-color: rgb(31, 41, 55); border: 1px solid rgb(99, 102, 241);">${TEXT}</div></div>`;
     const host = document.getElementById('host')!;
     markReactOwned(host);
-    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT)!;
-    expect(target).toBeTruthy();
-    applyTokensToScanTarget(target, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+    paintMirrorToken(host);
     expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
     expect(host.style.getPropertyValue('color')).not.toBe('transparent');
     return host;

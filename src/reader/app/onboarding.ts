@@ -40,6 +40,7 @@ const ONBOARDING_FEATURE_KEYS = [
 interface OnboardingOptions {
     getSettings: () => ReaderSettings;
     setSettings: (settings: ReaderSettings) => void;
+    saveSettings?: typeof saveSettings;
     showSettings: (panel?: string) => void;
     // Annotates the welcome panel's Japanese with furigana + pitch through the
     // same nested-parse path that handles popovers/settings chrome.
@@ -576,7 +577,7 @@ export class OnboardingController {
         const intentBaseline = this.onboardingIntentBaseline(previousSettings);
         const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage);
         try {
-            await saveSettings(settings, {
+            await (this.options.saveSettings ?? saveSettings)(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
                 // Every field the onboarding panel's own controls moved. It used to

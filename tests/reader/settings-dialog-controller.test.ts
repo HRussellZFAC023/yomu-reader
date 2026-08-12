@@ -13,7 +13,9 @@ import { listDictionaryArchives, persistDictionaryArchive } from '../../src/read
 import {
     defaultDictionaryLookupLinks,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    SETTINGS_STORAGE_KEY,
     normalizeReaderSettings,
+    saveSettings,
 } from '../../src/reader/settings';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
@@ -88,6 +90,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}, panel?: s
     const dependencies = {
         getSettings: () => settings,
         setSettings: (next: ReaderSettings) => { settings = next; },
+        saveSettings,
         jpdb: {
             clear: vi.fn(),
             listDecks: vi.fn().mockResolvedValue([]),
@@ -580,6 +583,21 @@ describe('settings dialog keyboard dismissal', () => {
         } finally {
             allowSyntheticReaderInteractionsForTests(true);
         }
+    });
+
+    it('routes a trusted save through the owning runtime persistence boundary', async () => {
+        const memoryOnlySave = vi.fn().mockResolvedValue(undefined);
+        const persisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({
+            saveSettings: memoryOnlySave,
+            onSettingsPersisted: persisted,
+        });
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+
+        await submitSettingsAndWait(form, dismiss, persisted);
+
+        expect(memoryOnlySave).toHaveBeenCalledOnce();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
     });
 
     it('does not keep refreshing parsed settings text after cancel closes the dialog', async () => {

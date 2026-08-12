@@ -27,6 +27,12 @@ import {
     upsertAcademyVocabulary,
 } from '../srs/local-yomu-deck';
 import {
+    applyInterfaceLocaleToRoot,
+    formatIsolated,
+    isRtlInterface,
+} from '../locales/direction';
+import { resolveInterfaceLocale } from '../locales/resolve';
+import {
     addViewportChangeListeners,
     createHandleDragController,
     firstChangedTouch,
@@ -66,6 +72,14 @@ registerAggregateRuntimeModules({
         normalizeStoredYomuSrsDeck,
         removeAcademyVocabularyProvenance,
         upsertAcademyVocabulary,
+    },
+    interfaceDirection: {
+        applyInterfaceLocaleToRoot,
+        formatIsolated,
+        isRtlInterface,
+    },
+    interfaceLocaleResolution: {
+        resolveInterfaceLocale,
     },
     handleDrag: {
         addViewportChangeListeners,

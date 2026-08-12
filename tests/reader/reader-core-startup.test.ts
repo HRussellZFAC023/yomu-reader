@@ -18,14 +18,14 @@ interface StartupInternals {
     installStyles: () => void;
     installCoreSurfaces: () => Promise<void>;
     loadInitialSettings: () => Promise<boolean>;
-    applyReaderThemeClasses: (theme: 'dark' | 'light') => void;
+    hostTheme: { applyClasses: (theme: 'dark' | 'light') => void };
     installFab: () => void;
     setupAutoScan: () => void;
     installSettingsStorageSubscription: () => void;
     installTargetOwnedCoreSurfaces: () => void;
     registerMenuCommands: () => void;
     bindEvents: () => void;
-    installOfflineParsingDictionaries: () => Promise<void>;
+    offlineDictionaries: { run: () => Promise<void> };
     parser: { parse: (...args: unknown[]) => Promise<unknown> };
     subtitles: { init: () => void };
     settings: ReaderSettings;
@@ -158,7 +158,7 @@ describe('ReaderApp core startup', () => {
         internals.installSettingsStorageSubscription = vi.fn();
         internals.registerMenuCommands = vi.fn();
         internals.bindEvents = vi.fn();
-        internals.installOfflineParsingDictionaries = vi.fn(async () => undefined);
+        const installOfflineDictionaries = vi.spyOn(internals.offlineDictionaries, 'run');
 
         const initializing = app.init({ showWelcome: true });
         await vi.waitFor(() => {
@@ -172,7 +172,7 @@ describe('ReaderApp core startup', () => {
         expect(hostClick).toHaveBeenCalledOnce();
         expect(dictionaryRefresh).not.toHaveBeenCalled();
         expect(parse).not.toHaveBeenCalled();
-        expect(internals.installOfflineParsingDictionaries).not.toHaveBeenCalled();
+        expect(installOfflineDictionaries).not.toHaveBeenCalled();
         expect(internals.installFab).not.toHaveBeenCalled();
         expect(internals.setupAutoScan).not.toHaveBeenCalled();
         expect(internals.installSettingsStorageSubscription).not.toHaveBeenCalled();
@@ -209,7 +209,7 @@ describe('ReaderApp core startup', () => {
         const internals = app as unknown as StartupInternals;
         const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
 
-        expect(() => internals.applyReaderThemeClasses('dark')).not.toThrow();
+        expect(() => internals.hostTheme.applyClasses('dark')).not.toThrow();
 
         rootSpy.mockRestore();
     });

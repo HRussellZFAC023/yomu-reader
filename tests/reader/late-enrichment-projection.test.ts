@@ -4,6 +4,7 @@ import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers'
 import { applyTokensToTextNode, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { settleProjectionFrame } from './helpers/projection-frame';
 
 /**
  * A compact control renders its reading through the DETACHED channel: the
@@ -80,11 +81,6 @@ afterEach(() => {
     document.body.innerHTML = '';
 });
 
-const projectionFrame = async (): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 0));
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-};
-
 function projectedReadings(): string[] {
     return [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]')]
         .map(clone => clone.textContent ?? '');
@@ -104,7 +100,7 @@ describe('a reading enriched onto an in-place detached word', () => {
 
         const word = host.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(word.classList.contains('jpdb-reader-detached-reading-word')).toBe(true);
-        await projectionFrame();
+        await settleProjectionFrame();
         expect(projectedReadings()).toEqual([]);
 
         // The lookup resolves long after the projection pass settled.
@@ -113,7 +109,7 @@ describe('a reading enriched onto an in-place detached word', () => {
             card(READING),
             { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' },
         );
-        await projectionFrame();
+        await settleProjectionFrame();
 
         // The in-word copy is the data, never the paint.
         const source = word.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;

@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { activateWordWithPointer, GamepadOverlayController, type GamepadOverlayHandlers } from '../../src/gaming/renderer/gamepad-overlay';
+import {
+    activateWordWithPointer,
+    GamepadOverlayController,
+    gamingOcrWordTargets,
+    type GamepadOverlayHandlers,
+} from '../../src/gaming/renderer/gamepad-overlay';
 
 function makeWord(id: string, rect: { left: number; top: number; width: number; height: number }): HTMLElement {
     const word = document.createElement('span');
     word.className = 'jpdb-reader-word';
-    word.dataset.vid = id;
-    word.dataset.sid = '0';
+    word.dataset.yomuWord = 'true';
     word.textContent = id;
     // jsdom does not lay out, so pin the geometry the controller reads.
     word.getBoundingClientRect = () => ({
@@ -59,6 +63,23 @@ describe('activateWordWithPointer', () => {
         expect(click?.clientX).toBe(120);
         expect(click?.clientY).toBe(210);
         expect(click?.detail).toBe(1);
+    });
+});
+
+describe('gamingOcrWordTargets', () => {
+    it('finds private reader-owned OCR words without exposing card IDs', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+            <div data-ocr-line>
+                <span class="jpdb-reader-word" data-yomu-word="true">冒険</span>
+                <span class="jpdb-reader-word">unowned</span>
+            </div>
+            <div><span class="jpdb-reader-word" data-yomu-word="true">outside OCR</span></div>
+        `;
+        const privateOcrWord = root.querySelector<HTMLElement>('[data-ocr-line] [data-yomu-word="true"]')!;
+
+        expect(privateOcrWord.getAttributeNames().filter(name => name.startsWith('data-'))).toEqual(['data-yomu-word']);
+        expect(gamingOcrWordTargets(root)).toEqual([privateOcrWord]);
     });
 });
 

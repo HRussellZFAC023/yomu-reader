@@ -28,7 +28,8 @@ import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from 
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
-import { DictionaryStyleController } from '../sources/styles';
+import { createReaderDictionaryStyleController } from '../sources/styles';
+import { OfflineDictionarySetupController } from '../dictionaries/offline-setup-controller';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterManagedServiceWorkers } from '../app/storage';
 import { ImmersionKitClient } from '../immersion/kit';
@@ -52,7 +53,7 @@ import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '.
 import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { kanjiFrequencyRanks } from '../cards/frequency-ranks';
-import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
+import { runJitenKanjiWordsAction, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
@@ -296,8 +297,6 @@ export class NewTabRuntime {
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private newTab?: NewTabController;
-    private offlineDictionarySetupInFlight = false;
-
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiCompanion = yomuKanjiStudyCompanion();
@@ -385,12 +384,17 @@ export class NewTabRuntime {
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private externalRefreshController?: AbortController;
-    private dictionaryStyles = new DictionaryStyleController({
-        loadCss: () => this.settings.localDictionariesEnabled
-            ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences)
-            : Promise.resolve(''),
-        onUnavailable: error => log.warn('Dictionary styles unavailable', error),
+    private offlineDictionaries = new OfflineDictionarySetupController({
+        dictionaries: this.dictionaries,
+        getSettings: () => this.settings,
+        applySettings: async settings => {
+            this.settings = settings;
+            await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+        },
+        notify: message => this.toast(message),
+        afterInstalled: () => this.refreshDictionaryStyles(),
     });
+    private dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, preferences => this.dictionaries.dictionaryStyleCss(preferences), error => log.warn('Dictionary styles unavailable', error));
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
@@ -489,7 +493,7 @@ export class NewTabRuntime {
     });
 
     private settingsDialog = new SettingsDialogController({
-        getSettings: () => this.settings,
+        getSettings: () => this.settings, saveSettings,
         setSettings: (settings, options) => {
             const nextSettings = this.settingsDialogTargetChoice(settings, options?.transient === true);
             this.settings = nextSettings;
@@ -593,7 +597,7 @@ export class NewTabRuntime {
             showSettings: panel => this.showSettings(panel),
             parseJapanese: panel => void this.parseNewTabContent(panel),
             lookupText: (text, sentence, anchor) => void this.lookupText(text, sentence || text, anchor, { stackOverSettings: true }),
-            installOfflineDictionaries: () => void this.installOfflineDictionaries(),
+            installOfflineDictionaries: () => void this.offlineDictionaries.run(),
             onComplete: settings => this.applyRemoteSettings(settings),
             onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
         });
@@ -640,30 +644,6 @@ export class NewTabRuntime {
         this.syncRuntimeTarget(previousSettings);
         this.applyTheme(previousSettings);
         this.applyWordColors(previousSettings);
-    }
-
-    private async installOfflineDictionaries(): Promise<void> {
-        if (this.offlineDictionarySetupInFlight) return;
-        const installOfflineParsingDictionaries =
-            yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
-        if (!installOfflineParsingDictionaries) return;
-        this.offlineDictionarySetupInFlight = true;
-        try {
-            const result = await installOfflineParsingDictionaries({
-                dictionaries: this.dictionaries,
-                getSettings: () => this.settings,
-                applySettings: async settings => {
-                    this.settings = settings;
-                    await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-                },
-                onProgress: message => this.toast(message),
-            });
-            if (result.installed.length) await this.refreshDictionaryStyles();
-            if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupFailed'));
-            else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupComplete'));
-        } finally {
-            this.offlineDictionarySetupInFlight = false;
-        }
     }
 
     private assertSessionVocabularyReadOnly(): void {
@@ -1403,7 +1383,7 @@ export class NewTabRuntime {
             'card-ui': () => this.toggleMiningControls(button),
             'card-action': command => { if (command.action === 'copy-word') void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord'))); else if (command.action === 'grade') this.gradeLookupFromButton(button, command, card, sentence); },
             'kanji-word': command => { void this.lookupText(command.expression, command.reading || command.expression, button, { navigation: 'push-current', reuseActivePopover: true, userGesture: true }); },
-            'jiten-kanji-words': command => { void (command.action === 'more' ? this.loadMoreJitenKanjiWords(button) : this.filterJitenKanjiWords(button)); },
+            'jiten-kanji-words': command => { void runJitenKanjiWordsAction(button, command.action, this.jitenKanjiWordsActionContext()); },
         });
     }
 
@@ -1428,16 +1408,6 @@ export class NewTabRuntime {
             afterRender: () => this.repositionLookupPopover(),
             onError: (details, error) => log.warn('Jiten kanji words lookup failed', details, error),
         };
-    }
-
-    private async loadMoreJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
-        const context = this.jitenKanjiWordsActionContext();
-        if (context) await loadMoreSharedJitenKanjiWords(button, context);
-    }
-
-    private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
-        const context = this.jitenKanjiWordsActionContext();
-        if (context) await filterSharedJitenKanjiWords(button, context);
     }
 
     private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupTarget.currentRenderRequest()): Promise<void> {

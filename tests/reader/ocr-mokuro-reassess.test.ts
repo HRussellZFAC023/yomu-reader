@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import type { ReaderSettings } from '../../src/reader/app/types';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
+import { ocrToken as token } from './helpers/japanese-token-fixtures';
 import { waitForExpect } from './test-utils';
 import { privateRasterImageForHost } from '../../src/reader/ocr/private-raster-presenter';
 
@@ -15,15 +16,6 @@ import { privateRasterImageForHost } from '../../src/reader/ocr/private-raster-p
 // reader has already painted: auto-painted ones are dropped (so they stop
 // competing with mokuro's text boxes — the reported bug), but a panel the user
 // scanned by hand is kept, and turning mokuro OCR off starts a fresh scan.
-
-function token(sentence: string): JPDBToken {
-    const card: JPDBCard = {
-        vid: 1, sid: 1, rid: 1, spelling: '日本語', reading: 'にほんご', frequencyRank: 1,
-        partOfSpeech: ['n'], meanings: [], cardState: ['not-in-deck'], pitchAccent: [],
-        wordWithReading: null,
-    };
-    return { card, start: 0, end: 3, length: 3, rubies: [], pitchClass: 'unknown', sentence };
-}
 
 function makeImage(src: string): HTMLImageElement {
     const image = document.createElement('img');

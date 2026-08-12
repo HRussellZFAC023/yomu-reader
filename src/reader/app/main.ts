@@ -1,5 +1,5 @@
 import { AudioPlayer } from '../audio/player';
-import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './pages';
+import { isYomuHostedAppUrl } from './pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
 import { renderReviewButtons } from '../anki/render';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
@@ -34,7 +34,8 @@ import {
 import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL } from './constants';
 import { publishSettingsChange as publishPrivateSettingsChange, subscribeToSettingsChanges } from '../settings/settings-change-bus';
 import { DictionarySourceStateController } from '../sources/state';
-import { DictionaryStyleController } from '../sources/styles';
+import { createReaderDictionaryStyleController } from '../sources/styles';
+import { OfflineDictionarySetupController } from '../dictionaries/offline-setup-controller';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
 import {
     annotationScopeRoots,
@@ -307,7 +308,6 @@ import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
-import { documentBackgroundLooksDark } from '../dom/page-background';
 import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
 import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
@@ -362,7 +362,6 @@ import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
 import { WanikaniSourceController } from '../wanikani/wanikani-source';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
-import { applyHostTheme, detectHostTheme, isHostThemeAuthoritative, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
 import { showReaderToast } from '../ui/toast';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
@@ -433,8 +432,6 @@ import {
     knownStateBackfillSurface,
     knownStateBackfillCardForSurface,
     manualScrollReaderBody,
-    HOST_THEME_ENFORCE_STEPS,
-    HOST_THEME_ENFORCE_STEP_MS,
     MINING_PAUSE_REASSERT_WINDOW_MS,
     BUNPRO_WORD_STATE_WARMUP_DELAY_MS,
     KNOWN_STATE_BACKFILL_DELAY_MS,
@@ -468,6 +465,7 @@ import {
     type PageAddonParseState,
     type MountedCardCompletionContext,
 } from './main-runtime-support';
+import { HostThemeController } from './host-theme-controller';
 
 const log = Logger.scope('ReaderApp');
 
@@ -479,8 +477,16 @@ export class ReaderApp {
     private pageOwnedLearningTargetActive = false;
     private targetOwnedCoreInstalled = false;
     private readonly topLevelTargetLifecycle = new TopLevelTargetLifecycle();
-    private disposeHostThemeObserver?: () => void;
-    private hostThemeEnforceTimer?: number;
+    private hostTheme = new HostThemeController({
+        getSettings: () => this.settings,
+        adoptTheme: theme => {
+            this.settings = { ...this.settings, theme };
+            void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+            return this.settings;
+        },
+        publishThemeChange: () => this.publishThemeSettingsChange(),
+        isDestroyed: () => this.isDestroyed,
+    });
     private themeContrastRefreshFrame?: number;
     private themeContrastRefreshTimer?: number;
     private cardHydrationRenderPasses = new WeakMap<CardPopoverHydrationContext['state'], ReturnType<typeof createPostPaintPass>>();
@@ -493,7 +499,7 @@ export class ReaderApp {
         document.querySelectorAll<HTMLInputElement>('input[name="immersionKitRevealTranslationOnClick"]').forEach(input => {
             input.checked = blurred;
         });
-        void saveSettings(this.settings, { explicitUserChoiceKeys: ['immersionKitRevealTranslationOnClick'] });
+        void this.persistSettings(this.settings, { explicitUserChoiceKeys: ['immersionKitRevealTranslationOnClick'] });
     };
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -619,11 +625,19 @@ export class ReaderApp {
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
     });
-    private dictionaryStyles = new DictionaryStyleController({
-        loadCss: () => this.settings.localDictionariesEnabled
-            ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences)
-            : Promise.resolve(''),
-        onUnavailable: error => log.warn('Dictionary styles unavailable', error),
+    private dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, preferences => this.dictionaries.dictionaryStyleCss(preferences), error => log.warn('Dictionary styles unavailable', error));
+    private offlineDictionaries = new OfflineDictionarySetupController({
+        dictionaries: this.dictionaries,
+        getSettings: () => this.settings,
+        applySettings: async settings => {
+            this.settings = settings;
+            await this.persistSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+        },
+        notify: message => this.toast(message),
+        afterInstalled: async () => {
+            await this.refreshDictionaryStyles();
+            this.scheduleDictionaryRescan();
+        },
     });
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
@@ -666,7 +680,7 @@ export class ReaderApp {
         invalidateCardData: () => this.cardRenderData.clear(),
         setApiGradingProvider: provider => {
             this.settings.apiGradingProvider = provider;
-            void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+            void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
         },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => {
@@ -1019,15 +1033,14 @@ export class ReaderApp {
     private suppressLinkContextMenuUntil = 0;
     private suppressMiddleAuxClickUntil = 0;
 
-    constructor() {
+    constructor(private readonly persistSettings: typeof saveSettings = saveSettings, private readonly observesSettingsStorage = true) {
         configureLogger({ settingsProvider: () => this.settings });
     }
-
     private createOnboardingController() {
         const Controller = yomuOnboardingController();
         if (!Controller) return undefined;
         return new Controller({
-            getSettings: () => this.settings,
+            getSettings: () => this.settings, saveSettings: (settings, options) => this.persistSettings(settings, options),
             setSettings: settings => {
                 const previous = this.settings;
                 this.settings = settings;
@@ -1038,7 +1051,7 @@ export class ReaderApp {
             showSettings: panel => this.showSettings(panel),
             parseJapanese: panel => void this.parseOnboardingJapanese(panel),
             lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
-            installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
+            installOfflineDictionaries: () => void this.offlineDictionaries.run(),
             onComplete: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
             onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
         });
@@ -1064,7 +1077,7 @@ export class ReaderApp {
             gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
             toast: message => this.toast(message),
             onTranscriptPanelClosed: () => this.scheduleVisiblePageRescan(),
-            onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void saveSettings(this.settings, {
+            onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void this.persistSettings(this.settings, {
                 explicitUserChoiceKeys,
                 clearExplicitUserChoiceKeys,
             }),
@@ -1214,9 +1227,16 @@ export class ReaderApp {
     private installTargetOwnedCoreSurfaces(): void {
         if (this.targetOwnedCoreInstalled) return;
         this.targetOwnedCoreInstalled = true;
+        this.installTargetOwnedStorageSurfaces();
+        if (!this.embeddedFrame) this.installTopLevelCoreSurfaces();
+    }
+
+    private installTargetOwnedStorageSurfaces(): void {
         void this.refreshDictionaryStyles();
-        this.installSettingsStorageSubscription();
-        if (this.embeddedFrame) return;
+        if (this.observesSettingsStorage) this.installSettingsStorageSubscription();
+    }
+
+    private installTopLevelCoreSurfaces(): void {
         this.registerMenuCommands();
         this.bindEvents();
         this.disposeJpdbReviewBridge?.();
@@ -1317,7 +1337,7 @@ export class ReaderApp {
         await this.bunproCompanion?.installBunproFrontendTokenImporter({
             getSettings: () => this.settings,
             setSettings: settings => { this.settings = settings; },
-            saveSettings,
+            saveSettings: (settings, options) => this.persistSettings(settings, options),
             toast: message => this.toast(message),
             language: () => this.settings.interfaceLanguage,
         });
@@ -1494,7 +1514,7 @@ export class ReaderApp {
         registerReaderMenuCommands({
             cycleOcr: () => this.cycleOcrMode(),
             getSettings: () => this.settings,
-            saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
+            saveSettings: (settings, explicitUserChoiceKeys) => this.persistSettings(settings, { explicitUserChoiceKeys }),
             installFloatingButton: () => this.installFab(),
             showSettings: () => this.showSettings(),
             toggleAnnotations: () => this.toggleAnnotationsPaused(),
@@ -1523,7 +1543,7 @@ export class ReaderApp {
         this.youtube.refresh();
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
         try {
-            await saveSettings(this.settings, {
+            await this.persistSettings(this.settings, {
                 explicitUserChoiceKeys: ['youtubeImmersionEnabled', 'youtubeImmersionEnabledChosen'],
             });
         } catch (error) {
@@ -1545,7 +1565,7 @@ export class ReaderApp {
 
     private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
         this.settings.youtubeShowFilterNotice = visible;
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['youtubeShowFilterNotice'] });
+        await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['youtubeShowFilterNotice'] });
         this.youtube.refresh();
     }
 
@@ -1557,7 +1577,7 @@ export class ReaderApp {
         const previous = this.settings.preferJapaneseSiteLanguage;
         if (previous === enabled) return;
         this.settings.preferJapaneseSiteLanguage = enabled;
-        const save = saveSettings(this.settings, {
+        const save = this.persistSettings(this.settings, {
             persistPreferredJapaneseSiteLanguage: true,
             explicitUserChoiceKeys: ['preferJapaneseSiteLanguage'],
         });
@@ -1578,7 +1598,7 @@ export class ReaderApp {
     private async setYoutubeChannelRecommendationsVisible(visible: boolean): Promise<void> {
         this.settings.youtubeShowChannelRecommendations = visible;
         this.settings.youtubeShowChannelRecommendationsChosen = true;
-        await saveSettings(this.settings, {
+        await this.persistSettings(this.settings, {
             explicitUserChoiceKeys: [
                 'youtubeShowChannelRecommendations',
                 'youtubeShowChannelRecommendationsChosen',
@@ -1590,7 +1610,7 @@ export class ReaderApp {
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
         if (this.settings.interfaceLanguage === language) return;
         this.settings.interfaceLanguage = language;
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['interfaceLanguage'] });
+        await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['interfaceLanguage'] });
         this.settingsDialog?.refreshLanguage(language);
         this.clearHostedPageReaderWords();
         this.installFab();
@@ -1669,7 +1689,7 @@ export class ReaderApp {
 
     private applyTheme(settings = this.settings): void {
         applyReaderTheme(settings);
-        this.syncHostTheme(settings);
+        this.hostTheme.sync(settings);
         refreshReaderWordContrast(document);
         this.scheduleDeferredThemeContrastRefresh();
     }
@@ -1680,100 +1700,15 @@ export class ReaderApp {
         this.themeContrastRefreshFrame = window.requestAnimationFrame(() => {
             this.themeContrastRefreshFrame = undefined;
             if (this.isDestroyed) return;
-            if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
+            this.hostTheme.refreshAmbient(this.settings);
             refreshReaderWordContrast(document);
             this.themeContrastRefreshTimer = window.setTimeout(() => {
                 this.themeContrastRefreshTimer = undefined;
                 if (this.isDestroyed) return;
-                if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
+                this.hostTheme.refreshAmbient(this.settings);
                 refreshReaderWordContrast(document);
             }, 80);
         });
-    }
-
-    private initHostThemeSync(): void {
-        if (this.disposeHostThemeObserver || !isThemeSyncHost()) return;
-        this.disposeHostThemeObserver = observeHostTheme(theme => this.handleHostThemeChange(theme));
-    }
-
-    private syncHostTheme(settings = this.settings): void {
-        if (!isThemeSyncHost()) {
-            this.applyAmbientReaderThemeClasses(settings);
-            return;
-        }
-        this.initHostThemeSync();
-        window.clearTimeout(this.hostThemeEnforceTimer);
-        if (isYomuHostedPassivePage(location.href)) {
-            const theme = settings.theme === 'auto' ? detectHostTheme() : settings.theme;
-            applyHostTheme(theme);
-            this.applyReaderThemeClasses(theme);
-            return;
-        }
-        if (isHostThemeAuthoritative()) {
-            const hostTheme = detectHostTheme();
-            this.applyReaderThemeClasses(hostTheme);
-            if (settings !== this.settings || this.settings.theme === 'auto' || this.settings.theme === hostTheme) return;
-            this.settings = { ...this.settings, theme: hostTheme };
-            void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-            this.publishThemeSettingsChange();
-            return;
-        }
-        if (settings.theme === 'auto') this.applyReaderThemeClasses(detectHostTheme());
-        else this.enforceHostTheme(settings.theme, HOST_THEME_ENFORCE_STEPS);
-    }
-
-    private enforceHostTheme(theme: HostTheme, remaining: number): void {
-        applyHostTheme(theme);
-        if (remaining <= 0 || this.isDestroyed) return;
-        this.hostThemeEnforceTimer = window.setTimeout(() => this.enforceHostTheme(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
-    }
-
-    // theme:'auto' on ordinary hosts used to fall through to the
-    // prefers-color-scheme media query, which desktop shells can report as
-    // light while painting a dark page — popover/settings chrome then rendered
-    // white-on-dark. Resolve auto from the page's real paint instead, agreeing
-    // with the per-word contrast detection.
-    private applyAmbientReaderThemeClasses(settings: ReaderSettings): void {
-        if (settings.theme === 'dark' || settings.theme === 'light') return;
-        this.applyReaderThemeClasses(documentBackgroundLooksDark() ? 'dark' : 'light');
-    }
-
-    private applyReaderThemeClasses(theme: HostTheme): void {
-        const root = document.documentElement;
-        if (!root) return;
-        if (root.classList.contains('jpdb-reader-theme-dark') !== (theme === 'dark')) {
-            root.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
-        }
-        if (root.classList.contains('jpdb-reader-theme-light') !== (theme === 'light')) {
-            root.classList.toggle('jpdb-reader-theme-light', theme === 'light');
-        }
-    }
-
-    private handleHostThemeChange(hostTheme: HostTheme): void {
-        if (this.isDestroyed) return;
-        const setting = this.settings.theme;
-        if (isYomuHostedPassivePage(location.href)) {
-            const theme = setting === 'auto' ? hostTheme : setting;
-            applyHostTheme(theme);
-            this.applyReaderThemeClasses(theme);
-            refreshReaderWordContrast(document);
-            return;
-        }
-        if (setting === hostTheme) return;
-        if ((setting === 'light' || setting === 'dark') && jitenThemeCookieMatches(setting)) {
-            applyHostTheme(setting);
-            return;
-        }
-        if (setting === 'auto') {
-            this.applyReaderThemeClasses(hostTheme);
-            refreshReaderWordContrast(document);
-            return;
-        }
-        this.settings = { ...this.settings, theme: hostTheme };
-        void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-        applyReaderTheme(this.settings);
-        refreshReaderWordContrast(document);
-        this.publishThemeSettingsChange();
     }
 
     private applyPreferredJapaneseSiteLanguage(
@@ -1842,36 +1777,6 @@ export class ReaderApp {
 
     private async refreshDictionaryStyles(): Promise<void> {
         await this.dictionaryStyles.refresh();
-    }
-
-    private offlineDictionarySetupInFlight = false;
-
-    // Onboarding closes before setup starts, so keep its download/import progress visible.
-    private async installOfflineParsingDictionaries(): Promise<void> {
-        if (this.offlineDictionarySetupInFlight) return;
-        const installOfflineParsingDictionaries =
-            yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
-        if (!installOfflineParsingDictionaries) return;
-        this.offlineDictionarySetupInFlight = true;
-        try {
-            const result = await installOfflineParsingDictionaries({
-                dictionaries: this.dictionaries,
-                getSettings: () => this.settings,
-                applySettings: async settings => {
-                    this.settings = settings;
-                    await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-                },
-                onProgress: message => this.toast(message),
-            });
-            if (result.installed.length) {
-                await this.refreshDictionaryStyles();
-                this.scheduleDictionaryRescan();
-            }
-            if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupFailed'));
-            else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupComplete'));
-        } finally {
-            this.offlineDictionarySetupInFlight = false;
-        }
     }
 
     private clearBridgeBackedCaches(): void {
@@ -2488,7 +2393,7 @@ export class ReaderApp {
     private installFab(): void {
         this.floatingButton.install(
             this.settings,
-            () => void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
+            () => void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
             {
                 openSettings: () => this.showSettings(),
                 openStudyPage: () => this.openStudyPage(),
@@ -2514,7 +2419,7 @@ export class ReaderApp {
     // Re-init so disabling detaches an already-bound video.
     private async toggleAutoSubtitles(): Promise<void> {
         this.settings.subtitleAutoDetect = !this.settings.subtitleAutoDetect;
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['subtitleAutoDetect'] });
+        await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['subtitleAutoDetect'] });
         this.subtitles.destroy();
         this.subtitles.init();
     }
@@ -2531,16 +2436,25 @@ export class ReaderApp {
         this.settings.annotationsPaused = paused;
         if (changed) this.applyAnnotationsPausedState();
         try {
-            await saveSettings(this.settings, {
-                explicitUserChoiceKeys: ['annotationsPaused'],
-            });
+            await this.persistAnnotationPauseChoice();
         } catch (error) {
-            this.settings.annotationsPaused = previous;
-            if (changed) this.applyAnnotationsPausedState();
-            this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
+            this.rollbackAnnotationPauseChoice(previous, changed);
             throw error;
         }
-        if (!changed) return;
+        if (changed) this.toastAnnotationPauseChoice(paused);
+    }
+
+    private persistAnnotationPauseChoice(): Promise<void> {
+        return this.persistSettings(this.settings, { explicitUserChoiceKeys: ['annotationsPaused'] });
+    }
+
+    private rollbackAnnotationPauseChoice(previous: boolean, changed: boolean): void {
+        this.settings.annotationsPaused = previous;
+        if (changed) this.applyAnnotationsPausedState();
+        this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
+    }
+
+    private toastAnnotationPauseChoice(paused: boolean): void {
         this.toast(uiText(this.settings.interfaceLanguage, paused ? 'annotationsPausedToast' : 'annotationsResumedToast'));
     }
 
@@ -2585,7 +2499,7 @@ export class ReaderApp {
         // Unmuting from a fully-off mode needs a playing mode again, otherwise
         // settings normalization forces autoPlayAudio back to false.
         if (!enabled && this.settings.audioAutoPlayMode === 'off') this.settings.audioAutoPlayMode = 'all';
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['autoPlayAudio', 'audioAutoPlayMode'] });
+        await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['autoPlayAudio', 'audioAutoPlayMode'] });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
     }
 
@@ -2622,7 +2536,7 @@ export class ReaderApp {
     private async applyFuriganaMode(mode: ReaderSettings['furiganaMode']): Promise<void> {
         this.settings.showFurigana = this.settings.showFurigana || mode !== 'off';
         this.settings.furiganaMode = mode;
-        await saveSettings(this.settings, {
+        await this.persistSettings(this.settings, {
             explicitUserChoiceKeys: ['showFurigana', 'furiganaMode', 'puckFuriganaModeBeforeHide'],
         });
         this.clearAllAnnotations();
@@ -2636,7 +2550,7 @@ export class ReaderApp {
     private async cycleOcrMode(): Promise<void> {
         const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
         applyOcrInteractionMode(this.settings, nextMode);
-        await saveSettings(this.settings, { explicitUserChoiceKeys: ['ocrEnabled', 'ocrAutoScanImages'] });
+        await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['ocrEnabled', 'ocrAutoScanImages'] });
         this.ocr.refreshForModeChange();
         this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
     }
@@ -2671,6 +2585,19 @@ export class ReaderApp {
 
     destroy(options: ReaderAppDestroyOptions = {}): void {
         this.isDestroyed = true;
+        this.destroySubscriptions();
+        this.destroyScanningInfrastructure();
+        this.destroyReaderServices();
+        this.clearReaderRuntimeWork();
+        this.destroyReaderSurfaces(options);
+    }
+
+    private destroySubscriptions(): void {
+        this.destroyIntegrationSubscriptions();
+        this.destroyStateSubscriptions();
+    }
+
+    private destroyIntegrationSubscriptions(): void {
         this.disposeMokuroOcrToggleWatch?.();
         this.disposeMokuroOcrToggleWatch = undefined;
         // Tear down the jpdb.io/review page bridge (observer + heartbeat +
@@ -2678,15 +2605,20 @@ export class ReaderApp {
         // real tab close/navigation, not a same-window destroy+re-init.
         this.disposeJpdbReviewBridge?.();
         this.disposeJpdbReviewBridge = undefined;
+    }
+
+    private destroyStateSubscriptions(): void {
         this.unsubscribeCardStateSignals?.();
         this.unsubscribeCardStateSignals = undefined;
         this.unsubscribeSettingsStorageChanges?.();
         this.unsubscribeSettingsStorageChanges = undefined;
+    }
+
+    private destroyScanningInfrastructure(): void {
         this.pageScanner.destroy?.();
         this.factoryReset.destroy();
         this.abortController.abort();
-        this.disposeHostThemeObserver?.();
-        window.clearTimeout(this.hostThemeEnforceTimer);
+        this.hostTheme.destroy();
         window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
         window.clearTimeout(this.themeContrastRefreshTimer);
         document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
@@ -2703,11 +2635,17 @@ export class ReaderApp {
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
         this.activePlainSubtitleHoverSurface = undefined;
+    }
+
+    private destroyReaderServices(): void {
         this.ocr.destroy();
         this.subtitles.destroy();
         this.youtube.destroy();
         this.anki.destroy?.();
         this.audio.destroy?.();
+    }
+
+    private clearReaderRuntimeWork(): void {
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = false;
         window.clearTimeout(this.asbScanTimer);
@@ -2747,7 +2685,9 @@ export class ReaderApp {
         this.pendingHoverPointerMove = undefined;
         this.activePopoverResizeObserver?.disconnect();
         this.nativeTitleGuard.restore();
-        
+    }
+
+    private destroyReaderSurfaces(options: ReaderAppDestroyOptions): void {
         this.floatingButton.destroy();
         // If we tear down (e.g. a re-boot) while settings is open, release the
         // aria-hidden/inert it placed on the page so the next instance isn't inert.
@@ -2759,7 +2699,6 @@ export class ReaderApp {
         if (!options.preservePageWords) {
             this.clearAllAnnotations();
         }
-        
         this.dictionaryStyles.remove();
         document.querySelectorAll('[data-jpdb-reader-root]').forEach(el => el.remove());
     }
@@ -3178,7 +3117,7 @@ export class ReaderApp {
             showSettings: panel => this.showSettings(panel),
             setInterfaceLanguage: language => this.setInterfaceLanguage(language),
             applyTheme: () => this.applyTheme(),
-            saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
+            saveSettings: (settings, explicitUserChoiceKeys) => this.persistSettings(settings, { explicitUserChoiceKeys }),
             clearBridgeCaches: () => this.clearBridgeBackedCaches(),
         }, this.abortController.signal);
         subscribeToSettingsChanges(() => {
@@ -3934,7 +3873,7 @@ export class ReaderApp {
         event.preventDefault();
         this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
         this.settings.subtitleOverlayVisibleChosen = true;
-        void saveSettings(this.settings, {
+        void this.persistSettings(this.settings, {
             explicitUserChoiceKeys: ['subtitleOverlayVisible', 'subtitleOverlayVisibleChosen'],
         });
         this.subtitles.refresh();
@@ -9694,6 +9633,7 @@ export class ReaderApp {
                 if (transient) return;
                 this.applyDialogSettingsTransitions(previous, nextSettings, pauseChanged);
             },
+            saveSettings: (settings, options) => this.persistSettings(settings, options),
             onSettingsPersisted: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
             onSettingsPersistenceFailed: settings => this.failPreferredJapaneseSiteLanguageSave(settings),
             jpdb: this.jpdb,

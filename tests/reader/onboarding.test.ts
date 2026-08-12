@@ -293,9 +293,11 @@ describe('OnboardingController', () => {
     });
 
     it('keeps first-run dictionary progress visible in Reader and Study after onboarding closes', () => {
+        const controller = readFileSync('src/reader/dictionaries/offline-setup-controller.ts', 'utf8');
+        expect(controller).toContain('onProgress: this.options.notify');
         for (const sourcePath of ['src/reader/app/main.ts', 'src/reader/newtab/runtime.ts']) {
             const source = readFileSync(sourcePath, 'utf8');
-            expect(source).toContain('onProgress: message => this.toast(message)');
+            expect(source).toContain('notify: message => this.toast(message)');
         }
     });
 

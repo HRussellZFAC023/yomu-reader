@@ -7468,10 +7468,10 @@ const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
 const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = "yomu:srs-local:v2:tombstone:";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
 class ManagedStateResetError extends Error {
-  yomuUiCopyKey = "factoryResetStorageIncomplete";
   epochMayHaveCommitted;
   constructor(diagnostic, options = {}, epochMayHaveCommitted = false) {
   super(diagnostic, options);
+  Object.assign(this, { yomuUiCopyKey: "factoryResetStorageIncomplete" });
   this.name = "ManagedStateResetError";
   this.epochMayHaveCommitted = epochMayHaveCommitted;
   }
@@ -67915,7 +67915,7 @@ ${glossaryKey}`;
     async saveCurrentSettings(previousSettings) {
       const settings = this.settings;
       try {
-        await saveSettings(settings, {
+        await this.dependencies.saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
           explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
@@ -68799,7 +68799,7 @@ ${glossaryKey}`;
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
       this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-      await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
     async enqueueDictionaryOperation(form, task) {
       this.pendingDictionaryOperations++;
@@ -69557,7 +69557,7 @@ ${glossaryKey}`;
       this.dictionaryRefreshId++;
       await clearNewTabOfflineCache().catch(() => void 0);
       this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
+      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form);
@@ -69646,7 +69646,7 @@ ${glossaryKey}`;
         dictionaryPreferences
       );
       await markDictionaryReplicaFresh();
-      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
+      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
     }
@@ -70442,7 +70442,7 @@ ${glossaryKey}`;
       const intentBaseline = this.onboardingIntentBaseline(previousSettings);
       const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2);
       try {
-        await saveSettings(settings, {
+        await (this.options.saveSettings ?? saveSettings)(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
           // Every field the onboarding panel's own controls moved. It used to
           // declare only the 17 allowlisted keys, so a theme or hotkey chosen

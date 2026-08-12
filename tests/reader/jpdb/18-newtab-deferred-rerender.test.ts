@@ -99,6 +99,26 @@ function expectNotInDeckRenderedAnkiWord(word: HTMLElement): void {
     expect(renderedWordPrivateValue(word, 'ankiDecks')).toBeUndefined();
 }
 
+type AnkiCacheEnrichmentInternals = {
+    settings: typeof DEFAULT_SETTINGS;
+    anki: { findCachedStatusBatch: (cards: JPDBCard[]) => Promise<AnkiLookupResult[]> };
+    enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+};
+
+function configureAnkiCacheEnrichment(
+    app: ReaderApp,
+    findCachedStatusBatch: AnkiCacheEnrichmentInternals['anki']['findCachedStatusBatch'],
+): AnkiCacheEnrichmentInternals {
+    const internals = app as unknown as AnkiCacheEnrichmentInternals;
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        ankiEnabled: true,
+        wordTextColorSource: 'anki',
+    };
+    internals.anki = { findCachedStatusBatch };
+    return internals;
+}
+
 function deferredPopoverHarness(settings: Partial<typeof DEFAULT_SETTINGS> = {}) {
     const app = new ReaderApp();
     const lookupCard = testAozoraCard();
@@ -992,17 +1012,7 @@ describe('reader helpers', () => {
             notes: [],
             primary: null,
         }]);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
-            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: true,
-            wordTextColorSource: 'anki',
-        };
-        internals.anki = { findCachedStatusBatch };
+        const internals = configureAnkiCacheEnrichment(app, findCachedStatusBatch);
 
         try {
             await internals.enrichAnkiWords([token], [container]);
@@ -1042,17 +1052,7 @@ describe('reader helpers', () => {
             primary: null,
             trusted: false,
         }]);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
-            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: true,
-            wordTextColorSource: 'anki',
-        };
-        internals.anki = { findCachedStatusBatch };
+        const internals = configureAnkiCacheEnrichment(app, findCachedStatusBatch);
 
         try {
             await internals.enrichAnkiWords([token], [container]);

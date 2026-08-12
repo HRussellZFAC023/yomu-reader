@@ -10,7 +10,7 @@ import './styles.css';
 // the ADR-0003 registry; populate it like the other self-contained builds.
 import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
-import { bootReaderApp } from '../../reader/app/boot';
+import { bootReaderAppWithStartupSettings } from '../../reader/app/boot';
 import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
@@ -41,7 +41,8 @@ import {
 import type { OcrOverlayFrame } from '../../reader/ocr/ocr-overlay-geometry';
 import { captureShortcutLabel } from '../capture-shortcut';
 import { gamingWindowParkingHint } from '../lifecycle';
-import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
+import { activateWordWithPointer, GamepadOverlayController, gamingOcrWordTargets } from './gamepad-overlay';
+import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-cleanup';
 import {
     captureSelectionFromViewport,
     layoutOverlayOcrLines,
@@ -103,7 +104,6 @@ interface PreparedGamingCapture {
 }
 
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
-const READER_SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY = 'yomu-gaming-settings-snapshot-v1';
 const GAMING_PENDING_VIEW_STORAGE_KEY = 'yomu-gaming-pending-view-v1';
 const GAMING_PENDING_VIEW_MAX_AGE_MS = 15_000;
@@ -141,6 +141,7 @@ const EDITOR_ACTIONS = new Set([
     'lookup-link-down',
 ]);
 
+removeLegacyGamingReaderSettingsCopy();
 const bridge = window.yomuGaming ?? browserFallbackBridge();
 const appRoot = requireAppRoot();
 const overlayCaptureMode = currentOverlayCaptureMode();
@@ -1113,7 +1114,7 @@ class OverlaySelectionController {
     // The reader may render words either anchored in place (geometry OCR) or inside
     // the compact caption (text-only OCR). Both are valid gamepad targets.
     private gamepadWordTargets(): HTMLElement[] {
-        return Array.from(this.root.querySelectorAll<HTMLElement>('[data-ocr-line] .jpdb-reader-word[data-vid][data-sid]'));
+        return gamingOcrWordTargets(this.root);
     }
 
     // B mirrors Escape: close the reader popover if one is open, otherwise close the
@@ -1449,6 +1450,7 @@ export function installOverlayEscapeHandler(hideOverlay: () => Promise<void>): (
 }
 
 let overlayReaderBooted = false;
+let overlayReaderBootInFlight = false;
 
 // Boot the REAL Yomu reader AFTER the OCR text nodes are in the DOM, so its initial
 // page scan picks them up (the scanner runs once on boot; collectScanTargets already
@@ -1456,12 +1458,11 @@ let overlayReaderBooted = false;
 // onto the OCR'd words — the same code path Yomu uses on every page. Booting once is
 // enough: its mutation observer re-scans later captures.
 function ensureOverlayReader(): void {
-    if (overlayReaderBooted) return;
+    if (overlayReaderBooted || overlayReaderBootInFlight) return;
     const gaming = loadGamingSettings();
     if (!gaming.learningTargetChosen) return;
-    overlayReaderBooted = true;
-    persistOverlayReaderSettings(overlayReaderSettings(gaming));
-    bootOverlayReader();
+    overlayReaderBootInFlight = true;
+    bootOverlayReader(overlayReaderSettings(gaming));
 }
 
 function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
@@ -1482,21 +1483,20 @@ function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
     });
 }
 
-function persistOverlayReaderSettings(settings: ReaderSettings): void {
-    try {
-        localStorage.setItem(READER_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-        // A locked storage context just means the reader falls back to its defaults.
-    }
-}
-
-function bootOverlayReader(): void {
-    try {
-        bootReaderApp();
-    } catch (error) {
-        overlayReaderBooted = false;
-        console.warn('Yomu Gaming could not start the inline reader.', error);
-    }
+function bootOverlayReader(settings: ReaderSettings): void {
+    void Promise.resolve()
+        .then(() => bootReaderAppWithStartupSettings(settings))
+        .then(initialized => {
+            overlayReaderBooted = initialized;
+            if (!initialized) console.warn('Yomu Gaming could not start the inline reader.');
+        })
+        .catch(error => {
+            overlayReaderBooted = false;
+            console.warn('Yomu Gaming could not start the inline reader.', error);
+        })
+        .finally(() => {
+            overlayReaderBootInFlight = false;
+        });
 }
 
 function captureErrorResult(error: unknown): OverlayResult {
