@@ -797,12 +797,32 @@ import {
     documentPortalReaderWordScopeForSource,
     makeRoomForRubyInCroppedRows,
     readerWordSurfaceText,
+    renderedWordPrivateValue,
 } from './src/reader/dom/index.ts';
 import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
 
 const HAS_JAPANESE = /[\\u3040-\\u30ff\\u3400-\\u9fff]/u;
 const HAN_RE = /\\p{Script=Han}/u;
 const CONCRETE_PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka']);
+const PUBLIC_RENDERED_WORD_PRIVATE_ATTRIBUTES = new Set([
+    'data-vid',
+    'data-sid',
+    'data-card-source',
+    'data-card-id',
+    'data-reading-index',
+    'data-card-state',
+    'data-state-provenance',
+    'data-srs-provider',
+    'data-bunpro-state',
+    'data-bunpro-prefill-state',
+    'data-bunpro-prefill-provenance',
+    'data-anki-state',
+    'data-anki-decks',
+    'data-deck-member',
+    'data-deck-source',
+    'data-deck-names',
+    'data-yomu-private-token',
+]);
 let proofInitialized = false;
 let proofTargetSnapshots = [];
 let proofRubyRoomAdjustments = 0;
@@ -892,8 +912,13 @@ window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     if (proofTargetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
         failures.push('a visible Japanese scan target had no JPDB-shaped token match');
     }
-    if (renderedWords.some(word => (word.requiresRuby && !word.hasRuby && !word.rubySuppressed) || word.source !== 'jpdb' || !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) {
-        failures.push('at least one rendered word is missing ruby, JPDB source, or concrete pitch');
+    if (renderedWords.some(word => (
+        (word.requiresRuby && !word.hasRuby && !word.rubySuppressed)
+        || !word.privateJpdbIdentity
+        || word.publicPrivateAttributes.length > 0
+        || !CONCRETE_PITCH_CLASSES.has(word.pitchClass)
+    ))) {
+        failures.push('at least one rendered word is missing ruby, private JPDB card identity, or concrete pitch, or exposes private state in public DOM attributes');
     }
 
     const pass = failures.length === 0;
@@ -1135,7 +1160,11 @@ function auditProofTarget(element, vocabulary) {
     if (!words.length) failures.push('no rendered reader words');
     if (missingSurfaces.length) failures.push('missing rendered surfaces: ' + missingSurfaces.join(', '));
     if (!rubySuppressed && words.some(word => word.requiresRuby && !word.hasRuby)) failures.push('kanji-bearing rendered word without furigana');
-    if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
+    if (words.some(word => !word.privateJpdbIdentity)) failures.push('rendered word without coherent private JPDB card identity');
+    const leakedPrivateAttributes = [...new Set(words.flatMap(word => word.publicPrivateAttributes))].sort();
+    if (leakedPrivateAttributes.length) {
+        failures.push('rendered word exposes private state in public DOM attributes: ' + leakedPrivateAttributes.join(', '));
+    }
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
     if (missingProjectedReadingCount) failures.push(missingProjectedReadingCount + ' visible detached readings have no painted projection');
@@ -1203,7 +1232,7 @@ function auditProofTarget(element, vocabulary) {
         nativeAnnotationWordCount,
         wordCount: words.length,
         rubyWordCount: words.filter(word => word.hasRuby).length,
-        jpdbWordCount: words.filter(word => word.source === 'jpdb').length,
+        privateJpdbWordCount: words.filter(word => word.privateJpdbIdentity).length,
         pitchWordCount: words.filter(word => CONCRETE_PITCH_CLASSES.has(word.pitchClass)).length,
         clipped,
         rubyOutOfBounds,
@@ -1516,27 +1545,43 @@ function visibleTextMirror(element) {
 function renderedWordDetails(root, includeClampedTail = false) {
     const candidates = Array.from(root.querySelectorAll('.jpdb-reader-word'));
     const words = includeClampedTail ? candidates : candidates.filter(isAuditableReaderWord);
-    return words.map(word => ({
-        surface: readerWordSurfaceText(word).trim(),
-        text: compactText(word.textContent || ''),
-        requiresRuby: HAN_RE.test(readerWordSurfaceText(word).trim()),
-        hasRuby: Boolean(word.querySelector('rt, .jpdb-reader-detached-furi')),
-        rt: Array.from(word.querySelectorAll('rt, .jpdb-reader-detached-furi')).map(rt => rt.textContent || '').join('|'),
-        atRestVisible: isVisibleElement(word),
-        inClipHoverMirror: Boolean(word.closest('.jpdb-reader-clip-hover-mirror')),
-        passiveInteraction: word.classList.contains('jpdb-reader-passive-word'),
-        // A word may lack a reading ONLY when its target's scan plan says
-        // suppression fired, or a visible text mirror carries the reading for
-        // its host. "passive word without rt" alone is NOT suppression — that
-        // circular reading made the furigana check vacuous for passive words.
-        rubySuppressed: closestProofTargetSuppressesRuby(word)
-            || decorationSuppressesReaderWordRuby(word)
-            || (!word.querySelector('rt, .jpdb-reader-detached-furi') && hostMirrorCarriesReading(word)),
-        decoration: word.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') || '',
-        source: word.dataset.cardSource || '',
-        pitchClass: word.dataset.pitchClass || '',
-        className: word.className,
-    }));
+    return words.map(word => {
+        const privateVid = renderedWordPrivateValue(word, 'vid') || '';
+        const privateSid = renderedWordPrivateValue(word, 'sid') || '';
+        const privateSource = renderedWordPrivateValue(word, 'cardSource') || '';
+        const privateCardId = renderedWordPrivateValue(word, 'cardId') || '';
+        const privateReadingIndex = renderedWordPrivateValue(word, 'readingIndex') || '';
+        return {
+            surface: readerWordSurfaceText(word).trim(),
+            text: compactText(word.textContent || ''),
+            requiresRuby: HAN_RE.test(readerWordSurfaceText(word).trim()),
+            hasRuby: Boolean(word.querySelector('rt, .jpdb-reader-detached-furi')),
+            rt: Array.from(word.querySelectorAll('rt, .jpdb-reader-detached-furi')).map(rt => rt.textContent || '').join('|'),
+            atRestVisible: isVisibleElement(word),
+            inClipHoverMirror: Boolean(word.closest('.jpdb-reader-clip-hover-mirror')),
+            passiveInteraction: word.classList.contains('jpdb-reader-passive-word'),
+            // A word may lack a reading ONLY when its target's scan plan says
+            // suppression fired, or a visible text mirror carries the reading for
+            // its host. "passive word without rt" alone is NOT suppression — that
+            // circular reading made the furigana check vacuous for passive words.
+            rubySuppressed: closestProofTargetSuppressesRuby(word)
+                || decorationSuppressesReaderWordRuby(word)
+                || (!word.querySelector('rt, .jpdb-reader-detached-furi') && hostMirrorCarriesReading(word)),
+            decoration: word.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') || '',
+            privateJpdbIdentity: Boolean(
+                privateSource === 'jpdb'
+                && privateVid
+                && privateSid
+                && privateCardId === privateVid
+                && privateReadingIndex === privateSid
+            ),
+            publicPrivateAttributes: word.getAttributeNames()
+                .filter(name => PUBLIC_RENDERED_WORD_PRIVATE_ATTRIBUTES.has(name))
+                .sort(),
+            pitchClass: word.dataset.pitchClass || '',
+            className: word.className,
+        };
+    });
 }
 
 function isAuditableReaderWord(word) {
