@@ -296,6 +296,7 @@ export class NewTabRuntime {
     private activeBackdrop?: HTMLElement;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
+    private pendingOnboardingSettingsPanel?: string;
     private newTab?: NewTabController;
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -557,6 +558,7 @@ export class NewTabRuntime {
         this.assertSessionVocabularyReadOnly();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
+        this.openPendingOnboardingSettingsPanel();
         this.openRequestedSettingsPanel();
         void this.refreshDictionaryStyles();
         this.scheduleDictionaryIndexPreparation();
@@ -594,7 +596,7 @@ export class NewTabRuntime {
                 this.applyTheme(settings);
                 this.applyWordColors(settings);
             },
-            showSettings: panel => this.showSettings(panel),
+            showSettings: panel => { this.pendingOnboardingSettingsPanel = panel; },
             parseJapanese: panel => void this.parseNewTabContent(panel),
             lookupText: (text, sentence, anchor) => void this.lookupText(text, sentence || text, anchor, { stackOverSettings: true }),
             installOfflineDictionaries: () => void this.offlineDictionaries.run(),
@@ -890,6 +892,11 @@ export class NewTabRuntime {
 
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
+    }
+    private openPendingOnboardingSettingsPanel(): void {
+        const panel = this.pendingOnboardingSettingsPanel;
+        this.pendingOnboardingSettingsPanel = undefined;
+        if (panel) this.showSettings(panel);
     }
     private openRequestedSettingsPanel(): void {
         const panel = settingsPanelFromHash(location.hash);

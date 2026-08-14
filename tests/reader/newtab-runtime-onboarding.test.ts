@@ -155,6 +155,40 @@ describe('packaged Study welcome integration', () => {
         expect(calls).toEqual(['welcome', 'choose-target', 'render']);
     });
 
+    it('opens post-onboarding dictionary settings only after the first Study render', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        storeRuntimeSettings({
+            onboardingSeen: false,
+            learningTargetChosen: false,
+            localDictionariesEnabled: false,
+        });
+        const calls: string[] = [];
+        const { runtime, internals } = prepareOrderedRuntime(calls);
+        internals.settingsDialog = {
+            open: vi.fn((panel: string) => { calls.push(`settings:${panel}`); }),
+            resumePendingCloudSettingsSync: vi.fn(async () => undefined),
+        };
+
+        const initializing = runtime.init();
+        await vi.waitFor(() => {
+            expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')).not.toBeNull();
+        });
+        const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        targetLanguage.value = 'ja';
+        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')!.checked = false;
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
+
+        await initializing;
+
+        expect(calls).toEqual(['render', 'settings:dictionaries']);
+        expect(internals.settings).toMatchObject({ learningTargetChosen: true });
+        expect((internals.settings as typeof DEFAULT_SETTINGS).languageProfiles[0]?.targetLanguage).toBe('ja');
+        const storedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
+        expect(storedSettings.learningTargetChosen).toBe(true);
+        expect(storedSettings.languageProfiles[0]?.targetLanguage).toBe('ja');
+    });
+
     it('leaves fresh public Study inert when the chooser is dismissed', async () => {
         storeRuntimeSettings({
             onboardingSeen: false,
