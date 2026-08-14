@@ -434,14 +434,24 @@ describe('committed standalone hosted runtime consumers', () => {
         })).toThrow(/standalone surface scope/u);
     });
 
-    it('passes the hosted-player wait timeout as Playwright options, not the page argument', () => {
+    it('seeds an explicit hosted target before waiting for the target-owned player', () => {
         const source = readFileSync('scripts/feedback-smoke.mjs', 'utf8');
         const start = source.indexOf('async function openHostedVideoPlayer');
         const end = source.indexOf('async function assertHostedEmptyState', start);
         const openHostedVideoPlayer = source.slice(start, end);
-        expect(openHostedVideoPlayer).toMatch(/null,\s*\{ timeout: 6000 \},/u);
-        expect(openHostedVideoPlayer).toContain("selectOption('ja')");
-        expect(openHostedVideoPlayer).toContain('input[name="onboardingInstallOfflineDictionaries"]');
+        expect(source).toContain("initialize: 'ifMissing'");
+        expect(source).toContain('storagePrefix: GM_STORAGE_PREFIX');
+        expect(openHostedVideoPlayer).toContain('prepareHostedVideoPage(page, baseUrl)');
+        expect(openHostedVideoPlayer).toContain('globalThis.GM_setValue(key, settings)');
+        expect(openHostedVideoPlayer).toContain('globalThis.GM_getValue(key, {})');
+        expect(openHostedVideoPlayer).toContain('profileSchemaVersion: profile.schemaVersion');
+        expect(openHostedVideoPlayer).toContain('localSettingsAbsent: localStorage.getItem(key) === null');
+        expect(openHostedVideoPlayer).toContain('onboardingCount: document.querySelectorAll');
+        expect(openHostedVideoPlayer).toContain("runtimeOwnerKind === 'userscript'");
+        expect(openHostedVideoPlayer).toContain("installedRuntimeKind === 'userscript'");
+        expect(openHostedVideoPlayer).toContain('.jpdb-subtitle-player[data-language=');
+        expect(openHostedVideoPlayer).toMatch(/HOSTED_EXPECTED_TARGET,\s*\{ timeout: 6000 \},/u);
+        expect(openHostedVideoPlayer).not.toContain('select[name="targetLanguage"]');
     });
 });
 

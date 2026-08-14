@@ -26,7 +26,11 @@ const COMPANION_SCRIPT_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 const PUBLIC_DIR = path.join(ROOT, 'docs', 'public');
 const VIDEO_PLAYER_PATH = path.join(ROOT, 'docs', 'public', 'video-player', 'index.html');
 const SETTINGS_KEY = YOMU_SETTINGS_KEY;
+const GM_STORAGE_PREFIX = '__yomu_feedback_smoke_gm__:';
+const GM_SETTINGS_KEY = `${GM_STORAGE_PREFIX}${SETTINGS_KEY}`;
 const HOSTED_FIXTURE_ORIGIN = 'https://yomureader.com';
+const HOSTED_EXPECTED_TARGET = 'ja';
+const HOSTED_SETTINGS_AUTHORITY_PATH = '/feedback-settings-authority.html';
 const hostedFixturePages = new WeakSet();
 const JPDB_FONT_STACK = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
 const LANGUAGE_PROFILE_ID = 'feedback-smoke';
@@ -60,7 +64,7 @@ const baseSettings = {
         id: LANGUAGE_PROFILE_ID,
         outputLanguage: 'en',
         learnerLanguage: 'en',
-        targetLanguage: 'ja',
+        targetLanguage: HOSTED_EXPECTED_TARGET,
         uiLocale: 'en',
         parserProvider: 'auto',
         dictionaries: { installed: [], enabled: [], order: [] },
@@ -214,9 +218,21 @@ const readerFixtureHtml = `<!doctype html>
 </body>
 </html>`;
 
+const hostedSettingsAuthorityFixtureHtml = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Yomu hosted settings authority fixture</title>
+</head>
+<body data-hosted-settings-authority-fixture>
+  <p>Hosted settings authority fixture</p>
+</body>
+</html>`;
+
 const FEEDBACK_TEXT_ROUTES = new Map([
     ['/', { body: readerFixtureHtml, contentType: 'text/html; charset=utf-8' }],
     ['/reader-fixture.html', { body: readerFixtureHtml, contentType: 'text/html; charset=utf-8' }],
+    [HOSTED_SETTINGS_AUTHORITY_PATH, { body: hostedSettingsAuthorityFixtureHtml, contentType: 'text/html; charset=utf-8' }],
     // Both shapes, because the hosted site serves both and the site nav links
     // the directory form.
     ['/video-player/', { bodyPath: VIDEO_PLAYER_PATH, contentType: 'text/html; charset=utf-8' }],
@@ -275,7 +291,15 @@ function serveFeedbackNotFound(response) {
 
 async function newPage(browser, settings = baseSettings, viewport = { width: 1360, height: 900 }) {
     const page = await browser.newPage({ viewport });
-    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: settings,
+        storagePrefix: GM_STORAGE_PREFIX,
+        // A navigation creates a new bridge realm. Keep the same origin's
+        // userscript-owned settings authoritative so reopening the hosted player
+        // cannot replace compact-control changes with the initial fixture.
+        initialize: 'ifMissing',
+    });
     return page;
 }
 
@@ -569,6 +593,7 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await assertHostedThemeToggleResponsiveWithLoadedSubtitles(page);
     await assertHostedPausedVideoOcrDoesNotCoverPlayback(page);
     await openHostedVideoPlayer(page, baseUrl);
+    await assertHostedSubtitleSettingsRetainedAcrossReload(page, subtitleBottomOffset);
     await loadHostedVideoAndOpenTracks(page);
     await assertHostedTracksPanel(page);
     await loadPrimarySubtitleTrack(page);
@@ -592,34 +617,17 @@ async function verifyHostedFullscreenPausedOcrPrivacyMobile(page, baseUrl) {
 }
 
 async function openHostedVideoPlayer(page, baseUrl) {
-    await installHostedFixtureRoutes(page, baseUrl);
+    await prepareHostedVideoPage(page, baseUrl);
     await page.goto(`${HOSTED_FIXTURE_ORIGIN}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     try {
         await page.waitForFunction(
-            () => Boolean(window.__yomuReaderAppInitialized && (
-                document.querySelector('.jpdb-subtitle-player')
-                || document.querySelector('.jpdb-reader-onboarding')
-            )),
-            null,
+            expectedTarget => Boolean(window.__yomuReaderAppInitialized
+                && document.querySelector(`.jpdb-subtitle-player[data-language="${expectedTarget}"]`)),
+            HOSTED_EXPECTED_TARGET,
             { timeout: 6000 },
         );
-        const onboarding = page.locator('.jpdb-reader-onboarding');
-        if (await onboarding.count()) {
-            // Hosted file readers deliberately have no ambient language policy.
-            // This Japanese-subtitle fixture must make the same explicit choice
-            // as a fresh learner before target-owned player work can begin.
-            await onboarding.locator('select[name="targetLanguage"]').selectOption('ja');
-            const dictionaries = onboarding.locator('input[name="onboardingInstallOfflineDictionaries"]');
-            if (await dictionaries.isChecked()) await dictionaries.uncheck();
-            await onboarding.locator('[data-onboarding-action="api-key"]').click();
-            await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
-            await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
-        }
-        await page.waitForFunction(
-            () => Boolean(document.querySelector('.jpdb-subtitle-player')),
-            null,
-            { timeout: 6000 },
-        );
+        const boot = await readHostedVideoBootState(page);
+        assert(hostedVideoBootedFromExplicitTarget(boot), 'Hosted video player did not boot from the explicit target authority', boot);
     } catch (error) {
         const state = await page.evaluate(settingsKey => ({
             initialized: Boolean(window.__yomuReaderAppInitialized),
@@ -633,14 +641,128 @@ async function openHostedVideoPlayer(page, baseUrl) {
     }
 }
 
-async function installHostedFixtureRoutes(page, baseUrl) {
+async function prepareHostedVideoPage(page, baseUrl) {
     if (hostedFixturePages.has(page)) return;
-    hostedFixturePages.add(page);
     await page.route(`${HOSTED_FIXTURE_ORIGIN}/**`, async route => {
         const requested = new URL(route.request().url());
         const response = await route.fetch({ url: `${baseUrl}${requested.pathname}${requested.search}` });
         await route.fulfill({ response });
     });
+    // Enter the exact trusted production origin without loading any Reader
+    // runtime, then seed the learner's explicit schema-v2 choice through the
+    // harness's userscript-owned shared authority. The Reader runtime — not this
+    // fixture — must create the separate page-local startup mirror. Later
+    // navigations deliberately skip this block so player-side mutations remain.
+    await page.goto(`${HOSTED_FIXTURE_ORIGIN}${HOSTED_SETTINGS_AUTHORITY_PATH}`, { waitUntil: 'domcontentloaded' });
+    await page.evaluate(async ({ key, settings }) => {
+        if (typeof globalThis.GM_setValue !== 'function') throw new Error('Hosted GM settings authority is unavailable.');
+        await globalThis.GM_setValue(key, settings);
+    }, { key: SETTINGS_KEY, settings: baseSettings });
+    const seeded = await readHostedSettingsAuthorityState(page);
+    assert(hostedSettingsAuthorityReady(seeded), 'Hosted settings authority did not retain the explicit target fixture', seeded);
+    hostedFixturePages.add(page);
+}
+
+function activeBaseSettingsTarget() {
+    const profile = baseSettings.languageProfiles.find(candidate => candidate.id === baseSettings.activeLanguageProfileId);
+    return profile?.targetLanguage ?? '';
+}
+
+async function readHostedSettingsAuthorityState(page) {
+    const snapshot = await page.evaluate(async ({ key, gmKey }) => {
+        if (typeof globalThis.GM_getValue !== 'function') throw new Error('Hosted GM settings authority is unavailable.');
+        const sharedSettings = await globalThis.GM_getValue(key, {});
+        return {
+            origin: location.origin,
+            fixture: document.body.hasAttribute('data-hosted-settings-authority-fixture'),
+            runtimeFree: document.scripts.length === 0 && !document.getElementById('jpdb-reader-runtime-owner'),
+            separatedKeys: gmKey !== key,
+            sharedPhysicalKeyPresent: localStorage.getItem(gmKey) !== null,
+            localSettingsAbsent: localStorage.getItem(key) === null,
+            sharedSettings,
+        };
+    }, { key: SETTINGS_KEY, gmKey: GM_SETTINGS_KEY });
+    const { sharedSettings, ...state } = snapshot;
+    return { ...state, shared: hostedExplicitTargetSettingsState(sharedSettings) };
+}
+
+function hostedSettingsAuthorityReady(state) {
+    return [
+        state.origin === HOSTED_FIXTURE_ORIGIN,
+        state.fixture === true,
+        state.runtimeFree === true,
+        state.separatedKeys === true,
+        state.sharedPhysicalKeyPresent === true,
+        state.localSettingsAbsent === true,
+        hostedExplicitTargetSettingsReady(state.shared),
+    ].every(Boolean);
+}
+
+async function readHostedVideoBootState(page) {
+    const snapshot = await page.evaluate(async key => {
+        if (typeof globalThis.GM_getValue !== 'function') throw new Error('Hosted GM settings authority is unavailable.');
+        const sharedSettings = await globalThis.GM_getValue(key, {});
+        const localSettings = JSON.parse(localStorage.getItem(key) || '{}');
+        const player = document.querySelector('.jpdb-subtitle-player');
+        const runtimeOwner = document.getElementById('jpdb-reader-runtime-owner');
+        const installedRuntime = document.getElementById('jpdb-reader-installed-runtime');
+        return {
+            initialized: window.__yomuReaderAppInitialized === true,
+            subtitlePlayer: Boolean(player),
+            runtimeTarget: player.getAttribute('data-language'),
+            runtimeOwnerKind: runtimeOwner.getAttribute('data-yomu-runtime-kind'),
+            installedRuntimeKind: installedRuntime.getAttribute('data-yomu-installed-runtime-kind'),
+            onboardingCount: document.querySelectorAll('.jpdb-reader-onboarding').length,
+            sharedSettings,
+            localSettings,
+        };
+    }, SETTINGS_KEY);
+    const { sharedSettings, localSettings, ...state } = snapshot;
+    return {
+        ...state,
+        shared: hostedExplicitTargetSettingsState(sharedSettings),
+        local: hostedExplicitTargetSettingsState(localSettings),
+    };
+}
+
+function hostedExplicitTargetSettingsState(settings) {
+    const profiles = Array.isArray(settings.languageProfiles) ? settings.languageProfiles : [];
+    const profile = profiles.find(candidate => candidate.id === baseSettings.activeLanguageProfileId) ?? {};
+    return {
+        onboardingSeen: settings.onboardingSeen,
+        learningTargetChosen: settings.learningTargetChosen,
+        activeLanguageProfileId: settings.activeLanguageProfileId,
+        profileId: profile.id,
+        profileSchemaVersion: profile.schemaVersion,
+        targetLanguage: profile.targetLanguage,
+        subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+    };
+}
+
+function hostedVideoBootedFromExplicitTarget(state) {
+    return [
+        state.initialized === true,
+        state.subtitlePlayer === true,
+        state.runtimeTarget === HOSTED_EXPECTED_TARGET,
+        state.runtimeOwnerKind === 'userscript',
+        state.installedRuntimeKind === 'userscript',
+        state.onboardingCount === 0,
+        hostedExplicitTargetSettingsReady(state.shared),
+        hostedExplicitTargetSettingsReady(state.local),
+    ].every(Boolean);
+}
+
+function hostedExplicitTargetSettingsReady(settings) {
+    return [
+        activeBaseSettingsTarget() === HOSTED_EXPECTED_TARGET,
+        settings.onboardingSeen === true,
+        settings.learningTargetChosen === true,
+        settings.activeLanguageProfileId === baseSettings.activeLanguageProfileId,
+        settings.profileId === baseSettings.activeLanguageProfileId,
+        settings.profileSchemaVersion === 2,
+        settings.targetLanguage === HOSTED_EXPECTED_TARGET,
+        settings.subtitlePlayerEnabled === true,
+    ].every(Boolean);
 }
 
 async function assertHostedEmptyState(page, variant) {
@@ -1095,33 +1217,58 @@ async function clickHostedSettingsThroughFullscreenOverlap(page) {
 }
 
 async function readHostedSubtitleSettingsSyncState(page) {
-    return page.evaluate(() => {
-        const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
-        return {
+    const [surface, storage] = await Promise.all([
+        page.evaluate(() => ({
             hasLauncher: Boolean(document.querySelector('[data-trusted-settings-launcher]')),
             writableControls: document.querySelectorAll('.jpdb-reader-settings-launcher input, .jpdb-reader-settings-launcher select, .jpdb-reader-settings-launcher textarea, .jpdb-reader-settings-launcher [data-file]').length,
-            saved: {
-                fontSize: settings.subtitleFontSize,
-                bottomOffset: settings.subtitleBottomOffset,
-                backgroundOpacity: settings.subtitleBackgroundOpacity,
-                fontFamily: settings.subtitleFontFamily,
-                miningPause: settings.subtitleMiningPause,
-                hoverPause: settings.subtitleHoverPause,
-            },
+        })),
+        readHostedSubtitleStorageState(page),
+    ]);
+    return { ...surface, ...storage };
+}
+
+async function readHostedSubtitleStorageState(page) {
+    return page.evaluate(async key => {
+        if (typeof globalThis.GM_getValue !== 'function') throw new Error('Hosted GM settings authority is unavailable.');
+        const inspect = settings => ({
+            fontSize: settings.subtitleFontSize,
+            bottomOffset: settings.subtitleBottomOffset,
+            backgroundOpacity: settings.subtitleBackgroundOpacity,
+            fontFamily: settings.subtitleFontFamily,
+            miningPause: settings.subtitleMiningPause,
+            hoverPause: settings.subtitleHoverPause,
+        });
+        const sharedSettings = await globalThis.GM_getValue(key, {});
+        const localSettings = JSON.parse(localStorage.getItem(key) || '{}');
+        return {
+            shared: inspect(sharedSettings),
+            local: inspect(localSettings),
         };
-    });
+    }, SETTINGS_KEY);
 }
 
 function hostedSubtitleSettingsSynced(state, expectedBottomOffset) {
+    return state.hasLauncher
+        && state.writableControls === 0
+        && hostedSubtitleSettingsValuesReady(state.shared, expectedBottomOffset)
+        && hostedSubtitleSettingsValuesReady(state.local, expectedBottomOffset);
+}
+
+async function assertHostedSubtitleSettingsRetainedAcrossReload(page, expectedBottomOffset) {
+    const storage = await readHostedSubtitleStorageState(page);
+    const retained = hostedSubtitleSettingsValuesReady(storage.shared, expectedBottomOffset)
+        && hostedSubtitleSettingsValuesReady(storage.local, expectedBottomOffset);
+    assert(retained, 'Reopening the hosted player replaced shared or local compact-control settings with the fixture', storage);
+}
+
+function hostedSubtitleSettingsValuesReady(saved, expectedBottomOffset) {
     return [
-        state.hasLauncher,
-        state.writableControls === 0,
-        state.saved.fontSize === 34,
-        state.saved.bottomOffset === expectedBottomOffset,
-        state.saved.backgroundOpacity === 0.35,
-        includesText(state.saved.fontFamily, 'Noto Serif JP'),
-        state.saved.miningPause === false,
-        state.saved.hoverPause === false,
+        saved.fontSize === 34,
+        saved.bottomOffset === expectedBottomOffset,
+        saved.backgroundOpacity === 0.35,
+        includesText(saved.fontFamily, 'Noto Serif JP'),
+        saved.miningPause === false,
+        saved.hoverPause === false,
     ].every(Boolean);
 }
 
