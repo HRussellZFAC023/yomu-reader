@@ -1059,12 +1059,39 @@ async function assertHostedSubtitleStyleControls(page) {
 
 async function assertHostedSubtitleSettingsSyncedFromCompactControls(page, expectedBottomOffset) {
     await page.locator('[data-overflow-summary]').click();
-    await page.locator('[data-settings-trigger]').click();
+    await clickHostedSettingsThroughFullscreenOverlap(page);
     await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const state = await readHostedSubtitleSettingsSyncState(page);
     assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not persist before opening trusted Study settings', state);
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+}
+
+async function clickHostedSettingsThroughFullscreenOverlap(page) {
+    const [settingsRect, fullscreenRect] = await Promise.all([
+        page.locator('[data-settings-trigger]').boundingBox(),
+        page.locator('[data-fullscreen-toggle]').boundingBox(),
+    ]);
+    assert(settingsRect, 'Hosted Settings action had no browser box');
+    assert(fullscreenRect, 'Hosted fullscreen control had no browser box');
+
+    const overlapLeft = Math.max(settingsRect.x, fullscreenRect.x);
+    const overlapTop = Math.max(settingsRect.y, fullscreenRect.y);
+    const overlapWidth = Math.min(settingsRect.x + settingsRect.width, fullscreenRect.x + fullscreenRect.width) - overlapLeft;
+    const overlapHeight = Math.min(settingsRect.y + settingsRect.height, fullscreenRect.y + fullscreenRect.height) - overlapTop;
+    const overlap = { overlapWidth, overlapHeight };
+    assert(overlapWidth > 0, 'Hosted Settings regression probe no longer horizontally intersects the fullscreen control', overlap);
+    assert(overlapHeight > 0, 'Hosted Settings regression probe no longer vertically intersects the fullscreen control', overlap);
+
+    const point = {
+        x: overlapLeft + overlapWidth / 2,
+        y: overlapTop + overlapHeight / 2,
+    };
+    const hitOwnedBySettings = await page.evaluate(({ x, y }) => (
+        Boolean(document.elementFromPoint(x, y)?.closest('[data-settings-trigger]'))
+    ), point);
+    assert(hitOwnedBySettings, 'Fullscreen control covered the open hosted Settings action', { point, overlap });
+    await page.mouse.click(point.x, point.y);
 }
 
 async function readHostedSubtitleSettingsSyncState(page) {

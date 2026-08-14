@@ -88,6 +88,7 @@ describe('docs localization browser smoke readiness', () => {
         const contaminated = functionBody('assertContaminatedHostedContextStaysEnglish');
         const installed = functionBody('assertInstalledRuntimePreservesStoredState');
         const studyFirst = functionBody('assertStudyDoesNotContaminateRoot');
+        const studyLauncher = functionBody('assertStudyPreviewUsesTrustedOnboardingLauncher');
         const academyFirst = functionBody('assertAcademyDoesNotContaminateRoot');
         const firstRoot = SMOKE_SOURCE.indexOf("page.goto(`${ORIGIN}/`, { waitUntil: 'domcontentloaded' })");
 
@@ -135,10 +136,10 @@ describe('docs localization browser smoke readiness', () => {
         expect(installed).toContain('state.settings, expectedSettings');
         expect(studyFirst).toContain("window.__YOMU_READER_RUNTIME__ === 'newtab'");
         expect(studyFirst).toContain('document.documentElement.dataset.yomuHosted !== undefined');
-        expect(studyFirst).toContain('completeStudyTargetChoice(page)');
-        expect(SMOKE_SOURCE).toContain("select[name=\"targetLanguage\"]");
-        expect(SMOKE_SOURCE).toContain("selectOption('es')");
-        expect(SMOKE_SOURCE).toContain('data-onboarding-action="without-api"');
+        expect(studyFirst).toContain('assertStudyPreviewUsesTrustedOnboardingLauncher(page)');
+        expect(studyLauncher).toContain(".jpdb-reader-onboarding-trusted-launcher");
+        expect(studyLauncher).toContain('data-onboarding-action="open-trusted-setup"');
+        expect(studyLauncher).toContain("locator('form, input, select, textarea, output').count()");
         expect(academyFirst).toContain("'yomu:academy:language:v1': 'ja'");
         expect(academyFirst).toContain("assertEnglishHostedHomepage(page, 'Academy-to-English homepage'");
         expect(SMOKE_SOURCE).not.toContain('jpdb-reader-hosted-application');

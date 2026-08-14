@@ -159,6 +159,12 @@
       position: relative;
     }
 
+    /* Keep the open dropdown above the in-player fullscreen control without
+       raising the whole topbar over the video surface. */
+    .overflow-menu[open] {
+      z-index: 2147483647;
+    }
+
     .overflow-menu > summary {
       list-style: none;
     }

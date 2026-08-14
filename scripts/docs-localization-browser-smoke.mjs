@@ -771,18 +771,21 @@ async function assertStudyDoesNotContaminateRoot(browser) {
         await navigateLocaleProof(page, '/study/', 'Study');
         await page.waitForFunction(() => window.__YOMU_READER_RUNTIME__ === 'newtab'
             && document.documentElement.dataset.yomuHosted !== undefined);
-        await completeStudyTargetChoice(page);
-        await page.locator('.jpdb-reader-newtab[data-jpdb-reader-root][data-newtab-bound="true"]')
-            .waitFor({ state: 'visible', timeout: 20_000 });
+        await assertStudyPreviewUsesTrustedOnboardingLauncher(page);
         await assertEnglishHostedHomepage(page, 'Study-to-English homepage', { fresh: true });
     });
 }
 
-async function completeStudyTargetChoice(page) {
-    const onboarding = page.locator('.jpdb-reader-onboarding');
-    await onboarding.waitFor({ state: 'visible', timeout: 20_000 });
-    await onboarding.locator('select[name="targetLanguage"]').selectOption('es');
-    await onboarding.locator('[data-onboarding-action="without-api"]').click();
+async function assertStudyPreviewUsesTrustedOnboardingLauncher(page) {
+    const launcher = page.locator('.jpdb-reader-onboarding-trusted-launcher');
+    await launcher.waitFor({ state: 'visible', timeout: 20_000 });
+    await launcher.locator('[data-onboarding-action="open-trusted-setup"]')
+        .waitFor({ state: 'visible' });
+    assert.equal(
+        await launcher.locator('form, input, select, textarea, output').count(),
+        0,
+        'Untrusted docs preview exposed onboarding controls',
+    );
 }
 
 async function assertAcademyDoesNotContaminateRoot(browser) {
