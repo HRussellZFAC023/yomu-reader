@@ -9,6 +9,7 @@ import {
     chromiumExtensionSmokeConfig,
     createChromiumExtensionSmokeScope,
 } from '../lib/chromium-extension-smoke.mjs';
+import { createReaderSmokeSettings, YOMU_SETTINGS_KEY } from '../lib/smoke-harness.mjs';
 
 const smokeConfig = chromiumExtensionSmokeConfig(import.meta.url, 'manual-extension-youtube-boot');
 const EXT_PACKAGE = smokeConfig.extensionPackage;
@@ -40,6 +41,8 @@ const report = {
     extensionDirectory: '',
     consoleErrors: [],
     pageErrors: [],
+    firstRunState: null,
+    settingsSeeded: false,
     state: null,
 };
 let context;
@@ -67,11 +70,61 @@ try {
     report.serviceWorkerUrl = worker.url();
     report.serviceWorkerReadyMs = Date.now() - startedAt;
 
-    const page = await context.newPage();
-    page.on('console', message => {
-        if (message.type() === 'error') report.consoleErrors.push(message.text().slice(0, 1_000));
+    const firstRunPage = await context.newPage();
+    recordPageFailures(firstRunPage, report);
+    await firstRunPage.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 70_000 });
+    await firstRunPage.waitForSelector('#jpdb-reader-installed-runtime', { state: 'attached', timeout: 20_000 });
+    await firstRunPage.locator('.jpdb-reader-onboarding-trusted-launcher')
+        .waitFor({ state: 'visible', timeout: 35_000 });
+    report.firstRunState = await firstRunPage.evaluate(() => {
+        const installed = document.querySelector('#jpdb-reader-installed-runtime');
+        const owner = document.querySelector('#jpdb-reader-runtime-owner');
+        const attribute = (element, name) => element ? element.getAttribute(name) || '' : '';
+        const launcher = document.querySelector('.jpdb-reader-onboarding-trusted-launcher');
+        return {
+            installedKind: attribute(installed, 'data-yomu-installed-runtime-kind'),
+            runtimeKind: attribute(owner, 'data-yomu-runtime-kind'),
+            runtimeHealth: attribute(owner, 'data-yomu-runtime-health'),
+            launcherVisible: Boolean(launcher),
+            openActionVisible: Boolean(launcher?.querySelector('[data-onboarding-action="open-trusted-setup"]')),
+            sensitiveControlCount: launcher?.querySelectorAll('form, input, select, textarea, output').length ?? 0,
+        };
     });
-    page.on('pageerror', error => report.pageErrors.push(error.message.slice(0, 1_000)));
+    assertPrivateFirstRunLauncher(report.firstRunState);
+    await firstRunPage.screenshot({ path: path.join(ARTIFACT_DIR, 'youtube-extension-first-run.png') });
+    await firstRunPage.close();
+
+    const extensionSettingsPage = await context.newPage();
+    await extensionSettingsPage.goto(`${worker.url().replace(/\/background\.js.*$/, '')}/popup.html`);
+    await extensionSettingsPage.evaluate(async ({ name, value }) => chrome.runtime.sendMessage({
+        channel: 'userscript-compiler',
+        type: 'GM_setValue',
+        payload: { name, value },
+    }), {
+        name: YOMU_SETTINGS_KEY,
+        value: createReaderSmokeSettings({
+            onboardingSeen: true,
+            learningTargetChosen: true,
+            showFloatingButton: true,
+            activeLanguageProfileId: 'extension-youtube-smoke',
+            languageProfiles: [{
+                schemaVersion: 2,
+                id: 'extension-youtube-smoke',
+                outputLanguage: 'en',
+                learnerLanguage: 'en',
+                targetLanguage: 'ja',
+                uiLocale: 'en',
+                parserProvider: 'auto',
+                dictionaries: { installed: [], enabled: [], order: [] },
+                definitionTranslationProviderIds: [],
+            }],
+        }),
+    });
+    report.settingsSeeded = true;
+    await extensionSettingsPage.close();
+
+    const page = await context.newPage();
+    recordPageFailures(page, report);
     const navigationAt = Date.now();
     await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 70_000 });
     await page.waitForSelector('#jpdb-reader-installed-runtime', { state: 'attached', timeout: 20_000 });
@@ -125,3 +178,23 @@ try {
 }
 
 console.log(JSON.stringify(report, null, 2));
+
+function recordPageFailures(page, targetReport) {
+    page.on('console', message => {
+        if (message.type() === 'error') targetReport.consoleErrors.push(message.text().slice(0, 1_000));
+    });
+    page.on('pageerror', error => targetReport.pageErrors.push(error.message.slice(0, 1_000)));
+}
+
+function assertPrivateFirstRunLauncher(state) {
+    assertSmoke(state.installedKind === 'extension', 'Fresh-profile installed runtime mismatch', state);
+    assertSmoke(state.runtimeKind === 'extension', 'Fresh-profile runtime ownership mismatch', state);
+    assertSmoke(state.launcherVisible, 'Fresh-profile Study launcher was unavailable', state);
+    assertSmoke(state.openActionVisible, 'Fresh-profile Study launcher action was unavailable', state);
+    assertSmoke(state.sensitiveControlCount === 0, 'Fresh-profile off-host launcher exposed sensitive controls', state);
+    assertSmoke(!state.runtimeHealth, 'Fresh-profile runtime reported ready before target choice', state);
+}
+
+function assertSmoke(condition, message, state) {
+    if (!condition) throw new Error(`${message}: ${JSON.stringify(state)}`);
+}
