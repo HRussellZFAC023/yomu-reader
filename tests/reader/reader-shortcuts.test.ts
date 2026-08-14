@@ -5,12 +5,16 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 import { testEnSettings } from './helpers/settings-fixture';
 import { isEditableEventContext, isEditableTarget } from '../../src/reader/ui/browser';
+import type { ReaderSettingsSurface } from '../../src/reader/app/startup';
 
 interface ReaderShortcutInternals {
     settings: ReaderSettings;
+    settingsSurface?: ReaderSettingsSurface;
     subtitles: { refresh: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> };
     toast: ReturnType<typeof vi.fn>;
+    getSettingsDialog: ReturnType<typeof vi.fn>;
     handleReaderUtilityShortcut(event: KeyboardEvent): boolean;
+    showSettings(panel?: string): void;
 }
 
 describe('reader shortcuts', () => {
@@ -96,6 +100,50 @@ describe('reader shortcuts', () => {
             expect(toast).toHaveBeenCalledWith('Subtitle overlay enabled.');
             await Promise.resolve();
             expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('routes Reader settings requests through the host surface without mounting the local dialog', async () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderShortcutInternals;
+        const open = vi.fn(async () => undefined);
+        internals.settings = testEnSettings();
+        internals.settingsSurface = { open };
+        internals.getSettingsDialog = vi.fn();
+
+        try {
+            internals.showSettings();
+            internals.showSettings('api');
+            internals.showSettings('dictionaries');
+
+            await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(3));
+            expect(open.mock.calls).toEqual([[undefined], ['api'], ['dictionaries']]);
+            expect(internals.getSettingsDialog).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-reader-settings,[data-sensitive-settings-launcher]')).toBeNull();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('reports a host settings handoff failure without falling back to the local dialog', async () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderShortcutInternals;
+        const failure = new Error('native window unavailable');
+        internals.settings = testEnSettings();
+        internals.settingsSurface = { open: vi.fn(async () => { throw failure; }) };
+        internals.getSettingsDialog = vi.fn();
+        internals.toast = vi.fn();
+
+        try {
+            internals.showSettings('appearance');
+
+            await vi.waitFor(() => expect(internals.toast).toHaveBeenCalledWith(
+                'Settings could not be opened.',
+            ));
+            expect(internals.getSettingsDialog).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-reader-settings,[data-sensitive-settings-launcher]')).toBeNull();
         } finally {
             app.destroy();
         }

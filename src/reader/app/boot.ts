@@ -1,7 +1,7 @@
 import { appendToDocumentHead } from '../dom/index';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { ReaderApp } from './main';
-import type { ReaderAppInitOptions } from './startup';
+import type { ReaderAppInitOptions, ReaderSettingsSurface } from './startup';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 import {
     clearReaderRuntimeHealth,
@@ -29,6 +29,7 @@ interface ActiveRuntime {
     kind: YomuRuntimeKind;
     ownerId: string;
     startupSettings?: ReaderSettings;
+    settingsSurface?: ReaderSettingsSurface;
     initialization?: Promise<boolean>;
     release?: () => void;
 }
@@ -51,6 +52,7 @@ const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?
 let activeRuntime: ActiveRuntime | undefined;
 let storageBootInFlight: Promise<boolean> | undefined;
 let retainedStartupSettings: ReaderSettings | undefined;
+let retainedSettingsSurface: ReaderSettingsSurface | undefined;
 
 // Vitest can deliberately reuse one jsdom module graph across cases. Production
 // gets one graph per document; this reset makes that same ownership boundary
@@ -67,6 +69,7 @@ export function resetReaderBootStateForTests(): void {
     embeddedFrameTargetPolicyInFlight = undefined;
     storageBootInFlight = undefined;
     retainedStartupSettings = undefined;
+    retainedSettingsSurface = undefined;
 }
 
 export function bootReaderApp(): void {
@@ -78,8 +81,12 @@ export function bootReaderApp(): void {
  * The snapshot is retained for every later retry in this document and supersedes
  * an ordinary boot that may already be waiting on the managed-storage gate.
  */
-export function bootReaderAppWithStartupSettings(startupSettings: ReaderSettings): Promise<boolean> {
+export function bootReaderAppWithStartupSettings(
+    startupSettings: ReaderSettings,
+    options: Pick<ReaderAppInitOptions, 'settingsSurface'> = {},
+): Promise<boolean> {
     retainedStartupSettings = startupSettings;
+    retainedSettingsSurface = options.settingsSurface;
     return requestReaderBoot(true);
 }
 
@@ -99,7 +106,10 @@ function reusableBootRequest(replaceMismatchedRuntime: boolean): Promise<boolean
 }
 
 function packagedRuntimeRequest(runtime: ActiveRuntime): Promise<boolean> | undefined {
-    if (runtime.startupSettings === retainedStartupSettings) return runtime.initialization;
+    if (
+        runtime.startupSettings === retainedStartupSettings
+        && runtime.settingsSurface === retainedSettingsSurface
+    ) return runtime.initialization;
     releaseActiveRuntime(runtime);
     const gate = storageBootInFlight;
     if (!gate) return undefined;
@@ -146,6 +156,7 @@ function bootResolvedContext(context: BootContext): Promise<boolean> {
 
     registerRuntime(context.bootWindow, runtime, isInstalledRuntime(runtime.kind));
     runtime.startupSettings = retainedStartupSettings;
+    runtime.settingsSurface = retainedSettingsSurface;
     runtime.initialization = startRuntime(runtime, context.embeddedFrame);
     return runtime.initialization;
 }
@@ -275,13 +286,14 @@ function registerRuntime(bootWindow: YomuBootWindow, runtime: ActiveRuntime, isR
 }
 
 function startRuntime(runtime: ActiveRuntime, embeddedFrame: boolean): Promise<boolean> {
-    const { app, ownerId, kind: runtimeKind, startupSettings } = runtime;
+    const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface } = runtime;
     const initOptions: ReaderAppInitOptions = {
         embeddedFrame,
         // Both real installs (userscript manager and browser extension) get the
         // first-run welcome/onboarding. The page/dev runtimes never do.
         showWelcome: runtimeKind === 'userscript' || runtimeKind === 'extension',
         ...(startupSettings ? { startupSettings } : {}),
+        ...(settingsSurface ? { settingsSurface } : {}),
     };
     return app.init(initOptions).then(() => {
         if (activeRuntime !== runtime) return false;

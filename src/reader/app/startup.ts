@@ -20,6 +20,15 @@ export interface ReaderAppInitOptions {
     embeddedFrame?: boolean;
     showWelcome?: boolean;
     startupSettings?: ReaderSettings;
+    settingsSurface?: ReaderSettingsSurface;
+}
+
+/**
+ * A first-party host may own a safer settings surface than the Reader dialog.
+ * The Adapter receives the same panel name used by the ordinary dialog.
+ */
+export interface ReaderSettingsSurface {
+    open(panel?: string): Promise<void>;
 }
 
 export interface ReaderStartupSettings {

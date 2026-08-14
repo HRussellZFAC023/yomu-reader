@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.9.1
+// @version 1.9.2
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.a19ea5d259dc.user.js#sha256=oZ6l0lncaEqGA6zTHHwP2sWUXsMMdma8d887db66lA0=
+// @require https://yomureader.com/greasyfork/yomu-runtime.8d3f7733f9d1.user.js#sha256=jT93M/nRLDCU4F1ai72gMs7IXom3Dbovgokr34JONAA=
 // @resource yomuCss  https://yomureader.com/yomu.98ece4dc43de.css#sha256=mOzk3EPeHxDtuAU1ik6q9lmdhjIaPbqmPMex3VScNKI=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -31940,8 +31940,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.9.1"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.9.1"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.9.2"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.9.2"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -32084,7 +32084,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.9.1"}`;
+return `${new URL(path, url.origin).href}?v=${"1.9.2"}`;
 } catch {
 return null;
 }
@@ -35266,6 +35266,7 @@ settings = DEFAULT_SETTINGS;
 /** Non-persisted policy owned by a deliberate hosted reading surface. */
 pageOwnedLearningTargetActive = false;
 targetOwnedCoreInstalled = false;
+settingsSurface;
 topLevelTargetLifecycle = new TopLevelTargetLifecycle();
 hostTheme = new HostThemeController({
 getSettings: () => this.settings,
@@ -35852,10 +35853,11 @@ refresh: () => void 0,
 destroy: () => void 0
 };
 }
-async init(options) {
+async init(options = {}) {
 const done = log.time("init", { href: location.href, devMode: Logger.isDevMode() });
 try {
-this.embeddedFrame = options?.embeddedFrame === true;
+this.settingsSurface = options.settingsSurface;
+this.embeddedFrame = options.embeddedFrame === true;
 const shouldShowWelcome = await this.loadInitialSettings(options);
 if (!this.canContinueStartup(shouldShowWelcome)) return;
 const surfacesReady = await this.initializeReaderSurfaces(shouldShowWelcome);
@@ -42280,6 +42282,14 @@ fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit ? this.immersionK
 return context;
 }
 showSettings(panel) {
+const settingsSurface = this.settingsSurface;
+if (settingsSurface) {
+void Promise.resolve().then(() => settingsSurface.open(panel)).catch((error) => {
+log.warn("Host Settings surface failed", error);
+this.toast(uiText(this.settings.interfaceLanguage, "settingsCompanionUnavailable"));
+});
+return;
+}
 const dialog = this.getSettingsDialog();
 if (dialog) dialog.open(panel);
 }
@@ -42944,6 +42954,7 @@ const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?
 let activeRuntime;
 let storageBootInFlight;
 let retainedStartupSettings;
+let retainedSettingsSurface;
 function bootReaderApp() {
 void requestReaderBoot();
 }
@@ -42961,7 +42972,7 @@ if (!runtime2) return storageBootInFlight;
 return packagedRuntimeRequest(runtime2);
 }
 function packagedRuntimeRequest(runtime2) {
-if (runtime2.startupSettings === retainedStartupSettings) return runtime2.initialization;
+if (runtime2.startupSettings === retainedStartupSettings && runtime2.settingsSurface === retainedSettingsSurface) return runtime2.initialization;
 releaseActiveRuntime(runtime2);
 const gate = storageBootInFlight;
 if (!gate) return void 0;
@@ -43000,6 +43011,7 @@ const runtime2 = createOwnedRuntime(context);
 if (!runtime2) return Promise.resolve(false);
 registerRuntime(context.bootWindow, runtime2, isInstalledRuntime(runtime2.kind));
 runtime2.startupSettings = retainedStartupSettings;
+runtime2.settingsSurface = retainedSettingsSurface;
 runtime2.initialization = startRuntime(runtime2, context.embeddedFrame);
 return runtime2.initialization;
 }
@@ -43104,11 +43116,12 @@ releaseClaims?.();
 };
 }
 function startRuntime(runtime2, embeddedFrame) {
-const { app, ownerId, kind: runtimeKind, startupSettings } = runtime2;
+const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface } = runtime2;
 const initOptions = {
 embeddedFrame,
 showWelcome: runtimeKind === "userscript" || runtimeKind === "extension",
-...startupSettings ? { startupSettings } : {}
+...startupSettings ? { startupSettings } : {},
+...settingsSurface ? { settingsSurface } : {}
 };
 return app.init(initOptions).then(() => {
 if (activeRuntime !== runtime2) return false;

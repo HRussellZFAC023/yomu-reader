@@ -159,8 +159,8 @@ try {
     if (fullScreenRequest.png.width < 900 || fullScreenRequest.png.height < 500) {
         throw new Error(`Instant capture did not send the full simulated screen: ${JSON.stringify(fullScreenRequest.png)}`);
     }
-    step('open settings from the overlay');
-    await assertOverlaySettingsLandsOnSettings(page, overlay);
+    step('open native settings from the inline Reader shortcut');
+    await assertInlineReaderSettingsLandsOnSettings(page, overlay);
     await returnToHome(page);
     step('open area capture overlay');
     await homeCaptureButton(page).scrollIntoViewIfNeeded();
@@ -197,6 +197,8 @@ try {
     if (Math.abs(areaRequest.png.width - expectedCrop.width) > 6 || Math.abs(areaRequest.png.height - expectedCrop.height) > 6) {
         throw new Error(`Area capture cropped ${JSON.stringify(areaRequest.png)} of the capture, not the dragged ${JSON.stringify(expectedCrop)}.`);
     }
+    step('open settings from the overlay toolbar');
+    await assertOverlaySettingsLandsOnSettings(page, areaOverlay);
     console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, settingsActionsScreenshotPath)}, ${path.relative(appRoot, settingsAccountScreenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
     console.log(`Yomu Gaming fixture OCR captures: instant ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}, area ${areaRequest.png.width}x${areaRequest.png.height}; hardware gap note: ${path.relative(appRoot, hardwareGapPath)}`);
     smokePassed = true;
@@ -558,6 +560,45 @@ async function assertOverlaySettingsLandsOnSettings(page, overlay) {
     });
     assertOverlaySettingsButtonActionable(settingsButtonState);
     await settingsButton.click();
+    await waitForNativeSettings(page);
+    if (await page.locator('.yomu-gaming-home:visible').count()) {
+        throw new Error('Yomu Gaming showed home and settings at once after the overlay asked for settings.');
+    }
+}
+
+async function assertInlineReaderSettingsLandsOnSettings(page, overlay) {
+    const settingsBefore = await overlay.evaluate(() => localStorage.getItem('yomu-gaming-reader-settings-v1'));
+    await overlay.bringToFront();
+    await overlay.keyboard.press('Control+Shift+J');
+    await waitForNativeSettings(page);
+    await assertInlineReaderSettingsPanel(page);
+    const settingsAfter = await page.evaluate(() => localStorage.getItem('yomu-gaming-reader-settings-v1'));
+    assertInlineReaderSettingsUnchanged(settingsBefore, settingsAfter);
+    await assertLegacyReaderSettingsCopyAbsent(overlay, 'inline Reader Settings handoff');
+    await waitForOverlayWindowHidden(overlay);
+    await assertNoInlineReaderSettingsSurface(overlay);
+}
+
+async function assertInlineReaderSettingsPanel(page) {
+    const activePanel = await page.locator('[data-action="settings-panel"][aria-selected="true"]').getAttribute('data-panel');
+    if (activePanel !== 'shortcuts') {
+        throw new Error(`Yomu Gaming Reader shortcut opened the ${activePanel || 'unknown'} panel instead of shortcuts.`);
+    }
+}
+
+function assertInlineReaderSettingsUnchanged(before, after) {
+    if (after !== before) {
+        throw new Error('Opening native Settings from the inline Reader changed the durable Gaming settings authority.');
+    }
+}
+
+async function assertNoInlineReaderSettingsSurface(overlay) {
+    if (await overlay.locator('.jpdb-reader-settings,[data-sensitive-settings-launcher]').count()) {
+        throw new Error('Yomu Gaming inline Reader mounted a Reader-owned settings surface instead of native Settings.');
+    }
+}
+
+async function waitForNativeSettings(page) {
     await page.bringToFront();
     await page.waitForFunction(
         () => document.querySelector('.yomu-gaming-shell')?.dataset.shellView === 'settings',
@@ -565,9 +606,18 @@ async function assertOverlaySettingsLandsOnSettings(page, overlay) {
         { timeout: 10_000 },
     );
     await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').waitFor({ timeout: 10_000 });
-    if (await page.locator('.yomu-gaming-home:visible').count()) {
-        throw new Error('Yomu Gaming showed home and settings at once after the overlay asked for settings.');
+}
+
+async function waitForOverlayWindowHidden(overlay) {
+    const overlayUrl = overlay.url();
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+        const visible = await app.evaluate(({ BrowserWindow }, url) => BrowserWindow.getAllWindows()
+            .some(window => window.webContents.getURL() === url && window.isVisible()), overlayUrl);
+        if (!visible) return;
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
+    throw new Error('Yomu Gaming left the capture overlay visible after opening native Settings.');
 }
 
 function assertOverlaySettingsButtonActionable(state) {

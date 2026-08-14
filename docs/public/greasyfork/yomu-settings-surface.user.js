@@ -10555,7 +10555,7 @@ const COPY = {
   settings: "Settings",
   settingsSaved: "Settings saved.",
   settingsSaveFailed: "Settings save failed.",
-  settingsCompanionUnavailable: "Settings are unavailable because part of Yomu did not load.",
+  settingsCompanionUnavailable: "Settings could not be opened.",
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -11805,7 +11805,7 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
-settingsCompanionUnavailable	設定を開けません。よむの一部を読み込めませんでした。
+settingsCompanionUnavailable	設定を開けませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
 firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
@@ -17482,7 +17482,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.9.1".trim() ? "1.9.1".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.9.2".trim() ? "1.9.2".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

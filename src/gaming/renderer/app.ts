@@ -11,6 +11,7 @@ import './styles.css';
 import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
 import { bootReaderAppWithStartupSettings } from '../../reader/app/boot';
+import type { ReaderSettingsSurface } from '../../reader/app/startup';
 import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
@@ -67,11 +68,13 @@ const APP_ICON_URL = './yomu-icon-512.png';
 type ShellView = 'home' | 'settings';
 
 interface RequestedShellView {
+    requestId: string;
     view: ShellView;
     settingsPanel?: string;
 }
 
 interface StoredShellView {
+    requestId?: unknown;
     view?: unknown;
     settingsPanel?: unknown;
     at?: unknown;
@@ -106,7 +109,9 @@ interface PreparedGamingCapture {
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
 const GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY = 'yomu-gaming-settings-snapshot-v1';
 const GAMING_PENDING_VIEW_STORAGE_KEY = 'yomu-gaming-pending-view-v1';
+const GAMING_PENDING_VIEW_ACK_STORAGE_KEY = 'yomu-gaming-pending-view-ack-v1';
 const GAMING_PENDING_VIEW_MAX_AGE_MS = 15_000;
+const GAMING_PENDING_VIEW_ACK_TIMEOUT_MS = 10_000;
 const PREVIOUS_OCR_ENDPOINT_STORAGE_KEY = 'yomu-gaming-ocr-endpoint';
 const PREVIOUS_OCR_ENGINE_STORAGE_KEY = 'yomu-gaming-ocr-engine';
 // Capture is what this app does, so its own shortcut is the first thing Settings shows.
@@ -143,6 +148,7 @@ const EDITOR_ACTIONS = new Set([
 
 removeLegacyGamingReaderSettingsCopy();
 const bridge = window.yomuGaming ?? browserFallbackBridge();
+const gamingReaderSettingsSurface = createGamingReaderSettingsSurface(bridge);
 const appRoot = requireAppRoot();
 const overlayCaptureMode = currentOverlayCaptureMode();
 const isOverlay = location.hash.startsWith('#overlay');
@@ -323,18 +329,90 @@ function showTargetSettings(): void {
 // The overlay lives in its own window, so its Settings button leaves the view it wants in
 // shared storage rather than adding a push channel to the hardened preload. If the main
 // window never wakes to read it, the request simply expires and Home stays put.
-function requestView(view: ShellView, settingsPanel?: string): void {
+interface RetainedShellViewRequest {
+    requestId: string;
+    serialized: string;
+}
+
+function requestView(view: ShellView, settingsPanel?: string): RetainedShellViewRequest | null {
+    const requestId = crypto.randomUUID();
+    const serialized = JSON.stringify({ requestId, view, settingsPanel, at: Date.now() });
     try {
-        localStorage.setItem(GAMING_PENDING_VIEW_STORAGE_KEY, JSON.stringify({ view, settingsPanel, at: Date.now() }));
+        localStorage.setItem(GAMING_PENDING_VIEW_STORAGE_KEY, serialized);
+        return { requestId, serialized };
     } catch {
         // A locked storage context just means the app opens on Home.
+        return null;
+    }
+}
+
+function cancelRequestedView(request: RetainedShellViewRequest): void {
+    try {
+        if (localStorage.getItem(GAMING_PENDING_VIEW_STORAGE_KEY) === request.serialized) {
+            localStorage.removeItem(GAMING_PENDING_VIEW_STORAGE_KEY);
+        }
+        if (localStorage.getItem(GAMING_PENDING_VIEW_ACK_STORAGE_KEY) === request.requestId) {
+            localStorage.removeItem(GAMING_PENDING_VIEW_ACK_STORAGE_KEY);
+        }
+    } catch {
+        // The failed handoff cannot leave a request in storage we cannot read.
+    }
+}
+
+async function waitForRequestedViewAcknowledgement(requestId: string): Promise<void> {
+    const deadline = Date.now() + GAMING_PENDING_VIEW_ACK_TIMEOUT_MS;
+    while (!takeRequestedViewAcknowledgement(requestId)) {
+        if (Date.now() >= deadline) throw new Error('Yomu Gaming Settings did not open.');
+        await new Promise(resolve => window.setTimeout(resolve, 25));
+    }
+}
+
+function takeRequestedViewAcknowledgement(requestId: string): boolean {
+    try {
+        if (localStorage.getItem(GAMING_PENDING_VIEW_ACK_STORAGE_KEY) !== requestId) return false;
+        localStorage.removeItem(GAMING_PENDING_VIEW_ACK_STORAGE_KEY);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export function createGamingReaderSettingsSurface(
+    gamingBridge: Pick<YomuGamingBridge, 'showApp' | 'hideOverlay'>,
+): ReaderSettingsSurface {
+    let opening: Promise<void> | undefined;
+    return {
+        open: settingsPanel => {
+            opening ??= openGamingReaderSettings(gamingBridge, settingsPanel).finally(() => {
+                opening = undefined;
+            });
+            return opening;
+        },
+    };
+}
+
+async function openGamingReaderSettings(
+    gamingBridge: Pick<YomuGamingBridge, 'showApp' | 'hideOverlay'>,
+    settingsPanel?: string,
+): Promise<void> {
+    const request = requestView('settings', settingsPanel ?? DEFAULT_SETTINGS_PANEL);
+    if (!request) throw new Error('Could not request Yomu Gaming Settings.');
+    try {
+        await gamingBridge.showApp();
+        await waitForRequestedViewAcknowledgement(request.requestId);
+        await gamingBridge.hideOverlay();
+    } catch (error) {
+        cancelRequestedView(request);
+        throw error;
     }
 }
 
 function watchForRequestedView(): void {
     const consume = () => {
         const requested = consumeRequestedView();
-        if (requested) showView(requested.view, requested.settingsPanel);
+        if (!requested) return;
+        showView(requested.view, requested.settingsPanel);
+        acknowledgeRequestedView(requested.requestId);
     };
     // `storage` reaches this window the moment the overlay writes, without waiting on the
     // compositor to hand focus over; focus and visibility stay as the catch-up path for
@@ -347,6 +425,14 @@ function watchForRequestedView(): void {
         if (!document.hidden) consume();
     });
     consume();
+}
+
+function acknowledgeRequestedView(requestId: string): void {
+    try {
+        localStorage.setItem(GAMING_PENDING_VIEW_ACK_STORAGE_KEY, requestId);
+    } catch {
+        // The overlay retains itself when it cannot observe acknowledgement.
+    }
 }
 
 function consumeRequestedView(): RequestedShellView | null {
@@ -373,12 +459,23 @@ function parseRequestedView(raw: string | null): RequestedShellView | null {
 }
 
 function normalizeRequestedView(stored: StoredShellView): RequestedShellView | null {
-    if (!isRecentRequest(stored.at)) return null;
-    if (!isShellView(stored.view)) return null;
+    const requestId = storedRequestId(stored.requestId);
+    const view = recentShellView(stored);
+    if (!requestId || !view) return null;
     return {
-        view: stored.view,
+        requestId,
+        view,
         settingsPanel: typeof stored.settingsPanel === 'string' ? stored.settingsPanel : undefined,
     };
+}
+
+function storedRequestId(value: unknown): string | null {
+    return typeof value === 'string' && value ? value : null;
+}
+
+function recentShellView(stored: StoredShellView): ShellView | null {
+    if (!isRecentRequest(stored.at)) return null;
+    return isShellView(stored.view) ? stored.view : null;
 }
 
 function isRecentRequest(at: unknown): at is number {
@@ -525,7 +622,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
     form.addEventListener('submit', event => {
         event.preventDefault();
         persistSettingsFromForm(form);
-        setShellStatus('Settings saved.', 'success');
+        setShellStatus(uiText(shellState.settings.interfaceLanguage, 'settingsSaved'), 'success');
     });
     form.querySelector<HTMLInputElement>('[data-settings-search]')?.addEventListener('input', event => {
         applySettingsSearch(form, (event.target as HTMLInputElement).value);
@@ -1133,13 +1230,15 @@ class OverlaySelectionController {
             this.openTargetSettings();
             return;
         }
-        requestView('settings');
-        void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
+        void gamingReaderSettingsSurface.open().catch(error => {
+            console.warn('Yomu Gaming could not open Settings.', error);
+        });
     }
 
     private openTargetSettings(): void {
-        requestView('settings', TARGET_SETTINGS_PANEL);
-        void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
+        void gamingReaderSettingsSurface.open(TARGET_SETTINGS_PANEL).catch(error => {
+            console.warn('Yomu Gaming could not open target Settings.', error);
+        });
     }
 
     render(): void {
@@ -1485,7 +1584,7 @@ function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
 
 function bootOverlayReader(settings: ReaderSettings): void {
     void Promise.resolve()
-        .then(() => bootReaderAppWithStartupSettings(settings))
+        .then(() => bootReaderAppWithStartupSettings(settings, { settingsSurface: gamingReaderSettingsSurface }))
         .then(initialized => {
             overlayReaderBooted = initialized;
             if (!initialized) console.warn('Yomu Gaming could not start the inline reader.');

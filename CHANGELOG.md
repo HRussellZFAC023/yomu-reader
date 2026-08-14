@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.9.2] - 2026-08-14
+
+### Fixed
+
+- Yomu Gaming's Reader settings shortcut now opens the native Settings window instead of an inert Study launcher, and its save confirmation follows the selected interface language.
+
 ## [1.9.1] - 2026-08-12
 
 ### Fixed

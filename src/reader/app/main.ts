@@ -306,7 +306,7 @@ import { ReaderAudioActions } from '../audio/actions';
 import { canAttemptReaderAutoAudio } from '../audio/activation';
 import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
-import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
+import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions, type ReaderSettingsSurface } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
 import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
@@ -476,6 +476,7 @@ export class ReaderApp {
     /** Non-persisted policy owned by a deliberate hosted reading surface. */
     private pageOwnedLearningTargetActive = false;
     private targetOwnedCoreInstalled = false;
+    private settingsSurface?: ReaderSettingsSurface;
     private readonly topLevelTargetLifecycle = new TopLevelTargetLifecycle();
     private hostTheme = new HostThemeController({
         getSettings: () => this.settings,
@@ -1137,10 +1138,11 @@ export class ReaderApp {
         };
     }
 
-    async init(options?: ReaderAppInitOptions): Promise<void> {
+    async init(options: ReaderAppInitOptions = {}): Promise<void> {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
         try {
-            this.embeddedFrame = options?.embeddedFrame === true;
+            this.settingsSurface = options.settingsSurface;
+            this.embeddedFrame = options.embeddedFrame === true;
             const shouldShowWelcome = await this.loadInitialSettings(options);
             if (!this.canContinueStartup(shouldShowWelcome)) return;
             const surfacesReady = await this.initializeReaderSurfaces(shouldShowWelcome);
@@ -9587,6 +9589,16 @@ export class ReaderApp {
     }
 
     private showSettings(panel?: string): void {
+        const settingsSurface = this.settingsSurface;
+        if (settingsSurface) {
+            void Promise.resolve()
+                .then(() => settingsSurface.open(panel))
+                .catch(error => {
+                    log.warn('Host Settings surface failed', error);
+                    this.toast(uiText(this.settings.interfaceLanguage, 'settingsCompanionUnavailable'));
+                });
+            return;
+        }
         const dialog = this.getSettingsDialog();
         if (dialog) dialog.open(panel);
     }

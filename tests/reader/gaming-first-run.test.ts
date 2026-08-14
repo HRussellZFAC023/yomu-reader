@@ -20,6 +20,7 @@ let appRoot: HTMLElement;
 let currentEnvironment: YomuGamingEnvironment = registeredEnvironment('CommandOrControl+Shift+Y');
 let installOverlayEscapeHandler: typeof import('../../src/gaming/renderer/app').installOverlayEscapeHandler;
 let gamingTargetChoiceError: typeof import('../../src/gaming/renderer/app').gamingTargetChoiceError;
+let createGamingReaderSettingsSurface: typeof import('../../src/gaming/renderer/app').createGamingReaderSettingsSurface;
 // When set, the next shortcut save answers with this environment instead of registering.
 let nextSaveEnvironment: YomuGamingEnvironment | null = null;
 
@@ -73,11 +74,26 @@ function testBridge(): YomuGamingBridge {
     };
 }
 
+function settingsSurfaceFixture(
+    showApp: YomuGamingBridge['showApp'] = vi.fn(async () => undefined),
+) {
+    const hideOverlay = vi.fn(async () => undefined);
+    return {
+        showApp,
+        hideOverlay,
+        surface: createGamingReaderSettingsSurface({ showApp, hideOverlay }),
+    };
+}
+
 beforeAll(async () => {
     localStorage.clear();
     document.body.innerHTML = '<div id="app"></div>';
     window.yomuGaming = testBridge();
-    ({ installOverlayEscapeHandler, gamingTargetChoiceError } = await import('../../src/gaming/renderer/app'));
+    ({
+        installOverlayEscapeHandler,
+        gamingTargetChoiceError,
+        createGamingReaderSettingsSurface,
+    } = await import('../../src/gaming/renderer/app'));
     await vi.waitFor(() => {
         expect(document.querySelector('[data-gaming-home] h1')).not.toBeNull();
         expect(document.querySelector('[data-gaming-home][data-target-choice-required="true"]')).not.toBeNull();
@@ -185,6 +201,9 @@ describe('Yomu Gaming first run', () => {
         expect(text(settingsForm(), '[data-gaming-target-placeholder]')).toBe('言語を選ぶ');
         expect(`${home().textContent}${settingsForm().textContent}`).not.toContain('未翻訳');
 
+        settingsForm().dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        expect(homeStatus().textContent).toBe('設定を保存しました。');
+
         language.value = 'en';
         language.dispatchEvent(new Event('change', { bubbles: true }));
         expect(home().lang).toBe('en');
@@ -267,6 +286,45 @@ describe('Yomu Gaming first run', () => {
         expect(activePanel()).not.toBe('media');
         expect(activePanel()).toBe('shortcuts');
         expect(settingsForm().querySelector('[data-native-capture-shortcut]')).not.toBeNull();
+    });
+
+    it('routes the inline Reader settings surface to the native settings window', async () => {
+        const { showApp, hideOverlay, surface } = settingsSurfaceFixture();
+
+        const opening = surface.open('appearance');
+        expect(surface.open('api')).toBe(opening);
+        window.dispatchEvent(new Event('focus'));
+        await opening;
+
+        await vi.waitFor(() => expect(shellView()).toBe('settings'));
+        expect(activePanel()).toBe('appearance');
+        expect(showApp).toHaveBeenCalledOnce();
+        expect(hideOverlay).toHaveBeenCalledOnce();
+    });
+
+    it('does not hide the overlay when the native settings request cannot be retained', async () => {
+        const { showApp, hideOverlay, surface } = settingsSurfaceFixture();
+        const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('storage locked');
+        });
+
+        try {
+            await expect(surface.open()).rejects.toThrow('Could not request Yomu Gaming Settings.');
+            expect(showApp).not.toHaveBeenCalled();
+            expect(hideOverlay).not.toHaveBeenCalled();
+        } finally {
+            setItem.mockRestore();
+        }
+    });
+
+    it('withdraws a retained settings request when the native window cannot open', async () => {
+        const showApp = vi.fn(async () => { throw new Error('window unavailable'); });
+        const { hideOverlay, surface } = settingsSurfaceFixture(showApp);
+
+        await expect(surface.open('api')).rejects.toThrow('window unavailable');
+
+        expect(localStorage.getItem('yomu-gaming-pending-view-v1')).toBeNull();
+        expect(hideOverlay).not.toHaveBeenCalled();
     });
 
     it('returns home from settings', () => {

@@ -60,6 +60,10 @@ function settingsForStoredTarget(targetLanguage: string | null) {
     };
 }
 
+function testReaderSettingsSurface() {
+    return { open: vi.fn(async () => undefined) };
+}
+
 function reinjectAfterRuntimeMarkerMutation(
     mutateMarker: (marker: HTMLElement) => void,
 ): HTMLElement {
@@ -128,13 +132,15 @@ describe('reader boot', () => {
 
     it('passes a first-party packaged settings snapshot into Reader startup', async () => {
         const startupSettings = settingsForStoredTarget('ja');
+        const settingsSurface = testReaderSettingsSurface();
 
-        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface })).resolves.toBe(true);
 
         expect(appMocks.init).toHaveBeenCalledWith({
             embeddedFrame: false,
             showWelcome: true,
             startupSettings,
+            settingsSurface,
         });
         expect(appMocks.constructionArgs).toEqual([[expect.any(Function), false]]);
     });
@@ -160,7 +166,8 @@ describe('reader boot', () => {
 
     it('retains packaged settings for a later Reader retry in the same document', async () => {
         const startupSettings = settingsForStoredTarget('ja');
-        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+        const settingsSurface = testReaderSettingsSurface();
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface })).resolves.toBe(true);
         document.getElementById('jpdb-reader-runtime-owner')?.remove();
         appMocks.init.mockClear();
 
@@ -171,18 +178,46 @@ describe('reader boot', () => {
             embeddedFrame: false,
             showWelcome: true,
             startupSettings,
+            settingsSurface,
+        });
+    });
+
+    it('reuses the same packaged settings surface and replaces a different one', async () => {
+        const startupSettings = settingsForStoredTarget('ja');
+        const firstSurface = testReaderSettingsSurface();
+        const replacementSurface = testReaderSettingsSurface();
+
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface: firstSurface })).resolves.toBe(true);
+        appMocks.init.mockClear();
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface: firstSurface })).resolves.toBe(true);
+        expect(appMocks.init).not.toHaveBeenCalled();
+
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface: replacementSurface })).resolves.toBe(true);
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenCalledWith({
+            embeddedFrame: false,
+            showWelcome: true,
+            startupSettings,
+            settingsSurface: replacementSurface,
         });
     });
 
     it('reports packaged Reader initialization failure and permits a retry', async () => {
         const startupSettings = settingsForStoredTarget('ja');
+        const settingsSurface = testReaderSettingsSurface();
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         appMocks.init.mockRejectedValueOnce(new Error('packaged boot failed')).mockResolvedValueOnce(undefined);
 
-        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(false);
-        await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface })).resolves.toBe(false);
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface })).resolves.toBe(true);
 
         expect(appMocks.init).toHaveBeenCalledTimes(2);
+        expect(appMocks.init).toHaveBeenLastCalledWith({
+            embeddedFrame: false,
+            showWelcome: true,
+            startupSettings,
+            settingsSurface,
+        });
         expect(consoleError).toHaveBeenCalledWith('[Yomu Reader] Failed to initialize', expect.any(Error));
     });
 
