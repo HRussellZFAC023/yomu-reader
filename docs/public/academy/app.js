@@ -380032,6 +380032,7 @@ ${rank2.detail}` : baseTitle;
     activeBackdrop;
     settingsPreviewOriginalAccent;
     settingsPreviewOriginalTheme;
+    pendingOnboardingSettingsPanel;
     newTab;
     jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -380284,6 +380285,7 @@ ${rank2.detail}` : baseTitle;
       this.assertSessionVocabularyReadOnly();
       this.newTab = this.createNewTabController();
       await this.newTab.renderPage();
+      this.openPendingOnboardingSettingsPanel();
       this.openRequestedSettingsPanel();
       void this.refreshDictionaryStyles();
       this.scheduleDictionaryIndexPreparation();
@@ -380317,7 +380319,9 @@ ${rank2.detail}` : baseTitle;
           this.applyTheme(settings);
           this.applyWordColors(settings);
         },
-        showSettings: (panel) => this.showSettings(panel),
+        showSettings: (panel) => {
+          this.pendingOnboardingSettingsPanel = panel;
+        },
         parseJapanese: (panel) => void this.parseNewTabContent(panel),
         lookupText: (text2, sentence, anchor2) => void this.lookupText(text2, sentence || text2, anchor2, { stackOverSettings: true }),
         installOfflineDictionaries: () => void this.offlineDictionaries.run(),
@@ -380591,6 +380595,11 @@ ${rank2.detail}` : baseTitle;
     }
     showSettings(panel) {
       this.settingsDialog.open(panel);
+    }
+    openPendingOnboardingSettingsPanel() {
+      const panel = this.pendingOnboardingSettingsPanel;
+      this.pendingOnboardingSettingsPanel = void 0;
+      if (panel) this.showSettings(panel);
     }
     openRequestedSettingsPanel() {
       const panel = settingsPanelFromHash(location.hash);
