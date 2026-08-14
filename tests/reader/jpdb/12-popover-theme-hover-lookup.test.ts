@@ -46,6 +46,32 @@ import type {
 
 registerReaderHelpersCleanup();
 
+function withHostedDocsReaderApp(run: (app: ReaderApp) => void): void {
+    vi.stubGlobal('location', {
+        href: 'https://hrussellzfac023.github.io/yomu-reader/',
+        origin: 'https://hrussellzfac023.github.io',
+        hostname: 'hrussellzfac023.github.io',
+        pathname: '/yomu-reader/',
+    });
+    document.documentElement.classList.remove('dark');
+    const app = new ReaderApp();
+
+    try {
+        run(app);
+    } finally {
+        app.destroy();
+        vi.unstubAllGlobals();
+        document.documentElement.classList.remove('dark', 'jpdb-reader-theme-light', 'jpdb-reader-theme-dark');
+    }
+}
+
+function expectDarkReaderTheme(internals: { settings: typeof DEFAULT_SETTINGS }): void {
+    expect(internals.settings.theme).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(true);
+    expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(false);
+}
+
 describe('reader helpers', () => {
     it('keeps popover dictionary word hit testing inside the popover surface', () => {
         const app = new ReaderApp();
@@ -128,67 +154,37 @@ describe('reader helpers', () => {
     });
 
     it('applies stored Yomu theme to hosted docs when the page class is stale', () => {
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-            pathname: '/yomu-reader/',
-        });
-        document.documentElement.classList.remove('dark');
-        const app = new ReaderApp();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            applyTheme(): void;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            theme: 'dark',
-        };
-
-        try {
+        withHostedDocsReaderApp(app => {
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                applyTheme(): void;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                theme: 'dark',
+            };
             internals.applyTheme();
 
-            expect(internals.settings.theme).toBe('dark');
-            expect(document.documentElement.classList.contains('dark')).toBe(true);
-            expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(true);
-            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(false);
-        } finally {
-            app.destroy();
-            vi.unstubAllGlobals();
-            document.documentElement.classList.remove('dark', 'jpdb-reader-theme-light', 'jpdb-reader-theme-dark');
-        }
+            expectDarkReaderTheme(internals);
+        });
     });
 
     it('does not mirror passive hosted docs class drift back into saved theme settings', () => {
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-            pathname: '/yomu-reader/',
+        withHostedDocsReaderApp(app => {
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                hostTheme: {
+                    handleChange(theme: 'dark' | 'light'): void;
+                };
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                theme: 'dark',
+            };
+            internals.hostTheme.handleChange('light');
+
+            expectDarkReaderTheme(internals);
         });
-        document.documentElement.classList.remove('dark');
-        const app = new ReaderApp();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            handleHostThemeChange(theme: 'dark' | 'light'): void;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            theme: 'dark',
-        };
-
-        try {
-            internals.handleHostThemeChange('light');
-
-            expect(internals.settings.theme).toBe('dark');
-            expect(document.documentElement.classList.contains('dark')).toBe(true);
-            expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(true);
-            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(false);
-        } finally {
-            app.destroy();
-            vi.unstubAllGlobals();
-            document.documentElement.classList.remove('dark', 'jpdb-reader-theme-light', 'jpdb-reader-theme-dark');
-        }
     });
 
     it('segments modal popover Japanese without a JPDB API key', async () => {

@@ -15,13 +15,13 @@ afterEach(() => {
 // selectable copy is the clean original host text.
 describe('text mirror copy/paste isolation', () => {
     it('marks the created mirror aria-hidden so screen readers and copy skip the duplicate', () => {
-        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
-        const host = document.getElementById('title')!;
-        paint(host);
+        const host = document.createElement('span');
+        host.textContent = TEXT;
+        document.body.append(host);
+
+        paint(host, { nonDestructive: true });
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.getAttribute('aria-hidden')).toBe('true');
     });
-
-
 });
