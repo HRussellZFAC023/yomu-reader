@@ -5,7 +5,7 @@ description: What Yomu keeps on your device, which services it talks to and when
 
 # Yomu privacy policy
 
-Last updated: 12 August 2026
+Last updated: 15 August 2026
 
 **The short version.** Your settings, dictionaries, saved words, and review history stay on your device. Yomu talks to an outside service only when you use a feature that needs one — a lookup service you connected, an audio source, a translation — and the page below says exactly which, and when. There is no advertising and no analytics tracking, and your data is not sold.
 
@@ -27,6 +27,14 @@ The extension does not replace or redirect your browser's new-tab page. Study is
 - Media and OCR working data only as needed for the feature you invoke; Yomu does not upload it to a Yomu account.
 
 Uninstalling the extension normally removes its browser-managed local data. Export settings first if you want a backup.
+
+## Settings recovery after 1.9.2
+
+Version 1.9.3 makes hosted Study reconcile with authoritative Reader settings as soon as their bridge arrives, and makes Firefox's extension-owned Study page and the Reader on ordinary websites share one canonical settings store.
+
+If Study and ordinary websites already show different chosen settings, update to 1.9.3 or newer, open Study from the extension toolbar, and import your latest settings backup once. Keep only that settings surface active, leave the Study tab open, and wait for the import result; its Save and competing settings actions stay unavailable until the restore finishes.
+
+Do not factory reset or downgrade to recover from this incident. Factory reset is for deliberately erasing local Yomu data; it now also removes managed settings bytes stranded by older Firefox extension builds.
 
 ## Optional network services
 

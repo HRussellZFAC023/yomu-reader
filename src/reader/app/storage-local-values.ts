@@ -15,6 +15,30 @@ export function localStorageSet(key: string, value: unknown): void {
     }
 }
 
+export function removeLocalStorageKey(key: string): void {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        // Best effort only.
+    }
+}
+
+export function removeSessionStorageKey(key: string): void {
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Best effort only.
+    }
+}
+
+export function webStorageHasKey(storage: Storage, key: string): boolean {
+    try {
+        return storage.getItem(key) !== null;
+    } catch {
+        return false;
+    }
+}
+
 export function localStorageSetOrThrow(key: string, value: unknown): string {
     try {
         const serialized = JSON.stringify(value);

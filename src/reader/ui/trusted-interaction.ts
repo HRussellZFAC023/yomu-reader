@@ -8,6 +8,13 @@ export { allowSyntheticReaderInteractionsForTests } from './sandbox-shared-state
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const TAP_SLOP_PX = 12;
 const DRAG_HANDLE_SLOP_PX = 8;
+const IMPLICIT_SUBMISSION_INPUT_TYPES = new Set([
+    'text', 'search', 'tel', 'url', 'email', 'password',
+    'date', 'month', 'week', 'time', 'datetime-local', 'number',
+]);
+const reportReaderFormValidity = typeof HTMLFormElement === 'undefined'
+    ? undefined
+    : HTMLFormElement.prototype.reportValidity;
 const BOUNDARY_EVENTS = [
     'click', 'dblclick', 'auxclick', 'contextmenu',
     'beforeinput', 'input', 'change', 'submit', 'keydown', 'keyup', 'paste', 'drop',
@@ -314,51 +321,139 @@ function claimReaderControlClick(event: Event, target: Element | null): boolean 
     return true;
 }
 
-/**
- * Browsers mark the submit fired by `form.requestSubmit()` as trusted, even
- * when a host-page script invoked it. Require a preceding direct click or
- * Enter gesture, and consume that authorization in the same task.
- */
-export class ReaderFormSubmitAuthorization {
-    private armed = false;
-    private revision = 0;
+type ReaderFormSubmitControl = HTMLButtonElement | HTMLInputElement;
 
-    arm(event: Event): void {
-        if (!isDirectTrustedReaderInteraction(event)) return;
-        this.armed = true;
-        const revision = ++this.revision;
-        queueMicrotask(() => {
-            if (this.revision === revision) this.armed = false;
-        });
-    }
+function isReaderFormSubmitControl(control: Element): control is ReaderFormSubmitControl {
+    if (control instanceof HTMLButtonElement) return control.type === 'submit';
+    return control instanceof HTMLInputElement && (control.type === 'submit' || control.type === 'image');
+}
 
-    consume(event: Event): boolean {
-        // Synthetic jsdom submits remain available only under the explicit
-        // test override. A browser-trusted submit still needs the armed token.
-        const allowed = this.armed
-            || (!event.isTrusted && isDirectTrustedReaderInteraction(event));
-        this.armed = false;
-        this.revision += 1;
-        return allowed;
-    }
+function readerFormSubmitControl(form: HTMLFormElement): ReaderFormSubmitControl | null {
+    const controls = Array.from(form.querySelectorAll('button, input'))
+        .filter((control): control is ReaderFormSubmitControl =>
+            isReaderFormSubmitControl(control) && control.form === form);
+    return controls.length === 1 ? controls[0] ?? null : null;
+}
+
+function isExactReaderFormSubmitTarget(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+    target: EventTarget | null,
+): boolean {
+    return eventTargetsReaderSubmitControl(target, submitter)
+        && readerSubmitControlBelongsToLiveForm(form, submitter)
+        && readerSubmitControlRemainsEnabled(submitter);
+}
+
+function eventTargetsReaderSubmitControl(target: EventTarget | null, submitter: ReaderFormSubmitControl): boolean {
+    return target instanceof Element && target.closest('button, input') === submitter;
+}
+
+function readerSubmitControlBelongsToLiveForm(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+): boolean {
+    return submitter.form === form && form.isConnected && submitter.isConnected;
+}
+
+function readerSubmitControlRemainsEnabled(submitter: ReaderFormSubmitControl): boolean {
+    return isReaderFormSubmitControl(submitter) && !readerControlIsDisabled(submitter);
+}
+
+function isExactReaderSubmitClick(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+    event: MouseEvent,
+): boolean {
+    if (isPrivateReaderSubmitClick(event)) return true;
+    return event.isTrusted && isTrustedReaderSubmitClickModality(form, submitter, event);
+}
+
+function isPrivateReaderSubmitClick(event: MouseEvent): boolean {
+    const target = event.target instanceof Element ? event.target : null;
+    return claimReaderControlClick(event, target)
+        || sharedState.authorizedClicks.has(event)
+        || syntheticEventsAllowed();
+}
+
+function isTrustedReaderSubmitClickModality(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+    event: MouseEvent,
+): boolean {
+    if (event.detail !== 0) return true;
+    const active = form.ownerDocument.activeElement;
+    if (active === submitter) return true;
+    return isImplicitReaderSubmitInput(form, active);
+}
+
+function isImplicitReaderSubmitInput(form: HTMLFormElement, active: Element | null): boolean {
+    if (!(active instanceof HTMLInputElement)) return false;
+    return active.form === form
+        && !readerControlIsDisabled(active)
+        && IMPLICIT_SUBMISSION_INPUT_TYPES.has(active.type);
+}
+
+function readerFormIsValid(form: HTMLFormElement, submitter: ReaderFormSubmitControl): boolean {
+    if (form.noValidate || submitter.formNoValidate) return true;
+    return reportReaderFormValidity?.call(form) === true;
+}
+
+function isReaderFormSubmitActivation(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+    event: MouseEvent,
+): boolean {
+    return !event.defaultPrevented && isExactReaderSubmitClick(form, submitter, event);
 }
 
 /**
  * Bind one submit path whose authorization is owned by the Reader form rather
  * than by the browser's `submit` event trust bit.
  */
-export function bindAuthorizedReaderFormSubmit(form: HTMLFormElement, onSubmit: () => void): void {
-    const authorization = new ReaderFormSubmitAuthorization();
-    form.addEventListener('click', event => {
-        const target = event.target instanceof Element ? event.target : null;
-        const submit = target?.closest('button:not([type]), button[type="submit"], input[type="submit"]');
-        if (submit && form.contains(submit)) authorization.arm(event);
-    }, { capture: true });
-    form.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && !event.isComposing) authorization.arm(event);
-    }, { capture: true });
+export function bindAuthorizedReaderFormSubmit(
+    form: HTMLFormElement,
+    onSubmit: () => void,
+    onInvalid?: () => void,
+): void {
+    const submitter = readerFormSubmitControl(form);
+    if (submitter) {
+        form.addEventListener('click', event => {
+            handleReaderFormSubmitClick(form, submitter, onSubmit, onInvalid, event);
+        }, { capture: true });
+    }
     form.addEventListener('submit', event => {
         event.preventDefault();
-        if (authorization.consume(event)) onSubmit();
+        runSyntheticReaderFormSubmitForTests(event, onSubmit);
     });
+}
+
+function runSyntheticReaderFormSubmitForTests(event: SubmitEvent, onSubmit: () => void): void {
+    if (!event.isTrusted && syntheticEventsAllowed()) onSubmit();
+}
+
+function handleReaderFormSubmitClick(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+    onSubmit: () => void,
+    onInvalid: (() => void) | undefined,
+    event: MouseEvent,
+): void {
+    if (!isExactReaderFormSubmitTarget(form, submitter, event.target)) return;
+    if (!isReaderFormSubmitActivation(form, submitter, event)) return;
+    // Firefox defers the native default submit until after a microtask.
+    // Complete the privileged action inside this exact click instead, so
+    // `requestSubmit()` can never steal a capability in between.
+    event.preventDefault();
+    runValidatedReaderFormSubmit(form, submitter, onSubmit, onInvalid);
+}
+
+function runValidatedReaderFormSubmit(
+    form: HTMLFormElement,
+    submitter: ReaderFormSubmitControl,
+    onSubmit: () => void,
+    onInvalid: (() => void) | undefined,
+): void {
+    if (readerFormIsValid(form, submitter)) onSubmit();
+    else onInvalid?.();
 }

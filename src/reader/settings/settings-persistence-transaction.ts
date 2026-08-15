@@ -1,52 +1,56 @@
 import type { ReaderSettings } from '../app/types';
 import {
-    gmStorageDelete,
+    createManagedWriteJournal,
+    exportManagedStoredValues,
     gmStorageGet,
+    gmStorageGetStrict,
     gmStorageGetShared,
-    gmStorageSet,
+    gmStorageGetSharedStrict,
     isHostedYomuOrigin,
-    localFallbackStoredValue,
-    restoreLocalFallbackStoredValue,
+    type ManagedStoredValueState,
+    type ManagedWriteJournal,
+    type ManagedWriteReceipt,
 } from '../app/storage';
 import {
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+    settingsIntentKeys,
     settingsIntentLedgerFromStorage,
     type SettingsIntentLedger,
 } from './intent-ledger';
 import { normalizeLearningTargetChosen } from './learning-target-choice';
 import { createStorageCoordinationId } from '../app/gm-storage-lease';
+import {
+    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    SETTINGS_STORAGE_KEY,
+} from './settings-authority-storage-keys';
 
-export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
-export const EXPLICIT_USER_SETTINGS_STORAGE_KEY = 'yomu:explicit-user-settings:v1';
+export { EXPLICIT_USER_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
 export const SETTINGS_PERSISTENCE_STORAGE_LEASE = 'reader-settings-persistence';
 
-const SETTINGS_TRANSACTION_FIELD = '__yomuSettingsPersistenceTransactionV1';
-const SETTINGS_COMMIT_FIELD = '__yomuSettingsPersistenceCommitV1';
-const SETTINGS_STORAGE_MISSING = '\u0000yomu-settings-storage-missing:v1';
-const LOCAL_FALLBACK_MISSING = Symbol('yomu-settings-local-fallback-missing');
-const AUTHORITATIVE_TRANSACTION_WRITE = {
-    localFallbackOnAuthoritativeFailure: 'preserve',
-} as const;
+const TRANSACTION_FIELD = '__yomuSettingsPersistenceTransactionV1';
+const COMMIT_FIELD = '__yomuSettingsPersistenceCommitV1';
 
-interface SettingsStorageSnapshot {
-    readonly key: string;
+interface SerializedSnapshot {
     readonly existed: boolean;
     readonly previousValue: unknown;
     readonly localFallbackExisted: boolean;
     readonly localFallbackValue: unknown;
 }
 
-interface SerializedSettingsStorageSnapshot {
-    readonly existed: boolean;
-    readonly previousValue: unknown;
-    readonly localFallbackExisted: boolean;
-    readonly localFallbackValue: unknown;
-}
-
-interface SettingsTransactionMarker {
+interface TransactionMarker {
     readonly version: 1;
-    readonly settings: SerializedSettingsStorageSnapshot;
-    readonly intentLedger: SerializedSettingsStorageSnapshot;
+    readonly settings: SerializedSnapshot;
+    readonly intentLedger: SerializedSnapshot;
+}
+
+interface StorageSnapshot extends SerializedSnapshot {
+    readonly receipt: ManagedWriteReceipt;
+}
+
+interface StorageSnapshots {
+    readonly settings: StorageSnapshot;
+    readonly intentLedger: StorageSnapshot;
+    readonly interrupted: boolean;
 }
 
 export interface SettingsPersistenceView {
@@ -54,287 +58,390 @@ export interface SettingsPersistenceView {
     readonly intentLedger: SettingsIntentLedger;
 }
 
+export interface SettingsBackupSnapshot {
+    readonly settings: ReaderSettings;
+    readonly storage: Record<string, unknown>;
+}
+
+export class InvalidSettingsBackupAuthorityError extends Error {
+    override readonly name = 'InvalidSettingsBackupAuthorityError';
+}
+
 export interface CommittedSettingsStoragePair {
     readonly settings: unknown;
     readonly intentLedger: unknown;
 }
 
-interface SettingsPersistenceSample {
-    readonly beforeSettings: unknown;
-    readonly beforeIntentLedger: unknown;
-    readonly afterIntentLedger: unknown;
-    readonly afterSettings: unknown;
+interface BackupAuthority {
+    readonly record: Record<string, unknown>;
+    readonly hasSettings: boolean;
+    readonly hasIntentLedger: boolean;
+    readonly settings: Record<string, unknown>;
+}
+
+export type SettingsStorageRead = <T>(key: string, fallback: T) => Promise<T>;
+
+/** Reads one witnessed settings/intent pair, retrying if a commit crosses the sample. */
+export function readSettingsPersistenceView(): Promise<SettingsPersistenceView> {
+    return readSettingsPersistenceViewFrom(readSettingsStorageValue);
 }
 
 /**
- * Reads a committed settings view. Both transaction-owned keys are sampled on
- * both sides of the read. This rejects not only a normal commit crossing but
- * also a failed transaction whose SETTINGS value returns to its original byte
- * after the staged ledger has already been observed.
+ * Exports settings and intent as one witnessed pair. Generic managed values
+ * may be sampled independently, but a backup must never preserve one side of
+ * a settings commit with the other side of a different commit.
  */
-export async function readSettingsPersistenceView(): Promise<SettingsPersistenceView> {
+export async function exportSettingsBackupSnapshot(
+    fallbackSettings: ReaderSettings,
+): Promise<SettingsBackupSnapshot> {
+    const storage = await exportManagedStoredValues();
+    const view = await readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
+    const witnessed = objectRecord(view.settings);
+    if (!witnessed) {
+        if (backupContainsSettingsAuthority(storage)) {
+            throw new Error('Could not capture canonical settings for backup.');
+        }
+        return { settings: detachedSettings(fallbackSettings), storage };
+    }
+    const settings = detachedSettings({
+        ...fallbackSettings,
+        ...witnessed,
+        shortcuts: {
+            ...fallbackSettings.shortcuts,
+            ...objectRecord(witnessed.shortcuts),
+        },
+    } as ReaderSettings);
+    const commit = createStorageCoordinationId();
+    return {
+        settings,
+        storage: {
+            ...storage,
+            [SETTINGS_STORAGE_KEY]: withCommit(settings, commit),
+            [SETTINGS_INTENT_LEDGER_STORAGE_KEY]: withCommit(view.intentLedger, commit),
+        },
+    };
+}
+
+function backupContainsSettingsAuthority(storage: Record<string, unknown>): boolean {
+    return Object.hasOwn(storage, SETTINGS_STORAGE_KEY)
+        || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+}
+
+function detachedSettings(settings: ReaderSettings): ReaderSettings {
+    return structuredClone(settings);
+}
+
+export async function readSettingsPersistenceViewFrom(
+    read: SettingsStorageRead,
+): Promise<SettingsPersistenceView> {
+    return await stableSettingsPersistenceView(read)
+        ?? { settings: null, intentLedger: settingsIntentLedgerFromStorage(null, null) };
+}
+
+/** A startup/subscription read must witness one stable committed pair. */
+export async function readSettingsPersistenceViewStrictFrom(
+    read: SettingsStorageRead,
+): Promise<SettingsPersistenceView> {
+    const view = await stableSettingsPersistenceView(read);
+    if (view) return view;
+    throw new Error('Settings storage did not provide a stable committed snapshot.');
+}
+
+async function stableSettingsPersistenceView(
+    read: SettingsStorageRead,
+): Promise<SettingsPersistenceView | null> {
     for (let attempt = 0; attempt < 3; attempt++) {
-        const view = await stableSettingsPersistenceView(await readSettingsPersistenceSample());
+        const view = await sampledSettingsView(read);
         if (view) return view;
     }
-    return {
-        settings: null,
-        intentLedger: settingsIntentLedgerFromStorage(null, null),
-    };
+    return null;
 }
 
-async function readSettingsPersistenceSample(): Promise<SettingsPersistenceSample> {
-    return {
-        beforeSettings: await readSettingsStorageValue<unknown>(SETTINGS_STORAGE_KEY, null),
-        beforeIntentLedger: await readSettingsStorageValue<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-        afterIntentLedger: await readSettingsStorageValue<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-        afterSettings: await readSettingsStorageValue<unknown>(SETTINGS_STORAGE_KEY, null),
-    };
-}
-
-function stableSettingsPersistenceView(
-    sample: SettingsPersistenceSample,
-): Promise<SettingsPersistenceView | null> {
-    return settingsPersistenceSampleIsStable(sample)
-        ? settingsPersistenceView(sample.afterSettings, sample.afterIntentLedger)
-        : Promise.resolve(null);
-}
-
-function settingsPersistenceSampleIsStable(sample: SettingsPersistenceSample): boolean {
-    return storedValuesMatch(sample.beforeSettings, sample.afterSettings)
-        && storedValuesMatch(sample.beforeIntentLedger, sample.afterIntentLedger);
-}
-
-async function settingsPersistenceView(
-    storedSettings: unknown,
-    storedIntentLedger: unknown,
-): Promise<SettingsPersistenceView | null> {
-    const committed = committedSettingsStoragePair(storedSettings, storedIntentLedger);
+async function sampledSettingsView(read: SettingsStorageRead): Promise<SettingsPersistenceView | null> {
+    const beforeSettings = await read<unknown>(SETTINGS_STORAGE_KEY, null);
+    const beforeLedger = await read<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
+    const afterLedger = await read<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
+    const afterSettings = await read<unknown>(SETTINGS_STORAGE_KEY, null);
+    if (!sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger)) return null;
+    const committed = committedSettingsStoragePair(afterSettings, afterLedger);
     if (!committed) return null;
-    const intentLedger = settingsIntentLedgerFromStorage(
-        committed.intentLedger,
-        await readSettingsStorageValue<unknown>(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null),
+    return {
+        settings: committed.settings,
+        intentLedger: settingsIntentLedgerFromStorage(
+            committed.intentLedger,
+            await read<unknown>(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null),
+        ),
+    };
+}
+
+function sampleIsStable(
+    beforeSettings: unknown,
+    beforeLedger: unknown,
+    afterSettings: unknown,
+    afterLedger: unknown,
+): boolean {
+    return valuesMatch(beforeSettings, afterSettings) && valuesMatch(beforeLedger, afterLedger);
+}
+
+/** Validates the privileged pair in a backup before any imported value is staged. */
+export async function readBackupSettingsPersistenceView(
+    values: unknown,
+): Promise<SettingsPersistenceView | null> {
+    const authority = backupAuthority(values);
+    if (!authority || !backupReplacesIntent(authority)) return null;
+    return readSettingsPersistenceViewFrom(async <T>(key: string, fallback: T) => (
+        Object.hasOwn(authority.record, key) ? authority.record[key] as T : fallback
+    ));
+}
+
+function backupAuthority(values: unknown): BackupAuthority | null {
+    const record = objectRecord(values);
+    if (!record) return null;
+    const hasSettings = Object.hasOwn(record, SETTINGS_STORAGE_KEY);
+    const hasIntentLedger = Object.hasOwn(record, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+    if (!hasSettings && !hasIntentLedger) return null;
+    return validatedBackupAuthority(record, hasSettings, hasIntentLedger);
+}
+
+function validatedBackupAuthority(
+    record: Record<string, unknown>,
+    hasSettings: boolean,
+    hasIntentLedger: boolean,
+): BackupAuthority {
+    const committed = backupCommittedPair(record);
+    if (!committed) {
+        throw new InvalidSettingsBackupAuthorityError(
+            'Settings backup contains an incomplete settings persistence transaction.',
+        );
+    }
+    const settings = objectRecord(committed.settings);
+    if (!settings) {
+        throw new InvalidSettingsBackupAuthorityError(
+            'Settings backup contains a malformed canonical settings value.',
+        );
+    }
+    validateBackupLedger(hasIntentLedger, committed.intentLedger);
+    return { record, hasSettings, hasIntentLedger, settings };
+}
+
+function backupCommittedPair(record: Record<string, unknown>): CommittedSettingsStoragePair | null {
+    return committedSettingsStoragePair(
+        nullableBackupValue(record, SETTINGS_STORAGE_KEY),
+        nullableBackupValue(record, SETTINGS_INTENT_LEDGER_STORAGE_KEY),
     );
-    return { settings: committed.settings, intentLedger };
+}
+
+function nullableBackupValue(record: Record<string, unknown>, key: string): unknown {
+    return record[key] ?? null;
+}
+
+function validateBackupLedger(present: boolean, value: unknown): void {
+    if (present && !validIntentLedger(value)) {
+        throw new InvalidSettingsBackupAuthorityError(
+            'Settings backup contains a malformed settings intent ledger.',
+        );
+    }
+}
+
+function backupReplacesIntent(authority: BackupAuthority): boolean {
+    if (!authority.hasSettings) return false;
+    if (authority.hasIntentLedger) return true;
+    const legacy = settingsIntentLedgerFromStorage(
+        null,
+        authority.record[EXPLICIT_USER_SETTINGS_STORAGE_KEY] ?? null,
+    );
+    return settingsIntentKeys(legacy).some(key => Object.hasOwn(authority.settings, key));
+}
+
+function validIntentLedger(value: unknown): boolean {
+    const ledger = objectRecord(value);
+    const records = ledger && objectRecord(ledger.records);
+    return Boolean(records
+        && optionalFiniteNumber(ledger!, 'revision')
+        && Object.values(records).every(item => {
+            const record = objectRecord(item);
+            return Boolean(record && optionalFiniteNumber(record, 'seq'));
+        }));
+}
+
+function optionalFiniteNumber(record: Record<string, unknown>, key: string): boolean {
+    const value = record[key];
+    return !Object.hasOwn(record, key) || typeof value === 'number' && Number.isFinite(value);
 }
 
 /**
- * Raw document-start readers use the same commit witness as `loadSettings`.
- * Both unwitnessed values are accepted for genuine pre-transaction installs;
- * one witness or two different witnesses fail closed.
+ * A marker exposes the previous pair while the ledger is staged. A matching
+ * commit id exposes the new pair. Two genuinely pre-transaction values have
+ * no ids and therefore also match.
  */
 export function committedSettingsStoragePair(
     storedSettings: unknown,
     storedIntentLedger: unknown,
 ): CommittedSettingsStoragePair | null {
-    const marker = settingsTransactionMarker(storedSettings);
-    const committedSettings = marker
-        ? storedSnapshotValue(marker.settings)
-        : storedSettings;
-    const committedIntentLedger = marker
-        ? storedSnapshotValue(marker.intentLedger)
-        : storedIntentLedger;
-    return settingsCommitMatches(committedSettings, committedIntentLedger)
-        ? {
-            settings: withoutSettingsCommit(committedSettings),
-            intentLedger: withoutSettingsCommit(committedIntentLedger),
-        }
+    const marker = transactionMarker(storedSettings);
+    const { settings, intentLedger } = marker
+        ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) }
+        : { settings: storedSettings, intentLedger: storedIntentLedger };
+    return matchingCommittedPair(settings, intentLedger);
+}
+
+function matchingCommittedPair(settings: unknown, intentLedger: unknown): CommittedSettingsStoragePair | null {
+    const settingsId = commitId(settings);
+    const ledgerId = commitId(intentLedger);
+    return settingsId !== null && ledgerId !== null && settingsId === ledgerId
+        ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) }
         : null;
 }
 
-function readSettingsStorageValue<T>(key: string, fallback: T): Promise<T> {
-    return isHostedYomuOrigin()
-        ? gmStorageGet(key, fallback)
-        : gmStorageGetShared(key, fallback);
-}
-
-function storedValuesMatch(left: unknown, right: unknown): boolean {
-    try {
-        return JSON.stringify(left) === JSON.stringify(right);
-    } catch {
-        return false;
-    }
-}
-
-function settingsCommitMatches(settings: unknown, intentLedger: unknown): boolean {
-    const settingsId = settingsCommitId(settings);
-    const ledgerId = settingsCommitId(intentLedger);
-    return settingsId !== null && ledgerId !== null && settingsId === ledgerId;
-}
-
-function settingsCommitId(value: unknown): string | null | undefined {
+function commitId(value: unknown): string | null | undefined {
     const record = objectRecord(value);
-    return record ? recordSettingsCommitId(record) : undefined;
+    if (!record) return undefined;
+    return recordCommitId(record);
 }
 
-function recordSettingsCommitId(record: Record<string, unknown>): string | null | undefined {
-    return Object.hasOwn(record, SETTINGS_COMMIT_FIELD)
-        ? validSettingsCommitId(record[SETTINGS_COMMIT_FIELD])
-        : undefined;
+function recordCommitId(record: Record<string, unknown>): string | null | undefined {
+    if (!Object.hasOwn(record, COMMIT_FIELD)) return undefined;
+    const id = record[COMMIT_FIELD];
+    return typeof id === 'string' && id ? id : null;
 }
 
-function validSettingsCommitId(value: unknown): string | null {
-    return typeof value === 'string' && value ? value : null;
+function withCommit(value: object, id: string | null | undefined): object {
+    return id ? { ...value, [COMMIT_FIELD]: id } : value;
 }
 
-function withSettingsCommit(value: object, commitId: string | null | undefined): object {
-    return commitId ? { ...value, [SETTINGS_COMMIT_FIELD]: commitId } : value;
-}
-
-function withoutSettingsCommit(value: unknown): unknown {
+function withoutCommit(value: unknown): unknown {
     const record = objectRecord(value);
-    if (!record || !Object.hasOwn(record, SETTINGS_COMMIT_FIELD)) return value;
+    if (!record || !Object.hasOwn(record, COMMIT_FIELD)) return value;
     const clean = { ...record };
-    delete clean[SETTINGS_COMMIT_FIELD];
+    delete clean[COMMIT_FIELD];
     return clean;
 }
 
-/**
- * The settings marker keeps every observer on the previous target while the
- * next intent ledger is staged. Writing the real settings blob last is the
- * single commit/publication event for loadSettings, document-start activation,
- * and the preferred-site-language gate.
- */
+/** The canonical settings write is the sole publication event. */
 export async function persistSettingsStorageTransaction(
     nextIntentLedger: SettingsIntentLedger | undefined,
     settings: Partial<ReaderSettings>,
 ): Promise<void> {
-    const [settingsSnapshot, intentLedgerSnapshot] = await settingsStorageSnapshots();
-    const commitId = settingsTransactionCommitId(nextIntentLedger, intentLedgerSnapshot);
-    const attempted = new Set<string>();
+    const journal = createManagedWriteJournal(true);
+    const snapshots = await storageSnapshots(journal);
     try {
-        await stageSettingsIntent(nextIntentLedger, settingsSnapshot, intentLedgerSnapshot, commitId, attempted);
-        await gmStorageSet(
-            SETTINGS_STORAGE_KEY,
-            withSettingsCommit(settings, commitId),
-            AUTHORITATIVE_TRANSACTION_WRITE,
-        );
+        const id = nextIntentLedger === undefined
+            ? commitId(snapshots.intentLedger.previousValue)
+            : createStorageCoordinationId();
+        await stageIntent(nextIntentLedger, snapshots, id, journal);
+        await journal.write(snapshots.settings.receipt, withCommit(settings, id));
+        journal.commit();
     } catch (error) {
-        await rollbackSettingsTransaction(error, settingsSnapshot, intentLedgerSnapshot, attempted);
+        await journal.reject(error, 'Settings persistence failed', true);
     }
 }
 
-function settingsTransactionCommitId(
-    nextIntentLedger: SettingsIntentLedger | undefined,
-    intentLedgerSnapshot: SettingsStorageSnapshot,
-): string | null | undefined {
-    return nextIntentLedger === undefined
-        ? settingsCommitId(intentLedgerSnapshot.previousValue)
-        : createStorageCoordinationId();
-}
-
-async function stageSettingsIntent(
-    nextIntentLedger: SettingsIntentLedger | undefined,
-    settingsSnapshot: SettingsStorageSnapshot,
-    intentLedgerSnapshot: SettingsStorageSnapshot,
-    commitId: string | null | undefined,
-    attempted: Set<string>,
+async function stageIntent(
+    next: SettingsIntentLedger | undefined,
+    snapshots: StorageSnapshots,
+    id: string | null | undefined,
+    journal: ManagedWriteJournal,
 ): Promise<void> {
-    attempted.add(SETTINGS_STORAGE_KEY);
-    if (nextIntentLedger === undefined) return;
-    await gmStorageSet(
-        SETTINGS_STORAGE_KEY,
-        settingsTransactionRecord(settingsSnapshot, intentLedgerSnapshot),
-        AUTHORITATIVE_TRANSACTION_WRITE,
-    );
-    attempted.add(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
-    await gmStorageSet(
-        SETTINGS_INTENT_LEDGER_STORAGE_KEY,
-        withSettingsCommit(nextIntentLedger, commitId),
-        AUTHORITATIVE_TRANSACTION_WRITE,
-    );
-}
-
-async function rollbackSettingsTransaction(
-    error: unknown,
-    settingsSnapshot: SettingsStorageSnapshot,
-    intentLedgerSnapshot: SettingsStorageSnapshot,
-    attempted: ReadonlySet<string>,
-): Promise<never> {
-    const rollbackErrors = await restoreSettingsStorageSnapshots(
-        [intentLedgerSnapshot, settingsSnapshot].filter(snapshot => attempted.has(snapshot.key)),
-    );
-    if (!rollbackErrors.length) throw error;
-    throw new AggregateError(
-        [error, ...rollbackErrors],
-        `Settings persistence failed and ${rollbackErrors.length} rollback operation(s) also failed.`,
-    );
-}
-
-async function settingsStorageSnapshots(): Promise<[SettingsStorageSnapshot, SettingsStorageSnapshot]> {
-    const rawSettingsSnapshot = await settingsStorageSnapshot(SETTINGS_STORAGE_KEY);
-    const interrupted = settingsTransactionMarker(rawSettingsSnapshot.previousValue);
-    if (interrupted) {
-        return [
-            snapshotFromMarker(SETTINGS_STORAGE_KEY, interrupted.settings),
-            snapshotFromMarker(SETTINGS_INTENT_LEDGER_STORAGE_KEY, interrupted.intentLedger),
-        ];
+    if (next === undefined) {
+        if (!snapshots.interrupted) return;
+        await journal.restore(
+            snapshots.intentLedger.receipt,
+            'Interrupted settings intent cleanup failed.',
+        );
+        return;
     }
-    return [
-        rawSettingsSnapshot,
-        await settingsStorageSnapshot(SETTINGS_INTENT_LEDGER_STORAGE_KEY),
-    ];
+    const marker = transactionRecord(snapshots.settings, snapshots.intentLedger);
+    await journal.write(snapshots.settings.receipt, marker);
+    const ledger = withCommit(next, id);
+    await journal.write(snapshots.intentLedger.receipt, ledger);
 }
 
-async function settingsStorageSnapshot(key: string): Promise<SettingsStorageSnapshot> {
-    const stored = await readSettingsStorageValue<unknown>(key, SETTINGS_STORAGE_MISSING);
-    const existed = stored !== SETTINGS_STORAGE_MISSING;
-    const previousValue = existed ? stored : null;
-    const localFallbackValue = isHostedYomuOrigin()
-        ? localFallbackStoredValue<unknown>(key, LOCAL_FALLBACK_MISSING)
-        : LOCAL_FALLBACK_MISSING;
+async function storageSnapshots(journal: ManagedWriteJournal): Promise<StorageSnapshots> {
+    const settingsReceipt = await journal.capture(SETTINGS_STORAGE_KEY);
+    const rawSettings = storageSnapshot(settingsReceipt);
+    const marker = transactionMarker(rawSettings.previousValue);
+    if (!marker) {
+        return {
+            settings: rawSettings,
+            intentLedger: storageSnapshot(await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY)),
+            interrupted: false,
+        };
+    }
+    const intentReceipt = await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+    const settings = markerSnapshot(settingsReceipt, marker.settings);
+    const intentLedger = markerSnapshot(intentReceipt, marker.intentLedger);
+    journal.adoptInterrupted(
+        settingsReceipt,
+        authorityState(settings),
+        localState(settings),
+    );
+    journal.adoptInterrupted(
+        intentReceipt,
+        authorityState(intentLedger),
+        localState(intentLedger),
+    );
+    return { settings, intentLedger, interrupted: true };
+}
+
+function storageSnapshot(receipt: ManagedWriteReceipt): StorageSnapshot {
+    const { existed, value } = receipt.previous;
     return {
-        key,
+        receipt,
         existed,
-        previousValue,
-        localFallbackExisted: localFallbackValue !== LOCAL_FALLBACK_MISSING,
-        localFallbackValue: localFallbackValue === LOCAL_FALLBACK_MISSING ? null : localFallbackValue,
+        previousValue: value,
+        // Raw page storage never enters the privileged crash marker.
+        localFallbackExisted: existed,
+        localFallbackValue: value,
     };
 }
 
-function settingsTransactionRecord(
-    settings: SettingsStorageSnapshot,
-    intentLedger: SettingsStorageSnapshot,
-): Record<string, unknown> {
+function authorityState(snapshot: SerializedSnapshot): ManagedStoredValueState {
+    return { existed: snapshot.existed, value: snapshot.previousValue };
+}
+
+function localState(snapshot: SerializedSnapshot): ManagedStoredValueState {
+    return { existed: snapshot.localFallbackExisted, value: snapshot.localFallbackValue };
+}
+
+function transactionRecord(settings: StorageSnapshot, intentLedger: StorageSnapshot): Record<string, unknown> {
     const previous = objectRecord(settings.previousValue) ?? {};
     return {
         ...previous,
         learningTargetChosen: normalizeLearningTargetChosen(settings.existed ? previous : null),
         onboardingSeen: typeof previous.onboardingSeen === 'boolean' ? previous.onboardingSeen : false,
-        [SETTINGS_TRANSACTION_FIELD]: {
+        [TRANSACTION_FIELD]: {
             version: 1,
-            settings: serializedSnapshot(settings),
-            intentLedger: serializedSnapshot(intentLedger),
-        } satisfies SettingsTransactionMarker,
+            settings: serializeSnapshot(settings),
+            intentLedger: serializeSnapshot(intentLedger),
+        } satisfies TransactionMarker,
     };
 }
 
-function settingsTransactionMarker(value: unknown): SettingsTransactionMarker | null {
-    const marker = transactionMarkerRecord(value);
-    return marker?.version === 1 ? transactionMarkerSnapshots(marker) : null;
+function transactionMarker(value: unknown): TransactionMarker | null {
+    const owner = objectRecord(value);
+    const marker = owner && objectRecord(owner[TRANSACTION_FIELD]);
+    if (!marker) return null;
+    return validatedTransactionMarker(marker);
 }
 
-function transactionMarkerRecord(value: unknown): Record<string, unknown> | null {
-    const record = objectRecord(value);
-    return record ? objectRecord(record[SETTINGS_TRANSACTION_FIELD]) : null;
-}
-
-function transactionMarkerSnapshots(marker: Record<string, unknown>): SettingsTransactionMarker | null {
-    const settings = serializedSnapshotRecord(marker.settings);
-    const intentLedger = serializedSnapshotRecord(marker.intentLedger);
+function validatedTransactionMarker(marker: Record<string, unknown>): TransactionMarker | null {
+    if (marker.version !== 1) return null;
+    const settings = serializedSnapshot(marker.settings);
+    const intentLedger = serializedSnapshot(marker.intentLedger);
     return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
 }
 
-function serializedSnapshot(snapshot: SettingsStorageSnapshot): SerializedSettingsStorageSnapshot {
+function serializeSnapshot(snapshot: StorageSnapshot): SerializedSnapshot {
+    // Never promote raw hosted-page storage into the privileged marker.
     return {
         existed: snapshot.existed,
         previousValue: snapshot.previousValue,
-        localFallbackExisted: snapshot.localFallbackExisted,
-        localFallbackValue: snapshot.localFallbackValue,
+        localFallbackExisted: snapshot.existed,
+        localFallbackValue: snapshot.previousValue,
     };
 }
 
-function serializedSnapshotRecord(value: unknown): SerializedSettingsStorageSnapshot | null {
+function serializedSnapshot(value: unknown): SerializedSnapshot | null {
     const record = objectRecord(value);
     return record
         && typeof record.existed === 'boolean'
@@ -348,52 +455,28 @@ function serializedSnapshotRecord(value: unknown): SerializedSettingsStorageSnap
         : null;
 }
 
-function snapshotFromMarker(key: string, snapshot: SerializedSettingsStorageSnapshot): SettingsStorageSnapshot {
-    return { key, ...snapshot };
+function markerSnapshot(receipt: ManagedWriteReceipt, snapshot: SerializedSnapshot): StorageSnapshot {
+    return { receipt, ...snapshot };
 }
 
-function storedSnapshotValue(snapshot: SerializedSettingsStorageSnapshot): unknown {
+function snapshotValue(snapshot: SerializedSnapshot): unknown {
     return snapshot.existed ? snapshot.previousValue : null;
 }
 
-async function restoreSettingsStorageSnapshots(
-    snapshots: readonly SettingsStorageSnapshot[],
-): Promise<unknown[]> {
-    const errors: unknown[] = [];
-    for (const snapshot of snapshots) {
-        const snapshotErrors = await restoreSettingsStorageSnapshot(snapshot);
-        errors.push(...snapshotErrors);
-        // The SETTINGS marker is the remaining isolation boundary if the
-        // staged ledger cannot be rolled back. Publishing the old canonical
-        // settings blob here would expose that uncommitted ledger as active.
-        if (snapshot.key === SETTINGS_INTENT_LEDGER_STORAGE_KEY && snapshotErrors.length) break;
-    }
-    return errors;
+function readSettingsStorageValue<T>(key: string, fallback: T): Promise<T> {
+    return isHostedYomuOrigin() ? gmStorageGet(key, fallback) : gmStorageGetShared(key, fallback);
 }
 
-async function restoreSettingsStorageSnapshot(snapshot: SettingsStorageSnapshot): Promise<unknown[]> {
-    const errors: unknown[] = [];
-    try {
-        if (snapshot.existed) {
-            await gmStorageSet(snapshot.key, snapshot.previousValue, AUTHORITATIVE_TRANSACTION_WRITE);
-        } else await gmStorageDelete(snapshot.key);
-    } catch (error) {
-        errors.push(error);
-    }
-    try {
-        restoreLocalFallback(snapshot);
-    } catch (error) {
-        errors.push(error);
-    }
-    return errors;
+function readSettingsStorageValueStrict<T>(key: string, fallback: T): Promise<T> {
+    return isHostedYomuOrigin() ? gmStorageGetStrict(key, fallback) : gmStorageGetSharedStrict(key, fallback);
 }
 
-function restoreLocalFallback(snapshot: SettingsStorageSnapshot): void {
-    restoreLocalFallbackStoredValue(
-        snapshot.key,
-        snapshot.localFallbackValue,
-        snapshot.localFallbackExisted,
-    );
+function valuesMatch(left: unknown, right: unknown): boolean {
+    try {
+        return JSON.stringify(left) === JSON.stringify(right);
+    } catch {
+        return false;
+    }
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {

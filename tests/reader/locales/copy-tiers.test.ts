@@ -64,6 +64,13 @@ describe('D43 copy tiers are a property of the string', () => {
             category: 'supplementary',
             rule: 'default-supplementary-copy',
         });
+        for (const key of ['extensionSettingsRecoveryTitle', 'academyRecoveryCodeCreate']) {
+            expect(copyTierOf(legacyChromeMessageId(key))).toMatchObject({
+                tier: 'human-critical',
+                category: 'degraded-and-empty-states',
+                rule: 'degraded-empty-and-unavailable-states',
+            });
+        }
         expect(COPY_TIER_RULE_NAMES.at(-1)).toBe('default-supplementary-copy');
     });
 
@@ -156,11 +163,14 @@ describe('D43 copy tiers are a property of the string', () => {
         // gate added three reviewed safety/launcher strings, and off-host
         // onboarding added three reviewed launcher strings. Uchisen retirement
         // deleted its 15 copy entries, and the now-orphaned generic story empty
-        // state was deleted with them.
-        expect(messages).toHaveLength(1266);
-        expect(humanCritical).toHaveLength(404);
+        // state was deleted with them. Settings-authority recovery added ten
+        // reviewed EN/JA messages, all classified from their recovery/import/Save IDs.
+        // Recognising recovery as high-stakes also promotes four existing Academy
+        // recovery-code messages that should never have used the supplementary tier.
+        expect(messages).toHaveLength(1276);
+        expect(humanCritical).toHaveLength(418);
 
-        // Split by WHAT classified each one. 398 are human-critical from their ID
+        // Split by WHAT classified each one. 412 are human-critical from their ID
         // alone, so deleting the rule table collapses that number while the
         // source-text check above stays green. The other 6 reach the tier only
         // through text escalation, which is exactly the case that rule exists for
@@ -168,7 +178,7 @@ describe('D43 copy tiers are a property of the string', () => {
         // it discusses credentials). Both counts are pinned because a change in
         // either direction is a policy change.
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
-        expect(byIdAlone).toHaveLength(398);
+        expect(byIdAlone).toHaveLength(412);
         expect(humanCritical.length - byIdAlone.length).toBe(6);
     });
 

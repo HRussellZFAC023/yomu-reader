@@ -3,6 +3,10 @@ import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
+import {
+    clearLegacyExtensionManagedStorage,
+    legacyExtensionManagedStorageAvailable,
+} from '../app/extension-legacy-storage';
 
 // GM storage event bridge.
 //
@@ -15,11 +19,22 @@ import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, r
 // userscript reads everywhere — and vice versa.
 
 type DatasetEventTarget = EventTarget & { dataset?: DOMStringMap };
-type GmStorageOp = 'get' | 'set' | 'delete' | 'list' | 'clear-private-managed';
+type GmStorageOp = 'get' | 'set' | 'delete' | 'list' | 'clear-private-managed'
+    | 'clear-legacy-extension-managed';
+type GmStorageTarget = 'extension-storage';
+const GM_STORAGE_OPS: ReadonlySet<string> = new Set<GmStorageOp>([
+    'get',
+    'set',
+    'delete',
+    'list',
+    'clear-private-managed',
+    'clear-legacy-extension-managed',
+]);
 
 interface StorageBridgeRequestDetail {
     id: string;
     op: GmStorageOp;
+    target?: GmStorageTarget;
     key?: string;
     value?: unknown;
 }
@@ -39,6 +54,7 @@ export interface UserscriptGmStorage {
     deleteValue(key: string): Promise<void>;
     listValues(): Promise<string[]>;
     clearPrivateManagedValues(): Promise<void>;
+    clearLegacyExtensionManagedValues(): Promise<void>;
 }
 
 type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
@@ -49,12 +65,14 @@ type GmListValues = () => string[] | Promise<string[]>;
 const BRIDGE_REQUEST_EVENT = 'yomu-userscript-storage-request';
 const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-storage-response';
 const BRIDGE_MARKER = 'yomuUserscriptStorageBridge';
+const EXTENSION_STORAGE_BRIDGE_MARKER = 'yomuExtensionStorageBridge';
+const EXTENSION_STORAGE_TARGET: GmStorageTarget = 'extension-storage';
 const BRIDGE_TIMEOUT_MS = 10000;
 let bridgeRequestListenerCleanup: (() => void) | undefined;
+let extensionStorageBridgeAdvertisedByThisRealm = false;
 
 export function getUserscriptGmStorage(): UserscriptGmStorage | undefined {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== 'true') return undefined;
+    if (!storageBridgeClientReady()) return undefined;
     return {
         getValue: <T>(key: string, fallback: T) => storageBridgeRequest({ op: 'get', key })
             .then(detail => (detail.found ? detail.value as T : fallback)),
@@ -62,30 +80,70 @@ export function getUserscriptGmStorage(): UserscriptGmStorage | undefined {
         deleteValue: key => storageBridgeRequest({ op: 'delete', key }).then(() => undefined),
         listValues: () => storageBridgeRequest({ op: 'list' }).then(detail => detail.keys ?? []),
         clearPrivateManagedValues: () => storageBridgeRequest({ op: 'clear-private-managed' }).then(() => undefined),
+        clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised()
+            ? storageBridgeRequest({
+                op: 'clear-legacy-extension-managed',
+                target: EXTENSION_STORAGE_TARGET,
+            }).then(() => undefined)
+            : Promise.resolve(),
     };
 }
 
+function storageBridgeClientReady(): boolean {
+    if (typeof window === 'undefined') return false;
+    if (typeof document === 'undefined') return false;
+    return bridgeMarkerDataset()?.[BRIDGE_MARKER] === 'true';
+}
+
 export function installUserscriptGmStorageBridge(): void {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-    if (!shouldInstallUserscriptStorageBridge()) return;
-    const accessors = gmStorageAccessors();
-    if (!accessors) return;
-    const markerDataset = bridgeMarkerDataset();
-    if (!markerDataset) return;
-    if (hasInstalledUserscriptStorageBridge(markerDataset)) {
+    const installation = userscriptStorageBridgeInstallation();
+    if (!installation) return;
+    advertiseExtensionStorageBridge(installation.markerDataset);
+    if (hasInstalledUserscriptStorageBridge(installation.markerDataset)) {
         dispatchStorageBridgeReady();
         return;
     }
     bridgeRequestListenerCleanup?.();
-    markerDataset[BRIDGE_MARKER] = 'true';
+    installation.markerDataset[BRIDGE_MARKER] = 'true';
     const handledRequestIds = new Set<string>();
     bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = storageBridgeRequestDetail(event);
-        if (!detail || handledRequestIds.has(detail.id)) return;
+        if (!detail || !storageBridgeResponderAccepts(detail) || handledRequestIds.has(detail.id)) return;
         rememberBridgeRequestId(handledRequestIds, detail.id);
-        void handleStorageBridgeRequest(detail, accessors);
+        void handleStorageBridgeRequest(detail, installation.accessors);
     });
     dispatchStorageBridgeReady();
+}
+
+interface UserscriptStorageBridgeInstallation {
+    readonly accessors: GmStorageAccessors;
+    readonly markerDataset: DOMStringMap;
+}
+
+function userscriptStorageBridgeInstallation(): UserscriptStorageBridgeInstallation | undefined {
+    const accessors = installableGmStorageAccessors();
+    if (!accessors) return undefined;
+    const markerDataset = bridgeMarkerDataset();
+    return markerDataset ? { accessors, markerDataset } : undefined;
+}
+
+function installableGmStorageAccessors(): GmStorageAccessors | null | undefined {
+    if (!userscriptStorageBridgeEnvironmentReady()) return undefined;
+    return shouldInstallUserscriptStorageBridge() ? gmStorageAccessors() : undefined;
+}
+
+function userscriptStorageBridgeEnvironmentReady(): boolean {
+    return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+function advertiseExtensionStorageBridge(markerDataset: DOMStringMap): void {
+    if (!legacyExtensionManagedStorageAvailable()) return;
+    // A hosted page can have both an extension and a userscript-manager
+    // responder. Advertise the one realm that can actually inspect raw
+    // extension storage so reset can target it instead of accepting the
+    // other responder's successful no-op.
+    markerDataset[EXTENSION_STORAGE_BRIDGE_MARKER] = 'true';
+    extensionStorageBridgeAdvertisedByThisRealm = true;
 }
 
 export function installUserscriptGmStorageBridgeWhenReady(): void {
@@ -100,47 +158,96 @@ export function uninstallUserscriptGmStorageBridge(): void {
     bridgeRequestListenerCleanup?.();
     bridgeRequestListenerCleanup = undefined;
     const markerDataset = bridgeMarkerDataset();
-    if (markerDataset) delete markerDataset[BRIDGE_MARKER];
+    if (markerDataset) {
+        delete markerDataset[BRIDGE_MARKER];
+        // In a mixed extension + userscript-manager install, each isolated
+        // world owns a separate module instance but shares this DOM marker.
+        // A userscript-only teardown must not erase the extension authority.
+        if (extensionStorageBridgeAdvertisedByThisRealm) {
+            delete markerDataset[EXTENSION_STORAGE_BRIDGE_MARKER];
+        }
+    }
+    extensionStorageBridgeAdvertisedByThisRealm = false;
 }
 
 async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, accessors: GmStorageAccessors): Promise<void> {
     const send = (response: Omit<StorageBridgeResponseDetail, 'id'>) =>
         dispatchBridgeEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, ...response });
     try {
-        if (detail.op === 'list') {
-            send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
-            return;
-        }
-        if (detail.op === 'clear-private-managed') {
-            const privateKeys = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
-            for (const key of privateKeys) await accessors.deleteValue(key);
-            const remaining = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
-            if (remaining.length) throw new Error('Private managed storage could not be cleared.');
-            send({ ok: true });
-            return;
-        }
-        if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
-            // Only proxy Yomu-owned keys; never let the page read/write arbitrary GM storage.
-            send({ ok: false, found: false, message: 'Unmanaged storage key.' });
-            return;
-        }
-        if (detail.op === 'get') {
-            const value = await accessors.getValue(detail.key, MISSING);
-            send((value as Partial<typeof MISSING> | null)?.__yomuStorageBridgeMissing === true
-                ? { ok: true, found: false }
-                : { ok: true, found: true, value });
-            return;
-        }
-        if (detail.op === 'set') {
-            await accessors.setValue(detail.key, detail.value);
-            send({ ok: true });
-            return;
-        }
-        await accessors.deleteValue(detail.key);
-        send({ ok: true });
+        send(await storageBridgeOperationResponse(detail, accessors));
     } catch (error) {
         send({ ok: false, found: false, message: error instanceof Error ? error.message : String(error) });
     }
+}
+
+async function storageBridgeOperationResponse(
+    detail: StorageBridgeRequestDetail,
+    accessors: GmStorageAccessors,
+): Promise<Omit<StorageBridgeResponseDetail, 'id'>> {
+    const maintenanceResponse = await storageBridgeMaintenanceResponse(detail.op, accessors);
+    if (maintenanceResponse) return maintenanceResponse;
+    if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
+        // Only proxy Yomu-owned keys; never let the page read/write arbitrary GM storage.
+        return { ok: false, found: false, message: 'Unmanaged storage key.' };
+    }
+    return managedStorageBridgeResponse(detail.op, detail.key, detail.value, accessors);
+}
+
+async function storageBridgeMaintenanceResponse(
+    op: GmStorageOp,
+    accessors: GmStorageAccessors,
+): Promise<Omit<StorageBridgeResponseDetail, 'id'> | undefined> {
+    if (op === 'list') {
+        return { ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) };
+    }
+    if (op === 'clear-private-managed') {
+        await clearPrivateManagedStorage(accessors);
+        return { ok: true };
+    }
+    if (op === 'clear-legacy-extension-managed') {
+        await clearLegacyExtensionStorageFromAuthoritativeResponder();
+        return { ok: true };
+    }
+    return undefined;
+}
+
+async function clearLegacyExtensionStorageFromAuthoritativeResponder(): Promise<void> {
+    if (!legacyExtensionManagedStorageAvailable()) {
+        throw new Error('Extension storage authority is unavailable.');
+    }
+    await clearLegacyExtensionManagedStorage();
+}
+
+async function clearPrivateManagedStorage(accessors: GmStorageAccessors): Promise<void> {
+    const privateKeys = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
+    for (const key of privateKeys) await accessors.deleteValue(key);
+    const remaining = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
+    if (remaining.length) throw new Error('Private managed storage could not be cleared.');
+}
+
+async function managedStorageBridgeResponse(
+    op: GmStorageOp,
+    key: string,
+    value: unknown,
+    accessors: GmStorageAccessors,
+): Promise<Omit<StorageBridgeResponseDetail, 'id'>> {
+    if (op === 'get') return readStorageBridgeResponse(key, accessors);
+    if (op === 'set') {
+        await accessors.setValue(key, value);
+        return { ok: true };
+    }
+    await accessors.deleteValue(key);
+    return { ok: true };
+}
+
+async function readStorageBridgeResponse(
+    key: string,
+    accessors: GmStorageAccessors,
+): Promise<Omit<StorageBridgeResponseDetail, 'id'>> {
+    const value = await accessors.getValue(key, MISSING);
+    return (value as Partial<typeof MISSING> | null)?.__yomuStorageBridgeMissing === true
+        ? { ok: true, found: false }
+        : { ok: true, found: true, value };
 }
 
 function storageBridgeRequest(request: Omit<StorageBridgeRequestDetail, 'id'>): Promise<StorageBridgeResponseDetail> {
@@ -257,11 +364,44 @@ function dispatchStorageBridgeReady(): void {
 }
 
 function storageBridgeRequestDetail(event: Event): StorageBridgeRequestDetail | undefined {
+    const record = storageBridgeRequestRecord(event);
+    if (!record) return undefined;
+    const target = storageBridgeTarget(record.target);
+    if (!validStorageBridgeTarget(record.target, target)) return undefined;
+    return {
+        id: record.id,
+        op: record.op,
+        target,
+        key: storageBridgeRequestKey(record.key),
+        value: record.value,
+    };
+}
+
+function storageBridgeRequestRecord(event: Event): StorageBridgeRequestDetail | undefined {
+    const record = storageBridgeEventRecord(event);
+    if (!record) return undefined;
+    if (!validStorageBridgeRequestIdentity(record)) return undefined;
+    return record as StorageBridgeRequestDetail;
+}
+
+function storageBridgeEventRecord(event: Event): Partial<StorageBridgeRequestDetail> | undefined {
     const detail = normalizedBridgeEventDetail(event);
-    if (!detail || typeof detail !== 'object') return undefined;
-    const record = detail as Partial<StorageBridgeRequestDetail>;
-    if (typeof record.id !== 'string' || !isGmStorageOp(record.op)) return undefined;
-    return { id: record.id, op: record.op, key: typeof record.key === 'string' ? record.key : undefined, value: record.value };
+    if (!detail) return undefined;
+    if (typeof detail !== 'object') return undefined;
+    return detail as Partial<StorageBridgeRequestDetail>;
+}
+
+function validStorageBridgeRequestIdentity(record: Partial<StorageBridgeRequestDetail>): boolean {
+    if (typeof record.id !== 'string') return false;
+    return isGmStorageOp(record.op);
+}
+
+function validStorageBridgeTarget(value: unknown, target: GmStorageTarget | undefined): boolean {
+    return value === undefined || target !== undefined;
+}
+
+function storageBridgeRequestKey(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined;
 }
 
 function storageBridgeResponseDetail(event: Event): StorageBridgeResponseDetail | undefined {
@@ -280,8 +420,19 @@ function storageBridgeResponseDetail(event: Event): StorageBridgeResponseDetail 
 }
 
 function isGmStorageOp(value: unknown): value is GmStorageOp {
-    return value === 'get' || value === 'set' || value === 'delete' || value === 'list'
-        || value === 'clear-private-managed';
+    return typeof value === 'string' && GM_STORAGE_OPS.has(value);
+}
+
+function storageBridgeTarget(value: unknown): GmStorageTarget | undefined {
+    return value === EXTENSION_STORAGE_TARGET ? value : undefined;
+}
+
+function storageBridgeResponderAccepts(detail: StorageBridgeRequestDetail): boolean {
+    return detail.target !== EXTENSION_STORAGE_TARGET || legacyExtensionManagedStorageAvailable();
+}
+
+function extensionStorageBridgeAdvertised(): boolean {
+    return bridgeMarkerDataset()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === 'true';
 }
 
 function addBridgeEventListener(type: string, listener: (event: Event) => void): () => void {

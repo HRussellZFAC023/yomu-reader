@@ -369,7 +369,7 @@ describe('managed storage epoch boundary', () => {
         expect(localStorage.getItem('yomu:local-storage-provenance:v1')).toBeNull();
     });
 
-    it('still promotes a matching post-reset hosted edit after the bridge returns', async () => {
+    it('promotes a matching post-reset hosted edit after an explicit save boundary', async () => {
         const values = new Map<string, unknown>([[EPOCH_KEY, epoch(1, 'factory-reset')]]);
         installGmStore(values);
         vi.stubGlobal('location', {
@@ -387,6 +387,8 @@ describe('managed storage epoch boundary', () => {
         vi.stubGlobal('GM_listValues', undefined);
         const baseline = { theme: 'light', lookupOnHover: true };
         await storage.gmStorageGet(SETTINGS_KEY, baseline);
+        expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
+        storage.cacheManagedValueForHostedStartupIfAbsent(SETTINGS_KEY, baseline);
         await storage.gmStorageSet(SETTINGS_KEY, { ...baseline, theme: 'dark' });
 
         installGmStore(values);

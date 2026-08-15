@@ -118,9 +118,16 @@ export class OnboardingController {
         return true;
     }
 
-    async waitForCompletion(): Promise<void> {
-        const settings = this.options.getSettings();
-        if (settings.onboardingSeen && settings.learningTargetChosen) return;
+    async waitForCompletion(settings = this.options.getSettings()): Promise<void> {
+        if (settings.onboardingSeen && settings.learningTargetChosen) {
+            // Hosted Study can paint before its installed userscript/extension
+            // storage bridge is ready. When that late authority already contains
+            // a completed setup, retire the provisional chooser and release this
+            // same completion boundary without writing local defaults over it.
+            this.close();
+            this.finishCompletionWaiter();
+            return;
+        }
         await this.completionPromise;
     }
 

@@ -2,6 +2,7 @@ import type { ReaderSettings } from '../app/types';
 import { SETTINGS_CHANGE_EVENT } from '../app/constants';
 import { createWindowCustomEvent, dispatchWindowEvent } from '../platform/window-events';
 import { isHostedYomuOrigin } from '../app/storage';
+import { Logger } from '../app/logger';
 
 export interface SettingsChangeDetail {
     readonly settings: Partial<ReaderSettings>;
@@ -16,6 +17,7 @@ interface SettingsChangeBus {
 }
 
 const SETTINGS_CHANGE_BUS_SLOT = Symbol.for('yomu.private-settings-change-bus.v1');
+const log = Logger.scope('SettingsChangeBus');
 const HOSTED_PUBLIC_SETTINGS_KEYS = [
     'theme',
     'accentColor',
@@ -32,7 +34,16 @@ type SettingsBusRealm = typeof globalThis & { [key: symbol]: unknown };
 
 /** Publish full settings only inside the extension/userscript sandbox. */
 export function publishSettingsChange(detail: SettingsChangeDetail): void {
-    for (const listener of privateSettingsChangeBus().listeners) listener(detail);
+    for (const listener of privateSettingsChangeBus().listeners) {
+        try {
+            listener(detail);
+        } catch (error) {
+            // Persistence already committed before this notification is sent.
+            // One faulty consumer must not turn that durable success into a
+            // rejected save or prevent the remaining realms from reconciling.
+            log.warn('Private settings change listener failed', error);
+        }
+    }
     publishPublicSettingsProjection(detail);
 }
 

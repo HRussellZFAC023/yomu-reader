@@ -1174,17 +1174,27 @@ function isManagedStorageSlotKey(key) {
 const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
 const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
+const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
+const EXTENSION_STORAGE_TARGET = "extension-storage";
 const BRIDGE_TIMEOUT_MS = 1e4;
 function getUserscriptGmStorage() {
-  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+  if (!storageBridgeClientReady()) return void 0;
   return {
   getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
   setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
   deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
   listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
-  clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0)
+  clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0),
+  clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? storageBridgeRequest({
+    op: "clear-legacy-extension-managed",
+    target: EXTENSION_STORAGE_TARGET
+  }).then(() => void 0) : Promise.resolve()
   };
+}
+function storageBridgeClientReady() {
+  if (typeof window === "undefined") return false;
+  if (typeof document === "undefined") return false;
+  return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
 }
 function storageBridgeRequest(request) {
   return new Promise((resolve, reject) => {
@@ -1222,6 +1232,9 @@ function storageBridgeResponseDetail(event) {
   keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
   message: typeof record2.message === "string" ? record2.message : void 0
   };
+}
+function extensionStorageBridgeAdvertised() {
+  return bridgeMarkerDataset()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === "true";
 }
 function addBridgeEventListener(type, listener) {
   const cleanups = [];
@@ -2630,6 +2643,32 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   hideReadingsFor: "読みを隠す対象"
   })
 });
+const SETTINGS_RECOVERY_COPY = {
+  en: {
+  extensionSettingsRecoveryTitle: "Study paused to protect your settings",
+  extensionSettingsRecoveryBody: "Yomu could not reconnect your saved settings. The existing data was retained unchanged, and Study will not replace it with setup defaults.",
+  extensionSettingsRecoveryGuidance: "Retry recovery or reload Study. If this continues, import your latest settings backup once after recovery succeeds. Do not use Factory Reset or downgrade Yomu.",
+  extensionSettingsRecoveryRetry: "Retry recovery",
+  extensionSettingsRecoveryReload: "Reload Study",
+  extensionSettingsRecoveryRetrying: "Retrying settings recovery…",
+  extensionSettingsRecoveryStillBlocked: "Recovery is still unavailable. Your existing data remains unchanged.",
+  saveAfterImport: "Save after import",
+  settingsImportSaveBlocked: "Settings import is running. Save unlocks when it finishes.",
+  settingsImportStaleSaveDiscarded: "Settings import replaced the earlier pending Save."
+  },
+  ja: {
+  extensionSettingsRecoveryTitle: "設定を保護するためStudyを一時停止しました",
+  extensionSettingsRecoveryBody: "保存済み設定に再接続できませんでした。既存データは変更せず保持され、Studyが初期設定で上書きすることはありません。",
+  extensionSettingsRecoveryGuidance: "復旧を再試行するかStudyを再読み込みしてください。解決しない場合は、復旧成功後に最新の設定バックアップを一度だけインポートしてください。初期状態へのリセットやYomuのダウングレードは行わないでください。",
+  extensionSettingsRecoveryRetry: "復旧を再試行",
+  extensionSettingsRecoveryReload: "Studyを再読み込み",
+  extensionSettingsRecoveryRetrying: "設定の復旧を再試行中…",
+  extensionSettingsRecoveryStillBlocked: "まだ復旧できません。既存データは変更されていません。",
+  saveAfterImport: "インポート後に保存",
+  settingsImportSaveBlocked: "設定をインポート中です。完了後に保存できます。",
+  settingsImportStaleSaveDiscarded: "設定のインポートを優先し、先に待機していた保存は破棄しました。"
+  }
+};
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
@@ -2683,6 +2722,7 @@ const COPY = {
   settingsSaved: "Settings saved.",
   settingsSaveFailed: "Settings save failed.",
   settingsCompanionUnavailable: "Settings could not be opened.",
+  ...SETTINGS_RECOVERY_COPY.en,
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -4393,7 +4433,8 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-  ...GRAMMAR_UI_COPY.ja
+  ...GRAMMAR_UI_COPY.ja,
+  ...SETTINGS_RECOVERY_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -5266,6 +5307,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
+  { owner: "settings/extension-study-settings-recovery", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
   // Private, one-use cloud settings OAuth handoff. The old page-readable key
   // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
   { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
@@ -5577,6 +5619,13 @@ function isHostedYomuLocation(origin, hostname, pathname) {
   if (isHostedGithubPagesLocation(hostname, pathname)) return true;
   return isHostedLocalDevelopmentLocation(origin, pathname);
 }
+function isHostedYomuOrigin() {
+  try {
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+  } catch {
+  return false;
+  }
+}
 function isHostedGithubPagesLocation(hostname, pathname) {
   return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
 }
@@ -5666,6 +5715,18 @@ function localStorageSet(key, value) {
   } catch {
   }
 }
+function removeLocalStorageKey(key) {
+  try {
+  localStorage.removeItem(key);
+  } catch {
+  }
+}
+function removeSessionStorageKey(key) {
+  try {
+  sessionStorage.removeItem(key);
+  } catch {
+  }
+}
 function localStorageSetOrThrow(key, value) {
   try {
   const serialized = JSON.stringify(value);
@@ -5681,8 +5742,242 @@ function storageWriteError(key, message, ...causes) {
   const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
   return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
 }
+const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+function captureLocalFallbackStoredState(key) {
+  try {
+  const serializedValue = localStorage.getItem(key);
+  const entry = provenanceValues()[key];
+  return {
+    serializedValue,
+    provenance: entry ? { ...entry } : null
+  };
+  } catch (error) {
+  throw storageWriteError(key, "Local fallback read failed", error);
+  }
+}
+function restoreLocalFallbackStoredState(key, state) {
+  try {
+  if (state.serializedValue === null) localStorage.removeItem(key);
+  else localStorage.setItem(key, state.serializedValue);
+  if (localStorage.getItem(key) !== state.serializedValue) throw new Error("read-back did not match");
+  } catch (error) {
+  throw storageWriteError(key, "Local fallback restore failed", error);
+  }
+  updateProvenance(key, state.provenance, true);
+}
+function writeLocalManagedValueOrThrow(key, value, epoch) {
+  const previous = captureLocalFallbackStoredState(key);
+  try {
+  const serialized = localStorageSetOrThrow(key, value);
+  updateProvenance(key, {
+    epoch: managedStateEpochToken(epoch),
+    fingerprint: fingerprint(serialized)
+  }, true);
+  } catch (error) {
+  try {
+    restoreLocalFallbackStoredState(key, previous);
+  } catch (rollbackError) {
+    throw new AggregateError(
+      [error, rollbackError],
+      `Local fallback publication and rollback failed for "${key}".`
+    );
+  }
+  throw error;
+  }
+}
+function mirrorLocalManagedValue(key, value, epoch, onFailure) {
+  try {
+  writeLocalManagedValueOrThrow(key, value, epoch);
+  } catch (error) {
+  onFailure(error);
+  }
+}
+function removeLocalManagedValue(key) {
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  updateProvenance(key, null);
+}
+function cacheManagedStateEpochForLocalFallback(epoch) {
+  if (epoch.generation <= 0) return removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
+  try {
+  const cached = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (sameManagedStateEpoch(cached, epoch)) return;
+  } catch {
+  }
+  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
+}
+function localMirrorBelongsToEpoch(key, epoch) {
+  const serialized = recoverableSerializedValue(key);
+  if (serialized === null) return false;
+  const entry = provenanceValues()[key];
+  return entry ? entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === fingerprint(serialized) : epoch.generation === 0;
+}
+function removeLocalMirrorProvenance(key) {
+  updateProvenance(key, null);
+}
+function updateProvenance(key, entry, strict = false) {
+  const values = provenanceValues();
+  if (!mutateProvenance(values, key, entry)) return;
+  persistProvenance(values, strict);
+}
+function mutateProvenance(values, key, entry) {
+  if (entry) {
+  values[key] = entry;
+  return true;
+  }
+  if (!(key in values)) return false;
+  delete values[key];
+  return true;
+}
+function persistProvenance(values, strict) {
+  if (Object.keys(values).length) {
+  const value = { version: 1, values };
+  if (strict) localStorageSetOrThrow(PROVENANCE_KEY, value);
+  else localStorageSet(PROVENANCE_KEY, value);
+  return;
+  }
+  removeLocalStorageKey(PROVENANCE_KEY);
+}
+function provenanceValues() {
+  const stored = localStorageGet(PROVENANCE_KEY, null);
+  if (!isStoredProvenance(stored)) return {};
+  const values = {};
+  for (const [key, value] of Object.entries(stored.values)) {
+  const normalized = normalizedEntry(value);
+  if (normalized) values[key] = normalized;
+  }
+  return values;
+}
+function isStoredProvenance(value) {
+  if (!isRecord(value) || value.version !== 1) return false;
+  return isRecord(value.values);
+}
+function normalizedEntry(value) {
+  if (!isRecord(value)) return null;
+  if (typeof value.epoch !== "string") return null;
+  if (typeof value.fingerprint !== "string") return null;
+  return { epoch: value.epoch, fingerprint: value.fingerprint };
+}
+function recoverableSerializedValue(key) {
+  if (key === JAPANESE_SITE_LANGUAGE_KEY) return null;
+  try {
+  return localStorage.getItem(key);
+  } catch {
+  return null;
+  }
+}
+function fingerprint(serialized) {
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) {
+  hash = Math.imul(hash ^ serialized.charCodeAt(index), 16777619);
+  }
+  return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+function asyncGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmGetValue();
+  if (direct) return direct;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmGetValue() ?? modernGmGetValue() ?? rawExtensionStorageGetValue();
+}
+function legacyGmGetValue() {
+  return typeof GM_getValue === "function" ? GM_getValue : null;
+}
+function modernGmGetValue() {
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function asyncGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmSetValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmSetValue();
+}
+function directGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+}
+function legacyGmSetValue() {
+  return typeof GM_setValue === "function" ? GM_setValue : null;
+}
+function modernGmSetValue() {
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmSetValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
+}
+function bridgeGmSetValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmDeleteValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmDeleteValue();
+}
+function directGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+}
+function legacyGmDeleteValue() {
+  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+}
+function modernGmDeleteValue() {
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmDeleteValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key) => extension.remove(key) : null;
+}
+function bridgeGmDeleteValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
+}
+function extensionStorageArea() {
+  return extensionCapability((extension) => extension.storage?.local);
+}
+function extensionCapability(select) {
+  const candidate = globalThis;
+  return activeExtensionCapability(candidate.browser, select) ?? activeExtensionCapability(candidate.chrome, select) ?? null;
+}
+function activeExtensionCapability(extension, select) {
+  return extension?.runtime?.id ? select(extension) : void 0;
+}
+function packagedExtensionStorageAdapterMissing() {
+  if (!isPackagedExtensionDocument()) return false;
+  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+}
+function isPackagedExtensionDocument() {
+  try {
+  const protocol = globalThis.location?.protocol ?? "";
+  return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+  } catch {
+  return false;
+  }
+}
+function rawExtensionStorageGetValue() {
+  const extension = extensionStorageArea();
+  return extension ? extensionStorageGetValue(extension) : null;
+}
+function extensionStorageGetValue(extension) {
+  return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
-const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
 async function assertRealmManagedStateEpoch(getValue) {
   const readEpoch = getValue ? async () => {
@@ -5753,7 +6048,10 @@ async function assertManagedStateMutationAllowed() {
 }
 async function gmStorageGet(key, fallback) {
   const getValue = asyncGmGetValue();
-  if (!getValue) return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
+  if (!getValue) {
+  if (packagedExtensionStorageAdapterMissing()) return fallback;
+  return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
+  }
   let epoch;
   try {
   epoch = await assertRealmManagedStateEpoch(getValue);
@@ -5799,15 +6097,10 @@ function failedManagedReadValue(error, key, fallback, epoch) {
 function localOnlyManagedValue(key, fallback, epoch) {
   const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(local)) return local;
-  mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch);
   return fallback;
 }
-function mirrorStandaloneHostedSettingsBaseline(key, fallback, epoch) {
-  if (isHostedSettingsStorageKey(key) && isHostedYomuOrigin() && isPlainRecord(fallback)) {
-  mirrorManagedValueToHostedStorage(key, fallback, epoch);
-  }
-}
 function gmStorageGetSync(key, fallback) {
+  if (packagedExtensionStorageAdapterMissing()) return fallback;
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   let epoch = null;
   if (getValue) {
@@ -5869,6 +6162,9 @@ async function gmStorageSet(key, value, options = {}) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
   if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
+  if (packagedExtensionStorageAdapterMissing()) {
+  throw storageWriteError(key, "Packaged Study storage adapter is unavailable");
+  }
   const epoch = await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
 }
@@ -5893,6 +6189,9 @@ async function handleSharedManagedWriteFailure(key, value, options, error, epoch
   throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
 }
 async function writeFailedManagedValueFallback(key, value, error, epoch) {
+  if (packagedExtensionStorageAdapterMissing()) {
+  throw storageWriteError(key, "Packaged Study storage adapter rejected the authoritative write", error);
+  }
   try {
   const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
   writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
@@ -5901,6 +6200,10 @@ async function writeFailedManagedValueFallback(key, value, error, epoch) {
   }
 }
 function gmStorageSetSync(key, value) {
+  if (packagedExtensionStorageAdapterMissing()) {
+  debugStorageError("Packaged Study storage adapter is unavailable", key, null);
+  return;
+  }
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
   let epoch = null;
@@ -5950,6 +6253,9 @@ async function gmStorageDelete(key) {
   const setValue = asyncGmSetValue();
   const deleteValue = asyncGmDeleteValue();
   const hasBackend = Boolean(getValue || setValue || deleteValue);
+  if (!hasBackend && packagedExtensionStorageAdapterMissing()) {
+  throw storageWriteError(key, "Packaged Study storage adapter is unavailable");
+  }
   if (hasBackend && !getValue) {
   throw storageWriteError(key, "Managed storage cannot validate and delete the same backend value");
   }
@@ -5970,6 +6276,10 @@ async function gmStorageDelete(key) {
   removeLocalMirrorProvenance(key);
 }
 function gmStorageDeleteSync(key) {
+  if (packagedExtensionStorageAdapterMissing()) {
+  debugStorageError("Packaged Study storage adapter is unavailable", key, null);
+  return;
+  }
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
   const deleteValue = typeof GM_deleteValue === "function" ? GM_deleteValue : null;
@@ -6016,161 +6326,14 @@ function gmStorageDeleteSync(key) {
 function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
-function removeLocalStorageKey(key) {
-  try {
-  localStorage.removeItem(key);
-  } catch {
-  }
-}
-function removeSessionStorageKey(key) {
-  try {
-  sessionStorage.removeItem(key);
-  } catch {
-  }
-}
 function mirrorManagedValueToHostedStorage(key, value, epoch) {
   if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-  try {
-  writeLocalManagedValueOrThrow(key, value, epoch);
-  } catch (error) {
+  mirrorLocalManagedValue(key, value, epoch, (error) => {
   debugStorageError("Hosted localStorage mirror failed", key, error);
-  }
-}
-function cacheManagedStateEpochForLocalFallback(epoch) {
-  if (epoch.generation <= 0) {
-  removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
-  return;
-  }
-  try {
-  const local = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
-  if (sameManagedStateEpoch(local, epoch)) return;
-  } catch {
-  }
-  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
-}
-function writeLocalManagedValueOrThrow(key, value, epoch) {
-  const serialized = localStorageSetOrThrow(key, value);
-  recordLocalMirrorProvenance(key, epoch, serialized);
-}
-function removeLocalManagedValue(key) {
-  removeLocalStorageKey(key);
-  removeSessionStorageKey(key);
-  removeLocalMirrorProvenance(key);
-}
-function localMirrorBelongsToEpoch(key, epoch) {
-  const serialized = recoverableLocalStorageSerializedValue(key);
-  if (serialized === null) return false;
-  const entry = localMirrorProvenanceRecord()?.values[key];
-  if (!entry) return epoch.generation === 0;
-  return entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === localMirrorFingerprint(serialized);
-}
-function recordLocalMirrorProvenance(key, epoch, serialized) {
-  const current = localMirrorProvenanceRecord();
-  const next = {
-  version: 1,
-  values: {
-    ...current?.values ?? {},
-    [key]: {
-      epoch: managedStateEpochToken(epoch),
-      fingerprint: localMirrorFingerprint(serialized)
-    }
-  }
-  };
-  localStorageSetOrThrow(LOCAL_MIRROR_PROVENANCE_KEY, next);
-}
-function removeLocalMirrorProvenance(key) {
-  const current = localMirrorProvenanceRecord();
-  if (!current || !(key in current.values)) return;
-  const values = { ...current.values };
-  delete values[key];
-  if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
-  else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
-}
-function localMirrorProvenanceRecord() {
-  const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
-  if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.values)) return null;
-  const values = {};
-  for (const [key, entry] of Object.entries(value.values)) {
-  if (!isPlainRecord(entry) || typeof entry.epoch !== "string" || typeof entry.fingerprint !== "string") continue;
-  values[key] = { epoch: entry.epoch, fingerprint: entry.fingerprint };
-  }
-  return { version: 1, values };
-}
-function recoverableLocalStorageSerializedValue(key) {
-  if (key === "yomu:prefer-japanese-site-language:v1") return null;
-  try {
-  return localStorage.getItem(key);
-  } catch {
-  return null;
-  }
-}
-function localMirrorFingerprint(serialized) {
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index++) {
-  hash ^= serialized.charCodeAt(index);
-  hash = Math.imul(hash, 16777619);
-  }
-  return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  });
 }
 function shouldMirrorManagedValueToHostedStorage(key) {
   return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
-}
-function isHostedYomuOrigin() {
-  try {
-  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
-  } catch {
-  return false;
-  }
-}
-function asyncGmGetValue() {
-  if (typeof GM_getValue === "function") return GM_getValue;
-  const modern = globalThis.GM?.getValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return async (key, fallback) => {
-  const value = (await extension.get(key))[key];
-  return value === void 0 ? fallback : value;
-  };
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-}
-function directGmGetValue() {
-  if (typeof GM_getValue === "function") return GM_getValue;
-  const modern = globalThis.GM?.getValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  return extension ? async (key, fallback) => {
-  const value = (await extension.get(key))[key];
-  return value === void 0 ? fallback : value;
-  } : null;
-}
-function asyncGmSetValue() {
-  if (typeof GM_setValue === "function") return GM_setValue;
-  const modern = globalThis.GM?.setValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return (key, value) => extension.set({ [key]: value });
-  if (directGmGetValue()) return null;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, value) => bridge.setValue(key, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (typeof GM_deleteValue === "function") return GM_deleteValue;
-  const modern = globalThis.GM?.deleteValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return (key) => extension.remove(key);
-  if (directGmGetValue()) return null;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key) => bridge.deleteValue(key) : null;
-}
-function extensionStorageArea() {
-  const candidate = globalThis;
-  const browser = candidate.browser;
-  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
-  const chrome = candidate.chrome;
-  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
-  return null;
 }
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
@@ -10902,6 +11065,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       return null;
     }
   }
+  Logger.scope("SettingsChangeBus");
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;

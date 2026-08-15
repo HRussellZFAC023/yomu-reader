@@ -5,6 +5,7 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 import { testEnSettings } from './helpers/settings-fixture';
 import { isEditableEventContext, isEditableTarget } from '../../src/reader/ui/browser';
+import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 import type { ReaderSettingsSurface } from '../../src/reader/app/startup';
 
 interface ReaderShortcutInternals {
@@ -12,9 +13,20 @@ interface ReaderShortcutInternals {
     settingsSurface?: ReaderSettingsSurface;
     subtitles: { refresh: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> };
     toast: ReturnType<typeof vi.fn>;
-    getSettingsDialog: ReturnType<typeof vi.fn>;
+    getSettingsDialog: () => unknown;
     handleReaderUtilityShortcut(event: KeyboardEvent): boolean;
     showSettings(panel?: string): void;
+}
+
+function readerShortcutAppFixture() {
+    const canvasContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+        fillStyle: '#ffffff',
+    } as never);
+    const app = new ReaderApp();
+    const internals = app as unknown as ReaderShortcutInternals;
+    internals.settings = testEnSettings();
+    internals.getSettingsDialog = vi.fn(() => undefined);
+    return { app, internals, canvasContext };
 }
 
 describe('reader shortcuts', () => {
@@ -146,6 +158,159 @@ describe('reader shortcuts', () => {
             expect(document.querySelector('.jpdb-reader-settings,[data-sensitive-settings-launcher]')).toBeNull();
         } finally {
             app.destroy();
+        }
+    });
+
+    it.each([
+        {
+            name: 'an ordinary website',
+            pageUrl: 'https://example.com/article',
+            panel: 'backup',
+            expectedUrl: 'https://yomureader.com/study/#settings=backup',
+            extension: false,
+            closeWithCancel: false,
+        },
+        {
+            name: 'the hosted Study content realm',
+            pageUrl: 'https://yomureader.com/study/',
+            panel: 'dictionaries',
+            expectedUrl: 'https://yomureader.com/study/#settings=dictionaries',
+            extension: false,
+            closeWithCancel: true,
+        },
+        {
+            name: 'a Firefox extension content realm',
+            pageUrl: 'moz-extension://yomu/newtab/index.html',
+            panel: 'api',
+            expectedUrl: 'moz-extension://yomu/newtab/index.html#settings=api',
+            extension: true,
+            expectedPanel: 'api',
+            closeWithCancel: false,
+        },
+        {
+            name: 'an ordinary website in Firefox extension content',
+            pageUrl: 'https://example.com/firefox-reader',
+            panel: 'not-a-panel',
+            expectedUrl: 'moz-extension://yomu/newtab/index.html#settings=appearance',
+            extension: true,
+            expectedPanel: 'appearance',
+            closeWithCancel: false,
+        },
+    ])('mounts a no-input owned-surface launcher from $name when the dialog controller is absent', ({
+        pageUrl,
+        panel,
+        expectedUrl,
+        extension,
+        expectedPanel,
+        closeWithCancel,
+    }) => {
+        vi.stubGlobal('location', new URL(pageUrl));
+        const runtimeSendMessage = vi.fn(async () => ({ ok: true, tabId: 73 }));
+        if (extension) {
+            vi.stubGlobal('browser', {
+                runtime: {
+                    id: 'yomu@yomureader.com',
+                    getURL: (resource: string) => new URL(resource, 'moz-extension://yomu/').href,
+                    sendMessage: runtimeSendMessage,
+                },
+            });
+        }
+        const userscriptOpen = vi.fn();
+        vi.stubGlobal('GM_openInTab', userscriptOpen);
+        const windowOpen = vi.spyOn(window, 'open').mockReturnValue({ opener: window } as Window);
+        const { app, internals, canvasContext } = readerShortcutAppFixture();
+        const trigger = document.createElement('button');
+        trigger.textContent = 'Open settings';
+        document.body.append(trigger);
+        trigger.focus();
+
+        try {
+            internals.showSettings(panel);
+
+            const surface = document.querySelector<HTMLElement>('[data-sensitive-settings-launcher]')!;
+            expect(surface).not.toBeNull();
+            expect(surface.querySelector('form,input,select,textarea')).toBeNull();
+            expect(trigger.getAttribute('aria-hidden')).toBe('true');
+            const launcher = surface.querySelector<HTMLButtonElement>('[data-trusted-settings-launcher]')!;
+            allowSyntheticReaderInteractionsForTests(false);
+            launcher.click();
+            expect(userscriptOpen).not.toHaveBeenCalled();
+            expect(windowOpen).not.toHaveBeenCalled();
+            allowSyntheticReaderInteractionsForTests(true);
+            launcher.click();
+            if (extension) {
+                expect(userscriptOpen).not.toHaveBeenCalled();
+                expect(runtimeSendMessage).toHaveBeenCalledWith({
+                    type: 'yomu.openPackagedStudySettings',
+                    protocol: 'yomu-packaged-study-settings-launcher:v1',
+                    panel: expectedPanel,
+                });
+                expect(windowOpen).not.toHaveBeenCalled();
+            } else {
+                expect(userscriptOpen).toHaveBeenCalledWith(expectedUrl, {
+                    active: true,
+                    insert: true,
+                    setParent: false,
+                });
+                expect(windowOpen).not.toHaveBeenCalled();
+            }
+
+            if (closeWithCancel) {
+                surface.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+            } else {
+                surface.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Escape',
+                    bubbles: true,
+                    cancelable: true,
+                }));
+            }
+            expect(document.querySelector('[data-sensitive-settings-launcher]')).toBeNull();
+            expect(trigger.hasAttribute('aria-hidden')).toBe(false);
+            expect(document.activeElement).toBe(trigger);
+        } finally {
+            allowSyntheticReaderInteractionsForTests(true);
+            app.destroy();
+            trigger.remove();
+            canvasContext.mockRestore();
+            windowOpen.mockRestore();
+        }
+    });
+
+    it('reports a rejected packaged Study launcher response and unlocks retry', async () => {
+        vi.stubGlobal('location', new URL('https://example.com/firefox-reader'));
+        const sendMessage = vi.fn(async () => ({ ok: false, error: 'tab creation denied' }));
+        vi.stubGlobal('browser', {
+            runtime: {
+                id: 'yomu@yomureader.com',
+                getURL: (resource: string) => new URL(resource, 'moz-extension://yomu/').href,
+                sendMessage,
+            },
+        });
+        const { app, internals, canvasContext } = readerShortcutAppFixture();
+        internals.toast = vi.fn();
+
+        try {
+            internals.showSettings('appearance');
+            const launcher = document.querySelector<HTMLButtonElement>('[data-trusted-settings-launcher]')!;
+            allowSyntheticReaderInteractionsForTests(true);
+            launcher.click();
+
+            expect(launcher.disabled).toBe(true);
+            expect(launcher.getAttribute('aria-busy')).toBe('true');
+            await vi.waitFor(() => expect(internals.toast).toHaveBeenCalledWith(
+                'Settings could not be opened.',
+            ));
+            expect(launcher.disabled).toBe(false);
+            expect(launcher.hasAttribute('aria-busy')).toBe(false);
+            expect(sendMessage).toHaveBeenCalledWith({
+                type: 'yomu.openPackagedStudySettings',
+                protocol: 'yomu-packaged-study-settings-launcher:v1',
+                panel: 'appearance',
+            });
+        } finally {
+            allowSyntheticReaderInteractionsForTests(true);
+            app.destroy();
+            canvasContext.mockRestore();
         }
     });
 });

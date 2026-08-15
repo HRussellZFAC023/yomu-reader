@@ -11,6 +11,8 @@ import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/in
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const PAGE_SCAN_LEGEND = 'Japanese text on webpages';
+const COMPILER_STORAGE_PREFIX = 'usc_https_github_com_HRussellZFAC023_yomu_reader_';
+const packagedStudyStorage = new Map<string, unknown>();
 
 function offlineDictionaryOnboardingHarness(): {
     controller: OnboardingController;
@@ -31,7 +33,9 @@ function offlineDictionaryOnboardingHarness(): {
 
 describe('OnboardingController', () => {
     beforeEach(() => {
+        packagedStudyStorage.clear();
         vi.stubGlobal('location', new URL('moz-extension://yomu/newtab/index.html'));
+        installPackagedStudyStorageAdapter(packagedStudyStorage);
     });
 
     afterEach(() => {
@@ -162,16 +166,16 @@ describe('OnboardingController', () => {
         expect(completionResolved).toBe(true);
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
-        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!)).toMatchObject({
+        expect(readPackagedStudyAuthority<ReaderSettings>(SETTINGS_STORAGE_KEY)).toMatchObject({
             youtubeImmersionEnabled: false,
             preferJapaneseSiteLanguage: true,
             manualScanEnabled: true,
             theme: 'dark',
             accentColor: '#336699',
         });
-        expect(JSON.parse(
-            localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)!,
-        )).toBe(true);
+        expect(readPackagedStudyAuthority<boolean>(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(true);
+        expect(packagedStudyStorage.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
     });
 
     it('dismisses without choosing, keeps Yomu inert, and asks again later', async () => {
@@ -232,7 +236,7 @@ describe('OnboardingController', () => {
         const dismissed = controller.waitForCompletion();
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')!.click();
         await dismissed;
-        expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
+        expect(readPackagedStudyAuthority(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeUndefined();
 
         await controller.showIfNeeded();
         const learnerLanguage = document.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
@@ -254,7 +258,9 @@ describe('OnboardingController', () => {
             targetLanguage: 'es',
             uiLocale: 'en',
         });
-        const ledger = JSON.parse(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY) ?? '{}');
+        const ledger = readPackagedStudyAuthority<Record<string, unknown>>(
+            SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+        ) ?? {};
         expect(ledger.records).toMatchObject({
             interfaceLanguage: { value: 'en' },
             theme: { value: 'light' },
@@ -285,6 +291,7 @@ describe('OnboardingController', () => {
         offlineDownload!.checked = enabled;
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
         await settleAsyncHandlers();
+        await controller.waitForCompletion();
 
         expect(installOfflineDictionaries).toHaveBeenCalledTimes(expectedDownloads);
         // The API-key path must not switch local dictionaries off while the
@@ -326,4 +333,55 @@ function chooseOnboardingTarget(target: string): void {
     const select = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
     select.value = target;
     select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function installPackagedStudyStorageAdapter(values: Map<string, unknown>): void {
+    const getRawValues = (key: string | null): Record<string, unknown> => key === null
+        ? Object.fromEntries(values)
+        : values.has(key) ? { [key]: values.get(key) } : {};
+    vi.stubGlobal('browser', {
+        runtime: { id: 'yomu@yomureader.com' },
+        storage: {
+            local: {
+                get: vi.fn(async (key: string | null) => getRawValues(key)),
+                set: vi.fn(async (updates: Record<string, unknown>) => {
+                    for (const [key, value] of Object.entries(updates)) values.set(key, structuredClone(value));
+                }),
+                remove: vi.fn(async (key: string) => { values.delete(key); }),
+                getKeys: vi.fn(async () => [...values.keys()]),
+            },
+        },
+    });
+    vi.stubGlobal('__YOMU_EXTENSION_STORAGE_PREFIX__', COMPILER_STORAGE_PREFIX);
+    vi.stubGlobal('__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__', true);
+    vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => {
+        const physicalKey = packagedStudyStorageKey(key);
+        return values.has(physicalKey) ? structuredClone(values.get(physicalKey)) : fallback;
+    }));
+    vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+        values.set(packagedStudyStorageKey(key), structuredClone(value));
+    }));
+    vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
+        values.delete(packagedStudyStorageKey(key));
+    }));
+    vi.stubGlobal('GM_listValues', vi.fn(() => compilerStorageKeys(values)));
+}
+
+function readPackagedStudyAuthority<T = unknown>(key: string): T | undefined {
+    const value = packagedStudyStorage.get(packagedStudyStorageKey(key));
+    return value === undefined ? undefined : structuredClone(value) as T;
+}
+
+function packagedStudyStorageKey(key: string): string {
+    return `${COMPILER_STORAGE_PREFIX}${key}`;
+}
+
+function compilerStorageKeys(values: Map<string, unknown>): string[] {
+    const keys: string[] = [];
+    for (const physicalKey of values.keys()) {
+        if (physicalKey.startsWith(COMPILER_STORAGE_PREFIX)) {
+            keys.push(physicalKey.slice(COMPILER_STORAGE_PREFIX.length));
+        }
+    }
+    return keys;
 }

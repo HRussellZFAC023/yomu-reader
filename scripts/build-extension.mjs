@@ -16,9 +16,12 @@ import {
 } from './lib/extension-dictionary-background.mjs';
 import {
     assertAmoJavaScriptFiles,
+    assertExtensionReleasePackageParity,
+    assertShippedSettingsAuthorityRuntime,
     deterministicExtensionTimestamp,
     hardenGeneratedExtensionBackgrounds,
     hardenExtensionSubmissionGuide,
+    PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
     refreshGeneratedExtensionProjectArchive,
 } from './lib/extension-runtime-hardening.mjs';
 
@@ -66,6 +69,11 @@ const newTabManifestAssets = [
 const thirdPartyNotices = path.join(root, 'public', 'THIRD_PARTY_NOTICES.txt');
 const runtimeDictionaryCatalog = path.join(root, 'config', 'dictionaries', 'published', 'v1', 'runtime-catalog.json');
 const out = path.join(root, 'dist', 'extension');
+const stagedStudyStorageRuntime = path.join(
+    newtab,
+    path.posix.basename(PACKAGED_STUDY_STORAGE_RUNTIME_FILE),
+);
+const STUDY_STORAGE_RUNTIME_PLACEHOLDER = `throw new Error('Packaged Study storage adapter was not finalized.');\n`;
 const UNSAFE_HTML_ASSIGNMENT = /\.(?:inner|outer)HTML\s*(?:\+=|\|\|=|&&=|\?\?=|=(?!=))/;
 // Store packages are self-contained builds and therefore cannot rely on the
 // hosted-artifact verifier. Ban only executable/provider seams: the disabled
@@ -79,6 +87,7 @@ const RETIRED_UCHISEN_EXECUTABLE_SEAMS = [
     ['retired prompt corpus', /uchisen-image-prompt-replacements/iu],
 ];
 const generatedAt = await extensionGeneratedAt();
+const releaseVersion = await packageVersion();
 
 for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, publicNewtabIndex, thirdPartyNotices, runtimeDictionaryCatalog]) {
     if (!existsSync(required)) {
@@ -87,6 +96,7 @@ for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, pu
         process.exit(1);
     }
 }
+await verifyExtensionSourcePreconditions();
 
 await stageNewTabShell();
 await rm(out, { recursive: true, force: true });
@@ -126,9 +136,13 @@ async function stageNewTabShell() {
     // extension ships the real Study shell and must not package that redirect.
     await rm(path.join(newtab, 'redirect.html'), { force: true });
     const appHash = createHash('sha256').update(await readFile(newtabApp)).digest('hex').slice(0, 12);
-    const buildId = `${await packageVersion()}-${appHash}`;
+    const buildId = `${releaseVersion}-${appHash}`;
     const index = await readFile(publicNewtabIndex, 'utf8');
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
+    // The compiler validates and copies the newtab asset graph before Yomu can
+    // derive the target-specific storage prefix from each generated background.
+    // Stage a fail-closed asset now; hardening must replace it in every package.
+    await writeFile(stagedStudyStorageRuntime, STUDY_STORAGE_RUNTIME_PLACEHOLDER);
     await writeFile(path.join(newtab, 'appearance-boot.js'), `${hostedAppearanceBootSnippet('surface')}\n`);
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'sw-register.js'), extensionNewTabServiceWorkerRegister());
@@ -240,7 +254,15 @@ function extensionNewTabIndex(index, appHash, buildId) {
         // inline script, so it ships as a local file loaded from the same head
         // position — still before any body content paints.
         .replace(/<script>\/\* yomu:appearance-boot:start \*\/[\s\S]*?\/\* yomu:appearance-boot:end \*\/<\/script>/, `<script src="./appearance-boot.js?v=${appHash}"></script>`)
-        .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script type="module" src="./app.js?v=${appHash}"></script>`);
+        // Packaged Study must use the same compiler-owned storage namespace as
+        // the content script. This small, audited adapter deliberately exposes
+        // storage only; loading the compiler's whole content-script runtime in
+        // an extension page would add unrelated privileges and swallow write
+        // failures that Study must surface to the learner.
+        .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, [
+            '<script src="./study-storage-runtime.js"></script>',
+            `<script type="module" src="./app.js?v=${appHash}"></script>`,
+        ].join('\n    '));
     assertNoInlineScripts(externalized);
     return externalized;
 }
@@ -322,6 +344,7 @@ async function verifyReleaseArtifacts() {
         'popup.html',
         'popup.js',
         'popup.css',
+        PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
         'yomu.css',
         'THIRD_PARTY_NOTICES.txt',
         'newtab/index.html',
@@ -346,21 +369,7 @@ async function verifyReleaseArtifacts() {
         'gm-runtime.js',
     ]);
     verifyDirectoryArtifact(path.join(out, 'release', 'safari', 'yomureader.com-safari-web-extension'), requiredFiles);
-    await verifyFirefoxPackageArchiveParity();
-}
-
-async function verifyFirefoxPackageArchiveParity() {
-    const packageDirectory = path.join(out, 'packages', 'extension', 'firefox');
-    const archive = path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi');
-    const archiveEntries = unzipSync(new Uint8Array(await readFile(archive)));
-    for (const file of ['gm-runtime.js', 'content.js']) {
-        const packaged = new Uint8Array(await readFile(path.join(packageDirectory, file)));
-        const archived = archiveEntries[file];
-        if (!archived || packaged.byteLength !== archived.byteLength
-            || packaged.some((byte, index) => byte !== archived[index])) {
-            throw new Error(`Firefox ${file} differs between the unpacked review project and release XPI.`);
-        }
-    }
+    await assertExtensionReleasePackageParity(out);
 }
 
 async function verifyStoreReadiness() {
@@ -377,14 +386,14 @@ async function verifyStoreProjectArchive(artifact) {
         const entries = Object.fromEntries(Object.entries(archiveEntries)
             .filter(([file]) => file.startsWith(prefix) && !file.endsWith('/'))
             .map(([file, bytes]) => [file.slice(prefix.length), bytes]));
-        verifyStorePackage(entries, `${target} project archive`);
+        await verifyStorePackage(entries, `${target} project archive`);
     }
 }
 
 async function verifyStoreZip(artifact, target) {
     const entries = unzipSync(new Uint8Array(await readFile(artifact)));
     const decode = file => new TextDecoder().decode(entries[file]);
-    verifyStorePackage(entries, target);
+    await verifyStorePackage(entries, target);
 }
 
 async function verifyStoreDirectory(directory, target) {
@@ -393,12 +402,13 @@ async function verifyStoreDirectory(directory, target) {
         file,
         new Uint8Array(await readFile(path.join(directory, file))),
     ])));
-    verifyStorePackage(entries, target);
+    await verifyStorePackage(entries, target);
 }
 
-function verifyStorePackage(entries, target) {
+async function verifyStorePackage(entries, target) {
     const decode = file => new TextDecoder().decode(entries[file]);
     const manifest = JSON.parse(decode('manifest.json'));
+    await assertShippedSettingsAuthorityRuntime(entries, target, releaseVersion);
     verifyDictionaryBackgroundService(entries, target);
     verifyStoreManifestPolicy(manifest, target);
     verifyRequiredStoreAssets(entries, target, decode);
@@ -411,6 +421,38 @@ function verifyStorePackage(entries, target) {
     verifyNoRetiredUchisenExecutableSeams(executableSource, target);
     verifyStoreExecutableSource(executableSource, target);
     verifyStorePopup(storePopupSource(entries), target);
+}
+
+async function verifyExtensionSourcePreconditions() {
+    const source = await readFile(userscript, 'utf8');
+    assertExtensionSourceVersion(extensionSourceVersion(source));
+    assertExtensionSourceLauncherMarkers(source);
+}
+
+function extensionSourceVersion(source) {
+    const match = /^\/\/\s*@version\s+([^\s]+)\s*$/mu.exec(source);
+    return match ? match[1] : undefined;
+}
+
+function assertExtensionSourceVersion(declaredVersion) {
+    if (declaredVersion !== releaseVersion) {
+        throw new Error(`Extension source @version ${JSON.stringify(declaredVersion)} does not match ${releaseVersion}.`);
+    }
+}
+
+function assertExtensionSourceLauncherMarkers(source) {
+    for (const marker of [
+        'yomu.openPackagedStudySettings',
+        'yomu-packaged-study-settings-launcher:v1',
+    ]) {
+        assertExtensionSourceMarker(source, marker);
+    }
+}
+
+function assertExtensionSourceMarker(source, marker) {
+    if (!source.includes(marker)) {
+        throw new Error(`Extension source is stale: missing shipped launcher contract ${marker}.`);
+    }
 }
 
 function verifyStoreManifestPolicy(manifest, target) {
@@ -477,6 +519,20 @@ function verifyRequiredStoreAssets(entries, target, decode) {
 
 function verifyPackagedStudyBundle(entries, target, decode) {
     const studyIndex = decode('newtab/index.html');
+    rejectInvalidStorePackage(
+        !entries[PACKAGED_STUDY_STORAGE_RUNTIME_FILE]
+            || !decode(PACKAGED_STUDY_STORAGE_RUNTIME_FILE).includes('yomu-extension-study-storage-runtime')
+            || decode(PACKAGED_STUDY_STORAGE_RUNTIME_FILE).includes('was not finalized'),
+        `${target} packaged Study page is missing the compiler-owned storage adapter.`,
+    );
+    rejectInvalidStorePackage(
+        !/<script\s+src="\.\/study-storage-runtime\.js"><\/script>\s*<script\s+type="module"\s+src="\.\/app\.js\?v=[a-f0-9]+"><\/script>/.test(studyIndex),
+        `${target} packaged Study page must install shared storage before its application bundle.`,
+    );
+    rejectInvalidStorePackage(
+        Boolean(entries[path.posix.basename(PACKAGED_STUDY_STORAGE_RUNTIME_FILE)]),
+        `${target} packaged Study page contains a stray root storage adapter.`,
+    );
     rejectInvalidStorePackage(
         !/<script\s+type="module"\s+src="\.\/app\.js\?v=[a-f0-9]+"><\/script>/.test(studyIndex),
         `${target} packaged Study page must load its readable split bundle as a local module.`,

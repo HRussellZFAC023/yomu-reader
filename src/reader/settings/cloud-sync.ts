@@ -1,7 +1,7 @@
-import { exportManagedStoredValues } from '../app/storage';
 import { isPromiseLike } from '../core/async-utils';
 import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthorization } from './cloud-settings-auth-state';
+import { exportSettingsBackupSnapshot } from './settings-persistence-transaction';
 
 type ExtensionRuntimeApi = {
     id?: string;
@@ -59,12 +59,13 @@ export async function uploadCloudSettingsToCloud(
     settings: ReaderSettings,
     _authorization?: CloudSettingsAuthorization,
 ): Promise<CloudSettingsSyncMetadata> {
+    const backup = await exportSettingsBackupSnapshot(settings);
     const snapshot: CloudSettingsSyncSnapshot = {
         formatName: 'yomu-google-drive-settings-sync',
         formatVersion: 1,
         syncedAt: new Date().toISOString(),
-        settings,
-        storage: await exportManagedStoredValues(),
+        settings: backup.settings,
+        storage: backup.storage,
     };
     const response = await sendCloudSettingsSyncMessage({ command: 'upload', snapshot });
     return response.metadata ?? { syncedAt: snapshot.syncedAt };

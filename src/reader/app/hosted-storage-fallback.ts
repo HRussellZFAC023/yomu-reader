@@ -21,10 +21,18 @@ export function isHostedSettingsStorageKey(key: string): boolean {
     return key === HOSTED_SETTINGS_BLOB_KEY;
 }
 
-export function isHostedYomuLocation(origin: string, hostname: string, pathname: string): boolean {
+function isHostedYomuLocation(origin: string, hostname: string, pathname: string): boolean {
     if (origin === DOCS_ORIGIN) return true;
     if (isHostedGithubPagesLocation(hostname, pathname)) return true;
     return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+
+export function isHostedYomuOrigin(): boolean {
+    try {
+        return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+    } catch {
+        return false;
+    }
 }
 
 function isHostedGithubPagesLocation(hostname: string, pathname: string): boolean {

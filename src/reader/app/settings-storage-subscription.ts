@@ -1,4 +1,4 @@
-import { loadSettings, subscribeToSettingsStorageChanges } from '../settings/index';
+import { loadSettingsWithWitnessedAuthority, subscribeToSettingsStorageChanges } from '../settings/index';
 import type { ReaderSettings } from './types';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
@@ -23,10 +23,15 @@ export function subscribeToReaderSettingsChanges(
     const hostedBridge = isHostedYomuOrigin();
     const reconciliation = createAsyncReconciliation(async () => {
         if (!active) return;
-        receive(await loadSettings());
-    });
+        receive(await loadSettingsWithWitnessedAuthority());
+    }, () => undefined);
     const onStorageBridgeReady = (): void => reconciliation.request();
     if (hostedBridge) addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+    // Subscribe first, then sample. A bridge can become ready between the
+    // caller's initial load and listener installation; without this pass the
+    // ready event is lost and a hosted Study tab can remain on provisional
+    // defaults until another settings write happens.
+    if (hostedBridge) reconciliation.request();
     return () => {
         active = false;
         reconciliation.stop();
@@ -53,7 +58,7 @@ export function subscribeToFirstPersistedLearningTarget(
     // The target may have been persisted while the chooser was still open,
     // before this dormant subscription existed. Subscribe first, then reconcile
     // a snapshot so a write on either side of this boundary cannot be missed.
-    void loadSettings().then(receive);
+    void loadSettingsWithWitnessedAuthority().then(receive).catch(() => undefined);
     return () => {
         active = false;
         stopPolling();
@@ -69,7 +74,10 @@ function pollForFirstPersistedTarget(receive: (settings: ReaderSettings) => void
     const reconcile = (): void => {
         if (inFlight) return;
         inFlight = true;
-        void loadSettings().then(receive).finally(() => { inFlight = false; });
+        void loadSettingsWithWitnessedAuthority()
+            .then(receive)
+            .catch(() => undefined)
+            .finally(() => { inFlight = false; });
     };
     const timer = window.setInterval(reconcile, DORMANT_TARGET_POLL_MS);
     const onVisibilityChange = (): void => {

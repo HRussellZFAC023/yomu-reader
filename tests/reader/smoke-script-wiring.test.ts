@@ -58,6 +58,36 @@ describe('smoke script wiring', () => {
         expect(source).toContain('Non-Japanese target painted Japanese ruby annotations.');
     });
 
+    it('keeps the hosted settings smoke on the late shared-authority regression boundary', () => {
+        const source = readFileSync('scripts/hosted-settings-self-enhancement-smoke.mjs', 'utf8');
+
+        expect(PACKAGE.scripts['smoke:hosted-settings'])
+            .toBe('node scripts/hosted-settings-self-enhancement-smoke.mjs');
+        expect(source).toContain("const HOSTED_STUDY_URL = 'https://yomureader.com/study/'");
+        expect(source).toContain('verifyLateHostedAuthorityRegression({ browser })');
+        expect(source).toContain("localStorage.removeItem(key)");
+        expect(source).toContain('storagePrefix: GM_STORAGE_PREFIX');
+        expect(source).toContain("profileSchemaVersion: profile?.schemaVersion ?? null");
+        expect(source).toContain("targetLanguage: 'ja'");
+        expect(source).toContain("theme: 'dark'");
+        expect(source).toContain("page.waitForEvent('filechooser')");
+        expect(source).not.toContain('form.requestSubmit()');
+        expect(source).toContain('settingsImportSaveLockObserved(afterImport.saveStates)');
+        expect(source).toContain('authorityPreservedBeforeUserImport');
+        expect(source).toContain('chooserRetiredWithoutClick');
+        expect(source).toContain('darkThemeAfterReload');
+        const contentTypesDeclaration = source.indexOf('const CONTENT_TYPES_BY_EXTENSION');
+        expect(contentTypesDeclaration).toBeGreaterThanOrEqual(0);
+        expect(contentTypesDeclaration).toBeLessThan(source.indexOf('const server = await startLoopbackServer'));
+    });
+
+    it('runs the real-engine trusted form submit-order guard from the release layout chain', () => {
+        expect(PACKAGE.scripts['smoke:trusted-form-submit-order'])
+            .toBe('node scripts/trusted-form-submit-order-smoke.mjs');
+        expect(PACKAGE.scripts['smoke:layout-regressions'])
+            .toContain('npm run smoke:trusted-form-submit-order');
+    });
+
     it('keeps every link of the CI chain a self-contained scripts/ entry point', () => {
         const chain = PACKAGE.scripts['smoke:layout-regressions'].split('&&')
             .map(part => part.trim().replace(/^npm run /, ''));

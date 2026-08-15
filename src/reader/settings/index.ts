@@ -20,8 +20,8 @@ import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLearningTargetChosen } from './learning-target-choice';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
-import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsPersistenceView, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
-import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageGetShared, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
+import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsPersistenceView, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
+import { cacheManagedValueForHostedStartup, cacheManagedValueForHostedStartupIfAbsent, gmStorageDelete, gmStorageGet, gmStorageGetSharedStrict, gmStorageGetStrict, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguageWithSettings, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
 export { changedSettingsKeys } from './store-reconciliation';
 import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
@@ -1728,13 +1728,18 @@ function normalizedOcrEngineInput(value: unknown): string {
 }
 
 export async function loadSettings(): Promise<ReaderSettings> {
-    if (settingsResetInProgress) return mergeSettings(null);
     try {
-        return await loadSettingsFromStorage();
+        return await loadSettingsWithWitnessedAuthority();
     } catch (error) {
         log.warn('Settings load failed', { error });
         return mergeSettings(null);
     }
+}
+
+/** Startup/remote adoption that refuses unavailable or unattested settings authority. */
+export async function loadSettingsWithWitnessedAuthority(): Promise<ReaderSettings> {
+    if (settingsResetInProgress) return mergeSettings(null);
+    return loadSettingsFromStorage();
 }
 
 interface SettingsRecoveryState {
@@ -1748,23 +1753,17 @@ async function loadSettingsFromStorage(): Promise<ReaderSettings> {
     // changes page startup behavior at document-start. Read it before the
     // larger settings blob so a stale whole-object writer can never become
     // authoritative merely because it finishes later.
-    const storedSitePreference = await readSettingsOwnedValue<unknown>(
+    const storedSitePreference = await readSettingsOwnedValueStrict<unknown>(
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         undefined,
     );
-    const view = await readSettingsPersistenceView();
-    const cacheStandaloneBaseline = shouldCacheStandaloneSettingsBaseline();
+    const view = await readSettingsPersistenceViewStrictFrom(readSettingsOwnedValueStrict);
+    const canonicalSettingsWitnessed = settingsRecord(view.settings) !== null;
     const recovered = await recoverStoredSettings(view.settings, view.intentLedger);
     const withSitePreference = await applyStoredSitePreference(recovered.settings, storedSitePreference);
     const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as LegacyReaderSettings);
-    await finalizeLoadedSettings(settings, recovered.recovered, cacheStandaloneBaseline);
+    await finalizeLoadedSettings(settings, recovered.recovered, canonicalSettingsWitnessed);
     return settings;
-}
-
-function shouldCacheStandaloneSettingsBaseline(): boolean {
-    if (!isHostedYomuOrigin()) return false;
-    if (hasAsyncGmStorageBackend()) return false;
-    return localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
 }
 
 async function recoverStoredSettings(
@@ -1784,7 +1783,7 @@ async function recoverStoredSettings(
 }
 
 async function recoverLegacySettingsKey(state: SettingsRecoveryState, key: string): Promise<void> {
-    const stored = await readSettingsOwnedValue<Partial<ReaderSettings> | null>(key, null);
+    const stored = await readSettingsOwnedValueStrict<Partial<ReaderSettings> | null>(key, null);
     const legacyRecord = settingsRecord(stored);
     if (!legacyRecord) return;
     applySettingsRecovery(state, recoverLegacySettings(
@@ -1832,27 +1831,18 @@ async function applyStoredSitePreference(
 async function finalizeLoadedSettings(
     settings: ReaderSettings,
     recoveredLegacySettings: boolean,
-    cacheStandaloneBaseline: boolean,
+    canonicalSettingsWitnessed: boolean,
 ): Promise<void> {
-    if (recoveredLegacySettings) {
-        await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
-        return;
-    }
-    if (shouldCacheHostedSettings(cacheStandaloneBaseline)) {
-        cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
-    }
+    if (recoveredLegacySettings) return persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
+    if (![canonicalSettingsWitnessed, isHostedYomuOrigin(), hasAsyncGmStorageBackend()].every(Boolean)) return;
+    cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
 }
 
-function shouldCacheHostedSettings(cacheStandaloneBaseline: boolean): boolean {
-    return isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline);
-}
-
-function readSettingsOwnedValue<T>(key: string, fallback: T): Promise<T> {
+function readSettingsOwnedValueStrict<T>(key: string, fallback: T): Promise<T> {
     return isHostedYomuOrigin()
-        ? gmStorageGet(key, fallback)
-        : gmStorageGetShared(key, fallback);
+        ? gmStorageGetStrict(key, fallback)
+        : gmStorageGetSharedStrict(key, fallback);
 }
-
 
 // Hosted pages (yomureader.com and friends) historically had no GM backend, so
 // settings edited there fell back to that origin's localStorage and never
@@ -1919,9 +1909,9 @@ export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderS
     let refreshRevision = 0;
     const refresh = (): void => {
         const revision = ++refreshRevision;
-        void loadSettings().then(settings => {
+        void loadSettingsWithWitnessedAuthority().then(settings => {
             if (active && revision === refreshRevision) onSettings(settings);
-        });
+        }).catch(error => log.warn('Settings change reconciliation failed', { error }));
     };
     const unsubscribers = [
         subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
@@ -2024,6 +2014,7 @@ async function persistSettings(
     clearExplicitUserChoiceKeys: readonly (keyof ReaderSettings)[] = [],
 ): Promise<void> {
     const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
+    primeStandaloneHostedSettingsBaseline();
     let storedSettings: Partial<ReaderSettings> = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
         // Only the CALLER can say what the learner touched. A save may carry a stale
@@ -2044,6 +2035,15 @@ async function persistSettings(
         storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
+}
+
+function primeStandaloneHostedSettingsBaseline(): void {
+    if (!isHostedYomuOrigin() || hasAsyncGmStorageBackend()) return;
+    const baseline = mergeSettings(null);
+    cacheManagedValueForHostedStartupIfAbsent(
+        SETTINGS_STORAGE_KEY,
+        stripUnsupportedSettings(baseline) ?? baseline,
+    );
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {

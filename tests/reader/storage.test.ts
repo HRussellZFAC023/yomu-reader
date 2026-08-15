@@ -119,10 +119,8 @@ describe('storage reset', () => {
 
     it('serializes simultaneous GM-backed transactions without a shared-value CAS', async () => {
         const values = new Map<string, unknown>();
-        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
+        stubGmStorage(values, { listValues: true });
         vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { values.set(key, value); }));
-        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { values.delete(key); }));
-        vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
 
         let active = 0;
         let maximumActive = 0;

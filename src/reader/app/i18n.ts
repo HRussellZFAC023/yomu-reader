@@ -5,6 +5,7 @@ import { GRAMMAR_UI_COPY } from '../study/grammar-copy';
 import { SUBTITLE_SETTINGS_COPY } from './subtitle-settings-copy';
 import { LOCAL_DICTIONARY_STORAGE_COPY } from './local-dictionary-storage-copy';
 import { TARGET_AWARE_UI_COPY } from './target-aware-copy';
+import { SETTINGS_RECOVERY_COPY } from './settings-recovery-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
@@ -59,7 +60,7 @@ const COPY = {
         settings: 'Settings',
         settingsSaved: 'Settings saved.',
         settingsSaveFailed: 'Settings save failed.',
-        settingsCompanionUnavailable: 'Settings could not be opened.',
+        settingsCompanionUnavailable: 'Settings could not be opened.', ...SETTINGS_RECOVERY_COPY.en,
         firefoxAuthenticationInfoDenied: 'Those account details were not saved because Firefox permission was not granted.',
         firefoxAuthenticationInfoExtensionPageRequired: 'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
         settingsSections: 'Settings sections',
@@ -1766,7 +1767,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-    ...GRAMMAR_UI_COPY.ja,
+    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja,
 };
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {
@@ -2483,7 +2484,6 @@ let jaGrammarRuleCopyPromise: Promise<Record<string, GrammarRuleCopy>> | undefin
 export function resetJaGrammarRuleCopyCacheForTests(): void {
     jaGrammarRuleCopyPromise = undefined;
 }
-
 
 export function resolveUiLanguage(language: InterfaceLanguage): UiLanguage {
     if (language === 'ja' || language === 'en') return language;

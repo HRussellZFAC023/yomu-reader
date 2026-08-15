@@ -79,8 +79,9 @@ import {
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
-import { newTabSettingsWithPageTarget } from './runtime-target-policy';
-import { settingsPanelFromHash } from './url';
+import { newTabSettingsWithPageInterfaceLanguage, newTabSettingsWithPageTarget } from './runtime-target-policy';
+import { settingsPanelFromHash, type SettingsPanelId } from './url';
+import { ensureExtensionStudySettingsAuthority } from './extension-settings-recovery-guard';
 import type { StudySessionClock } from './session-clock';
 import {
     privateCommandAttributes,
@@ -109,7 +110,7 @@ import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProvi
 import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
-    loadSettings,
+    loadSettingsWithWitnessedAuthority,
     NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shouldLookupAnkiStatus,
@@ -235,12 +236,26 @@ interface LookupPopoverScrollState {
     scrollTop: number;
 }
 
+export interface NewTabRuntimeStartupOptions {
+    readonly ensureStorageCurrent?: () => Promise<void>;
+    readonly createRuntime?: () => { init(): Promise<void>; destroy(): void };
+    readonly registerPagehide?: (destroy: () => void) => void;
+}
+
 export function bootNewTabRuntime(): void { void startNewTabRuntime().catch(error => log.error('New tab initialization failed', error)); }
-async function startNewTabRuntime(): Promise<void> {
-    await ensureManagedWebStorageCurrent();
-    const app = new NewTabRuntime();
+
+export async function startNewTabRuntime(options: NewTabRuntimeStartupOptions = {}): Promise<void> {
+    await ensureExtensionStudySettingsAuthority({
+        reportFailure: failure => log.warn('Packaged Study settings recovery failed', {
+            rawChosenSettingsDetected: failure.rawChosenSettingsDetected,
+        }),
+    });
+    await (options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent)();
+    const app = (options.createRuntime ?? (() => new NewTabRuntime()))();
     await app.init();
-    addWindowEventListener('pagehide', () => app.destroy(), { once: true });
+    (options.registerPagehide ?? (destroy => {
+        addWindowEventListener('pagehide', destroy, { once: true });
+    }))(() => app.destroy());
 }
 
 export interface NewTabRuntimeOptions {
@@ -543,8 +558,12 @@ export class NewTabRuntime {
         this.installExternalRefreshListener();
         configureLogger({ settingsProvider: () => this.settings });
         this.factoryReset.bind();
-        this.settings = await loadSettings();
-        this.applyConfiguredInterfaceLanguage();
+        this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettingsWithWitnessedAuthority(), this.options.interfaceLanguage);
+        // Hosted Study can start before an installed userscript/extension has
+        // exposed its shared storage bridge. Listen before target resolution:
+        // onboarding waits below, so installing this only after the first
+        // render made the authoritative settings permanently unreachable.
+        this.installSettingsStorageSubscription();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         // D43: the new tab and the study app are documents Yomu owns outright, so
         // they take `lang`, `dir` and the per-script interface font from the
@@ -556,26 +575,21 @@ export class NewTabRuntime {
         if (!runtimeTargetSettings) return;
         this.syncLookupTarget(runtimeTargetSettings);
         this.assertSessionVocabularyReadOnly();
+        const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
         this.openPendingOnboardingSettingsPanel();
-        this.openRequestedSettingsPanel();
+        this.openRequestedSettingsPanel(requestedSettingsPanel);
         void this.refreshDictionaryStyles();
         this.scheduleDictionaryIndexPreparation();
         this.scheduleAnkiStatusWarmup();
         this.installCardStateSignalSubscription();
         installAcademyReaderSrsSync();
-        this.installSettingsStorageSubscription();
         void this.settingsDialog.resumePendingCloudSettingsSync();
     }
 
     private markOwnedRuntime(): void {
         if (!this.options.mountHost) markNewTabRuntime();
-    }
-
-    private applyConfiguredInterfaceLanguage(): void {
-        if (!this.options.interfaceLanguage) return;
-        this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
     }
 
     private scheduleDictionaryIndexPreparation(): void {
@@ -681,15 +695,18 @@ export class NewTabRuntime {
     }
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
-        this.settings = settings;
-        this.syncRuntimeTarget(settings);
-        configureLogger({ forceEnabled: settings.enableLogging });
+        const effectiveSettings = newTabSettingsWithPageInterfaceLanguage(settings, this.options.interfaceLanguage);
+        this.settings = effectiveSettings;
+        void this.onboarding?.waitForCompletion(effectiveSettings);
+        this.syncRuntimeTarget(effectiveSettings);
+        configureLogger({ forceEnabled: effectiveSettings.enableLogging });
         this.cardRenderData.clear();
         this.parseContentCache.clear();
         this.jpdbVocabulary.clear();
         this.parser.clearLocalCache();
-        this.applyTheme(settings);
-        this.applyWordColors(settings);
+        this.applyInterfaceLocale();
+        this.applyTheme(effectiveSettings);
+        this.applyWordColors(effectiveSettings);
         await this.refreshDictionaryStyles();
         if (this.newTab?.isCurrentPage()) await this.newTab.renderPage();
         this.scheduleAnkiStatusWarmup();
@@ -898,14 +915,18 @@ export class NewTabRuntime {
         this.pendingOnboardingSettingsPanel = undefined;
         if (panel) this.showSettings(panel);
     }
-    private openRequestedSettingsPanel(): void {
+    private consumeRequestedSettingsPanel(): SettingsPanelId | null {
         const panel = settingsPanelFromHash(location.hash);
-        if (!panel) return;
+        if (!panel) return null;
         try {
             history.replaceState(history.state, '', `${location.pathname}${location.search}`);
         } catch {
             // A locked-down extension history must not block the settings UI.
         }
+        return panel;
+    }
+    private openRequestedSettingsPanel(panel: SettingsPanelId | null): void {
+        if (!panel) return;
         this.showSettings(panel);
     }
     private activeBunproFrontendApiToken(): string {

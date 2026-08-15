@@ -4339,7 +4339,7 @@
         exposures.push({
           id: "explanation",
           kind: "explanation",
-          order: optionalFiniteNumber(explanation2.order) ?? 5,
+          order: optionalFiniteNumber$1(explanation2.order) ?? 5,
           title: weekTitle,
           entries: entries2,
           sourceIndex: -1
@@ -4434,7 +4434,7 @@
   function arrayOrEmpty$4(value) {
     return Array.isArray(value) ? value : [];
   }
-  function optionalFiniteNumber(value) {
+  function optionalFiniteNumber$1(value) {
     return typeof value === "number" && Number.isFinite(value) ? value : void 0;
   }
   function parseTeachingSupport(component, path) {
@@ -27159,7 +27159,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function delay(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
-  function isPromiseLike$1(value) {
+  function isPromiseLike$2(value) {
     return Boolean(value && typeof value.then === "function");
   }
   function promiseWithTimeout(promise, timeoutMs, message) {
@@ -27719,20 +27719,75 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
   }
+  async function legacyExtensionManagedStorageKeys(root = globalThis) {
+    const storage = extensionStorageArea$1(root);
+    if (!storage) return [];
+    const values = await storage.get(null);
+    return Object.keys(values).filter(isManagedStorageKey).sort();
+  }
+  async function clearLegacyExtensionManagedStorage(root = globalThis) {
+    const storage = extensionStorageArea$1(root);
+    if (!storage) return 0;
+    const keys = await legacyExtensionManagedStorageKeys(root);
+    await removeStorageKeys(storage, keys);
+    assertAllStorageKeysRemoved(await retainedStorageKeys(storage, keys));
+    return keys.length;
+  }
+  function extensionStorageArea$1(root) {
+    const candidate2 = root;
+    return activeExtensionStorageArea(candidate2.browser) ?? activeExtensionStorageArea(candidate2.chrome);
+  }
+  function activeExtensionStorageArea(api) {
+    if (!hasActiveExtensionRuntime(api)) return null;
+    return localStorageArea(api);
+  }
+  function hasActiveExtensionRuntime(api) {
+    if (!api) return false;
+    if (!api.runtime) return false;
+    return Boolean(api.runtime.id);
+  }
+  function localStorageArea(api) {
+    if (!api.storage) return null;
+    return api.storage.local ?? null;
+  }
+  async function removeStorageKeys(storage, keys) {
+    for (const key2 of keys) await storage.remove(key2);
+  }
+  async function retainedStorageKeys(storage, keys) {
+    const retained = [];
+    for (const key2 of keys) {
+      if (Object.hasOwn(await storage.get(key2), key2)) retained.push(key2);
+    }
+    return retained;
+  }
+  function assertAllStorageKeysRemoved(retained) {
+    if (!retained.length) return;
+    throw new Error(`Unprefixed managed extension storage retained: ${retained.join(", ")}`);
+  }
   const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
   const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
   const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+  const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
+  const EXTENSION_STORAGE_TARGET = "extension-storage";
   const BRIDGE_TIMEOUT_MS$1 = 1e4;
   function getUserscriptGmStorage() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
+    if (!storageBridgeClientReady()) return void 0;
     return {
       getValue: (key2, fallback) => storageBridgeRequest({ op: "get", key: key2 }).then((detail) => detail.found ? detail.value : fallback),
       setValue: (key2, value) => storageBridgeRequest({ op: "set", key: key2, value }).then(() => void 0),
       deleteValue: (key2) => storageBridgeRequest({ op: "delete", key: key2 }).then(() => void 0),
       listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
-      clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0)
+      clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0),
+      clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? storageBridgeRequest({
+        op: "clear-legacy-extension-managed",
+        target: EXTENSION_STORAGE_TARGET
+      }).then(() => void 0) : Promise.resolve()
     };
+  }
+  function storageBridgeClientReady() {
+    if (typeof window === "undefined") return false;
+    if (typeof document === "undefined") return false;
+    return bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] === "true";
   }
   function storageBridgeRequest(request2) {
     return new Promise((resolve, reject) => {
@@ -27770,6 +27825,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       keys: Array.isArray(record2.keys) ? record2.keys.filter((key2) => typeof key2 === "string") : void 0,
       message: typeof record2.message === "string" ? record2.message : void 0
     };
+  }
+  function extensionStorageBridgeAdvertised() {
+    return bridgeMarkerDataset$1()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === "true";
   }
   function addBridgeEventListener$1(type, listener) {
     const cleanups = [];
@@ -27928,6 +27986,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
     { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
     { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
+    { owner: "settings/extension-study-settings-recovery", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
     // Private, one-use cloud settings OAuth handoff. The old page-readable key
     // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
     { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
@@ -28765,6 +28824,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (isHostedGithubPagesLocation(hostname, pathname)) return true;
     return isHostedLocalDevelopmentLocation(origin, pathname);
   }
+  function isHostedYomuOrigin() {
+    try {
+      return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+    } catch {
+      return false;
+    }
+  }
   function isHostedGithubPagesLocation(hostname, pathname) {
     return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
   }
@@ -28854,6 +28920,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     } catch {
     }
   }
+  function removeLocalStorageKey(key2) {
+    try {
+      localStorage.removeItem(key2);
+    } catch {
+    }
+  }
+  function removeSessionStorageKey(key2) {
+    try {
+      sessionStorage.removeItem(key2);
+    } catch {
+    }
+  }
+  function webStorageHasKey(storage, key2) {
+    try {
+      return storage.getItem(key2) !== null;
+    } catch {
+      return false;
+    }
+  }
   function localStorageSetOrThrow(key2, value) {
     try {
       const serialized = JSON.stringify(value);
@@ -28869,9 +28954,527 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
     return new Error(`${message} for "${key2}"${details ? `: ${details}` : ""}`);
   }
+  const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+  const LEGACY_SETTINGS_STORAGE_KEYS$1 = [
+    "jpdb-reader-settings",
+    "yomu-reader-settings",
+    "yomu-settings"
+  ];
+  const SETTINGS_INTENT_LEDGER_STORAGE_KEY$1 = "yomu:settings-intent:v2";
+  const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
+  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1 = "yomu:prefer-japanese-site-language:v1";
+  const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+  const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
+    SETTINGS_STORAGE_KEY,
+    ...LEGACY_SETTINGS_STORAGE_KEYS$1,
+    SETTINGS_INTENT_LEDGER_STORAGE_KEY$1,
+    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1,
+    PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
+  ]);
+  function isSettingsAuthorityStorageKey(key2) {
+    return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key2);
+  }
+  const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+  const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+  function captureLocalFallbackStoredState(key2) {
+    try {
+      const serializedValue = localStorage.getItem(key2);
+      const entry2 = provenanceValues()[key2];
+      return {
+        serializedValue,
+        provenance: entry2 ? { ...entry2 } : null
+      };
+    } catch (error) {
+      throw storageWriteError(key2, "Local fallback read failed", error);
+    }
+  }
+  function localFallbackStoredStatesMatch(left, right) {
+    return Boolean(right && left.serializedValue === right.serializedValue && provenanceEntriesMatch(left.provenance, right.provenance));
+  }
+  function provenanceEntriesMatch(left, right) {
+    return left === null ? right === null : right !== null && left.epoch === right.epoch && left.fingerprint === right.fingerprint;
+  }
+  function restoreLocalFallbackStoredState(key2, state) {
+    try {
+      if (state.serializedValue === null) localStorage.removeItem(key2);
+      else localStorage.setItem(key2, state.serializedValue);
+      if (localStorage.getItem(key2) !== state.serializedValue) throw new Error("read-back did not match");
+    } catch (error) {
+      throw storageWriteError(key2, "Local fallback restore failed", error);
+    }
+    updateProvenance(key2, state.provenance, true);
+  }
+  function writeLocalManagedValueOrThrow(key2, value, epoch) {
+    const previous = captureLocalFallbackStoredState(key2);
+    try {
+      const serialized = localStorageSetOrThrow(key2, value);
+      updateProvenance(key2, {
+        epoch: managedStateEpochToken(epoch),
+        fingerprint: fingerprint(serialized)
+      }, true);
+    } catch (error) {
+      try {
+        restoreLocalFallbackStoredState(key2, previous);
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          `Local fallback publication and rollback failed for "${key2}".`
+        );
+      }
+      throw error;
+    }
+  }
+  function mirrorLocalManagedValue(key2, value, epoch, onFailure) {
+    try {
+      writeLocalManagedValueOrThrow(key2, value, epoch);
+    } catch (error) {
+      onFailure(error);
+    }
+  }
+  function removeLocalManagedValue(key2) {
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+    updateProvenance(key2, null);
+  }
+  function restoreLocalFallbackStoredValueAtEpoch(key2, value, existed, epoch) {
+    if (!existed) return removeLocalManagedValue(key2);
+    if (!epoch) throw storageWriteError(key2, "Managed storage cannot restore its localStorage fallback");
+    writeLocalManagedValueOrThrow(key2, value, epoch);
+  }
+  function cacheManagedStateEpochForLocalFallback(epoch) {
+    if (epoch.generation <= 0) return removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
+    try {
+      const cached = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+      if (sameManagedStateEpoch(cached, epoch)) return;
+    } catch {
+    }
+    localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
+  }
+  function localMirrorBelongsToEpoch(key2, epoch) {
+    const serialized = recoverableSerializedValue(key2);
+    if (serialized === null) return false;
+    const entry2 = provenanceValues()[key2];
+    return entry2 ? entry2.epoch === managedStateEpochToken(epoch) && entry2.fingerprint === fingerprint(serialized) : epoch.generation === 0;
+  }
+  function removeLocalMirrorProvenance(key2) {
+    updateProvenance(key2, null);
+  }
+  function updateProvenance(key2, entry2, strict = false) {
+    const values = provenanceValues();
+    if (!mutateProvenance(values, key2, entry2)) return;
+    persistProvenance(values, strict);
+  }
+  function mutateProvenance(values, key2, entry2) {
+    if (entry2) {
+      values[key2] = entry2;
+      return true;
+    }
+    if (!(key2 in values)) return false;
+    delete values[key2];
+    return true;
+  }
+  function persistProvenance(values, strict) {
+    if (Object.keys(values).length) {
+      const value = { version: 1, values };
+      if (strict) localStorageSetOrThrow(PROVENANCE_KEY, value);
+      else localStorageSet(PROVENANCE_KEY, value);
+      return;
+    }
+    removeLocalStorageKey(PROVENANCE_KEY);
+  }
+  function provenanceValues() {
+    const stored = localStorageGet(PROVENANCE_KEY, null);
+    if (!isStoredProvenance(stored)) return {};
+    const values = {};
+    for (const [key2, value] of Object.entries(stored.values)) {
+      const normalized2 = normalizedEntry(value);
+      if (normalized2) values[key2] = normalized2;
+    }
+    return values;
+  }
+  function isStoredProvenance(value) {
+    if (!isRecord$a(value) || value.version !== 1) return false;
+    return isRecord$a(value.values);
+  }
+  function normalizedEntry(value) {
+    if (!isRecord$a(value)) return null;
+    if (typeof value.epoch !== "string") return null;
+    if (typeof value.fingerprint !== "string") return null;
+    return { epoch: value.epoch, fingerprint: value.fingerprint };
+  }
+  function recoverableSerializedValue(key2) {
+    if (key2 === JAPANESE_SITE_LANGUAGE_KEY) return null;
+    try {
+      return localStorage.getItem(key2);
+    } catch {
+      return null;
+    }
+  }
+  function fingerprint(serialized) {
+    let hash2 = 2166136261;
+    for (let index = 0; index < serialized.length; index++) {
+      hash2 = Math.imul(hash2 ^ serialized.charCodeAt(index), 16777619);
+    }
+    return `${serialized.length}:${(hash2 >>> 0).toString(16).padStart(8, "0")}`;
+  }
+  class ConcreteManagedWriteJournal {
+    constructor(storage, preserveLocalFallbackOnWriteFailure) {
+      this.storage = storage;
+      this.preserveLocalFallbackOnWriteFailure = preserveLocalFallbackOnWriteFailure;
+    }
+    receipts = /* @__PURE__ */ new Map();
+    active = [];
+    open = true;
+    async capture(key2) {
+      const existing = this.receipts.get(key2);
+      if (existing) return existing;
+      const previous = await this.storage.readAuthority(key2);
+      const observedLocal = shouldTrackExactLocalFallback(key2) ? captureLocalFallbackStoredState(key2) : void 0;
+      const receipt = {
+        key: key2,
+        previous,
+        authorityTarget: previous,
+        localTarget: observedLocal ? previous : { existed: false, value: null },
+        localBefore: observedLocal,
+        stagedAuthority: [],
+        stagedLocal: [],
+        interrupted: false,
+        active: false
+      };
+      this.receipts.set(key2, receipt);
+      return receipt;
+    }
+    adoptInterrupted(receipt, previous, localPrevious = previous) {
+      const record2 = receipt;
+      record2.authorityTarget = previous;
+      record2.localTarget = localPrevious;
+      record2.interrupted = true;
+      if (record2.localBefore) rememberLocalStage(record2, record2.localBefore, record2.previous);
+      this.activate(record2);
+    }
+    async write(receipt, value) {
+      const record2 = receipt;
+      this.activate(record2);
+      const attempted = { existed: true, value };
+      record2.stagedAuthority.push(value);
+      try {
+        await this.storage.writeAuthority(
+          record2.key,
+          value,
+          this.preserveLocalFallbackOnWriteFailure
+        );
+      } finally {
+        if (record2.localBefore) {
+          rememberLocalStage(record2, captureLocalFallbackStoredState(record2.key), attempted);
+        }
+      }
+    }
+    async restore(receipt, message) {
+      const record2 = receipt;
+      this.activate(record2);
+      const errors = await rollbackManagedWrite(
+        this.storage,
+        record2,
+        this.preserveLocalFallbackOnWriteFailure
+      );
+      if (errors.length) throw new AggregateError(errors, message);
+    }
+    commit() {
+      this.open = false;
+    }
+    async rollback(message, stopOnError = false) {
+      if (!this.open) return;
+      this.open = false;
+      const errors = await rollbackManagedWrites(
+        this.storage,
+        this.active,
+        stopOnError,
+        this.preserveLocalFallbackOnWriteFailure
+      );
+      if (errors.length) throw new AggregateError(errors, `${message} for ${errors.length} operation(s).`);
+    }
+    async reject(error, message, stopOnError = false) {
+      if (!this.open) throw error;
+      this.open = false;
+      const rollbackErrors = await rollbackManagedWrites(
+        this.storage,
+        this.active,
+        stopOnError,
+        this.preserveLocalFallbackOnWriteFailure
+      );
+      if (!rollbackErrors.length) throw error;
+      throw new AggregateError(
+        [error, ...rollbackErrors],
+        `${message} and ${rollbackErrors.length} rollback operation(s) also failed.`
+      );
+    }
+    activate(receipt) {
+      if (!this.open) throw new Error("Managed storage write journal is already closed.");
+      if (receipt.active) return;
+      receipt.active = true;
+      this.active.push(receipt);
+    }
+  }
+  function createConcreteManagedWriteJournal(storage, preserveLocalFallbackOnWriteFailure = false) {
+    return new ConcreteManagedWriteJournal(storage, preserveLocalFallbackOnWriteFailure);
+  }
+  async function rollbackManagedWrites(storage, receipts, stopOnError, forceAuthorityRestore) {
+    const errors = [];
+    for (let index = receipts.length - 1; index >= 0; index--) {
+      const current = await rollbackManagedWrite(storage, receipts[index], forceAuthorityRestore);
+      errors.push(...current);
+      if (stopOnError && current.length) break;
+    }
+    return errors;
+  }
+  async function rollbackManagedWrite(storage, receipt, forceAuthorityRestore) {
+    const errors = [];
+    const currentLocal = captureManagedWriteLocal(receipt, errors);
+    await rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors);
+    rollbackManagedWriteLocal(storage, receipt, currentLocal, errors);
+    return errors;
+  }
+  function captureManagedWriteLocal(receipt, errors) {
+    if (!receipt.localBefore) return void 0;
+    try {
+      return captureLocalFallbackStoredState(receipt.key);
+    } catch (error) {
+      errors.push(error);
+      return void 0;
+    }
+  }
+  async function rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors) {
+    const current = await readRollbackAuthority(storage, receipt.key, errors);
+    if (!current) return;
+    if (!authorityRestoreIsRequired(receipt, current, forceAuthorityRestore)) return;
+    if (!authorityRollbackIsSafe(receipt, current)) {
+      errors.push(managedWriteConflict(receipt.key, "Managed storage value"));
+      return;
+    }
+    await restoreRollbackAuthority(storage, receipt, errors);
+  }
+  function authorityRestoreIsRequired(receipt, current, forceAuthorityRestore) {
+    return forceAuthorityRestore || !managedStoredValueStatesMatch(current, receipt.authorityTarget);
+  }
+  function authorityRollbackIsSafe(receipt, current) {
+    return managedStoredValueStatesMatch(current, receipt.authorityTarget) || authorityWasStaged(receipt, current);
+  }
+  async function readRollbackAuthority(storage, key2, errors) {
+    try {
+      return await storage.readAuthority(key2);
+    } catch (error) {
+      errors.push(error);
+      return void 0;
+    }
+  }
+  async function restoreRollbackAuthority(storage, receipt, errors) {
+    try {
+      await storage.restoreAuthority(receipt.key, receipt.authorityTarget);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  function rollbackManagedWriteLocal(storage, receipt, current, errors) {
+    try {
+      restoreManagedWriteLocal(storage, receipt, current);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  function restoreManagedWriteLocal(storage, receipt, current) {
+    if (!receipt.localBefore) return restoreUntrackedWriteLocal(storage, receipt);
+    if (!current) return;
+    assertLocalStateCanRollback(storage, receipt, current);
+    if (!receipt.interrupted) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
+    storage.restoreLocalTarget(receipt.key, receipt.localTarget);
+  }
+  function restoreUntrackedWriteLocal(storage, receipt) {
+    if (!receipt.interrupted) storage.restoreLocalTarget(receipt.key, receipt.localTarget);
+  }
+  function assertLocalStateCanRollback(storage, receipt, current) {
+    if (localStateCanRollback(storage, receipt, current)) return;
+    throw managedWriteConflict(receipt.key, "Local fallback value");
+  }
+  function localStateCanRollback(storage, receipt, current) {
+    if (localStateWasCaptured(receipt, current)) return true;
+    return receipt.interrupted && managedStoredValueStatesMatch(storage.readLocalTarget(receipt.key), receipt.localTarget);
+  }
+  function localStateWasCaptured(receipt, current) {
+    return Boolean(receipt.localBefore && localFallbackStoredStatesMatch(current, receipt.localBefore)) || receipt.stagedLocal.some((state) => localFallbackStoredStatesMatch(current, state));
+  }
+  function authorityWasStaged(receipt, current) {
+    if (managedStoredValueStatesMatch(current, receipt.previous)) return true;
+    return current.existed && receipt.stagedAuthority.some((value) => managedStoredValuesMatch(current.value, value));
+  }
+  function rememberLocalStage(receipt, local, authority) {
+    if (!rawLocalStateRepresentsAuthority(local, authority)) return;
+    if (!receipt.stagedLocal.some((item2) => localFallbackStoredStatesMatch(item2, local))) {
+      receipt.stagedLocal.push(local);
+    }
+  }
+  function rawLocalStateRepresentsAuthority(local, authority) {
+    if (!authority.existed) return local.serializedValue === null;
+    if (local.serializedValue === null) return false;
+    try {
+      return managedStoredValuesMatch(JSON.parse(local.serializedValue), authority.value);
+    } catch {
+      return false;
+    }
+  }
+  function shouldTrackExactLocalFallback(key2) {
+    return !isSettingsAuthorityStorageKey(key2) || isHostedYomuOrigin();
+  }
+  function managedStoredValueStatesMatch(left, right) {
+    return left.existed === right.existed && (!left.existed || managedStoredValuesMatch(left.value, right.value));
+  }
+  function managedStoredValuesMatch(left, right) {
+    if (Object.is(left, right)) return true;
+    try {
+      return JSON.stringify(left) === JSON.stringify(right);
+    } catch {
+      return false;
+    }
+  }
+  function managedWriteConflict(key2, label) {
+    return new Error(`${label} "${key2}" changed after staging; rollback left the newer value intact.`);
+  }
+  function asyncGmGetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmGetValue();
+    if (direct) return direct;
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
+  }
+  function directGmGetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    return legacyGmGetValue() ?? modernGmGetValue() ?? rawExtensionStorageGetValue();
+  }
+  function legacyGmGetValue() {
+    return typeof GM_getValue === "function" ? GM_getValue : null;
+  }
+  function modernGmGetValue() {
+    const modern = globalThis.GM?.getValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function asyncGmSetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmSetValue();
+    if (direct) return direct;
+    if (directGmGetValue()) return null;
+    return bridgeGmSetValue();
+  }
+  function directGmSetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+  }
+  function legacyGmSetValue() {
+    return typeof GM_setValue === "function" ? GM_setValue : null;
+  }
+  function modernGmSetValue() {
+    const modern = globalThis.GM?.setValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function extensionGmSetValue() {
+    const extension = extensionStorageArea();
+    return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
+  }
+  function bridgeGmSetValue() {
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
+  }
+  function asyncGmDeleteValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmDeleteValue();
+    if (direct) return direct;
+    if (directGmGetValue()) return null;
+    return bridgeGmDeleteValue();
+  }
+  function directGmDeleteValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+  }
+  function legacyGmDeleteValue() {
+    return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+  }
+  function modernGmDeleteValue() {
+    const modern = globalThis.GM?.deleteValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function extensionGmDeleteValue() {
+    const extension = extensionStorageArea();
+    return extension ? (key2) => extension.remove(key2) : null;
+  }
+  function bridgeGmDeleteValue() {
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key2) => bridge.deleteValue(key2) : null;
+  }
+  function asyncGmListValues() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmListValues();
+    if (direct) return direct;
+    if (directGmGetValue()) return null;
+    return bridgeGmListValues();
+  }
+  function directGmListValues() {
+    return legacyGmListValues() ?? modernGmListValues() ?? extensionGmListValues();
+  }
+  function legacyGmListValues() {
+    if (typeof GM_listValues === "function") return GM_listValues;
+    const directListValues = globalThis.GM_listValues;
+    return typeof directListValues === "function" ? directListValues : null;
+  }
+  function modernGmListValues() {
+    const modern = globalThis.GM?.listValues;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function extensionGmListValues() {
+    const extension = extensionStorageArea();
+    if (!extension) return null;
+    return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+  }
+  function bridgeGmListValues() {
+    const bridge = getUserscriptGmStorage();
+    return bridge ? () => bridge.listValues() : null;
+  }
+  function extensionStorageArea() {
+    return extensionCapability((extension) => extension.storage?.local);
+  }
+  function extensionCapability(select2) {
+    const candidate2 = globalThis;
+    return activeExtensionCapability(candidate2.browser, select2) ?? activeExtensionCapability(candidate2.chrome, select2) ?? null;
+  }
+  function activeExtensionCapability(extension, select2) {
+    return extension?.runtime?.id ? select2(extension) : void 0;
+  }
+  function packagedExtensionStorageAdapterMissing() {
+    if (!isPackagedExtensionDocument()) return false;
+    const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+    return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+  }
+  function isPackagedExtensionDocument() {
+    try {
+      const protocol = globalThis.location?.protocol ?? "";
+      return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+    } catch {
+      return false;
+    }
+  }
+  function rawExtensionStorageGetValue() {
+    const extension = extensionStorageArea();
+    return extension ? extensionStorageGetValue(extension) : null;
+  }
+  function extensionStorageGetValue(extension) {
+    return async (key2, fallback) => {
+      const value = (await extension.get(key2))[key2];
+      return value === void 0 ? fallback : value;
+    };
+  }
+  function extensionStorageChangedEvent() {
+    return extensionCapability((extension) => extension.storage?.onChanged);
+  }
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
-  const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
   const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
   const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
@@ -28945,7 +29548,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function managedStateEpochFromSynchronousGetter(getValue) {
     const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-    if (isPromiseLike$1(stored)) return null;
+    if (isPromiseLike$2(stored)) return null;
     const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
     managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
     cacheManagedStateEpochForLocalFallback(shared2);
@@ -28989,7 +29592,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function gmStorageGet(key2, fallback) {
     const getValue = asyncGmGetValue();
-    if (!getValue) return localOnlyManagedValue(key2, fallback, await assertRealmManagedStateEpoch(null));
+    if (!getValue) {
+      if (packagedExtensionStorageAdapterMissing()) return fallback;
+      return localOnlyManagedValue(key2, fallback, await assertRealmManagedStateEpoch(null));
+    }
     let epoch;
     try {
       epoch = await assertRealmManagedStateEpoch(getValue);
@@ -28998,10 +29604,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return failedManagedReadValue(error, key2, fallback, epoch);
     }
   }
+  async function gmStorageGetStrict(key2, fallback) {
+    const getValue = asyncGmGetValue();
+    if (!getValue) {
+      if (packagedExtensionStorageAdapterMissing()) return fallback;
+      return localOnlyManagedValueStrict(key2, fallback, await assertRealmManagedStateEpoch(null));
+    }
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    return sharedManagedValue(getValue, key2, fallback, epoch);
+  }
   async function gmStorageGetShared(key2, fallback) {
     const getValue = asyncGmGetValue();
     if (!getValue) return fallback;
     return sharedOwnedManagedValue(getValue, key2, fallback, "Shared GM storage read failed");
+  }
+  async function gmStorageGetSharedStrict(key2, fallback) {
+    const getValue = asyncGmGetValue();
+    if (!getValue) return fallback;
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    return managedGmValue(getValue, key2, fallback, epoch);
   }
   async function sharedOwnedManagedValue(getValue, key2, fallback, errorLabel) {
     try {
@@ -29016,10 +29637,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function gmStorageGetMany(keys, fallback) {
     if (!keys.length) return [];
     const getValue = asyncGmGetValue();
-    if (!getValue) {
-      const epoch = await assertRealmManagedStateEpoch(null);
-      return keys.map((key2) => localOnlyManagedValue(key2, fallback, epoch));
-    }
+    if (!getValue) return localManagedValuesWithoutBackend(keys, fallback);
     let passEpoch;
     try {
       passEpoch = await assertRealmManagedStateEpoch(getValue);
@@ -29033,6 +29651,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return failedManagedReadValue(error, key2, fallback, passEpoch);
       }
     }));
+  }
+  async function localManagedValuesWithoutBackend(keys, fallback) {
+    if (packagedExtensionStorageAdapterMissing()) return keys.map(() => fallback);
+    const epoch = await assertRealmManagedStateEpoch(null);
+    return keys.map((key2) => localOnlyManagedValue(key2, fallback, epoch));
   }
   async function sharedManagedValue(getValue, key2, fallback, epoch) {
     const pendingPatch = pendingHostedLocalPatch(key2, epoch);
@@ -29071,13 +29694,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function localOnlyManagedValue(key2, fallback, epoch) {
     const local = localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, MISSING) : MISSING;
     if (!isMissingSentinel(local)) return local;
-    mirrorStandaloneHostedSettingsBaseline(key2, fallback, epoch);
     return fallback;
   }
-  function mirrorStandaloneHostedSettingsBaseline(key2, fallback, epoch) {
-    if (isHostedSettingsStorageKey(key2) && isHostedYomuOrigin() && isPlainRecord$1(fallback)) {
-      mirrorManagedValueToHostedStorage(key2, fallback, epoch);
+  function localOnlyManagedValueStrict(key2, fallback, epoch) {
+    if (hostedSettingsLocalValuePresent(key2) && !localMirrorBelongsToEpoch(key2, epoch)) {
+      throw storageWriteError(key2, "Hosted settings localStorage is present without matching provenance");
     }
+    return localOnlyManagedValue(key2, fallback, epoch);
+  }
+  function hostedSettingsLocalValuePresent(key2) {
+    return isHostedSettingsStorageKey(key2) && isHostedYomuOrigin() && webStorageHasKey(localStorage, key2);
   }
   async function gmStorageGetForResetEnumeration(key2, fallback) {
     const getValue = asyncGmGetValue();
@@ -29133,6 +29759,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function gmStorageGetSync(key2, fallback) {
+    if (packagedExtensionStorageAdapterMissing()) return fallback;
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     let epoch = null;
     if (getValue) {
@@ -29149,11 +29776,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     try {
       const storageKey = managedStateStorageKey(key2, epoch);
       let stored = getValue(storageKey, MISSING);
-      if (isPromiseLike$1(stored)) return { kind: "fallback" };
+      if (isPromiseLike$2(stored)) return { kind: "fallback" };
       const readFromCurrentSlot = !isMissingSentinel(stored);
       if (isMissingSentinel(stored) && storageKey !== key2) {
         stored = getValue(key2, MISSING);
-        if (isPromiseLike$1(stored)) return { kind: "fallback" };
+        if (isPromiseLike$2(stored)) return { kind: "fallback" };
       }
       if (!isMissingSentinel(stored)) {
         const unreadable = Symbol("unreadable-managed-state");
@@ -29195,6 +29822,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const getValue = asyncGmGetValue();
     const setValue = asyncGmSetValue();
     if (setValue) return setSharedManagedValue(key2, value, options, getValue, setValue);
+    if (packagedExtensionStorageAdapterMissing()) {
+      throw storageWriteError(key2, "Packaged Study storage adapter is unavailable");
+    }
     const epoch = await assertRealmManagedStateEpoch(null);
     writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), epoch);
   }
@@ -29219,6 +29849,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     throw storageWriteError(key2, "GM storage write failed; saved only to localStorage fallback", error);
   }
   async function writeFailedManagedValueFallback(key2, value, error, epoch) {
+    if (packagedExtensionStorageAdapterMissing()) {
+      throw storageWriteError(key2, "Packaged Study storage adapter rejected the authoritative write", error);
+    }
     try {
       const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
       writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), fallbackEpoch);
@@ -29244,6 +29877,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function gmStorageSetSync(key2, value) {
+    if (packagedExtensionStorageAdapterMissing()) {
+      debugStorageError("Packaged Study storage adapter is unavailable", key2, null);
+      return;
+    }
     if (managedStateWritesSuppressed()) {
       debugStorageError("Managed state write suppressed during factory reset", key2, null);
       return;
@@ -29261,7 +29898,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const stored = managedStateStoredValue(value, epoch);
         const storageKey = managedStateStorageKey(key2, epoch);
         const result2 = setValue(storageKey, stored);
-        if (isPromiseLike$1(result2)) {
+        if (isPromiseLike$2(result2)) {
           void result2.then(async () => {
             await assertRealmManagedStateEpoch(getValue);
             mirrorManagedValueToHostedStorage(key2, value, epoch);
@@ -29297,6 +29934,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const setValue = asyncGmSetValue();
     const deleteValue = asyncGmDeleteValue();
     const hasBackend = Boolean(getValue || setValue || deleteValue);
+    if (!hasBackend && packagedExtensionStorageAdapterMissing()) {
+      throw storageWriteError(key2, "Packaged Study storage adapter is unavailable");
+    }
     if (hasBackend && !getValue) {
       throw storageWriteError(key2, "Managed storage cannot validate and delete the same backend value");
     }
@@ -29380,6 +30020,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!isPrivateManagedStorageKey(key2)) throw new TypeError("Private storage requires a yomu:private: key.");
   }
   function gmStorageDeleteSync(key2) {
+    if (packagedExtensionStorageAdapterMissing()) {
+      debugStorageError("Packaged Study storage adapter is unavailable", key2, null);
+      return;
+    }
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
     const deleteValue = typeof GM_deleteValue === "function" ? GM_deleteValue : null;
@@ -29396,7 +30040,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           void gmStorageDelete(key2).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
           return;
         }
-        if (isPromiseLike$1(result2)) {
+        if (isPromiseLike$2(result2)) {
           void result2.then(async () => {
             await assertRealmManagedStateEpoch(getValue);
             removeLocalManagedValue(key2);
@@ -29442,15 +30086,79 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function exportManagedStoredValues() {
     return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
   }
-  async function importStoredValues(values) {
-    let count2 = 0;
-    const entries2 = managedStoredValueEntries(values).sort(([left], [right]) => Number(left === YOMU_LOCAL_SRS_V2_INDEX_KEY) - Number(right === YOMU_LOCAL_SRS_V2_INDEX_KEY));
-    for (const [key2, value] of entries2) {
-      const storedValue = key2 === YOMU_LOCAL_SRS_STORAGE_KEY ? await mergeYomuLocalSrsDeckImport(value) : await mergeYomuLocalSrsV2Import(key2, value);
-      await gmStorageSet(key2, storedValue);
-      count2++;
+  async function beginStoredValuesImport(values) {
+    const entries2 = orderedManagedStoredValueEntries(values);
+    const journal2 = createManagedWriteJournal();
+    try {
+      for (const [key2, imported] of entries2) {
+        const receipt = await journal2.capture(key2);
+        await journal2.write(receipt, await prepareStoredValueForImport(key2, imported));
+      }
+    } catch (error) {
+      await journal2.reject(error, "Managed storage import failed");
     }
-    return count2;
+    return {
+      count: entries2.length,
+      commit: () => journal2.commit(),
+      rollback: () => journal2.rollback("Managed storage import rollback failed")
+    };
+  }
+  const MANAGED_WRITE_STORAGE = {
+    readAuthority: readManagedStoredValueAuthority,
+    writeAuthority: (key2, value, preserveLocalFallback) => gmStorageSet(
+      key2,
+      value,
+      preserveLocalFallback ? { localFallbackOnAuthoritativeFailure: "preserve" } : {}
+    ),
+    restoreAuthority: (key2, target2) => restoreManagedStoredValueAuthority(key2, target2.value, target2.existed),
+    readLocalTarget: (key2) => managedStoredValueState(localFallbackStoredValue(key2, MISSING)),
+    restoreLocalTarget: (key2, target2) => restoreLocalFallbackStoredValue(key2, target2.value, target2.existed)
+  };
+  function createManagedWriteJournal(preserveLocalFallbackOnWriteFailure = false) {
+    return createConcreteManagedWriteJournal(
+      MANAGED_WRITE_STORAGE,
+      preserveLocalFallbackOnWriteFailure
+    );
+  }
+  function orderedManagedStoredValueEntries(values) {
+    return managedStoredValueEntries(values).sort(([left], [right]) => Number(left === YOMU_LOCAL_SRS_V2_INDEX_KEY) - Number(right === YOMU_LOCAL_SRS_V2_INDEX_KEY));
+  }
+  async function prepareStoredValueForImport(key2, value) {
+    return key2 === YOMU_LOCAL_SRS_STORAGE_KEY ? mergeYomuLocalSrsDeckImport(value) : mergeYomuLocalSrsV2Import(key2, value);
+  }
+  async function readManagedStoredValueAuthority(key2) {
+    if (isSettingsAuthorityStorageKey(key2)) {
+      const value2 = isHostedYomuOrigin() ? await gmStorageGetStrict(key2, MISSING) : await gmStorageGetSharedStrict(key2, MISSING);
+      return managedStoredValueState(value2);
+    }
+    const getValue = asyncGmGetValue();
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    const value = getValue ? await managedGmValue(getValue, key2, MISSING, epoch) : localOnlyManagedValue(key2, MISSING, epoch);
+    return managedStoredValueState(value);
+  }
+  function managedStoredValueState(value) {
+    return {
+      existed: !isMissingSentinel(value),
+      value: isMissingSentinel(value) ? null : value
+    };
+  }
+  async function restoreManagedStoredValueAuthority(key2, previousValue, existed) {
+    const getValue = asyncGmGetValue();
+    if (!getValue) return;
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    if (existed) {
+      const setValue = asyncGmSetValue();
+      if (!setValue) throw storageWriteError(key2, "Managed storage cannot restore its authoritative value");
+      await writeManagedGmValue(key2, previousValue, epoch, getValue, setValue);
+      return;
+    }
+    await deleteManagedGmValue(
+      key2,
+      epoch,
+      getValue,
+      asyncGmSetValue(),
+      asyncGmDeleteValue()
+    );
   }
   async function mergeYomuLocalSrsV2Import(key2, imported) {
     if (key2 === YOMU_LOCAL_SRS_V2_INDEX_KEY) {
@@ -29499,7 +30207,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function managedStoredValueEntries(values) {
-    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isManagedStorageBackupKey(key2)) : [];
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isManagedStorageBackupKey(key2) && !isSettingsAuthorityStorageKey(key2)) : [];
   }
   function isStorageImportRecord(values) {
     return Boolean(values && typeof values === "object" && !Array.isArray(values));
@@ -29573,6 +30281,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       await deleteManagedStoredValue(key2);
       count2++;
     }
+    count2 += await clearStrandedExtensionStudyManagedValuesForReset();
     await clearManagedIndexedDatabases();
     count2 += await clearManagedBrowserCaches();
     count2 += await unregisterManagedServiceWorkers();
@@ -29581,7 +30290,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function managedStoredKeysStillPresent() {
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
-    return keys;
+    return [.../* @__PURE__ */ new Set([...keys, ...await strandedExtensionStudyManagedKeys()])].sort();
+  }
+  async function clearStrandedExtensionStudyManagedValuesForReset() {
+    try {
+      return await clearLegacyExtensionManagedStorage();
+    } catch (error) {
+      throw new ManagedStateResetError("Factory reset could not clear legacy extension Study storage.", { cause: error });
+    }
+  }
+  async function strandedExtensionStudyManagedKeys() {
+    try {
+      return await legacyExtensionManagedStorageKeys();
+    } catch (error) {
+      throw new ManagedStateResetError("Factory reset could not inspect legacy extension Study storage.", { cause: error });
+    }
   }
   async function clearManagedBrowserCaches() {
     if (typeof caches === "undefined") return 0;
@@ -29850,6 +30573,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!bridge) return false;
     try {
       await bridge.clearPrivateManagedValues();
+      await bridge.clearLegacyExtensionManagedValues();
       return true;
     } catch (error) {
       throw new ManagedStateResetError("Factory reset could not clear private managed storage.", { cause: error });
@@ -29954,18 +30678,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return resetWebStorageHasKey(localStorage, key2, "localStorage") || resetWebStorageHasKey(sessionStorage, key2, "sessionStorage");
   }
-  function removeLocalStorageKey(key2) {
-    try {
-      localStorage.removeItem(key2);
-    } catch {
-    }
-  }
-  function removeSessionStorageKey(key2) {
-    try {
-      sessionStorage.removeItem(key2);
-    } catch {
-    }
-  }
   async function storedValueExists(key2) {
     const getValue = asyncGmGetValue();
     if (getValue) {
@@ -29982,13 +30694,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const epoch = managedStateEpochForSynchronousLocalRead();
     return Boolean(epoch && localMirrorBelongsToEpoch(key2, epoch) && (webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2)));
   }
-  function webStorageHasKey(storage, key2) {
-    try {
-      return storage.getItem(key2) !== null;
-    } catch {
-      return false;
-    }
-  }
   function resetWebStorageHasKey(storage, key2, label) {
     try {
       return storage.getItem(key2) !== null;
@@ -29998,108 +30703,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function mirrorManagedValueToHostedStorage(key2, value, epoch) {
     if (!shouldMirrorManagedValueToHostedStorage(key2)) return;
-    try {
-      writeLocalManagedValueOrThrow(key2, value, epoch);
-    } catch (error) {
+    mirrorLocalManagedValue(key2, value, epoch, (error) => {
       debugStorageError("Hosted localStorage mirror failed", key2, error);
-    }
-  }
-  function cacheManagedStateEpochForLocalFallback(epoch) {
-    if (epoch.generation <= 0) {
-      removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
-      return;
-    }
-    try {
-      const local = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
-      if (sameManagedStateEpoch(local, epoch)) return;
-    } catch {
-    }
-    localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
+    });
   }
   function cacheManagedValueForHostedStartup(key2, value) {
     const epoch = managedStateEpochForSynchronousLocalRead();
     if (epoch) mirrorManagedValueToHostedStorage(key2, value, epoch);
   }
-  function writeLocalManagedValueOrThrow(key2, value, epoch) {
-    const serialized = localStorageSetOrThrow(key2, value);
-    recordLocalMirrorProvenance(key2, epoch, serialized);
-  }
-  function removeLocalManagedValue(key2) {
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
-    removeLocalMirrorProvenance(key2);
-  }
-  function localMirrorBelongsToEpoch(key2, epoch) {
-    const serialized = recoverableLocalStorageSerializedValue(key2);
-    if (serialized === null) return false;
-    const entry2 = localMirrorProvenanceRecord()?.values[key2];
-    if (!entry2) return epoch.generation === 0;
-    return entry2.epoch === managedStateEpochToken(epoch) && entry2.fingerprint === localMirrorFingerprint(serialized);
-  }
-  function recordLocalMirrorProvenance(key2, epoch, serialized) {
-    const current = localMirrorProvenanceRecord();
-    const next = {
-      version: 1,
-      values: {
-        ...current?.values ?? {},
-        [key2]: {
-          epoch: managedStateEpochToken(epoch),
-          fingerprint: localMirrorFingerprint(serialized)
-        }
-      }
-    };
-    localStorageSetOrThrow(LOCAL_MIRROR_PROVENANCE_KEY, next);
-  }
-  function removeLocalMirrorProvenance(key2) {
-    const current = localMirrorProvenanceRecord();
-    if (!current || !(key2 in current.values)) return;
-    const values = { ...current.values };
-    delete values[key2];
-    if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
-    else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
+  function cacheManagedValueForHostedStartupIfAbsent(key2, value) {
+    if (webStorageHasKey(localStorage, key2)) return;
+    cacheManagedValueForHostedStartup(key2, value);
   }
   function restoreLocalFallbackStoredValue(key2, value, existed) {
     if (managedStateWritesSuppressed()) return;
-    if (!existed) return removeLocalManagedValue(key2);
-    const epoch = managedStateEpochForSynchronousLocalRead();
-    if (!epoch) throw storageWriteError(key2, "Managed storage cannot restore its localStorage fallback");
-    writeLocalManagedValueOrThrow(key2, value, epoch);
-  }
-  function localMirrorProvenanceRecord() {
-    const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
-    if (!isPlainRecord$1(value) || value.version !== 1 || !isPlainRecord$1(value.values)) return null;
-    const values = {};
-    for (const [key2, entry2] of Object.entries(value.values)) {
-      if (!isPlainRecord$1(entry2) || typeof entry2.epoch !== "string" || typeof entry2.fingerprint !== "string") continue;
-      values[key2] = { epoch: entry2.epoch, fingerprint: entry2.fingerprint };
-    }
-    return { version: 1, values };
-  }
-  function recoverableLocalStorageSerializedValue(key2) {
-    if (key2 === "yomu:prefer-japanese-site-language:v1") return null;
-    try {
-      return localStorage.getItem(key2);
-    } catch {
-      return null;
-    }
-  }
-  function localMirrorFingerprint(serialized) {
-    let hash2 = 2166136261;
-    for (let index = 0; index < serialized.length; index++) {
-      hash2 ^= serialized.charCodeAt(index);
-      hash2 = Math.imul(hash2, 16777619);
-    }
-    return `${serialized.length}:${(hash2 >>> 0).toString(16).padStart(8, "0")}`;
+    restoreLocalFallbackStoredValueAtEpoch(key2, value, existed, managedStateEpochForSynchronousLocalRead());
   }
   function shouldMirrorManagedValueToHostedStorage(key2) {
     return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && isHostedYomuOrigin();
-  }
-  function isHostedYomuOrigin() {
-    try {
-      return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
-    } catch {
-      return false;
-    }
   }
   async function clearManagedIndexedDatabases() {
     await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
@@ -30159,88 +30780,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         finish(() => reject(new ManagedStateResetError(`IndexedDB could not delete "${name}".`, { cause: error })));
       }
     });
-  }
-  function asyncGmGetValue() {
-    if (typeof GM_getValue === "function") return GM_getValue;
-    const modern = globalThis.GM?.getValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    if (extension) return async (key2, fallback) => {
-      const value = (await extension.get(key2))[key2];
-      return value === void 0 ? fallback : value;
-    };
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
-  }
-  function directGmGetValue() {
-    if (typeof GM_getValue === "function") return GM_getValue;
-    const modern = globalThis.GM?.getValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    return extension ? async (key2, fallback) => {
-      const value = (await extension.get(key2))[key2];
-      return value === void 0 ? fallback : value;
-    } : null;
-  }
-  function asyncGmSetValue() {
-    if (typeof GM_setValue === "function") return GM_setValue;
-    const modern = globalThis.GM?.setValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    if (extension) return (key2, value) => extension.set({ [key2]: value });
-    if (directGmGetValue()) return null;
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
-  }
-  function directGmSetValue() {
-    if (typeof GM_setValue === "function") return GM_setValue;
-    const modern = globalThis.GM?.setValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
-  }
-  function asyncGmDeleteValue() {
-    if (typeof GM_deleteValue === "function") return GM_deleteValue;
-    const modern = globalThis.GM?.deleteValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    if (extension) return (key2) => extension.remove(key2);
-    if (directGmGetValue()) return null;
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key2) => bridge.deleteValue(key2) : null;
-  }
-  function directGmDeleteValue() {
-    if (typeof GM_deleteValue === "function") return GM_deleteValue;
-    const modern = globalThis.GM?.deleteValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    return extension ? (key2) => extension.remove(key2) : null;
-  }
-  function asyncGmListValues() {
-    if (typeof GM_listValues === "function") return GM_listValues;
-    const directListValues = globalThis.GM_listValues;
-    if (typeof directListValues === "function") return directListValues;
-    const modern = globalThis.GM?.listValues;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const extension = extensionStorageArea();
-    if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-    if (directGmGetValue()) return null;
-    const bridge = getUserscriptGmStorage();
-    return bridge ? () => bridge.listValues() : null;
-  }
-  function extensionStorageArea() {
-    const candidate2 = globalThis;
-    const browser = candidate2.browser;
-    if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
-    const chrome = candidate2.chrome;
-    if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
-    return null;
-  }
-  function extensionStorageChangedEvent() {
-    const candidate2 = globalThis;
-    if (candidate2.browser?.runtime?.id && candidate2.browser.storage?.onChanged) return candidate2.browser.storage.onChanged;
-    if (candidate2.chrome?.runtime?.id && candidate2.chrome.storage?.onChanged) return candidate2.chrome.storage.onChanged;
-    return null;
   }
   function normalizeFactoryResetSignal(signal) {
     return {
@@ -33452,6 +33991,21 @@ ${spelling}`);
   }
   const TAP_SLOP_PX = 12;
   const DRAG_HANDLE_SLOP_PX = 8;
+  const IMPLICIT_SUBMISSION_INPUT_TYPES = /* @__PURE__ */ new Set([
+    "text",
+    "search",
+    "tel",
+    "url",
+    "email",
+    "password",
+    "date",
+    "month",
+    "week",
+    "time",
+    "datetime-local",
+    "number"
+  ]);
+  const reportReaderFormValidity = typeof HTMLFormElement === "undefined" ? void 0 : HTMLFormElement.prototype.reportValidity;
   const sharedState = sandboxSharedState("yomu.trusted-interaction.v1", () => ({
     pendingClick: {},
     authorizedClicks: /* @__PURE__ */ new WeakSet(),
@@ -33558,38 +34112,83 @@ ${spelling}`);
       if (sharedState.pendingClick.grant === grant) sharedState.pendingClick.grant = void 0;
     }
   }
-  class ReaderFormSubmitAuthorization {
-    armed = false;
-    revision = 0;
-    arm(event) {
-      if (!isDirectTrustedReaderInteraction(event)) return;
-      this.armed = true;
-      const revision2 = ++this.revision;
-      queueMicrotask(() => {
-        if (this.revision === revision2) this.armed = false;
-      });
-    }
-    consume(event) {
-      const allowed = this.armed || !event.isTrusted && isDirectTrustedReaderInteraction(event);
-      this.armed = false;
-      this.revision += 1;
-      return allowed;
-    }
+  function claimReaderControlClick(event, target2) {
+    const grant = sharedState.pendingClick.grant;
+    if (!grant || event.type !== "click" || target2 !== grant.target) return false;
+    sharedState.pendingClick.grant = void 0;
+    grant.event = event;
+    sharedState.authorizedClicks.add(event);
+    return true;
   }
-  function bindAuthorizedReaderFormSubmit(form2, onSubmit) {
-    const authorization = new ReaderFormSubmitAuthorization();
-    form2.addEventListener("click", (event) => {
-      const target2 = event.target instanceof Element ? event.target : null;
-      const submit2 = target2?.closest('button:not([type]), button[type="submit"], input[type="submit"]');
-      if (submit2 && form2.contains(submit2)) authorization.arm(event);
-    }, { capture: true });
-    form2.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.isComposing) authorization.arm(event);
-    }, { capture: true });
+  function isReaderFormSubmitControl(control2) {
+    if (control2 instanceof HTMLButtonElement) return control2.type === "submit";
+    return control2 instanceof HTMLInputElement && (control2.type === "submit" || control2.type === "image");
+  }
+  function readerFormSubmitControl(form2) {
+    const controls = Array.from(form2.querySelectorAll("button, input")).filter((control2) => isReaderFormSubmitControl(control2) && control2.form === form2);
+    return controls.length === 1 ? controls[0] ?? null : null;
+  }
+  function isExactReaderFormSubmitTarget(form2, submitter, target2) {
+    return eventTargetsReaderSubmitControl(target2, submitter) && readerSubmitControlBelongsToLiveForm(form2, submitter) && readerSubmitControlRemainsEnabled(submitter);
+  }
+  function eventTargetsReaderSubmitControl(target2, submitter) {
+    return target2 instanceof Element && target2.closest("button, input") === submitter;
+  }
+  function readerSubmitControlBelongsToLiveForm(form2, submitter) {
+    return submitter.form === form2 && form2.isConnected && submitter.isConnected;
+  }
+  function readerSubmitControlRemainsEnabled(submitter) {
+    return isReaderFormSubmitControl(submitter) && !readerControlIsDisabled(submitter);
+  }
+  function isExactReaderSubmitClick(form2, submitter, event) {
+    if (isPrivateReaderSubmitClick(event)) return true;
+    return event.isTrusted && isTrustedReaderSubmitClickModality(form2, submitter, event);
+  }
+  function isPrivateReaderSubmitClick(event) {
+    const target2 = event.target instanceof Element ? event.target : null;
+    return claimReaderControlClick(event, target2) || sharedState.authorizedClicks.has(event) || syntheticEventsAllowed();
+  }
+  function isTrustedReaderSubmitClickModality(form2, submitter, event) {
+    if (event.detail !== 0) return true;
+    const active = form2.ownerDocument.activeElement;
+    if (active === submitter) return true;
+    return isImplicitReaderSubmitInput(form2, active);
+  }
+  function isImplicitReaderSubmitInput(form2, active) {
+    if (!(active instanceof HTMLInputElement)) return false;
+    return active.form === form2 && !readerControlIsDisabled(active) && IMPLICIT_SUBMISSION_INPUT_TYPES.has(active.type);
+  }
+  function readerFormIsValid(form2, submitter) {
+    if (form2.noValidate || submitter.formNoValidate) return true;
+    return reportReaderFormValidity?.call(form2) === true;
+  }
+  function isReaderFormSubmitActivation(form2, submitter, event) {
+    return !event.defaultPrevented && isExactReaderSubmitClick(form2, submitter, event);
+  }
+  function bindAuthorizedReaderFormSubmit(form2, onSubmit, onInvalid) {
+    const submitter = readerFormSubmitControl(form2);
+    if (submitter) {
+      form2.addEventListener("click", (event) => {
+        handleReaderFormSubmitClick(form2, submitter, onSubmit, onInvalid, event);
+      }, { capture: true });
+    }
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (authorization.consume(event)) onSubmit();
+      runSyntheticReaderFormSubmitForTests(event, onSubmit);
     });
+  }
+  function runSyntheticReaderFormSubmitForTests(event, onSubmit) {
+    if (!event.isTrusted && syntheticEventsAllowed()) onSubmit();
+  }
+  function handleReaderFormSubmitClick(form2, submitter, onSubmit, onInvalid, event) {
+    if (!isExactReaderFormSubmitTarget(form2, submitter, event.target)) return;
+    if (!isReaderFormSubmitActivation(form2, submitter, event)) return;
+    event.preventDefault();
+    runValidatedReaderFormSubmit(form2, submitter, onSubmit, onInvalid);
+  }
+  function runValidatedReaderFormSubmit(form2, submitter, onSubmit, onInvalid) {
+    if (readerFormIsValid(form2, submitter)) onSubmit();
+    else onInvalid?.();
   }
   function isTrustedAccountDataSurface(value) {
     const appUrl = readTrustedYomuUrl(value);
@@ -34914,6 +35513,7 @@ ${spelling}`);
     window.YomuLogger = Logger;
   }
   const SETTINGS_CHANGE_BUS_SLOT = Symbol.for("yomu.private-settings-change-bus.v1");
+  const log$w = Logger.scope("SettingsChangeBus");
   const HOSTED_PUBLIC_SETTINGS_KEYS = [
     "theme",
     "accentColor",
@@ -34926,7 +35526,13 @@ ${spelling}`);
     "dictionaryPreferences"
   ];
   function publishSettingsChange$1(detail) {
-    for (const listener of privateSettingsChangeBus().listeners) listener(detail);
+    for (const listener of privateSettingsChangeBus().listeners) {
+      try {
+        listener(detail);
+      } catch (error) {
+        log$w.warn("Private settings change listener failed", error);
+      }
+    }
     publishPublicSettingsProjection(detail);
   }
   function subscribeToSettingsChanges(listener, signal) {
@@ -38502,7 +39108,7 @@ ${spelling}`);
   function asUserscriptRequest(value) {
     return typeof value === "function" ? value : void 0;
   }
-  function isPromiseLike(value) {
+  function isPromiseLike$1(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function directUserscriptGlobals() {
@@ -38755,7 +39361,7 @@ ${spelling}`);
         if (result2 && typeof result2.abort === "function") {
           handle = result2;
         }
-        if (isPromiseLike(result2)) result2.then(handleLoad, handleError);
+        if (isPromiseLike$1(result2)) result2.then(handleLoad, handleError);
       } catch (error) {
         handleError(error);
       }
@@ -39103,6 +39709,32 @@ ${spelling}`);
       hideReadingsFor: "読みを隠す対象"
     })
   });
+  const SETTINGS_RECOVERY_COPY = {
+    en: {
+      extensionSettingsRecoveryTitle: "Study paused to protect your settings",
+      extensionSettingsRecoveryBody: "Yomu could not reconnect your saved settings. The existing data was retained unchanged, and Study will not replace it with setup defaults.",
+      extensionSettingsRecoveryGuidance: "Retry recovery or reload Study. If this continues, import your latest settings backup once after recovery succeeds. Do not use Factory Reset or downgrade Yomu.",
+      extensionSettingsRecoveryRetry: "Retry recovery",
+      extensionSettingsRecoveryReload: "Reload Study",
+      extensionSettingsRecoveryRetrying: "Retrying settings recovery…",
+      extensionSettingsRecoveryStillBlocked: "Recovery is still unavailable. Your existing data remains unchanged.",
+      saveAfterImport: "Save after import",
+      settingsImportSaveBlocked: "Settings import is running. Save unlocks when it finishes.",
+      settingsImportStaleSaveDiscarded: "Settings import replaced the earlier pending Save."
+    },
+    ja: {
+      extensionSettingsRecoveryTitle: "設定を保護するためStudyを一時停止しました",
+      extensionSettingsRecoveryBody: "保存済み設定に再接続できませんでした。既存データは変更せず保持され、Studyが初期設定で上書きすることはありません。",
+      extensionSettingsRecoveryGuidance: "復旧を再試行するかStudyを再読み込みしてください。解決しない場合は、復旧成功後に最新の設定バックアップを一度だけインポートしてください。初期状態へのリセットやYomuのダウングレードは行わないでください。",
+      extensionSettingsRecoveryRetry: "復旧を再試行",
+      extensionSettingsRecoveryReload: "Studyを再読み込み",
+      extensionSettingsRecoveryRetrying: "設定の復旧を再試行中…",
+      extensionSettingsRecoveryStillBlocked: "まだ復旧できません。既存データは変更されていません。",
+      saveAfterImport: "インポート後に保存",
+      settingsImportSaveBlocked: "設定をインポート中です。完了後に保存できます。",
+      settingsImportStaleSaveDiscarded: "設定のインポートを優先し、先に待機していた保存は破棄しました。"
+    }
+  };
   const COPY$c = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -39156,6 +39788,7 @@ ${spelling}`);
       settingsSaved: "Settings saved.",
       settingsSaveFailed: "Settings save failed.",
       settingsCompanionUnavailable: "Settings could not be opened.",
+      ...SETTINGS_RECOVERY_COPY.en,
       firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
       firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
       settingsSections: "Settings sections",
@@ -40866,7 +41499,8 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-    ...GRAMMAR_UI_COPY.ja
+    ...GRAMMAR_UI_COPY.ja,
+    ...SETTINGS_RECOVERY_COPY.ja
   };
   const JA_SETTINGS_COPY = {
     accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -43582,198 +44216,282 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isInterfaceLanguage(value) {
     return value === "auto" || value === "en" || value === "ja";
   }
-  const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-  const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
   const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-  const SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
-  const SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
-  const SETTINGS_STORAGE_MISSING = "\0yomu-settings-storage-missing:v1";
-  const LOCAL_FALLBACK_MISSING = Symbol("yomu-settings-local-fallback-missing");
-  const AUTHORITATIVE_TRANSACTION_WRITE = {
-    localFallbackOnAuthoritativeFailure: "preserve"
-  };
-  async function readSettingsPersistenceView() {
+  const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+  const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+  class InvalidSettingsBackupAuthorityError extends Error {
+    name = "InvalidSettingsBackupAuthorityError";
+  }
+  function readSettingsPersistenceView() {
+    return readSettingsPersistenceViewFrom(readSettingsStorageValue);
+  }
+  async function exportSettingsBackupSnapshot(fallbackSettings) {
+    const storage = await exportManagedStoredValues();
+    const view = await readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
+    const witnessed = objectRecord$2(view.settings);
+    if (!witnessed) {
+      if (backupContainsSettingsAuthority(storage)) {
+        throw new Error("Could not capture canonical settings for backup.");
+      }
+      return { settings: detachedSettings(fallbackSettings), storage };
+    }
+    const settings = detachedSettings({
+      ...fallbackSettings,
+      ...witnessed,
+      shortcuts: {
+        ...fallbackSettings.shortcuts,
+        ...objectRecord$2(witnessed.shortcuts)
+      }
+    });
+    const commit = createStorageCoordinationId();
+    return {
+      settings,
+      storage: {
+        ...storage,
+        [SETTINGS_STORAGE_KEY]: withCommit(settings, commit),
+        [SETTINGS_INTENT_LEDGER_STORAGE_KEY]: withCommit(view.intentLedger, commit)
+      }
+    };
+  }
+  function backupContainsSettingsAuthority(storage) {
+    return Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+  }
+  function detachedSettings(settings) {
+    return structuredClone(settings);
+  }
+  async function readSettingsPersistenceViewFrom(read) {
+    return await stableSettingsPersistenceView(read) ?? { settings: null, intentLedger: settingsIntentLedgerFromStorage(null, null) };
+  }
+  async function readSettingsPersistenceViewStrictFrom(read) {
+    const view = await stableSettingsPersistenceView(read);
+    if (view) return view;
+    throw new Error("Settings storage did not provide a stable committed snapshot.");
+  }
+  async function stableSettingsPersistenceView(read) {
     for (let attempt2 = 0; attempt2 < 3; attempt2++) {
-      const view = await stableSettingsPersistenceView(await readSettingsPersistenceSample());
+      const view = await sampledSettingsView(read);
       if (view) return view;
     }
-    return {
-      settings: null,
-      intentLedger: settingsIntentLedgerFromStorage(null, null)
-    };
+    return null;
   }
-  async function readSettingsPersistenceSample() {
-    return {
-      beforeSettings: await readSettingsStorageValue(SETTINGS_STORAGE_KEY, null),
-      beforeIntentLedger: await readSettingsStorageValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-      afterIntentLedger: await readSettingsStorageValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-      afterSettings: await readSettingsStorageValue(SETTINGS_STORAGE_KEY, null)
-    };
-  }
-  function stableSettingsPersistenceView(sample) {
-    return settingsPersistenceSampleIsStable(sample) ? settingsPersistenceView(sample.afterSettings, sample.afterIntentLedger) : Promise.resolve(null);
-  }
-  function settingsPersistenceSampleIsStable(sample) {
-    return storedValuesMatch(sample.beforeSettings, sample.afterSettings) && storedValuesMatch(sample.beforeIntentLedger, sample.afterIntentLedger);
-  }
-  async function settingsPersistenceView(storedSettings, storedIntentLedger) {
-    const committed = committedSettingsStoragePair(storedSettings, storedIntentLedger);
+  async function sampledSettingsView(read) {
+    const beforeSettings = await read(SETTINGS_STORAGE_KEY, null);
+    const beforeLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
+    const afterLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
+    const afterSettings = await read(SETTINGS_STORAGE_KEY, null);
+    if (!sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger)) return null;
+    const committed = committedSettingsStoragePair(afterSettings, afterLedger);
     if (!committed) return null;
-    const intentLedger = settingsIntentLedgerFromStorage(
-      committed.intentLedger,
-      await readSettingsStorageValue(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+    return {
+      settings: committed.settings,
+      intentLedger: settingsIntentLedgerFromStorage(
+        committed.intentLedger,
+        await read(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+      )
+    };
+  }
+  function sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger) {
+    return valuesMatch(beforeSettings, afterSettings) && valuesMatch(beforeLedger, afterLedger);
+  }
+  async function readBackupSettingsPersistenceView(values) {
+    const authority = backupAuthority(values);
+    if (!authority || !backupReplacesIntent(authority)) return null;
+    return readSettingsPersistenceViewFrom(async (key2, fallback) => Object.hasOwn(authority.record, key2) ? authority.record[key2] : fallback);
+  }
+  function backupAuthority(values) {
+    const record2 = objectRecord$2(values);
+    if (!record2) return null;
+    const hasSettings = Object.hasOwn(record2, SETTINGS_STORAGE_KEY);
+    const hasIntentLedger = Object.hasOwn(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+    if (!hasSettings && !hasIntentLedger) return null;
+    return validatedBackupAuthority(record2, hasSettings, hasIntentLedger);
+  }
+  function validatedBackupAuthority(record2, hasSettings, hasIntentLedger) {
+    const committed = backupCommittedPair(record2);
+    if (!committed) {
+      throw new InvalidSettingsBackupAuthorityError(
+        "Settings backup contains an incomplete settings persistence transaction."
+      );
+    }
+    const settings = objectRecord$2(committed.settings);
+    if (!settings) {
+      throw new InvalidSettingsBackupAuthorityError(
+        "Settings backup contains a malformed canonical settings value."
+      );
+    }
+    validateBackupLedger(hasIntentLedger, committed.intentLedger);
+    return { record: record2, hasSettings, hasIntentLedger, settings };
+  }
+  function backupCommittedPair(record2) {
+    return committedSettingsStoragePair(
+      nullableBackupValue(record2, SETTINGS_STORAGE_KEY),
+      nullableBackupValue(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY)
     );
-    return { settings: committed.settings, intentLedger };
   }
-  function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
-    const marker = settingsTransactionMarker(storedSettings);
-    const committedSettings = marker ? storedSnapshotValue(marker.settings) : storedSettings;
-    const committedIntentLedger = marker ? storedSnapshotValue(marker.intentLedger) : storedIntentLedger;
-    return settingsCommitMatches(committedSettings, committedIntentLedger) ? {
-      settings: withoutSettingsCommit(committedSettings),
-      intentLedger: withoutSettingsCommit(committedIntentLedger)
-    } : null;
+  function nullableBackupValue(record2, key2) {
+    return record2[key2] ?? null;
   }
-  function readSettingsStorageValue(key2, fallback) {
-    return isHostedYomuOrigin() ? gmStorageGet(key2, fallback) : gmStorageGetShared(key2, fallback);
-  }
-  function storedValuesMatch(left, right) {
-    try {
-      return JSON.stringify(left) === JSON.stringify(right);
-    } catch {
-      return false;
+  function validateBackupLedger(present, value) {
+    if (present && !validIntentLedger(value)) {
+      throw new InvalidSettingsBackupAuthorityError(
+        "Settings backup contains a malformed settings intent ledger."
+      );
     }
   }
-  function settingsCommitMatches(settings, intentLedger) {
-    const settingsId = settingsCommitId(settings);
-    const ledgerId = settingsCommitId(intentLedger);
-    return settingsId !== null && ledgerId !== null && settingsId === ledgerId;
+  function backupReplacesIntent(authority) {
+    if (!authority.hasSettings) return false;
+    if (authority.hasIntentLedger) return true;
+    const legacy = settingsIntentLedgerFromStorage(
+      null,
+      authority.record[EXPLICIT_USER_SETTINGS_STORAGE_KEY] ?? null
+    );
+    return settingsIntentKeys(legacy).some((key2) => Object.hasOwn(authority.settings, key2));
   }
-  function settingsCommitId(value) {
+  function validIntentLedger(value) {
+    const ledger = objectRecord$2(value);
+    const records2 = ledger && objectRecord$2(ledger.records);
+    return Boolean(records2 && optionalFiniteNumber(ledger, "revision") && Object.values(records2).every((item2) => {
+      const record2 = objectRecord$2(item2);
+      return Boolean(record2 && optionalFiniteNumber(record2, "seq"));
+    }));
+  }
+  function optionalFiniteNumber(record2, key2) {
+    const value = record2[key2];
+    return !Object.hasOwn(record2, key2) || typeof value === "number" && Number.isFinite(value);
+  }
+  function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+    const marker = transactionMarker(storedSettings);
+    const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
+    return matchingCommittedPair(settings, intentLedger);
+  }
+  function matchingCommittedPair(settings, intentLedger) {
+    const settingsId = commitId(settings);
+    const ledgerId = commitId(intentLedger);
+    return settingsId !== null && ledgerId !== null && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+  }
+  function commitId(value) {
     const record2 = objectRecord$2(value);
-    return record2 ? recordSettingsCommitId(record2) : void 0;
+    if (!record2) return void 0;
+    return recordCommitId(record2);
   }
-  function recordSettingsCommitId(record2) {
-    return Object.hasOwn(record2, SETTINGS_COMMIT_FIELD) ? validSettingsCommitId(record2[SETTINGS_COMMIT_FIELD]) : void 0;
+  function recordCommitId(record2) {
+    if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
+    const id2 = record2[COMMIT_FIELD];
+    return typeof id2 === "string" && id2 ? id2 : null;
   }
-  function validSettingsCommitId(value) {
-    return typeof value === "string" && value ? value : null;
+  function withCommit(value, id2) {
+    return id2 ? { ...value, [COMMIT_FIELD]: id2 } : value;
   }
-  function withSettingsCommit(value, commitId) {
-    return commitId ? { ...value, [SETTINGS_COMMIT_FIELD]: commitId } : value;
-  }
-  function withoutSettingsCommit(value) {
+  function withoutCommit(value) {
     const record2 = objectRecord$2(value);
-    if (!record2 || !Object.hasOwn(record2, SETTINGS_COMMIT_FIELD)) return value;
+    if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
     const clean = { ...record2 };
-    delete clean[SETTINGS_COMMIT_FIELD];
+    delete clean[COMMIT_FIELD];
     return clean;
   }
   async function persistSettingsStorageTransaction(nextIntentLedger, settings) {
-    const [settingsSnapshot, intentLedgerSnapshot] = await settingsStorageSnapshots();
-    const commitId = settingsTransactionCommitId(nextIntentLedger, intentLedgerSnapshot);
-    const attempted = /* @__PURE__ */ new Set();
+    const journal2 = createManagedWriteJournal(true);
+    const snapshots = await storageSnapshots(journal2);
     try {
-      await stageSettingsIntent(nextIntentLedger, settingsSnapshot, intentLedgerSnapshot, commitId, attempted);
-      await gmStorageSet(
-        SETTINGS_STORAGE_KEY,
-        withSettingsCommit(settings, commitId),
-        AUTHORITATIVE_TRANSACTION_WRITE
-      );
+      const id2 = nextIntentLedger === void 0 ? commitId(snapshots.intentLedger.previousValue) : createStorageCoordinationId();
+      await stageIntent(nextIntentLedger, snapshots, id2, journal2);
+      await journal2.write(snapshots.settings.receipt, withCommit(settings, id2));
+      journal2.commit();
     } catch (error) {
-      await rollbackSettingsTransaction(error, settingsSnapshot, intentLedgerSnapshot, attempted);
+      await journal2.reject(error, "Settings persistence failed", true);
     }
   }
-  function settingsTransactionCommitId(nextIntentLedger, intentLedgerSnapshot) {
-    return nextIntentLedger === void 0 ? settingsCommitId(intentLedgerSnapshot.previousValue) : createStorageCoordinationId();
-  }
-  async function stageSettingsIntent(nextIntentLedger, settingsSnapshot, intentLedgerSnapshot, commitId, attempted) {
-    attempted.add(SETTINGS_STORAGE_KEY);
-    if (nextIntentLedger === void 0) return;
-    await gmStorageSet(
-      SETTINGS_STORAGE_KEY,
-      settingsTransactionRecord(settingsSnapshot, intentLedgerSnapshot),
-      AUTHORITATIVE_TRANSACTION_WRITE
-    );
-    attempted.add(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
-    await gmStorageSet(
-      SETTINGS_INTENT_LEDGER_STORAGE_KEY,
-      withSettingsCommit(nextIntentLedger, commitId),
-      AUTHORITATIVE_TRANSACTION_WRITE
-    );
-  }
-  async function rollbackSettingsTransaction(error, settingsSnapshot, intentLedgerSnapshot, attempted) {
-    const rollbackErrors = await restoreSettingsStorageSnapshots(
-      [intentLedgerSnapshot, settingsSnapshot].filter((snapshot) => attempted.has(snapshot.key))
-    );
-    if (!rollbackErrors.length) throw error;
-    throw new AggregateError(
-      [error, ...rollbackErrors],
-      `Settings persistence failed and ${rollbackErrors.length} rollback operation(s) also failed.`
-    );
-  }
-  async function settingsStorageSnapshots() {
-    const rawSettingsSnapshot = await settingsStorageSnapshot(SETTINGS_STORAGE_KEY);
-    const interrupted = settingsTransactionMarker(rawSettingsSnapshot.previousValue);
-    if (interrupted) {
-      return [
-        snapshotFromMarker(SETTINGS_STORAGE_KEY, interrupted.settings),
-        snapshotFromMarker(SETTINGS_INTENT_LEDGER_STORAGE_KEY, interrupted.intentLedger)
-      ];
+  async function stageIntent(next, snapshots, id2, journal2) {
+    if (next === void 0) {
+      if (!snapshots.interrupted) return;
+      await journal2.restore(
+        snapshots.intentLedger.receipt,
+        "Interrupted settings intent cleanup failed."
+      );
+      return;
     }
-    return [
-      rawSettingsSnapshot,
-      await settingsStorageSnapshot(SETTINGS_INTENT_LEDGER_STORAGE_KEY)
-    ];
+    const marker = transactionRecord(snapshots.settings, snapshots.intentLedger);
+    await journal2.write(snapshots.settings.receipt, marker);
+    const ledger = withCommit(next, id2);
+    await journal2.write(snapshots.intentLedger.receipt, ledger);
   }
-  async function settingsStorageSnapshot(key2) {
-    const stored = await readSettingsStorageValue(key2, SETTINGS_STORAGE_MISSING);
-    const existed = stored !== SETTINGS_STORAGE_MISSING;
-    const previousValue = existed ? stored : null;
-    const localFallbackValue = isHostedYomuOrigin() ? localFallbackStoredValue(key2, LOCAL_FALLBACK_MISSING) : LOCAL_FALLBACK_MISSING;
+  async function storageSnapshots(journal2) {
+    const settingsReceipt = await journal2.capture(SETTINGS_STORAGE_KEY);
+    const rawSettings = storageSnapshot(settingsReceipt);
+    const marker = transactionMarker(rawSettings.previousValue);
+    if (!marker) {
+      return {
+        settings: rawSettings,
+        intentLedger: storageSnapshot(await journal2.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY)),
+        interrupted: false
+      };
+    }
+    const intentReceipt = await journal2.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+    const settings = markerSnapshot(settingsReceipt, marker.settings);
+    const intentLedger = markerSnapshot(intentReceipt, marker.intentLedger);
+    journal2.adoptInterrupted(
+      settingsReceipt,
+      authorityState(settings),
+      localState(settings)
+    );
+    journal2.adoptInterrupted(
+      intentReceipt,
+      authorityState(intentLedger),
+      localState(intentLedger)
+    );
+    return { settings, intentLedger, interrupted: true };
+  }
+  function storageSnapshot(receipt) {
+    const { existed, value } = receipt.previous;
     return {
-      key: key2,
+      receipt,
       existed,
-      previousValue,
-      localFallbackExisted: localFallbackValue !== LOCAL_FALLBACK_MISSING,
-      localFallbackValue: localFallbackValue === LOCAL_FALLBACK_MISSING ? null : localFallbackValue
+      previousValue: value,
+      // Raw page storage never enters the privileged crash marker.
+      localFallbackExisted: existed,
+      localFallbackValue: value
     };
   }
-  function settingsTransactionRecord(settings, intentLedger) {
+  function authorityState(snapshot) {
+    return { existed: snapshot.existed, value: snapshot.previousValue };
+  }
+  function localState(snapshot) {
+    return { existed: snapshot.localFallbackExisted, value: snapshot.localFallbackValue };
+  }
+  function transactionRecord(settings, intentLedger) {
     const previous = objectRecord$2(settings.previousValue) ?? {};
     return {
       ...previous,
       learningTargetChosen: normalizeLearningTargetChosen(settings.existed ? previous : null),
       onboardingSeen: typeof previous.onboardingSeen === "boolean" ? previous.onboardingSeen : false,
-      [SETTINGS_TRANSACTION_FIELD]: {
+      [TRANSACTION_FIELD]: {
         version: 1,
-        settings: serializedSnapshot(settings),
-        intentLedger: serializedSnapshot(intentLedger)
+        settings: serializeSnapshot(settings),
+        intentLedger: serializeSnapshot(intentLedger)
       }
     };
   }
-  function settingsTransactionMarker(value) {
-    const marker = transactionMarkerRecord(value);
-    return marker?.version === 1 ? transactionMarkerSnapshots(marker) : null;
+  function transactionMarker(value) {
+    const owner = objectRecord$2(value);
+    const marker = owner && objectRecord$2(owner[TRANSACTION_FIELD]);
+    if (!marker) return null;
+    return validatedTransactionMarker(marker);
   }
-  function transactionMarkerRecord(value) {
-    const record2 = objectRecord$2(value);
-    return record2 ? objectRecord$2(record2[SETTINGS_TRANSACTION_FIELD]) : null;
-  }
-  function transactionMarkerSnapshots(marker) {
-    const settings = serializedSnapshotRecord(marker.settings);
-    const intentLedger = serializedSnapshotRecord(marker.intentLedger);
+  function validatedTransactionMarker(marker) {
+    if (marker.version !== 1) return null;
+    const settings = serializedSnapshot(marker.settings);
+    const intentLedger = serializedSnapshot(marker.intentLedger);
     return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
   }
-  function serializedSnapshot(snapshot) {
+  function serializeSnapshot(snapshot) {
     return {
       existed: snapshot.existed,
       previousValue: snapshot.previousValue,
-      localFallbackExisted: snapshot.localFallbackExisted,
-      localFallbackValue: snapshot.localFallbackValue
+      localFallbackExisted: snapshot.existed,
+      localFallbackValue: snapshot.previousValue
     };
   }
-  function serializedSnapshotRecord(value) {
+  function serializedSnapshot(value) {
     const record2 = objectRecord$2(value);
     return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
       existed: record2.existed,
@@ -43782,43 +44500,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
       localFallbackValue: record2.localFallbackValue
     } : null;
   }
-  function snapshotFromMarker(key2, snapshot) {
-    return { key: key2, ...snapshot };
+  function markerSnapshot(receipt, snapshot) {
+    return { receipt, ...snapshot };
   }
-  function storedSnapshotValue(snapshot) {
+  function snapshotValue(snapshot) {
     return snapshot.existed ? snapshot.previousValue : null;
   }
-  async function restoreSettingsStorageSnapshots(snapshots) {
-    const errors = [];
-    for (const snapshot of snapshots) {
-      const snapshotErrors = await restoreSettingsStorageSnapshot(snapshot);
-      errors.push(...snapshotErrors);
-      if (snapshot.key === SETTINGS_INTENT_LEDGER_STORAGE_KEY && snapshotErrors.length) break;
-    }
-    return errors;
+  function readSettingsStorageValue(key2, fallback) {
+    return isHostedYomuOrigin() ? gmStorageGet(key2, fallback) : gmStorageGetShared(key2, fallback);
   }
-  async function restoreSettingsStorageSnapshot(snapshot) {
-    const errors = [];
-    try {
-      if (snapshot.existed) {
-        await gmStorageSet(snapshot.key, snapshot.previousValue, AUTHORITATIVE_TRANSACTION_WRITE);
-      } else await gmStorageDelete(snapshot.key);
-    } catch (error) {
-      errors.push(error);
-    }
-    try {
-      restoreLocalFallback(snapshot);
-    } catch (error) {
-      errors.push(error);
-    }
-    return errors;
+  function readSettingsStorageValueStrict(key2, fallback) {
+    return isHostedYomuOrigin() ? gmStorageGetStrict(key2, fallback) : gmStorageGetSharedStrict(key2, fallback);
   }
-  function restoreLocalFallback(snapshot) {
-    restoreLocalFallbackStoredValue(
-      snapshot.key,
-      snapshot.localFallbackValue,
-      snapshot.localFallbackExisted
-    );
+  function valuesMatch(left, right) {
+    try {
+      return JSON.stringify(left) === JSON.stringify(right);
+    } catch {
+      return false;
+    }
   }
   function objectRecord$2(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -44217,7 +44916,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$u = Logger.scope("Settings");
+  const log$v = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
   const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
@@ -44804,7 +45503,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!value.ankiFieldMappings) return migrated;
     const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
     if (!movedModels.length) return migrated;
-    log$u.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+    log$v.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
     return { ...migrated, ankiFieldMappings: mappings };
   }
   function migrateLegacyDefaultMobileSettings(value) {
@@ -45488,36 +46187,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function normalizedOcrEngineInput(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  async function loadSettings() {
+  async function loadSettingsWithWitnessedAuthority() {
     if (settingsResetInProgress) return mergeSettings(null);
-    try {
-      return await loadSettingsFromStorage();
-    } catch (error) {
-      log$u.warn("Settings load failed", { error });
-      return mergeSettings(null);
-    }
+    return loadSettingsFromStorage();
   }
   async function loadSettingsFromStorage() {
-    const storedSitePreference = await readSettingsOwnedValue(
+    const storedSitePreference = await readSettingsOwnedValueStrict(
       PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
       void 0
     );
-    const view = await readSettingsPersistenceView();
-    const cacheStandaloneBaseline = shouldCacheStandaloneSettingsBaseline();
+    const view = await readSettingsPersistenceViewStrictFrom(readSettingsOwnedValueStrict);
+    const canonicalSettingsWitnessed = settingsRecord$1(view.settings) !== null;
     const recovered = await recoverStoredSettings(view.settings, view.intentLedger);
     const withSitePreference = await applyStoredSitePreference(recovered.settings, storedSitePreference);
     const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger));
-    await finalizeLoadedSettings(settings, recovered.recovered, cacheStandaloneBaseline);
+    await finalizeLoadedSettings(settings, recovered.recovered, canonicalSettingsWitnessed);
     return settings;
-  }
-  function shouldCacheStandaloneSettingsBaseline() {
-    if (!isHostedYomuOrigin()) return false;
-    if (hasAsyncGmStorageBackend()) return false;
-    return localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
   }
   async function recoverStoredSettings(persistedSettings, intentLedger) {
     const state = {
-      settings: mergeSettings(settingsRecord(persistedSettings)),
+      settings: mergeSettings(settingsRecord$1(persistedSettings)),
       // Keys the learner deliberately chose cannot be filled from an older
       // donor just because their current value happens to equal a default.
       settledKeys: new Set(settingsIntentKeys(intentLedger)),
@@ -45528,8 +46217,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return state;
   }
   async function recoverLegacySettingsKey(state, key2) {
-    const stored = await readSettingsOwnedValue(key2, null);
-    const legacyRecord = settingsRecord(stored);
+    const stored = await readSettingsOwnedValueStrict(key2, null);
+    const legacyRecord = settingsRecord$1(stored);
     if (!legacyRecord) return;
     applySettingsRecovery(state, recoverLegacySettings(
       state.settings,
@@ -45560,26 +46249,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
       )
     };
   }
-  async function finalizeLoadedSettings(settings, recoveredLegacySettings, cacheStandaloneBaseline) {
-    if (recoveredLegacySettings) {
-      await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
-      return;
-    }
-    if (shouldCacheHostedSettings(cacheStandaloneBaseline)) {
-      cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
-    }
+  async function finalizeLoadedSettings(settings, recoveredLegacySettings, canonicalSettingsWitnessed) {
+    if (recoveredLegacySettings) return persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
+    if (![canonicalSettingsWitnessed, isHostedYomuOrigin(), hasAsyncGmStorageBackend()].every(Boolean)) return;
+    cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
   }
-  function shouldCacheHostedSettings(cacheStandaloneBaseline) {
-    return isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline);
-  }
-  function readSettingsOwnedValue(key2, fallback) {
-    return isHostedYomuOrigin() ? gmStorageGet(key2, fallback) : gmStorageGetShared(key2, fallback);
+  function readSettingsOwnedValueStrict(key2, fallback) {
+    return isHostedYomuOrigin() ? gmStorageGetStrict(key2, fallback) : gmStorageGetSharedStrict(key2, fallback);
   }
   function strandedHostedLocalSettingsRecord() {
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
-    return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
+    return settingsRecord$1(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
   }
-  function settingsRecord(value) {
+  function settingsRecord$1(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
   function subscribeToSettingsStorageChanges(onSettings) {
@@ -45587,9 +46269,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let refreshRevision = 0;
     const refresh2 = () => {
       const revision2 = ++refreshRevision;
-      void loadSettings().then((settings) => {
+      void loadSettingsWithWitnessedAuthority().then((settings) => {
         if (active && revision2 === refreshRevision) onSettings(settings);
-      });
+      }).catch((error) => log$v.warn("Settings change reconciliation failed", { error }));
     };
     const unsubscribers = [
       subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh2),
@@ -45606,14 +46288,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function saveSettings(settings, options) {
     const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
     if (settingsResetInProgress) {
-      log$u.warn("Rejected save during reset");
+      log$v.warn("Rejected save during reset");
       throw new Error();
     }
     try {
       const normalizedSettings = mergeSettings(settings);
       await persistSettingsWithIntent(normalizedSettings, intent);
     } catch (error) {
-      log$u.warn("Settings save failed", { error });
+      log$v.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -45637,6 +46319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
     const normalizedSettings = mergeSettings(settings);
+    primeStandaloneHostedSettingsBaseline();
     let storedSettings = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
       const ledger = await readSettingsIntentLedger();
@@ -45654,6 +46337,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
+  }
+  function primeStandaloneHostedSettingsBaseline() {
+    if (!isHostedYomuOrigin() || hasAsyncGmStorageBackend()) return;
+    const baseline = mergeSettings(null);
+    cacheManagedValueForHostedStartupIfAbsent(
+      SETTINGS_STORAGE_KEY,
+      stripUnsupportedSettings(baseline) ?? baseline
+    );
   }
   function dispatchSettingsChange(settings) {
     publishSettingsChange$1({ settings });
@@ -95594,15 +96285,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let active = null;
     let lineToken = 0;
     let disposed = false;
-    let snapshotValue = { status: "idle" };
+    let snapshotValue2 = { status: "idle" };
     const emit = (status2, error) => {
-      snapshotValue = {
+      snapshotValue2 = {
         status: status2,
         ...currentLine ? { lineId: currentLine.lineId } : {},
         ...currentEntry ? { url: currentEntry.url } : {},
         ...error === void 0 ? {} : { error }
       };
-      for (const listener of listeners) listener({ ...snapshotValue });
+      for (const listener of listeners) listener({ ...snapshotValue2 });
     };
     const releaseActive = (status2, pause, error) => {
       const playback = active;
@@ -95650,7 +96341,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     return {
       get snapshot() {
-        return { ...snapshotValue };
+        return { ...snapshotValue2 };
       },
       async setLine(line2) {
         if (disposed) return false;
@@ -95714,11 +96405,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       onStatus(listener) {
         if (disposed) {
-          listener({ ...snapshotValue });
+          listener({ ...snapshotValue2 });
           return () => void 0;
         }
         listeners.add(listener);
-        listener({ ...snapshotValue });
+        listener({ ...snapshotValue2 });
         return () => listeners.delete(listener);
       },
       dispose() {
@@ -129937,7 +130628,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function formatScale(value) {
     return String(Number(value.toFixed(6)));
   }
-  const log$t = Logger.scope("KanjiDoodle");
+  const log$u = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 16e-4;
   const GHOST_VIEWBOX_UNITS = 109;
@@ -129960,11 +130651,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     try {
       context2 = canvas.getContext("2d");
     } catch (error) {
-      log$t.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$u.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context2) {
-      log$t.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$u.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -252785,9 +253476,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (rounds.map((round2) => round2.mode).join("|") !== MODE_SIGNATURE) {
       issues2.push({ path: "payload.rounds", message: "The exact varied interaction sequence is required." });
     }
-    const fingerprint = sourceSequenceFingerprint(rounds);
-    if (fingerprint !== SOURCE_SEQUENCE_FINGERPRINT) {
-      issues2.push({ path: "payload.rounds", message: `Exact source sequence changed (${fingerprint}).` });
+    const fingerprint2 = sourceSequenceFingerprint(rounds);
+    if (fingerprint2 !== SOURCE_SEQUENCE_FINGERPRINT) {
+      issues2.push({ path: "payload.rounds", message: `Exact source sequence changed (${fingerprint2}).` });
     }
     const ids2 = /* @__PURE__ */ new Set();
     const sourceIds = /* @__PURE__ */ new Set();
@@ -288735,7 +289426,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       void navigator.serviceWorker.register("/academy/sw.js", { scope: "/academy/" });
     }, { once: true });
   }
-  const log$s = Logger.scope("CardStateSignal");
+  const log$t = Logger.scope("CardStateSignal");
   const CARD_STATE_SIGNAL_KEY = "yomu:private:card-state-signal:v1";
   const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
   const SEEN_SIGNAL_LIMIT = 32;
@@ -288775,7 +289466,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       card: cardStateSignalCard(card)
     };
     void gmPrivateStorageSet(CARD_STATE_SIGNAL_KEY, signal).catch((error) => {
-      log$s.debug("GM card-state publish failed", error);
+      log$t.debug("GM card-state publish failed", error);
     });
     publishBroadcastCardStateSignal(signal);
   }
@@ -288786,7 +289477,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       channel.postMessage(signal);
       channel.close();
     } catch (error) {
-      log$s.debug("Broadcast card-state publish failed", error);
+      log$t.debug("Broadcast card-state publish failed", error);
     }
   }
   function subscribeToCardStateSignals(onCard) {
@@ -288809,7 +289500,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         channel.onmessage = (event) => handle(event.data);
         cleanups.push(() => channel.close());
       } catch (error) {
-        log$s.debug("Broadcast card-state listener failed", error);
+        log$t.debug("Broadcast card-state listener failed", error);
       }
     }
     return () => cleanups.forEach((cleanup) => cleanup());
@@ -290164,7 +290855,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$r = Logger.scope("Audio");
+  const log$s = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -290204,7 +290895,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const reservedAudio = this.takeGestureAudioElement(request2) ?? this.reserveGestureAudioElement(request2);
       this.stopCurrent(reservedAudio);
       if (!request2.sources.length) return await this.playNoAudioSources(card, request2);
-      const done = log$r.time("play", { term: card.spelling, sources: request2.sources.map((source2) => source2.type), viaBlob: true });
+      const done = log$s.time("play", { term: card.spelling, sources: request2.sources.map((source2) => source2.type), viaBlob: true });
       const result2 = await this.playFromSources(
         request2.sources,
         card,
@@ -290293,7 +290984,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request2) {
-      log$r.warn("No audio sources configured", { term: card.spelling });
+      log$s.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(
         request2.settings,
         request2.requestId,
@@ -290306,7 +290997,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (result2.state === "played") return true;
       if (result2.state === "playback-error") return false;
       if (result2.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$r.warn("No playable audio found", { term: card.spelling, errors: result2.errors });
+      log$s.warn("No playable audio found", { term: card.spelling, errors: result2.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
@@ -290546,7 +291237,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$r.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$s.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -290642,7 +291333,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate2, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio2 = fallbackAudio;
-          log$r.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate2.url, error: audioErrorMessage(error) });
+          log$s.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate2.url, error: audioErrorMessage(error) });
         } else {
           errors.push(audioErrorMessage(error));
           if (sourceType === "jpdb-tts" && candidate2.jpdbAudioId) this.markJpdbAudioUnavailable(candidate2.jpdbAudioId);
@@ -290845,7 +291536,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       try {
         playbackLifecycle?.onStart?.();
       } catch (error) {
-        log$r.warn("Audio playback start callback failed", void 0, error);
+        log$s.warn("Audio playback start callback failed", void 0, error);
       }
     }
     finishPlayback(requestId) {
@@ -290856,7 +291547,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       try {
         active.onEnd?.();
       } catch (error) {
-        log$r.warn("Audio playback end callback failed", void 0, error);
+        log$s.warn("Audio playback end callback failed", void 0, error);
       }
     }
     // Web Audio decoding is exempt from the page's media-src, so it is the only way
@@ -291353,7 +292044,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function quoteAnkiSearch$1(term) {
     return `"${escapeAnkiSearchText(term)}"`;
   }
-  const log$q = Logger.scope("AnkiNewTab");
+  const log$r = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
   const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
@@ -291418,7 +292109,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (Date.now() < unavailableUntil) throw new AnkiNewTabUnavailableError("AnkiConnect is cooling down after a failed new-tab request.");
     if (!await client.isAvailableForBackground()) throw new AnkiNewTabUnavailableError();
     try {
-      const done = log$q.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+      const done = log$r.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
       const allDeckNames = await newTabAnkiDeckNames(client, settings);
       const scope2 = normalizeNewTabAnkiDeckScope(deckScope);
       const deckNames = scope2 ? allDeckNames.filter((deck) => deck === scope2 || deck.startsWith(`${scope2}::`)) : allDeckNames;
@@ -291432,7 +292123,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       done();
       return cards;
     } catch (error) {
-      log$q.warn("Anki new-tab lookup failed", error);
+      log$r.warn("Anki new-tab lookup failed", error);
       unavailableUntil = Date.now() + 3e4;
       throw new AnkiNewTabUnavailableError("AnkiConnect failed while loading new-tab reviews.");
     }
@@ -295331,7 +296022,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return void 0;
     }
   }
-  const log$p = Logger.scope("DictionaryArchiveCache");
+  const log$q = Logger.scope("DictionaryArchiveCache");
   const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
   const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
   const ARCHIVE_CHUNK_BYTES = 4 * 1024 * 1024;
@@ -295350,9 +296041,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (previous && previous.chunkCount > meta.chunkCount) {
         await deleteArchiveChunks(identity2, previous.chunkCount, meta.chunkCount);
       }
-      log$p.info("Dictionary archive persisted", { identity: identity2, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
+      log$q.info("Dictionary archive persisted", { identity: identity2, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
     } catch (error) {
-      log$p.warn("Dictionary archive persist failed", { identity: identity2, title: input2.title }, error);
+      log$q.warn("Dictionary archive persist failed", { identity: identity2, title: input2.title }, error);
     }
   }
   async function deleteDictionaryArchive(title2) {
@@ -295365,7 +296056,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return next;
     });
     await deleteArchiveChunks(identity2, meta.chunkCount, 0);
-    log$p.info("Dictionary archive deleted", { identity: identity2 });
+    log$q.info("Dictionary archive deleted", { identity: identity2 });
   }
   async function writeArchivePayload(identity2, input2) {
     if (input2.downloadUrl) {
@@ -295380,7 +296071,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     if (!input2.file) return null;
     if (input2.file.size > MAX_ARCHIVE_BYTES) {
-      log$p.warn("Dictionary archive too large to replicate across origins", { identity: identity2, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
+      log$q.warn("Dictionary archive too large to replicate across origins", { identity: identity2, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
       return null;
     }
     const bytes = await blobBytes(input2.file);
@@ -295743,7 +296434,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return -1;
   }
-  const log$o = Logger.scope("Yomitan");
+  const log$p = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -295791,7 +296482,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$1(url, proxyUrl, onProgress, language2 = "en") {
-    const done = log$o.time("Dictionary download", { host: safeHost(url) });
+    const done = log$p.time("Dictionary download", { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
@@ -295812,26 +296503,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       readResponse: (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$o.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
+          log$p.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
           done();
           return response.response;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$o.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+          log$p.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
           done();
           throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, response.status) });
         }
-        log$o.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+        log$p.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
         done();
         throw userFacingError("dictionaryDownloadNotZip", { diagnostic: `Dictionary download payload was not a ZIP (status ${response.status}).` });
       },
       onError: () => {
-        log$o.warn("Dictionary download failed", { host: safeHost(url) });
+        log$p.warn("Dictionary download failed", { host: safeHost(url) });
         done();
         return userFacingError("dictionaryDownloadFailed", { diagnostic: "The userscript manager reported a request error." });
       },
       onTimeout: () => {
-        log$o.warn("Dictionary download timed out", { host: safeHost(url) });
+        log$p.warn("Dictionary download timed out", { host: safeHost(url) });
         done();
         return userFacingError("dictionaryDownloadTimedOut", { diagnostic: "The dictionary download exceeded its 120s budget." });
       }
@@ -295856,7 +296547,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
     const blob = await responseBlobWithProgress(response, onProgress, language2);
-    log$o.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
+    log$p.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -295889,17 +296580,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status2, language2) {
-    log$o.warn("Dictionary download HTTP error", { host: safeHost(url), status: status2 });
+    log$p.warn("Dictionary download HTTP error", { host: safeHost(url), status: status2 });
     throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, status2) });
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done) {
     const host2 = safeHost(url);
     if (isDictionaryCorsError(error)) {
-      log$o.warn("Dictionary download CORS failed", { host: host2, downloadUrl });
+      log$p.warn("Dictionary download CORS failed", { host: host2, downloadUrl });
       done();
       throw userFacingError("dictionaryDownloadBlocked", { diagnostic: `Cross-origin dictionary download was blocked for ${host2}.` });
     }
-    log$o.warn("Dictionary download fetch failed", { host: host2, error });
+    log$p.warn("Dictionary download fetch failed", { host: host2, error });
     done();
     throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
   }
@@ -297620,7 +298311,7 @@ ${entry2.reading}`;
     }
     return entries2;
   }
-  const log$n = Logger.scope("YomitanSettingsImport");
+  const log$o = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -297630,11 +298321,11 @@ ${entry2.reading}`;
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language2 = "en") {
-    const done = log$n.time("Yomitan settings export parse");
+    const done = log$o.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$n.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$o.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language2, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -297649,7 +298340,7 @@ ${entry2.reading}`;
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$n.info("Yomitan settings import parsed", {
+    log$o.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       theme: settings.theme
     });
@@ -297890,14 +298581,14 @@ ${entry2.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
-  const log$m = Logger.scope("Yomitan");
+  const log$n = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$m.info("Persistent storage request", { granted });
+        log$n.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -297926,7 +298617,7 @@ ${entry2.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$m.warn("Term search index preparation failed", { error });
+        log$n.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -297964,7 +298655,7 @@ ${entry2.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [...expressionVariants, ...readingVariants, limit], preferences),
         async () => {
-          const done = log$m.time("Term lookup", {
+          const done = log$n.time("Term lookup", {
             expression: normalizedExpression,
             reading: normalizedReading,
             limit,
@@ -297995,7 +298686,7 @@ ${entry2.reading}`;
             });
             return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
           } catch (error) {
-            log$m.warn("Term lookup failed", {
+            log$n.warn("Term lookup failed", {
               expression: normalizedExpression,
               reading: normalizedReading,
               error
@@ -298009,7 +298700,7 @@ ${entry2.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$m.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$n.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -298028,7 +298719,7 @@ ${entry2.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank2);
       } catch (error) {
-        log$m.warn("Term search failed", { query: normalizedQuery, error });
+        log$n.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -298038,7 +298729,7 @@ ${entry2.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$m.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$n.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank2 = dictionaryRank(preferences);
@@ -298047,7 +298738,7 @@ ${entry2.reading}`;
             const results = rankedDictionaryEntries(entries2, rank2, limit);
             return results;
           } catch (error) {
-            log$m.warn("Kanji lookup failed", { length: text2.length, error });
+            log$n.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -298058,14 +298749,14 @@ ${entry2.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$m.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$n.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank2 = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank2);
       } catch (error) {
-        log$m.warn("Kanji character list failed", { error });
+        log$n.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -298077,7 +298768,7 @@ ${entry2.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [...expressionVariants, limit], preferences),
         async () => {
-          const done = log$m.time("Term metadata lookup", {
+          const done = log$n.time("Term metadata lookup", {
             expression: normalizedExpression,
             limit,
             dictionaries: preferences.length
@@ -298095,7 +298786,7 @@ ${entry2.reading}`;
             const results = entries2.filter((entry2) => dictionaryEnabled(entry2.dictionary, rank2)).sort((a, b) => compareMetaEntries(a, b, rank2)).slice(0, limit);
             return results;
           } catch (error) {
-            log$m.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
+            log$n.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
             throw error;
           } finally {
             done();
@@ -298107,7 +298798,7 @@ ${entry2.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$m.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$n.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank2 = dictionaryRank(preferences);
@@ -298117,7 +298808,7 @@ ${entry2.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$m.warn("Similar terms by kanji lookup failed", { character, error });
+            log$n.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -298127,10 +298818,10 @@ ${entry2.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = [], target2 = activeLearningTarget()) {
       const targetGeneration = activeLearningTargetGeneration();
-      const done = log$m.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$n.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source2 = codePointSafePrefix(text2, TERM_MATCH_SOURCE_LIMIT);
       if (source2.length < text2.length) {
-        log$m.warn("Inline term match source trimmed", { length: text2.length, kept: source2.length });
+        log$n.warn("Inline term match source trimmed", { length: text2.length, kept: source2.length });
       }
       if (!source2.trim()) {
         done();
@@ -298140,7 +298831,7 @@ ${entry2.reading}`;
         const matches = await this.sweepTermMatchWindows(source2, limit, preferences, target2, targetGeneration);
         return isCurrentLookupTarget(target2, targetGeneration) ? matches : [];
       } catch (error) {
-        log$m.warn("Inline term match search failed", { length: source2.length, error });
+        log$n.warn("Inline term match search failed", { length: source2.length, error });
         throw error;
       } finally {
         done();
@@ -298224,20 +298915,20 @@ ${entry2.reading}`;
       return false;
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$m.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$n.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank2 = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank2, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$m.warn("Random term listing failed", { limit, error });
+        log$n.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$m.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$n.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank2 = dictionaryRank(preferences);
@@ -298254,7 +298945,7 @@ ${entry2.reading}`;
         }
         return results;
       } catch (error) {
-        log$m.warn("Random top term listing failed", { limit, error });
+        log$n.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -298337,16 +299028,16 @@ ${entry2.reading}`;
     }
     async importFile(file, onProgress, sourceUrl = "", options = {}) {
       await assertManagedStateMutationAllowed();
-      const done = log$m.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$n.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$m.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$n.info("Dictionary file import started", fileSummary(file, sourceUrl));
         if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
         if (options.persistArchive !== false) requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
-        log$m.info("Dictionary file import completed", summary);
+        log$n.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$m.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$n.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
@@ -298354,12 +299045,12 @@ ${entry2.reading}`;
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
       await assertManagedStateMutationAllowed();
-      log$m.info("Dictionary URL import started", { filename, host: safeHost(url) });
+      log$n.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$1(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url, options);
-      log$m.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
+      log$n.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
@@ -298456,7 +299147,7 @@ ${entry2.reading}`;
           integrity: options.integrity
         });
       }
-      log$m.info("ZIP dictionary import parsed", summary);
+      log$n.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -298485,7 +299176,7 @@ ${entry2.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$m.info("JSON dictionary import parsed", summary);
+      log$n.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -298588,13 +299279,13 @@ ${entry2.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$m.info("Dexie dictionary import parsed", summary);
+      log$n.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$m.time("Dictionary export");
+      const done = log$n.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries2, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -298604,7 +299295,7 @@ ${entry2.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$m.info("Dictionary export prepared", {
+        log$n.info("Dictionary export prepared", {
           dictionaries: dictionaries2.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -298622,7 +299313,7 @@ ${entry2.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$m.warn("Dictionary export failed", { error });
+        log$n.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -298641,19 +299332,19 @@ ${entry2.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$m.warn("Dictionary stylesheet render failed", { error });
+        log$n.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$m.time("Dictionary store clear");
+      const done = log$n.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$m.info("Dictionary store cleared");
+        log$n.info("Dictionary store cleared");
       } catch (error) {
-        log$m.warn("Dictionary store clear failed", { error });
+        log$n.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
@@ -298667,12 +299358,12 @@ ${entry2.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$m.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$n.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$m.time("Dictionary database delete");
+      const done = log$n.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -298698,12 +299389,12 @@ ${entry2.reading}`;
           request2.onerror = () => settle(() => reject(request2.error ?? new Error("Dictionary database reset failed.")));
           request2.onblocked = () => {
             blocked2 = true;
-            log$m.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$n.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$m.info("Dictionary database deleted", { name: DB_NAME });
+        log$n.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$m.warn("Dictionary database delete failed", { error });
+        log$n.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
@@ -298729,19 +299420,19 @@ ${entry2.reading}`;
       return stale.filter((title2) => title2 !== dictionary);
     }
     async deleteDictionary(dictionary) {
-      const done = log$m.time("Dictionary delete", { dictionary });
+      const done = log$n.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries2 = await this.getAllDictionaryInfo(db);
         if (!dictionaries2.some((item2) => item2.title === dictionary)) {
-          log$m.info("Dictionary delete skipped; not installed", { dictionary });
+          log$n.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries2.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
           await deleteDictionaryArchive(dictionary).catch(() => void 0);
-          log$m.info("Only installed dictionary cleared", { dictionary });
+          log$n.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -298754,9 +299445,9 @@ ${entry2.reading}`;
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
         await deleteDictionaryArchive(dictionary).catch(() => void 0);
-        log$m.info("Dictionary deleted", { dictionary });
+        log$n.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$m.warn("Dictionary delete failed", { dictionary, error });
+        log$n.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -299035,9 +299726,9 @@ ${entry2.reading}`;
         for (const title2 of stale) {
           try {
             await this.deleteDictionary(title2);
-            log$m.info("Removed duplicate dictionary revision", { title: title2 });
+            log$n.info("Removed duplicate dictionary revision", { title: title2 });
           } catch (error) {
-            log$m.warn("Duplicate dictionary revision cleanup failed", { title: title2, error });
+            log$n.warn("Duplicate dictionary revision cleanup failed", { title: title2, error });
           }
         }
       })();
@@ -299108,7 +299799,7 @@ ${entry2.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$m.time("Term search index rebuild");
+      const done = log$n.time("Term search index rebuild");
       const generation2 = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termSearch", (tx) => tx.objectStore("termSearch").clear());
@@ -299125,13 +299816,13 @@ ${entry2.reading}`;
           if (chunk2.done) break;
           lastKey = chunk2.lastKey;
         }
-        log$m.info("Term search index rebuilt", { terms: indexedTerms });
+        log$n.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$m.time("Term kanji index rebuild");
+      const done = log$n.time("Term kanji index rebuild");
       const generation2 = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
@@ -299148,7 +299839,7 @@ ${entry2.reading}`;
           if (chunk2.done) break;
           lastKey = chunk2.lastKey;
         }
-        log$m.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$n.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -299220,7 +299911,7 @@ ${entry2.reading}`;
           if (settled) return;
           settled = true;
           if (this.dbPromise === promise) this.dbPromise = void 0;
-          log$m.warn("Dictionary database open failed", { reason, error });
+          log$n.warn("Dictionary database open failed", { reason, error });
           reject(error instanceof Error ? error : new Error(reason));
         };
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
@@ -299228,7 +299919,7 @@ ${entry2.reading}`;
         request2.onupgradeneeded = (event) => {
           const db = request2.result;
           const tx = request2.transaction;
-          log$m.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$n.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -299297,7 +299988,7 @@ ${entry2.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$m.info("Dictionary DB version change; closing", {
+        log$n.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -300193,7 +300884,7 @@ ${entry2.reading || ""}`;
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$l = Logger.scope("MiningContext");
+  const log$m = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -300246,7 +300937,7 @@ ${entry2.reading || ""}`;
     fetchImageDataUrl,
     fetchAudioDataUrl
   }) {
-    const done = log$l.time("Resolve mining context", {
+    const done = log$m.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -300323,7 +301014,7 @@ ${entry2.reading || ""}`;
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$l.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$m.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -300338,7 +301029,7 @@ ${entry2.reading || ""}`;
       const context2 = parseStoredMiningContext(stored, normalized2);
       return context2;
     } catch (error) {
-      log$l.warn("Mining context load failed", { term: normalized2, error });
+      log$m.warn("Mining context load failed", { term: normalized2, error });
       return null;
     }
   }
@@ -305609,7 +306300,7 @@ ${component.reading}`;
   );
   const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
-  const log$k = Logger.scope("ReaderParser");
+  const log$l = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
     return { includeLocalPitch: false, ...options, requireApi };
@@ -305639,7 +306330,7 @@ ${component.reading}`;
       const settings = getSettings();
       const target2 = activeLearningTarget();
       const targetGeneration = activeLearningTargetGeneration();
-      const done = log$k.time("parse", {
+      const done = log$l.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -305663,7 +306354,7 @@ ${component.reading}`;
           );
           return isCurrentLearningTarget(target2, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
         } catch (error) {
-          log$k.warn("Academy SRS state hydration failed; keeping provider states", error);
+          log$l.warn("Academy SRS state hydration failed; keeping provider states", error);
           return isCurrentLearningTarget(target2, targetGeneration) ? normalized2 : emptyParseResult(paragraphs);
         }
       } finally {
@@ -305770,7 +306461,7 @@ ${component.reading}`;
         }
         return true;
       } catch (error) {
-        log$k.warn("Exact local term span lookup failed", { requests: requests.length }, error);
+        log$l.warn("Exact local term span lookup failed", { requests: requests.length }, error);
         return true;
       }
     }
@@ -305796,7 +306487,7 @@ ${component.reading}`;
         const parsed = source2 === "jpdb" ? await this.parseWithJpdb([...terms], options) : await this.parseWithJiten([...terms], options);
         return authoritativeCardsFromParsedTerms(terms, parsed, target2);
       } catch (error) {
-        log$k.warn("Exact term span lookup failed", { source: source2, terms: terms.length }, error);
+        log$l.warn("Exact term span lookup failed", { source: source2, terms: terms.length }, error);
         return /* @__PURE__ */ new Map();
       }
     }
@@ -305846,7 +306537,7 @@ ${component.reading}`;
           () => new Error("Local parse reconciliation timed out.")
         );
       } catch (error) {
-        log$k.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+        log$l.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
         return parsed;
       }
     }
@@ -305927,7 +306618,7 @@ ${component.reading}`;
     }
     handleRemoteParseError(source2, error, options) {
       const canFallback = this.canUseParseFallback(options);
-      log$k.warn(remoteParseErrorMessage(source2, options, canFallback), error);
+      log$l.warn(remoteParseErrorMessage(source2, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
     async parseWithFallbackSource(paragraphs, options, target2) {
@@ -305947,7 +306638,7 @@ ${component.reading}`;
         if (!parsed.some((tokens) => tokens.length)) return null;
         return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target2);
       } catch (error) {
-        log$k.warn("Jiten public parse failed; using local or segmented fallback", error);
+        log$l.warn("Jiten public parse failed; using local or segmented fallback", error);
         return null;
       }
     }
@@ -306065,7 +306756,7 @@ ${entry2.reading}`);
           () => new Error("Local parse timed out.")
         );
       } catch (error) {
-        log$k.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+        log$l.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
         return this.localParseTimeoutFallback(text2, options, target2);
       }
     }
@@ -306100,7 +306791,7 @@ ${entry2.reading}`);
       if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries2.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target2).catch((error) => {
-        log$k.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$l.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options, target2));
@@ -306137,7 +306828,7 @@ ${entry2.reading}`);
       if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
       this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
         this.localTermDictionaryAvailability = void 0;
-        log$k.warn("Local term dictionary availability check failed", { error });
+        log$l.warn("Local term dictionary availability check failed", { error });
         return void 0;
       });
       return this.localTermDictionaryAvailability;
@@ -306334,7 +307025,7 @@ ${entry2.reading}`);
         card.reading,
         (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
       ).catch((error) => {
-        log$k.warn("Local pitch parse failed", { term: card.spelling }, error);
+        log$l.warn("Local pitch parse failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       this.rememberLocalPitchCacheEntry(key2, promise);
@@ -306774,7 +307465,7 @@ ${entry2.reading}`);
       timeout
     ]).finally(() => window.clearTimeout(timeoutId));
   }
-  const log$j = Logger.scope("CardRenderData");
+  const log$k = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -307021,7 +307712,7 @@ ${entry2.reading}`);
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.lookupLocalTermEntries(card, settings).catch((error) => {
-        log$j.warn("Local term lookup failed", { term: card.spelling }, error);
+        log$k.warn("Local term lookup failed", { term: card.spelling }, error);
         return [];
       });
     }
@@ -307045,7 +307736,7 @@ ${entry2.reading}`);
       const settings = this.settings();
       if (!targetUsesCharacterDictionary() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$j.warn("Local kanji lookup failed", { term: card.spelling }, error);
+        log$k.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -307056,7 +307747,7 @@ ${entry2.reading}`);
         entries: entries2,
         completed: true
       })).catch((error) => {
-        log$j.warn("Local metadata lookup failed", { term: card.spelling }, error);
+        log$k.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return { entries: [], completed: false };
       });
       return cardRenderDetailWithFallback(
@@ -307071,7 +307762,7 @@ ${entry2.reading}`);
       const settings = this.settings();
       if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card) || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log$j.warn("Public pitch lookup failed", { term: card.spelling }, error);
+        log$k.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -307084,7 +307775,7 @@ ${entry2.reading}`);
       if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
-        log$j.warn("JPDB page lookup failed", { term: card.spelling }, error);
+        log$k.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -307102,7 +307793,7 @@ ${entry2.reading}`);
         enrichCardFromJitenVocabularyInfo(card, info);
         return info;
       }).catch((error) => {
-        log$j.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+        log$k.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       });
     }
@@ -307110,13 +307801,13 @@ ${entry2.reading}`);
       const settings = this.settings();
       const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
       const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
-        log$j.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
+        log$k.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
         return null;
       }) : Promise.resolve(null) : Promise.resolve(null);
       const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
       const jpdbIdentityReady = cardNeedsCanonicalReading(card) ? jitenVocabularyLookup.then(() => card, () => card) : Promise.resolve(card);
       const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([candidates]) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
-        log$j.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+        log$k.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
         return null;
       }) : Promise.resolve(null);
       const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result2) => bunproFrequencyRank(card, result2.info)).catch(() => null) : Promise.resolve(null);
@@ -307136,13 +307827,13 @@ ${entry2.reading}`);
       const lookupBunproDefinitionResult = yomuBunproCompanion()?.lookupBunproDefinitionResult;
       if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
       const startedAt = performance.now();
-      log$j.debug("Bunpro definition lookup started", { term: card.spelling });
+      log$k.debug("Bunpro definition lookup started", { term: card.spelling });
       return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result2) => {
         const resolved = {
           info: result2.info,
           status: result2.state === "success" ? { state: "success" } : { state: "no-match", reason: result2.reason }
         };
-        log$j.debug("Bunpro definition lookup completed", {
+        log$k.debug("Bunpro definition lookup completed", {
           term: card.spelling,
           state: resolved.status.state,
           reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
@@ -307150,7 +307841,7 @@ ${entry2.reading}`);
         });
         return resolved;
       }).catch((error) => {
-        log$j.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+        log$k.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
         return { info: null, status: { state: "error" } };
       });
     }
@@ -307159,14 +307850,14 @@ ${entry2.reading}`);
       const fallback = sourceCardAnkiLookupOrEmpty(card);
       if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
       return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-        log$j.warn("Cached Anki status failed", { term: card.spelling }, error);
+        log$k.warn("Cached Anki status failed", { term: card.spelling }, error);
         return fallback;
       });
     }
     loadDetailedAnkiLookup(card, fastLookup) {
       if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
       return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-        log$j.warn("Anki lookup failed", { term: card.spelling }, error);
+        log$k.warn("Anki lookup failed", { term: card.spelling }, error);
         return ankiLookupWithUnavailableDetails(fallback);
       }), ankiLookupWithUnavailableDetails(fallback)));
     }
@@ -307179,14 +307870,14 @@ ${entry2.reading}`);
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-        log$j.warn("JPDB deck list failed", { term: card.spelling }, error);
+        log$k.warn("JPDB deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
     loadAnkiDecks(card) {
       if (!this.settings().ankiEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-        log$j.warn("Anki deck list failed", { term: card.spelling }, error);
+        log$k.warn("Anki deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -307194,7 +307885,7 @@ ${entry2.reading}`);
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-        log$j.warn("Jiten deck list failed", { term: card.spelling }, error);
+        log$k.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -307205,7 +307896,7 @@ ${entry2.reading}`);
       if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
       if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-        log$j.warn("Anki field target plan failed", { term: card.spelling }, error);
+        log$k.warn("Anki field target plan failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -307216,7 +307907,7 @@ ${entry2.reading}`);
       const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
       if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
       return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-        log$j.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+        log$k.warn("JPDB pool lookup failed", { term: card.spelling }, error);
         return false;
       }), false);
     }
@@ -307333,7 +308024,7 @@ ${entry2.reading}`);
         (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
         { initialEntries: metaEntries }
       ).catch((error) => {
-        log$j.warn("Local pitch lookup failed", { term: card.spelling }, error);
+        log$k.warn("Local pitch lookup failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       if (!this.isProviderTarget(providerEpoch)) return;
@@ -307449,7 +308140,7 @@ ${entry2.reading}`);
       promise,
       new Promise((resolve) => {
         timeoutId = window.setTimeout(() => {
-          log$j.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+          log$k.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
           resolve(fallback);
         }, timeoutMs);
       })
@@ -309322,7 +310013,7 @@ ${component.reading}`;
     if (result2.installed.length) return "offlineDictionarySetupComplete";
     return void 0;
   }
-  const log$i = Logger.scope("FactoryReset");
+  const log$j = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 6e4;
@@ -309375,21 +310066,21 @@ ${component.reading}`;
         await this.dependencies.resetDictionaryDatabase();
         await commitManagedStateResetEpoch(resetSignal.id);
         epochCommitted = true;
-        await this.dependencies.resetDictionaryDatabase().catch((error) => log$i.warn("Final dictionary reset failed after epoch commit", error));
-        await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$i.warn("Factory reset completion signal failed after epoch commit", error));
-        await clearFactoryResetSignal().catch((error) => log$i.warn("Factory reset signal cleanup failed after epoch commit", error));
+        await this.dependencies.resetDictionaryDatabase().catch((error) => log$j.warn("Final dictionary reset failed after epoch commit", error));
+        await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$j.warn("Factory reset completion signal failed after epoch commit", error));
+        await clearFactoryResetSignal().catch((error) => log$j.warn("Factory reset signal cleanup failed after epoch commit", error));
         this.dependencies.reload();
       } catch (error) {
         if (epochCommitted || managedStateResetEpochMayHaveCommitted(error)) {
-          log$i.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
-          await clearFactoryResetSignal().catch((signalError) => log$i.warn("Factory reset signal cleanup failed", signalError));
+          log$j.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
+          await clearFactoryResetSignal().catch((signalError) => log$j.warn("Factory reset signal cleanup failed", signalError));
           this.dependencies.reload();
           return;
         }
         this.activeResetId = "";
-        await clearFactoryResetSignal().catch((signalError) => log$i.warn("Factory reset signal cleanup failed", signalError));
+        await clearFactoryResetSignal().catch((signalError) => log$j.warn("Factory reset signal cleanup failed", signalError));
         endSettingsResetGuard();
-        log$i.warn("All-data reset failed", error);
+        log$j.warn("All-data reset failed", error);
         this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
       }
     }
@@ -309411,7 +310102,7 @@ ${component.reading}`;
     async assertManagedStateDeleted() {
       const managedKeysStillPresent = await managedStoredKeysStillPresent();
       if (!managedKeysStillPresent.length) return;
-      log$i.warn("Managed keys remained after reset", { managedKeysStillPresent });
+      log$j.warn("Managed keys remained after reset", { managedKeysStillPresent });
       throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
     }
     text(key2, values = {}) {
@@ -309451,7 +310142,7 @@ ${component.reading}`;
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$h = Logger.scope("ImmersionKit");
+  const log$i = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -309566,7 +310257,7 @@ ${component.reading}`;
       if (inflight) {
         return options.signal ? raceSharedImmersionSearchAgainstAbort(inflight, options.signal) : inflight;
       }
-      const done = log$h.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const done = log$i.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result2 = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
@@ -309611,11 +310302,11 @@ ${component.reading}`;
     searchSource(source2, query, settings, options) {
       return source2 === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
         if (isAbortError$2(error)) throw error;
-        log$h.warn("Nadeshiko examples failed", { query }, error);
+        log$i.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
         if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$h.warn("Immersion Kit examples failed", { query }, error);
+        log$i.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
     }
@@ -311305,7 +311996,7 @@ ${component.reading}`;
   const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
   const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$g = Logger.scope("ImmersionPopover");
+  const log$h = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       this.options = options;
@@ -311383,7 +312074,7 @@ ${component.reading}`;
         this.renderLoadedExamples(container, card, result2);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$g.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$h.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       } finally {
         if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -311998,7 +312689,7 @@ ${component.reading}`;
       }
     }
     handleExampleAudioError(example, quiet, error) {
-      log$g.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      log$h.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
     }
     exampleAudioSource(example, quiet) {
@@ -312374,7 +313065,7 @@ ${component.reading}`;
     "parse",
     "ping"
   ]);
-  const log$f = Logger.scope("JpdbApi");
+  const log$g = Logger.scope("JpdbApi");
   class JpdbApiError extends Error {
     yomuJpdbFailureCode;
     yomuUiCopyKey;
@@ -312400,7 +313091,7 @@ ${component.reading}`;
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       this.assertCanRequest(token, endpoint);
-      const done = log$f.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$g.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await this.postJsonWithReadRetry(url, token, body, endpoint);
       done();
       this.assertSuccessfulResponse(response, endpoint, token);
@@ -312409,35 +313100,35 @@ ${component.reading}`;
     }
     assertCanRequest(token, endpoint) {
       if (!token) {
-        log$f.warn("JPDB API key missing", { endpoint });
+        log$g.warn("JPDB API key missing", { endpoint });
         throw new JpdbApiError("missing-key", "JPDB API key is not set.");
       }
       if (this.rejectedToken === token) {
-        log$f.warn("JPDB API key was already rejected", { endpoint });
+        log$g.warn("JPDB API key was already rejected", { endpoint });
         throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
       }
       if (Date.now() < this.retryAfter) {
-        log$f.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$g.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new JpdbApiError("rate-limited", "JPDB is rate limited. Try again in a moment.");
       }
       if (Date.now() < this.connectionRetryAfter) {
-        log$f.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
+        log$g.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
         throw new JpdbApiError("connection-cooldown", "JPDB connection is cooling down. Try again in a moment.");
       }
     }
     assertSuccessfulResponse(response, endpoint, token) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$f.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$g.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new JpdbApiError("rate-limited", "JPDB rate limit reached.");
       }
       if (response.status === 403) {
         this.rejectedToken = token;
-        log$f.warn("JPDB rejected API key", { endpoint });
+        log$g.warn("JPDB rejected API key", { endpoint });
         throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$f.warn("JPDB request failed", { endpoint, status: response.status });
+        log$g.warn("JPDB request failed", { endpoint, status: response.status });
         throw new JpdbApiError("request-failed", `JPDB request failed (${response.status}).`);
       }
     }
@@ -312453,7 +313144,7 @@ ${component.reading}`;
             if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
             throw normalizeJpdbTransportError(error);
           }
-          log$f.warn("JPDB read request failed; retrying", { endpoint, attempt: attempt2, maxAttempts }, error);
+          log$g.warn("JPDB read request failed; retrying", { endpoint, attempt: attempt2, maxAttempts }, error);
           await delay(retryableReadDelayMs());
         }
       }
@@ -312462,7 +313153,7 @@ ${component.reading}`;
     }
     backOffAfterConnectionFailure(endpoint, error) {
       this.connectionRetryAfter = Date.now() + CONNECTION_FAILURE_BACKOFF_MS;
-      log$f.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
+      log$g.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
     }
   }
   function parseJpdbApiResponse(response, endpoint, responseMode) {
@@ -312470,7 +313161,7 @@ ${component.reading}`;
     const json = JSON.parse(response.text);
     const errorMessage2 = jpdbApplicationErrorMessage(json);
     if (errorMessage2) {
-      log$f.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
+      log$g.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
       throw new Error(errorMessage2);
     }
     return json;
@@ -312639,7 +313330,7 @@ ${component.reading}`;
   const USER_DECK_POOL_CONCURRENCY = 4;
   const LISTED_DECK_VOCABULARY_REQUEST_GAP_MS = 300;
   const JPDB_ALL_DECKS_ID = "all";
-  const log$e = Logger.scope("JpdbClient");
+  const log$f = Logger.scope("JpdbClient");
   const utf8Encoder = new TextEncoder();
   class JpdbClient {
     constructor(getApiKey, getProxyUrl = () => "") {
@@ -312679,13 +313370,13 @@ ${component.reading}`;
     }
     // Used by review controllers to submit JPDB grades.
     async reviewCard(card, grade2) {
-      log$e.info("Reviewing card", { term: card.spelling, grade: grade2 });
+      log$f.info("Reviewing card", { term: card.spelling, grade: grade2 });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade: grade2 });
       await this.refreshCard(card);
     }
     // Used by mining controls to add JPDB-backed cards to selected decks.
     async addToDeck(deckId, card, sentence) {
-      log$e.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$f.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       this.clearUserDeckPoolCache();
       if (sentence) await this.setCardSentence(card, sentence);
@@ -312710,7 +313401,7 @@ ${component.reading}`;
     async listDeckCards(deckId, limit = 80, options = {}) {
       const id2 = normalizeDeckRequestId(deckId);
       const maxCards = Math.max(1, Math.floor(limit));
-      const done = log$e.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
+      const done = log$f.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
       try {
         if (id2 === JPDB_ALL_DECKS_ID) return await this.listCardsFromListedDecks(maxCards, options);
         const pairs = await this.listDeckVocabularyPairsByRequestId(id2);
@@ -312727,7 +313418,7 @@ ${component.reading}`;
     }
     // Used by mining controls to toggle JPDB deck membership.
     async removeFromDeck(deckId, card) {
-      log$e.info("Removing card from deck", { term: card.spelling, deckId });
+      log$f.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: normalizeDeckRequestId(deckId),
         vocabulary: [[card.vid, card.sid]]
@@ -312769,7 +313460,7 @@ ${component.reading}`;
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$e.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$f.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     // Used by the new-tab live-bridge grade path through the client
@@ -312788,7 +313479,7 @@ ${component.reading}`;
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$e.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$f.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       if (cacheGeneration !== this.cacheGeneration) return;
@@ -312853,7 +313544,7 @@ ${component.reading}`;
       const pacer = new JpdbRequestPacer(listedDeckVocabularyRequestGapMs());
       await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
         pairGroups[index] = await this.listDeckVocabularyPairs(deck.id, { pacer }).catch((error) => {
-          log$e.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
+          log$f.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
           return [];
         });
       });
@@ -312889,7 +313580,7 @@ ${component.reading}`;
       this.userDeckPoolCache = void 0;
     }
     async fetchParse(text2, cacheKey, cacheGeneration) {
-      const done = log$e.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$f.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -313140,7 +313831,7 @@ ${key2}`] = { t: now, v: value };
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
   const PARSE_TERM_SEPARATOR = "。";
-  const log$d = Logger.scope("JitenPublicVocabulary");
+  const log$e = Logger.scope("JitenPublicVocabulary");
   const sharedParseGate = new ConcurrencyGate(1);
   let sharedRequestBackoffUntil = 0;
   let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
@@ -313686,7 +314377,7 @@ ${key2}`] = { t: now, v: value };
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
   }
   function logPublicJitenFailure(message, context2, error) {
-    log$d.warn(message, context2, error);
+    log$e.warn(message, context2, error);
   }
   function errorName(error) {
     return isNonNullObject(error) && typeof error.name === "string" ? error.name : "";
@@ -314282,7 +314973,7 @@ ${key2}`] = { t: now, v: value };
   const REQUEST_TIMEOUT_MS$2 = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
   const CACHE_LIMIT = 600;
-  const log$c = Logger.scope("JpdbPublicPitch");
+  const log$d = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -314339,7 +315030,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context2, error) {
       this.requestBackoff.noteFailure(error);
-      log$c.warn(message, context2, error);
+      log$d.warn(message, context2, error);
     }
   }
   function requestText$1(url, proxyUrl = "") {
@@ -314654,7 +315345,7 @@ ${normalizedReading}`;
       preferFetch: true
     });
   }
-  const log$b = Logger.scope("JpdbVocabulary");
+  const log$c = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -314765,7 +315456,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context2, error) {
       this.requestBackoff.noteFailure(error);
-      log$b.warn(message, context2, error);
+      log$c.warn(message, context2, error);
     }
   }
   function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
@@ -315172,7 +315863,7 @@ ${normalizedReading}`;
   function nestedParseKey(targets2) {
     return targets2.map((target2) => target2.text).join("\n\n");
   }
-  const log$a = Logger.scope("NewTab");
+  const log$b = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
@@ -315246,7 +315937,7 @@ ${normalizedReading}`;
           channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
         } catch (error) {
           isClosed = true;
-          log$a.warn("Failed to publish new tab state update", error);
+          log$b.warn("Failed to publish new tab state update", error);
           try {
             channel.close();
           } catch {
@@ -318584,13 +319275,13 @@ ${entry2.url}`),
     if (minutes < 60) return `${Math.round(minutes)}m`;
     return `${(minutes / 60).toFixed(minutes >= 600 ? 0 : 1).replace(/\.0$/u, "")}h`;
   }
-  const log$9 = Logger.scope("NewTab");
+  const log$a = Logger.scope("NewTab");
   const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1e3;
   async function loadNewTabStatsApiProvider(provider) {
     try {
       return { provider, cards: await provider.load(), error: null };
     } catch (error) {
-      log$9.warn(`${provider.label} stats failed`, error);
+      log$a.warn(`${provider.label} stats failed`, error);
       return { provider, cards: [], error };
     }
   }
@@ -318802,7 +319493,7 @@ ${entry2.url}`),
       try {
         return await this.deps.jpdb.listDeckCards(JPDB_ALL_DECKS, NEW_TAB_STATS_JPDB_CARD_LIMIT);
       } catch (error) {
-        log$9.warn("JPDB deck stats fallback", error);
+        log$a.warn("JPDB deck stats fallback", error);
       }
       const decks = await this.deps.jpdb.listDecks();
       const groups = await Promise.all(decks.slice(0, JPDB_DECK_SAMPLE_LIMIT).map(
@@ -318837,14 +319528,14 @@ ${entry2.url}`),
         const [cards, reviews] = await Promise.all([
           jiten.listStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
           this.loadJitenRecentReviews().catch((error) => {
-            log$9.warn("Jiten review history failed", error);
+            log$a.warn("Jiten review history failed", error);
             return [];
           })
         ]);
         const source2 = statsFromJitenCards(cards, this.apiLoadedMessage("Jiten", cards.length));
         return applyJitenReviewHistory(source2, reviews);
       } catch (error) {
-        log$9.warn("Jiten stats failed", error);
+        log$a.warn("Jiten stats failed", error);
         return emptyStatsSource("jiten", "Jiten", error instanceof Error ? error.message : this.deps.text("couldNotLoadWords"), "error");
       }
     }
@@ -318881,7 +319572,7 @@ ${entry2.url}`),
           updatedAt: stats.fetchedAt
         };
       } catch (error) {
-        log$9.warn(`${label} stats failed`, error);
+        log$a.warn(`${label} stats failed`, error);
         return emptyStatsSource(source2, label, error instanceof Error ? error.message : this.deps.text("couldNotLoadWords"), "error");
       }
     }
@@ -318896,7 +319587,7 @@ ${entry2.url}`),
           disabledDeckNames: [...this.disabledAnkiDecks]
         });
       } catch (error) {
-        log$9.warn("Anki stats failed", error);
+        log$a.warn("Anki stats failed", error);
         return emptyStatsSource("anki", "Anki", this.deps.text("statsAnkiUnavailable"), "error");
       }
     }
@@ -318908,7 +319599,7 @@ ${entry2.url}`),
       try {
         await this.deps.anki.requestPermission();
       } catch (error) {
-        log$9.warn("Anki permission request failed", error);
+        log$a.warn("Anki permission request failed", error);
         this.snapshot = {
           ...this.snapshot,
           anki: emptyStatsSource("anki", "Anki", this.deps.text("statsAnkiUnavailable"), "error")
@@ -318930,7 +319621,7 @@ ${entry2.url}`),
       this.disabledAnkiDecks = setWithToggledValue(this.disabledAnkiDecks, deck);
       this.applyAnkiDeckToggles(root);
       void this.saveDeckPrefs().catch((error) => {
-        log$9.warn("Anki stats deck preference save failed", error);
+        log$a.warn("Anki stats deck preference save failed", error);
       });
       this.loaded = false;
       void this.loadInto(root, true);
@@ -318988,7 +319679,7 @@ ${entry2.url}`),
         this.selectedSource = this.selectedSource === "anki" ? "combined" : this.selectedSource;
         this.loaded = true;
       } catch (error) {
-        log$9.warn("JPDB stats import failed", error);
+        log$a.warn("JPDB stats import failed", error);
         this.snapshot = {
           ...this.snapshot,
           jpdb: {
@@ -319054,7 +319745,7 @@ ${entry2.url}`),
   function isString(value) {
     return typeof value === "string";
   }
-  const log$8 = Logger.scope("NewTab");
+  const log$9 = Logger.scope("NewTab");
   const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
   const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
   const SEARCH_CURRENTNESS_POLICY_FIELDS = [
@@ -319470,11 +320161,11 @@ ${entry2.url}`),
       if (!targetSupportsHandwriting()) return;
       const target2 = activeLearningTarget();
       const recognizedCandidates = await recognizeGoogleHandwriting(strokes, target2).catch((error) => {
-        log$8.warn("Search handwriting failed", error);
+        log$9.warn("Search handwriting failed", error);
         return [];
       });
       const geometryCandidates = recognizedCandidates.length >= 8 ? [] : await this.recognizeSearchHandwritingByGeometry(strokes).catch((error) => {
-        log$8.warn("Search handwriting geometry failed", error);
+        log$9.warn("Search handwriting geometry failed", error);
         return [];
       });
       if (activeLearningTarget() !== target2 || !root.isConnected || this.currentRoute() !== "search" || generation2 !== this.searchHandwritingGeneration) return;
@@ -319564,7 +320255,7 @@ ${entry2.url}`),
         if (!this.isCurrentSearch(root, generation2, query)) return;
         this.renderSearchResults(root, results);
       }).catch((error) => {
-        log$8.warn("New tab search failed", { query }, error);
+        log$9.warn("New tab search failed", { query }, error);
         if (this.isCurrentSearch(root, generation2, query)) this.renderSearchError(root, query);
       });
     }
@@ -319636,7 +320327,7 @@ ${entry2.url}`),
         NEW_TAB_PUBLIC_SEARCH_TIMEOUT_MS,
         "Public JPDB search timed out."
       ).catch((error) => {
-        log$8.warn("New tab public JPDB search failed", { query, error });
+        log$9.warn("New tab public JPDB search failed", { query, error });
         return [];
       });
       return usesJapaneseProviders() ? cards : [];
@@ -319725,7 +320416,7 @@ ${entry2.url}`),
     async searchKanjiResult(character, words = [], parentCards = [], targetSnapshot = this.captureTargetSnapshot()) {
       if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(character)) return null;
       const details = await this.deps.loadKanjiDetails(character).catch((error) => {
-        log$8.debug("Search kanji summary details unavailable", { kanji: character, error });
+        log$9.debug("Search kanji summary details unavailable", { kanji: character, error });
         return {
           jpdb: null,
           jiten: null,
@@ -319793,7 +320484,7 @@ ${entry2.url}`),
             if (renderedPitchKey === card.pitchAccent.join("|")) return;
             renderCurrentDetail();
           }).catch((error) => {
-            log$8.debug("Search pitch hydration failed", { term: card.spelling, error });
+            log$9.debug("Search pitch hydration failed", { term: card.spelling, error });
           });
         }
         if (hydrateFrequencyRanks) {
@@ -319803,7 +320494,7 @@ ${entry2.url}`),
             renderedDetail = { ...renderedDetail, frequencyRanks };
             renderCurrentDetail();
           }).catch((error) => {
-            log$8.debug("Search provider frequency hydration failed", { term: card.spelling, error });
+            log$9.debug("Search provider frequency hydration failed", { term: card.spelling, error });
           });
         }
         if (hydrateBunproDefinitionResult) {
@@ -319819,7 +320510,7 @@ ${entry2.url}`),
             };
             renderCurrentDetail();
           }).catch((error) => {
-            log$8.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
+            log$9.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
           });
         } else if (!detail.bunproDefinitionInfo && hydrateBunproDefinitionInfo) {
           void hydrateBunproDefinitionInfo(card).then((info) => {
@@ -319828,11 +320519,11 @@ ${entry2.url}`),
             renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
             renderCurrentDetail();
           }).catch((error) => {
-            log$8.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
+            log$9.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
           });
         }
       }).catch((error) => {
-        log$8.warn("New tab search detail failed", { term: card.spelling }, error);
+        log$9.warn("New tab search detail failed", { term: card.spelling }, error);
         if (canRender()) replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searchLocalDictionariesFailed")));
       });
       void kanjiDetailsPromise?.then((details) => {
@@ -319843,7 +320534,7 @@ ${entry2.url}`),
         };
         renderCurrentDetail();
       }).catch((error) => {
-        log$8.warn("Search word kanji failed", { term: card.spelling }, error);
+        log$9.warn("Search word kanji failed", { term: card.spelling }, error);
         renderedDetail = {
           ...renderedDetail,
           wordKanjiDetails: [],
@@ -319890,7 +320581,7 @@ ${entry2.url}`),
     }
     async loadRenderedSearchWordDetail(card) {
       return await this.deps.getDependencies().loadCardRenderData?.(card).catch((error) => {
-        log$8.warn("Search render data unavailable", { term: card.spelling }, error);
+        log$9.warn("Search render data unavailable", { term: card.spelling }, error);
         return null;
       }) ?? null;
     }
@@ -320057,7 +320748,7 @@ ${entry2.url}`),
         this.deps.renderNewTabKanjiImmersion(existing, kanji);
         void this.deps.getDependencies().parseContent?.(existing);
       }).catch((error) => {
-        log$8.warn("New tab search kanji detail failed", { kanji }, error);
+        log$9.warn("New tab search kanji detail failed", { kanji }, error);
         if (this.targetSnapshotIsCurrent(targetSnapshot) && existing.isConnected) {
           replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searchLocalDictionariesFailed")));
         }
@@ -320162,7 +320853,7 @@ ${entry2.url}`),
       if (!this.deps.getDependencies().loadCardRenderData || !results.words.length) return;
       await Promise.all(results.words.map(async (card) => {
         const data = await this.deps.getDependencies().loadCardRenderData?.(card).catch((error) => {
-          log$8.debug("Search Anki status skipped", { term: card.spelling, error });
+          log$9.debug("Search Anki status skipped", { term: card.spelling, error });
           return null;
         });
         if (!data || !this.isCurrentSearch(root, generation2, results.query)) return;
@@ -323724,7 +324415,7 @@ ${options.version}`;
   function newTabPitchClass(card) {
     return getPitchClass(card.pitchAccent, newTabCardReading(card)) || "unknown";
   }
-  const log$7 = Logger.scope("NewTab");
+  const log$8 = Logger.scope("NewTab");
   const LEGACY_STUDY_STEP_IDS = {
     recall: "recall-cloze",
     kanji: "kanji-doodle:0"
@@ -325592,9 +326283,9 @@ ${options.version}`;
       const card = await this.targetResources.lookupPortableCard(
         identity2,
         this.dependencies.lookupStudyCard,
-        (error) => log$7.warn("Portable study URL lookup failed", { identity: identity2, error })
+        (error) => log$8.warn("Portable study URL lookup failed", { identity: identity2, error })
       ).catch((error) => {
-        log$7.warn("Could not resolve portable study URL card", { identity: identity2, error });
+        log$8.warn("Could not resolve portable study URL card", { identity: identity2, error });
         return null;
       });
       return card ? [this.portableUrlStudyCard(card, identity2), ...cards] : cards;
@@ -325780,7 +326471,7 @@ ${options.version}`;
       };
     }
     async handleLoadWordsError(root, preferStoredWord, loadGeneration, error, useOfflineCache, quiet = false) {
-      log$7.warn("Failed to load words", error);
+      log$8.warn("Failed to load words", error);
       this.statsStudyFilter = null;
       if (quiet && this.visibleWords.length) return;
       const cached = useOfflineCache ? await this.readOfflineCache() : { cards: [], sourceLabel: "" };
@@ -325938,7 +326629,7 @@ ${options.version}`;
       const terms = uniqueTrimmedStrings(entries2.flatMap((entry2) => entry2.terms));
       if (!terms.length) return [];
       const parsed = await parse.call(jiten, terms).catch((error) => {
-        log$7.warn("Jiten practice fallback parse failed", { terms: terms.length }, error);
+        log$8.warn("Jiten practice fallback parse failed", { terms: terms.length }, error);
         return [];
       });
       const byTerm = /* @__PURE__ */ new Map();
@@ -326088,7 +326779,7 @@ ${options.version}`;
       const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.normalizedAnkiDeckScope() || void 0);
       const cards = await (this.state.source === "anki" ? loadCards : promiseWithTimeout(loadCards, timeoutMs, "Anki timed out.")).catch((error) => {
         unavailable = true;
-        log$7.warn("New tab Anki source failed", { error });
+        log$8.warn("New tab Anki source failed", { error });
         return [];
       });
       return {
@@ -326438,7 +327129,7 @@ ${options.version}`;
           failed: false
         };
       } catch (error) {
-        log$7.warn("New tab remote source failed", { label, error });
+        log$8.warn("New tab remote source failed", { label, error });
         return { value: fallback, failed: true };
       }
     }
@@ -326446,7 +327137,7 @@ ${options.version}`;
       try {
         return await promiseWithTimeout(promise, NEW_TAB_PUBLIC_STAGE_TIMEOUT_MS, `${label} timed out.`);
       } catch (error) {
-        log$7.warn("New-tab public fallback failed", { label, error });
+        log$8.warn("New-tab public fallback failed", { label, error });
         return fallback;
       }
     }
@@ -326455,7 +327146,7 @@ ${options.version}`;
     }
     persistSourceSettingChange(source2) {
       return Promise.resolve().then(() => this.dependencies.onSettingsChange(["newTabSource"])).catch((error) => {
-        log$7.warn("New-tab source update failed", { source: source2 }, error);
+        log$8.warn("New-tab source update failed", { source: source2 }, error);
       });
     }
     setState(patch, root, options) {
@@ -326747,7 +327438,7 @@ ${options.version}`;
         await promise;
       } catch (error) {
         if (!isCurrentActiveTarget(target2)) return;
-        log$7.warn("New-tab supplement failed", { source: source2 }, error);
+        log$8.warn("New-tab supplement failed", { source: source2 }, error);
         if (root.isConnected && this.visibleWords.length) this.moveVisibleWord(root, direction);
         else if (root.isConnected) this.setStatus(root, this.text("couldNotLoadWords"));
       } finally {
@@ -327341,7 +328032,7 @@ ${options.version}`;
         }, 3200);
         this.rerenderActiveListen();
       } catch (error) {
-        log$7.warn("Listen self-recording unavailable", error);
+        log$8.warn("Listen self-recording unavailable", error);
         this.listenRecorder = void 0;
         this.listenRecordingUnavailable = true;
         this.rerenderActiveListen();
@@ -327370,7 +328061,7 @@ ${options.version}`;
         if (score && speakingCard) this.recordSpeakingOutcome(speakingCard, score.verdict !== "retry");
         this.rerenderActiveListen();
       } catch (error) {
-        log$7.warn("Listen pitch scoring failed", error);
+        log$8.warn("Listen pitch scoring failed", error);
         if (generation2 !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey) return;
         this.listenSpeakingScore = null;
         this.listenSpeakingScoring = false;
@@ -328772,7 +329463,7 @@ ${options.version}`;
     async lookupStudyRevealDefinitionCard(card) {
       if (!this.dependencies.lookupStudyCard) return null;
       const fallback = await this.dependencies.lookupStudyCard(card.spelling, card.reading).catch((error) => {
-        log$7.warn("Study reveal dictionary fallback lookup failed", { term: card.spelling }, error);
+        log$8.warn("Study reveal dictionary fallback lookup failed", { term: card.spelling }, error);
         return null;
       });
       if (!fallback) return null;
@@ -330258,7 +330949,7 @@ ${options.version}`;
     }
     localSearchWithTimeout(promise, fallback) {
       return promiseWithTimeout(promise, NEW_TAB_LOCAL_SEARCH_TIMEOUT_MS, "Local dictionary search timed out.").catch((error) => {
-        log$7.debug("Local dictionary search skipped", { error });
+        log$8.debug("Local dictionary search skipped", { error });
         return fallback;
       });
     }
@@ -330748,7 +331439,7 @@ ${options.version}`;
         if (!jpdbKanjiActionIsCurrent(providerContext, this.providerContexts.jpdb, kanji)) return;
         this.finishJpdbKanjiAction(root, card, kanji);
       } catch (error) {
-        log$7.warn("New tab JPDB kanji action failed", { kanji }, error);
+        log$8.warn("New tab JPDB kanji action failed", { kanji }, error);
         this.setStatus(root, this.text("jpdbKanjiUpdateFailed"));
       }
     }
@@ -330861,7 +331552,7 @@ ${options.version}`;
       return typeof this.dependencies.jiten?.undoReview === "function";
     }
     async handleFailedGrade(target2, grade2, selectedTarget2, isCorrection, error, reviewOp, providerContexts) {
-      log$7.warn("New tab grade failed", { term: target2.card.spelling, source: target2.card.source, grade: grade2 }, error);
+      log$8.warn("New tab grade failed", { term: target2.card.spelling, source: target2.card.source, grade: grade2 }, error);
       if (this.localYomuStorageFailure(error)) {
         this.reportLocalYomuGradeFailure(target2.root);
         return false;
@@ -331130,7 +331821,7 @@ ${options.version}`;
         this.showToast("reviewUndone");
         this.restoreUndoneCardToFront(root, last.card);
       } catch (error) {
-        log$7.warn("Undo review failed", error);
+        log$8.warn("Undo review failed", error);
         this.showToast("undoReviewFailed");
       }
     }
@@ -331940,6 +332631,10 @@ ${options.version}`;
   function isJitenBulkAction(action2) {
     return action2 === "jiten-mining" || action2 === "jiten-suspend" || action2 === "jiten-forget";
   }
+  function newTabSettingsWithPageInterfaceLanguage(settings, interfaceLanguage) {
+    if (!interfaceLanguage || settings.interfaceLanguage === interfaceLanguage) return settings;
+    return { ...settings, interfaceLanguage };
+  }
   function newTabSettingsWithPageTarget(settings, targetLanguage2) {
     const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
     if (!active) return settings;
@@ -331947,6 +332642,293 @@ ${options.version}`;
       ...settings,
       languageProfiles: settings.languageProfiles.map((profile2) => profile2 === active ? { ...profile2, targetLanguage: targetLanguage2 } : profile2)
     };
+  }
+  const EXTENSION_STUDY_LEGACY_PROMOTION_STORAGE_KEY = "yomu:extension-study-legacy-promotion:v1";
+  const LEGACY_PROMOTION_ACTIVATION_KEYS = [
+    "learningTargetChosen",
+    "onboardingSeen"
+  ];
+  class ExtensionStudySettingsRecoveryFailure extends Error {
+    rawChosenSettingsDetected;
+    constructor(rawChosenSettingsDetected) {
+      super("Packaged Study settings recovery could not complete.");
+      this.name = "ExtensionStudySettingsRecoveryFailure";
+      this.rawChosenSettingsDetected = rawChosenSettingsDetected;
+    }
+  }
+  function isExtensionStudySettingsRecoveryFailure(error) {
+    return error instanceof ExtensionStudySettingsRecoveryFailure;
+  }
+  async function recoverExtensionStudySettingsAuthority() {
+    if (!isPackagedExtensionStudy()) return "not-packaged-study";
+    let rawGetValue;
+    try {
+      rawGetValue = packagedStudyRawGetValue();
+    } catch {
+      throw new ExtensionStudySettingsRecoveryFailure(false);
+    }
+    return recoverRawSettingsAuthority(rawGetValue);
+  }
+  async function recoverRawSettingsAuthority(rawGetValue) {
+    const evidence2 = { rawChosenSettingsDetected: false };
+    try {
+      const rawEpoch = await authoritativeManagedStateEpoch(rawGetValue);
+      const raw = await rawSettingsPersistenceView(rawGetValue, rawEpoch, (value) => {
+        evidence2.rawChosenSettingsDetected ||= normalizeLearningTargetChosen(settingsRecord(value));
+      });
+      const rawSettings = settingsRecord(raw.settings);
+      if (!rawSettings) {
+        if (evidence2.rawChosenSettingsDetected) {
+          throw new ExtensionStudySettingsRecoveryFailure(true);
+        }
+        return "no-legacy-settings";
+      }
+      return promoteRawSettingsUnderLease(rawSettings, rawEpoch, raw);
+    } catch {
+      throw new ExtensionStudySettingsRecoveryFailure(evidence2.rawChosenSettingsDetected);
+    }
+  }
+  async function promoteRawSettingsUnderLease(rawSettings, rawEpoch, raw) {
+    return withGmStorageLease(
+      SETTINGS_PERSISTENCE_STORAGE_LEASE,
+      () => reconcileRawSettingsAuthority(rawSettings, rawEpoch, raw)
+    );
+  }
+  async function reconcileRawSettingsAuthority(rawSettings, rawEpoch, raw) {
+    const canonicalEpoch = await authoritativeManagedStateEpoch(GM_getValue);
+    const canonical = await readSettingsPersistenceView();
+    const canonicalSettings = settingsRecord(canonical.settings);
+    if (canonicalEpochRejectsRaw(rawEpoch, canonicalEpoch)) {
+      return "canonical-preserved";
+    }
+    if (await legacyPromotionAlreadyRecorded(rawEpoch)) {
+      return "canonical-preserved";
+    }
+    if (!shouldPromoteRawSettings(rawSettings, rawEpoch, canonicalSettings, canonicalEpoch)) {
+      return "canonical-preserved";
+    }
+    const merged = mergedLegacySettingsAuthority(rawSettings, raw.intentLedger, canonicalSettings, canonical.intentLedger);
+    await persistSettingsStorageTransaction(merged.intentLedger, merged.settings);
+    await recordLegacyPromotion(rawEpoch);
+    return "legacy-promoted";
+  }
+  async function legacyPromotionAlreadyRecorded(rawEpoch) {
+    const marker = await gmStorageGetSharedStrict(EXTENSION_STUDY_LEGACY_PROMOTION_STORAGE_KEY, null);
+    return isLegacyPromotionMarker(marker) && marker.rawEpoch === managedStateEpochToken(rawEpoch);
+  }
+  async function recordLegacyPromotion(rawEpoch) {
+    const marker = {
+      version: 1,
+      rawEpoch: managedStateEpochToken(rawEpoch)
+    };
+    await gmStorageSet(EXTENSION_STUDY_LEGACY_PROMOTION_STORAGE_KEY, marker, {
+      localFallbackOnAuthoritativeFailure: "preserve"
+    });
+  }
+  function isLegacyPromotionMarker(value) {
+    const marker = settingsRecord(value);
+    if (!marker) return false;
+    return marker.version === 1 && typeof marker.rawEpoch === "string";
+  }
+  function mergedLegacySettingsAuthority(rawSettings, rawIntent, canonicalSettings, canonicalIntent) {
+    if (!canonicalSettings) {
+      return { settings: rawSettings, intentLedger: rawIntent };
+    }
+    const intentLedger = mergedIntentLedger(rawIntent, canonicalIntent);
+    const settings = { ...rawSettings };
+    for (const [key2, value] of Object.entries(canonicalSettings)) {
+      if (canonicalSettingsValueWins(key2, rawIntent, canonicalIntent)) settings[key2] = value;
+    }
+    preserveRawPromotionActivation(settings, rawSettings, rawIntent, canonicalIntent);
+    return {
+      settings: applySettingsIntent(settings, intentLedger),
+      intentLedger
+    };
+  }
+  function mergedIntentLedger(raw, canonical) {
+    const records2 = {};
+    const keys = /* @__PURE__ */ new Set([...Object.keys(raw.records), ...Object.keys(canonical.records)]);
+    for (const key2 of keys) {
+      const rawRecord = raw.records[key2];
+      const canonicalRecord = canonical.records[key2];
+      const selected2 = newerIntentRecord(rawRecord, canonicalRecord);
+      if (selected2) records2[key2] = selected2;
+    }
+    return {
+      revision: Math.max(raw.revision, canonical.revision),
+      records: records2
+    };
+  }
+  function canonicalSettingsValueWins(key2, raw, canonical) {
+    const rawRecord = raw.records[key2];
+    const canonicalRecord = canonical.records[key2];
+    return !rawRecord || Boolean(canonicalRecord && canonicalRecord.seq >= rawRecord.seq);
+  }
+  function preserveRawPromotionActivation(settings, rawSettings, rawIntent, canonicalIntent) {
+    const intentKeys = /* @__PURE__ */ new Set([
+      ...Object.keys(rawIntent.records),
+      ...Object.keys(canonicalIntent.records)
+    ]);
+    for (const key2 of LEGACY_PROMOTION_ACTIVATION_KEYS) {
+      if (intentKeys.has(key2)) continue;
+      if (Object.hasOwn(rawSettings, key2)) settings[key2] = rawSettings[key2];
+      else delete settings[key2];
+    }
+  }
+  function newerIntentRecord(raw, canonical) {
+    if (!canonical) return raw;
+    if (!raw || canonical.seq >= raw.seq) return canonical;
+    return raw;
+  }
+  async function canonicalExtensionStudySettingsAreChosen() {
+    const canonical = await readSettingsPersistenceView();
+    return normalizeLearningTargetChosen(settingsRecord(canonical.settings));
+  }
+  async function rawSettingsPersistenceView(rawGetValue, epoch, observeSettings) {
+    return readSettingsPersistenceViewFrom(async (key2, fallback) => {
+      const value = await managedGmValue(rawGetValue, key2, fallback, epoch);
+      if (key2 === SETTINGS_STORAGE_KEY) observeSettings(value);
+      return value;
+    });
+  }
+  function shouldPromoteRawSettings(raw, rawEpoch, canonical, canonicalEpoch) {
+    if (canonicalEpochRejectsRaw(rawEpoch, canonicalEpoch)) return false;
+    return canonicalChoiceAllowsPromotion(raw, canonical);
+  }
+  function canonicalEpochRejectsRaw(rawEpoch, canonicalEpoch) {
+    if (canonicalEpoch.generation === 0) return false;
+    return !sameManagedStateEpoch(rawEpoch, canonicalEpoch);
+  }
+  function canonicalChoiceAllowsPromotion(raw, canonical) {
+    if (!canonical) return true;
+    return normalizeLearningTargetChosen(raw) && !normalizeLearningTargetChosen(canonical);
+  }
+  function settingsRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  function isPackagedExtensionStudy() {
+    return /^(?:chrome|moz|safari-web)-extension:$/.test(location.protocol);
+  }
+  function packagedExtensionStudyHasCompilerStorage() {
+    if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return false;
+    return globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  }
+  function packagedStudyRawGetValue() {
+    if (!packagedExtensionStudyHasCompilerStorage()) {
+      throw new Error("Packaged Study storage adapter is unavailable.");
+    }
+    const rawGetValue = rawExtensionStorageGetValue();
+    if (!rawGetValue) throw new Error("Packaged Study legacy storage inspection is unavailable.");
+    return rawGetValue;
+  }
+  const activeGuards = /* @__PURE__ */ new WeakMap();
+  function ensureExtensionStudySettingsAuthority(options = {}) {
+    const active = activeGuards.get(document);
+    if (active) return active;
+    const guard = runExtensionSettingsRecoveryGuard(options);
+    activeGuards.set(document, guard);
+    const clearActiveGuard = () => {
+      if (activeGuards.get(document) === guard) activeGuards.delete(document);
+    };
+    void guard.then(clearActiveGuard, clearActiveGuard);
+    return guard;
+  }
+  async function runExtensionSettingsRecoveryGuard(options) {
+    const attempt2 = () => attemptSettingsAuthorityRecovery(options.reportFailure);
+    if (await attempt2()) return;
+    await waitOnRecoverySurface(attempt2, options);
+  }
+  async function attemptSettingsAuthorityRecovery(reportFailure) {
+    try {
+      await recoverExtensionStudySettingsAuthority();
+      return true;
+    } catch (error) {
+      reportFailure?.(secretFreeRecoveryFailure(error));
+      try {
+        return await canonicalExtensionStudySettingsAreChosen();
+      } catch {
+        return false;
+      }
+    }
+  }
+  function secretFreeRecoveryFailure(error) {
+    return isExtensionStudySettingsRecoveryFailure(error) ? error : new ExtensionStudySettingsRecoveryFailure(false);
+  }
+  function waitOnRecoverySurface(retryAuthorityRecovery, options) {
+    const language2 = options.interfaceLanguage ?? "auto";
+    const surface = recoverySurface(language2);
+    const retry2 = surface.querySelector('[data-recovery-action="retry"]');
+    const reload = surface.querySelector('[data-recovery-action="reload"]');
+    const status2 = surface.querySelector("[data-recovery-status]");
+    document.body.prepend(surface);
+    const restorePageInteractivity = isolateRecoverySurface(surface);
+    retry2.focus();
+    return new Promise((resolve) => {
+      retry2.addEventListener("click", () => {
+        retry2.disabled = true;
+        reload.disabled = true;
+        status2.textContent = uiText(language2, "extensionSettingsRecoveryRetrying");
+        void retryAuthorityRecovery().then((ready2) => {
+          if (ready2) {
+            restorePageInteractivity();
+            surface.remove();
+            resolve();
+            return;
+          }
+          status2.textContent = uiText(language2, "extensionSettingsRecoveryStillBlocked");
+          retry2.disabled = false;
+          reload.disabled = false;
+          retry2.focus();
+        });
+      });
+      reload.addEventListener("click", () => (options.reload ?? (() => location.reload()))());
+    });
+  }
+  function isolateRecoverySurface(surface) {
+    const previousInert = [...document.body.children].filter((element2) => element2 instanceof HTMLElement && element2 !== surface).map((element2) => ({ element: element2, inert: element2.inert === true }));
+    for (const { element: element2 } of previousInert) element2.inert = true;
+    return () => {
+      for (const { element: element2, inert } of previousInert) element2.inert = inert;
+    };
+  }
+  function recoverySurface(language2) {
+    const surface = document.createElement("section");
+    surface.className = "jpdb-reader-extension-settings-recovery";
+    surface.dataset.extensionSettingsRecovery = "blocked";
+    surface.setAttribute("role", "alert");
+    surface.setAttribute("aria-labelledby", "yomu-extension-settings-recovery-title");
+    surface.setAttribute("aria-describedby", "yomu-extension-settings-recovery-copy");
+    surface.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:Canvas;color:CanvasText;font:16px/1.5 system-ui,sans-serif;";
+    const card = document.createElement("div");
+    card.style.cssText = "width:min(560px,100%);padding:24px;border:1px solid ButtonBorder;border-radius:14px;background:Canvas;box-shadow:0 12px 40px #0004;";
+    const title2 = document.createElement("h1");
+    title2.id = "yomu-extension-settings-recovery-title";
+    title2.textContent = uiText(language2, "extensionSettingsRecoveryTitle");
+    const body = document.createElement("p");
+    body.id = "yomu-extension-settings-recovery-copy";
+    body.textContent = uiText(language2, "extensionSettingsRecoveryBody");
+    const guidance = document.createElement("p");
+    guidance.textContent = uiText(language2, "extensionSettingsRecoveryGuidance");
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;";
+    actions.append(
+      recoveryButton("retry", uiText(language2, "extensionSettingsRecoveryRetry")),
+      recoveryButton("reload", uiText(language2, "extensionSettingsRecoveryReload"))
+    );
+    const status2 = document.createElement("p");
+    status2.dataset.recoveryStatus = "";
+    status2.setAttribute("aria-live", "polite");
+    card.append(title2, body, guidance, actions, status2);
+    surface.append(card);
+    return surface;
+  }
+  function recoveryButton(action2, label) {
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "jpdb-reader-btn";
+    button2.dataset.recoveryAction = action2;
+    button2.textContent = label;
+    return button2;
   }
   const FOCUSABLE_SELECTOR = 'button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"])';
   class LookupModalAccessibility {
@@ -332373,7 +333355,7 @@ ${options.version}`;
       }, TOAST_EXIT_MS);
     }, durationMs));
   }
-  const log$6 = Logger.scope("ReaderAudioActions");
+  const log$7 = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -332428,7 +333410,7 @@ ${options.version}`;
         });
         return played;
       } catch (error) {
-        log$6.warn("Term audio playback failed", { term: card.spelling }, error);
+        log$7.warn("Term audio playback failed", { term: card.spelling }, error);
         this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackFailed"));
         return false;
       } finally {
@@ -332651,7 +333633,7 @@ ${options.version}`;
         return "updateHelpNotesManager";
     }
   }
-  const CURRENT_YOMU_VERSION = "1.9.2".trim() ? "1.9.2".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.9.3".trim() ? "1.9.3".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -368982,14 +369964,14 @@ ${options.version}`;
         this.clear();
         throw new WanikaniApiError("WaniKani API token is not set.");
       }
-      const fingerprint = fingerprintWanikaniToken(token);
-      if (fingerprint !== this.activeFingerprint) this.resetAccountContext(fingerprint);
+      const fingerprint2 = fingerprintWanikaniToken(token);
+      if (fingerprint2 !== this.activeFingerprint) this.resetAccountContext(fingerprint2);
       const generation2 = this.contextGeneration;
-      return { token, fingerprint, generation: generation2, cacheNamespace: `${generation2}:${fingerprint}` };
+      return { token, fingerprint: fingerprint2, generation: generation2, cacheNamespace: `${generation2}:${fingerprint2}` };
     }
-    resetAccountContext(fingerprint) {
+    resetAccountContext(fingerprint2) {
       this.contextGeneration += 1;
-      this.activeFingerprint = fingerprint;
+      this.activeFingerprint = fingerprint2;
       this.verifiedUser = null;
       this.verifiedContext = "";
       this.pending.clear();
@@ -369927,12 +370909,13 @@ ${options.version}`;
     return null;
   }
   async function uploadCloudSettingsToCloud(settings, _authorization) {
+    const backup = await exportSettingsBackupSnapshot(settings);
     const snapshot = {
       formatName: "yomu-google-drive-settings-sync",
       formatVersion: 1,
       syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      settings,
-      storage: await exportManagedStoredValues()
+      settings: backup.settings,
+      storage: backup.storage
     };
     const response = await sendCloudSettingsSyncMessage({ command: "upload", snapshot });
     return response.metadata ?? { syncedAt: snapshot.syncedAt };
@@ -369982,7 +370965,7 @@ ${options.version}`;
       const timer = window.setTimeout(() => fail2(new Error("Google Drive settings sync timed out.")), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
       try {
         const maybePromise = extension.runtime.sendMessage?.(message, finish);
-        if (isPromiseLike$1(maybePromise)) void maybePromise.then(finish, fail2);
+        if (isPromiseLike$2(maybePromise)) void maybePromise.then(finish, fail2);
       } catch (error) {
         fail2(error);
       }
@@ -374307,6 +375290,35 @@ ${options.version}`;
       type: preference.type
     }));
   }
+  function reportInvalidSettingsForm(form2, fallbackLanguage, toast) {
+    const control2 = firstInvalidSettingsControl(form2);
+    if (!control2) return;
+    activateInvalidSettingsPanel(form2, control2);
+    revealInvalidSettingsControl(control2, form2);
+    control2.focus();
+    const message = control2.validationMessage || uiText(getFormInterfaceLanguage(form2, fallbackLanguage), "settingsSaveFailed");
+    showInvalidSettingsStatus(form2, message);
+    toast(message);
+  }
+  function activateInvalidSettingsPanel(form2, control2) {
+    const panel = control2.closest("[data-settings-panel]")?.dataset.settingsPanel;
+    if (panel) activateSettingsPanel(form2, panel);
+  }
+  function showInvalidSettingsStatus(form2, message) {
+    const status2 = form2.querySelector("[data-settings-save-status]");
+    if (status2) {
+      status2.hidden = false;
+      status2.textContent = message;
+    }
+  }
+  function firstInvalidSettingsControl(form2) {
+    return Array.from(form2.querySelectorAll("input, select, textarea")).find((control2) => control2.willValidate && !control2.validity.valid) ?? null;
+  }
+  function revealInvalidSettingsControl(control2, form2) {
+    for (let ancestor = control2.parentElement; ancestor && ancestor !== form2; ancestor = ancestor.parentElement) {
+      if (ancestor.hidden) ancestor.hidden = false;
+    }
+  }
   function dictionaryStatusElements(form2) {
     return {
       status: form2.querySelector("[data-dictionary-status]"),
@@ -374650,24 +375662,7 @@ ${options.version}`;
   function isFiniteTimestamp(value) {
     return typeof value === "number" && Number.isFinite(value);
   }
-  function cloudSettingsActionEnabled(enabled, action2) {
-    return enabled && isCloudSettingsAction(action2);
-  }
-  function settingsForCloudAction(action2, form2, settings) {
-    if (action2 === "sync-cloud-settings") return readFormSettings(new FormData(form2), settings);
-    return settings;
-  }
-  function setCloudSettingsActionButtonDisabled(button2, disabled) {
-    if (disabled) button2?.setAttribute("disabled", "true");
-    else button2?.removeAttribute("disabled");
-  }
-  function notifyCloudSettingsPersistenceFailed(callback2, previousSettings) {
-    callback2?.(previousSettings);
-  }
-  function reportCloudSettingsStatus(setStatus, message) {
-    setStatus?.(message);
-  }
-  const log$5 = Logger.scope("SettingsFileIO");
+  const log$6 = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -374697,7 +375692,7 @@ ${options.version}`;
     return value && typeof value === "object" ? value : null;
   }
   function isReaderSettingsExport(record2) {
-    return isReaderSettingsExportFormat(record2.formatName) && Boolean(record2.settings) && typeof record2.settings === "object";
+    return isReaderSettingsExportFormat(record2.formatName) && Boolean(record2.settings) && typeof record2.settings === "object" && !Array.isArray(record2.settings);
   }
   function isReaderSettingsExportFormat(formatName) {
     return formatName === "yomu-reader-settings" || formatName === "jpdb-popup-reader-settings";
@@ -374716,7 +375711,7 @@ ${options.version}`;
   function pickFiles(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$5.warn("File picker input missing", { type });
+      log$6.warn("File picker input missing", { type });
       return Promise.resolve([]);
     }
     return new Promise((resolve) => {
@@ -374739,8 +375734,59 @@ ${options.version}`;
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
+  class SettingsPreviewBaseline {
+    constructor(dependencies, currentForm) {
+      this.dependencies = dependencies;
+      this.currentForm = currentForm;
+      this.stableSettings = snapshotDurableSettings(dependencies.getSettings());
+    }
+    stableSettings;
+    interfaceLanguagePreviewed = false;
+    get settings() {
+      return this.stableSettings;
+    }
+    start(settings) {
+      const replacingActivePreview = this.currentForm()?.isConnected === true;
+      this.restoreInterfaceLanguagePreview();
+      if (replacingActivePreview) {
+        this.restoreTransient();
+        return;
+      }
+      this.capture(settings);
+    }
+    capture(settings) {
+      this.stableSettings = snapshotDurableSettings(settings);
+    }
+    publish() {
+      this.dependencies.setSettings(snapshotDurableSettings(this.stableSettings));
+    }
+    stage(settings) {
+      this.capture(settings);
+      this.publish();
+    }
+    restoreTransient() {
+      this.dependencies.setSettings(snapshotDurableSettings(this.stableSettings), { transient: true });
+    }
+    refreshHost() {
+      if (this.currentForm()?.isConnected !== true) return;
+      const settings = this.stableSettings;
+      this.dependencies.beginSettingsPreview(settings.accentColor, settings.interfaceLanguage, settings.theme);
+    }
+    adoptLive(settings) {
+      this.stage(settings);
+      this.refreshHost();
+    }
+    markInterfaceLanguagePreviewed() {
+      this.interfaceLanguagePreviewed = true;
+    }
+    restoreInterfaceLanguagePreview() {
+      if (!this.interfaceLanguagePreviewed) return;
+      this.interfaceLanguagePreviewed = false;
+      this.dependencies.installFab();
+    }
+  }
   function bindLiveSettingsSync(form2, dependencies) {
-    let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
+    let adoptedSettings = snapshotDurableSettings(dependencies.getSettings());
     subscribeToSettingsChanges((detail) => {
       if (!dependencies.isActive()) return;
       if (detail.preview !== true) {
@@ -374751,26 +375797,14 @@ ${options.version}`;
         dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
         syncSubtitlePreview(form2);
         syncFontFamilyControls(form2);
-        adoptedSettings = snapshotLiveSettings(settings);
+        adoptedSettings = snapshotDurableSettings(settings);
       }
       const theme = themeFromSettingsChange(detail);
       if (theme) dependencies.applyTheme(theme);
     });
   }
-  function snapshotLiveSettings(settings) {
-    return {
-      ...settings,
-      languageProfiles: settings.languageProfiles.map((profile2) => ({
-        ...profile2,
-        dictionaries: {
-          installed: [...profile2.dictionaries.installed],
-          enabled: [...profile2.dictionaries.enabled],
-          order: [...profile2.dictionaries.order]
-        },
-        definitionTranslationProviderIds: [...profile2.definitionTranslationProviderIds]
-      })),
-      dictionaryLookupLinks: settings.dictionaryLookupLinks.map((link) => ({ ...link }))
-    };
+  function snapshotDurableSettings(settings) {
+    return normalizeReaderSettings(settings);
   }
   function syncFormFromSettings(form2, previousSettings, settings) {
     for (const key2 of changedSettingKeys(previousSettings, settings)) {
@@ -375435,7 +376469,7 @@ ${options.version}`;
   function isRecord$1(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
-  const log$4 = Logger.scope("AcademyAccountSyncSettings");
+  const log$5 = Logger.scope("AcademyAccountSyncSettings");
   class AcademyAccountSyncSettingsController {
     constructor(toast) {
       this.toast = toast;
@@ -375451,7 +376485,7 @@ ${options.version}`;
         renderStatus(form2, status2, language2);
       } catch (error) {
         if (probeId !== this.statusProbeId || !form2.isConnected) return;
-        log$4.warn("Academy account status failed", error);
+        log$5.warn("Academy account status failed", error);
         setMessage(
           form2,
           formatUiText(language2, "academyAccountConnectionProblem", {
@@ -375499,7 +376533,7 @@ ${options.version}`;
           this.toast(uiText(language2, action2 === "connect-academy-account" ? "academyAccountConnectedDone" : "academyAccountSyncedDone"));
         }
       } catch (error) {
-        log$4.warn("Academy account action failed", { action: action2 }, error);
+        log$5.warn("Academy account action failed", { action: action2 }, error);
         const message = userFacingErrorText(language2, "actionFailed", error);
         setMessage(form2, message, "error");
         this.toast(message);
@@ -375731,6 +376765,7 @@ ${options.version}`;
     }
   }
   const CANONICAL_SETTINGS_URL = `${NEW_TAB_PAGE_URL}#settings=api`;
+  const PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL = "yomu-packaged-study-settings-launcher:v1";
   function sensitiveSettingsSurfaceAccess(pageUrl, extensionSettingsUrl = "") {
     return {
       trusted: isTrustedSensitiveSettingsSurface(pageUrl),
@@ -375741,18 +376776,22 @@ ${options.version}`;
     return currentSensitiveSettingsSurfaceAccess(host2).trusted;
   }
   function mountSensitiveSettingsLauncher(host2, modal, language2, panel, trigger) {
+    return mountSettingsLauncher(host2, modal, language2, panel, trigger);
+  }
+  function mountSettingsLauncher(host2, modal, language2, panel, trigger, allowTrustedCurrentSurface) {
     const access = currentSensitiveSettingsSurfaceAccess(host2);
-    if (access.trusted) return null;
+    if (access.trusted && true) return null;
     const launcherUrl = sensitiveSettingsLauncherForPanel(access.launcherUrl, panel);
     const surface = createSensitiveSettingsLauncher(language2);
     const close = () => {
       modal.release();
       host2.dismiss();
     };
-    surface.querySelector("[data-trusted-settings-launcher]")?.addEventListener("click", (event) => {
+    surface.querySelector("[data-trusted-settings-launcher]")?.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (isDirectTrustedReaderInteraction(event)) openTrustedSettingsSurface(launcherUrl);
+      if (!isDirectTrustedReaderInteraction(event)) return;
+      await launchTrustedSettingsSurface(host2, language2, launcherUrl, event.currentTarget);
     });
     surface.querySelector('[data-action="cancel"]')?.addEventListener("click", close);
     surface.addEventListener("keydown", (event) => {
@@ -375764,6 +376803,20 @@ ${options.version}`;
     host2.mountDialog(host2.createBackdrop(), surface);
     modal.activate(surface, trigger);
     return surface;
+  }
+  async function launchTrustedSettingsSurface(host2, language2, url, launcher) {
+    launcher.disabled = true;
+    launcher.setAttribute("aria-busy", "true");
+    try {
+      if (!await openTrustedSettingsSurface(url)) {
+        host2.toast(uiText(language2, "settingsCompanionUnavailable"));
+      }
+    } catch {
+      host2.toast(uiText(language2, "settingsCompanionUnavailable"));
+    } finally {
+      launcher.disabled = false;
+      launcher.removeAttribute("aria-busy");
+    }
   }
   function currentSensitiveSettingsSurfaceAccess(host2) {
     return host2.sensitiveSettingsSurface?.() ?? sensitiveSettingsSurfaceAccess(location.href, firefoxAuthenticationInfoSettingsPageUrl());
@@ -375790,22 +376843,99 @@ ${options.version}`;
     const appUrl = readTrustedYomuUrl(value);
     return appUrl?.originKind === "extension" && isYomuNewTabUrl(value);
   }
-  function openTrustedSettingsSurface(url) {
+  async function openTrustedSettingsSurface(url) {
     const protocol = new URL(url).protocol;
     if (WEB_SETTINGS_PROTOCOLS.has(protocol)) {
-      openUrlInNewTab(url);
-      return;
+      return openUrlInNewTab(url);
     }
-    openTrustedExtensionSettingsSurface(url);
+    return openOwnedFirefoxStudySettings(url);
   }
   const WEB_SETTINGS_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
-  function openTrustedExtensionSettingsSurface(url) {
-    const opened = window.open(url, "_blank", "noopener");
-    if (!opened) return;
+  async function openOwnedFirefoxStudySettings(url) {
+    const runtime2 = firefoxLauncherRuntime();
+    if (!runtime2) return false;
+    const panel = runtimeOwnedFirefoxStudySettingsPanel(runtime2, url);
+    if (!panel) return false;
+    return requestPackagedStudySettingsTab(runtime2, panel);
+  }
+  async function requestPackagedStudySettingsTab(runtime2, panel) {
     try {
-      opened.opener = null;
+      const pending2 = runtime2.sendMessage({
+        type: "yomu.openPackagedStudySettings",
+        protocol: PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL,
+        panel
+      });
+      if (!isPromiseLike(pending2)) return false;
+      const response = await pending2;
+      return validCreatedTabResponse(response);
     } catch {
+      return false;
     }
+  }
+  function firefoxLauncherRuntime() {
+    const runtime2 = firefoxLauncherRuntimeCandidate();
+    return hasFirefoxLauncherInterface(runtime2) ? runtime2 : null;
+  }
+  function firefoxLauncherRuntimeCandidate() {
+    try {
+      return globalThis.browser?.runtime;
+    } catch {
+      return void 0;
+    }
+  }
+  function hasFirefoxLauncherInterface(value) {
+    const runtime2 = recordValue(value);
+    if (!runtime2) return false;
+    return typeof runtime2.id === "string" && [runtime2.getURL, runtime2.sendMessage].every(isFunction);
+  }
+  function runtimeOwnedFirefoxStudySettingsPanel(runtime2, value) {
+    const target2 = readUrl(value);
+    if (!target2) return null;
+    const panel = settingsPanelFromHash(target2.hash);
+    if (!panel) return null;
+    const expected = packagedFirefoxStudySettingsUrl(runtime2, panel);
+    if (!expected) return null;
+    return matchingSettingsPanel(target2, expected, panel);
+  }
+  function packagedFirefoxStudySettingsUrl(runtime2, panel) {
+    const expected = readRuntimeStudyUrl(runtime2);
+    if (!expected || expected.protocol !== "moz-extension:") return null;
+    expected.hash = settingsPanelHash(panel);
+    return expected;
+  }
+  function readRuntimeStudyUrl(runtime2) {
+    try {
+      return new URL(runtime2.getURL("newtab/index.html"));
+    } catch {
+      return null;
+    }
+  }
+  function readUrl(value) {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  }
+  function matchingSettingsPanel(target2, expected, panel) {
+    return target2.href === expected.href ? panel : null;
+  }
+  function isFunction(value) {
+    return typeof value === "function";
+  }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
+  function validCreatedTabResponse(value) {
+    const response = recordValue(value);
+    if (!response || response.ok !== true) return false;
+    return isNonNegativeInteger(response.tabId);
+  }
+  function recordValue(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function isNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
   }
   function createSensitiveSettingsLauncher(language2) {
     const root = document.createElement("section");
@@ -375843,6 +376973,802 @@ ${options.version}`;
     root.append(head, content, footer);
     return root;
   }
+  const LOCAL_SETTINGS_ACTIONS = /* @__PURE__ */ new Set([
+    "anki-tag-add",
+    "anki-tag-remove",
+    "audio-source-add",
+    "audio-source-down",
+    "audio-source-remove",
+    "audio-source-up",
+    "cancel",
+    "copy-newtab-url",
+    "dictionary-source-down",
+    "dictionary-source-up",
+    "lookup-link-add",
+    "lookup-link-down",
+    "lookup-link-remove",
+    "lookup-link-up",
+    "open-yomu-update",
+    "settings-panel",
+    "toggle-catalog-browse"
+  ]);
+  function settingsActionMode(action2) {
+    if (action2 === "import-yomitan-settings" || action2 === "restore-cloud-settings") return "restore";
+    if (LOCAL_SETTINGS_ACTIONS.has(action2)) return "local";
+    return "durable";
+  }
+  class SettingsRestoreCoordinator {
+    constructor(port) {
+      this.port = port;
+    }
+    dictionaryOperationTail = Promise.resolve();
+    pendingDictionaryOperations = 0;
+    restorePending = false;
+    revision = 0;
+    savePending = false;
+    activeSaves = /* @__PURE__ */ new Set();
+    activeDurableOperations = /* @__PURE__ */ new Set();
+    freezeSnapshots = /* @__PURE__ */ new WeakMap();
+    get importPending() {
+      return this.restorePending;
+    }
+    get importRevision() {
+      return this.revision;
+    }
+    captureAction(form2, action2) {
+      const ticket = { revision: this.revision, mode: settingsActionMode(action2) };
+      return this.actionIsAdmitted(form2, ticket) ? ticket : void 0;
+    }
+    async runAction(form2, ticket, operation) {
+      if (!this.actionIsAdmitted(form2, ticket)) return void 0;
+      if (ticket.mode === "durable") return this.runDurableOperation(operation);
+      return operation();
+    }
+    actionIsAdmitted(form2, ticket) {
+      if (ticket.mode === "local") return true;
+      if (this.restoreBlocksAction(ticket)) {
+        this.showRestoreBlocked(form2);
+        return false;
+      }
+      if (!this.savePending) return true;
+      this.sync(form2);
+      return false;
+    }
+    restoreBlocksAction(ticket) {
+      return this.restorePending || ticket.revision !== this.revision;
+    }
+    beginSave(form2) {
+      if (this.saveIsBlocked(form2)) return void 0;
+      this.savePending = true;
+      try {
+        this.sync(form2);
+      } catch (error) {
+        this.savePending = false;
+        throw error;
+      }
+      return this.revision;
+    }
+    saveIsBlocked(form2) {
+      if (this.saveConflictPending()) {
+        this.sync(form2);
+        return true;
+      }
+      if (this.restorePending) {
+        this.showRestoreBlocked(form2);
+        return true;
+      }
+      if (this.pendingDictionaryOperations > 0) {
+        this.showDictionarySaveBlocked(form2);
+        return true;
+      }
+      return false;
+    }
+    saveConflictPending() {
+      return this.savePending || this.activeDurableOperations.size > 0;
+    }
+    finishSave(form2) {
+      this.savePending = false;
+      if (form2.isConnected) this.sync(form2);
+      this.syncOtherCurrentForm(form2);
+    }
+    saveRevisionIsCurrent(revision2) {
+      return revision2 === this.importRevision;
+    }
+    async runDurableOperation(operation) {
+      let release;
+      const lifetime = new Promise((resolve) => {
+        release = resolve;
+      });
+      this.activeDurableOperations.add(lifetime);
+      try {
+        this.syncCurrentForm();
+        return await operation();
+      } finally {
+        this.activeDurableOperations.delete(lifetime);
+        release();
+        this.syncCurrentForm();
+      }
+    }
+    trackSave(operation) {
+      this.activeSaves.add(operation);
+      const settle = () => this.activeSaves.delete(operation);
+      void operation.then(settle, settle);
+      return operation;
+    }
+    enqueueDictionaryOperation(form2, task2) {
+      this.pendingDictionaryOperations++;
+      try {
+        if (form2) this.sync(form2);
+      } catch (error) {
+        this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
+        throw error;
+      }
+      const operation = this.dictionaryOperationTail.then(task2);
+      this.dictionaryOperationTail = operation.then(() => void 0, () => void 0);
+      return operation.finally(() => {
+        this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
+        if (form2?.isConnected) this.sync(form2);
+        this.syncOtherCurrentForm(form2);
+      });
+    }
+    sync(form2) {
+      const state = this.operationUiState();
+      const save = form2.querySelector('button[type="submit"]');
+      const status2 = form2.querySelector("[data-settings-save-status]");
+      syncSettingsSaveControl(save, state);
+      this.syncFormFreeze(form2, save);
+      if (status2) {
+        status2.hidden = !state.message;
+        status2.textContent = state.message;
+      }
+    }
+    showRestoreBlocked(form2) {
+      this.sync(form2);
+      this.port.toast(uiText(this.port.interfaceLanguage(), "settingsImportSaveBlocked"));
+    }
+    showStaleSaveDiscarded(form2) {
+      const message = uiText(this.port.interfaceLanguage(), "settingsImportStaleSaveDiscarded");
+      const status2 = form2.querySelector("[data-settings-save-status]");
+      if (status2) {
+        status2.hidden = false;
+        status2.textContent = message;
+      }
+      this.port.toast(message);
+    }
+    importBlocked(form2) {
+      if (!this.restorePending) return false;
+      this.showRestoreBlocked(form2);
+      return true;
+    }
+    async runRestore(form2, operation) {
+      this.startRestore(form2);
+      try {
+        await Promise.allSettled([
+          ...this.activeSaves,
+          ...this.activeDurableOperations
+        ]);
+        return await this.enqueueDictionaryOperation(form2, operation);
+      } finally {
+        this.endRestore(form2);
+      }
+    }
+    startRestore(form2) {
+      if (this.restorePending) throw new Error("A settings restore is already running.");
+      this.restorePending = true;
+      this.revision++;
+      try {
+        this.port.invalidateRestoreDependents();
+        if (form2) this.sync(form2);
+        this.syncOtherCurrentForm(form2);
+      } catch (error) {
+        this.revision++;
+        this.restorePending = false;
+        throw error;
+      }
+    }
+    endRestore(form2) {
+      this.revision++;
+      this.restorePending = false;
+      if (form2?.isConnected) this.sync(form2);
+      this.syncOtherCurrentForm(form2);
+    }
+    operationUiState() {
+      const language2 = this.port.interfaceLanguage();
+      if (this.restorePending) return restoreUiState(language2);
+      if (this.pendingDictionaryOperations > 0) {
+        return dictionaryQueueUiState(this.pendingDictionaryOperations, language2);
+      }
+      return this.operationUiStateWithoutRestore(language2);
+    }
+    operationUiStateWithoutRestore(language2) {
+      if (this.activeDurableOperations.size > 0) return busyUiState(language2, "settings-action");
+      if (this.savePending) return busyUiState(language2, "settings-save");
+      return readyUiState(language2);
+    }
+    syncFormFreeze(form2, save) {
+      const snapshot = this.freezeSnapshot(form2);
+      this.syncRestoreFieldsets(form2, snapshot.fieldsets);
+      this.syncFrozenControls(form2, save, snapshot.controls);
+      if (!snapshot.fieldsets.size && !snapshot.controls.size) this.freezeSnapshots.delete(form2);
+    }
+    freezeSnapshot(form2) {
+      const existing = this.freezeSnapshots.get(form2);
+      if (existing) return existing;
+      const snapshot = {
+        fieldsets: /* @__PURE__ */ new Map(),
+        controls: /* @__PURE__ */ new Map()
+      };
+      this.freezeSnapshots.set(form2, snapshot);
+      return snapshot;
+    }
+    syncRestoreFieldsets(form2, snapshots) {
+      if (!this.restorePending) {
+        restoreDisabledSnapshots(snapshots);
+        return;
+      }
+      form2.querySelectorAll("fieldset[data-settings-panel]").forEach((fieldset) => {
+        rememberAndDisable(fieldset, snapshots);
+      });
+    }
+    syncFrozenControls(form2, save, snapshots) {
+      for (const [control2, disabled] of snapshots) {
+        if (this.controlShouldFreeze(control2, save)) continue;
+        control2.disabled = disabled;
+        snapshots.delete(control2);
+      }
+      form2.querySelectorAll("input, select, textarea, button").forEach((control2) => {
+        if (this.controlShouldFreeze(control2, save)) rememberAndDisable(control2, snapshots);
+      });
+    }
+    controlShouldFreeze(control2, save) {
+      if (controlStaysInteractive(control2, save)) return false;
+      if (this.restorePending) return !control2.closest("fieldset[data-settings-panel]");
+      if (!this.savePending) return false;
+      return settingsActionIsUnsafe(control2);
+    }
+    showDictionarySaveBlocked(form2) {
+      this.sync(form2);
+      const message = uiText(this.port.interfaceLanguage(), "dictionaryInstallSaveBlocked");
+      const status2 = form2.querySelector("[data-settings-save-status]");
+      if (status2) {
+        status2.hidden = false;
+        status2.textContent = message;
+      }
+      this.port.toast(message);
+    }
+    syncCurrentForm() {
+      const form2 = this.port.currentForm();
+      if (form2?.isConnected) this.sync(form2);
+    }
+    syncOtherCurrentForm(form2) {
+      const current = this.port.currentForm();
+      if (current && current !== form2 && current.isConnected) this.sync(current);
+    }
+  }
+  function controlStaysInteractive(control2, save) {
+    return control2 === save || control2.dataset.action === "cancel";
+  }
+  function settingsActionIsUnsafe(control2) {
+    const action2 = control2.dataset.action;
+    if (!action2) return false;
+    return settingsActionMode(action2) !== "local";
+  }
+  function rememberAndDisable(control2, snapshots) {
+    if (!snapshots.has(control2)) snapshots.set(control2, control2.disabled);
+    control2.disabled = true;
+  }
+  function restoreDisabledSnapshots(snapshots) {
+    for (const [control2, disabled] of snapshots) control2.disabled = disabled;
+    snapshots.clear();
+  }
+  function restoreUiState(language2) {
+    return {
+      busy: true,
+      message: uiText(language2, "settingsImportSaveBlocked"),
+      saveLabel: uiText(language2, "saveAfterImport"),
+      blockedBy: "settings-import"
+    };
+  }
+  function dictionaryQueueUiState(count2, language2) {
+    const message = uiText(language2, "dictionaryImportQueueStatus").replace("{count}", count2.toLocaleString()).replace("{plural}", count2 === 1 ? "" : "s");
+    return {
+      busy: true,
+      message,
+      saveLabel: uiText(language2, "saveAfterInstall"),
+      blockedBy: "dictionary-import"
+    };
+  }
+  function busyUiState(language2, blockedBy) {
+    return {
+      busy: true,
+      message: "",
+      saveLabel: uiText(language2, "save"),
+      blockedBy
+    };
+  }
+  function readyUiState(language2) {
+    return { busy: false, message: "", saveLabel: uiText(language2, "save") };
+  }
+  function syncSettingsSaveControl(save, state) {
+    if (!save) return;
+    const accessibleLabel = state.message || state.saveLabel;
+    save.setAttribute("aria-disabled", String(state.busy));
+    save.disabled = state.busy;
+    save.replaceChildren(state.saveLabel);
+    save.title = accessibleLabel;
+    save.setAttribute("aria-label", accessibleLabel);
+    if (state.blockedBy) save.dataset.saveBlocked = state.blockedBy;
+    else delete save.dataset.saveBlocked;
+  }
+  const READER_SETTINGS_BACKUP_FORMATS = /* @__PURE__ */ new Set([
+    "yomu-reader-settings",
+    "jpdb-popup-reader-settings"
+  ]);
+  function readerStorageRestorePayload(value) {
+    if (!isStorageBackupRecord(value)) return null;
+    const record2 = value;
+    return READER_SETTINGS_BACKUP_FORMATS.has(record2.formatName ?? "") ? record2.storage : null;
+  }
+  function isStorageBackupRecord(value) {
+    return typeof value === "object" && value !== null;
+  }
+  function settingsRestoreSaveOptions(previous, next, importedView) {
+    const persistPreferredJapaneseSiteLanguage = importedView !== null || previous.preferJapaneseSiteLanguage !== next.preferJapaneseSiteLanguage;
+    if (!importedView) {
+      return {
+        persistPreferredJapaneseSiteLanguage,
+        explicitUserChoiceKeys: changedSettingsKeys(previous, next)
+      };
+    }
+    const normalizedKeys = Object.keys(next);
+    const knownKeys = new Set(normalizedKeys);
+    const explicitUserChoiceKeys = settingsIntentKeys(importedView.intentLedger).filter((key2) => knownKeys.has(key2));
+    return {
+      persistPreferredJapaneseSiteLanguage,
+      clearExplicitUserChoiceKeys: normalizedKeys,
+      explicitUserChoiceKeys
+    };
+  }
+  function witnessedSettingsRestoreCandidate(previous, fallback, importedView) {
+    if (!importedView) return fallback;
+    const witnessed = importedView.settings;
+    return normalizeReaderSettings({
+      ...previous,
+      ...witnessed,
+      shortcuts: { ...previous.shortcuts, ...witnessed.shortcuts ?? {} }
+    });
+  }
+  async function runSettingsRestoreTransaction(options) {
+    const importedView = await restoreSettingsPersistenceView(options);
+    await options.prepareSettings?.(importedView);
+    const storedValues = await beginStoredValuesImport(options.storage);
+    try {
+      await options.stageBeforeSettings?.();
+      await options.publishSettings(importedView);
+      storedValues.commit();
+      return { restoredValues: storedValues.count };
+    } catch (error) {
+      return rollbackSettingsRestore(error, storedValues, options.rollbackBeforeSettings);
+    }
+  }
+  async function restoreSettingsPersistenceView(options) {
+    try {
+      return await readBackupSettingsPersistenceView(options.storage);
+    } catch (error) {
+      if (options.allowInvalidSettingsAuthorityFallback && error instanceof InvalidSettingsBackupAuthorityError) return null;
+      throw error;
+    }
+  }
+  async function rollbackSettingsRestore(error, storedValues, rollbackBeforeSettings) {
+    const rollbackErrors = await collectRollbackErrors([
+      rollbackBeforeSettings ?? noRollback,
+      () => storedValues.rollback()
+    ]);
+    if (!rollbackErrors.length) throw error;
+    throw new AggregateError(
+      [error, ...rollbackErrors],
+      `Settings restore failed and ${rollbackErrors.length} rollback operation(s) also failed.`
+    );
+  }
+  async function collectRollbackErrors(operations) {
+    const failures = [];
+    for (const operation of operations) {
+      try {
+        await operation();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    return failures;
+  }
+  async function noRollback() {
+  }
+  async function restoreReaderSettingsBackup(file, previousSettings, port) {
+    const json = JSON.parse(await file.text());
+    const hasTopLevelSettings = getReaderSettingsExport(json) !== null;
+    let importedSettings = initialImportedSettings(json, previousSettings);
+    const dictionaries2 = await BundledDictionaryRestore.prepare(json, port);
+    const result2 = await runSettingsRestoreTransaction({
+      storage: readerStorageRestorePayload(json),
+      allowInvalidSettingsAuthorityFallback: hasTopLevelSettings,
+      prepareSettings: (importedView) => {
+        importedSettings = witnessedSettingsRestoreCandidate(
+          previousSettings,
+          importedSettings,
+          importedView
+        );
+      },
+      stageBeforeSettings: () => dictionaries2.stage(importedSettings).then((settings) => {
+        importedSettings = settings;
+      }),
+      rollbackBeforeSettings: () => dictionaries2.rollback(),
+      publishSettings: (importedView) => port.persistSettings(
+        importedSettings,
+        settingsRestoreSaveOptions(previousSettings, importedSettings, importedView)
+      )
+    });
+    port.adoptSettings(importedSettings);
+    return importSettingsStatus(result2.restoredValues, dictionaries2.summary, importedSettings.interfaceLanguage);
+  }
+  class BundledDictionaryRestore {
+    constructor(restore, port) {
+      this.restore = restore;
+      this.port = port;
+    }
+    mutationAttempted = false;
+    importedSummary = null;
+    static async prepare(json, port) {
+      return new BundledDictionaryRestore(await dictionaryRestoreFiles(json, port.dictionaries), port);
+    }
+    get summary() {
+      return this.importedSummary;
+    }
+    async stage(settings) {
+      if (this.restore) await this.importBundledDictionaries(this.restore.imported, settings.interfaceLanguage);
+      const merged = await mergeImportedDictionaryPreferences(settings, this.port.dictionaries);
+      this.port.dictionaryStateChanged();
+      return merged;
+    }
+    async rollback() {
+      if (!this.restore || !this.mutationAttempted) return;
+      await this.port.dictionaries.importFile(this.restore.previous);
+      await markDictionaryReplicaFresh();
+      this.port.dictionaryStateChanged();
+    }
+    async importBundledDictionaries(file, language2) {
+      this.mutationAttempted = true;
+      this.port.setStatus(uiText(language2, "importingBundledDictionaries"));
+      this.importedSummary = await this.port.dictionaries.importFile(
+        file,
+        (message) => this.port.setStatus(message)
+      );
+      await markDictionaryReplicaFresh();
+    }
+  }
+  async function dictionaryRestoreFiles(json, dictionaries2) {
+    const dictionaryExport = getReaderDictionaryExport(json);
+    if (!readerDictionaryExportHasData(dictionaryExport)) return null;
+    return {
+      imported: jsonFile(dictionaryExport, "yomu-dictionaries-from-settings.json"),
+      previous: new File(
+        [await dictionaries2.exportJson()],
+        "yomu-dictionaries-before-settings-restore.json",
+        { type: "application/json" }
+      )
+    };
+  }
+  function jsonFile(value, filename) {
+    return new File([JSON.stringify(value)], filename, { type: "application/json" });
+  }
+  async function mergeImportedDictionaryPreferences(settings, dictionaries2) {
+    const importedSummary = await dictionaries2.summary().catch(() => ({ dictionaries: [] }));
+    const importedNames = importedSummary.dictionaries.map((item2) => item2.title);
+    const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item2) => [item2.title, item2.type]));
+    const merged = mergeDictionaryPreferences(
+      retireStaleDictionaryPreferences(settings.dictionaryPreferences, importedNames),
+      importedNames,
+      importedTypes
+    );
+    return captureActiveLanguageProfileDictionaries(settings, merged);
+  }
+  function initialImportedSettings(json, current) {
+    const readerSettings = getReaderSettingsExport(json);
+    return readerSettings ? normalizeReaderSettings({
+      ...current,
+      ...readerSettings,
+      shortcuts: { ...current.shortcuts, ...readerSettings.shortcuts }
+    }) : importedYomitanSettings(json, current);
+  }
+  function importedYomitanSettings(json, current) {
+    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
+    return normalizeReaderSettings({
+      ...current,
+      ...imported.settings,
+      shortcuts: {
+        ...current.shortcuts,
+        ...imported.settings.shortcuts ?? {}
+      }
+    });
+  }
+  function importSettingsStatus(restoredValues, dictionarySummary, language2) {
+    const details = restoreStatusDetails(restoredValues, dictionarySummary, language2);
+    return details.length ? uiText(language2, "settingsImportedWithDetails").replace("{details}", details.join("; ")) : uiText(language2, "settingsImported");
+  }
+  function restoreStatusDetails(restoredValues, dictionarySummary, language2) {
+    const details = [];
+    if (restoredValues) {
+      details.push(countStatus(uiText(language2, "restoredStoredChoices"), restoredValues));
+    }
+    if (dictionarySummary) {
+      details.push(countStatus(uiText(language2, "importedDictionaryRecordCount"), dictionarySummary.entries));
+    }
+    return details;
+  }
+  function countStatus(template, count2) {
+    return template.replace("{count}", count2.toLocaleString()).replace("{plural}", count2 === 1 ? "" : "s");
+  }
+  function cloudSettingsActionEnabled(enabled, action2) {
+    return enabled && isCloudSettingsAction(action2);
+  }
+  function settingsForCloudAction(action2, form2, settings) {
+    if (action2 === "sync-cloud-settings") return readFormSettings(new FormData(form2), settings);
+    return settings;
+  }
+  function setCloudSettingsActionButtonDisabled(button2, disabled) {
+    if (disabled) button2?.setAttribute("disabled", "true");
+    else button2?.removeAttribute("disabled");
+  }
+  function notifyCloudSettingsPersistenceFailed(callback2, previousSettings) {
+    callback2?.(previousSettings);
+  }
+  function reportCloudSettingsStatus(setStatus, message) {
+    setStatus?.(message);
+  }
+  class SettingsCloudSyncCoordinator {
+    constructor(port) {
+      this.port = port;
+    }
+    async handle(form2, action2, button2, setStatus, language2) {
+      if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action2)) return false;
+      if (this.port.restore.importBlocked(form2)) return true;
+      if (!cloudSettingsSyncAvailable()) return reportUnavailable(setStatus, language2);
+      return this.runAuthorizedAction(form2, action2, button2, setStatus, language2);
+    }
+    async perform(action2, language2, setStatus, previousSettings = this.port.settings(), authorization, restoreForm) {
+      if (action2 === "sync-cloud-settings") {
+        await this.upload(previousSettings, authorization, setStatus, language2);
+        return;
+      }
+      await this.restore(authorization, setStatus, language2, restoreForm);
+    }
+    async runAuthorizedAction(form2, action2, button2, setStatus, language2) {
+      setCloudSettingsActionButtonDisabled(button2, true);
+      const authorization = createCloudSettingsAuthorization();
+      const redirectHandoff = cloudSettingsRedirectHandoffRequired();
+      const restoreRevision = this.port.restore.importRevision;
+      await rememberCloudSettingsRedirectHandoff(redirectHandoff, action2, authorization);
+      const previousSettings = this.port.stableSettings();
+      try {
+        if (!this.restoreRevisionIsCurrent(form2, restoreRevision)) return true;
+        this.port.setSettings(settingsForCloudAction(action2, form2, previousSettings));
+        await this.perform(action2, language2, setStatus, previousSettings, authorization, form2);
+        return true;
+      } catch (error) {
+        this.restoreAfterFailedUpload(action2, previousSettings);
+        throw error;
+      } finally {
+        await clearCloudSettingsRedirectHandoff(redirectHandoff);
+        this.finishButton(form2, button2);
+      }
+    }
+    restoreRevisionIsCurrent(form2, revision2) {
+      if (!this.port.restore.importPending && this.port.restore.saveRevisionIsCurrent(revision2)) return true;
+      this.port.restore.showRestoreBlocked(form2);
+      return false;
+    }
+    restoreAfterFailedUpload(action2, previousSettings) {
+      if (action2 === "restore-cloud-settings") return;
+      this.port.setSettings(previousSettings);
+      notifyCloudSettingsPersistenceFailed(this.port.onSettingsPersistenceFailed, previousSettings);
+    }
+    finishButton(form2, button2) {
+      if (this.port.restore.importPending) this.port.restore.sync(form2);
+      else setCloudSettingsActionButtonDisabled(button2, false);
+    }
+    async upload(previousSettings, authorization, setStatus, language2) {
+      if (this.port.restore.importPending) throw new Error("A settings restore is already running.");
+      await this.port.saveCurrentSettings(previousSettings);
+      const metadata2 = await uploadCloudSettingsToCloud(this.port.settings());
+      this.reportStatus(setStatus, cloudSettingsSyncedStatus(metadata2.syncedAt, language2));
+    }
+    async restore(authorization, setStatus, language2, restoreForm) {
+      const currentForm = this.port.currentForm();
+      const interlockForm = restoreForm ?? (currentForm?.isConnected ? currentForm : void 0);
+      await this.port.restore.runRestore(interlockForm, async () => {
+        await this.restoreSnapshot(authorization, setStatus, language2);
+      });
+    }
+    async restoreSnapshot(authorization, setStatus, language2) {
+      const settingsBeforeRestore = this.port.stableSettings();
+      const snapshot = await downloadCloudSettingsFromCloud();
+      if (!snapshot) {
+        reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language2));
+        return;
+      }
+      let importedSettings = normalizeCloudSettings(snapshot.settings, settingsBeforeRestore);
+      try {
+        await runSettingsRestoreTransaction({
+          storage: snapshot.storage,
+          prepareSettings: (importedView) => {
+            importedSettings = witnessedSettingsRestoreCandidate(
+              settingsBeforeRestore,
+              importedSettings,
+              importedView
+            );
+          },
+          publishSettings: (importedView) => this.port.persistSettings(
+            importedSettings,
+            settingsRestoreSaveOptions(settingsBeforeRestore, importedSettings, importedView)
+          )
+        });
+      } catch (error) {
+        this.notifyRestorePersistenceFailure(settingsBeforeRestore);
+        throw error;
+      }
+      this.port.adoptSettings(importedSettings);
+      this.reportStatusAfterCommit(setStatus, cloudSettingsRestoredStatus(snapshot.syncedAt, language2));
+      this.port.applyRestoreEffects();
+    }
+    notifyRestorePersistenceFailure(settingsBeforeRestore) {
+      if (this.port.stableSettings() !== settingsBeforeRestore) return;
+      notifyCloudSettingsPersistenceFailed(this.port.onSettingsPersistenceFailed, settingsBeforeRestore);
+    }
+    reportStatus(setStatus, message) {
+      reportCloudSettingsStatus(setStatus, message);
+      this.port.toast(message);
+    }
+    reportStatusAfterCommit(setStatus, message) {
+      this.port.runPostCommitEffect("cloud restore status reporting", () => this.reportStatus(setStatus, message));
+    }
+  }
+  function normalizeCloudSettings(imported, current) {
+    return normalizeReaderSettings({
+      ...current,
+      ...imported,
+      shortcuts: { ...current.shortcuts, ...imported.shortcuts }
+    });
+  }
+  function reportUnavailable(setStatus, language2) {
+    setStatus(cloudSettingsSyncUnavailableStatus(language2));
+    return true;
+  }
+  function cloudSettingsSyncUnavailableStatus(language2) {
+    return language2 === "ja" ? "このブラウザーではGoogle Drive設定同期を利用できません。" : "Google Drive settings sync is unavailable in this browser.";
+  }
+  function cloudSettingsNotFoundStatus(language2) {
+    return language2 === "ja" ? "Google Driveに保存されたYomu設定が見つかりません。" : "No Yomu settings were found in Google Drive.";
+  }
+  function cloudSettingsSyncedStatus(syncedAt, language2) {
+    const time = cloudSettingsSyncTime(syncedAt, language2);
+    return language2 === "ja" ? `設定をGoogle Driveに同期しました（${time}）。` : `Settings synced to Google Drive (${time}).`;
+  }
+  function cloudSettingsRestoredStatus(syncedAt, language2) {
+    const time = cloudSettingsSyncTime(syncedAt, language2);
+    return language2 === "ja" ? `Google Drive設定を復元しました（${time}）。` : `Google Drive settings restored (${time}).`;
+  }
+  function cloudSettingsSyncTime(value, language2) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(language2 === "ja" ? "ja-JP" : void 0);
+  }
+  const log$4 = Logger.scope("SettingsActionRouter");
+  class SettingsActionRouter {
+    constructor(port, gate) {
+      this.port = port;
+      this.gate = gate;
+    }
+    bind(form2) {
+      form2.addEventListener("click", (event) => this.handleClick(form2, event));
+      form2.addEventListener("keydown", (event) => this.handleKeydown(form2, event));
+    }
+    handleClick(form2, event) {
+      if (this.port.handlePreviewLookup(event)) return;
+      const target2 = settingsActionTarget(event);
+      if (!target2) return;
+      this.dispatchActionClick(form2, event, target2);
+    }
+    dispatchActionClick(form2, event, target2) {
+      event.preventDefault();
+      event.stopPropagation();
+      const ticket = this.gate.captureAction(form2, target2.action);
+      if (!ticket) return;
+      const permission = authenticationInfoPermissionForAction(form2, target2.action, this.port.settings());
+      if (permission) void this.handlePermissionDelayedAction(form2, target2, permission, ticket);
+      else void this.executeAction(form2, target2, ticket);
+    }
+    handleKeydown(form2, event) {
+      if (this.consumeAnkiTagKeydown(form2, event)) return;
+      if (!isSettingsPreviewKey(event)) return;
+      if (this.port.handlePreviewLookup(event)) event.preventDefault();
+    }
+    consumeAnkiTagKeydown(form2, event) {
+      if (!this.port.handleAnkiTagKeydown(form2, event)) return false;
+      event.preventDefault();
+      return true;
+    }
+    async handlePermissionDelayedAction(form2, target2, permission, ticket) {
+      try {
+        const consent = await permission;
+        const language2 = getFormInterfaceLanguage(form2, this.port.settings().interfaceLanguage);
+        if (!acceptFirefoxAuthenticationInfoConsent(consent, language2, this.port.toast)) return;
+        await this.executeAction(form2, target2, ticket);
+      } catch (error) {
+        this.reportActionError(form2, target2, error);
+      }
+    }
+    async executeAction(form2, target2, ticket) {
+      const setStatus = settingsStatusSetter(form2, target2.control);
+      try {
+        await this.gate.runAction(form2, ticket, () => this.port.handleAction({
+          form: form2,
+          action: target2.action,
+          control: target2.control,
+          setStatus
+        }));
+      } catch (error) {
+        this.reportActionError(form2, target2, error, setStatus);
+      }
+    }
+    reportActionError(form2, target2, error, setStatus = settingsStatusSetter(form2, target2.control)) {
+      const language2 = getFormInterfaceLanguage(form2, this.port.settings().interfaceLanguage);
+      const message = handleSettingsActionError(target2.action, target2.control, setStatus, error, language2);
+      this.port.toast(message);
+    }
+  }
+  function acceptFirefoxAuthenticationInfoConsent(consent, language2, toast) {
+    if (consent === "granted") return true;
+    const key2 = consent === "extension-page-required" ? "firefoxAuthenticationInfoExtensionPageRequired" : "firefoxAuthenticationInfoDenied";
+    toast(uiText(language2, key2));
+    return false;
+  }
+  function handleSettingsActionError(action2, control2, setStatus, error, language2) {
+    log$4.warn("Settings action failed", { action: action2 }, error);
+    if (shouldReenableSettingsAction(action2)) control2?.removeAttribute("disabled");
+    const message = userFacingErrorText(language2, "actionFailed", error);
+    setStatus(message);
+    return message;
+  }
+  function settingsActionTarget(event) {
+    const control2 = event.target.closest("[data-action]");
+    const action2 = control2?.dataset.action;
+    if (!control2 || !action2 || action2 === "cancel") return null;
+    return { control: control2, action: action2 };
+  }
+  function isSettingsPreviewKey(event) {
+    return event.key === "Enter" || event.key === " ";
+  }
+  function authenticationInfoPermissionForAction(form2, action2, settings) {
+    if (action2 === "sync-cloud-settings") {
+      return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form2), settings));
+    }
+    if (actionNeedsCredentialPermission(action2)) return requestFirefoxAuthenticationInfoPermission();
+    return void 0;
+  }
+  function actionNeedsCredentialPermission(action2) {
+    return action2 === "restore-cloud-settings" || action2 === "import-yomitan-settings" || action2 === "connect-academy-account";
+  }
+  function settingsStatusSetter(form2, control2) {
+    return (message) => {
+      const originPanel = control2?.closest("fieldset[data-settings-panel]");
+      const status2 = originPanel?.querySelector("[data-import-status]") ?? form2.querySelector("#jpdb-reader-settings-panel-backup [data-import-status]") ?? form2.querySelector("[data-import-status]");
+      if (!status2) return;
+      status2.textContent = message;
+      status2.hidden = false;
+    };
+  }
+  function shouldReenableSettingsAction(action2) {
+    return action2 === "download-recommended-dictionary" || action2 === "delete-yomitan-dictionary";
+  }
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
@@ -375854,15 +377780,6 @@ ${options.version}`;
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-  function settingsStatusSetter(form2, control2) {
-    return (message) => {
-      const originPanel = control2?.closest("fieldset[data-settings-panel]");
-      const status2 = originPanel?.querySelector("[data-import-status]") ?? form2.querySelector("#jpdb-reader-settings-panel-backup [data-import-status]") ?? form2.querySelector("[data-import-status]");
-      if (!status2) return;
-      status2.textContent = message;
-      status2.hidden = false;
-    };
-  }
   function focusPreviewAudioSource(form2, button2, previewSettings) {
     const row2 = button2?.closest("[data-audio-source-row]");
     if (!row2) return;
@@ -376020,28 +377937,73 @@ ${options.version}`;
     if (key2 === "End") return tabCount - 1;
     return -1;
   }
-  function handleSettingsActionError(action2, control2, setStatus, error, language2) {
-    log$3.warn("Settings action failed", { action: action2 }, error);
-    if (shouldReenableSettingsAction(action2)) control2?.removeAttribute("disabled");
-    const message = userFacingErrorText(language2, "actionFailed", error);
-    setStatus(message);
-    return message;
-  }
-  function shouldReenableSettingsAction(action2) {
-    return action2 === "download-recommended-dictionary" || action2 === "delete-yomitan-dictionary";
-  }
   function isAnkiConnectSetupError(error) {
     if (isAnkiConnectAvailabilityError(error)) return true;
     const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
     return /AnkiConnect/i.test(message) && /(not reachable|request failed|timed out|failed to fetch|networkerror|request bridge|CORS)/i.test(message);
   }
+  function dictionaryImportReport(files, results) {
+    const summaries = results.flatMap((result2) => result2.status === "fulfilled" ? [result2.value] : []);
+    return {
+      summaries,
+      records: summaries.reduce((total, summary) => total + summary.entries, 0),
+      sources: new Set(summaries.flatMap((summary) => summary.dictionaries)).size,
+      failures: results.flatMap((result2, index) => result2.status === "rejected" ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result2.reason }] : [])
+    };
+  }
+  function dictionaryImportStatusMessage(language2, report) {
+    const messageKey = report.failures.length ? "dictionaryImportResultWithFailures" : "dictionaryImportComplete";
+    return formatUiTemplate(uiText(language2, messageKey), {
+      records: report.records.toLocaleString(),
+      sources: report.sources.toLocaleString(),
+      plural: pluralSuffix(report.sources),
+      failed: report.failures.length.toLocaleString(),
+      failedPlural: pluralSuffix(report.failures.length),
+      files: report.failures.map((failure) => failure.filename).join(", ")
+    });
+  }
+  function pluralSuffix(count2) {
+    return count2 === 1 ? "" : "s";
+  }
+  function syncCheckedControl(control2, checked) {
+    if (control2) control2.checked = checked;
+  }
   class SettingsDialogController {
     constructor(dependencies) {
       this.dependencies = dependencies;
+      this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
       this.academyAccountSync = new AcademyAccountSyncSettingsController((message) => dependencies.toast(message));
+      this.restoreCoordinator = new SettingsRestoreCoordinator({
+        interfaceLanguage: () => this.settings.interfaceLanguage,
+        currentForm: () => this.currentForm,
+        toast: (message) => dependencies.toast(message),
+        invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations()
+      });
+      this.cloudSettings = new SettingsCloudSyncCoordinator({
+        settings: () => this.settings,
+        stableSettings: () => this.stableSettings,
+        setSettings: (settings) => {
+          this.settings = settings;
+        },
+        saveCurrentSettings: (previous) => this.saveCurrentSettings(previous),
+        persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
+        adoptSettings: (settings) => this.adoptPersistedSettings(settings),
+        onSettingsPersistenceFailed: dependencies.onSettingsPersistenceFailed,
+        toast: (message) => dependencies.toast(message),
+        currentForm: () => this.currentForm,
+        restore: this.restoreCoordinator,
+        runPostCommitEffect: (label, effect) => this.runPostCommitSettingsEffect(label, effect),
+        applyRestoreEffects: () => this.applySettingsRestoreEffects(true, "backup")
+      });
+      this.actionRouter = new SettingsActionRouter({
+        settings: () => this.settings,
+        toast: (message) => dependencies.toast(message),
+        handlePreviewLookup: (event) => this.handleSettingsPreviewLookup(event),
+        handleAnkiTagKeydown: (form2, event) => this.handleAnkiTagInputKeydown(form2, event),
+        handleAction: (context2) => this.handleSettingsAction(context2)
+      }, this.restoreCoordinator);
     }
-    dictionaryOperationQueue = Promise.resolve();
-    pendingDictionaryOperations = 0;
+    previewBaseline;
     dictionarySiteStorageClearPending = false;
     recommendedDictionaryOperations = /* @__PURE__ */ new Map();
     currentForm;
@@ -376057,9 +378019,13 @@ ${options.version}`;
     targetDictionaryAvailabilityRequestId = 0;
     publishedDictionaryLanguagesPromise;
     academyAccountSync;
+    restoreCoordinator;
+    cloudSettings;
+    actionRouter;
     settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
+      this.previewBaseline.start(this.dependencies.getSettings());
       const trigger = settingsDialogTrigger(document.activeElement);
       const launcher = mountSensitiveSettingsLauncher(
         this.dependencies,
@@ -376087,13 +378053,13 @@ ${options.version}`;
       this.bindLivePreview(form2);
       this.bindEditorControls(form2);
       syncLanguageFamilyDom(form2, activeTargetLanguageId(this.settings));
-      this.currentForm = form2;
       this.dependencies.mountDialog(backdrop, form2);
+      this.currentForm = form2;
       this.modal.activate(form2, trigger);
       installSettingsDrawerHandle(form2, uiText(this.settings.interfaceLanguage, "resizeSettings"), () => this.dismissSettings());
       this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
       this.syncRecommendedDictionaryInstallControls(form2);
-      this.syncDictionaryOperationState(form2);
+      this.restoreCoordinator.sync(form2);
       this.syncJpdbStatus(form2);
       void this.academyAccountSync.refresh(form2, this.settings.interfaceLanguage);
       void this.refreshAnkiConnectionStatus(form2);
@@ -376111,13 +378077,14 @@ ${options.version}`;
     onCatalogBrowseRendered(form2) {
       this.syncRecommendedDictionaryInstallControls(form2);
       if (this.dictionarySiteStorageClearPending) this.setDictionaryImportsDisabledForSiteClear(form2, true);
+      this.restoreCoordinator.sync(form2);
     }
     refreshLanguage(language2 = this.settings.interfaceLanguage) {
       const form2 = this.currentForm;
       if (!form2?.isConnected) return;
       localizeSettingsForm(form2, language2);
       this.syncRecommendedDictionaryInstallControls(form2);
-      this.syncDictionaryOperationState(form2);
+      this.restoreCoordinator.sync(form2);
       this.syncJpdbStatus(form2);
       void this.academyAccountSync.refresh(form2, language2);
       void this.refreshAnkiConnectionStatus(form2);
@@ -376133,7 +378100,7 @@ ${options.version}`;
         readPending: readPendingCloudSettingsAction,
         clearPending: clearPendingCloudSettingsAction,
         consumeAuthorization: (expectedState) => cloudSettingsAuthRedirectResult(),
-        perform: (action2, language2) => this.performCloudSettingsAction(action2, language2, void 0),
+        perform: (action2, language2) => action2 === "sync-cloud-settings" ? this.restoreCoordinator.runDurableOperation(() => this.cloudSettings.perform(action2, language2)) : this.cloudSettings.perform(action2, language2),
         authorizationFailed: (error, language2) => {
           log$3.warn("Cloud settings authorization failed", { message: error });
           this.dependencies.toast(uiText(language2, "actionFailed"));
@@ -376145,8 +378112,11 @@ ${options.version}`;
     get settings() {
       return this.dependencies.getSettings();
     }
+    get stableSettings() {
+      return this.previewBaseline.settings;
+    }
     set settings(settings) {
-      this.dependencies.setSettings(settings);
+      this.previewBaseline.stage(settings);
     }
     // Temporary form-derived swaps must not fire host-side transitions (the
     // dialog's annotations-off instant clear would otherwise trigger from a
@@ -376156,20 +378126,71 @@ ${options.version}`;
       this.dependencies.setSettings(settings, { transient: true });
       return previous;
     }
-    restoreTransientSettings(previous) {
-      this.dependencies.setSettings(previous, { transient: true });
+    restoreTransientSettings(_previous) {
+      this.previewBaseline.restoreTransient();
     }
-    async saveCurrentSettings(previousSettings) {
-      const settings = this.settings;
+    invalidateRestoreDependentOperations() {
+      this.saveRequestId++;
+      this.dictionaryRefreshId++;
+      this.jpdbConnectionProbeId++;
+      this.wanikaniConnectionProbeId++;
+      this.ankiConnectionProbeId++;
+      this.ankiLibraryScanId++;
+      this.ankiModelUpdatePromptId++;
+    }
+    saveCurrentSettings(previousSettings) {
+      const attemptedSettings = this.stableSettings;
+      return this.persistCurrentSettings(previousSettings).catch((error) => {
+        if (this.stableSettings === attemptedSettings) {
+          this.previewBaseline.capture(previousSettings);
+          try {
+            this.previewBaseline.publish();
+          } catch (rollbackError) {
+            log$3.warn("Failed to restore in-memory settings after persistence failure", { rollbackError });
+          }
+          this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+        }
+        throw error;
+      });
+    }
+    persistCurrentSettings(previousSettings, options) {
+      const settings = this.stableSettings;
+      return this.persistSettingsSnapshot(settings, options ?? {
+        persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+        explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
+      });
+    }
+    persistSettingsSnapshot(settings, options) {
+      const operation = this.dependencies.saveSettings(settings, options).then(() => this.notifySettingsPersisted(settings));
+      return this.restoreCoordinator.trackSave(operation);
+    }
+    notifySettingsPersisted(settings) {
+      this.previewBaseline.refreshHost();
       try {
-        await this.dependencies.saveSettings(settings, {
-          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
-        });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
-        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-        throw error;
+        log$3.warn("Post-persistence settings notification failed", { error });
+      }
+    }
+    adoptPersistedSettings(settings) {
+      this.previewBaseline.capture(settings);
+      try {
+        this.previewBaseline.publish();
+      } catch (error) {
+        log$3.warn("Post-persistence settings adoption failed", { error });
+      }
+      this.previewBaseline.refreshHost();
+    }
+    adoptLiveSettings(settings) {
+      this.previewBaseline.adoptLive(settings);
+    }
+    runPostCommitSettingsEffect(label, effect) {
+      try {
+        void Promise.resolve(effect()).catch((error) => {
+          log$3.warn(`Post-persistence ${label} failed`, { error });
+        });
+      } catch (error) {
+        log$3.warn(`Post-persistence ${label} failed`, { error });
       }
     }
     createSettingsForm(panel) {
@@ -376188,17 +378209,23 @@ ${options.version}`;
     }
     bindFormSubmit(form2) {
       bindAuthorizedReaderFormSubmit(form2, () => {
-        if (this.pendingDictionaryOperations > 0) {
-          this.showDictionarySaveBlocked(form2);
-          return;
-        }
-        const previousSettings = this.settings;
+        const previousSettings = this.stableSettings;
         const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
         const nextSettings = readFormSettings(new FormData(form2), previousSettings);
+        const settingsImportRevision = this.restoreCoordinator.beginSave(form2);
+        if (settingsImportRevision === void 0) return;
         const saveRequestId = ++this.saveRequestId;
         const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
         void credentialPermission.then((consent) => {
-          if (!this.acceptFirefoxAuthenticationInfoConsent(consent, this.settings.interfaceLanguage)) return;
+          if (!acceptFirefoxAuthenticationInfoConsent(
+            consent,
+            this.settings.interfaceLanguage,
+            (message) => this.dependencies.toast(message)
+          )) return;
+          if (!this.restoreCoordinator.saveRevisionIsCurrent(settingsImportRevision)) {
+            this.restoreCoordinator.showStaleSaveDiscarded(form2);
+            return;
+          }
           this.settings = nextSettings;
           configureLogger({ forceEnabled: this.settings.enableLogging });
           if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
@@ -376210,8 +378237,14 @@ ${options.version}`;
         }).catch((error) => {
           log$3.error("Settings save failed", error);
           this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "settingsSaveFailed", error));
+        }).finally(() => {
+          this.restoreCoordinator.finishSave(form2);
         });
-      });
+      }, () => reportInvalidSettingsForm(
+        form2,
+        this.settings.interfaceLanguage,
+        (message) => this.dependencies.toast(message)
+      ));
       form2.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
       form2.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || event.isComposing) return;
@@ -376229,6 +378262,7 @@ ${options.version}`;
         window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
         this.settingsJapaneseParseRefreshTimer = void 0;
       }
+      this.previewBaseline.restoreInterfaceLanguagePreview();
       this.modal.release();
       this.currentForm = void 0;
       this.dependencies.dismiss();
@@ -376243,6 +378277,7 @@ ${options.version}`;
      * Idempotent: a no-op once the background has been released.
      */
     releaseModalBackground() {
+      this.previewBaseline.restoreInterfaceLanguagePreview();
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
       this.modal.release();
     }
@@ -376269,19 +378304,27 @@ ${options.version}`;
       });
     }
     afterSettingsSaved(form2, saveRequestId) {
-      if (this.currentForm !== form2 || !form2.isConnected || this.saveRequestId !== saveRequestId) return;
-      this.dependencies.jpdb.clear();
-      this.dependencies.applyTheme();
-      this.dependencies.installFab();
-      this.dependencies.subtitles.refresh();
-      this.dependencies.ocr.refresh();
-      this.dependencies.youtube.refresh();
-      this.dependencies.clearSettingsPreview();
-      this.dismissSettings();
-      this.dependencies.scheduleDictionaryRescan();
-      this.dependencies.refreshNewTabIfCurrent();
-      this.dependencies.toast(uiText(this.settings.interfaceLanguage, "settingsSaved"));
-      void this.refreshDictionaryStylesAfterSave();
+      if (!this.settingsSaveEffectsAreCurrent(form2, saveRequestId)) return;
+      const effects = [
+        ["JPDB cache clear", () => this.dependencies.jpdb.clear()],
+        ["theme refresh", () => this.dependencies.applyTheme()],
+        ["reader button refresh", () => this.dependencies.installFab()],
+        ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
+        ["OCR refresh", () => this.dependencies.ocr.refresh()],
+        ["YouTube refresh", () => this.dependencies.youtube.refresh()],
+        ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
+        ["settings dialog dismissal", () => this.dismissSettings()],
+        ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
+        ["new-tab refresh", () => this.dependencies.refreshNewTabIfCurrent()],
+        ["settings save status reporting", () => this.dependencies.toast(
+          uiText(this.settings.interfaceLanguage, "settingsSaved")
+        )],
+        ["dictionary style refresh", () => this.refreshDictionaryStylesAfterSave()]
+      ];
+      for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+    }
+    settingsSaveEffectsAreCurrent(form2, saveRequestId) {
+      return this.currentForm === form2 && form2.isConnected && this.saveRequestId === saveRequestId;
     }
     async refreshDictionaryStylesAfterSave() {
       try {
@@ -376292,7 +378335,7 @@ ${options.version}`;
       }
     }
     bindLivePreview(form2) {
-      const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form2), this.settings));
+      const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form2), this.stableSettings));
       let pendingAccentColor;
       let accentPreviewFrame;
       const flushAccentPreview = () => {
@@ -376347,7 +378390,6 @@ ${options.version}`;
         const current = this.effectiveTheme(input2?.value);
         const next = current === "dark" ? "light" : "dark";
         if (input2) input2.value = next;
-        this.settings.theme = next;
         applyThemePreview();
         this.syncThemeSwitch(form2);
         publishSettingsChange({ theme: next }, { preview: true });
@@ -376355,9 +378397,7 @@ ${options.version}`;
       bindLiveSettingsSync(form2, {
         isActive: () => this.currentForm === form2 && form2.isConnected,
         getSettings: () => this.settings,
-        adoptSettings: (settings) => {
-          this.settings = settings;
-        },
+        adoptSettings: (settings) => this.adoptLiveSettings(settings),
         syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
           form2,
           settings,
@@ -376367,7 +378407,6 @@ ${options.version}`;
           const input2 = form2.querySelector("[data-theme-value]");
           if (input2 && input2.value !== theme) {
             input2.value = theme;
-            this.settings.theme = theme;
             applyThemePreview();
             this.syncThemeSwitch(form2);
           }
@@ -376439,9 +378478,15 @@ ${options.version}`;
       form2.querySelector('select[name="interfaceLanguage"]')?.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
         if (value !== "auto" && value !== "en" && value !== "ja") return;
-        this.settings.interfaceLanguage = value;
-        this.refreshLanguage(value);
-        this.dependencies.installFab();
+        const previewSettings = readFormSettings(new FormData(form2), this.stableSettings);
+        const previousSettings = this.swapSettingsTransiently(previewSettings);
+        this.previewBaseline.markInterfaceLanguagePreviewed();
+        try {
+          this.refreshLanguage(value);
+          this.dependencies.installFab();
+        } finally {
+          this.restoreTransientSettings(previousSettings);
+        }
       });
       form2.querySelector('select[name="ocrProvider"]')?.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
@@ -376499,6 +378544,16 @@ ${options.version}`;
     }
     bindEditorControls(form2) {
       suppressCredentialAutofill(form2);
+      this.bindMediaEditorControls(form2);
+      this.bindReviewEditorControls(form2);
+      this.bindCredentialEditorControls(form2);
+      this.bindAnkiEditorControls(form2);
+      form2.addEventListener("change", (event) => this.handleSettingsFormChange(form2, event));
+      installShortcutCapture(form2);
+      installSourceRowDrag(form2);
+      this.actionRouter.bind(form2);
+    }
+    bindMediaEditorControls(form2) {
       syncBrowserTtsVoiceOptions(form2);
       this.bindAudioSubSourceDetection(form2);
       const mediaPanel = form2.querySelector('[data-settings-panel="media"]');
@@ -376506,6 +378561,8 @@ ${options.version}`;
       if ("speechSynthesis" in window) {
         window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form2), { once: true });
       }
+    }
+    bindReviewEditorControls(form2) {
       form2.querySelector('input[name="enableReviews"]')?.addEventListener("change", () => {
         syncReviewSettingsVisibility(form2);
         syncDisabledSettingsControlDescriptions(form2, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
@@ -376519,6 +378576,8 @@ ${options.version}`;
       });
       syncJpdbMiningDependentSettings(form2);
       syncDisabledSettingsControlDescriptions(form2, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
+    }
+    bindCredentialEditorControls(form2) {
       for (const apiKeyInput of form2.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="apiCredentialWanikani"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
         apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form2));
         apiKeyInput.addEventListener("change", () => {
@@ -376526,40 +378585,25 @@ ${options.version}`;
           const nextSettings = readFormSettings(new FormData(form2), this.settings);
           const permission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
           void permission.then((consent) => {
-            if (!this.acceptFirefoxAuthenticationInfoConsent(consent, nextSettings.interfaceLanguage)) return;
+            if (!acceptFirefoxAuthenticationInfoConsent(
+              consent,
+              nextSettings.interfaceLanguage,
+              (message) => this.dependencies.toast(message)
+            )) return;
             void this.refreshDeckControls(form2);
             void this.refreshJpdbConnectionStatus(form2);
             void this.refreshWanikaniConnectionStatus(form2);
           });
         });
       }
+    }
+    bindAnkiEditorControls(form2) {
       form2.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form2));
       form2.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form2));
       form2.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form2));
       form2.querySelector('select[name="ankiModel"]')?.addEventListener("change", () => {
         this.retireAnkiModelUpdatePrompt(form2);
         void this.refreshAnkiModelUpdatePrompt(form2);
-      });
-      form2.addEventListener("change", (event) => this.handleSettingsFormChange(form2, event));
-      installShortcutCapture(form2);
-      installSourceRowDrag(form2);
-      form2.addEventListener("click", (event) => {
-        if (this.handleSettingsPreviewLookup(event)) return;
-        const control2 = event.target.closest("[data-action]");
-        const action2 = control2?.dataset.action;
-        if (!action2 || action2 === "cancel") return;
-        event.preventDefault();
-        event.stopPropagation();
-        const credentialPermission = this.authenticationInfoPermissionForAction(form2, action2);
-        void this.handleSettingsAction(form2, action2, control2, credentialPermission);
-      });
-      form2.addEventListener("keydown", (event) => {
-        if (this.handleAnkiTagInputKeydown(form2, event)) {
-          event.preventDefault();
-          return;
-        }
-        if (event.key !== "Enter" && event.key !== " ") return;
-        if (this.handleSettingsPreviewLookup(event)) event.preventDefault();
       });
     }
     handleSettingsPreviewLookup(event) {
@@ -376730,8 +378774,7 @@ ${options.version}`;
         this.refreshSettingsJapaneseParse(form2);
         return;
       }
-      const originalKey = this.settings.apiKey;
-      this.settings.apiKey = apiKey;
+      const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
       try {
         const decks = await this.dependencies.jpdb.listDecks();
         setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage)));
@@ -376739,7 +378782,7 @@ ${options.version}`;
         log$3.warn("Deck controls failed to load", error);
         setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage)));
       } finally {
-        this.settings.apiKey = originalKey;
+        this.restoreTransientSettings(previous);
         localizeSettingsForm(form2, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
         this.refreshSettingsJapaneseParse(form2);
       }
@@ -376800,29 +378843,40 @@ ${options.version}`;
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
     // connected/rejected answer (Anki and Jiten already have live probes).
     async refreshJpdbConnectionStatus(form2) {
+      const probe = this.prepareJpdbConnectionProbe(form2);
+      if (!probe) return;
+      const connected = await this.runJpdbConnectionProbe(probe.apiKey);
+      if (!this.jpdbConnectionProbeIsCurrent(form2, probe.requestId)) return;
+      this.renderJpdbConnectionProbe(form2, probe, connected);
+      this.refreshSettingsJapaneseParse(form2);
+    }
+    prepareJpdbConnectionProbe(form2) {
       this.syncJpdbStatus(form2);
       const status2 = form2.querySelector("[data-jpdb-status]");
-      if (!status2) return;
+      if (!status2) return null;
       const formSettings = readFormSettings(new FormData(form2), this.settings);
       const apiKey = effectiveJpdbApiKey(formSettings);
-      if (!apiKey) return;
-      if (typeof this.dependencies.jpdb.ping !== "function") return;
-      const requestId = ++this.jpdbConnectionProbeId;
-      const originalKey = this.settings.apiKey;
-      this.settings.apiKey = apiKey;
-      let connected = false;
+      if (!apiKey) return null;
+      if (typeof this.dependencies.jpdb.ping !== "function") return null;
+      return { status: status2, formSettings, apiKey, requestId: ++this.jpdbConnectionProbeId };
+    }
+    async runJpdbConnectionProbe(apiKey) {
+      const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
       try {
-        connected = await this.dependencies.jpdb.ping();
+        return await this.dependencies.jpdb.ping?.() ?? false;
       } finally {
-        this.settings.apiKey = originalKey;
+        this.restoreTransientSettings(previous);
       }
-      if (this.currentForm !== form2 || !form2.isConnected || requestId !== this.jpdbConnectionProbeId) return;
+    }
+    jpdbConnectionProbeIsCurrent(form2, requestId) {
+      return this.currentForm === form2 && form2.isConnected && requestId === this.jpdbConnectionProbeId;
+    }
+    renderJpdbConnectionProbe(form2, probe, connected) {
       const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
-      const successKey = hasJitenApiCredential(formSettings) ? "jpdbAndJitenConnected" : "jpdbConnected";
+      const successKey = hasJitenApiCredential(probe.formSettings) ? "jpdbAndJitenConnected" : "jpdbConnected";
       const line2 = connected ? { message: uiText(language2, successKey), tone: "success" } : { message: uiText(language2, "jpdbConnectionFailed"), tone: "error" };
-      status2.dataset.statusTone = line2.tone;
-      status2.textContent = formatSettingsStatusLine(line2, language2);
-      this.refreshSettingsJapaneseParse(form2);
+      probe.status.dataset.statusTone = line2.tone;
+      probe.status.textContent = formatSettingsStatusLine(line2, language2);
     }
     async refreshAnkiConnectionStatus(form2) {
       const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
@@ -376968,9 +379022,9 @@ ${options.version}`;
       const id2 = ++this.dictionaryRefreshId;
       return refreshDictionaryPanel({
         form: form2,
-        current: () => this.currentForm === form2 && form2.isConnected && id2 === this.dictionaryRefreshId,
+        current: () => !this.restoreCoordinator.importPending && this.currentForm === form2 && form2.isConnected && id2 === this.dictionaryRefreshId,
         loadSummary: () => this.dependencies.dictionaries.summary(),
-        prepareSummary: (summary) => this.mergeDictionaryPreferencesFromSummary(summary),
+        prepareSummary: (summary) => this.mergeDictionaryPreferencesFromSummary(summary, id2),
         refreshStyles: () => this.dependencies.refreshDictionaryStyles(),
         renderContext: () => liveDictionaryPanelContext(form2, this.settings),
         afterRender: () => this.afterDictionaryPanelRendered(form2),
@@ -377026,7 +379080,7 @@ ${options.version}`;
       localizeSettingsForm(form2, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
       installCatalogBrowseFilter(form2);
       this.syncRecommendedDictionaryInstallControls(form2);
-      this.syncDictionaryOperationState(form2);
+      this.restoreCoordinator.sync(form2);
       this.refreshSettingsJapaneseParse(form2);
     }
     refreshSettingsJapaneseParse(form2) {
@@ -377040,62 +379094,29 @@ ${options.version}`;
         }, 0);
       });
     }
-    async mergeDictionaryPreferencesFromSummary(summary) {
-      const names = summary.dictionaries.map((item2) => item2.title);
-      const types = Object.fromEntries(summary.dictionaries.map((item2) => [item2.title, item2.type]));
-      const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
-      if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
-      this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+    async mergeDictionaryPreferencesFromSummary(summary, requestId) {
+      if (!this.dictionaryRefreshIsCurrent(requestId)) return;
+      const previousSettings = this.stableSettings;
+      const nextSettings = settingsWithDiscoveredDictionaries(previousSettings, summary);
+      if (!nextSettings) return;
+      if (!this.dictionaryRefreshIsCurrent(requestId)) return;
+      await this.persistDiscoveredDictionaryPreferences(previousSettings, nextSettings);
     }
-    async enqueueDictionaryOperation(form2, task2) {
-      this.pendingDictionaryOperations++;
-      this.syncDictionaryOperationState(form2);
-      const operation = this.dictionaryOperationQueue.then(task2);
-      this.dictionaryOperationQueue = operation.then(() => void 0, () => void 0);
+    dictionaryRefreshIsCurrent(requestId) {
+      return !this.restoreCoordinator.importPending && requestId === this.dictionaryRefreshId;
+    }
+    async persistDiscoveredDictionaryPreferences(previousSettings, nextSettings) {
+      this.settings = nextSettings;
+      const attemptedSettings = this.stableSettings;
       try {
-        return await operation;
-      } finally {
-        this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
-        this.syncDictionaryOperationState(form2);
+        await this.persistSettingsSnapshot(attemptedSettings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+      } catch (error) {
+        this.restoreDiscoveredDictionaryPreferences(previousSettings, attemptedSettings);
+        throw error;
       }
     }
-    syncDictionaryOperationState(form2) {
-      const save = form2.querySelector('button[type="submit"]');
-      const status2 = form2.querySelector("[data-settings-save-status]");
-      const busy = this.pendingDictionaryOperations > 0;
-      const message = busy ? formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportQueueStatus"), {
-        count: this.pendingDictionaryOperations.toLocaleString(),
-        plural: this.pendingDictionaryOperations === 1 ? "" : "s"
-      }) : "";
-      if (save) {
-        save.setAttribute("aria-disabled", String(busy));
-        save.disabled = busy;
-        if (busy) {
-          save.dataset.saveBlocked = "dictionary-import";
-          save.replaceChildren(uiText(this.settings.interfaceLanguage, "saveAfterInstall"));
-          save.title = message;
-          save.setAttribute("aria-label", message);
-        } else {
-          delete save.dataset.saveBlocked;
-          save.replaceChildren(uiText(this.settings.interfaceLanguage, "save"));
-          save.title = uiText(this.settings.interfaceLanguage, "save");
-          save.setAttribute("aria-label", uiText(this.settings.interfaceLanguage, "save"));
-        }
-      }
-      if (!status2) return;
-      status2.hidden = !busy;
-      status2.textContent = message;
-    }
-    showDictionarySaveBlocked(form2) {
-      this.syncDictionaryOperationState(form2);
-      const message = uiText(this.settings.interfaceLanguage, "dictionaryInstallSaveBlocked");
-      const status2 = form2.querySelector("[data-settings-save-status]");
-      if (status2) {
-        status2.hidden = false;
-        status2.textContent = message;
-      }
-      this.dependencies.toast(message);
+    restoreDiscoveredDictionaryPreferences(previousSettings, failedSettings) {
+      if (this.stableSettings === failedSettings) this.settings = previousSettings;
     }
     setRecommendedDictionaryInstallState(form2, dictionaryId, state, message) {
       this.recommendedDictionaryOperations.set(dictionaryId, { state, message });
@@ -377141,43 +379162,27 @@ ${options.version}`;
         }
       });
     }
-    async handleSettingsAction(form2, action2, control2, credentialPermission) {
-      const setStatus = settingsStatusSetter(form2, control2);
-      try {
-        if (credentialPermission) {
-          const consent = await credentialPermission;
-          const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
-          if (!this.acceptFirefoxAuthenticationInfoConsent(consent, language2)) return;
-        }
-        await this.runSettingsAction(form2, action2, control2, setStatus);
-      } catch (error) {
-        const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
-        const message = handleSettingsActionError(action2, control2, setStatus, error, language2);
-        this.dependencies.toast(message);
-      }
-    }
-    authenticationInfoPermissionForAction(form2, action2) {
-      if (action2 === "sync-cloud-settings") {
-        return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form2), this.settings));
-      }
-      if (action2 === "restore-cloud-settings" || action2 === "import-yomitan-settings" || action2 === "connect-academy-account") {
-        return requestFirefoxAuthenticationInfoPermission();
-      }
-      return void 0;
-    }
-    acceptFirefoxAuthenticationInfoConsent(consent, language2) {
-      if (consent === "granted") return true;
-      const key2 = consent === "extension-page-required" ? "firefoxAuthenticationInfoExtensionPageRequired" : "firefoxAuthenticationInfoDenied";
-      this.dependencies.toast(uiText(language2, key2));
-      return false;
-    }
-    async runSettingsAction(form2, action2, control2, setStatus) {
-      const handled = this.handleSettingsEditorAction(form2, action2, control2) || await this.handleSettingsAudioAction(form2, action2, control2) || await this.handleSettingsDictionaryAction(form2, action2, control2, setStatus) || await this.academyAccountSync.handle(form2, action2, this.settings.interfaceLanguage) || await this.handleSettingsCloudSyncAction(form2, action2, control2, setStatus) || await this.handleSettingsImportExportAction(form2, action2, setStatus);
-      if (!handled) await this.handleSettingsConnectionOrSupportAction(form2, action2, control2, setStatus);
-    }
     async handleSettingsConnectionOrSupportAction(form2, action2, control2, setStatus) {
       if (await this.handleSettingsConnectionAction(form2, action2, control2)) return true;
       return await this.handleSettingsSupportAction(action2, control2, setStatus);
+    }
+    async handleSettingsAction(context2) {
+      const { form: form2, action: action2, control: control2, setStatus } = context2;
+      if (this.handleSettingsEditorAction(form2, action2, control2)) return;
+      if (await this.handleSettingsMediaAction(context2)) return;
+      if (await this.handleSettingsAccountAction(context2)) return;
+      await this.handleSettingsConnectionOrSupportAction(form2, action2, control2, setStatus);
+    }
+    async handleSettingsMediaAction(context2) {
+      const { form: form2, action: action2, control: control2, setStatus } = context2;
+      if (await this.handleSettingsAudioAction(form2, action2, control2)) return true;
+      return this.handleSettingsDictionaryAction(form2, action2, control2, setStatus);
+    }
+    async handleSettingsAccountAction(context2) {
+      const { form: form2, action: action2, control: control2, setStatus } = context2;
+      if (await this.academyAccountSync.handle(form2, action2, this.settings.interfaceLanguage)) return true;
+      if (await this.handleSettingsCloudSyncAction(form2, action2, control2, setStatus)) return true;
+      return this.handleSettingsImportExportAction(form2, action2, setStatus);
     }
     handleSettingsEditorAction(form2, action2, control2) {
       if (action2 === "settings-panel") {
@@ -377311,12 +379316,17 @@ ${options.version}`;
     async handleSettingsDictionaryAction(form2, action2, control2, setStatus) {
       const disclosure = handleCatalogBrowseDisclosureAction(action2, form2, control2, () => this.refreshDictionaryStatus(form2));
       if (disclosure) return disclosure;
-      if (dictionaryActionBlockedDuringSiteClear(action2, this.dictionarySiteStorageClearPending)) {
-        setStatus(uiText(getFormInterfaceLanguage(form2, this.settings.interfaceLanguage), "clearLocalDictionarySiteStorageClearing"));
-        return true;
-      }
+      if (this.dictionaryActionBlockedBySiteClear(form2, action2, setStatus)) return true;
+      return this.handleDictionaryMutationOrTransfer(form2, action2, control2, setStatus);
+    }
+    async handleDictionaryMutationOrTransfer(form2, action2, control2, setStatus) {
       if (await this.handleDictionaryStorageAction(form2, action2, control2, setStatus)) return true;
       return this.handleDictionaryTransferAction(form2, action2, control2, setStatus);
+    }
+    dictionaryActionBlockedBySiteClear(form2, action2, setStatus) {
+      if (!dictionaryActionBlockedDuringSiteClear(action2, this.dictionarySiteStorageClearPending)) return false;
+      setStatus(uiText(getFormInterfaceLanguage(form2, this.settings.interfaceLanguage), "clearLocalDictionarySiteStorageClearing"));
+      return true;
     }
     async handleDictionaryStorageAction(form2, action2, control2, setStatus) {
       if (action2 === "clear-local-dictionary-site-storage") {
@@ -377347,64 +379357,8 @@ ${options.version}`;
       return false;
     }
     async handleSettingsCloudSyncAction(form2, action2, control2, setStatus) {
-      if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action2)) return false;
       const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
-      if (!cloudSettingsSyncAvailable()) {
-        setStatus(cloudSettingsSyncUnavailableStatus(language2));
-        return true;
-      }
-      const button2 = settingsActionButton(control2);
-      setCloudSettingsActionButtonDisabled(button2, true);
-      const authorization = createCloudSettingsAuthorization();
-      const redirectHandoff = cloudSettingsRedirectHandoffRequired();
-      await rememberCloudSettingsRedirectHandoff(redirectHandoff, action2, authorization);
-      const previousSettings = this.settings;
-      try {
-        this.settings = settingsForCloudAction(action2, form2, this.settings);
-        await this.performCloudSettingsAction(action2, language2, setStatus, previousSettings, authorization);
-        return true;
-      } catch (error) {
-        notifyCloudSettingsPersistenceFailed(this.dependencies.onSettingsPersistenceFailed, previousSettings);
-        throw error;
-      } finally {
-        await clearCloudSettingsRedirectHandoff(redirectHandoff);
-        setCloudSettingsActionButtonDisabled(button2, false);
-      }
-    }
-    async performCloudSettingsAction(action2, language2, setStatus, previousSettings = this.settings, authorization) {
-      if (action2 === "sync-cloud-settings") {
-        await this.saveCurrentSettings(previousSettings);
-        const metadata2 = await uploadCloudSettingsToCloud(this.settings);
-        const message2 = cloudSettingsSyncedStatus(metadata2.syncedAt, language2);
-        reportCloudSettingsStatus(setStatus, message2);
-        this.dependencies.toast(message2);
-        return;
-      }
-      const snapshot = await downloadCloudSettingsFromCloud();
-      if (!snapshot) {
-        reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language2));
-        return;
-      }
-      const settingsBeforeRestore = this.settings;
-      this.settings = normalizeReaderSettings({
-        ...this.settings,
-        ...snapshot.settings,
-        shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
-      });
-      await importStoredValues(snapshot.storage);
-      await this.saveCurrentSettings(settingsBeforeRestore);
-      const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language2);
-      reportCloudSettingsStatus(setStatus, message);
-      this.dependencies.toast(message);
-      this.dependencies.applyTheme();
-      void this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
-      this.dependencies.installFab();
-      this.dependencies.subtitles.refresh();
-      this.dependencies.ocr.refresh();
-      this.dependencies.youtube.refresh();
-      this.dependencies.clearSettingsPreview();
-      this.open("backup");
+      return this.cloudSettings.handle(form2, action2, settingsActionButton(control2), setStatus, language2);
     }
     async handleSettingsImportExportAction(form2, action2, setStatus) {
       if (action2 === "import-yomitan-settings") {
@@ -377413,12 +379367,13 @@ ${options.version}`;
       }
       if (action2 === "export-reader-settings") {
         const dictionaries2 = await this.exportReaderDictionaryBackup();
+        const backup = await exportSettingsBackupSnapshot(this.stableSettings);
         downloadBlob(new Blob([JSON.stringify({
           formatName: "yomu-reader-settings",
           formatVersion: 3,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          settings: this.settings,
-          storage: await exportManagedStoredValues(),
+          settings: backup.settings,
+          storage: backup.storage,
           ...dictionaries2 ? { dictionaries: dictionaries2 } : {}
         }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form2, this.settings.interfaceLanguage), "settingsExported"));
@@ -377746,39 +379701,39 @@ ${options.version}`;
       this.setDictionaryImportsDisabledForSiteClear(form2, true);
       setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
       try {
-        await this.enqueueDictionaryOperation(form2, async () => {
-          const previousSettings = this.settings;
-          let settingsSaved = false;
-          setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
-          try {
-            this.settings = { ...previousSettings, localDictionariesEnabled: false };
-            await this.saveCurrentSettings(previousSettings);
-            settingsSaved = true;
-            if (enabled) enabled.checked = false;
-            await requestDictionaryReplicaPurge();
-            await this.dependencies.dictionaries.deleteDatabase();
-            this.dictionaryRefreshId++;
-            await this.dependencies.refreshDictionaryStyles();
-            const dictionaryStatus = form2.querySelector("[data-dictionary-status]");
-            if (dictionaryStatus) dictionaryStatus.textContent = uiText(language2, "noLocalDictionariesImported");
-            this.dependencies.scheduleDictionaryRescan();
-            this.dependencies.refreshNewTabIfCurrent();
-            const message = uiText(language2, "clearLocalDictionarySiteStorageDone");
-            setStatus(message);
-            this.dependencies.toast(message);
-          } catch (error) {
-            if (!settingsSaved) {
-              this.settings = previousSettings;
-              if (enabled) enabled.checked = previousSettings.localDictionariesEnabled;
-            }
-            throw error;
-          }
-        });
+        await this.restoreCoordinator.enqueueDictionaryOperation(
+          form2,
+          () => this.clearLocalDictionarySiteStorage(form2, enabled, setStatus, language2)
+        );
       } finally {
         this.dictionarySiteStorageClearPending = false;
         this.setDictionaryImportsDisabledForSiteClear(form2, false);
         button2?.removeAttribute("disabled");
       }
+    }
+    async clearLocalDictionarySiteStorage(form2, enabled, setStatus, language2) {
+      const previousSettings = this.settings;
+      setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
+      this.settings = { ...previousSettings, localDictionariesEnabled: false };
+      try {
+        await this.saveCurrentSettings(previousSettings);
+      } catch (error) {
+        this.settings = previousSettings;
+        syncCheckedControl(enabled, previousSettings.localDictionariesEnabled);
+        throw error;
+      }
+      syncCheckedControl(enabled, false);
+      await requestDictionaryReplicaPurge();
+      await this.dependencies.dictionaries.deleteDatabase();
+      this.dictionaryRefreshId++;
+      await this.dependencies.refreshDictionaryStyles();
+      const dictionaryStatus = form2.querySelector("[data-dictionary-status]");
+      if (dictionaryStatus) dictionaryStatus.textContent = uiText(language2, "noLocalDictionariesImported");
+      this.dependencies.scheduleDictionaryRescan();
+      this.dependencies.refreshNewTabIfCurrent();
+      const message = uiText(language2, "clearLocalDictionarySiteStorageDone");
+      setStatus(message);
+      this.dependencies.toast(message);
     }
     setDictionaryImportsDisabledForSiteClear(form2, disabled) {
       form2.querySelectorAll(
@@ -377800,50 +379755,40 @@ ${options.version}`;
       if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoveConfirm"), { dictionary }))) return;
       control2?.setAttribute("disabled", "true");
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoving"), { dictionary }));
-      await this.dependencies.dictionaries.deleteDictionary(dictionary);
-      this.dictionaryRefreshId++;
-      await clearNewTabOfflineCache().catch(() => void 0);
-      this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item2) => item2.name !== dictionary);
-      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
-      await this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
-      await this.refreshDictionaryStatus(form2);
-      this.dependencies.refreshNewTabIfCurrent();
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
+      await this.restoreCoordinator.enqueueDictionaryOperation(form2, async () => {
+        await this.dependencies.dictionaries.deleteDictionary(dictionary);
+        this.dictionaryRefreshId++;
+        await clearNewTabOfflineCache().catch(() => void 0);
+        const previousSettings = this.stableSettings;
+        this.settings = { ...previousSettings, dictionaryPreferences: previousSettings.dictionaryPreferences.filter((item2) => item2.name !== dictionary) };
+        await this.saveCurrentSettings(previousSettings);
+        await this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
+        await this.refreshDictionaryStatus(form2);
+        this.dependencies.refreshNewTabIfCurrent();
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
+      });
     }
     async importDictionaryFromSettings(form2, setStatus) {
-      const files = await pickFiles(form2, "dictionary");
+      const files = await this.dictionaryImportFiles(form2);
       if (!files.length) return;
-      const results = await Promise.allSettled(files.map((file) => this.enqueueDictionaryOperation(form2, async () => {
+      const results = await Promise.allSettled(files.map((file) => this.restoreCoordinator.enqueueDictionaryOperation(form2, async () => {
         const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
         await this.persistDictionaryImport(summary);
         return summary;
       })));
-      const summaries = results.flatMap((result2) => result2.status === "fulfilled" ? [result2.value] : []);
-      if (summaries.length) {
+      const report = dictionaryImportReport(files, results);
+      if (report.summaries.length) {
         await this.refreshDictionaryStatus(form2);
         this.dependencies.refreshNewTabIfCurrent();
       }
-      const records2 = summaries.reduce((total, summary) => total + summary.entries, 0);
-      const sources = new Set(summaries.flatMap((summary) => summary.dictionaries)).size;
-      const failures = results.flatMap((result2, index) => result2.status === "rejected" ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result2.reason }] : []);
-      if (failures.length) {
-        failures.forEach((failure) => log$3.warn("Dictionary file import failed", failure));
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportResultWithFailures"), {
-          records: records2.toLocaleString(),
-          sources: sources.toLocaleString(),
-          plural: sources === 1 ? "" : "s",
-          failed: failures.length.toLocaleString(),
-          failedPlural: failures.length === 1 ? "" : "s",
-          files: failures.map((failure) => failure.filename).join(", ")
-        }));
-        return;
-      }
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportComplete"), {
-        records: records2.toLocaleString(),
-        sources: sources.toLocaleString(),
-        plural: sources === 1 ? "" : "s"
-      }));
+      report.failures.forEach((failure) => log$3.warn("Dictionary file import failed", failure));
+      setStatus(dictionaryImportStatusMessage(this.settings.interfaceLanguage, report));
+    }
+    async dictionaryImportFiles(form2) {
+      const files = await pickFiles(form2, "dictionary");
+      if (!files.length) return files;
+      return this.restoreCoordinator.importBlocked(form2) ? [] : files;
     }
     queueRecommendedDictionaryDownloadFromSettings(form2, control2, setStatus) {
       void this.downloadRecommendedDictionaryFromSettings(form2, control2, setStatus).catch((error) => {
@@ -377858,7 +379803,7 @@ ${options.version}`;
       const queuedMessage = formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryInstallQueued"), { dictionary: dictionary.name });
       this.setRecommendedDictionaryInstallState(form2, dictionary.id, "queued", queuedMessage);
       setStatus(queuedMessage);
-      await this.enqueueDictionaryOperation(form2, async () => {
+      await this.restoreCoordinator.enqueueDictionaryOperation(form2, async () => {
         try {
           const startedMessage = recommendedDictionaryDownloadStatus(control2, dictionary.name, this.settings.interfaceLanguage);
           this.setRecommendedDictionaryInstallState(form2, dictionary.id, "installing", startedMessage);
@@ -377882,18 +379827,19 @@ ${options.version}`;
     }
     async persistDictionaryImport(summary) {
       this.dictionaryRefreshId++;
+      const previousSettings = this.stableSettings;
       const dictionaryPreferences = mergeDictionaryPreferences(
-        this.settings.dictionaryPreferences,
+        previousSettings.dictionaryPreferences,
         summary.dictionaries,
         summary.dictionaryTypes ?? {},
         summary.replacedDictionaries ?? []
       );
       this.settings = captureActiveLanguageProfileDictionaries(
-        { ...this.settings, localDictionariesEnabled: true },
+        { ...previousSettings, localDictionariesEnabled: true },
         dictionaryPreferences
       );
       await markDictionaryReplicaFresh();
-      await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
+      await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
     }
@@ -377954,45 +379900,51 @@ ${options.version}`;
     async importReaderSettingsFromFile(form2, setStatus) {
       const file = await pickFile(form2, "settings");
       if (!file) return;
-      const previousSettings = this.settings;
-      const json = JSON.parse(await file.text());
-      try {
-        const readerSettings = getReaderSettingsExport(json);
-        this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
-        const restoredValues = await importStoredValues(getReaderStorageExport(json));
-        const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
-        await this.mergeImportedDictionaryPreferences();
-        this.dictionaryRefreshId++;
-        await this.saveCurrentSettings(previousSettings);
-        setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
-      } catch (error) {
-        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-        throw error;
-      }
-      this.dependencies.applyTheme();
-      void this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
-      this.dependencies.installFab();
-      this.dependencies.subtitles.refresh();
-      this.dependencies.youtube.refresh();
-      this.dependencies.clearSettingsPreview();
-      this.open();
+      if (this.restoreCoordinator.importBlocked(form2)) return;
+      const successMessage = await this.runReaderSettingsImport(form2, file, setStatus);
+      this.runPostCommitSettingsEffect("settings import status reporting", () => {
+        setStatus(successMessage);
+        this.dependencies.toast(successMessage);
+      });
+      this.applySettingsRestoreEffects(false);
     }
-    async importReaderDictionaryBackup(json, setStatus) {
-      const dictionaryExport = getReaderDictionaryExport(json);
-      if (!readerDictionaryExportHasData(dictionaryExport)) return null;
-      setStatus(uiText(this.settings.interfaceLanguage, "importingBundledDictionaries"));
-      const file = new File([JSON.stringify(dictionaryExport)], "yomu-dictionaries-from-settings.json", { type: "application/json" });
-      const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
-      await this.persistDictionaryImport(summary);
-      return summary;
+    async runReaderSettingsImport(form2, file, setStatus) {
+      return this.restoreCoordinator.runRestore(form2, async () => {
+        const previousSettings = this.stableSettings;
+        try {
+          return await this.applyReaderSettingsImport(file, previousSettings, setStatus);
+        } catch (error) {
+          if (this.stableSettings === previousSettings) {
+            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+          }
+          throw error;
+        }
+      });
     }
-    async mergeImportedDictionaryPreferences() {
-      const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
-      const importedNames = importedSummary.dictionaries.map((item2) => item2.title);
-      const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item2) => [item2.title, item2.type]));
-      const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
-      this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
+    async applyReaderSettingsImport(file, previousSettings, setStatus) {
+      return restoreReaderSettingsBackup(file, previousSettings, {
+        dictionaries: this.dependencies.dictionaries,
+        setStatus,
+        persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
+        adoptSettings: (settings) => this.adoptPersistedSettings(settings),
+        dictionaryStateChanged: () => {
+          this.dictionaryRefreshId++;
+        }
+      });
+    }
+    applySettingsRestoreEffects(refreshOcr, panel) {
+      const effects = [
+        ["theme refresh", () => this.dependencies.applyTheme()],
+        ["dictionary style refresh", () => this.dependencies.refreshDictionaryStyles()],
+        ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
+        ["reader button refresh", () => this.dependencies.installFab()],
+        ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
+        ["YouTube refresh", () => this.dependencies.youtube.refresh()],
+        ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
+        ["settings dialog refresh", () => this.open(panel)]
+      ];
+      if (refreshOcr) effects.splice(5, 0, ["OCR refresh", () => this.dependencies.ocr.refresh()]);
+      for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
     }
   }
   function isDictionarySourceOrderAction(action2) {
@@ -378004,62 +379956,22 @@ ${options.version}`;
   function isLookupLinkEditorAction(action2) {
     return action2 === "lookup-link-add" || action2 === "lookup-link-remove" || action2 === "lookup-link-up" || action2 === "lookup-link-down";
   }
-  function getReaderStorageExport(value) {
-    if (!value || typeof value !== "object") return null;
-    const record2 = value;
-    return record2.formatName === "yomu-reader-settings" || record2.formatName === "jpdb-popup-reader-settings" ? record2.storage : null;
+  function settingsWithDiscoveredDictionaries(current, summary) {
+    const names = summary.dictionaries.map((item2) => item2.title);
+    const types = Object.fromEntries(summary.dictionaries.map((item2) => [item2.title, item2.type]));
+    const merged = mergeDictionaryPreferences(
+      retireStaleDictionaryPreferences(current.dictionaryPreferences, names),
+      names,
+      types
+    );
+    if (JSON.stringify(merged) === JSON.stringify(current.dictionaryPreferences)) return null;
+    return captureActiveLanguageProfileDictionaries(current, merged);
   }
   function publishSettingsChange(settings, options = {}) {
     publishSettingsChange$1({ preview: options.preview === true, settings });
   }
-  function importSettingsStatus(restoredValues, dictionarySummary, language2) {
-    const details = [];
-    if (restoredValues) {
-      details.push(formatUiTemplate(uiText(language2, "restoredStoredChoices"), {
-        count: restoredValues.toLocaleString(),
-        plural: restoredValues === 1 ? "" : "s"
-      }));
-    }
-    if (dictionarySummary) {
-      details.push(formatUiTemplate(uiText(language2, "importedDictionaryRecordCount"), {
-        count: dictionarySummary.entries.toLocaleString(),
-        plural: dictionarySummary.entries === 1 ? "" : "s"
-      }));
-    }
-    return details.length ? formatUiTemplate(uiText(language2, "settingsImportedWithDetails"), { details: details.join("; ") }) : uiText(language2, "settingsImported");
-  }
-  function cloudSettingsSyncUnavailableStatus(language2) {
-    return language2 === "ja" ? "このブラウザーではGoogle Drive設定同期を利用できません。" : "Google Drive settings sync is unavailable in this browser.";
-  }
-  function cloudSettingsNotFoundStatus(language2) {
-    return language2 === "ja" ? "Google Driveに保存されたYomu設定が見つかりません。" : "No Yomu settings were found in Google Drive.";
-  }
-  function cloudSettingsSyncedStatus(syncedAt, language2) {
-    const time = cloudSettingsSyncTime(syncedAt, language2);
-    return language2 === "ja" ? `設定をGoogle Driveに同期しました（${time}）。` : `Settings synced to Google Drive (${time}).`;
-  }
-  function cloudSettingsRestoredStatus(syncedAt, language2) {
-    const time = cloudSettingsSyncTime(syncedAt, language2);
-    return language2 === "ja" ? `Google Drive設定を復元しました（${time}）。` : `Google Drive settings restored (${time}).`;
-  }
-  function cloudSettingsSyncTime(value, language2) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString(language2 === "ja" ? "ja-JP" : void 0);
-  }
   function formatUiTemplate(template, values) {
     return template.replace(/\{([a-z]+)\}/gi, (_, key2) => values[key2] ?? "");
-  }
-  function importedYomitanSettings(json, current) {
-    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
-    return normalizeReaderSettings({
-      ...current,
-      ...imported.settings,
-      shortcuts: {
-        ...current.shortcuts,
-        ...imported.settings.shortcuts ?? {}
-      }
-    });
   }
   const KANJI_STATIC_SOURCE_MOUNTS = {
     [KANJI_JPDB_SOURCE_ID]: "<div data-kanji-jpdb-mount></div>",
@@ -378557,10 +380469,11 @@ ${options.version}`;
     const hostedBridge = isHostedYomuOrigin();
     const reconciliation2 = createAsyncReconciliation(async () => {
       if (!active) return;
-      receive(await loadSettings());
-    });
+      receive(await loadSettingsWithWitnessedAuthority());
+    }, () => void 0);
     const onStorageBridgeReady = () => reconciliation2.request();
     if (hostedBridge) addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+    if (hostedBridge) reconciliation2.request();
     return () => {
       active = false;
       reconciliation2.stop();
@@ -379997,11 +381910,18 @@ ${rank2.detail}` : baseTitle;
   function bootNewTabRuntime() {
     void startNewTabRuntime().catch((error) => log.error("New tab initialization failed", error));
   }
-  async function startNewTabRuntime() {
-    await ensureManagedWebStorageCurrent();
-    const app = new NewTabRuntime();
+  async function startNewTabRuntime(options = {}) {
+    await ensureExtensionStudySettingsAuthority({
+      reportFailure: (failure) => log.warn("Packaged Study settings recovery failed", {
+        rawChosenSettingsDetected: failure.rawChosenSettingsDetected
+      })
+    });
+    await (options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent)();
+    const app = (options.createRuntime ?? (() => new NewTabRuntime()))();
     await app.init();
-    addWindowEventListener("pagehide", () => app.destroy(), { once: true });
+    (options.registerPagehide ?? ((destroy) => {
+      addWindowEventListener("pagehide", destroy, { once: true });
+    }))(() => app.destroy());
   }
   async function mountNewTabStudySurface(host2, options) {
     await ensureManagedWebStorageCurrent();
@@ -380274,8 +382194,8 @@ ${rank2.detail}` : baseTitle;
       this.installExternalRefreshListener();
       configureLogger({ settingsProvider: () => this.settings });
       this.factoryReset.bind();
-      this.settings = await loadSettings();
-      this.applyConfiguredInterfaceLanguage();
+      this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettingsWithWitnessedAuthority(), this.options.interfaceLanguage);
+      this.installSettingsStorageSubscription();
       configureLogger({ forceEnabled: this.settings.enableLogging });
       this.applyInterfaceLocale();
       this.applyTheme();
@@ -380283,24 +382203,20 @@ ${rank2.detail}` : baseTitle;
       if (!runtimeTargetSettings) return;
       this.syncLookupTarget(runtimeTargetSettings);
       this.assertSessionVocabularyReadOnly();
+      const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
       this.newTab = this.createNewTabController();
       await this.newTab.renderPage();
       this.openPendingOnboardingSettingsPanel();
-      this.openRequestedSettingsPanel();
+      this.openRequestedSettingsPanel(requestedSettingsPanel);
       void this.refreshDictionaryStyles();
       this.scheduleDictionaryIndexPreparation();
       this.scheduleAnkiStatusWarmup();
       this.installCardStateSignalSubscription();
       installAcademyReaderSrsSync();
-      this.installSettingsStorageSubscription();
       void this.settingsDialog.resumePendingCloudSettingsSync();
     }
     markOwnedRuntime() {
       if (!this.options.mountHost) markNewTabRuntime();
-    }
-    applyConfiguredInterfaceLanguage() {
-      if (!this.options.interfaceLanguage) return;
-      this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
     }
     scheduleDictionaryIndexPreparation() {
       if (!this.settings.localDictionariesEnabled) return;
@@ -380394,15 +382310,18 @@ ${rank2.detail}` : baseTitle;
       });
     }
     async applyRemoteSettings(settings) {
-      this.settings = settings;
-      this.syncRuntimeTarget(settings);
-      configureLogger({ forceEnabled: settings.enableLogging });
+      const effectiveSettings = newTabSettingsWithPageInterfaceLanguage(settings, this.options.interfaceLanguage);
+      this.settings = effectiveSettings;
+      void this.onboarding?.waitForCompletion(effectiveSettings);
+      this.syncRuntimeTarget(effectiveSettings);
+      configureLogger({ forceEnabled: effectiveSettings.enableLogging });
       this.cardRenderData.clear();
       this.parseContentCache.clear();
       this.jpdbVocabulary.clear();
       this.parser.clearLocalCache();
-      this.applyTheme(settings);
-      this.applyWordColors(settings);
+      this.applyInterfaceLocale();
+      this.applyTheme(effectiveSettings);
+      this.applyWordColors(effectiveSettings);
       await this.refreshDictionaryStyles();
       if (this.newTab?.isCurrentPage()) await this.newTab.renderPage();
       this.scheduleAnkiStatusWarmup();
@@ -380601,13 +382520,17 @@ ${rank2.detail}` : baseTitle;
       this.pendingOnboardingSettingsPanel = void 0;
       if (panel) this.showSettings(panel);
     }
-    openRequestedSettingsPanel() {
+    consumeRequestedSettingsPanel() {
       const panel = settingsPanelFromHash(location.hash);
-      if (!panel) return;
+      if (!panel) return null;
       try {
         history.replaceState(history.state, "", `${location.pathname}${location.search}`);
       } catch {
       }
+      return panel;
+    }
+    openRequestedSettingsPanel(panel) {
+      if (!panel) return;
       this.showSettings(panel);
     }
     activeBunproFrontendApiToken() {
@@ -381952,6 +383875,7 @@ ${rank2.detail}` : baseTitle;
     __proto__: null,
     NewTabRuntime,
     bootNewTabRuntime,
-    mountNewTabStudySurface
+    mountNewTabStudySurface,
+    startNewTabRuntime
   }, Symbol.toStringTag, { value: "Module" }));
 })();

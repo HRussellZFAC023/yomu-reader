@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "private": true,
   "type": "module",
   "description": "よむ: target-aware popup lookup, subtitles, OCR, and Study for 33 learning languages.",
@@ -129,6 +129,7 @@
     "store:chrome:description": "node scripts/print-chrome-store-description.mjs",
     "docs:build": "npm run docs:og-image && npm run api:build && npm run docs:settings-reference:check && npm run docs:locales:check && npm run docs:locales:coverage && node scripts/check-public-docs.mjs && vitepress build docs && vite-node scripts/check-rendered-docs-locales.mts",
     "manual:settings-persistence": "node scripts/manual/settings-persistence-smoke.mjs",
+    "manual:firefox-settings-authority": "node scripts/manual/firefox-settings-authority-smoke.mjs",
     "manual:multilingual-lookup-coverage": "vite-node scripts/manual/multilingual-lookup-coverage.ts",
     "manual:multilingual-parity": "vite-node --mode production scripts/manual/multilingual-parity.ts",
     "quality:multilingual-capabilities": "vite-node scripts/manual/multilingual-capability-audit.ts",
@@ -245,7 +246,7 @@
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:layout-neutral-scan": "node scripts/layout-neutral-page-scan-smoke.mjs",
-    "smoke:layout-regressions": "npm run smoke:layout-neutral-scan && npm run smoke:prose-portal && npm run smoke:fractional-projection && npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:youtube-paused-frame-register",
+    "smoke:layout-regressions": "npm run smoke:layout-neutral-scan && npm run smoke:prose-portal && npm run smoke:fractional-projection && npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:trusted-form-submit-order && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:youtube-paused-frame-register",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",
     "manual:subtitle-live-sites": "node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",
@@ -286,6 +287,7 @@
     "manual:lookup-popover-strip": "node scripts/manual/lookup-popover-strip-smoke.mjs",
     "smoke:transcript-drawer": "node scripts/transcript-drawer-row-smoke.mjs",
     "smoke:drag-handle": "node scripts/drag-handle-gesture-smoke.mjs",
+    "smoke:trusted-form-submit-order": "node scripts/trusted-form-submit-order-smoke.mjs",
     "smoke:subtitle-highlight": "node scripts/subtitle-highlight-layers-smoke.mjs",
     "smoke:subtitle-furigana-outline": "node scripts/subtitle-furigana-outline-scale-smoke.mjs",
     "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs"

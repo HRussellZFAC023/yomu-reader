@@ -192,7 +192,7 @@ interface YomuCompanionRegistry {
         reviewButtonGrades: ReviewButtonGradesFn;
     };
     settings?: {
-        SettingsDialogController: SettingsDialogControllerClass;
+        SettingsDialogController?: SettingsDialogControllerClass;
         LookupModalAccessibility: LookupModalAccessibilityClass;
         OnboardingController: OnboardingControllerClass;
         // Multilingual catalogues and locale copy are intentionally owned by

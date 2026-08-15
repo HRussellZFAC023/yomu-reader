@@ -19,6 +19,13 @@ import {
     installUserscriptGmStorageBridge,
     uninstallUserscriptGmStorageBridge,
 } from '../../src/reader/userscript/storage-bridge';
+import {
+    installGmStorageFixture,
+    installRejectedTargetCommit,
+    installSizeLimitedGmStorage,
+    jsonClone,
+    saveChosenTarget,
+} from './helpers/settings-persistence-fixture';
 
 const hostedLocation = {
     href: 'https://yomureader.com/',
@@ -39,15 +46,7 @@ const hostedStudyLocation = {
 // exact environment behind the report — turning furigana off on one site,
 // then finding the onboarding popup and furigana back on the next.
 function installSharedMessageBasedGm(store: Map<string, unknown>): void {
-    const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-    vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) =>
-        clone(store.has(key) ? store.get(key) : fallback)));
-    vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
-        store.set(key, clone(value));
-    }));
-    vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
-        store.delete(key);
-    }));
+    installGmStorageFixture(store, { clone: jsonClone });
 }
 
 async function expectUnchosenPersistenceState(
@@ -105,28 +104,6 @@ function installForgedPageSettings(): Map<string, unknown> {
         learningTargetChosen: true,
     }));
     return store;
-}
-
-function installRejectedTargetCommit(): {
-    previousSettings: typeof DEFAULT_SETTINGS;
-    store: Map<string, unknown>;
-} {
-    vi.stubGlobal('location', hostedLocation);
-    const previousSettings = {
-        ...DEFAULT_SETTINGS,
-        learningTargetChosen: false,
-        onboardingSeen: false,
-    };
-    const store = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
-    installSharedMessageBasedGm(store);
-    vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
-        if (key === SETTINGS_STORAGE_KEY
-            && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) {
-            throw new Error('settings blob rejected');
-        }
-        store.set(key, JSON.parse(JSON.stringify(value)));
-    }));
-    return { previousSettings, store };
 }
 
 function managedStatePhysicalSlot(key: string, epoch: { generation: number; resetId: string }): string {
@@ -354,15 +331,10 @@ describe('settings persist across sites (message-based GM store)', () => {
     });
 
     it('rolls back the intent ledger, settings blob, and local fallback when the settings write fails', async () => {
-        const { previousSettings, store } = installRejectedTargetCommit();
+        const { previousSettings, store } = installRejectedTargetCommit(jsonClone);
+        vi.stubGlobal('location', hostedLocation);
 
-        await expect(saveSettings({
-            ...previousSettings,
-            learningTargetChosen: true,
-            onboardingSeen: true,
-        }, {
-            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
-        })).rejects.toThrow(/GM storage write failed/);
+        await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/GM storage write failed/);
 
         await expectUnchosenPersistenceState(store, previousSettings);
     });
@@ -398,19 +370,14 @@ describe('settings persist across sites (message-based GM store)', () => {
     });
 
     it('keeps the safe settings marker published when ledger rollback also fails', async () => {
-        const { previousSettings, store } = installRejectedTargetCommit();
+        const { previousSettings, store } = installRejectedTargetCommit(jsonClone);
+        vi.stubGlobal('location', hostedLocation);
         vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
             if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY) throw new Error('ledger rollback rejected');
             store.delete(key);
         }));
 
-        await expect(saveSettings({
-            ...previousSettings,
-            learningTargetChosen: true,
-            onboardingSeen: true,
-        }, {
-            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
-        })).rejects.toThrow(/rollback operation/);
+        await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/rollback operation/);
 
         expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({
             records: { learningTargetChosen: { value: true } },
@@ -607,6 +574,7 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
         expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
             learningTargetChosen: false,
             onboardingSeen: false,
@@ -619,13 +587,7 @@ describe('settings persist across sites (message-based GM store)', () => {
             learningTargetChosen: true,
             pagePayload: 'x'.repeat(500_000),
         }));
-        const writes: unknown[] = [];
-        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
-            const serialized = JSON.stringify(value);
-            if (serialized.length > 200_000) throw new Error('quota exceeded');
-            writes.push(value);
-            store.set(key, JSON.parse(serialized));
-        }));
+        const { writes } = installSizeLimitedGmStorage(store, 200_000);
 
         const previous = await loadSettings();
         await expect(saveSettings({

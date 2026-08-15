@@ -112,6 +112,10 @@ Chrome Web Store and Firefox Add-ons are supported release channels, but their r
 
 The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own language, Jiten/JPDB keys, settings, and progress.
 
+### Recover settings after 1.9.2
+
+If extension-owned Study and ordinary websites already show different chosen settings, update to 1.9.3 or newer, open Study from the extension toolbar, and import your latest settings backup once. Keep only that settings surface active, leave the Study tab open, and wait for the import result; its Save and competing settings actions stay unavailable until the restore finishes. Do not factory reset or downgrade to recover from this incident.
+
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Recommended dictionaries are downloaded from Yomu's public, content-addressed dictionary mirror and then remain local. Automatic definition translation is off by default; if you enable it for a source, only selected definition or gloss text from that source is sent directly to Google Translate in the language profile you selected. Personal WaniKani notes, mnemonics, readings, account state, and controls are not sent for translation. Google does not offer an Ancient Greek target, so that profile keeps original definitions and its dictionary recommendations without showing a broken translation option. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, WaniKani, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used. WaniKani requests go directly to its official API and never through Yomu's proxy.

@@ -1,156 +1,43 @@
+import {
+    DEFAULT_SETTINGS,
+    catalogBrowseLanguageSectionsForLearnerLanguage,
+    createSettingsDialog,
+    deferred,
+    flushPromises,
+    getSettingsDialogTestState,
+    getAudioCandidates,
+    importSummary,
+    recommendedDictionariesForLearnerLanguage,
+    resetSettingsDialogTestEnvironment,
+    resetSettingsDialogTestState,
+    settingsElement,
+    waitForCondition,
+    type CallTracker,
+} from './helpers/settings-dialog-controller-fixture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userFacingError } from '../../src/reader/app/user-facing-errors';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { publishSettingsChange, subscribeToSettingsChanges, type SettingsChangeDetail } from '../../src/reader/settings/settings-change-bus';
-import {
-    catalogBrowseLanguageSectionsForLearnerLanguage,
-    recommendedDictionariesForLearnerLanguage,
-} from '../../src/reader/dictionaries/recommended';
 import { catalogBrowseDictionaries } from '../../src/reader/dictionaries/catalog-browse';
 import { listDictionaryArchives, persistDictionaryArchive } from '../../src/reader/dictionaries/archive-cache';
 import {
     defaultDictionaryLookupLinks,
+    loadSettings,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
     normalizeReaderSettings,
-    saveSettings,
+    saveSettings as persistReaderSettings,
 } from '../../src/reader/settings';
-import { testEnSettings } from './helpers/settings-fixture';
-import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
+import { readSettingsPersistenceView } from '../../src/reader/settings/settings-persistence-transaction';
+import type { SettingsIntentRecord } from '../../src/reader/settings/intent-ledger';
 import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
-
-// These tests assert English UI copy; pin the interface language since the
-// shipped default is now 'ja'.
-const DEFAULT_SETTINGS = testEnSettings();
 import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki/types';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
 
-const settingsDialogTestState = vi.hoisted(() => ({ useRealLocalization: false }));
-
-vi.mock('../../src/reader/anki/transport', async importOriginal => {
-    const actual = await importOriginal<typeof import('../../src/reader/anki/transport')>();
-    return {
-        ...actual,
-        diagnoseAnkiConnectFailure: vi.fn(async () => 'unreachable' as const),
-    };
-});
-vi.mock('../../src/reader/dictionaries/recommended', async importOriginal => {
-    const actual = await importOriginal<typeof import('../../src/reader/dictionaries/recommended')>();
-    return {
-        ...actual,
-        // The catalogue browse suites cover the full 1,600-card shelf. Rebuilding
-        // that shelf in every controller case retains gigabytes of jsdom nodes,
-        // while these tests only exercise the compact recommendation shelf.
-        catalogBrowseLanguageSectionsForLearnerLanguage: vi.fn(() => []),
-    };
-});
-vi.mock('../../src/reader/settings/form', async importOriginal => {
-    const actual = await importOriginal<typeof import('../../src/reader/settings/form')>();
-    return {
-        ...actual,
-        // Controller tests exercise settings dialog behavior; full localization and
-        // parsed-settings ruby coverage lives in settings-form/nested-text tests.
-        localizeSettingsForm: vi.fn((form: HTMLFormElement, language: ReaderSettings['interfaceLanguage']) => {
-            if (settingsDialogTestState.useRealLocalization) {
-                actual.localizeSettingsForm(form, language);
-                return;
-            }
-            form.lang = language === 'ja' ? 'ja' : 'en';
-        }),
-    };
-});
-
-// tests/reader/setup imports build companions, which pulls in the controller
-// before this file's mocks. Reload it here so the form seams above are active.
-vi.resetModules();
-const { SettingsDialogController } = await import('../../src/reader/settings/dialog-controller');
-// Same module instance the controller above resolved: opening a dialog probes
-// each aggregator audio URL once and memoizes it, so every test must start
-// without another test's cached (or still in-flight) probe.
-const { getAudioCandidates, resetAudioSubSourceDiscoveryForTests } = await import('../../src/reader/audio/candidates');
-
-type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogControllerInstance;
-type RefreshableSettingsDialogController = {
-    refreshDeckControls: (form: HTMLFormElement) => Promise<void>;
-    refreshDictionaryStatus: (form: HTMLFormElement) => Promise<void>;
-};
-
-function createSettingsDialog(overrides: Record<string, unknown> = {}, panel?: string): {
-    dependencies: Record<string, any>;
-    controller: SettingsDialogControllerInstance;
-    dismiss: ReturnType<typeof vi.fn>;
-    form: HTMLFormElement;
-    refreshDictionaryStatus: (form: HTMLFormElement) => Promise<void>;
-} {
-    let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '' };
-    const dismiss = vi.fn();
-    const dependencies = {
-        getSettings: () => settings,
-        setSettings: (next: ReaderSettings) => { settings = next; },
-        saveSettings,
-        jpdb: {
-            clear: vi.fn(),
-            listDecks: vi.fn().mockResolvedValue([]),
-        },
-        dictionaries: {
-            summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
-        },
-        anki: {
-            isConnected: vi.fn().mockResolvedValue(false),
-        },
-        audio: { play: vi.fn(), stop: vi.fn() },
-        subtitles: { refresh: vi.fn() },
-        ocr: { refresh: vi.fn() },
-        youtube: { refresh: vi.fn() },
-        createBackdrop: () => document.createElement('div'),
-        mountDialog: (backdrop: HTMLElement, surface: HTMLElement) => document.body.append(backdrop, surface),
-        sensitiveSettingsSurface: () => ({
-            trusted: true,
-            launcherUrl: 'https://yomureader.com/study/#settings=api',
-        }),
-        dismiss,
-        toast: vi.fn(),
-        applyTheme: vi.fn(),
-        applyAccentColor: vi.fn(),
-        applyWordColors: vi.fn(),
-        installFab: vi.fn(),
-        refreshDictionaryStyles: vi.fn().mockResolvedValue(undefined),
-        scheduleDictionaryRescan: vi.fn(),
-        refreshNewTabIfCurrent: vi.fn(),
-        clearDictionarySourceOpenOverrides: vi.fn(),
-        resetAllData: vi.fn(),
-        beginSettingsPreview: vi.fn(),
-        clearSettingsPreview: vi.fn(),
-        publishedDictionaryLanguages: vi.fn().mockResolvedValue(new Set(['ja'])),
-        ...overrides,
-    };
-    const controller = new (SettingsDialogController as unknown as SettingsDialogControllerConstructor)(dependencies);
-    const refreshable = controller as unknown as RefreshableSettingsDialogController;
-    const refreshDictionaryStatus = refreshable.refreshDictionaryStatus.bind(controller);
-    refreshable.refreshDeckControls = vi.fn().mockResolvedValue(undefined);
-    if (typeof (dependencies.dictionaries as Record<string, unknown>).importFromUrl === 'function') {
-        let refreshCalls = 0;
-        refreshable.refreshDictionaryStatus = vi.fn((form: HTMLFormElement) => {
-            refreshCalls++;
-            return refreshCalls === 1 ? Promise.resolve() : refreshDictionaryStatus(form);
-        });
-    } else {
-        refreshable.refreshDictionaryStatus = vi.fn().mockResolvedValue(undefined);
-    }
-
-    controller.open(panel);
-
-    return {
-        controller,
-        dependencies,
-        dismiss,
-        form: document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!,
-        refreshDictionaryStatus,
-    };
-}
+const settingsDialogTestState = getSettingsDialogTestState();
 
 function recommendedButton(form: HTMLFormElement, id: string): HTMLButtonElement {
     return form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${id}"]`)!;
@@ -194,12 +81,6 @@ function singleModelAnkiScan(
     };
 }
 
-function settingsElement<T extends Element>(form: HTMLFormElement, selector: string): T {
-    const element = form.querySelector<T>(selector);
-    if (!element) throw new Error(`Missing settings element: ${selector}`);
-    return element;
-}
-
 function settingsSelectValue(form: HTMLFormElement, selector: string): string {
     return settingsElement<HTMLSelectElement>(form, selector).value;
 }
@@ -229,20 +110,6 @@ function settingsJsonInputValue<T>(form: HTMLFormElement, selector: string): T {
 
 function ankiStatusText(form: HTMLFormElement): string {
     return settingsElement<HTMLElement>(form, '[data-anki-status]').textContent ?? '';
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
-    let resolve!: (value: T) => void;
-    let reject!: (reason?: unknown) => void;
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res;
-        reject = rej;
-    });
-    return { promise, resolve, reject };
-}
-
-function flushPromises(): Promise<void> {
-    return Promise.resolve();
 }
 
 function settlePreviewFrame(): Promise<void> {
@@ -343,18 +210,6 @@ function expectAnkiConnectSetupStatus(form: HTMLFormElement): void {
     expect(text).not.toContain('webCorsOriginList');
 }
 
-async function waitForCondition(predicate: () => boolean): Promise<void> {
-    for (let attempt = 0; attempt < 30; attempt++) {
-        if (predicate()) return;
-        await flushPromises();
-        if (predicate()) return;
-        await new Promise(resolve => window.setTimeout(resolve, 0));
-        if (predicate()) return;
-    }
-    throw new Error('Condition was not met.');
-}
-
-type CallTracker = { mock: { calls: unknown[][] } };
 
 function lookupPillIds(form: HTMLFormElement): string[] {
     return Array.from(
@@ -405,36 +260,89 @@ async function submitSettingsAndWait(
         && (persisted === undefined || persisted.mock.calls.length === 1));
 }
 
+async function clickTrustedSettingsSaveAndWait(
+    form: HTMLFormElement,
+    ...signals: CallTracker[]
+): Promise<void> {
+    form.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await waitForCondition(() => signals.every(signal => signal.mock.calls.length === 1));
+}
+
+function expectExplicitSettingSaved<K extends keyof ReaderSettings>(
+    saveSettings: CallTracker,
+    key: K,
+    value: ReaderSettings[K],
+): void {
+    expect(saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ [key]: value }),
+        expect.objectContaining({ explicitUserChoiceKeys: expect.arrayContaining([key]) }),
+    );
+}
+
+function expectExplicitIntentAdvanced(
+    before: SettingsIntentRecord | undefined,
+    after: SettingsIntentRecord | undefined,
+    beforeValue: unknown,
+    afterValue: unknown,
+): void {
+    expect(before).toEqual(expect.objectContaining({ value: beforeValue }));
+    expect(after).toEqual(expect.objectContaining({ value: afterValue }));
+    expect(after!.seq).toBeGreaterThan(before!.seq);
+}
+
+function previewInterfaceLanguage(
+    form: HTMLFormElement,
+    language: ReaderSettings['interfaceLanguage'] = 'ja',
+): void {
+    const select = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+    select.value = language;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+type InterfaceLanguagePreviewDialog = ReturnType<typeof createSettingsDialog> & {
+    currentSettings: () => ReaderSettings;
+    installedLanguages: ReaderSettings['interfaceLanguage'][];
+};
+
+function createInterfaceLanguagePreviewDialog(): InterfaceLanguagePreviewDialog {
+    let current: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+    const installedLanguages: ReaderSettings['interfaceLanguage'][] = [];
+    return {
+        ...createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            installFab: vi.fn(() => { installedLanguages.push(current.interfaceLanguage); }),
+        }),
+        currentSettings: () => current,
+        installedLanguages,
+    };
+}
+
+function expectInterfaceLanguagePreview(
+    dialog: InterfaceLanguagePreviewDialog,
+    language: ReaderSettings['interfaceLanguage'],
+): void {
+    expect(dialog.currentSettings().interfaceLanguage).toBe('en');
+    expect(dialog.installedLanguages.at(-1)).toBe(language);
+}
+
 function activeLanguageProfile(settings: ReaderSettings): ReaderSettings['languageProfiles'][number] | undefined {
     return settings.languageProfiles.find(profile => profile.id === settings.activeLanguageProfileId);
 }
 
-function importSummary(dictionary: string): ImportSummary {
-    return {
-        dictionaries: [dictionary],
-        dictionaryTypes: { [dictionary]: 'terms' },
-        entries: 1,
-        terms: 1,
-        kanji: 0,
-        termMeta: 0,
-        kanjiMeta: 0,
-    };
-}
 
 describe('settings dialog sensitive-surface boundary', () => {
     afterEach(() => {
-        settingsDialogTestState.useRealLocalization = false;
-        document.body.replaceChildren();
-        localStorage.clear();
-        resetAudioSubSourceDiscoveryForTests();
-        vi.restoreAllMocks();
-        vi.unstubAllGlobals();
+        resetSettingsDialogTestEnvironment();
     });
 
     it.each([
-        'https://yomureader.com/study/#settings=api',
-        'moz-extension://yomu/newtab/index.html#settings=api',
-    ])('keeps the offhost page outside authoritative settings and opens only captured %s', (launcherUrl) => {
+        { launcherUrl: 'https://yomureader.com/study/#settings=api', extension: false },
+        { launcherUrl: 'moz-extension://yomu/newtab/index.html#settings=api', extension: true },
+    ])('keeps the offhost page outside authoritative settings and opens only captured $launcherUrl', ({
+        launcherUrl,
+        extension,
+    }) => {
         const setSettings = vi.fn();
         const listDecks = vi.fn();
         const ping = vi.fn();
@@ -442,6 +350,16 @@ describe('settings dialog sensitive-surface boundary', () => {
         const summary = vi.fn();
         const setValue = vi.fn();
         const open = vi.spyOn(window, 'open').mockReturnValue({ opener: null } as Window);
+        const runtimeSendMessage = vi.fn(async () => ({ ok: true, tabId: 73 }));
+        if (extension) {
+            vi.stubGlobal('browser', {
+                runtime: {
+                    id: 'yomu@yomureader.com',
+                    getURL: (path: string) => new URL(path, 'moz-extension://yomu/').href,
+                    sendMessage: runtimeSendMessage,
+                },
+            });
+        }
         vi.stubGlobal('GM_setValue', setValue);
         const configured = {
             ...DEFAULT_SETTINGS,
@@ -489,10 +407,21 @@ describe('settings dialog sensitive-surface boundary', () => {
         allowSyntheticReaderInteractionsForTests(true);
         launcher.click();
 
-        expect(open).toHaveBeenCalledOnce();
         const expectedUrl = new URL(launcherUrl);
         expectedUrl.hash = '#settings=backup';
-        expect(open).toHaveBeenCalledWith(expectedUrl.href, '_blank', 'noopener');
+        if (extension) {
+            expect(open).not.toHaveBeenCalled();
+            expect(runtimeSendMessage).toHaveBeenCalledOnce();
+            expect(runtimeSendMessage).toHaveBeenCalledWith({
+                type: 'yomu.openPackagedStudySettings',
+                protocol: 'yomu-packaged-study-settings-launcher:v1',
+                panel: 'backup',
+            });
+        } else {
+            expect(open).toHaveBeenCalledOnce();
+            expect(open).toHaveBeenCalledWith(expectedUrl.href, '_blank', 'noopener');
+            expect(runtimeSendMessage).not.toHaveBeenCalled();
+        }
         expect(setSettings).not.toHaveBeenCalled();
         expect(setValue).not.toHaveBeenCalled();
         expect(listDecks).not.toHaveBeenCalled();
@@ -539,12 +468,7 @@ describe('settings dialog sensitive-surface boundary', () => {
 
 describe('settings dialog keyboard dismissal', () => {
     afterEach(() => {
-        settingsDialogTestState.useRealLocalization = false;
-        document.body.replaceChildren();
-        localStorage.clear();
-        resetAudioSubSourceDiscoveryForTests();
-        vi.restoreAllMocks();
-        vi.unstubAllGlobals();
+        resetSettingsDialogTestEnvironment();
     });
 
     it('closes when Escape is pressed from a settings text field', () => {
@@ -1287,6 +1211,223 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
+    it('commits a live theme preview as explicit intent instead of replaying the old light choice', async () => {
+        vi.stubGlobal('location', new URL('http://127.0.0.1:5174/study/'));
+        await persistReaderSettings(
+            { ...DEFAULT_SETTINGS, theme: 'light', themeAutoRestored20260730: true },
+            { explicitUserChoiceKeys: ['theme'] },
+        );
+        const beforeIntent = (await readSettingsPersistenceView()).intentLedger.records.theme;
+        let current = await loadSettings();
+        expect(current.theme).toBe('light');
+        const saveSettings = vi.fn(persistReaderSettings);
+        const applyTheme = vi.fn((preview: ReaderSettings = current) => {
+            // Production's runtime settings-change handler mutates the host's
+            // current object in place while applying a preview.
+            current.theme = preview.theme;
+        });
+        const persisted = vi.fn();
+        const { dependencies, dismiss, form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            saveSettings,
+            onSettingsPersisted: persisted,
+            applyTheme,
+        });
+
+        form.querySelector<HTMLButtonElement>('[data-theme-switch]')!.click();
+
+        expect(settingsInputValue(form, '[data-theme-value]')).toBe('dark');
+        expect(dependencies.applyTheme).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }));
+        expect(current.theme).toBe('dark');
+        expect((await loadSettings()).theme).toBe('light');
+
+        await clickTrustedSettingsSaveAndWait(form, dismiss, persisted);
+
+        expectExplicitSettingSaved(saveSettings, 'theme', 'dark');
+        expect(current.theme).toBe('dark');
+        expect((await loadSettings()).theme).toBe('dark');
+        const afterIntent = (await readSettingsPersistenceView()).intentLedger.records.theme;
+        expectExplicitIntentAdvanced(beforeIntent, afterIntent, 'light', 'dark');
+    });
+
+    it('commits a live interface-language preview as explicit intent without mutating its baseline', async () => {
+        vi.stubGlobal('location', new URL('http://127.0.0.1:5174/study/'));
+        await persistReaderSettings(
+            { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' },
+            { explicitUserChoiceKeys: ['interfaceLanguage'] },
+        );
+        const beforeIntent = (await readSettingsPersistenceView()).intentLedger.records.interfaceLanguage;
+        let current = await loadSettings();
+        expect(current.interfaceLanguage).toBe('en');
+        const installedLanguages: ReaderSettings['interfaceLanguage'][] = [];
+        const saveSettings = vi.fn(persistReaderSettings);
+        const persisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            saveSettings,
+            onSettingsPersisted: persisted,
+            installFab: vi.fn(() => { installedLanguages.push(current.interfaceLanguage); }),
+        });
+        previewInterfaceLanguage(form);
+
+        expect(form.lang).toBe('ja');
+        expect(installedLanguages).toContain('ja');
+        expect(current.interfaceLanguage).toBe('en');
+
+        await clickTrustedSettingsSaveAndWait(form, dismiss, persisted);
+
+        expectExplicitSettingSaved(saveSettings, 'interfaceLanguage', 'ja');
+        expect(current.interfaceLanguage).toBe('ja');
+        expect((await loadSettings()).interfaceLanguage).toBe('ja');
+        const afterIntent = (await readSettingsPersistenceView()).intentLedger.records.interfaceLanguage;
+        expectExplicitIntentAdvanced(beforeIntent, afterIntent, 'en', 'ja');
+    });
+
+    it('restores the durable interface language after a live preview is cancelled', () => {
+        const dialog = createInterfaceLanguagePreviewDialog();
+
+        previewInterfaceLanguage(dialog.form);
+        expectInterfaceLanguagePreview(dialog, 'ja');
+
+        dialog.form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+
+        expectInterfaceLanguagePreview(dialog, 'en');
+    });
+
+    it('uses a remotely adopted durable theme as the next Save baseline', async () => {
+        let current: ReaderSettings = { ...DEFAULT_SETTINGS, theme: 'light' };
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const persisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            saveSettings,
+            onSettingsPersisted: persisted,
+        });
+
+        publishSettingsChange({ settings: { ...current, theme: 'dark' }, remote: true });
+        expect(current.theme).toBe('dark');
+        expect(form.querySelector<HTMLInputElement>('[data-theme-value]')?.value).toBe('dark');
+
+        form.querySelector<HTMLButtonElement>('[data-theme-switch]')!.click();
+        expect(current.theme).toBe('dark');
+        expect(form.querySelector<HTMLInputElement>('[data-theme-value]')?.value).toBe('light');
+
+        await clickTrustedSettingsSaveAndWait(form, dismiss, persisted);
+
+        expectExplicitSettingSaved(saveSettings, 'theme', 'light');
+    });
+
+    it('refreshes the host preview-restore baseline after a remote durable adoption', () => {
+        let current: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            theme: 'light',
+            accentColor: '#102030',
+            interfaceLanguage: 'en',
+        };
+        let restoreBaseline = {
+            theme: current.theme,
+            accentColor: current.accentColor,
+            interfaceLanguage: current.interfaceLanguage,
+        };
+        const beginSettingsPreview = vi.fn((
+            accentColor: string,
+            interfaceLanguage: ReaderSettings['interfaceLanguage'],
+            theme: ReaderSettings['theme'],
+        ) => {
+            restoreBaseline = { accentColor, interfaceLanguage, theme };
+        });
+        const dismiss = vi.fn(() => {
+            current = { ...current, ...restoreBaseline };
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            beginSettingsPreview,
+            dismiss,
+        });
+
+        publishSettingsChange({
+            remote: true,
+            settings: {
+                ...current,
+                theme: 'dark',
+                accentColor: '#abcdef',
+                interfaceLanguage: 'ja',
+            },
+        });
+
+        expect(beginSettingsPreview).toHaveBeenLastCalledWith('#abcdef', 'ja', 'dark');
+        form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+
+        expect(current).toMatchObject({
+            theme: 'dark',
+            accentColor: '#abcdef',
+            interfaceLanguage: 'ja',
+        });
+    });
+
+    it('restores a previewed interface language after external dialog teardown', () => {
+        const dialog = createInterfaceLanguagePreviewDialog();
+
+        previewInterfaceLanguage(dialog.form);
+        expectInterfaceLanguagePreview(dialog, 'ja');
+
+        dialog.form.remove();
+        dialog.controller.releaseModalBackground();
+
+        expectInterfaceLanguagePreview(dialog, 'en');
+    });
+
+    it('owns a replacement form after production-order teardown during mount', async () => {
+        let releasePreviousForm: () => void = () => undefined;
+        let current: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', theme: 'light' };
+        const installedLanguages: ReaderSettings['interfaceLanguage'][] = [];
+        const hostDismiss = vi.fn();
+        const persisted = vi.fn();
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const mountDialog = (backdrop: HTMLElement, surface: HTMLElement): void => {
+            const previous = document.querySelector<HTMLFormElement>('.jpdb-reader-settings');
+            if (previous) {
+                hostDismiss();
+                previous.remove();
+                releasePreviousForm();
+            }
+            document.body.append(backdrop, surface);
+        };
+        const dialog = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            saveSettings,
+            applyTheme: vi.fn((preview: ReaderSettings = current) => { current.theme = preview.theme; }),
+            installFab: vi.fn(() => { installedLanguages.push(current.interfaceLanguage); }),
+            mountDialog,
+            onSettingsPersisted: persisted,
+        });
+        releasePreviousForm = () => dialog.controller.releaseModalBackground();
+        previewInterfaceLanguage(dialog.form);
+        expect(installedLanguages.at(-1)).toBe('ja');
+        expect(current.interfaceLanguage).toBe('en');
+        dialog.form.querySelector<HTMLButtonElement>('[data-theme-switch]')!.click();
+        expect(current.theme).toBe('dark');
+
+        dialog.controller.open();
+        expect(installedLanguages.at(-1)).toBe('en');
+        expect(current.theme).toBe('light');
+        const replacement = Array.from(document.querySelectorAll<HTMLFormElement>('.jpdb-reader-settings')).at(-1)!;
+        expect(settingsInputValue(replacement, '[data-theme-value]')).toBe('light');
+        replacement.querySelector<HTMLButtonElement>('[data-theme-switch]')!.click();
+        expect(current.theme).toBe('dark');
+        await clickTrustedSettingsSaveAndWait(replacement, persisted);
+
+        expectExplicitSettingSaved(saveSettings, 'theme', 'dark');
+        expect(hostDismiss).toHaveBeenCalledOnce();
+        expect(dialog.dismiss).toHaveBeenCalledOnce();
+        expect(dialog.dependencies.toast).toHaveBeenCalledWith('Settings saved.');
+    });
+
     it('coalesces accent picker previews and publishes only committed color changes', async () => {
         const events: SettingsChangeDetail[] = [];
         const unsubscribe = subscribeToSettingsChanges(event => { events.push(event); });
@@ -1461,6 +1602,7 @@ describe('settings dialog keyboard dismissal', () => {
         refresh.resolve();
     });
 
+
     it('persists a Japanese-sites opt-out before reporting the settings saved', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
@@ -1527,8 +1669,10 @@ describe('settings dialog keyboard dismissal', () => {
 
         dependencies.toast.mockClear();
         const settingsFile = form.querySelector<HTMLInputElement>('input[data-file="settings"]')!;
+        const importButton = form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!;
+        await waitForCondition(() => !importButton.disabled);
         const openFilePicker = vi.spyOn(settingsFile, 'click');
-        form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!.click();
+        importButton.click();
         await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
         expect(dependencies.toast).toHaveBeenCalledWith(
             'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
@@ -1585,6 +1729,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dismiss).not.toHaveBeenCalled();
         expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
     });
+
 
     it('previews JPDB text-to-speech with the standard よむ sample card', async () => {
         const play = vi.fn();
@@ -2401,6 +2546,7 @@ describe('settings dialog keyboard dismissal', () => {
 
 describe('settings dialog dictionary imports', () => {
     afterEach(() => {
+        resetSettingsDialogTestState();
         document.body.replaceChildren();
         localStorage.clear();
         vi.restoreAllMocks();

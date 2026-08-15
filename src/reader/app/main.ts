@@ -353,6 +353,7 @@ import {
     hasJpdbApiCredential,
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
+import { mountSettingsSurfaceLauncher } from '../settings/sensitive-settings-surface';
 
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs/local-yomu';
 import { installAcademyReaderSrsSync } from '../srs/account-sync';
@@ -1303,7 +1304,6 @@ export class ReaderApp {
         this.initJpdbPageEnhancements();
         this.installCardStateSignalSubscription();
         installAcademyReaderSrsSync();
-        this.resumePendingCloudSettingsSync();
         this.scheduleInitialReaderWork(startupTargetProbe.shadowDiscoveryExhausted);
     }
 
@@ -9600,12 +9600,20 @@ export class ReaderApp {
             return;
         }
         const dialog = this.getSettingsDialog();
-        if (dialog) dialog.open(panel);
-    }
-
-    private resumePendingCloudSettingsSync(): void {
-        const dialog = this.getSettingsDialog();
-        if (dialog) void dialog.resumePendingCloudSettingsSync();
+        if (dialog) {
+            dialog.open(panel);
+            return;
+        }
+        log.warnOnce('settings-dialog-companion-missing', 'Opening the owned Settings surface.');
+        const trigger = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : undefined;
+        mountSettingsSurfaceLauncher({
+            createBackdrop: () => this.createLanguageAwareBackdrop(() => this.dismiss()),
+            mountDialog: (backdrop, surface) => this.mountSettingsDialog(backdrop, surface),
+            dismiss: () => this.dismiss(),
+            toast: message => this.toast(message),
+        }, this.lookupModal, this.settings.interfaceLanguage, panel, trigger);
     }
 
     private settingsAfterDialogTargetChange(
@@ -9629,11 +9637,7 @@ export class ReaderApp {
     }
     private getSettingsDialog(): SettingsDialogControllerInstance | undefined {
         const Controller = yomuSettingsDialogController();
-        if (!Controller) {
-            log.warnOnce('settings-companion-missing', 'Settings companion missing.');
-            this.toast(uiText(this.settings.interfaceLanguage, 'settingsCompanionUnavailable'));
-            return undefined;
-        }
+        if (!Controller) return undefined;
         this.settingsDialog ??= new Controller({
             getSettings: () => this.settings,
             setSettings: (settings, options) => {

@@ -285,7 +285,7 @@ describe('Greasy Fork split manifest', () => {
         const entryPath = path.join(repoRoot, library!.entry);
         expect(existsSync(entryPath), `${library!.entry} does not exist`).toBe(true);
         expect(readFileSync(entryPath, 'utf8')).toContain(`registerYomuCompanion('${id}'`);
-        expect(readFileSync(path.join(repoRoot, 'src/reader/companions/register-build-companions.ts'), 'utf8'))
+        expect(readFileSync(path.join(repoRoot, 'src/reader/companions/register-common-companions.ts'), 'utf8'))
             .toContain(`import './${id}';`);
     });
 
@@ -293,9 +293,17 @@ describe('Greasy Fork split manifest', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();
         expect(readFileSync(path.join(repoRoot, runtime!.entry), 'utf8'))
-            .toContain("import './register-build-companions';");
+            .toContain("import './register-aggregate-runtime-companions';");
         expect(packageJson.yomu?.allowedRequireUrls ?? [])
             .toEqual([`https://yomureader.com/greasyfork/${runtime!.fileName}`]);
+    });
+
+    it('keeps witnessed settings reads available through the split runtime facade', () => {
+        const facade = readFileSync(
+            path.join(repoRoot, 'src/reader/settings/index-companion.ts'),
+            'utf8',
+        );
+        expect(facade).toContain('loadSettingsWithWitnessedAuthority,');
     });
 
     it('registers the shared learning-target runtime on aggregate and hosted companion paths', () => {
@@ -307,8 +315,13 @@ describe('Greasy Fork split manifest', () => {
             path.join(repoRoot, 'src/reader/companions/settings-surface.ts'),
             'utf8',
         );
+        const settingsLauncher = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/settings-launcher.ts'),
+            'utf8',
+        );
         expect(buildRegistry).toContain("import './settings-surface';");
         expect(settingsSurface).toContain("import './learning-targets';");
+        expect(settingsLauncher).toContain("import './learning-targets';");
     });
 
     it('keeps the active-target generation guard on the split runtime boundary', () => {
@@ -350,12 +363,12 @@ describe('Greasy Fork split manifest', () => {
         expect(viteConfigSource).toContain(
             "alias['./structured-content'] = path.join(configRoot, 'src', 'reader', 'dictionaries', 'yomitan', 'structured-content-companion.ts');",
         );
-        const settingsSurface = readFileSync(
-            path.join(repoRoot, 'src/reader/companions/settings-surface.ts'),
+        const settingsServices = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/settings-services.ts'),
             'utf8',
         );
-        expect(settingsSurface).toContain("from '../dictionaries/yomitan/structured-content';");
-        expect(settingsSurface).toContain('renderStructuredGlossaryHtml,');
+        expect(settingsServices).toContain("from '../dictionaries/yomitan/structured-content';");
+        expect(settingsServices).toContain('renderStructuredGlossaryHtml,');
         const splitBlockStart = viteConfigSource.indexOf('if (shouldUseGreasyForkCompanions(command))');
         const splitBlockEnd = viteConfigSource.indexOf('\n    return Object.keys(alias).length', splitBlockStart);
         const aliasIndex = viteConfigSource.indexOf("alias['./structured-content']", splitBlockStart);

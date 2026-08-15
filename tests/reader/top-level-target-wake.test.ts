@@ -7,12 +7,17 @@ const settingsSubscriptionMocks = vi.hoisted(() => ({
     loadSnapshot: undefined as ReaderSettings | undefined,
 }));
 
-vi.mock('../../src/reader/settings/index', async importOriginal => ({
-    ...await importOriginal<typeof import('../../src/reader/settings/index')>(),
-    subscribeToSettingsStorageChanges: settingsSubscriptionMocks.subscribe,
-    loadSettings: async () => settingsSubscriptionMocks.loadSnapshot
-        ?? (await importOriginal<typeof import('../../src/reader/settings/index')>()).loadSettings(),
-}));
+vi.mock('../../src/reader/settings/index', async importOriginal => {
+    const original = await importOriginal<typeof import('../../src/reader/settings/index')>();
+    const loadSnapshot = async (): Promise<ReaderSettings> => settingsSubscriptionMocks.loadSnapshot
+        ?? original.loadSettings();
+    return {
+        ...original,
+        subscribeToSettingsStorageChanges: settingsSubscriptionMocks.subscribe,
+        loadSettings: loadSnapshot,
+        loadSettingsWithWitnessedAuthority: loadSnapshot,
+    };
+});
 
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -33,7 +38,6 @@ interface WakeInternals {
     setupAutoScan: () => void;
     initJpdbPageEnhancements: () => void;
     installCardStateSignalSubscription: () => void;
-    resumePendingCloudSettingsSync: () => void;
     scheduleInitialReaderWork: (shadowDiscoveryUncertain: boolean) => void;
     scheduleDictionaryRescan: () => void;
     refreshDictionaryStyles: () => Promise<void>;
@@ -74,7 +78,6 @@ function prepareWakeHarness(app: ReaderApp) {
     internals.setupAutoScan = vi.fn();
     internals.initJpdbPageEnhancements = vi.fn();
     internals.installCardStateSignalSubscription = vi.fn();
-    internals.resumePendingCloudSettingsSync = vi.fn();
     internals.scheduleInitialReaderWork = vi.fn();
     internals.scheduleDictionaryRescan = vi.fn();
     internals.refreshDictionaryStyles = vi.fn(async () => undefined);

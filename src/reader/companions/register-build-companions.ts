@@ -1,12 +1,2 @@
-import './annotations';
-import './anki';
-import './audio';
-import './bunpro';
-import './jiten';
-import './jpdb';
-import './kanji-study';
-import './ocr-manga';
+import './register-common-companions';
 import './settings-surface';
-import './ui-copy';
-import './video';
-import './wanikani';

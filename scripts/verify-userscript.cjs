@@ -276,18 +276,46 @@ function assertNoStandaloneLegacyCopy() {
 }
 
 function assertCompanionBuildVersions() {
-  const runtimeLibrary = userscriptRequireLibraries()[0];
-  if (!runtimeLibrary) fail('The distributed userscript runtime companion is missing from the Greasy Fork library manifest.');
-  const relativePath = `dist/${greasyForkLibraryPath(runtimeLibrary.fileName)}`;
-  const companionPath = join(ROOT, relativePath);
-  if (!fileExists(companionPath)) fail(`${relativePath} is missing. Run npm run build first.`);
-  const companionCode = readText(companionPath);
-  if (!companionCode.includes(`const CURRENT_YOMU_VERSION = "${packageJson.version}"`)) {
-    fail(`${relativePath} does not embed package version ${packageJson.version}; Help would display the dev fallback.`);
-  }
-  if (!companionCode.includes('const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;')) {
-    fail(`${relativePath} does not query the canonical /study/version.json update endpoint.`);
-  }
+  const settingsSurfaceLibrary = requiredGreasyForkLibrary('settings-surface', 'full Settings surface');
+  const settingsRelativePath = builtGreasyForkLibraryPath(settingsSurfaceLibrary);
+  assertGeneratedCodeIncludes(
+    readText(join(ROOT, settingsRelativePath)),
+    `const CURRENT_YOMU_VERSION = "${packageJson.version}"`,
+    `${settingsRelativePath} does not embed package version ${packageJson.version}; Help would display the dev fallback.`,
+  );
+
+  // Ordinary pages intentionally receive only the launcher-only aggregate
+  // runtime. It must retain the canonical Study destination, but the versioned
+  // Help UI now lives in the full Settings surface above (and in NewTabRuntime).
+  const runtimeLibrary = requiredUserscriptRuntimeLibrary();
+  const runtimeRelativePath = builtGreasyForkLibraryPath(runtimeLibrary);
+  assertGeneratedCodeIncludes(
+    readText(join(ROOT, runtimeRelativePath)),
+    'const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;',
+    `${runtimeRelativePath} does not query the canonical /study/version.json update endpoint.`,
+  );
+}
+
+function requiredGreasyForkLibrary(id, label) {
+  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === id);
+  if (!library) fail(`The ${label} is missing from the Greasy Fork library manifest.`);
+  return library;
+}
+
+function requiredUserscriptRuntimeLibrary() {
+  const library = userscriptRequireLibraries()[0];
+  if (!library) fail('The distributed userscript runtime companion is missing from the Greasy Fork library manifest.');
+  return library;
+}
+
+function builtGreasyForkLibraryPath(library) {
+  const relativePath = `dist/${greasyForkLibraryPath(library.fileName)}`;
+  if (!fileExists(join(ROOT, relativePath))) fail(`${relativePath} is missing. Run npm run build first.`);
+  return relativePath;
+}
+
+function assertGeneratedCodeIncludes(generatedCode, expected, failureMessage) {
+  if (!generatedCode.includes(expected)) fail(failureMessage);
 }
 
 function assertAcademyBuildVersion() {

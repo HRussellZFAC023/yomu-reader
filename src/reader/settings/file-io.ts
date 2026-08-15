@@ -54,7 +54,8 @@ function readerSettingsExportRecord(value: unknown): { formatName?: string; sett
 function isReaderSettingsExport(record: { formatName?: string; settings?: unknown }): boolean {
     return isReaderSettingsExportFormat(record.formatName)
         && Boolean(record.settings)
-        && typeof record.settings === 'object';
+        && typeof record.settings === 'object'
+        && !Array.isArray(record.settings);
 }
 
 function isReaderSettingsExportFormat(formatName: string | undefined): boolean {

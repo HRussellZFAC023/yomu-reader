@@ -37,6 +37,7 @@ export const {
     formatShortcutEvent,
     isPopupLookupEnabled,
     loadSettings,
+    loadSettingsWithWitnessedAuthority,
     matchesShortcut,
     normalizeAudioSource,
     normalizeAudioSubSources,

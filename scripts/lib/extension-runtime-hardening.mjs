@@ -2,6 +2,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import {
+    extensionStoragePrefixFromBackgroundSource,
     hardenCompilerRuntimeMessageChannel,
     installExtensionDictionaryBackgroundSource,
 } from './extension-dictionary-background.mjs';
@@ -9,6 +10,7 @@ import {
 const BACKGROUND_FILE = 'background.js';
 const CONTENT_FILE = 'content.js';
 const CONTENT_RUNTIME_FILE = 'gm-runtime.js';
+export const PACKAGED_STUDY_STORAGE_RUNTIME_FILE = 'newtab/study-storage-runtime.js';
 const POPUP_FILE = 'popup.js';
 const MANIFEST_FILE = 'manifest.json';
 const READER_CSS_FILE = 'yomu.css';
@@ -16,9 +18,25 @@ const RUNTIME_CATALOG_FILE = 'runtime-catalog.json';
 const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
 const PROJECT_ARCHIVE_FILE = 'yomureader.com-extension-project.zip';
 const SCREENSHOT_BRIDGE_MARKER = 'yomu-extension-screenshot-bridge';
+const PACKAGED_STUDY_SETTINGS_BRIDGE_MARKER = 'yomu-packaged-study-settings-bridge';
+const PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL = 'yomu-packaged-study-settings-launcher:v1';
 const GOOGLE_DRIVE_SYNC_BRIDGE_MARKER = 'yomu-google-drive-settings-sync-bridge';
 const PACKAGED_READER_CSS_MARKER = 'yomu-extension-packaged-reader-css';
 const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const EXTENSION_STUDY_STORAGE_MARKER = 'yomu-extension-study-storage-runtime';
+const COMPILER_DURABLE_STORAGE_MARKER = 'yomu-extension-durable-storage-runtime:v2';
+const LEGACY_COMPILER_DURABLE_STORAGE_MARKER = 'yomu-extension-durable-storage-runtime:v1';
+const COMPILER_CATALOG_VALUES_READY_LEGACY = `const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
+    Object.assign(values, response?.values || {});
+    valuesHydrated = true;
+  }, () => {
+    valuesHydrated = true;
+  });`;
+const COMPILER_CATALOG_VALUES_READY_STRICT = `const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
+    Object.assign(values, response?.values || {});
+    valuesHydrated = true;
+  });`;
+const RELEASE_ARCHIVE_TARGETS = new Set(['chrome', 'firefox']);
 
 // addons.mozilla.org refuses to parse any file over 5 MB and reports
 // FILE_TOO_LARGE as a hard lint error, so a Firefox content.js above this never
@@ -29,7 +47,7 @@ const AMO_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
 // prefix). Across ~107k lines that is ~429 KB of leading whitespace — on its own
 // enough to push content.js past the AMO ceiling. These anchors bracket exactly
 // the region it indented, so removing four spaces per line is its exact inverse.
-const CONTENT_BODY_PREFIX = 'Promise.resolve(globalThis.__USC_READY).catch(() => {}).then(() => {\n  try {\n';
+const CONTENT_BODY_PREFIX = 'Promise.resolve(globalThis.__USC_READY).then(() => {\n  try {\n';
 const CONTENT_BODY_SUFFIX = "\n  } catch (error) {\n    console.error('Userscript failed:', error);\n  }\n});";
 
 const UNSAFE_EXTENSION_EVENT_PATTERNS = [
@@ -62,15 +80,19 @@ export function hardenExtensionBackgroundSource(source, options = {}) {
     );
     const withCompilerChannelGuard = hardenCompilerRuntimeMessageChannel(guarded);
     const withScreenshotBridge = installExtensionScreenshotBridgeSource(withCompilerChannelGuard);
-    const withSettingsSync = options.target === 'chrome' && options.googleOAuthClientId
-        ? installGoogleDriveSettingsSyncBridgeSource(withScreenshotBridge)
+    const withPackagedStudySettings = options.target === 'firefox'
+        ? installPackagedStudySettingsBridgeSource(withScreenshotBridge)
         : withScreenshotBridge;
+    const withSettingsSync = options.target === 'chrome' && options.googleOAuthClientId
+        ? installGoogleDriveSettingsSyncBridgeSource(withPackagedStudySettings)
+        : withPackagedStudySettings;
     return installExtensionDictionaryBackgroundSource(withSettingsSync, options.dictionaryBackgroundSource);
 }
 
 export function hardenExtensionContentSource(source) {
-    if (source.includes(PACKAGED_READER_CSS_MARKER)) return source;
-
+    if (source.includes(PACKAGED_READER_CSS_MARKER)) {
+        return installRuntimeCatalogPreload(hardenCompilerDurableStorage(source));
+    }
     let hardened = source.replace(
         "else if (key === 'innerHTML') element.innerHTML = value;",
         "else if (key === 'innerHTML') element.textContent = String(value ?? '');",
@@ -117,15 +139,10 @@ export function hardenExtensionContentSource(source) {
         throw new Error('Generated content.js no longer contains the expected reader CSS fallback URL declaration.');
     }
 
-    // Keep GM_info useful to reviewers without leaving a remote URL that the
-    // generated compatibility runtime could accidentally request.
     hardened = hardened.replace(
         /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css(?:\?v=[^#"'`\s]+)?(?:#sha256=[^"'`\s]+)?/gi,
         READER_CSS_FILE,
     );
-
-    // Hosted-page fallback is appropriate for the userscript build, but the
-    // extension has a packaged sheet and should never choose a network copy.
     const fallbackFunctionDeclaration =
         /function readerCssFallbackUrls\(href = safeLocationHref\(\)\) \{[\s\S]*?\n\s*\}/;
     if (!fallbackFunctionDeclaration.test(hardened)) {
@@ -135,19 +152,90 @@ export function hardenExtensionContentSource(source) {
         fallbackFunctionDeclaration,
         `function readerCssFallbackUrls(href = safeLocationHref()) {\n      void href;\n      return [${packagedFallbackConstant}];\n    }`,
     );
-    return installRuntimeCatalogPreload(hardened);
+    return installRuntimeCatalogPreload(hardenCompilerDurableStorage(hardened));
+}
+
+export function hardenCompilerDurableStorage(source) {
+    if (source.includes(COMPILER_DURABLE_STORAGE_MARKER)) return source;
+    if (source.includes(LEGACY_COMPILER_DURABLE_STORAGE_MARKER)) {
+        throw new Error('Generated content.js contains the retired optimistic durable-storage runtime. Rebuild it from compiler output.');
+    }
+    if (!source.includes('function GM_setValue(name, value)')) return source;
+    let hardened = source;
+    hardened = replaceGeneratedContractOnce(hardened, `  function GM_getValue(name, defaultValue) {
+    if (Object.prototype.hasOwnProperty.call(values, name)) return values[name];
+    if (valuesHydrated) return defaultValue;
+    return gmMessage('GM_getValue', { name, defaultValue }).then(response => {
+      values[name] = response?.value;
+      return response?.value;
+    }, () => defaultValue);
+  }`, `  function GM_getValue(name, defaultValue) {
+    if (Object.prototype.hasOwnProperty.call(values, name)) return values[name];
+    if (valuesHydrated) return defaultValue;
+    return gmMessage('GM_getValue', { name, defaultValue }).then(response => {
+      values[name] = response?.value;
+      return response?.value;
+    });
+  }`, 'GM_getValue failure handling');
+    hardened = replaceGeneratedContractOnce(hardened, `  let listenerSeq = 0;`, `  let listenerSeq = 0;
+  const yomuDurableMutationQueues = new Map();
+
+  function yomuQueueDurableMutation(name, mutation) {
+    const previous = yomuDurableMutationQueues.get(name) || Promise.resolve();
+    const current = previous.then(mutation, mutation);
+    yomuDurableMutationQueues.set(name, current);
+    return current.finally(() => {
+      if (yomuDurableMutationQueues.get(name) === current) yomuDurableMutationQueues.delete(name);
+    });
+  }`, 'GM durable mutation queue');
+    hardened = replaceGeneratedContractOnce(hardened, `  function GM_setValue(name, value) {
+    const oldValue = values[name];
+    values[name] = value;
+    notifyValueListeners(name, oldValue, value, false);
+    return gmMessage('GM_setValue', { name, value }).catch(() => {});
+  }`, `  function GM_setValue(name, value) {
+    // ${COMPILER_DURABLE_STORAGE_MARKER}
+    return yomuQueueDurableMutation(name, () => gmMessage('GM_setValue', { name, value }).then(() => {
+      const oldValue = values[name];
+      values[name] = value;
+      notifyValueListeners(name, oldValue, value, false);
+    }));
+  }`, 'GM_setValue durable failure handling');
+    hardened = replaceGeneratedContractOnce(hardened, `  function GM_deleteValue(name) {
+    const oldValue = values[name];
+    delete values[name];
+    notifyValueListeners(name, oldValue, undefined, false);
+    return gmMessage('GM_deleteValue', { name }).catch(() => {});
+  }`, `  function GM_deleteValue(name) {
+    return yomuQueueDurableMutation(name, () => gmMessage('GM_deleteValue', { name }).then(() => {
+      const oldValue = values[name];
+      delete values[name];
+      notifyValueListeners(name, oldValue, undefined, false);
+    }));
+  }`, 'GM_deleteValue durable failure handling');
+    return replaceGeneratedContractOnce(
+        hardened,
+        'Promise.resolve(globalThis.__USC_READY).catch(() => {}).then(() => {',
+        'Promise.resolve(globalThis.__USC_READY).then(() => {',
+        'userscript readiness failure handling',
+    );
+}
+
+function replaceGeneratedContractOnce(source, expected, replacement, label) {
+    const occurrences = source.split(expected).length - 1;
+    if (occurrences !== 1) {
+        throw new Error(`Generated content.js must contain exactly one ${label} contract; found ${occurrences}.`);
+    }
+    return source.replace(expected, replacement);
 }
 
 function installRuntimeCatalogPreload(source) {
-    if (source.includes('yomu-extension-runtime-catalog')) return source;
+    if (source.includes('yomu-extension-runtime-catalog')) {
+        return hardenInstalledRuntimeCatalogPreload(source);
+    }
     const ready = /globalThis\.__USC_READY = gmMessage\('GM_getAllValues', \{\}\)\.then\(response => \{\s*Object\.assign\(values, response\?\.values \|\| \{\}\);\s*valuesHydrated = true;\s*\}, \(\) => \{\s*valuesHydrated = true;\s*\}\);/;
     if (!ready.test(source)) return source;
-    return source.replace(ready, `const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
-    Object.assign(values, response?.values || {});
-    valuesHydrated = true;
-  }, () => {
-    valuesHydrated = true;
-  });
+    return source.replace(ready, `${COMPILER_CATALOG_VALUES_READY_STRICT}
   // yomu-extension-runtime-catalog
   const yomuCatalogReady = fetch(api.runtime.getURL('${RUNTIME_CATALOG_FILE}'))
     .then(response => {
@@ -158,6 +246,91 @@ function installRuntimeCatalogPreload(source) {
       globalThis.__YOMU_RUNTIME_DICTIONARY_CATALOG__ = catalog;
     });
   globalThis.__USC_READY = Promise.all([yomuValuesReady, yomuCatalogReady]);`);
+}
+
+function hardenInstalledRuntimeCatalogPreload(source) {
+    const strictOccurrences = source.split(COMPILER_CATALOG_VALUES_READY_STRICT).length - 1;
+    const legacyOccurrences = source.split(COMPILER_CATALOG_VALUES_READY_LEGACY).length - 1;
+    if (strictOccurrences === 1 && legacyOccurrences === 0) return source;
+    if (strictOccurrences !== 0) {
+        throw new Error(
+            `Generated content.js contains an ambiguous catalog storage hydration contract; found ${strictOccurrences} strict and ${legacyOccurrences} legacy.`,
+        );
+    }
+    return replaceGeneratedContractOnce(
+        source,
+        COMPILER_CATALOG_VALUES_READY_LEGACY,
+        COMPILER_CATALOG_VALUES_READY_STRICT,
+        'catalog storage hydration failure handling',
+    );
+}
+
+/**
+ * Storage-only adapter for the packaged Study page. The compiler injects its
+ * GM facade only into content scripts, so Study previously fell back to an
+ * unprefixed browser.storage.local namespace. Keep this adapter deliberately
+ * small: writes await the real extension API and reject on failure, while
+ * storage.onChanged provides the same logical-key notifications to an already
+ * open Study page without an in-memory hydration cache.
+ */
+export function extensionStudyStorageRuntimeSource(storagePrefix) {
+    if (typeof storagePrefix !== 'string' || !storagePrefix) {
+        throw new Error('Packaged Study storage requires the compiler storage prefix.');
+    }
+    return `// ${EXTENSION_STUDY_STORAGE_MARKER}\n(() => {
+  'use strict';
+  const api = globalThis.browser || globalThis.chrome;
+  if (!api?.storage?.onChanged?.addListener || !api?.runtime?.sendMessage) {
+    throw new Error('Packaged Study storage API is unavailable.');
+  }
+  const prefix = ${JSON.stringify(storagePrefix)};
+  const channel = 'userscript-compiler';
+  const listeners = new Map();
+  let nextListenerId = 1;
+  const message = (type, payload = {}) => api.runtime.sendMessage({ channel, type, payload })
+    .then(response => {
+      if (!response || typeof response !== 'object') {
+        throw new Error('Packaged Study storage background did not respond.');
+      }
+      if (response?.error) throw new Error(response.error);
+      return response;
+    });
+
+  globalThis.__YOMU_EXTENSION_STORAGE_PREFIX__ = prefix;
+  globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ = true;
+  globalThis.GM_getValue = async (key, fallback) => {
+    const response = await message('GM_getValue', { name: String(key), defaultValue: fallback });
+    return response?.value;
+  };
+  globalThis.GM_setValue = async (key, value) => {
+    await message('GM_setValue', { name: String(key), value });
+  };
+  globalThis.GM_deleteValue = async key => {
+    await message('GM_deleteValue', { name: String(key) });
+  };
+  globalThis.GM_listValues = async () => {
+    const response = await message('GM_listValues');
+    return response?.keys || [];
+  };
+  globalThis.GM_addValueChangeListener = (key, listener) => {
+    const id = nextListenerId++;
+    listeners.set(id, { key: String(key), listener });
+    return id;
+  };
+  globalThis.GM_removeValueChangeListener = id => {
+    listeners.delete(id);
+  };
+  api?.storage?.onChanged?.addListener?.((changes, areaName) => {
+    if (areaName !== 'local') return;
+    for (const [storedKey, change] of Object.entries(changes || {})) {
+      if (!storedKey.startsWith(prefix)) continue;
+      const key = storedKey.slice(prefix.length);
+      for (const { key: watchedKey, listener } of listeners.values()) {
+        if (watchedKey === key) listener(key, change?.oldValue, change?.newValue, true);
+      }
+    }
+  });
+})();\n`;
 }
 
 export function hardenExtensionPopupSource(source, options = {}) {
@@ -173,6 +346,11 @@ export function hardenExtensionPopupSource(source, options = {}) {
 function installExtensionScreenshotBridgeSource(source) {
     if (source.includes(SCREENSHOT_BRIDGE_MARKER)) return source;
     return `${source}\n\n${extensionScreenshotBridgeSource()}\n`;
+}
+
+function installPackagedStudySettingsBridgeSource(source) {
+    if (source.includes(PACKAGED_STUDY_SETTINGS_BRIDGE_MARKER)) return source;
+    return `${source}\n\n${packagedStudySettingsBridgeSource()}\n`;
 }
 
 function installGoogleDriveSettingsSyncBridgeSource(source) {
@@ -394,6 +572,264 @@ export async function refreshGeneratedExtensionProjectArchive(root, archiveTimes
     );
 }
 
+export async function assertExtensionReleasePackageParity(root) {
+    await assertArchivePackageParity(root, 'chrome', 'yomureader.com-chrome.zip', [
+        'manifest.json',
+        'background.js',
+        'content.js',
+        PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
+        'newtab/index.html',
+    ]);
+    await assertArchivePackageParity(root, 'firefox', 'yomureader.com-firefox.xpi', [
+        'manifest.json',
+        'background.js',
+        'gm-runtime.js',
+        PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
+        'newtab/index.html',
+        'content.js',
+    ]);
+    await assertDirectoryPackageParity(root, 'safari', 'yomureader.com-safari-web-extension', [
+        'manifest.json',
+        'background.js',
+        'content.js',
+        PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
+        'newtab/index.html',
+    ]);
+}
+
+/** Bind release acceptance to the exact launcher/storage bytes that execute. */
+export async function assertShippedSettingsAuthorityRuntime(entries, target, expectedVersion) {
+    assertShippedManifestVersion(entries, target, expectedVersion);
+    const content = extensionEntryText(entries, CONTENT_FILE, target);
+    assertShippedContentLauncher(content, target);
+    assertShippedUserscriptReadiness(content, target);
+    const gmRuntime = settingsAuthorityGmRuntime(entries, target, content);
+    assertShippedDurableRuntime(gmRuntime, target);
+    await assertRejectingShippedDurableMutations(gmRuntime, target);
+    assertShippedStudyStorageAdapter(entries, target);
+    if (target.startsWith('firefox')) assertShippedFirefoxSettingsBridge(entries, target);
+    assertShippedStudyVersion(entries, target, expectedVersion);
+}
+
+function assertShippedManifestVersion(entries, target, expectedVersion) {
+    const manifest = JSON.parse(extensionEntryText(entries, 'manifest.json', target));
+    if (manifest.version !== expectedVersion) {
+        throw new Error(`${target} manifest version ${JSON.stringify(manifest.version)} does not match ${expectedVersion}.`);
+    }
+}
+
+function assertShippedContentLauncher(content, target) {
+    requireRuntimeContract(content, 'yomu.openPackagedStudySettings', `${target} content launcher message`);
+    requireRuntimeContract(content, PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL, `${target} content launcher protocol`);
+}
+
+function settingsAuthorityGmRuntime(entries, target, content) {
+    return target.startsWith('firefox')
+        ? extensionEntryText(entries, CONTENT_RUNTIME_FILE, target)
+        : content;
+}
+
+function assertShippedDurableRuntime(gmRuntime, target) {
+    requireRuntimeContract(gmRuntime, COMPILER_DURABLE_STORAGE_MARKER, `${target} durable GM storage marker`);
+    rejectRuntimeContract(
+        gmRuntime,
+        LEGACY_COMPILER_DURABLE_STORAGE_MARKER,
+        `${target} retired optimistic durable GM storage marker`,
+    );
+    requireRuntimeContract(
+        gmRuntime,
+        'const yomuDurableMutationQueues = new Map();',
+        `${target} per-key durable GM mutation queue`,
+    );
+    requireRuntimeContract(
+        gmRuntime,
+        'const current = previous.then(mutation, mutation);',
+        `${target} rejection-tolerant durable GM mutation sequence`,
+    );
+    requireRuntimeContract(
+        gmRuntime,
+        "return yomuQueueDurableMutation(name, () => gmMessage('GM_setValue', { name, value }).then(() => {",
+        `${target} success-gated GM set publication`,
+    );
+    requireRuntimeContract(
+        gmRuntime,
+        "return yomuQueueDurableMutation(name, () => gmMessage('GM_deleteValue', { name }).then(() => {",
+        `${target} success-gated GM delete publication`,
+    );
+    requireRuntimeContract(
+        gmRuntime,
+        COMPILER_CATALOG_VALUES_READY_STRICT,
+        `${target} strict storage hydration gate`,
+    );
+    rejectRuntimeContract(
+        gmRuntime,
+        COMPILER_CATALOG_VALUES_READY_LEGACY,
+        `${target} swallowed storage hydration failure`,
+    );
+}
+
+function assertShippedUserscriptReadiness(content, target) {
+    requireRuntimePattern(
+        content,
+        /Promise\.resolve\(globalThis\.__USC_READY\)\.then\(\s*\(\)\s*=>\s*\{/,
+        `${target} strict userscript readiness gate`,
+    );
+    rejectRuntimePattern(
+        content,
+        /Promise\.resolve\(globalThis\.__USC_READY\)\.catch\(\s*\(\)\s*=>\s*\{\s*\}\s*\)\.then\(\s*\(\)\s*=>\s*\{/,
+        `${target} swallowed userscript readiness failure`,
+    );
+}
+
+async function assertRejectingShippedDurableMutations(gmRuntime, target) {
+    const sandbox = shippedRuntimeMutationSandbox();
+    executeShippedGmRuntime(gmRuntime, sandbox);
+    await sandbox.__USC_READY;
+    const changes = [];
+    sandbox.GM_addValueChangeListener('__yomu_release_verifier__', (...args) => changes.push(args));
+    await assertRejectedShippedMutation(
+        sandbox.GM_setValue('__yomu_release_verifier__', 'changed'),
+        target,
+        'set',
+    );
+    await assertRejectedShippedMutation(
+        sandbox.GM_deleteValue('__yomu_release_verifier__'),
+        target,
+        'delete',
+    );
+    assertRejectedMutationStateUnchanged(sandbox, changes, target);
+}
+
+function executeShippedGmRuntime(gmRuntime, sandbox) {
+    new Function('globalThis', 'window', 'fetch', shippedGmRuntimePrelude(gmRuntime))(
+        sandbox,
+        sandbox,
+        async () => ({ ok: true, json: async () => ({ dictionaries: [] }) }),
+    );
+}
+
+function assertRejectedMutationStateUnchanged(sandbox, changes, target) {
+    if (sandbox.GM_getValue('__yomu_release_verifier__', null) !== 'stable') {
+        throw new Error(`${target} rejected durable GM mutation changed its cache.`);
+    }
+    if (changes.length) throw new Error(`${target} rejected durable GM mutation notified listeners.`);
+}
+
+function shippedRuntimeMutationSandbox() {
+    const rejection = new Error('yomu-release-verifier-durable-rejection');
+    const runtime = {
+        getURL: file => `moz-extension://yomu-release-verifier/${file}`,
+        onMessage: { addListener: () => undefined },
+        sendMessage: message => shippedRuntimeVerifierMessage(message, rejection),
+    };
+    return { browser: { runtime } };
+}
+
+function shippedRuntimeVerifierMessage(message, rejection) {
+    if (message.type === 'GM_getAllValues') {
+        return Promise.resolve({ values: { __yomu_release_verifier__: 'stable' } });
+    }
+    if (message.type === 'GM_setValue') return Promise.reject(rejection);
+    if (message.type === 'GM_deleteValue') return Promise.reject(rejection);
+    return Promise.resolve({});
+}
+
+function shippedGmRuntimePrelude(gmRuntime) {
+    const bodyGate = 'Promise.resolve(globalThis.__USC_READY).then(() => {';
+    const bodyGateIndex = gmRuntime.indexOf(bodyGate);
+    return bodyGateIndex < 0 ? gmRuntime : gmRuntime.slice(0, bodyGateIndex);
+}
+
+async function assertRejectedShippedMutation(mutation, target, operation) {
+    try {
+        await mutation;
+    } catch (error) {
+        if (error?.message === 'yomu-release-verifier-durable-rejection') return;
+        throw error;
+    }
+    throw new Error(`${target} rejected durable GM ${operation} resolved successfully.`);
+}
+
+function assertShippedStudyStorageAdapter(entries, target) {
+    const studyRuntime = extensionEntryText(entries, PACKAGED_STUDY_STORAGE_RUNTIME_FILE, target);
+    requireRuntimeContract(
+        studyRuntime,
+        EXTENSION_STUDY_STORAGE_MARKER,
+        `${target} packaged Study storage adapter marker`,
+    );
+    requireRuntimeContract(
+        studyRuntime,
+        '__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__',
+        `${target} packaged Study storage adapter flag`,
+    );
+    const studyIndex = extensionEntryText(entries, 'newtab/index.html', target);
+    requireRuntimeContract(
+        studyIndex,
+        './study-storage-runtime.js',
+        `${target} packaged Study storage adapter script`,
+    );
+}
+
+function assertShippedFirefoxSettingsBridge(entries, target) {
+    const background = extensionEntryText(entries, BACKGROUND_FILE, target);
+    requireRuntimeContract(background, PACKAGED_STUDY_SETTINGS_BRIDGE_MARKER, `${target} settings background bridge`);
+    requireRuntimeContract(background, 'yomu.openPackagedStudySettings', `${target} background launcher message`);
+    requireRuntimeContract(background, PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL, `${target} background launcher protocol`);
+}
+
+function assertShippedStudyVersion(entries, target, expectedVersion) {
+    const version = JSON.parse(extensionEntryText(entries, 'newtab/version.json', target));
+    if (typeof version.buildId !== 'string' || !version.buildId.startsWith(`${expectedVersion}-`)) {
+        throw new Error(`${target} packaged Study build id does not match ${expectedVersion}.`);
+    }
+}
+
+function extensionEntryText(entries, file, target) {
+    const value = entries[file];
+    if (value === undefined) throw new Error(`${target} package is missing ${file}.`);
+    return typeof value === 'string' ? value : new TextDecoder().decode(value);
+}
+
+function requireRuntimeContract(source, marker, label) {
+    if (!source.includes(marker)) throw new Error(`${label} is missing.`);
+}
+
+function rejectRuntimeContract(source, marker, label) {
+    if (source.includes(marker)) throw new Error(`${label} is present.`);
+}
+
+function requireRuntimePattern(source, pattern, label) {
+    if (!pattern.test(source)) throw new Error(`${label} is missing.`);
+}
+
+function rejectRuntimePattern(source, pattern, label) {
+    if (pattern.test(source)) throw new Error(`${label} is present.`);
+}
+
+async function assertArchivePackageParity(root, target, archiveName, files) {
+    const packageDirectory = path.join(root, 'packages', 'extension', target);
+    const archive = path.join(root, 'release', target, archiveName);
+    const releaseEntries = unzipSync(new Uint8Array(await readFile(archive)));
+    for (const file of files) {
+        await assertPackageFileParity(target, packageDirectory, releaseEntries[file], file);
+    }
+}
+
+async function assertDirectoryPackageParity(root, target, directoryName, files) {
+    const packageDirectory = path.join(root, 'packages', 'extension', target);
+    const releaseDirectory = path.join(root, 'release', target, directoryName);
+    for (const file of files) {
+        const released = new Uint8Array(await readFile(path.join(releaseDirectory, file)));
+        await assertPackageFileParity(target, packageDirectory, released, file);
+    }
+}
+
+async function assertPackageFileParity(target, packageDirectory, released, file) {
+    const packaged = await readFile(path.join(packageDirectory, file));
+    if (released && packaged.equals(released)) return;
+    throw new Error(`${target} ${file} differs between the unpacked review project and release artifact.`);
+}
+
 async function hardenGeneratedExtensionPopups(root) {
     const files = await collectNamedFiles(root, POPUP_FILE);
     for (const file of files) {
@@ -423,44 +859,81 @@ async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimest
     const files = await collectArchiveFiles(releaseRoot);
     for (const file of files) {
         const target = extensionTargetFromPath(file, releaseRoot);
-        if (target !== 'chrome' && target !== 'firefox') continue;
+        if (!RELEASE_ARCHIVE_TARGETS.has(target)) continue;
         const entries = unzipSync(new Uint8Array(await readFile(file)));
-        const googleOAuthClientId = process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID
-            ?? process.env.GOOGLE_OAUTH_CLIENT_ID
-            ?? '';
-        for (const [name, bytes] of Object.entries(entries)) {
-            if (name === BACKGROUND_FILE) {
-                entries[name] = strToU8(hardenExtensionBackgroundSource(new TextDecoder().decode(bytes), {
-                    target,
-                    googleOAuthClientId,
-                    dictionaryBackgroundSource,
-                }));
-            } else if (name === CONTENT_FILE) {
-                // This archive is patched from its own entries rather than from the
-                // already-hardened package directory, so the Firefox size fix has
-                // to be applied here as well or the shipped .xpi keeps the padding.
-                let content = hardenExtensionContentSource(new TextDecoder().decode(bytes));
-                if (target === 'firefox') {
-                    content = unindentContentScriptBody(content);
-                    const split = splitFirefoxContentScript(content);
-                    const compactedContent = await compactFirefoxContentScript(split.content);
-                    assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
-                    assertFirefoxContentScriptFitsAmo(compactedContent, CONTENT_FILE);
-                    entries[CONTENT_RUNTIME_FILE] = strToU8(split.runtime);
-                    content = compactedContent;
-                }
-                entries[name] = strToU8(content);
-            } else if (name === MANIFEST_FILE) {
-                const manifest = JSON.parse(new TextDecoder().decode(bytes));
-                entries[name] = strToU8(`${JSON.stringify(hardenExtensionManifest(manifest, {
-                    target,
-                    packagedReaderCss: packageAssets.size > 0,
-                }), null, 2)}\n`);
-            }
-        }
-        for (const [name, bytes] of packageAssets) entries[name] = bytes;
+        const storagePrefix = releaseArchiveStoragePrefix(entries, file);
+        entries[PACKAGED_STUDY_STORAGE_RUNTIME_FILE] = strToU8(
+            extensionStudyStorageRuntimeSource(storagePrefix),
+        );
+        await hardenReleaseArchiveEntries(entries, {
+            target,
+            packageAssets,
+            dictionaryBackgroundSource,
+            googleOAuthClientId: extensionGoogleOAuthClientId(),
+        });
+        installReleaseArchiveAssets(entries, packageAssets);
         await writeFile(file, zipSync(zipEntriesWithTimestamp(entries, archiveTimestamp), { level: 9 }));
     }
+}
+
+function installReleaseArchiveAssets(entries, packageAssets) {
+    for (const [name, bytes] of packageAssets) entries[name] = bytes;
+}
+
+function releaseArchiveStoragePrefix(entries, file) {
+    const archiveBackground = entries[BACKGROUND_FILE];
+    if (!archiveBackground) throw new Error(`${file} is missing ${BACKGROUND_FILE}.`);
+    return extensionStoragePrefixFromBackgroundSource(new TextDecoder().decode(archiveBackground));
+}
+
+function extensionGoogleOAuthClientId() {
+    return process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID
+        ?? process.env.GOOGLE_OAUTH_CLIENT_ID
+        ?? '';
+}
+
+async function hardenReleaseArchiveEntries(entries, options) {
+    for (const [name, bytes] of Object.entries(entries)) {
+        entries[name] = await hardenReleaseArchiveEntry(name, bytes, entries, options);
+    }
+}
+
+async function hardenReleaseArchiveEntry(name, bytes, entries, options) {
+    if (name === BACKGROUND_FILE) return hardenReleaseArchiveBackground(bytes, options);
+    if (name === CONTENT_FILE) return hardenReleaseArchiveContent(bytes, entries, options.target);
+    if (name === MANIFEST_FILE) return hardenReleaseArchiveManifest(bytes, options);
+    return bytes;
+}
+
+function hardenReleaseArchiveBackground(bytes, options) {
+    return strToU8(hardenExtensionBackgroundSource(new TextDecoder().decode(bytes), {
+        target: options.target,
+        googleOAuthClientId: options.googleOAuthClientId,
+        dictionaryBackgroundSource: options.dictionaryBackgroundSource,
+    }));
+}
+
+async function hardenReleaseArchiveContent(bytes, entries, target) {
+    // This archive is patched from its own entries rather than from the
+    // already-hardened package directory, so the Firefox size fix has to be
+    // applied here as well or the shipped .xpi keeps the padding.
+    let content = hardenExtensionContentSource(new TextDecoder().decode(bytes));
+    if (target !== 'firefox') return strToU8(content);
+    content = unindentContentScriptBody(content);
+    const split = splitCompilerContentScript(content);
+    const compactedContent = await compactFirefoxContentScript(split.content);
+    assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
+    assertFirefoxContentScriptFitsAmo(compactedContent, CONTENT_FILE);
+    entries[CONTENT_RUNTIME_FILE] = strToU8(split.runtime);
+    return strToU8(compactedContent);
+}
+
+function hardenReleaseArchiveManifest(bytes, options) {
+    const manifest = JSON.parse(new TextDecoder().decode(bytes));
+    return strToU8(`${JSON.stringify(hardenExtensionManifest(manifest, {
+        target: options.target,
+        packagedReaderCss: options.packageAssets.size > 0,
+    }), null, 2)}\n`);
 }
 
 async function hardenGeneratedExtensionManifests(root, options = {}) {
@@ -481,12 +954,20 @@ async function hardenGeneratedExtensionContentScripts(root) {
     const files = await collectNamedFiles(root, CONTENT_FILE);
     for (const file of files) {
         const source = await readFile(file, 'utf8');
+        const background = await readFile(path.join(path.dirname(file), BACKGROUND_FILE), 'utf8');
+        const storagePrefix = extensionStoragePrefixFromBackgroundSource(background);
         let hardened = hardenExtensionContentSource(source);
+        // Packaged Study is an extension page, not a content script. Give it a
+        // narrow storage adapter rather than the compiler's full GM runtime.
+        await writeFile(
+            path.join(path.dirname(file), PACKAGED_STUDY_STORAGE_RUNTIME_FILE),
+            extensionStudyStorageRuntimeSource(storagePrefix),
+        );
         // Firefox only: Chrome ships and reviews fine as generated, so its bytes
         // are left exactly as they are.
         if (extensionTargetFromPath(file, root) === 'firefox') {
             hardened = unindentContentScriptBody(hardened);
-            const split = splitFirefoxContentScript(hardened);
+            const split = splitCompilerContentScript(hardened);
             const compactedContent = await compactFirefoxContentScript(split.content);
             assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
             assertFirefoxContentScriptFitsAmo(compactedContent, file);
@@ -520,7 +1001,7 @@ export function unindentContentScriptBody(source) {
     return source.slice(0, bodyStart) + unindented.join('\n') + source.slice(end);
 }
 
-export function splitFirefoxContentScript(source) {
+export function splitCompilerContentScript(source) {
     const bodyStart = source.indexOf(CONTENT_BODY_PREFIX);
     if (bodyStart <= 0) {
         throw new Error('Generated content.js no longer separates the GM runtime from the userscript body.');
@@ -724,6 +1205,81 @@ function extensionScreenshotBridgeSource() {
     return true;
   };
   api.runtime.onMessage.addListener(listener);
+})();`;
+}
+
+function packagedStudySettingsBridgeSource() {
+    return `;(() => {
+  // ${PACKAGED_STUDY_SETTINGS_BRIDGE_MARKER}
+  const MESSAGE_TYPE = 'yomu.openPackagedStudySettings';
+  const PROTOCOL = '${PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL}';
+  const PANELS = new Set(${JSON.stringify([
+        'appearance',
+        'backup',
+        'api',
+        'dictionaries',
+        'media',
+        'mining',
+        'newTab',
+        'shortcuts',
+        'help',
+    ])});
+  const api = globalThis.browser || globalThis.chrome;
+  if (!api?.runtime?.id || !api.runtime.onMessage || !api.runtime.getURL || !api?.tabs?.create) return;
+  const listener = (message, sender, sendResponse) => {
+    if (!message || message.type !== MESSAGE_TYPE) return undefined;
+    const send = response => {
+      try { sendResponse(response); } catch (_) { /* response port closed */ }
+    };
+    const senderTabId = sender?.tab?.id;
+    if (sender?.id !== api.runtime.id || !Number.isInteger(senderTabId)) {
+      send({ ok: false, error: 'Packaged Study settings requests require an extension content tab.' });
+      return false;
+    }
+    if (message.protocol !== PROTOCOL) {
+      send({ ok: false, error: 'Unsupported packaged Study settings launcher protocol.' });
+      return false;
+    }
+    const panel = typeof message.panel === 'string' ? message.panel : '';
+    if (!PANELS.has(panel)) {
+      send({ ok: false, error: 'Unknown packaged Study settings panel.' });
+      return false;
+    }
+    const url = api.runtime.getURL('newtab/index.html') + '#settings=' + panel;
+    createActiveTab(url).then(
+      tab => Number.isInteger(tab?.id)
+        ? send({ ok: true, tabId: tab.id })
+        : send({ ok: false, error: 'Packaged Study tab creation returned no tab id.' }),
+      error => send({ ok: false, error: error?.message || String(error || 'Packaged Study tab creation failed.') }),
+    );
+    return true;
+  };
+  api.runtime.onMessage.addListener(listener);
+
+  function createActiveTab(url) {
+    const options = { url, active: true };
+    if (api.tabs.create.length > 1) {
+      return new Promise((resolve, reject) => {
+        try {
+          api.tabs.create(options, tab => {
+            const error = api.runtime.lastError;
+            if (error) reject(new Error(error.message || String(error)));
+            else resolve(tab);
+          });
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+    try {
+      const pending = api.tabs.create(options);
+      return pending && typeof pending.then === 'function'
+        ? pending
+        : Promise.reject(new Error('Packaged Study tab creation did not provide completion.'));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
 })();`;
 }
 

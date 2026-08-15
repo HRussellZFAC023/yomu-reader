@@ -92,24 +92,37 @@ export function hardenCompilerRuntimeMessageChannel(source) {
 export function installExtensionDictionaryBackgroundSource(source, dictionaryBackgroundSource) {
     if (!dictionaryBackgroundSource) return source;
     if (source.includes(EXTENSION_DICTIONARY_BACKGROUND_MARKER)) {
-        assertSingleOccurrence(source, EXTENSION_DICTIONARY_BACKGROUND_MARKER, 'injected background service marker');
-        if (source.includes(EXTENSION_STORAGE_PREFIX_PLACEHOLDER)) {
-            throw new Error('Injected extension dictionary background still contains its storage-prefix placeholder.');
-        }
-        return source;
+        return verifiedInstalledDictionaryBackground(source);
     }
+    return appendConfiguredDictionaryBackground(source, dictionaryBackgroundSource);
+}
+
+function verifiedInstalledDictionaryBackground(source) {
+    assertSingleOccurrence(source, EXTENSION_DICTIONARY_BACKGROUND_MARKER, 'injected background service marker');
+    if (source.includes(EXTENSION_STORAGE_PREFIX_PLACEHOLDER)) {
+        throw new Error('Injected extension dictionary background still contains its storage-prefix placeholder.');
+    }
+    return source;
+}
+
+function appendConfiguredDictionaryBackground(source, dictionaryBackgroundSource) {
     assertSingleOccurrence(dictionaryBackgroundSource, EXTENSION_DICTIONARY_BACKGROUND_MARKER, 'background service marker');
     const placeholder = JSON.stringify(EXTENSION_STORAGE_PREFIX_PLACEHOLDER);
     assertSingleOccurrence(dictionaryBackgroundSource, placeholder, 'storage-prefix placeholder');
-    const storagePrefixLiterals = [...source.matchAll(STORAGE_PREFIX_DECLARATION)].map(match => match[1]);
-    if (storagePrefixLiterals.length !== 1) {
-        throw new Error(`Generated extension background exposes ${storagePrefixLiterals.length} exact storagePrefix declarations; expected one.`);
-    }
-    const configuredSource = dictionaryBackgroundSource.replace(placeholder, storagePrefixLiterals[0]);
+    const storagePrefix = extensionStoragePrefixFromBackgroundSource(source);
+    const configuredSource = dictionaryBackgroundSource.replace(placeholder, JSON.stringify(storagePrefix));
     if (configuredSource.includes(EXTENSION_STORAGE_PREFIX_PLACEHOLDER)) {
         throw new Error('Extension dictionary background storage-prefix substitution did not consume the placeholder.');
     }
     return `${source}\n\n${configuredSource}\n`;
+}
+
+export function extensionStoragePrefixFromBackgroundSource(source) {
+    const storagePrefixLiterals = [...source.matchAll(STORAGE_PREFIX_DECLARATION)].map(match => match[1]);
+    if (storagePrefixLiterals.length !== 1) {
+        throw new Error(`Generated extension background exposes ${storagePrefixLiterals.length} exact storagePrefix declarations; expected one.`);
+    }
+    return JSON.parse(storagePrefixLiterals[0]);
 }
 
 export function assertHardenedExtensionDictionaryBackgroundSource(source, description = 'Extension background') {

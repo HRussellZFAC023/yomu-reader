@@ -18,7 +18,7 @@ import {
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
+import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -26,7 +26,8 @@ import { publishSettingsChange as publishPrivateSettingsChange } from './setting
 import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { bindAuthorizedReaderFormSubmit, dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
-import { exportManagedStoredValues, importStoredValues } from '../app/storage';
+import { exportSettingsBackupSnapshot } from './settings-persistence-transaction';
+import { reportInvalidSettingsForm } from './settings-form-validation';
 import {
     activateSettingsPanel,
     activeTargetLanguageId,
@@ -80,32 +81,13 @@ import {
     CLOUD_SETTINGS_SYNC_ENABLED,
     cloudSettingsAuthRedirectResult,
     cloudSettingsSyncAvailable,
-    downloadCloudSettingsFromCloud,
-    uploadCloudSettingsToCloud,
 } from './cloud-sync';
+import { resumePendingCloudSettingsAction } from './cloud-settings-resume';
 import {
-    resumePendingCloudSettingsAction,
-    type CloudSettingsAction,
-} from './cloud-settings-resume';
-import {
-    cloudSettingsRedirectHandoffRequired,
-    createCloudSettingsAuthorization,
-    type CloudSettingsAuthorization,
-} from './cloud-settings-auth-state';
-import {
-    clearCloudSettingsRedirectHandoff,
     clearPendingCloudSettingsAction,
     readPendingCloudSettingsAction,
-    rememberCloudSettingsRedirectHandoff,
 } from './cloud-settings-pending-action';
-import {
-    cloudSettingsActionEnabled,
-    notifyCloudSettingsPersistenceFailed,
-    reportCloudSettingsStatus,
-    setCloudSettingsActionButtonDisabled,
-    settingsForCloudAction,
-} from './cloud-settings-dialog-action';
-import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
+import { dateStamp, downloadBlob, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { formatUiText, uiText } from '../app/i18n';
@@ -115,13 +97,13 @@ import {
     learningTargetRosterEntry,
 } from '../languages';
 import { syncLanguageFamilyDom } from './language-gating';
-import { bindLiveSettingsSync } from './live-settings-sync';
+import { bindLiveSettingsSync, SettingsPreviewBaseline } from './live-settings-sync';
 import {
     syncLanguageProfileForm as syncLiveLanguageProfileForm,
     type LanguageProfileFormSyncRequest,
 } from './language-profile-live-sync';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
-import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
+import { YomitanDictionaryStore, type ImportSummary } from '../dictionaries/yomitan';
 import { markDictionaryReplicaFresh, requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
@@ -130,9 +112,6 @@ import { dictionaryActionBlockedDuringSiteClear } from './local-dictionary-stora
 import {
     firefoxAuthenticationInfoRequiresExtensionPage,
     requestFirefoxAuthenticationInfoForChangedSettings,
-    requestFirefoxAuthenticationInfoForSettings,
-    requestFirefoxAuthenticationInfoPermission,
-    type FirefoxAuthenticationInfoConsent,
 } from './firefox-data-consent';
 import { currentSensitiveSettingsSurfaceIsTrusted, mountSensitiveSettingsLauncher } from './sensitive-settings-surface';
 import {
@@ -140,6 +119,18 @@ import {
     selectedTargetLanguage,
     type DictionaryStatusSummary,
 } from './dictionary-status-view';
+import {
+    SettingsRestoreCoordinator,
+} from './settings-restore-coordinator';
+import { restoreReaderSettingsBackup } from './reader-settings-restore-adapter';
+import { SettingsCloudSyncCoordinator } from './settings-cloud-sync-coordinator';
+import {
+    acceptFirefoxAuthenticationInfoConsent,
+    handleSettingsActionError,
+    SettingsActionRouter,
+    type SettingsActionContext,
+    type SettingsStatusSetter,
+} from './settings-action-router';
 
 interface Refreshable { refresh: () => void }
 interface SettingsDialogDependencies {
@@ -179,7 +170,6 @@ interface SettingsDialogDependencies {
     publishedDictionaryLanguages?: () => Promise<ReadonlySet<string>>;
 }
 
-type SettingsStatusSetter = (message: string) => void;
 function isSettingsCommandWord(word: HTMLElement): boolean {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
 }
@@ -201,9 +191,28 @@ interface AnkiScanSelection {
     selectedModel: string;
 }
 
+interface JpdbConnectionProbe {
+    readonly status: HTMLElement;
+    readonly formSettings: ReaderSettings;
+    readonly apiKey: string;
+    readonly requestId: number;
+}
+
 interface RecommendedDictionaryOperationState {
     state: RecommendedDictionaryInstallState;
     message: string;
+}
+
+interface DictionaryImportFailure {
+    readonly filename: string;
+    readonly error: unknown;
+}
+
+interface DictionaryImportReport {
+    readonly summaries: ImportSummary[];
+    readonly records: number;
+    readonly sources: number;
+    readonly failures: DictionaryImportFailure[];
 }
 
 const log = Logger.scope('SettingsDialog');
@@ -215,22 +224,6 @@ const AUTO_REPLACE_ANKI_MODEL_NAMES = new Set(['', 'よむ Japanese', 'Yomu Japa
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-// Import/export lives in the Backup & sync panel while dictionary row actions
-// stay under Sources; both panels carry a [data-import-status] line. Feedback
-// writes ONLY to the panel the action originated from — broadcasting to every
-// node left stale success/error text visible on the other panel later.
-function settingsStatusSetter(form: HTMLFormElement, control?: HTMLElement | null): SettingsStatusSetter {
-    return message => {
-        const originPanel = control?.closest<HTMLElement>('fieldset[data-settings-panel]');
-        const status = originPanel?.querySelector<HTMLElement>('[data-import-status]')
-            ?? form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup [data-import-status]')
-            ?? form.querySelector<HTMLElement>('[data-import-status]');
-        if (!status) return;
-        status.textContent = message;
-        status.hidden = false;
-    };
-}
-
 function focusPreviewAudioSource(form: HTMLFormElement, button: HTMLButtonElement | null, previewSettings: ReaderSettings): void {
     const row = button?.closest<HTMLElement>('[data-audio-source-row]');
     if (!row) return;
@@ -434,24 +427,6 @@ function nextSettingsTabIndex(key: string, currentIndex: number, tabCount: numbe
     return -1;
 }
 
-function handleSettingsActionError(
-    action: string,
-    control: HTMLElement | null | undefined,
-    setStatus: SettingsStatusSetter,
-    error: unknown,
-    language: InterfaceLanguage,
-): string {
-    log.warn('Settings action failed', { action }, error);
-    if (shouldReenableSettingsAction(action)) control?.removeAttribute('disabled');
-    const message = userFacingErrorText(language, 'actionFailed', error);
-    setStatus(message);
-    return message;
-}
-
-function shouldReenableSettingsAction(action: string): boolean {
-    return action === 'download-recommended-dictionary' || action === 'delete-yomitan-dictionary';
-}
-
 function isAnkiConnectSetupError(error: unknown): boolean {
     if (isAnkiConnectAvailabilityError(error)) return true;
     const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
@@ -459,9 +434,45 @@ function isAnkiConnectSetupError(error: unknown): boolean {
         && /(not reachable|request failed|timed out|failed to fetch|networkerror|request bridge|CORS)/i.test(message);
 }
 
+function dictionaryImportReport(
+    files: readonly File[],
+    results: readonly PromiseSettledResult<ImportSummary>[],
+): DictionaryImportReport {
+    const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+    return {
+        summaries,
+        records: summaries.reduce((total, summary) => total + summary.entries, 0),
+        sources: new Set(summaries.flatMap(summary => summary.dictionaries)).size,
+        failures: results.flatMap((result, index) => result.status === 'rejected'
+            ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result.reason }]
+            : []),
+    };
+}
+
+function dictionaryImportStatusMessage(language: InterfaceLanguage, report: DictionaryImportReport): string {
+    const messageKey = report.failures.length
+        ? 'dictionaryImportResultWithFailures'
+        : 'dictionaryImportComplete';
+    return formatUiTemplate(uiText(language, messageKey), {
+        records: report.records.toLocaleString(),
+        sources: report.sources.toLocaleString(),
+        plural: pluralSuffix(report.sources),
+        failed: report.failures.length.toLocaleString(),
+        failedPlural: pluralSuffix(report.failures.length),
+        files: report.failures.map(failure => failure.filename).join(', '),
+    });
+}
+
+function pluralSuffix(count: number): string {
+    return count === 1 ? '' : 's';
+}
+
+function syncCheckedControl(control: HTMLInputElement | null, checked: boolean): void {
+    if (control) control.checked = checked;
+}
+
 export class SettingsDialogController {
-    private dictionaryOperationQueue: Promise<void> = Promise.resolve();
-    private pendingDictionaryOperations = 0;
+    private readonly previewBaseline: SettingsPreviewBaseline;
     private dictionarySiteStorageClearPending = false;
     private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
     private currentForm?: HTMLFormElement;
@@ -477,13 +488,45 @@ export class SettingsDialogController {
     private targetDictionaryAvailabilityRequestId = 0;
     private publishedDictionaryLanguagesPromise?: Promise<ReadonlySet<string>>;
     private readonly academyAccountSync: AcademyAccountSyncSettingsController;
+    private readonly restoreCoordinator: SettingsRestoreCoordinator;
+    private readonly cloudSettings: SettingsCloudSyncCoordinator;
+    private readonly actionRouter: SettingsActionRouter;
     private settingsJapaneseParseRefreshFrame: number | undefined;
     private settingsJapaneseParseRefreshTimer: number | undefined;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {
+        this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
         this.academyAccountSync = new AcademyAccountSyncSettingsController(message => dependencies.toast(message));
+        this.restoreCoordinator = new SettingsRestoreCoordinator({
+            interfaceLanguage: () => this.settings.interfaceLanguage,
+            currentForm: () => this.currentForm,
+            toast: message => dependencies.toast(message),
+            invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations(),
+        });
+        this.cloudSettings = new SettingsCloudSyncCoordinator({
+            settings: () => this.settings,
+            stableSettings: () => this.stableSettings,
+            setSettings: settings => { this.settings = settings; },
+            saveCurrentSettings: previous => this.saveCurrentSettings(previous),
+            persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
+            adoptSettings: settings => this.adoptPersistedSettings(settings),
+            onSettingsPersistenceFailed: dependencies.onSettingsPersistenceFailed,
+            toast: message => dependencies.toast(message),
+            currentForm: () => this.currentForm,
+            restore: this.restoreCoordinator,
+            runPostCommitEffect: (label, effect) => this.runPostCommitSettingsEffect(label, effect),
+            applyRestoreEffects: () => this.applySettingsRestoreEffects(true, 'backup'),
+        });
+        this.actionRouter = new SettingsActionRouter({
+            settings: () => this.settings,
+            toast: message => dependencies.toast(message),
+            handlePreviewLookup: event => this.handleSettingsPreviewLookup(event),
+            handleAnkiTagKeydown: (form, event) => this.handleAnkiTagInputKeydown(form, event),
+            handleAction: context => this.handleSettingsAction(context),
+        }, this.restoreCoordinator);
     }
     open(panel?: string): void {
+        this.previewBaseline.start(this.dependencies.getSettings());
         const trigger = settingsDialogTrigger(document.activeElement);
         const launcher = mountSensitiveSettingsLauncher(
             this.dependencies,
@@ -511,13 +554,14 @@ export class SettingsDialogController {
         this.bindLivePreview(form);
         this.bindEditorControls(form);
         syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
-        this.currentForm = form;
         this.dependencies.mountDialog(backdrop, form);
+        // Production mount tears down the old form before returning.
+        this.currentForm = form;
         this.modal.activate(form, trigger);
         installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'), () => this.dismissSettings());
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         this.syncRecommendedDictionaryInstallControls(form);
-        this.syncDictionaryOperationState(form);
+        this.restoreCoordinator.sync(form);
         this.syncJpdbStatus(form);
         void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
         void this.refreshAnkiConnectionStatus(form);
@@ -535,13 +579,14 @@ export class SettingsDialogController {
     private onCatalogBrowseRendered(form: HTMLFormElement): void {
         this.syncRecommendedDictionaryInstallControls(form);
         if (this.dictionarySiteStorageClearPending) this.setDictionaryImportsDisabledForSiteClear(form, true);
+        this.restoreCoordinator.sync(form);
     }
     refreshLanguage(language = this.settings.interfaceLanguage): void {
         const form = this.currentForm;
         if (!form?.isConnected) return;
         localizeSettingsForm(form, language);
         this.syncRecommendedDictionaryInstallControls(form);
-        this.syncDictionaryOperationState(form);
+        this.restoreCoordinator.sync(form);
         this.syncJpdbStatus(form);
         void this.academyAccountSync.refresh(form, language);
         void this.refreshAnkiConnectionStatus(form);
@@ -558,7 +603,9 @@ export class SettingsDialogController {
             readPending: readPendingCloudSettingsAction,
             clearPending: clearPendingCloudSettingsAction,
             consumeAuthorization: expectedState => cloudSettingsAuthRedirectResult(expectedState),
-            perform: (action, language) => this.performCloudSettingsAction(action, language, undefined),
+            perform: (action, language) => action === 'sync-cloud-settings'
+                ? this.restoreCoordinator.runDurableOperation(() => this.cloudSettings.perform(action, language))
+                : this.cloudSettings.perform(action, language),
             authorizationFailed: (error, language) => {
                 log.warn('Cloud settings authorization failed', { message: error });
                 this.dependencies.toast(uiText(language, 'actionFailed'));
@@ -572,8 +619,12 @@ export class SettingsDialogController {
         return this.dependencies.getSettings();
     }
 
+    private get stableSettings(): ReaderSettings {
+        return this.previewBaseline.settings;
+    }
+
     private set settings(settings: ReaderSettings) {
-        this.dependencies.setSettings(settings);
+        this.previewBaseline.stage(settings);
     }
 
     // Temporary form-derived swaps must not fire host-side transitions (the
@@ -585,22 +636,94 @@ export class SettingsDialogController {
         return previous;
     }
 
-    private restoreTransientSettings(previous: ReaderSettings): void {
-        this.dependencies.setSettings(previous, { transient: true });
+    private restoreTransientSettings(_previous: ReaderSettings): void {
+        // A probe spanning a restore returns to the latest durable snapshot.
+        this.previewBaseline.restoreTransient();
     }
 
-    private async saveCurrentSettings(previousSettings: ReaderSettings): Promise<void> {
-        const settings = this.settings;
+    private invalidateRestoreDependentOperations(): void {
+        this.saveRequestId++;
+        this.dictionaryRefreshId++;
+        this.jpdbConnectionProbeId++;
+        this.wanikaniConnectionProbeId++;
+        this.ankiConnectionProbeId++;
+        this.ankiLibraryScanId++;
+        this.ankiModelUpdatePromptId++;
+    }
+
+    private saveCurrentSettings(previousSettings: ReaderSettings): Promise<void> {
+        const attemptedSettings = this.stableSettings;
+        return this.persistCurrentSettings(previousSettings).catch(error => {
+            // A newer Save/restore owns memory once the stable object changes.
+            // Only the still-current failed candidate may be rolled back.
+            if (this.stableSettings === attemptedSettings) {
+                this.previewBaseline.capture(previousSettings);
+                try {
+                    this.previewBaseline.publish();
+                } catch (rollbackError) {
+                    log.warn('Failed to restore in-memory settings after persistence failure', { rollbackError });
+                }
+                this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+            }
+            throw error;
+        });
+    }
+
+    private persistCurrentSettings(
+        previousSettings: ReaderSettings,
+        options?: SaveSettingsOptions,
+    ): Promise<void> {
+        const settings = this.stableSettings;
+        return this.persistSettingsSnapshot(settings, options ?? {
+            persistPreferredJapaneseSiteLanguage:
+                previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+            explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
+        });
+    }
+
+    private persistSettingsSnapshot(
+        settings: ReaderSettings,
+        options: SaveSettingsOptions,
+    ): Promise<void> {
+        const operation = this.dependencies.saveSettings(settings, options)
+            .then(() => this.notifySettingsPersisted(settings));
+        return this.restoreCoordinator.trackSave(operation);
+    }
+
+    private notifySettingsPersisted(settings: ReaderSettings): void {
+        this.previewBaseline.refreshHost();
         try {
-            await this.dependencies.saveSettings(settings, {
-                persistPreferredJapaneseSiteLanguage:
-                    previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-                explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
-            });
             this.dependencies.onSettingsPersisted?.(settings);
         } catch (error) {
-            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-            throw error;
+            // Persistence is already durable at this boundary. A host-side
+            // notification failure must not enter restore rollback and create
+            // a settings/dictionary split after the settings commit.
+            log.warn('Post-persistence settings notification failed', { error });
+        }
+    }
+
+    private adoptPersistedSettings(settings: ReaderSettings): void {
+        this.previewBaseline.capture(settings);
+        try {
+            this.previewBaseline.publish();
+        } catch (error) {
+            // Runtime adoption can retry after this already-durable commit.
+            log.warn('Post-persistence settings adoption failed', { error });
+        }
+        this.previewBaseline.refreshHost();
+    }
+
+    private adoptLiveSettings(settings: ReaderSettings): void {
+        this.previewBaseline.adoptLive(settings);
+    }
+
+    private runPostCommitSettingsEffect(label: string, effect: () => void | Promise<void>): void {
+        try {
+            void Promise.resolve(effect()).catch(error => {
+                log.warn(`Post-persistence ${label} failed`, { error });
+            });
+        } catch (error) {
+            log.warn(`Post-persistence ${label} failed`, { error });
         }
     }
 
@@ -621,20 +744,26 @@ export class SettingsDialogController {
 
     private bindFormSubmit(form: HTMLFormElement): void {
         bindAuthorizedReaderFormSubmit(form, () => {
-            if (this.pendingDictionaryOperations > 0) {
-                this.showDictionarySaveBlocked(form);
-                return;
-            }
-            const previousSettings = this.settings;
+            const previousSettings = this.stableSettings;
             const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
             const nextSettings = readFormSettings(new FormData(form), previousSettings);
+            const settingsImportRevision = this.restoreCoordinator.beginSave(form);
+            if (settingsImportRevision === undefined) return;
             const saveRequestId = ++this.saveRequestId;
             // Invoke the native Firefox request synchronously from Submit. The
             // returned promise may settle later, but the user gesture must not
             // be separated from permissions.request() by an earlier await.
             const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
             void credentialPermission.then(consent => {
-                if (!this.acceptFirefoxAuthenticationInfoConsent(consent, this.settings.interfaceLanguage)) return;
+                if (!acceptFirefoxAuthenticationInfoConsent(
+                    consent,
+                    this.settings.interfaceLanguage,
+                    message => this.dependencies.toast(message),
+                )) return;
+                if (!this.restoreCoordinator.saveRevisionIsCurrent(settingsImportRevision)) {
+                    this.restoreCoordinator.showStaleSaveDiscarded(form);
+                    return;
+                }
                 this.settings = nextSettings;
                 configureLogger({ forceEnabled: this.settings.enableLogging });
                 if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
@@ -647,8 +776,12 @@ export class SettingsDialogController {
                 .catch(error => {
                     log.error('Settings save failed', error);
                     this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, 'settingsSaveFailed', error));
+                })
+                .finally(() => {
+                    this.restoreCoordinator.finishSave(form);
                 });
-        });
+        }, () => reportInvalidSettingsForm(form, this.settings.interfaceLanguage,
+            message => this.dependencies.toast(message)));
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismissSettings());
         form.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || event.isComposing) return;
@@ -667,6 +800,7 @@ export class SettingsDialogController {
             window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
             this.settingsJapaneseParseRefreshTimer = undefined;
         }
+        this.previewBaseline.restoreInterfaceLanguagePreview();
         this.modal.release();
         this.currentForm = undefined;
         this.dependencies.dismiss();
@@ -682,6 +816,7 @@ export class SettingsDialogController {
      * Idempotent: a no-op once the background has been released.
      */
     releaseModalBackground(): void {
+        this.previewBaseline.restoreInterfaceLanguagePreview();
         if (!this.currentForm?.isConnected) this.currentForm = undefined;
         this.modal.release();
     }
@@ -711,19 +846,28 @@ export class SettingsDialogController {
     }
 
     private afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): void {
-        if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
-        this.dependencies.jpdb.clear();
-        this.dependencies.applyTheme();
-        this.dependencies.installFab();
-        this.dependencies.subtitles.refresh();
-        this.dependencies.ocr.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.clearSettingsPreview();
-        this.dismissSettings();
-        this.dependencies.scheduleDictionaryRescan();
-        this.dependencies.refreshNewTabIfCurrent();
-        this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'settingsSaved'));
-        void this.refreshDictionaryStylesAfterSave();
+        if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return;
+        const effects: Array<[string, () => void | Promise<void>]> = [
+            ['JPDB cache clear', () => this.dependencies.jpdb.clear()],
+            ['theme refresh', () => this.dependencies.applyTheme()],
+            ['reader button refresh', () => this.dependencies.installFab()],
+            ['subtitle refresh', () => this.dependencies.subtitles.refresh()],
+            ['OCR refresh', () => this.dependencies.ocr.refresh()],
+            ['YouTube refresh', () => this.dependencies.youtube.refresh()],
+            ['preview cleanup', () => this.dependencies.clearSettingsPreview()],
+            ['settings dialog dismissal', () => this.dismissSettings()],
+            ['dictionary rescan scheduling', () => this.dependencies.scheduleDictionaryRescan()],
+            ['new-tab refresh', () => this.dependencies.refreshNewTabIfCurrent()],
+            ['settings save status reporting', () => this.dependencies.toast(
+                uiText(this.settings.interfaceLanguage, 'settingsSaved'),
+            )],
+            ['dictionary style refresh', () => this.refreshDictionaryStylesAfterSave()],
+        ];
+        for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+    }
+
+    private settingsSaveEffectsAreCurrent(form: HTMLFormElement, saveRequestId: number): boolean {
+        return this.currentForm === form && form.isConnected && this.saveRequestId === saveRequestId;
     }
 
     private async refreshDictionaryStylesAfterSave(): Promise<void> {
@@ -736,7 +880,7 @@ export class SettingsDialogController {
     }
 
     private bindLivePreview(form: HTMLFormElement): void {
-        const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
+        const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.stableSettings));
         let pendingAccentColor: string | undefined;
         let accentPreviewFrame: number | undefined;
         const flushAccentPreview = () => {
@@ -791,7 +935,6 @@ export class SettingsDialogController {
             const current = this.effectiveTheme(input?.value as ReaderSettings['theme'] | undefined);
             const next = current === 'dark' ? 'light' : 'dark';
             if (input) input.value = next;
-            this.settings.theme = next;
             applyThemePreview();
             this.syncThemeSwitch(form);
             publishSettingsChange({ theme: next }, { preview: true });
@@ -799,7 +942,7 @@ export class SettingsDialogController {
         bindLiveSettingsSync(form, {
             isActive: () => this.currentForm === form && form.isConnected,
             getSettings: () => this.settings,
-            adoptSettings: settings => { this.settings = settings; },
+            adoptSettings: settings => this.adoptLiveSettings(settings),
             syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
                 form,
                 settings,
@@ -809,7 +952,6 @@ export class SettingsDialogController {
                 const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
                 if (input && input.value !== theme) {
                     input.value = theme;
-                    this.settings.theme = theme;
                     applyThemePreview();
                     this.syncThemeSwitch(form);
                 }
@@ -881,9 +1023,15 @@ export class SettingsDialogController {
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
-            this.settings.interfaceLanguage = value;
-            this.refreshLanguage(value);
-            this.dependencies.installFab();
+            const previewSettings = readFormSettings(new FormData(form), this.stableSettings);
+            const previousSettings = this.swapSettingsTransiently(previewSettings);
+            this.previewBaseline.markInterfaceLanguagePreviewed();
+            try {
+                this.refreshLanguage(value);
+                this.dependencies.installFab();
+            } finally {
+                this.restoreTransientSettings(previousSettings);
+            }
         });
         form.querySelector<HTMLSelectElement>('select[name="ocrProvider"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
@@ -951,6 +1099,17 @@ export class SettingsDialogController {
 
     private bindEditorControls(form: HTMLFormElement): void {
         suppressCredentialAutofill(form);
+        this.bindMediaEditorControls(form);
+        this.bindReviewEditorControls(form);
+        this.bindCredentialEditorControls(form);
+        this.bindAnkiEditorControls(form);
+        form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
+        installShortcutCapture(form);
+        installSourceRowDrag(form);
+        this.actionRouter.bind(form);
+    }
+
+    private bindMediaEditorControls(form: HTMLFormElement): void {
         syncBrowserTtsVoiceOptions(form);
         this.bindAudioSubSourceDetection(form);
         // Settings can be opened straight onto a panel, so media being the
@@ -960,6 +1119,9 @@ export class SettingsDialogController {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.addEventListener('voiceschanged', () => syncBrowserTtsVoiceOptions(form), { once: true });
         }
+    }
+
+    private bindReviewEditorControls(form: HTMLFormElement): void {
         form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.addEventListener('change', () => {
             syncReviewSettingsVisibility(form);
             syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -973,6 +1135,9 @@ export class SettingsDialogController {
         });
         syncJpdbMiningDependentSettings(form);
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+
+    private bindCredentialEditorControls(form: HTMLFormElement): void {
         for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="apiCredentialWanikani"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
             apiKeyInput.addEventListener('input', () => this.syncJpdbStatus(form));
             apiKeyInput.addEventListener('change', () => {
@@ -982,42 +1147,26 @@ export class SettingsDialogController {
                 // native data-consent prompt before either live key probe.
                 const permission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
                 void permission.then(consent => {
-                    if (!this.acceptFirefoxAuthenticationInfoConsent(consent, nextSettings.interfaceLanguage)) return;
+                    if (!acceptFirefoxAuthenticationInfoConsent(
+                        consent,
+                        nextSettings.interfaceLanguage,
+                        message => this.dependencies.toast(message),
+                    )) return;
                     void this.refreshDeckControls(form);
                     void this.refreshJpdbConnectionStatus(form);
                     void this.refreshWanikaniConnectionStatus(form);
                 });
             });
         }
+    }
+
+    private bindAnkiEditorControls(form: HTMLFormElement): void {
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.addEventListener('change', () => {
             this.retireAnkiModelUpdatePrompt(form);
             void this.refreshAnkiModelUpdatePrompt(form);
-        });
-        form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
-        installShortcutCapture(form);
-        installSourceRowDrag(form);
-        form.addEventListener('click', event => {
-            if (this.handleSettingsPreviewLookup(event)) return;
-            const control = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
-            const action = control?.dataset.action;
-            if (!action || action === 'cancel') return;
-            event.preventDefault();
-            event.stopPropagation();
-            // Start any Firefox permission request directly in this click
-            // handler; the later async action router cannot preserve activation.
-            const credentialPermission = this.authenticationInfoPermissionForAction(form, action);
-            void this.handleSettingsAction(form, action, control, credentialPermission);
-        });
-        form.addEventListener('keydown', event => {
-            if (this.handleAnkiTagInputKeydown(form, event)) {
-                event.preventDefault();
-                return;
-            }
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            if (this.handleSettingsPreviewLookup(event)) event.preventDefault();
         });
     }
 
@@ -1209,8 +1358,7 @@ export class SettingsDialogController {
             return;
         }
 
-        const originalKey = this.settings.apiKey;
-        this.settings.apiKey = apiKey;
+        const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
         try {
             const decks = await this.dependencies.jpdb.listDecks();
             setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
@@ -1218,7 +1366,7 @@ export class SettingsDialogController {
             log.warn('Deck controls failed to load', error);
             setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         } finally {
-            this.settings.apiKey = originalKey;
+            this.restoreTransientSettings(previous);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             this.refreshSettingsJapaneseParse(form);
         }
@@ -1287,31 +1435,50 @@ export class SettingsDialogController {
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
     // connected/rejected answer (Anki and Jiten already have live probes).
     private async refreshJpdbConnectionStatus(form: HTMLFormElement): Promise<void> {
+        const probe = this.prepareJpdbConnectionProbe(form);
+        if (!probe) return;
+        const connected = await this.runJpdbConnectionProbe(probe.apiKey);
+        if (!this.jpdbConnectionProbeIsCurrent(form, probe.requestId)) return;
+        this.renderJpdbConnectionProbe(form, probe, connected);
+        this.refreshSettingsJapaneseParse(form);
+    }
+
+    private prepareJpdbConnectionProbe(form: HTMLFormElement): JpdbConnectionProbe | null {
         this.syncJpdbStatus(form);
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
-        if (!status) return;
+        if (!status) return null;
         const formSettings = readFormSettings(new FormData(form), this.settings);
         const apiKey = effectiveJpdbApiKey(formSettings);
-        if (!apiKey) return;
-        if (typeof this.dependencies.jpdb.ping !== 'function') return;
-        const requestId = ++this.jpdbConnectionProbeId;
-        const originalKey = this.settings.apiKey;
-        this.settings.apiKey = apiKey;
-        let connected = false;
+        if (!apiKey) return null;
+        if (typeof this.dependencies.jpdb.ping !== 'function') return null;
+        return { status, formSettings, apiKey, requestId: ++this.jpdbConnectionProbeId };
+    }
+
+    private async runJpdbConnectionProbe(apiKey: string): Promise<boolean> {
+        const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
         try {
-            connected = await this.dependencies.jpdb.ping();
+            return await this.dependencies.jpdb.ping?.() ?? false;
         } finally {
-            this.settings.apiKey = originalKey;
+            this.restoreTransientSettings(previous);
         }
-        if (this.currentForm !== form || !form.isConnected || requestId !== this.jpdbConnectionProbeId) return;
+    }
+
+    private jpdbConnectionProbeIsCurrent(form: HTMLFormElement, requestId: number): boolean {
+        return this.currentForm === form && form.isConnected && requestId === this.jpdbConnectionProbeId;
+    }
+
+    private renderJpdbConnectionProbe(
+        form: HTMLFormElement,
+        probe: JpdbConnectionProbe,
+        connected: boolean,
+    ): void {
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        const successKey = hasJitenApiCredential(formSettings) ? 'jpdbAndJitenConnected' : 'jpdbConnected';
+        const successKey = hasJitenApiCredential(probe.formSettings) ? 'jpdbAndJitenConnected' : 'jpdbConnected';
         const line: SettingsStatusLine = connected
             ? { message: uiText(language, successKey), tone: 'success' }
             : { message: uiText(language, 'jpdbConnectionFailed'), tone: 'error' };
-        status.dataset.statusTone = line.tone;
-        status.textContent = formatSettingsStatusLine(line, language);
-        this.refreshSettingsJapaneseParse(form);
+        probe.status.dataset.statusTone = line.tone;
+        probe.status.textContent = formatSettingsStatusLine(line, language);
     }
 
     private async refreshAnkiConnectionStatus(form: HTMLFormElement): Promise<void> {
@@ -1478,9 +1645,12 @@ export class SettingsDialogController {
         const id = ++this.dictionaryRefreshId;
         return refreshDictionaryPanel({
             form,
-            current: () => this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId,
+            current: () => !this.restoreCoordinator.importPending
+                && this.currentForm === form
+                && form.isConnected
+                && id === this.dictionaryRefreshId,
             loadSummary: () => this.dependencies.dictionaries.summary(),
-            prepareSummary: summary => this.mergeDictionaryPreferencesFromSummary(summary),
+            prepareSummary: summary => this.mergeDictionaryPreferencesFromSummary(summary, id),
             refreshStyles: () => this.dependencies.refreshDictionaryStyles(),
             renderContext: () => liveDictionaryPanelContext(form, this.settings),
             afterRender: () => this.afterDictionaryPanelRendered(form),
@@ -1541,7 +1711,7 @@ export class SettingsDialogController {
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         installCatalogBrowseFilter(form);
         this.syncRecommendedDictionaryInstallControls(form);
-        this.syncDictionaryOperationState(form);
+        this.restoreCoordinator.sync(form);
         this.refreshSettingsJapaneseParse(form);
     }
 
@@ -1557,70 +1727,44 @@ export class SettingsDialogController {
         });
     }
 
-    private async mergeDictionaryPreferencesFromSummary(summary: DictionaryStatusSummary): Promise<void> {
-        const names = summary.dictionaries.map(item => item.title);
-        const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
-        const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
-        if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
+    private async mergeDictionaryPreferencesFromSummary(
+        summary: DictionaryStatusSummary,
+        requestId: number,
+    ): Promise<void> {
+        if (!this.dictionaryRefreshIsCurrent(requestId)) return;
+        const previousSettings = this.stableSettings;
+        const nextSettings = settingsWithDiscoveredDictionaries(previousSettings, summary);
+        if (!nextSettings) return;
         // The active profile owns the authoritative enabled/order snapshot, so
         // saving only the root rows lets profile normalization disable the rows
         // discovered here and push them behind every profile-known dictionary.
-        this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-        await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+        if (!this.dictionaryRefreshIsCurrent(requestId)) return;
+        await this.persistDiscoveredDictionaryPreferences(previousSettings, nextSettings);
     }
 
-    private async enqueueDictionaryOperation<T>(form: HTMLFormElement, task: () => Promise<T>): Promise<T> {
-        this.pendingDictionaryOperations++;
-        this.syncDictionaryOperationState(form);
-        const operation = this.dictionaryOperationQueue.then(task);
-        this.dictionaryOperationQueue = operation.then(() => undefined, () => undefined);
+    private dictionaryRefreshIsCurrent(requestId: number): boolean {
+        return !this.restoreCoordinator.importPending && requestId === this.dictionaryRefreshId;
+    }
+
+    private async persistDiscoveredDictionaryPreferences(
+        previousSettings: ReaderSettings,
+        nextSettings: ReaderSettings,
+    ): Promise<void> {
+        this.settings = nextSettings;
+        const attemptedSettings = this.stableSettings;
         try {
-            return await operation;
-        } finally {
-            this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
-            this.syncDictionaryOperationState(form);
+            await this.persistSettingsSnapshot(attemptedSettings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+        } catch (error) {
+            this.restoreDiscoveredDictionaryPreferences(previousSettings, attemptedSettings);
+            throw error;
         }
     }
 
-    private syncDictionaryOperationState(form: HTMLFormElement): void {
-        const save = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-        const busy = this.pendingDictionaryOperations > 0;
-        const message = busy
-            ? formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportQueueStatus'), {
-                count: this.pendingDictionaryOperations.toLocaleString(),
-                plural: this.pendingDictionaryOperations === 1 ? '' : 's',
-            })
-            : '';
-        if (save) {
-            save.setAttribute('aria-disabled', String(busy));
-            save.disabled = busy;
-            if (busy) {
-                save.dataset.saveBlocked = 'dictionary-import';
-                save.replaceChildren(uiText(this.settings.interfaceLanguage, 'saveAfterInstall'));
-                save.title = message;
-                save.setAttribute('aria-label', message);
-            } else {
-                delete save.dataset.saveBlocked;
-                save.replaceChildren(uiText(this.settings.interfaceLanguage, 'save'));
-                save.title = uiText(this.settings.interfaceLanguage, 'save');
-                save.setAttribute('aria-label', uiText(this.settings.interfaceLanguage, 'save'));
-            }
-        }
-        if (!status) return;
-        status.hidden = !busy;
-        status.textContent = message;
-    }
-
-    private showDictionarySaveBlocked(form: HTMLFormElement): void {
-        this.syncDictionaryOperationState(form);
-        const message = uiText(this.settings.interfaceLanguage, 'dictionaryInstallSaveBlocked');
-        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-        if (status) {
-            status.hidden = false;
-            status.textContent = message;
-        }
-        this.dependencies.toast(message);
+    private restoreDiscoveredDictionaryPreferences(
+        previousSettings: ReaderSettings,
+        failedSettings: ReaderSettings,
+    ): void {
+        if (this.stableSettings === failedSettings) this.settings = previousSettings;
     }
 
     private setRecommendedDictionaryInstallState(
@@ -1676,70 +1820,30 @@ export class SettingsDialogController {
         });
     }
 
-    private async handleSettingsAction(
-        form: HTMLFormElement,
-        action: string,
-        control?: HTMLElement | null,
-        credentialPermission?: Promise<FirefoxAuthenticationInfoConsent>,
-    ): Promise<void> {
-        const setStatus = settingsStatusSetter(form, control);
-
-        try {
-            if (credentialPermission) {
-                const consent = await credentialPermission;
-                const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-                if (!this.acceptFirefoxAuthenticationInfoConsent(consent, language)) return;
-            }
-            await this.runSettingsAction(form, action, control, setStatus);
-        } catch (error) {
-            const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-            const message = handleSettingsActionError(action, control, setStatus, error, language);
-            this.dependencies.toast(message);
-        }
-    }
-
-    private authenticationInfoPermissionForAction(
-        form: HTMLFormElement,
-        action: string,
-    ): Promise<FirefoxAuthenticationInfoConsent> | undefined {
-        if (action === 'sync-cloud-settings') {
-            return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form), this.settings));
-        }
-        if (action === 'restore-cloud-settings' || action === 'import-yomitan-settings'
-            || action === 'connect-academy-account') {
-            // A cloud snapshot or imported settings file may contain account
-            // keys. Academy pairing stores and sends a durable device bearer.
-            // Ask before reading/creating any credential while the click is active.
-            return requestFirefoxAuthenticationInfoPermission();
-        }
-        return undefined;
-    }
-
-    private acceptFirefoxAuthenticationInfoConsent(
-        consent: FirefoxAuthenticationInfoConsent,
-        language: InterfaceLanguage,
-    ): boolean {
-        if (consent === 'granted') return true;
-        const key = consent === 'extension-page-required'
-            ? 'firefoxAuthenticationInfoExtensionPageRequired'
-            : 'firefoxAuthenticationInfoDenied';
-        this.dependencies.toast(uiText(language, key));
-        return false;
-    }
-
-    private async runSettingsAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
-        const handled = this.handleSettingsEditorAction(form, action, control)
-            || await this.handleSettingsAudioAction(form, action, control)
-            || await this.handleSettingsDictionaryAction(form, action, control, setStatus)
-            || await this.academyAccountSync.handle(form, action, this.settings.interfaceLanguage)
-            || await this.handleSettingsCloudSyncAction(form, action, control, setStatus)
-            || await this.handleSettingsImportExportAction(form, action, setStatus);
-        if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
-    }
-
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         if (await this.handleSettingsConnectionAction(form, action, control)) return true;
         return await this.handleSettingsSupportAction(action, control, setStatus);
+    }
+
+    private async handleSettingsAction(context: SettingsActionContext): Promise<void> {
+        const { form, action, control, setStatus } = context;
+        if (this.handleSettingsEditorAction(form, action, control)) return;
+        if (await this.handleSettingsMediaAction(context)) return;
+        if (await this.handleSettingsAccountAction(context)) return;
+        await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
+    }
+
+    private async handleSettingsMediaAction(context: SettingsActionContext): Promise<boolean> {
+        const { form, action, control, setStatus } = context;
+        if (await this.handleSettingsAudioAction(form, action, control)) return true;
+        return this.handleSettingsDictionaryAction(form, action, control, setStatus);
+    }
+
+    private async handleSettingsAccountAction(context: SettingsActionContext): Promise<boolean> {
+        const { form, action, control, setStatus } = context;
+        if (await this.academyAccountSync.handle(form, action, this.settings.interfaceLanguage)) return true;
+        if (await this.handleSettingsCloudSyncAction(form, action, control, setStatus)) return true;
+        return this.handleSettingsImportExportAction(form, action, setStatus);
     }
 
     private handleSettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {
@@ -1890,12 +1994,28 @@ export class SettingsDialogController {
     private async handleSettingsDictionaryAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         const disclosure = handleCatalogBrowseDisclosureAction(action, form, control, () => this.refreshDictionaryStatus(form));
         if (disclosure) return disclosure;
-        if (dictionaryActionBlockedDuringSiteClear(action, this.dictionarySiteStorageClearPending)) {
-            setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'clearLocalDictionarySiteStorageClearing'));
-            return true;
-        }
+        if (this.dictionaryActionBlockedBySiteClear(form, action, setStatus)) return true;
+        return this.handleDictionaryMutationOrTransfer(form, action, control, setStatus);
+    }
+
+    private async handleDictionaryMutationOrTransfer(
+        form: HTMLFormElement,
+        action: string,
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+    ): Promise<boolean> {
         if (await this.handleDictionaryStorageAction(form, action, control, setStatus)) return true;
         return this.handleDictionaryTransferAction(form, action, control, setStatus);
+    }
+
+    private dictionaryActionBlockedBySiteClear(
+        form: HTMLFormElement,
+        action: string,
+        setStatus: SettingsStatusSetter,
+    ): boolean {
+        if (!dictionaryActionBlockedDuringSiteClear(action, this.dictionarySiteStorageClearPending)) return false;
+        setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'clearLocalDictionarySiteStorageClearing'));
+        return true;
     }
 
     private async handleDictionaryStorageAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -1929,74 +2049,8 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsCloudSyncAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action)) return false;
-
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        if (!cloudSettingsSyncAvailable()) {
-            setStatus(cloudSettingsSyncUnavailableStatus(language));
-            return true;
-        }
-
-        const button = settingsActionButton(control);
-        setCloudSettingsActionButtonDisabled(button, true);
-        const authorization = createCloudSettingsAuthorization();
-        const redirectHandoff = cloudSettingsRedirectHandoffRequired();
-        await rememberCloudSettingsRedirectHandoff(redirectHandoff, action, authorization);
-        const previousSettings = this.settings;
-        try {
-            this.settings = settingsForCloudAction(action, form, this.settings);
-            await this.performCloudSettingsAction(action, language, setStatus, previousSettings, authorization);
-            return true;
-        } catch (error) {
-            notifyCloudSettingsPersistenceFailed(this.dependencies.onSettingsPersistenceFailed, previousSettings);
-            throw error;
-        } finally {
-            await clearCloudSettingsRedirectHandoff(redirectHandoff);
-            setCloudSettingsActionButtonDisabled(button, false);
-        }
-    }
-
-    private async performCloudSettingsAction(
-        action: CloudSettingsAction,
-        language: InterfaceLanguage,
-        setStatus?: SettingsStatusSetter,
-        previousSettings = this.settings,
-        authorization?: CloudSettingsAuthorization,
-    ): Promise<void> {
-        if (action === 'sync-cloud-settings') {
-            await this.saveCurrentSettings(previousSettings);
-            const metadata = await uploadCloudSettingsToCloud(this.settings, authorization);
-            const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
-            reportCloudSettingsStatus(setStatus, message);
-            this.dependencies.toast(message);
-            return;
-        }
-
-        const snapshot = await downloadCloudSettingsFromCloud(authorization);
-        if (!snapshot) {
-            reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language));
-            return;
-        }
-        const settingsBeforeRestore = this.settings;
-        this.settings = normalizeReaderSettings({
-            ...this.settings,
-            ...snapshot.settings,
-            shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts },
-        });
-        await importStoredValues(snapshot.storage);
-        await this.saveCurrentSettings(settingsBeforeRestore);
-        const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
-        reportCloudSettingsStatus(setStatus, message);
-        this.dependencies.toast(message);
-        this.dependencies.applyTheme();
-        void this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        this.dependencies.installFab();
-        this.dependencies.subtitles.refresh();
-        this.dependencies.ocr.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.clearSettingsPreview();
-        this.open('backup');
+        return this.cloudSettings.handle(form, action, settingsActionButton(control), setStatus, language);
     }
 
     private async handleSettingsImportExportAction(form: HTMLFormElement, action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2006,12 +2060,13 @@ export class SettingsDialogController {
         }
         if (action === 'export-reader-settings') {
             const dictionaries = await this.exportReaderDictionaryBackup();
+            const backup = await exportSettingsBackupSnapshot(this.stableSettings);
             downloadBlob(new Blob([JSON.stringify({
                 formatName: 'yomu-reader-settings',
                 formatVersion: 3,
                 exportedAt: new Date().toISOString(),
-                settings: this.settings,
-                storage: await exportManagedStoredValues(),
+                settings: backup.settings,
+                storage: backup.storage,
                 ...(dictionaries ? { dictionaries } : {}),
             }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
             setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'settingsExported'));
@@ -2409,43 +2464,48 @@ export class SettingsDialogController {
             // behind them prevents a late persistDictionaryImport from
             // recreating the DB and turning the global setting back on after
             // the learner confirmed cleanup.
-            await this.enqueueDictionaryOperation(form, async () => {
-                const previousSettings = this.settings;
-                let settingsSaved = false;
-                setStatus(uiText(language, 'clearLocalDictionarySiteStorageClearing'));
-                try {
-                    this.settings = { ...previousSettings, localDictionariesEnabled: false };
-                    await this.saveCurrentSettings(previousSettings);
-                    settingsSaved = true;
-                    if (enabled) enabled.checked = false;
-
-                    // deleteDatabase removes this origin's IndexedDB now; the
-                    // purge marker removes every other origin's copy the next
-                    // time that origin loads. The shared GM archive is kept.
-                    await requestDictionaryReplicaPurge();
-                    await this.dependencies.dictionaries.deleteDatabase();
-                    this.dictionaryRefreshId++;
-                    await this.dependencies.refreshDictionaryStyles();
-                    const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]');
-                    if (dictionaryStatus) dictionaryStatus.textContent = uiText(language, 'noLocalDictionariesImported');
-                    this.dependencies.scheduleDictionaryRescan();
-                    this.dependencies.refreshNewTabIfCurrent();
-                    const message = uiText(language, 'clearLocalDictionarySiteStorageDone');
-                    setStatus(message);
-                    this.dependencies.toast(message);
-                } catch (error) {
-                    if (!settingsSaved) {
-                        this.settings = previousSettings;
-                        if (enabled) enabled.checked = previousSettings.localDictionariesEnabled;
-                    }
-                    throw error;
-                }
-            });
+            await this.restoreCoordinator.enqueueDictionaryOperation(
+                form,
+                () => this.clearLocalDictionarySiteStorage(form, enabled, setStatus, language),
+            );
         } finally {
             this.dictionarySiteStorageClearPending = false;
             this.setDictionaryImportsDisabledForSiteClear(form, false);
             button?.removeAttribute('disabled');
         }
+    }
+
+    private async clearLocalDictionarySiteStorage(
+        form: HTMLFormElement,
+        enabled: HTMLInputElement | null,
+        setStatus: SettingsStatusSetter,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        const previousSettings = this.settings;
+        setStatus(uiText(language, 'clearLocalDictionarySiteStorageClearing'));
+        this.settings = { ...previousSettings, localDictionariesEnabled: false };
+        try {
+            await this.saveCurrentSettings(previousSettings);
+        } catch (error) {
+            this.settings = previousSettings;
+            syncCheckedControl(enabled, previousSettings.localDictionariesEnabled);
+            throw error;
+        }
+        syncCheckedControl(enabled, false);
+
+        // deleteDatabase removes this origin's IndexedDB now; the purge marker
+        // clears every other origin's replica on its next load.
+        await requestDictionaryReplicaPurge();
+        await this.dependencies.dictionaries.deleteDatabase();
+        this.dictionaryRefreshId++;
+        await this.dependencies.refreshDictionaryStyles();
+        const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]');
+        if (dictionaryStatus) dictionaryStatus.textContent = uiText(language, 'noLocalDictionariesImported');
+        this.dependencies.scheduleDictionaryRescan();
+        this.dependencies.refreshNewTabIfCurrent();
+        const message = uiText(language, 'clearLocalDictionarySiteStorageDone');
+        setStatus(message);
+        this.dependencies.toast(message);
     }
 
     private setDictionaryImportsDisabledForSiteClear(form: HTMLFormElement, disabled: boolean): void {
@@ -2469,53 +2529,42 @@ export class SettingsDialogController {
         if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoveConfirm'), { dictionary }))) return;
         control?.setAttribute('disabled', 'true');
         setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoving'), { dictionary }));
-        await this.dependencies.dictionaries.deleteDictionary(dictionary);
-        this.dictionaryRefreshId++;
-        await clearNewTabOfflineCache().catch(() => undefined);
-        this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
-        await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences'] });
-        await this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        await this.refreshDictionaryStatus(form);
-        this.dependencies.refreshNewTabIfCurrent();
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoved'), { dictionary }));
+        await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
+            await this.dependencies.dictionaries.deleteDictionary(dictionary);
+            this.dictionaryRefreshId++;
+            await clearNewTabOfflineCache().catch(() => undefined);
+            const previousSettings = this.stableSettings;
+            this.settings = { ...previousSettings, dictionaryPreferences: previousSettings.dictionaryPreferences.filter(item => item.name !== dictionary) };
+            await this.saveCurrentSettings(previousSettings);
+            await this.dependencies.refreshDictionaryStyles();
+            this.dependencies.scheduleDictionaryRescan();
+            await this.refreshDictionaryStatus(form);
+            this.dependencies.refreshNewTabIfCurrent();
+            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoved'), { dictionary }));
+        });
     }
 
     private async importDictionaryFromSettings(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
-        const files = await pickFiles(form, 'dictionary');
+        const files = await this.dictionaryImportFiles(form);
         if (!files.length) return;
-        const results = await Promise.allSettled(files.map(file => this.enqueueDictionaryOperation(form, async () => {
+        const results = await Promise.allSettled(files.map(file => this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
             const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
             await this.persistDictionaryImport(summary);
             return summary;
         })));
-        const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
-        if (summaries.length) {
+        const report = dictionaryImportReport(files, results);
+        if (report.summaries.length) {
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
         }
-        const records = summaries.reduce((total, summary) => total + summary.entries, 0);
-        const sources = new Set(summaries.flatMap(summary => summary.dictionaries)).size;
-        const failures = results.flatMap((result, index) => result.status === 'rejected'
-            ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result.reason }]
-            : []);
-        if (failures.length) {
-            failures.forEach(failure => log.warn('Dictionary file import failed', failure));
-            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportResultWithFailures'), {
-                records: records.toLocaleString(),
-                sources: sources.toLocaleString(),
-                plural: sources === 1 ? '' : 's',
-                failed: failures.length.toLocaleString(),
-                failedPlural: failures.length === 1 ? '' : 's',
-                files: failures.map(failure => failure.filename).join(', '),
-            }));
-            return;
-        }
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportComplete'), {
-            records: records.toLocaleString(),
-            sources: sources.toLocaleString(),
-            plural: sources === 1 ? '' : 's',
-        }));
+        report.failures.forEach(failure => log.warn('Dictionary file import failed', failure));
+        setStatus(dictionaryImportStatusMessage(this.settings.interfaceLanguage, report));
+    }
+
+    private async dictionaryImportFiles(form: HTMLFormElement): Promise<File[]> {
+        const files = await pickFiles(form, 'dictionary');
+        if (!files.length) return files;
+        return this.restoreCoordinator.importBlocked(form) ? [] : files;
     }
 
     private queueRecommendedDictionaryDownloadFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): void {
@@ -2533,7 +2582,7 @@ export class SettingsDialogController {
         const queuedMessage = formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryInstallQueued'), { dictionary: dictionary.name });
         this.setRecommendedDictionaryInstallState(form, dictionary.id, 'queued', queuedMessage);
         setStatus(queuedMessage);
-        await this.enqueueDictionaryOperation(form, async () => {
+        await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
             try {
                 const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
                 this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', startedMessage);
@@ -2558,18 +2607,19 @@ export class SettingsDialogController {
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
         this.dictionaryRefreshId++;
+        const previousSettings = this.stableSettings;
         const dictionaryPreferences = mergeDictionaryPreferences(
-            this.settings.dictionaryPreferences,
+            previousSettings.dictionaryPreferences,
             summary.dictionaries,
             summary.dictionaryTypes ?? {},
             summary.replacedDictionaries ?? [],
         );
         this.settings = captureActiveLanguageProfileDictionaries(
-            { ...this.settings, localDictionariesEnabled: true },
+            { ...previousSettings, localDictionariesEnabled: true },
             dictionaryPreferences,
         );
         await markDictionaryReplicaFresh();
-        await this.dependencies.saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
+        await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
     }
@@ -2651,50 +2701,56 @@ export class SettingsDialogController {
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
         const file = await pickFile(form, 'settings');
         if (!file) return;
-        const previousSettings = this.settings;
-        const json = JSON.parse(await file.text()) as unknown;
-        try {
-            const readerSettings = getReaderSettingsExport(json);
-            this.settings = readerSettings
-                ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } })
-                : importedYomitanSettings(json, this.settings);
-            const restoredValues = await importStoredValues(getReaderStorageExport(json));
-            const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
-            await this.mergeImportedDictionaryPreferences();
-            this.dictionaryRefreshId++;
-            await this.saveCurrentSettings(previousSettings);
-            setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
-        } catch (error) {
-            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-            throw error;
-        }
-        this.dependencies.applyTheme();
-        void this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        this.dependencies.installFab();
-        this.dependencies.subtitles.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.clearSettingsPreview();
-        this.open();
+        if (this.restoreCoordinator.importBlocked(form)) return;
+        const successMessage = await this.runReaderSettingsImport(form, file, setStatus);
+        this.runPostCommitSettingsEffect('settings import status reporting', () => {
+            setStatus(successMessage);
+            this.dependencies.toast(successMessage);
+        });
+        this.applySettingsRestoreEffects(false);
     }
 
-    private async importReaderDictionaryBackup(json: unknown, setStatus: SettingsStatusSetter): Promise<ImportSummary | null> {
-        const dictionaryExport = getReaderDictionaryExport(json);
-        if (!readerDictionaryExportHasData(dictionaryExport)) return null;
-        setStatus(uiText(this.settings.interfaceLanguage, 'importingBundledDictionaries'));
-        const file = new File([JSON.stringify(dictionaryExport)], 'yomu-dictionaries-from-settings.json', { type: 'application/json' });
-        const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
-        await this.persistDictionaryImport(summary);
-        return summary;
+    private async runReaderSettingsImport(form: HTMLFormElement, file: File, setStatus: SettingsStatusSetter): Promise<string> {
+        return this.restoreCoordinator.runRestore(form, async () => {
+            const previousSettings = this.stableSettings;
+            try {
+                return await this.applyReaderSettingsImport(file, previousSettings, setStatus);
+            } catch (error) {
+                if (this.stableSettings === previousSettings) {
+                    this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+                }
+                throw error;
+            }
+        });
     }
 
-    private async mergeImportedDictionaryPreferences(): Promise<void> {
-        const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
-        const importedNames = importedSummary.dictionaries.map(item => item.title);
-        const importedTypes = Object.fromEntries(importedSummary.dictionaries.map(item => [item.title, item.type]));
-        const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
-        this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
+    private async applyReaderSettingsImport(file: File, previousSettings: ReaderSettings, setStatus: SettingsStatusSetter): Promise<string> {
+        return restoreReaderSettingsBackup(file, previousSettings, {
+            dictionaries: this.dependencies.dictionaries,
+            setStatus,
+            persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
+            adoptSettings: settings => this.adoptPersistedSettings(settings),
+            dictionaryStateChanged: () => {
+                this.dictionaryRefreshId++;
+            },
+        });
     }
+
+    private applySettingsRestoreEffects(refreshOcr: boolean, panel?: string): void {
+        const effects: Array<[string, () => void | Promise<void>]> = [
+            ['theme refresh', () => this.dependencies.applyTheme()],
+            ['dictionary style refresh', () => this.dependencies.refreshDictionaryStyles()],
+            ['dictionary rescan scheduling', () => this.dependencies.scheduleDictionaryRescan()],
+            ['reader button refresh', () => this.dependencies.installFab()],
+            ['subtitle refresh', () => this.dependencies.subtitles.refresh()],
+            ['YouTube refresh', () => this.dependencies.youtube.refresh()],
+            ['preview cleanup', () => this.dependencies.clearSettingsPreview()],
+            ['settings dialog refresh', () => this.open(panel)],
+        ];
+        if (refreshOcr) effects.splice(5, 0, ['OCR refresh', () => this.dependencies.ocr.refresh()]);
+        for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+    }
+
 }
 
 function isDictionarySourceOrderAction(action: string): boolean {
@@ -2709,81 +2765,25 @@ function isLookupLinkEditorAction(action: string): boolean {
     return action === 'lookup-link-add' || action === 'lookup-link-remove' || action === 'lookup-link-up' || action === 'lookup-link-down';
 }
 
-function getReaderStorageExport(value: unknown): unknown {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as { formatName?: string; storage?: unknown };
-    return (record.formatName === 'yomu-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
-        ? record.storage
-        : null;
+function settingsWithDiscoveredDictionaries(
+    current: ReaderSettings,
+    summary: DictionaryStatusSummary,
+): ReaderSettings | null {
+    const names = summary.dictionaries.map(item => item.title);
+    const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
+    const merged = mergeDictionaryPreferences(
+        retireStaleDictionaryPreferences(current.dictionaryPreferences, names),
+        names,
+        types,
+    );
+    if (JSON.stringify(merged) === JSON.stringify(current.dictionaryPreferences)) return null;
+    return captureActiveLanguageProfileDictionaries(current, merged);
 }
 
 function publishSettingsChange(settings: Partial<ReaderSettings>, options: { preview?: boolean } = {}): void {
     publishPrivateSettingsChange({ preview: options.preview === true, settings });
 }
 
-function importSettingsStatus(restoredValues: number, dictionarySummary: ImportSummary | null, language: InterfaceLanguage): string {
-    const details: string[] = [];
-    if (restoredValues) {
-        details.push(formatUiTemplate(uiText(language, 'restoredStoredChoices'), {
-            count: restoredValues.toLocaleString(),
-            plural: restoredValues === 1 ? '' : 's',
-        }));
-    }
-    if (dictionarySummary) {
-        details.push(formatUiTemplate(uiText(language, 'importedDictionaryRecordCount'), {
-            count: dictionarySummary.entries.toLocaleString(),
-            plural: dictionarySummary.entries === 1 ? '' : 's',
-        }));
-    }
-    return details.length
-        ? formatUiTemplate(uiText(language, 'settingsImportedWithDetails'), { details: details.join('; ') })
-        : uiText(language, 'settingsImported');
-}
-
-function cloudSettingsSyncUnavailableStatus(language: InterfaceLanguage): string {
-    return language === 'ja'
-        ? 'このブラウザーではGoogle Drive設定同期を利用できません。'
-        : 'Google Drive settings sync is unavailable in this browser.';
-}
-
-function cloudSettingsNotFoundStatus(language: InterfaceLanguage): string {
-    return language === 'ja'
-        ? 'Google Driveに保存されたYomu設定が見つかりません。'
-        : 'No Yomu settings were found in Google Drive.';
-}
-
-function cloudSettingsSyncedStatus(syncedAt: string, language: InterfaceLanguage): string {
-    const time = cloudSettingsSyncTime(syncedAt, language);
-    return language === 'ja'
-        ? `設定をGoogle Driveに同期しました（${time}）。`
-        : `Settings synced to Google Drive (${time}).`;
-}
-
-function cloudSettingsRestoredStatus(syncedAt: string, language: InterfaceLanguage): string {
-    const time = cloudSettingsSyncTime(syncedAt, language);
-    return language === 'ja'
-        ? `Google Drive設定を復元しました（${time}）。`
-        : `Google Drive settings restored (${time}).`;
-}
-
-function cloudSettingsSyncTime(value: string, language: InterfaceLanguage): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString(language === 'ja' ? 'ja-JP' : undefined);
-}
-
 function formatUiTemplate(template: string, values: Record<string, string>): string {
     return template.replace(/\{([a-z]+)\}/gi, (_, key: string) => values[key] ?? '');
-}
-
-function importedYomitanSettings(json: unknown, current: ReaderSettings): ReaderSettings {
-    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
-    return normalizeReaderSettings({
-        ...current,
-        ...imported.settings,
-        shortcuts: {
-            ...current.shortcuts,
-            ...(imported.settings.shortcuts ?? {}),
-        },
-    });
 }

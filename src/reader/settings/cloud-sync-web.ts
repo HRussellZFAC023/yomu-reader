@@ -2,7 +2,7 @@ import { isRecord } from '../core/object-utils';
 import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthRedirectResult, CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
 import { requestJson, requestText } from '../network/http';
-import { exportManagedStoredValues } from '../app/storage';
+import { exportSettingsBackupSnapshot } from './settings-persistence-transaction';
 import {
     cloudSettingsRedirectHandoffRequired,
     isCloudSettingsAuthorizationState,
@@ -104,12 +104,13 @@ export async function uploadCloudSettingsToCloud(
     authorization?: CloudSettingsAuthorization,
 ): Promise<CloudSettingsSyncMetadata> {
     requireConfigured();
+    const backup = await exportSettingsBackupSnapshot(settings);
     const snapshot: CloudSettingsSyncSnapshot = {
         formatName: 'yomu-google-drive-settings-sync',
         formatVersion: 1,
         syncedAt: new Date().toISOString(),
-        settings,
-        storage: await exportManagedStoredValues(),
+        settings: backup.settings,
+        storage: backup.storage,
     };
     const serialized = JSON.stringify(snapshot);
     const existing = await findSettingsFile(authorization);

@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '../app/types';
+import { normalizeReaderSettings } from './index';
 import { subscribeToSettingsChanges, type SettingsChangeDetail } from './settings-change-bus';
 import {
     syncFontFamilyControls,
@@ -13,6 +14,85 @@ interface LiveSettingsSyncDependencies {
     applyTheme: (theme: ReaderSettings['theme']) => void;
 }
 
+interface SettingsPreviewBaselineDependencies {
+    getSettings: () => ReaderSettings;
+    setSettings: (settings: ReaderSettings, options?: { transient?: boolean }) => void;
+    installFab: () => void;
+    beginSettingsPreview: (
+        accent: string,
+        language: ReaderSettings['interfaceLanguage'],
+        theme: ReaderSettings['theme'],
+    ) => void;
+}
+
+/**
+ * Owns the detached durable snapshot behind an open Settings form. Preview
+ * consumers may mutate host settings, but never this baseline.
+ */
+export class SettingsPreviewBaseline {
+    private stableSettings: ReaderSettings;
+    private interfaceLanguagePreviewed = false;
+
+    constructor(
+        private readonly dependencies: SettingsPreviewBaselineDependencies,
+        private readonly currentForm: () => HTMLFormElement | undefined,
+    ) {
+        this.stableSettings = snapshotDurableSettings(dependencies.getSettings());
+    }
+
+    get settings(): ReaderSettings {
+        return this.stableSettings;
+    }
+
+    start(settings: ReaderSettings): void {
+        const replacingActivePreview = this.currentForm()?.isConnected === true;
+        this.restoreInterfaceLanguagePreview();
+        if (replacingActivePreview) {
+            this.restoreTransient();
+            return;
+        }
+        this.capture(settings);
+    }
+
+    capture(settings: ReaderSettings): void {
+        this.stableSettings = snapshotDurableSettings(settings);
+    }
+
+    publish(): void {
+        this.dependencies.setSettings(snapshotDurableSettings(this.stableSettings));
+    }
+
+    stage(settings: ReaderSettings): void {
+        this.capture(settings);
+        this.publish();
+    }
+
+    restoreTransient(): void {
+        this.dependencies.setSettings(snapshotDurableSettings(this.stableSettings), { transient: true });
+    }
+
+    refreshHost(): void {
+        if (this.currentForm()?.isConnected !== true) return;
+        const settings = this.stableSettings;
+        this.dependencies.beginSettingsPreview(settings.accentColor, settings.interfaceLanguage, settings.theme);
+    }
+
+    adoptLive(settings: ReaderSettings): void {
+        this.stage(settings);
+        this.refreshHost();
+    }
+
+    markInterfaceLanguagePreviewed(): void {
+        this.interfaceLanguagePreviewed = true;
+    }
+
+    restoreInterfaceLanguagePreview(): void {
+        if (!this.interfaceLanguagePreviewed) return;
+        this.interfaceLanguagePreviewed = false;
+        this.dependencies.installFab();
+    }
+}
+
 /**
  * Keeps an open Settings form aligned with durable changes published by another
  * page or companion module. Target-dependent controls are re-evaluated only
@@ -23,7 +103,7 @@ export function bindLiveSettingsSync(
     form: HTMLFormElement,
     dependencies: LiveSettingsSyncDependencies,
 ): void {
-    let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
+    let adoptedSettings = snapshotDurableSettings(dependencies.getSettings());
     subscribeToSettingsChanges(detail => {
         if (!dependencies.isActive()) return;
         if (detail.preview !== true) {
@@ -34,32 +114,15 @@ export function bindLiveSettingsSync(
             dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
             syncSubtitlePreview(form);
             syncFontFamilyControls(form);
-            adoptedSettings = snapshotLiveSettings(settings);
+            adoptedSettings = snapshotDurableSettings(settings);
         }
         const theme = themeFromSettingsChange(detail);
         if (theme) dependencies.applyTheme(theme);
     });
 }
 
-/**
- * The dialog baseline must not share the nested language records that a host
- * may replace or mutate before publishing its durable event. Other live-form
- * facets are scalar, so the top-level copy is their complete snapshot.
- */
-function snapshotLiveSettings(settings: ReaderSettings): ReaderSettings {
-    return {
-        ...settings,
-        languageProfiles: settings.languageProfiles.map(profile => ({
-            ...profile,
-            dictionaries: {
-                installed: [...profile.dictionaries.installed],
-                enabled: [...profile.dictionaries.enabled],
-                order: [...profile.dictionaries.order],
-            },
-            definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds],
-        })),
-        dictionaryLookupLinks: settings.dictionaryLookupLinks.map(link => ({ ...link })),
-    };
+function snapshotDurableSettings(settings: ReaderSettings): ReaderSettings {
+    return normalizeReaderSettings(settings);
 }
 
 function syncFormFromSettings(

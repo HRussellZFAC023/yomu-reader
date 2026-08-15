@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.9.3] - 2026-08-15
+
+### Fixed
+
+- Hosted Study now reconciles when the installed Reader's authoritative settings bridge arrives, so a provisional setup screen cannot remain stuck or overwrite those settings.
+- Firefox's packaged Study page and the Reader on ordinary websites now use one canonical extension settings store, propagate changes live in both directions, and remove stranded unprefixed managed settings during an explicit factory reset.
+- Importing a settings backup now locks Save and competing actions in that settings surface while the restore runs, compensates storage or dictionary work that fails before final settings publication, and prevents a stale save from overwriting the imported settings.
+- Theme and interface-language previews now stay separate from the last saved settings, so Save records the new explicit choice instead of letting an older choice return after reload. A settings dialog reopened after backup restore also keeps ownership, so Save visibly completes.
+- If Study and ordinary websites already show different chosen settings, update first, then import your latest settings backup once from Study. Do not factory reset or downgrade.
+
 ## [1.9.2] - 2026-08-14
 
 ### Fixed

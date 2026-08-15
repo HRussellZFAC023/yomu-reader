@@ -157,6 +157,7 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
                 'failure',
                 'error',
                 'retry',
+                'recovery',
                 'missing',
                 'notfound',
                 'degraded',

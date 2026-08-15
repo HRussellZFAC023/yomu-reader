@@ -31,6 +31,15 @@ const {
     cssPath: CSS_PATH,
 } = createSmokePaths(import.meta.dirname);
 const INJECT_USERSCRIPT = process.env.YOMU_HOSTED_SETTINGS_INJECT_USERSCRIPT === '1';
+const CONTENT_TYPES_BY_EXTENSION = new Map([
+    ['.html', 'text/html; charset=utf-8'],
+    ['.js', 'text/javascript; charset=utf-8'],
+    ['.css', 'text/css; charset=utf-8'],
+    ['.json', 'application/json; charset=utf-8'],
+    ['.webmanifest', 'application/manifest+json'],
+    ['.svg', 'image/svg+xml'],
+    ['.png', 'image/png'],
+]);
 
 assertBuiltArtifacts([
     SCRIPT_PATH,
@@ -61,6 +70,7 @@ const VOCABULARY = [
 
 const SETTINGS = {
     onboardingSeen: true,
+    learningTargetChosen: true,
     interfaceLanguage: 'ja',
     apiKey: 'mock-jpdb-token',
     jitenApiKey: '',
@@ -94,6 +104,38 @@ const GM_STORAGE_PREFIX = '__yomu_hosted_settings_smoke_gm__:';
 const GM_SETTINGS_STORAGE_KEY = `${GM_STORAGE_PREFIX}${YOMU_SETTINGS_KEY}`;
 const STORAGE_BRIDGE_READY_EVENT = 'yomu-userscript-storage-bridge-ready';
 const STORAGE_BRIDGE_REQUEST_EVENT = 'yomu-userscript-storage-request';
+const HOSTED_STUDY_URL = 'https://yomureader.com/study/';
+const HOSTED_STUDY_ORIGIN = new URL(HOSTED_STUDY_URL).origin;
+const HOSTED_STUDY_DOCUMENT_PATHS = new Set(['/study', '/study/', '/study/index.html']);
+const LATE_AUTHORITY_ACCENT = '#3f8d66';
+const IMPORTED_AUTHORITY_ACCENT = '#c25d2c';
+const LATE_AUTHORITY_SETTINGS = {
+    ...SETTINGS,
+    apiKey: '',
+    jitenApiKey: '',
+    bunproApiKey: '',
+    bunproFrontendApiToken: '',
+    wanikaniApiToken: '',
+    nadeshikoApiKey: '',
+    ocrCloudVisionApiKey: '',
+    onboardingSeen: true,
+    learningTargetChosen: true,
+    interfaceLanguage: 'ja',
+    theme: 'dark',
+    accentColor: LATE_AUTHORITY_ACCENT,
+    languageProfiles: [{
+        schemaVersion: 2,
+        id: 'late-authority-ja',
+        outputLanguage: 'en',
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
+        uiLocale: 'ja',
+        parserProvider: 'auto',
+        dictionaries: { installed: [], enabled: [], order: [] },
+        definitionTranslationProviderIds: [],
+    }],
+    activeLanguageProfileId: 'late-authority-ja',
+};
 
 const server = await startLoopbackServer(serveNewTab, 'Could not bind hosted settings smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
@@ -105,6 +147,7 @@ try {
         locale: 'ja-JP',
         viewport: { width: 1180, height: 820 },
         deviceScaleFactor: 1,
+        serviceWorkers: 'block',
     });
     await context.addInitScript(({ key, settings, gmKey }) => {
         const seedMarker = '__yomuHostedSettingsSmokeSeeded';
@@ -147,6 +190,10 @@ try {
         },
         mockHttpRequest: request => mockedVocabularyRequest(request, requests),
     });
+    await page.route(`${HOSTED_STUDY_ORIGIN}/**`, route => {
+        const url = new URL(route.request().url());
+        return fulfillHostedStudyAsset(route, url.pathname);
+    });
     page.on('console', message => {
         if (process.env.SMOKE_DEBUG) console.error('[hosted-settings]', message.type(), message.text());
     });
@@ -154,7 +201,7 @@ try {
         if (process.env.SMOKE_DEBUG) console.error('[hosted-settings pageerror]', error.message);
     });
 
-    const targetUrl = `${server.origin}/newtab/index.html?q=%E8%AA%AD%E3%81%BF%E5%8F%96%E3%82%8B`;
+    const targetUrl = `${HOSTED_STUDY_URL}?q=%E8%AA%AD%E3%81%BF%E5%8F%96%E3%82%8B`;
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { state: 'attached', timeout: 15_000 });
     await page.waitForSelector('.jpdb-reader-newtab-more summary', { timeout: 15_000 });
@@ -265,6 +312,14 @@ try {
     const durableStorage = INJECT_USERSCRIPT
         ? { coveredBy: 'preinstalled userscript bridge mode' }
         : await verifyDurableHostedSettings({ page, requests });
+    await context.close();
+
+    // This is intentionally a second context and a literal production origin.
+    // The general self-enhancement flow above starts with a healthy local copy;
+    // this one reproduces the reported failure boundary: Study starts with no
+    // website settings while the installed runtime's prefixed authority exists
+    // but arrives only after provisional onboarding has painted.
+    const lateAuthorityRecovery = await verifyLateHostedAuthorityRegression({ browser });
 
     console.log(JSON.stringify({
         ok: true,
@@ -276,17 +331,404 @@ try {
         tabClicks,
         immediateHelpLatencyMs: immediateHelpClick.latencyMs,
         durableStorage,
+        lateAuthorityRecovery,
         parseRequests: requests
             .filter(request => request.endpoint === 'parse')
             .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定') })),
     }, null, 2));
-    await context.close();
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
 }
 
+async function verifyLateHostedAuthorityRegression({ browser }) {
+    const context = await browser.newContext({
+        bypassCSP: true,
+        locale: 'ja-JP',
+        viewport: { width: 1180, height: 820 },
+        deviceScaleFactor: 1,
+        serviceWorkers: 'block',
+    });
+    const requests = [];
+    const authoritativeRaw = JSON.stringify(LATE_AUTHORITY_SETTINGS);
+    try {
+        await context.addInitScript(({ origin, key, gmKey, raw }) => {
+            if (location.origin !== origin) return;
+            const seedMarker = '__yomuLateAuthorityRegressionSeeded';
+            if (sessionStorage.getItem(seedMarker) === 'true') return;
+            sessionStorage.setItem(seedMarker, 'true');
+            localStorage.removeItem(key);
+            window.__yomuLateAuthorityLocalSettingsAbsentAtSeed = localStorage.getItem(key) === null;
+            localStorage.setItem(gmKey, raw);
+        }, {
+            origin: HOSTED_STUDY_ORIGIN,
+            key: YOMU_SETTINGS_KEY,
+            gmKey: GM_SETTINGS_STORAGE_KEY,
+            raw: authoritativeRaw,
+        });
+
+        const page = await context.newPage();
+        page.on('console', message => {
+            if (process.env.SMOKE_DEBUG) console.error('[hosted-settings late-authority]', message.type(), message.text());
+        });
+        page.on('pageerror', error => {
+            if (process.env.SMOKE_DEBUG) console.error('[hosted-settings late-authority pageerror]', error.message);
+        });
+        await page.exposeFunction('__yomuLateAuthoritySmokeRequest', request => mockedUserscriptRequest(request, requests));
+        await page.route('**/*', route => fulfillLateAuthorityRequest(route, requests));
+        await page.goto(HOSTED_STUDY_URL, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.jpdb-reader-onboarding', { state: 'visible', timeout: 20_000 });
+
+        const beforeBridge = await page.evaluate(({ key, gmKey }) => {
+            window.__yomuLateAuthorityChooserClicks = 0;
+            window.addEventListener('click', event => {
+                if (event.target instanceof Element && event.target.closest('[data-onboarding-action]')) {
+                    window.__yomuLateAuthorityChooserClicks += 1;
+                }
+            }, { capture: true });
+            return {
+                url: location.href,
+                runtimeMarker: window.__YOMU_READER_RUNTIME__,
+                chooserVisible: Boolean(document.querySelector('.jpdb-reader-onboarding')),
+                localSettingsAbsentAtSeed: window.__yomuLateAuthorityLocalSettingsAbsentAtSeed === true,
+                provisionalLocalRaw: localStorage.getItem(key),
+                authoritativeRaw: localStorage.getItem(gmKey),
+            };
+        }, { key: YOMU_SETTINGS_KEY, gmKey: GM_SETTINGS_STORAGE_KEY });
+        assert(beforeBridge.url === HOSTED_STUDY_URL,
+            'Late-authority regression did not run on the exact intercepted hosted Study URL', beforeBridge);
+        assert([beforeBridge.runtimeMarker === 'newtab', beforeBridge.chooserVisible].every(Boolean),
+            'Hosted Study did not reach provisional onboarding before the bridge arrived', beforeBridge);
+        assert(beforeBridge.localSettingsAbsentAtSeed,
+            'Late-authority regression was contaminated by a website-local settings copy', beforeBridge);
+        assert(beforeBridge.authoritativeRaw === authoritativeRaw,
+            'Prefixed fake-GM authority was not seeded byte-for-byte before Study started', beforeBridge);
+
+        await installHostedStorageBridge(page, '__yomuLateAuthoritySmokeRequest');
+
+        await page.waitForFunction(() => !document.querySelector('.jpdb-reader-onboarding')
+            && Boolean(document.querySelector('.jpdb-reader-newtab-shell')), undefined, { timeout: 20_000 });
+        await page.waitForFunction(() => document.documentElement.classList.contains('jpdb-reader-theme-dark'), undefined, { timeout: 10_000 });
+        const afterBridge = await lateAuthoritySnapshot(page);
+        const chooserRetired = [afterBridge.chooserClicks === 0, !afterBridge.chooserVisible].every(Boolean);
+        assert(chooserRetired,
+            'Authoritative settings did not retire provisional onboarding without a chooser click', afterBridge);
+        assert([afterBridge.studyRendered, afterBridge.appliedTheme === 'dark'].every(Boolean),
+            'Hosted Study did not render with the authoritative dark sentinel', afterBridge);
+        assert([afterBridge.activeTarget === 'ja', afterBridge.profileSchemaVersion === 2].every(Boolean),
+            'Hosted Study did not recover the explicit schema-v2 Japanese target', afterBridge);
+        assert(afterBridge.authoritativeRaw === authoritativeRaw,
+            'Initial late-bridge reconciliation overwrote the authoritative settings blob', afterBridge);
+
+        const backupImport = await verifyCredentialFreeBackupImport({ page, authoritativeRaw });
+        return {
+            url: beforeBridge.url,
+            exactHostedOriginIntercepted: beforeBridge.url === HOSTED_STUDY_URL,
+            localSettingsAbsentBeforeBridge: beforeBridge.localSettingsAbsentAtSeed,
+            provisionalLocalBaselineObserved: beforeBridge.provisionalLocalRaw !== null,
+            provisionalOnboardingObserved: beforeBridge.chooserVisible,
+            chooserRetiredWithoutClick: chooserRetired,
+            studyRendered: afterBridge.studyRendered,
+            recoveredProfileSchemaVersion: afterBridge.profileSchemaVersion,
+            recoveredTarget: afterBridge.activeTarget,
+            darkSentinelApplied: afterBridge.appliedTheme === 'dark',
+            authorityPreservedBeforeUserImport: afterBridge.authoritativeRaw === authoritativeRaw,
+            backupImport,
+        };
+    } finally {
+        await context.close();
+    }
+}
+
+async function verifyCredentialFreeBackupImport({ page, authoritativeRaw }) {
+    await openSettings(page);
+    await page.locator('[data-action="settings-panel"][data-panel="backup"]').evaluate(button => {
+        if (!(button instanceof HTMLButtonElement)) throw new Error('Backup settings tab is unavailable.');
+        button.click();
+    });
+    await page.waitForSelector('[data-settings-panel="backup"]:not([hidden])', { timeout: 10_000 });
+    await page.evaluate(() => {
+        window.__yomuSettingsImportSaveStates = [];
+        const record = () => {
+            const save = document.querySelector('.jpdb-reader-settings button[type="submit"]');
+            if (!(save instanceof HTMLButtonElement)) return;
+            const state = {
+                disabled: save.disabled,
+                ariaDisabled: save.getAttribute('aria-disabled'),
+                blocked: save.dataset.saveBlocked || '',
+            };
+            const previous = window.__yomuSettingsImportSaveStates.at(-1);
+            if (JSON.stringify(previous) !== JSON.stringify(state)) window.__yomuSettingsImportSaveStates.push(state);
+        };
+        record();
+        new MutationObserver(record).observe(document.body, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ['disabled', 'aria-disabled', 'data-save-blocked'],
+        });
+    });
+
+    const importedSettings = {
+        ...LATE_AUTHORITY_SETTINGS,
+        accentColor: IMPORTED_AUTHORITY_ACCENT,
+    };
+    const fileChooserReady = page.waitForEvent('filechooser');
+    await page.locator('[data-action="import-yomitan-settings"]').click();
+    const fileChooser = await fileChooserReady;
+    await fileChooser.setFiles({
+        name: 'yomu-credential-free-settings.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify({
+            formatName: 'yomu-reader-settings',
+            formatVersion: 3,
+            exportedAt: '2026-08-15T00:00:00.000Z',
+            settings: importedSettings,
+        }), 'utf8'),
+    });
+
+    await page.waitForFunction(importedSettingsSaveReady, {
+        gmKey: GM_SETTINGS_STORAGE_KEY,
+        accent: IMPORTED_AUTHORITY_ACCENT,
+    }, { timeout: 20_000 });
+
+    const afterImport = await page.evaluate(gmKey => ({
+        authoritativeRaw: localStorage.getItem(gmKey),
+        saveStates: window.__yomuSettingsImportSaveStates,
+        saveEnabled: document.querySelector('.jpdb-reader-settings button[type="submit"]') instanceof HTMLButtonElement
+            && !document.querySelector('.jpdb-reader-settings button[type="submit"]').disabled,
+    }), GM_SETTINGS_STORAGE_KEY);
+    assert(afterImport.authoritativeRaw !== authoritativeRaw,
+        'Credential-free backup import did not update the shared authority', afterImport);
+    const saveLockObserved = settingsImportSaveLockObserved(afterImport.saveStates);
+    assert(saveLockObserved,
+        'Backup import did not expose its temporary Save lock to the real browser', afterImport);
+    assert(afterImport.saveEnabled,
+        'Save did not unlock after credential-free backup import completed', afterImport);
+
+    await page.locator('.jpdb-reader-settings button[type="submit"]').click();
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });
+    const afterSaveRaw = await page.evaluate(gmKey => localStorage.getItem(gmKey), GM_SETTINGS_STORAGE_KEY);
+    const afterSave = storedSettings(afterSaveRaw);
+    assert(importedAppearanceMatches(afterSave),
+        'Save did not persist the credential-free imported settings', { afterSave });
+
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: {},
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuLateAuthoritySmokeRequest',
+        storagePrefix: GM_STORAGE_PREFIX,
+        initialize: 'ifMissing',
+    });
+    await addUserscriptGraphInitScripts(page, SCRIPT_PATH);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.jpdb-reader-newtab-shell', { timeout: 20_000 });
+    await page.waitForFunction(importedSettingsStudyReady, {
+        gmKey: GM_SETTINGS_STORAGE_KEY,
+        accent: IMPORTED_AUTHORITY_ACCENT,
+    }, { timeout: 20_000 });
+    const afterReload = await lateAuthoritySnapshot(page);
+    const reloadedSettings = storedSettings(afterReload.authoritativeRaw);
+    assert(importedAppearanceMatches(reloadedSettings),
+        'Credential-free import and Save did not survive a hosted Study reload', { afterReload });
+
+    return {
+        realFileChooser: true,
+        credentialFieldsEmpty: importedCredentialFieldsEmpty(importedSettings),
+        saveLockObserved,
+        saveUnlocked: afterImport.saveEnabled,
+        saveClosedDialog: true,
+        importedAccent: reloadedSettings.accentColor,
+        darkThemeAfterReload: afterReload.appliedTheme === 'dark',
+        chooserAbsentAfterReload: !afterReload.chooserVisible,
+    };
+}
+
+function settingsImportSaveLockObserved(states) {
+    return states.some(state => [state.disabled, state.blocked === 'settings-import'].every(Boolean));
+}
+
+function importedCredentialFieldsEmpty(settings) {
+    return [
+        'apiKey',
+        'jitenApiKey',
+        'bunproApiKey',
+        'bunproFrontendApiToken',
+        'wanikaniApiToken',
+        'nadeshikoApiKey',
+        'ocrCloudVisionApiKey',
+    ].every(key => settings[key] === '');
+}
+
+function storedSettings(raw) {
+    return JSON.parse(raw || 'null');
+}
+
+function importedAppearanceMatches(settings) {
+    return [
+        settings?.accentColor === IMPORTED_AUTHORITY_ACCENT,
+        settings?.theme === 'dark',
+    ].every(Boolean);
+}
+
+async function lateAuthoritySnapshot(page) {
+    return await page.evaluate(captureLateAuthoritySnapshotInPage, GM_SETTINGS_STORAGE_KEY);
+}
+
+function captureLateAuthoritySnapshotInPage(gmKey) {
+    const parseStoredSettings = key => {
+        try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+    };
+    const activeProfile = settings => {
+        if (!settings || !Array.isArray(settings.languageProfiles)) return undefined;
+        const selected = settings.languageProfiles.find(item => item && item.id === settings.activeLanguageProfileId);
+        return selected ?? settings.languageProfiles[0];
+    };
+    const profileValue = (profile, key, fallback) => {
+        if (!profile) return fallback;
+        const value = profile[key];
+        return value == null ? fallback : value;
+    };
+    const appliedTheme = () => {
+        if (document.documentElement.classList.contains('jpdb-reader-theme-dark')) return 'dark';
+        if (document.documentElement.classList.contains('jpdb-reader-theme-light')) return 'light';
+        return '';
+    };
+    const settings = parseStoredSettings(gmKey);
+    const profile = activeProfile(settings);
+    return {
+        authoritativeRaw: localStorage.getItem(gmKey),
+        chooserClicks: window.__yomuLateAuthorityChooserClicks || 0,
+        chooserVisible: Boolean(document.querySelector('.jpdb-reader-onboarding')),
+        studyRendered: Boolean(document.querySelector('.jpdb-reader-newtab-shell')),
+        appliedTheme: appliedTheme(),
+        activeTarget: profileValue(profile, 'targetLanguage', ''),
+        profileSchemaVersion: profile?.schemaVersion ?? null,
+        storageBridge: document.documentElement.dataset.yomuUserscriptStorageBridge === 'true',
+    };
+}
+
+function importedSettingsSaveReady({ gmKey, accent }) {
+    const stored = JSON.parse(localStorage.getItem(gmKey) || 'null');
+    const save = document.querySelector('.jpdb-reader-settings button[type="submit"]');
+    return [
+        stored?.accentColor === accent,
+        save instanceof HTMLButtonElement,
+        save?.disabled === false,
+        save?.getAttribute('aria-disabled') !== 'true',
+    ].every(Boolean);
+}
+
+function importedSettingsStudyReady({ gmKey, accent }) {
+    const stored = JSON.parse(localStorage.getItem(gmKey) || 'null');
+    return [
+        stored?.accentColor === accent,
+        stored?.theme === 'dark',
+        document.documentElement.classList.contains('jpdb-reader-theme-dark'),
+        !document.querySelector('.jpdb-reader-onboarding'),
+    ].every(Boolean);
+}
+
+async function installHostedStorageBridge(page, requestBridgeName) {
+    await installGmStorageBridgeOnCurrentPage(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: {},
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName,
+        storagePrefix: GM_STORAGE_PREFIX,
+        initialize: 'ifMissing',
+    });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+    await page.evaluate(readyEvent => {
+        // After the content-world bridge captures its accessors, page code must
+        // consume the DOM bridge rather than reaching fake GM globals directly.
+        delete window.GM;
+        delete window.GM_getValue;
+        delete window.GM_setValue;
+        delete window.GM_deleteValue;
+        delete window.GM_listValues;
+        window.dispatchEvent(new CustomEvent(readyEvent));
+    }, STORAGE_BRIDGE_READY_EVENT);
+}
+
+async function fulfillLateAuthorityRequest(route, requests) {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.origin === HOSTED_STUDY_ORIGIN) return fulfillHostedStudyAsset(route, url.pathname);
+    return fulfillLateAuthorityExternalRequest(route, request, requests);
+}
+
+async function fulfillHostedStudyAsset(route, pathname) {
+    const filePath = hostedStudyAssetPath(pathname);
+    if (!filePath) return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
+    return route.fulfill({
+        status: 200,
+        contentType: contentTypeForFile(filePath),
+        body: readFileSync(filePath),
+    });
+}
+
+async function fulfillLateAuthorityExternalRequest(route, request, requests) {
+    if (request.method() === 'OPTIONS') {
+        return route.fulfill({ status: 204, headers: lateAuthorityCorsHeaders() });
+    }
+    const payload = {
+        method: request.method(),
+        url: request.url(),
+        data: request.postData(),
+    };
+    const mocked = Object.assign(jsonHttpResponse({}), mockedVocabularyRequest(payload, requests));
+    return route.fulfill({
+        status: mocked.status,
+        headers: Object.assign(lateAuthorityCorsHeaders(), mocked.headers),
+        contentType: mocked.contentType,
+        body: mocked.responseText,
+    });
+}
+
+function hostedStudyAssetPath(pathname) {
+    if (HOSTED_STUDY_DOCUMENT_PATHS.has(pathname)) return path.join(NEWTAB_DIR, 'index.html');
+    if (pathname.startsWith('/study/')) return resolvedHostedAsset(NEWTAB_DIR, pathname.slice('/study/'.length));
+    return resolvedHostedAsset(path.join(ROOT, 'dist'), pathname.replace(/^\//u, ''));
+}
+
+function resolvedHostedAsset(base, relative) {
+    const candidate = path.resolve(base, relative);
+    const safePrefix = `${path.resolve(base)}${path.sep}`;
+    if (!candidate.startsWith(safePrefix)) return null;
+    return existsSync(candidate) ? candidate : null;
+}
+
+function lateAuthorityCorsHeaders() {
+    return {
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': 'content-type, authorization',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+    };
+}
+
 async function verifyDurableHostedSettings({ page, requests }) {
     const startedAt = Date.now();
+    const { localSave, localOnly } = await verifyLocalOnlyHostedSettings(page);
+    const { afterPromotion, runtimeBridgeRequests } = await verifyLateBridgePromotion(
+        page,
+        requests,
+        localSave,
+    );
+    const afterLocalReset = await verifyGmSettingsSurviveLocalReset(page, localSave);
+    return {
+        elapsedMs: Date.now() - startedAt,
+        savedTheme: localSave.savedTheme,
+        pendingBeforeInstall: pendingHostedTheme(localOnly.local) === localSave.savedTheme,
+        gmSeparatedFromWebsiteKey: GM_SETTINGS_STORAGE_KEY !== YOMU_SETTINGS_KEY,
+        runtimeBridgeGetRequests: runtimeBridgeRequests,
+        promotedToGm: storedTheme(afterPromotion.gm) === localSave.savedTheme,
+        restoredAfterLocalStorageClear: afterLocalReset.appliedTheme === localSave.savedTheme,
+        storageBridgeAfterReload: afterLocalReset.storageBridge,
+    };
+}
+
+async function verifyLocalOnlyHostedSettings(page) {
     await openSettings(page);
     const localSave = await page.evaluate(() => {
         const input = document.querySelector('[data-theme-value]');
@@ -298,57 +740,54 @@ async function verifyDurableHostedSettings({ page, requests }) {
         const previousTheme = input.value;
         toggle.click();
         const savedTheme = input.value;
-        form.requestSubmit();
         return { previousTheme, savedTheme };
     });
+    await page.locator('.jpdb-reader-settings button[type="submit"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
     const localOnly = await readStorageState(page);
-    assert(localOnly.local?.theme === localSave.savedTheme,
+    assert(storedTheme(localOnly.local) === localSave.savedTheme,
         'Hosted settings save did not persist to website localStorage before installation', { localSave, localOnly });
-    assert(localOnly.local?.__yomuHostedPendingGmPatch?.theme === localSave.savedTheme,
+    assert(pendingHostedTheme(localOnly.local) === localSave.savedTheme,
         'Bridge-less hosted save was not marked for later GM promotion', { localSave, localOnly });
     assert(localOnly.gm === null, 'Local-only settings leaked into the isolated GM namespace before installation', localOnly);
+    return { localSave, localOnly };
+}
 
+async function verifyLateBridgePromotion(page, requests, localSave) {
     await page.evaluate(requestEvent => {
+        const objectDetail = detail => {
+            if (!detail || typeof detail !== 'object') return null;
+            return detail;
+        };
+        const normalizedDetail = detail => {
+            if (typeof detail !== 'string') return objectDetail(detail);
+            try { return objectDetail(JSON.parse(detail)); } catch { return null; }
+        };
         window.__yomuHostedSettingsBridgeRequests = [];
         window.addEventListener(requestEvent, event => {
-            let detail = event.detail;
-            if (typeof detail === 'string') {
-                try { detail = JSON.parse(detail); } catch { detail = null; }
-            }
-            if (detail && typeof detail === 'object') window.__yomuHostedSettingsBridgeRequests.push(detail);
+            const detail = normalizedDetail(event.detail);
+            if (detail) window.__yomuHostedSettingsBridgeRequests.push(detail);
         });
     }, STORAGE_BRIDGE_REQUEST_EVENT);
     if (!INJECT_USERSCRIPT) {
         await page.exposeFunction('__yomuHostedSettingsSmokeRequest', request => mockedUserscriptRequest(request, requests));
     }
-    await installGmStorageBridgeOnCurrentPage(page, {
-        key: YOMU_SETTINGS_KEY,
-        value: {},
-        css: readFileSync(CSS_PATH, 'utf8'),
-        requestBridgeName: '__yomuHostedSettingsSmokeRequest',
-        storagePrefix: GM_STORAGE_PREFIX,
-        initialize: 'ifMissing',
-    });
-    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-    await page.evaluate(readyEvent => {
-        delete window.GM;
-        delete window.GM_getValue;
-        delete window.GM_setValue;
-        delete window.GM_deleteValue;
-        delete window.GM_listValues;
-        window.dispatchEvent(new CustomEvent(readyEvent));
-    }, STORAGE_BRIDGE_READY_EVENT);
+    await installHostedStorageBridge(page, '__yomuHostedSettingsSmokeRequest');
     await page.waitForFunction(({ key, gmKey }) => {
+        const parse = raw => {
+            try { return JSON.parse(raw || 'null'); } catch { return null; }
+        };
+        const theme = settings => settings && settings.theme;
+        const pending = settings => settings && settings.__yomuHostedPendingGmPatch;
         if (document.documentElement.dataset.yomuUserscriptStorageBridge !== 'true') return false;
-        const gm = JSON.parse(localStorage.getItem(gmKey) || 'null');
-        const local = JSON.parse(localStorage.getItem(key) || 'null');
-        return gm?.theme && gm.theme === local?.theme && local?.__yomuHostedPendingGmPatch == null;
+        const gm = parse(localStorage.getItem(gmKey));
+        const local = parse(localStorage.getItem(key));
+        return Boolean(theme(gm)) && theme(gm) === theme(local) && pending(local) == null;
     }, { key: YOMU_SETTINGS_KEY, gmKey: GM_SETTINGS_STORAGE_KEY });
     const afterPromotion = await readStorageState(page);
-    assert(afterPromotion.gm?.theme === localSave.savedTheme,
+    assert(storedTheme(afterPromotion.gm) === localSave.savedTheme,
         'Late userscript bridge did not promote the local-only website save into GM storage', { localSave, afterPromotion });
-    assert(afterPromotion.local?.__yomuHostedPendingGmPatch == null,
+    assert(pendingHostedPatch(afterPromotion.local) == null,
         'Successful GM promotion left the website copy marked pending', afterPromotion);
     const runtimeBridgeRequests = await page.evaluate(key => window.__yomuHostedSettingsBridgeRequests
         .filter(request => request?.op === 'get' && request?.key === key).length, YOMU_SETTINGS_KEY);
@@ -358,7 +797,10 @@ async function verifyDurableHostedSettings({ page, requests }) {
             runtimeMarker: afterPromotion.runtimeMarker,
             storageBridge: afterPromotion.storageBridge,
         });
+    return { afterPromotion, runtimeBridgeRequests };
+}
 
+async function verifyGmSettingsSurviveLocalReset(page, localSave) {
     await addGmStorageBridgeInitScript(page, {
         key: YOMU_SETTINGS_KEY,
         value: {},
@@ -377,17 +819,19 @@ async function verifyDurableHostedSettings({ page, requests }) {
         'Clearing website localStorage lost settings that should survive in GM storage', { localSave, afterLocalReset });
     assert(afterLocalReset.runtimeMarker === 'newtab' && afterLocalReset.storageBridge,
         'Reloaded hosted NewTabRuntime did not use the userscript storage bridge', afterLocalReset);
+    return afterLocalReset;
+}
 
-    return {
-        elapsedMs: Date.now() - startedAt,
-        savedTheme: localSave.savedTheme,
-        pendingBeforeInstall: localOnly.local?.__yomuHostedPendingGmPatch?.theme === localSave.savedTheme,
-        gmSeparatedFromWebsiteKey: GM_SETTINGS_STORAGE_KEY !== YOMU_SETTINGS_KEY,
-        runtimeBridgeGetRequests: runtimeBridgeRequests,
-        promotedToGm: afterPromotion.gm?.theme === localSave.savedTheme,
-        restoredAfterLocalStorageClear: afterLocalReset.appliedTheme === localSave.savedTheme,
-        storageBridgeAfterReload: afterLocalReset.storageBridge,
-    };
+function storedTheme(settings) {
+    return settings ? settings.theme : undefined;
+}
+
+function pendingHostedPatch(settings) {
+    return settings ? settings.__yomuHostedPendingGmPatch : undefined;
+}
+
+function pendingHostedTheme(settings) {
+    return storedTheme(pendingHostedPatch(settings));
 }
 
 async function openSettings(page) {
@@ -723,10 +1167,5 @@ function serveNewTab(request, response) {
 }
 
 function contentTypeForFile(filePath) {
-    if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
-    if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
-    if (filePath.endsWith('.json')) return 'application/json; charset=utf-8';
-    if (filePath.endsWith('.svg')) return 'image/svg+xml';
-    if (filePath.endsWith('.png')) return 'image/png';
-    return 'application/octet-stream';
+    return CONTENT_TYPES_BY_EXTENSION.get(path.extname(filePath)) ?? 'application/octet-stream';
 }

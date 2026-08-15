@@ -2,8 +2,13 @@ import { NEW_TAB_PAGE_URL } from '../app/constants';
 import { isPrivilegedYomuLocalDevelopmentOrigin, readTrustedYomuUrl } from '../app/trusted-hosted-url';
 import type { InterfaceLanguage } from '../app/types';
 import { uiText } from '../app/i18n';
-import { isYomuNewTabUrl, settingsPanelHash } from '../newtab/url';
-import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
+import {
+    isYomuNewTabUrl,
+    settingsPanelFromHash,
+    settingsPanelHash,
+    type SettingsPanelId,
+} from '../newtab/url';
+import type { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { openUrlInNewTab } from '../ui/browser';
 import { isDirectTrustedReaderInteraction } from '../ui/trusted-interaction';
 import { firefoxAuthenticationInfoSettingsPageUrl } from './firefox-data-consent';
@@ -18,9 +23,11 @@ interface SensitiveSettingsLauncherHost {
     mountDialog: (backdrop: HTMLElement, surface: HTMLElement) => void;
     sensitiveSettingsSurface?: () => SensitiveSettingsSurfaceAccess;
     dismiss: () => void;
+    toast: (message: string) => void;
 }
 
 const CANONICAL_SETTINGS_URL = `${NEW_TAB_PAGE_URL}#settings=api`;
+const PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL = 'yomu-packaged-study-settings-launcher:v1';
 
 /**
  * Account details and authoritative settings are editable only on a page Yomu
@@ -49,18 +56,46 @@ export function mountSensitiveSettingsLauncher(
     panel?: string,
     trigger?: HTMLElement,
 ): HTMLElement | null {
+    return mountSettingsLauncher(host, modal, language, panel, trigger, false);
+}
+
+/**
+ * Mounts the no-input handoff even when the current document is an owned Study
+ * URL. The aggregate userscript runs in a content realm there, not in the
+ * page-owned NewTabRuntime, so URL trust alone does not make that realm a
+ * writable settings surface.
+ */
+export function mountSettingsSurfaceLauncher(
+    host: SensitiveSettingsLauncherHost,
+    modal: LookupModalAccessibility,
+    language: InterfaceLanguage,
+    panel?: string,
+    trigger?: HTMLElement,
+): HTMLElement {
+    return mountSettingsLauncher(host, modal, language, panel, trigger, true)!;
+}
+
+function mountSettingsLauncher(
+    host: SensitiveSettingsLauncherHost,
+    modal: LookupModalAccessibility,
+    language: InterfaceLanguage,
+    panel: string | undefined,
+    trigger: HTMLElement | undefined,
+    allowTrustedCurrentSurface: boolean,
+): HTMLElement | null {
     const access = currentSensitiveSettingsSurfaceAccess(host);
-    if (access.trusted) return null;
+    if (access.trusted && !allowTrustedCurrentSurface) return null;
     const launcherUrl = sensitiveSettingsLauncherForPanel(access.launcherUrl, panel);
     const surface = createSensitiveSettingsLauncher(language);
     const close = () => {
         modal.release();
         host.dismiss();
     };
-    surface.querySelector<HTMLElement>('[data-trusted-settings-launcher]')?.addEventListener('click', event => {
+    surface.querySelector<HTMLButtonElement>('[data-trusted-settings-launcher]')?.addEventListener('click', async event => {
         event.preventDefault();
         event.stopPropagation();
-        if (isDirectTrustedReaderInteraction(event)) openTrustedSettingsSurface(launcherUrl);
+        if (!isDirectTrustedReaderInteraction(event)) return;
+        await launchTrustedSettingsSurface(host, language, launcherUrl, event.currentTarget as HTMLButtonElement);
     });
     surface.querySelector<HTMLElement>('[data-action="cancel"]')?.addEventListener('click', close);
     surface.addEventListener('keydown', event => {
@@ -72,6 +107,26 @@ export function mountSensitiveSettingsLauncher(
     host.mountDialog(host.createBackdrop(), surface);
     modal.activate(surface, trigger);
     return surface;
+}
+
+async function launchTrustedSettingsSurface(
+    host: SensitiveSettingsLauncherHost,
+    language: InterfaceLanguage,
+    url: string,
+    launcher: HTMLButtonElement,
+): Promise<void> {
+    launcher.disabled = true;
+    launcher.setAttribute('aria-busy', 'true');
+    try {
+        if (!await openTrustedSettingsSurface(url)) {
+            host.toast(uiText(language, 'settingsCompanionUnavailable'));
+        }
+    } catch {
+        host.toast(uiText(language, 'settingsCompanionUnavailable'));
+    } finally {
+        launcher.disabled = false;
+        launcher.removeAttribute('aria-busy');
+    }
 }
 
 function currentSensitiveSettingsSurfaceAccess(
@@ -115,25 +170,145 @@ function isTrustedExtensionSettingsUrl(value: string): boolean {
     return appUrl?.originKind === 'extension' && isYomuNewTabUrl(value);
 }
 
-function openTrustedSettingsSurface(url: string): void {
+async function openTrustedSettingsSurface(url: string): Promise<boolean> {
     const protocol = new URL(url).protocol;
     if (WEB_SETTINGS_PROTOCOLS.has(protocol)) {
-        openUrlInNewTab(url);
-        return;
+        return openUrlInNewTab(url);
     }
-    openTrustedExtensionSettingsSurface(url);
+    return openOwnedFirefoxStudySettings(url);
 }
 
 const WEB_SETTINGS_PROTOCOLS = new Set(['http:', 'https:']);
 
-function openTrustedExtensionSettingsSurface(url: string): void {
-    const opened = window.open(url, '_blank', 'noopener');
-    if (!opened) return;
+type FirefoxLauncherRuntime = {
+    id: string;
+    getURL: (path: string) => string;
+    sendMessage: (message: unknown) => unknown;
+};
+
+/**
+ * Content pages cannot navigate to a moz-extension URL with window.open.
+ * Ask the extension-owned background to create the tab, but only after proving
+ * that the destination is this runtime's packaged Study route and an allowed
+ * settings panel. A response without the created tab id is not success.
+ */
+export async function openOwnedFirefoxStudySettings(url: string): Promise<boolean> {
+    const runtime = firefoxLauncherRuntime();
+    if (!runtime) return false;
+    const panel = runtimeOwnedFirefoxStudySettingsPanel(runtime, url);
+    if (!panel) return false;
+    return requestPackagedStudySettingsTab(runtime, panel);
+}
+
+async function requestPackagedStudySettingsTab(
+    runtime: FirefoxLauncherRuntime,
+    panel: SettingsPanelId,
+): Promise<boolean> {
     try {
-        opened.opener = null;
+        const pending = runtime.sendMessage({
+            type: 'yomu.openPackagedStudySettings',
+            protocol: PACKAGED_STUDY_SETTINGS_LAUNCHER_PROTOCOL,
+            panel,
+        });
+        if (!isPromiseLike(pending)) return false;
+        const response = await pending;
+        return validCreatedTabResponse(response);
     } catch {
-        // A cross-origin extension page may not expose Window.opener.
+        return false;
     }
+}
+
+function firefoxLauncherRuntime(): FirefoxLauncherRuntime | null {
+    const runtime = firefoxLauncherRuntimeCandidate();
+    return hasFirefoxLauncherInterface(runtime) ? runtime : null;
+}
+
+function firefoxLauncherRuntimeCandidate(): unknown {
+    try {
+        return (globalThis as typeof globalThis & {
+            browser?: { runtime?: unknown };
+        }).browser?.runtime;
+    } catch {
+        return undefined;
+    }
+}
+
+function hasFirefoxLauncherInterface(value: unknown): value is FirefoxLauncherRuntime {
+    const runtime = recordValue(value) as Partial<FirefoxLauncherRuntime> | null;
+    if (!runtime) return false;
+    return typeof runtime.id === 'string'
+        && [runtime.getURL, runtime.sendMessage].every(isFunction);
+}
+
+function runtimeOwnedFirefoxStudySettingsPanel(
+    runtime: FirefoxLauncherRuntime,
+    value: string,
+): SettingsPanelId | null {
+    const target = readUrl(value);
+    if (!target) return null;
+    const panel = settingsPanelFromHash(target.hash);
+    if (!panel) return null;
+    const expected = packagedFirefoxStudySettingsUrl(runtime, panel);
+    if (!expected) return null;
+    return matchingSettingsPanel(target, expected, panel);
+}
+
+function packagedFirefoxStudySettingsUrl(
+    runtime: FirefoxLauncherRuntime,
+    panel: SettingsPanelId,
+): URL | null {
+    const expected = readRuntimeStudyUrl(runtime);
+    if (!expected || expected.protocol !== 'moz-extension:') return null;
+    expected.hash = settingsPanelHash(panel);
+    return expected;
+}
+
+function readRuntimeStudyUrl(runtime: FirefoxLauncherRuntime): URL | null {
+    try {
+        return new URL(runtime.getURL('newtab/index.html'));
+    } catch {
+        return null;
+    }
+}
+
+function readUrl(value: string): URL | null {
+    try {
+        return new URL(value);
+    } catch {
+        return null;
+    }
+}
+
+function matchingSettingsPanel(
+    target: URL,
+    expected: URL,
+    panel: SettingsPanelId,
+): SettingsPanelId | null {
+    return target.href === expected.href ? panel : null;
+}
+
+function isFunction(value: unknown): value is (...args: never[]) => unknown {
+    return typeof value === 'function';
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+    return Boolean(value && typeof (value as { then?: unknown }).then === 'function');
+}
+
+function validCreatedTabResponse(value: unknown): boolean {
+    const response = recordValue(value);
+    if (!response || response.ok !== true) return false;
+    return isNonNegativeInteger(response.tabId);
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+        ? value as Record<string, unknown>
+        : null;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
 function createSensitiveSettingsLauncher(language: InterfaceLanguage): HTMLElement {
