@@ -132,6 +132,21 @@ describe('reader stylesheet loading', () => {
         expect(rtRule).not.toContain('pointer-events: auto');
     });
 
+    it('keeps the no-input Settings launcher intrinsic inside coarse fixed chrome', () => {
+        const css = readFileSync('src/reader/styles/settings.css', 'utf8');
+        const finalDrawerHeight = css.lastIndexOf('height: var(--jpdb-reader-settings-drawer-height, 88svh);');
+        const launcherRule = css.match(
+            /@media \(hover: none\), \(pointer: coarse\) \{\s*\.jpdb-reader-settings\.jpdb-reader-settings-launcher \{([^}]*)\}/,
+        );
+
+        expect(finalDrawerHeight).toBeGreaterThan(-1);
+        expect(launcherRule).not.toBeNull();
+        expect(css.indexOf(launcherRule![0])).toBeGreaterThan(finalDrawerHeight);
+        expect(launcherRule![1]).toContain('height: auto;');
+        expect(launcherRule![1]).toContain('min-height: 0;');
+        expect(launcherRule![1]).toContain('max-height: 100%;');
+    });
+
     it('uses the full reader CSS when the userscript resource is available', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });

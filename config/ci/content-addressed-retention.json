@@ -45,7 +45,6 @@
     "docs/public/greasyfork/yomu-runtime.7279d3e2af02.user.js",
     "docs/public/greasyfork/yomu-runtime.74408d665062.user.js",
     "docs/public/greasyfork/yomu-runtime.795680f5c520.user.js",
-    "docs/public/greasyfork/yomu-runtime.7e7e0745e3d8.user.js",
     "docs/public/greasyfork/yomu-runtime.831410a9e76d.user.js",
     "docs/public/greasyfork/yomu-runtime.842f0c0f5bbe.user.js",
     "docs/public/greasyfork/yomu-runtime.848177859e09.user.js",
@@ -101,6 +100,7 @@
     "docs/public/yomu.93a84fd2a360.css",
     "docs/public/yomu.9643433aba2a.css",
     "docs/public/yomu.98ece4dc43de.css",
+    "docs/public/yomu.d39386bf1849.css",
     "docs/public/yomu.ea1f28208a04.css"
   ]
 }

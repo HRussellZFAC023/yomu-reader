@@ -11340,6 +11340,19 @@ html.jpdb-reader-doodle-active * {
     min-height: 38px;
   }
 }
+
+/* The launcher is a compact, no-input handoff, not the resizable settings
+   drawer. Keep its intrinsic height on touch devices: viewport units inside
+   WebKit's inverse page-scale adapter are measured in the host layout space
+   and can otherwise make this fixed surface taller than the physical screen.
+   A percentage cap keeps unusually long copy inside the physical viewport. */
+@media (hover: none), (pointer: coarse) {
+  .jpdb-reader-settings.jpdb-reader-settings-launcher {
+    height: auto;
+    min-height: 0;
+    max-height: 100%;
+  }
+}
 .jpdb-reader-icon-mini[data-immersion-action="previous"],
 .jpdb-reader-icon-mini[data-immersion-action="next"],
 .jpdb-reader-icon-mini[data-yomu-immersion-action="previous"],
