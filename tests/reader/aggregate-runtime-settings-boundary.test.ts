@@ -88,11 +88,11 @@ describe('aggregate runtime Settings launcher boundary', () => {
 
     it('keeps the built aggregate runtime launcher-only while retaining its offline services', () => {
         const artifact = readFileSync(
-            path.join(repoRoot, 'dist/greasyfork/yomu-runtime.user.js'),
+            path.join(repoRoot, 'docs/public/greasyfork/yomu-runtime.user.js'),
             'utf8',
         );
         const settingsSurface = readFileSync(
-            path.join(repoRoot, 'dist/greasyfork/yomu-settings-surface.user.js'),
+            path.join(repoRoot, 'docs/public/greasyfork/yomu-settings-surface.user.js'),
             'utf8',
         );
         const packageVersion = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')).version as string;
