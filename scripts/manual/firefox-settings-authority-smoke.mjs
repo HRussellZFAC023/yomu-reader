@@ -2076,7 +2076,7 @@ function formSaveButton(form) {
 
 function buttonDisabled(button) {
     if (!button) return false;
-    return Boolean(button.disabled);
+    return button.matches(':disabled');
 }
 
 function saveBlockedValue(save) {

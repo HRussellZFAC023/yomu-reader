@@ -148,6 +148,21 @@ describe('Firefox settings-authority browser proof contract', () => {
         ]) expect(SOURCE).toContain(required);
     });
 
+    it('observes effective import locking without changing the child disabled state', () => {
+        const disabled = runtimeFunction<(button: HTMLButtonElement | null) => boolean>('buttonDisabled');
+        document.body.innerHTML = [
+            '<form>',
+            '  <fieldset disabled>',
+            '    <button type="button">Import settings JSON</button>',
+            '  </fieldset>',
+            '</form>',
+        ].join('');
+        const button = document.querySelector<HTMLButtonElement>('button');
+        expect(button?.disabled).toBe(false);
+        expect(disabled(button)).toBe(true);
+        expect(disabled(null)).toBe(false);
+    });
+
     it('cannot silently replace trusted Firefox UI acceptance with synthetic clicks', () => {
         expect(SOURCE).toContain('do not substitute console calls or synthetic DOM clicks');
         expect(SOURCE).toContain('native file chooser');
