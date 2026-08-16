@@ -142,6 +142,7 @@ describe('Firefox settings-authority browser proof contract', () => {
             'backup-save',
             'backup-reload',
             'storage-failure-preparing',
+            'fault-ready',
             'fault-armed',
             'fault-result',
             'factory-reset-result',
@@ -548,7 +549,7 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(calledFunctions('issueStudyLiveWriteOnce')).not.toContain('sessionStorage.getItem');
     });
 
-    it('arms and accepts the storage fault only for the reloaded target among two live Study tabs', () => {
+    it('prepares and accepts the storage fault only for the reloaded target among two live Study tabs', () => {
         const targetStudy = '33333333-3333-4333-8333-333333333333';
         const olderStudy = '44444444-4444-4444-8444-444444444444';
         const targetContext = { studyInstanceId: targetStudy };
@@ -557,15 +558,15 @@ describe('Firefox settings-authority browser proof contract', () => {
             phase: 'storage-failure-preparing',
             storageFailureStudyInstanceId: targetStudy,
         };
-        const shouldArm = runtimeFunction<(
+        const shouldPrepare = runtimeFunction<(
             context: Record<string, unknown>,
             state: Record<string, unknown>,
             posted: Record<string, boolean>,
-        ) => boolean>('shouldArmStorageFault');
-        expect(shouldArm(targetContext, preparing, { faultArmed: false })).toBe(true);
-        expect(shouldArm(olderContext, preparing, { faultArmed: false })).toBe(false);
-        expect(shouldArm(targetContext, preparing, { faultArmed: true })).toBe(false);
-        expect(shouldArm(targetContext, { ...preparing, phase: 'storage-failure' }, { faultArmed: false }))
+        ) => boolean>('shouldPrepareStorageFault');
+        expect(shouldPrepare(targetContext, preparing, { faultReady: false })).toBe(true);
+        expect(shouldPrepare(olderContext, preparing, { faultReady: false })).toBe(false);
+        expect(shouldPrepare(targetContext, preparing, { faultReady: true })).toBe(false);
+        expect(shouldPrepare(targetContext, { ...preparing, phase: 'storage-failure' }, { faultReady: false }))
             .toBe(false);
 
         const { successfulStudyEvent, successfulStudyInstanceEvent } = runtimeFunctions<{
@@ -659,6 +660,95 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(lastSeen.get(olderStudy)).toEqual({ firstSeen: 2_500, lastSeen: 2_500, count: 1 });
         record({ type: 'study-instance-live', surface: 'study', ok: true, studyInstanceId: olderStudy }, 4_500);
         expect(lastSeen.get(olderStudy)).toEqual({ firstSeen: 2_500, lastSeen: 4_500, count: 2 });
+    });
+
+    it('stabilizes authority before readiness and consumes only the exact trusted Save attempt', async () => {
+        const snapshots = ['first', 'first', 'first', 'second', 'second'];
+        const snapshot = vi.fn(async () => snapshots.shift() ?? 'second');
+        const stableSnapshot = runtimeFunctionWithBindings<(
+            context: Record<string, unknown>,
+            posted: Record<string, unknown>,
+            observedAt: number,
+        ) => Promise<string>>('stableStorageFaultSnapshot', {
+            studySettingsAuthoritySnapshot: snapshot,
+        });
+        const posted = { faultSnapshotCandidate: '', faultSnapshotCandidateAt: 0 };
+        const context = { config: {} };
+        await expect(stableSnapshot(context, posted, 1_000)).resolves.toBe('');
+        await expect(stableSnapshot(context, posted, 1_500)).resolves.toBe('');
+        await expect(stableSnapshot(context, posted, 1_800)).resolves.toBe('first');
+        await expect(stableSnapshot(context, posted, 1_900)).resolves.toBe('');
+        await expect(stableSnapshot(context, posted, 2_700)).resolves.toBe('second');
+
+        const values = new Map<string, string>();
+        const storage = {
+            getItem: (key: string) => values.get(key) ?? null,
+            setItem: (key: string, value: string) => { values.set(key, value); },
+        };
+        const arm = runtimeFunctionWithBindings<(
+            context: Record<string, unknown>,
+            attemptId: string,
+        ) => boolean | null>('armPreparedStorageFault', { sessionStorage: storage });
+        const faultContext = { config: { faultKey: 'fault' }, faultReady: false };
+        expect(arm(faultContext, 'attempt-1')).toBeNull();
+        faultContext.faultReady = true;
+        expect(arm(faultContext, 'attempt-1')).toBe(false);
+        values.set('fault', 'ready');
+        faultContext.faultReady = true;
+        expect(arm(faultContext, 'attempt-1')).toBe(true);
+        expect(values.get('fault')).toBe('armed:attempt-1');
+        expect(faultContext.faultReady).toBe(false);
+
+        const durableWrite = vi.fn(async () => 'durable');
+        const post = vi.fn(async () => undefined);
+        const guardedWrite = runtimeFunctionWithBindings<(
+            config: Record<string, unknown>,
+            realSetValue: (...args: unknown[]) => Promise<unknown>,
+            key: string,
+            value: unknown,
+        ) => Promise<unknown>>('guardedDisposableSetValue', {
+            sessionStorage: storage,
+            settingsAuthorityWrite: (name: string) => name === 'settings',
+            armedStorageFaultAttempt: runtimeFunctionWithBindings('armedStorageFaultAttempt', {
+                sessionStorage: storage,
+            }),
+            postBrowserProbeEvent: post,
+        });
+        values.set('fault', 'ready');
+        await expect(guardedWrite({ faultKey: 'fault' }, durableWrite, 'settings', {}))
+            .resolves.toBe('durable');
+        expect(values.get('fault')).toBe('ready');
+        values.set('fault', 'armed:attempt-1');
+        await expect(guardedWrite({ faultKey: 'fault' }, durableWrite, 'unrelated', {}))
+            .resolves.toBe('durable');
+        expect(values.get('fault')).toBe('armed:attempt-1');
+        await expect(guardedWrite({ faultKey: 'fault' }, durableWrite, 'settings', {}))
+            .rejects.toThrow('injected storage failure');
+        expect(values.get('fault')).toBe('consumed:attempt-1');
+        expect(post).toHaveBeenCalledWith(
+            { faultKey: 'fault' },
+            'study',
+            { type: 'fault-consumed', attemptId: 'attempt-1' },
+        );
+
+        const ready = runtimeFunctionWithBindings<(
+            context: Record<string, unknown>,
+            state: Record<string, unknown>,
+            posted: Record<string, boolean>,
+        ) => boolean>('storageFaultReportReady', { sessionStorage: storage });
+        const reportContext = {
+            config: { faultKey: 'fault' },
+            studyInstanceId: 'target',
+            activeSaveAttemptId: 'attempt-1',
+        };
+        const reportState = { phase: 'storage-failure', storageFailureStudyInstanceId: 'target' };
+        expect(ready(reportContext, reportState, { faultResult: false })).toBe(true);
+        expect(ready(reportContext, {
+            ...reportState,
+            storageFailureStudyInstanceId: 'older',
+        }, { faultResult: false })).toBe(false);
+        reportContext.activeSaveAttemptId = 'attempt-2';
+        expect(ready(reportContext, reportState, { faultResult: false })).toBe(false);
     });
 
     it('waits for the server-observed successful Study write before the Reader overwrites it', () => {
@@ -799,7 +889,9 @@ describe('Firefox settings-authority browser proof contract', () => {
         ]));
         expect(referencedIdentifiers('studyObserverHelpers')).toEqual(expect.arrayContaining([
             'performStudyLiveWrite',
-            'shouldArmStorageFault',
+            'shouldPrepareStorageFault',
+            'stableStorageFaultSnapshot',
+            'armPreparedStorageFault',
             'completedStorageFaultResult',
             'storageFaultEvent',
         ]));
@@ -848,15 +940,35 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(failureDelays).toEqual([750]);
     });
 
-    it('arms storage failure before instructions and waits for a durable failed-save outcome', () => {
+    it('prepares storage failure before instructions and arms only for the exact Save', () => {
         expect(calledFunctions('evaluateBackupReload')).toContain('startPreparationPhase');
         expect(calledFunctions('evaluateBackupReload')).not.toContain('startPhase');
         expect(SOURCE).toContain("state.phase === 'storage-failure-preparing'");
-        expect(SOURCE).toContain("type: 'fault-armed', ok: true");
+        expect(SOURCE).toContain("type: 'fault-ready', ok: true");
+        expect(SOURCE).toContain("type: 'fault-armed', ok: faultArmed");
         expect(calledFunctions('evaluateStorageFailurePreparation')).toContain('startPhase');
         expect(SOURCE).toContain('no user action yet');
-        expect(SOURCE).toContain("Wait for the terminal's fault-armed manual phase");
+        expect(SOURCE).toContain("Wait for the terminal's fault-ready manual phase");
         expect(SOURCE).not.toContain('setTimeout(resolve, 1_200)');
+        expect(calledFunctions('maybePrepareStorageFault')).toEqual(expect.arrayContaining([
+            'stableStorageFaultSnapshot',
+            'sessionStorage.setItem',
+            'context.post',
+        ]));
+        expect(calledFunctions('stableStorageFaultSnapshot')).toContain('studySettingsAuthoritySnapshot');
+        expect(calledFunctions('armPreparedStorageFault')).toEqual(expect.arrayContaining([
+            'sessionStorage.getItem',
+            'sessionStorage.setItem',
+        ]));
+        const activationCalls = calledFunctions('reportSettingsSaveActivation');
+        expect(sourceSection(
+            'function reportSettingsSaveActivation',
+            'function eventSubmitButton',
+        )).toContain('if (!event.isTrusted) return;');
+        expect(activationCalls.indexOf('isExactSettingsSaveButton'))
+            .toBeLessThan(activationCalls.indexOf('armPreparedStorageFault'));
+        expect(activationCalls.indexOf('armPreparedStorageFault'))
+            .toBeLessThan(activationCalls.indexOf('context.post'));
         expect(calledFunctions('maybeReportStorageFault')).toContain('completedStorageFaultResult');
         expect(calledFunctions('completedStorageFaultResult')).toContain('waitForDurableStorageFault');
         expect(calledFunctions('waitForDurableStorageFault')).toEqual(expect.arrayContaining([
@@ -881,8 +993,14 @@ describe('Firefox settings-authority browser proof contract', () => {
             'successToastObserved',
         ]));
         expect(calledFunctions('studySettingsAuthoritySnapshot')).toContain('browser.storage.local.get');
-        const armCalls = calledFunctions('maybeArmStorageFault');
-        expect(armCalls.indexOf('studySettingsAuthoritySnapshot')).toBeLessThan(armCalls.indexOf('sessionStorage.setItem'));
+        expect(sourceSection(
+            'async function maybePrepareStorageFault',
+            'function armPreparedStorageFault',
+        )).toContain("sessionStorage.setItem(context.config.faultKey, 'ready')");
+        expect(sourceSection(
+            'function armedStorageFaultAttempt',
+            'function settingsAuthorityWrite',
+        )).toContain("const prefix = 'armed:'");
         expect(referencedIdentifiers('storageFaultEvent')).toContain('activeSaveAttemptId');
         expect(referencedIdentifiers('maybeReportStorageFault')).toContain('activeSaveActivation');
     });

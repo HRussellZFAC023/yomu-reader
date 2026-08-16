@@ -212,7 +212,7 @@ try {
             'observer posts allowlisted booleans, enums, and physical key names only',
             'trusted Save proof observes the exact button activation and durable outcome, never DOM submit trust',
             'content probe uses the compiler background channel and observes real Reader DOM',
-            'one-shot GM_setValue rejection is armed only for the explicit failure phase',
+            'one-shot GM_setValue rejection is armed only by the exact trusted failure-phase Save',
             'temporary tabs permission opens the deterministic ordinary-page fixture after migration sweeps',
         ],
     };
@@ -550,6 +550,7 @@ async function instrumentDisposablePackage(options) {
             requestedSettingsPanel,
             installDisposableStorageWriteFault,
             guardedDisposableSetValue,
+            armedStorageFaultAttempt,
             settingsAuthorityWrite,
             postBrowserProbeEvent,
         ]),
@@ -1020,7 +1021,7 @@ function evaluateBackupReload(_recentHas, recent) {
 }
 
 function evaluateStorageFailurePreparation(recentHas) {
-    if (recentHas('fault-armed', event => successfulStudyInstanceEvent(
+    if (recentHas('fault-ready', event => successfulStudyInstanceEvent(
         event,
         storageFailureStudyInstanceId,
     ))) startPhase('storage-failure');
@@ -1277,7 +1278,7 @@ function startPreparationPhase(phase) {
     phaseStartedAt = events.length;
     console.log('');
     console.log(`PREPARING PHASE: ${phase}`);
-    console.log('Waiting for the disposable observer to arm the requested fault; no user action yet.');
+    console.log('Waiting for the target authority bytes to settle; no user action yet.');
     console.log('');
 }
 
@@ -1301,7 +1302,7 @@ function manualInstruction(phase) {
         'backup-save': 'Press the exact Save button once in the reopened imported-settings form. Its trusted activation and the durable form close are required.',
         'backup-reload': 'Reload the same Study tab with Firefox Reload (not a scripted reload). Imported Dark / 43px settings must survive.',
         'storage-failure': [
-            'The observer has armed one deterministic storage failure. In Study Appearance, switch Dark to Light and press Save once.',
+            'The observer is ready to fail the next exact Save. In Study Appearance, switch Dark to Light and press Save once.',
             'Pass requires the form to stay open, the imported Dark / 43px canonical state to remain, and no success toast.',
         ].join('\n'),
         'factory-reset': [
@@ -1406,7 +1407,7 @@ writer tasks may still be settling.
 3. Native file chooser backup import, Save/import lock, result, unlock.
 4. Trusted Save after import; the reopened form must close.
 5. Firefox reload and imported-setting persistence.
-6. Wait for the terminal's fault-armed manual phase, then follow its one-shot
+6. Wait for the terminal's fault-ready manual phase, then follow its one-shot
    storage-failure instructions. The form must remain open with no false success.
 7. Factory Reset: raw/prefixed SETTINGS, INTENT, and private bytes gone; unrelated key retained.
 
@@ -1527,8 +1528,10 @@ function studyObserverHelpers() {
         installStudyPhasePolling,
         pollStudyPhase,
         maybeReportStudyInstanceLive,
-        shouldArmStorageFault,
-        maybeArmStorageFault,
+        shouldPrepareStorageFault,
+        stableStorageFaultSnapshot,
+        maybePrepareStorageFault,
+        armPreparedStorageFault,
         storageFaultReportReady,
         maybeReportStorageFault,
         completedStorageFaultResult,
@@ -1642,10 +1645,17 @@ function installDisposableStorageWriteFault(config) {
 async function guardedDisposableSetValue(config, realSetValue, key, value) {
     const name = String(key);
     if (!settingsAuthorityWrite(name, config)) return realSetValue(key, value);
-    if (sessionStorage.getItem(config.faultKey) !== 'armed') return realSetValue(key, value);
-    sessionStorage.setItem(config.faultKey, 'consumed');
-    void postBrowserProbeEvent(config, 'study', { type: 'fault-consumed' });
+    const attemptId = armedStorageFaultAttempt(config);
+    if (!attemptId) return realSetValue(key, value);
+    sessionStorage.setItem(config.faultKey, `consumed:${attemptId}`);
+    void postBrowserProbeEvent(config, 'study', { type: 'fault-consumed', attemptId });
     throw new Error('Firefox settings-authority smoke injected storage failure.');
+}
+
+function armedStorageFaultAttempt(config) {
+    const prefix = 'armed:';
+    const state = sessionStorage.getItem(config.faultKey) ?? '';
+    return state.startsWith(prefix) ? state.slice(prefix.length) : '';
 }
 
 function settingsAuthorityWrite(name, config) {
@@ -1949,12 +1959,16 @@ function reportSettingsSaveActivation(context, tracker, event) {
     if (!isExactSettingsSaveButton(target)) return;
     const attemptId = crypto.randomUUID();
     context.activeSaveAttemptId = attemptId;
+    const faultArmed = armPreparedStorageFault(context, attemptId);
     context.activeSaveActivation = context.post({
         type: 'settings-save-activate',
         trusted: true,
         exactSave: true,
         attemptId,
     });
+    if (faultArmed !== null) {
+        void context.post({ type: 'fault-armed', ok: faultArmed, attemptId });
+    }
     tracker.pendingSaveAttempt = {
         attemptId,
         activation: context.activeSaveActivation,
@@ -2113,6 +2127,7 @@ function createStudyProbeContext(config) {
         activeSaveAttemptId: '',
         activeSaveActivation: null,
         failedSaveAttemptId: '',
+        faultReady: false,
         faultAuthoritySnapshot: '',
         successToastObserved: false,
         studyFinalStateReported: false,
@@ -2594,7 +2609,14 @@ async function writeStudyLiveSettings(config) {
 }
 
 function installStudyPhasePolling(context) {
-    const posted = { faultArmed: false, faultResult: false, factoryReset: false, studyLiveAt: 0 };
+    const posted = {
+        faultReady: false,
+        faultResult: false,
+        factoryReset: false,
+        studyLiveAt: 0,
+        faultSnapshotCandidate: '',
+        faultSnapshotCandidateAt: 0,
+    };
     void pollStudyPhase(context, posted);
     setInterval(() => { void pollStudyPhase(context, posted); }, 400);
 }
@@ -2603,7 +2625,7 @@ async function pollStudyPhase(context, posted) {
     const state = await fetchProbeState(context.config);
     if (!state) return;
     await maybeReportStudyInstanceLive(context, posted);
-    await maybeArmStorageFault(context, state, posted);
+    await maybePrepareStorageFault(context, state, posted);
     await maybeReportStorageFault(context, state, posted);
     await maybeReportFactoryReset(context, state, posted);
 }
@@ -2621,33 +2643,50 @@ function fetchProbeState(config) {
         .catch(() => null);
 }
 
-function shouldArmStorageFault(context, state, posted) {
+function shouldPrepareStorageFault(context, state, posted) {
     return [
         state.phase === 'storage-failure-preparing',
         state.storageFailureStudyInstanceId === context.studyInstanceId,
-        !posted.faultArmed,
+        !posted.faultReady,
     ].every(Boolean);
 }
 
-async function maybeArmStorageFault(context, state, posted) {
-    if (!shouldArmStorageFault(context, state, posted)) return;
-    const faultState = sessionStorage.getItem(context.config.faultKey);
-    if (faultState === 'consumed') {
-        posted.faultArmed = true;
-        await context.post({ type: 'fault-armed', ok: false });
-        return;
+async function stableStorageFaultSnapshot(context, posted, observedAt = Date.now()) {
+    const snapshot = await studySettingsAuthoritySnapshot(context.config);
+    if (snapshot !== posted.faultSnapshotCandidate) {
+        posted.faultSnapshotCandidate = snapshot;
+        posted.faultSnapshotCandidateAt = observedAt;
+        return '';
     }
-    context.faultAuthoritySnapshot = await studySettingsAuthoritySnapshot(context.config);
-    if (faultState !== 'armed') sessionStorage.setItem(context.config.faultKey, 'armed');
-    posted.faultArmed = true;
-    await context.post({ type: 'fault-armed', ok: true });
+    if (observedAt - posted.faultSnapshotCandidateAt < 800) return '';
+    return snapshot;
+}
+
+async function maybePrepareStorageFault(context, state, posted) {
+    if (!shouldPrepareStorageFault(context, state, posted)) return;
+    const snapshot = await stableStorageFaultSnapshot(context, posted);
+    if (!snapshot) return;
+    context.faultAuthoritySnapshot = snapshot;
+    context.faultReady = true;
+    sessionStorage.setItem(context.config.faultKey, 'ready');
+    posted.faultReady = true;
+    await context.post({ type: 'fault-ready', ok: true });
+}
+
+function armPreparedStorageFault(context, attemptId) {
+    if (!context.faultReady) return null;
+    context.faultReady = false;
+    if (sessionStorage.getItem(context.config.faultKey) !== 'ready') return false;
+    sessionStorage.setItem(context.config.faultKey, `armed:${attemptId}`);
+    return true;
 }
 
 function storageFaultReportReady(context, state, posted) {
     return [
         state.phase === 'storage-failure',
         state.storageFailureStudyInstanceId === context.studyInstanceId,
-        sessionStorage.getItem(context.config.faultKey) === 'consumed',
+        Boolean(context.activeSaveAttemptId),
+        sessionStorage.getItem(context.config.faultKey) === `consumed:${context.activeSaveAttemptId}`,
         !posted.faultResult,
     ].every(Boolean);
 }
