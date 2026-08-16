@@ -2752,7 +2752,6 @@ async function storageFaultResult(context) {
         durableUnchanged,
         stored.theme === 'dark',
         stored.subtitleFontSize === 43,
-        stored.sentinel === 'backup-import',
     ].every(Boolean);
     return {
         ok,

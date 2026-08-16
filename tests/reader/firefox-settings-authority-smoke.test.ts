@@ -942,6 +942,43 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(failureDelays).toEqual([750]);
     });
 
+    it('accepts a sanitized imported backup when its exact authority pair stays unchanged', async () => {
+        let currentAuthority = 'stable-authority-pair';
+        const authoritySnapshot = vi.fn(async () => currentAuthority);
+        const storageFaultResult = runtimeFunctionWithBindings<(
+            context: Record<string, unknown>,
+        ) => Promise<Record<string, unknown>>>('storageFaultResult', {
+            studyCanonicalSummary: async () => ({ theme: 'dark', subtitleFontSize: 43 }),
+            studySettingsAuthoritySnapshot: authoritySnapshot,
+            latestSettingsForm: () => ({}),
+            studyFormState: () => ({
+                saveDisabled: false,
+                importDisabled: false,
+                saveBlocked: '',
+            }),
+            successToastVisible: () => false,
+            failureToastVisible: () => false,
+        });
+
+        await expect(storageFaultResult({
+            faultAuthoritySnapshot: 'stable-authority-pair',
+            successToastObserved: false,
+            failureToastObserved: true,
+        })).resolves.toMatchObject({
+            ok: true,
+            durableUnchanged: true,
+            theme: 'dark',
+            subtitleFontSize: 43,
+        });
+        currentAuthority = 'changed-authority-pair';
+        await expect(storageFaultResult({
+            faultAuthoritySnapshot: 'stable-authority-pair',
+            successToastObserved: false,
+            failureToastObserved: true,
+        })).resolves.toMatchObject({ ok: false, durableUnchanged: false });
+        expect(authoritySnapshot).toHaveBeenCalledTimes(2);
+    });
+
     it('prepares storage failure before instructions and arms only for the exact Save', () => {
         expect(calledFunctions('evaluateBackupReload')).toContain('startPreparationPhase');
         expect(calledFunctions('evaluateBackupReload')).not.toContain('startPhase');
