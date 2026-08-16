@@ -775,6 +775,7 @@ function normalizeProbeEvent(value, storagePrefix) {
         successToastVisible: optionalBoolean(value.successToastVisible),
         successToastObserved: optionalBoolean(value.successToastObserved),
         failureToastVisible: optionalBoolean(value.failureToastVisible),
+        failureToastObserved: optionalBoolean(value.failureToastObserved),
         durableUnchanged: optionalBoolean(value.durableUnchanged),
         authorityPairValid: optionalBoolean(value.authorityPairValid),
         trusted: optionalBoolean(value.trusted),
@@ -1080,7 +1081,7 @@ function correlatedTrustedStudySave(eventList, outcomeType, requiredStudyInstanc
                 outcome.saveBlocked === '',
                 outcome.successToastVisible === false,
                 outcome.successToastObserved === false,
-                outcome.failureToastVisible === true,
+                outcome.failureToastObserved === true,
                 outcome.durableUnchanged === true,
             ].every(Boolean),
         ].every(Boolean));
@@ -1541,7 +1542,10 @@ function studyObserverHelpers() {
         studySettingsAuthoritySnapshot,
         studySettingsAuthorityKey,
         observeStudySuccessToast,
+        settingsSaveFailureToasts,
         failureToastVisible,
+        failureToastObservationIsCurrent,
+        observeStudyFailureToast,
         maybeReportFactoryReset,
         logicalManagedValues,
         factoryResetComplete,
@@ -1959,6 +1963,8 @@ function reportSettingsSaveActivation(context, tracker, event) {
     if (!isExactSettingsSaveButton(target)) return;
     const attemptId = crypto.randomUUID();
     context.activeSaveAttemptId = attemptId;
+    context.failureToastObserved = false;
+    context.failureToastBaselineClear = settingsSaveFailureToasts().length === 0;
     const faultArmed = armPreparedStorageFault(context, attemptId);
     context.activeSaveActivation = context.post({
         type: 'settings-save-activate',
@@ -2130,6 +2136,8 @@ function createStudyProbeContext(config) {
         faultReady: false,
         faultAuthoritySnapshot: '',
         successToastObserved: false,
+        failureToastObserved: false,
+        failureToastBaselineClear: false,
         studyFinalStateReported: false,
     };
 }
@@ -2405,6 +2413,7 @@ async function installStudyFormObserver(context) {
     document.addEventListener('click', event => reportSettingsSaveActivation(context, tracker, event), true);
     new MutationObserver(records => {
         observeStudySuccessToast(context);
+        observeStudyFailureToast(context);
         observeStudyImportResult(context, tracker, records);
         void inspectStudySettingsForm(context, tracker);
     }).observe(document.documentElement, {
@@ -2739,7 +2748,7 @@ async function storageFaultResult(context) {
         formState.saveBlocked === '',
         !toastVisible,
         !context.successToastObserved,
-        failureVisible,
+        context.failureToastObserved,
         durableUnchanged,
         stored.theme === 'dark',
         stored.subtitleFontSize === 43,
@@ -2751,6 +2760,7 @@ async function storageFaultResult(context) {
         successToastVisible: toastVisible,
         successToastObserved: context.successToastObserved,
         failureToastVisible: failureVisible,
+        failureToastObserved: context.failureToastObserved,
         durableUnchanged,
         saveDisabled: formState.saveDisabled,
         importDisabled: formState.importDisabled,
@@ -2802,9 +2812,27 @@ function successToastVisible() {
     return settingsSaveSuccessToasts().some(toast => toast.classList.contains('is-visible'));
 }
 
+function settingsSaveFailureToasts() {
+    return [...document.querySelectorAll('.jpdb-reader-toast')]
+        .filter(toast => toast.textContent?.trim() === 'Settings save failed.');
+}
+
 function failureToastVisible() {
-    return [...document.querySelectorAll('.jpdb-reader-toast.is-visible')]
-        .some(toast => toast.textContent?.trim() === 'Settings save failed.');
+    return settingsSaveFailureToasts().some(toast => toast.classList.contains('is-visible'));
+}
+
+function observeStudyFailureToast(context) {
+    if (!failureToastObservationIsCurrent(context)) return;
+    if (failureToastVisible()) context.failureToastObserved = true;
+}
+
+function failureToastObservationIsCurrent(context) {
+    const attemptId = context.activeSaveAttemptId;
+    return [
+        Boolean(attemptId),
+        context.failureToastBaselineClear,
+        sessionStorage.getItem(context.config.faultKey) === `consumed:${attemptId}`,
+    ].every(Boolean);
 }
 
 async function maybeReportFactoryReset(context, state, posted) {

@@ -145,6 +145,7 @@ describe('Firefox settings-authority browser proof contract', () => {
             'fault-ready',
             'fault-armed',
             'fault-result',
+            'failureToastObserved',
             'factory-reset-result',
         ]) expect(SOURCE).toContain(required);
     });
@@ -447,7 +448,8 @@ describe('Firefox settings-authority browser proof contract', () => {
             saveBlocked: '',
             successToastVisible: false,
             successToastObserved: false,
-            failureToastVisible: true,
+            failureToastVisible: false,
+            failureToastObserved: true,
             durableUnchanged: true,
         };
         expect(trustedStudySaveFailed([
@@ -460,7 +462,7 @@ describe('Firefox settings-authority browser proof contract', () => {
         ], secondStudy)).toBe(false);
         for (const field of [
             'formOpen',
-            'failureToastVisible',
+            'failureToastObserved',
             'durableUnchanged',
         ]) {
             expect(trustedStudySaveFailed([
@@ -967,6 +969,12 @@ describe('Firefox settings-authority browser proof contract', () => {
         )).toContain('if (!event.isTrusted) return;');
         expect(activationCalls.indexOf('isExactSettingsSaveButton'))
             .toBeLessThan(activationCalls.indexOf('armPreparedStorageFault'));
+        expect(activationCalls.indexOf('settingsSaveFailureToasts'))
+            .toBeLessThan(activationCalls.indexOf('armPreparedStorageFault'));
+        expect(sourceSection(
+            'function reportSettingsSaveActivation',
+            'function eventSubmitButton',
+        )).toContain('context.failureToastBaselineClear = settingsSaveFailureToasts().length === 0;');
         expect(activationCalls.indexOf('armPreparedStorageFault'))
             .toBeLessThan(activationCalls.indexOf('context.post'));
         expect(calledFunctions('maybeReportStorageFault')).toContain('completedStorageFaultResult');
@@ -987,9 +995,11 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(SOURCE).toContain("toast.textContent?.trim() === 'Settings save failed.'");
         expect(SOURCE).toContain('durableUnchanged: optionalBoolean(value.durableUnchanged)');
         expect(SOURCE).toContain('successToastObserved: optionalBoolean(value.successToastObserved)');
+        expect(SOURCE).toContain('failureToastObserved: optionalBoolean(value.failureToastObserved)');
         expect(referencedIdentifiers('storageFaultResult')).toEqual(expect.arrayContaining([
             'durableUnchanged',
             'importDisabled',
+            'failureToastObserved',
             'successToastObserved',
         ]));
         expect(calledFunctions('studySettingsAuthoritySnapshot')).toContain('browser.storage.local.get');
@@ -1003,6 +1013,63 @@ describe('Firefox settings-authority browser proof contract', () => {
         )).toContain("const prefix = 'armed:'");
         expect(referencedIdentifiers('storageFaultEvent')).toContain('activeSaveAttemptId');
         expect(referencedIdentifiers('maybeReportStorageFault')).toContain('activeSaveActivation');
+    });
+
+    it('latches only a visible failure toast from the consumed trusted Save attempt', () => {
+        const storage = new Map<string, string>();
+        const session = { getItem: (key: string) => storage.get(key) ?? null };
+        const failureToastVisible = vi.fn(() => true);
+        const observationIsCurrent = runtimeFunctionWithBindings<(
+            context: Record<string, unknown>,
+        ) => boolean>('failureToastObservationIsCurrent', { sessionStorage: session });
+        const observe = runtimeFunctionWithBindings<(context: {
+            activeSaveAttemptId: string;
+            config: { faultKey: string };
+            failureToastObserved: boolean;
+            failureToastBaselineClear: boolean;
+        }) => void>('observeStudyFailureToast', {
+            failureToastObservationIsCurrent: observationIsCurrent,
+            failureToastVisible,
+        });
+        const context = {
+            activeSaveAttemptId: 'attempt-1',
+            config: { faultKey: 'fault' },
+            failureToastObserved: false,
+            failureToastBaselineClear: true,
+        };
+
+        context.failureToastBaselineClear = false;
+        storage.set('fault', 'consumed:attempt-1');
+        observe(context);
+        expect(context.failureToastObserved).toBe(false);
+        expect(failureToastVisible).not.toHaveBeenCalled();
+
+        context.failureToastBaselineClear = true;
+        storage.set('fault', 'ready');
+        observe(context);
+        expect(context.failureToastObserved).toBe(false);
+        expect(failureToastVisible).not.toHaveBeenCalled();
+
+        storage.set('fault', 'consumed:other-attempt');
+        observe(context);
+        expect(context.failureToastObserved).toBe(false);
+        expect(failureToastVisible).not.toHaveBeenCalled();
+
+        storage.set('fault', 'consumed:attempt-1');
+        observe(context);
+        expect(context.failureToastObserved).toBe(true);
+        expect(failureToastVisible).toHaveBeenCalledOnce();
+    });
+
+    it('treats a not-yet-visible matching failure toast as a prior attempt', () => {
+        const functions = runtimeFunctions<{
+            settingsSaveFailureToasts: () => Element[];
+            failureToastVisible: () => boolean;
+        }>(['settingsSaveFailureToasts', 'failureToastVisible']);
+        document.body.innerHTML = '<div class="jpdb-reader-toast">Settings save failed.</div>';
+
+        expect(functions.settingsSaveFailureToasts()).toHaveLength(1);
+        expect(functions.failureToastVisible()).toBe(false);
     });
 
     it('records key names and safe sentinels without serializing storage values', () => {
