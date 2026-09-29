@@ -1,4 +1,4 @@
-import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as activeLearningTarget, R as isAppleTouchBrowser, S as attempt, T as DOCS_ORIGIN, U as GITHUB_PAGES_ORIGIN, V as APP_REPOSITORY_NAME, W as addWindowEventListener, X as bridgeEventDetail, Y as dispatchWindowEvent, Z as createWindowCustomEvent, _ as bridgeEventId, $ as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a0 as bridgeResponseEventDetail, a1 as removeWindowEventListener, a2 as updateRenderedWordPrivateState, a3 as renderedWordPrivateStateForCard, a4 as renderedWordPrivateValue, a5 as subscribeToStoredValueChanges, a6 as currentAccountDataSurfaceIsTrusted, a7 as gmPrivateStorageSet, a8 as Logger, a9 as uiText, aa as overlayViewport, ab as overlayViewportBounds, ac as layoutPointToOverlay, ad as sourceRectToOverlay, ae as trustedReaderEventHandler, af as readCardCommandCapability, ag as privateReviewGradeAllowed, ah as normalizeAttemptedAudioUrl, ai as audioSubSourceNameKey, aj as audioSubSourceProviderName, ak as disabledAudioSubSourceNameKeys, al as parseJson, am as escapeRegExp, an as uniqueStrings, ao as getOrderedAudioSources, ap as orderAudioSources, aq as isTextToSpeechFallbackSource, ar as isBrowserTextToSpeechSource, as as audioPreloadLimits, at as preloadableAudioSources, au as cheapCandidatePreloadAudioSources, av as orderAudioCandidates, aw as getAudioBagKey, ax as audioCandidateSelectionMode, ay as registerAudioAttempt, az as getJpdbAudioBagKey, aA as preparedAudioCacheKey, aB as getAudioCandidateCacheKey, aC as cloneAudioCandidates, aD as isApiTextToSpeechSource, aE as canonicalLanguageTag, aF as languageSubtag, aG as hasJitenAudioReference, aH as yomuAnkiCompanion, aI as flattenNoteFields, aJ as stablePositiveHashId, aK as normalizeAnkiFieldName, aL as HAS_JAPANESE, aM as codePointSafePrefix, aN as ANKI_EXPRESSION_FIELD_NAMES, aO as ANKI_READING_FIELD_NAMES, aP as ANKI_MEANING_FIELD_NAMES, aQ as ANKI_SENTENCE_FIELD_NAMES, aR as escapeHtml$2, aS as privateCommandAttributes, aT as ACADEMY_SRS_LABEL, aU as sharedHexToRgb, aV as sanitizeAccentColor, aW as sharedContrastRatio, aX as CORE_COLOR_TOKENS, aY as sharedMixHex, aZ as RENDERED_WORD_CONTRAST_VARS, a_ as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, a$ as PAGE_WORD_COLOR_TOKENS, b0 as renderedWordHasAnkiState, b1 as canonicalStudyCardIdentity, b2 as applyLocalYomuSrsStateToRenderedWord, b3 as hasJpdbApiCredential, b4 as hasJitenApiCredential, b5 as hasBunproFrontendCredential, b6 as isBunproFrontendCredentialExpired, b7 as hasWanikaniApiCredential, b8 as isLocalYomuSrsStorageError, b9 as activeLearningTargetLanguage, ba as effectiveWanikaniApiToken, bb as effectiveBunproFrontendApiToken, bc as effectiveBunproLegacyApiKey, bd as effectiveJpdbApiKey, be as effectiveJitenApiKey, bf as yomuKanjiStudyCompanion, bg as isUnifiedIdeograph, bh as readerWordSurfaceText$1, bi as readAnkiAudioMergeCapability, bj as formatUiText, bk as uiList, bl as readReviewTargetCapability, bm as renderKanjiNavigationText, bn as shouldRenderRuby, bo as renderRuby, bp as cleanCardHighlightValue, bq as renderHighlightedTextHtml, br as cardHighlightTargets, bs as compactCardHighlightValue, bt as IMMERSION_KIT_SOURCE_ID, bu as JITEN_DEFINITION_SOURCE_ID, bv as JPDB_DEFINITION_SOURCE_ID, bw as BUNPRO_DEFINITION_SOURCE_ID, bx as WANIKANI_DEFINITION_SOURCE_ID, by as STUDY_TRANSLATION_SOURCE_ID, bz as ANKI_SOURCE_ID, bA as STUDY_GRAMMAR_SOURCE_ID, bB as LOOKUP_PILL_COLOR_TOKENS, bC as normalizeDictionaryPreferences, bD as genericLookupTextVariants, bE as yomitanDictionaryIdentity, bF as gmStorageGet, bG as gmStorageSet, bH as gmStorageDelete, bI as assertManagedStateMutationAllowed, bJ as managedStateEpochToken, bK as managedStateEpochTokenRelation, bL as assertManagedStateReadAllowed, bM as normalizeZipKanjiMetaRow, bN as normalizeZipTermMetaRow, bO as normalizeZipKanjiRow, bP as normalizeZipTermRow, bQ as isRecord$5, bR as isJapaneseKanjiCharacter, bS as lookupSpansStartingInRange, bT as normalizeImportedLookupMeta, bU as normalizeGenericLookupText, bV as splitTags, bW as JAPANESE_RE$1, bX as codePointBoundaryAtOrAfter, bY as yomitanZipDictionaryName, bZ as yomitanZipVersion, b_ as countYomitanZipBanks, b$ as normalizeImportedLookupTerm, c0 as activeLearningTargetGeneration, c1 as imageMimeType, c2 as bytesToBase64$1, c3 as speakerIcon, c4 as renderedWordPrivateAttributesForState, c5 as gmStorageGetSync, c6 as gmStorageSetSync, c7 as isNonNullObject, c8 as uniqueNonEmptyStrings, c9 as pitchNumberForReading, ca as pitchPatternFromPosition, cb as KANA, cc as COMBINING_KANA_MARKS, cd as collectPitchVariants, ce as splitMorae, cf as pitchLevelsForDisplay, cg as pitchClassNameForPattern, ch as learningTargetModuleFor, ci as defaultLearningTargetModule, cj as languageDisplayName, ck as resolveUiLanguage, cl as primaryCardState, cm as cardStateLabel, cn as ConcurrencyGate, co as KANA_ONLY_RUN_RE, cp as ITERATION_MARK, cq as KANA_WITH_PROLONGED, cr as mapLimited, cs as bareFallbackCardFromText, ct as inferredInflectedSurfaceRubies, cu as nonOverlappingTokens, cv as READING_KANA_ONLY_RE, cw as HALFWIDTH_KATAKANA, cx as PROLONGED_SOUND_MARK, cy as KATAKANA_MIDDLE_DOT, cz as fallbackLookupTermsForCard, cA as yomuBunproCompanion, cB as shouldLookupAnkiStatus, cC as setRenderedWordPitchClass, cD as shouldHideFuriganaForCardState, cE as isPopupLookupEnabled, cF as yomuNormalizeOcrRenderedText, cG as replaceRenderedWordFurigana, cH as htmlToFirstElement, cI as clearRenderedWordAnkiState, cJ as clearRenderedWordFurigana, cK as cardDeckMembershipClassNames, cL as setInnerHtml, cM as gmStorageDeleteSync, cN as appendToDocumentHead, cO as yomuSettingsSurfaceCompanion, cP as subscribeToFactoryResetSignals, cQ as APP_NAME, cR as createFactoryResetSignal, cS as beginSettingsResetGuard, cT as publishFactoryResetSignal, cU as delay, cV as clearManagedStoredValues, cW as deleteSettingsStorage, cX as commitManagedStateResetEpoch, cY as clearFactoryResetSignal, cZ as managedStateResetEpochMayHaveCommitted, c_ as endSettingsResetGuard, c$ as managedStoredKeysStillPresent, d0 as ManagedStateResetError, d1 as stableHash32, d2 as uniqueTrimmedStrings, d3 as stableHashBase36, d4 as isTargetLanguageText, d5 as KANJI_LIKE_WITH_COUNTERS, d6 as HIRAGANA_WITH_PROLONGED, d7 as KATAKANA_WITH_PROLONGED, d8 as KANJI_LIKE_RE, d9 as applyOverlayPageScale, da as overlayViewportBottomInset, db as renderImmersionSearchLinksHtml, dc as renderTokensToHtml, dd as readPrivateReviewTarget, de as runLimited, df as isManagedStorageKey, dg as managedLocalStorage, dh as readJitenKanjiWordsCommandCapability, di as bindPrivateCommandCapability, dj as parseHtmlDocument, dk as isCurrentScanTarget, dl as applyTokensToScanTarget, dm as unwrapReaderWords, dn as collectFragmentTextTargetsIn, dp as collectFormControlTextTargetsIn, dq as newTabText, dr as CARD_STATE_LABEL_KEYS, ds as readKanjiCommandCapability, dt as DEFAULT_OVERLAY_BACKGROUND_COLOR, du as dispatchPrivateCommand, dv as claimLocalTapActivation, dw as installControlTapActivation, dx as enabledReaderControl, dy as effectiveFuriganaMode, dz as KANJI_DOODLE_CLEAR_EVENT, dA as installKanjiDoodle, dB as rankKanjiStrokeCandidates, dC as promiseWithTimeout, dD as isYomuNewTabUrl, dE as convertRomajiToKana, dF as normalizeJapaneseStudyAnswer, dG as isolate, dH as contextPitchPattern, dI as managedStateWritesSuppressed, dJ as createStorageCoordinationId, dK as managedSessionStorage, dL as bindAuthorizedReaderFormSubmit, dM as isDirectTrustedReaderInteraction, dN as normalizedJapaneseCardReading, dO as DEFAULT_SETTINGS, dP as renderImmersionSearchLinks, dQ as createStudySessionClock, dR as readJpdbKanjiCommandCapability, dS as isNewTabCopyKey, dT as nextExplicitUiLanguage, dU as GITHUB_REPOSITORY_URL, dV as DISCORD_INVITE_URL, dW as dispatchAuthorizedReaderControlClick, dX as DOCS_BASE_URL, dY as SUPPORT_STATUS_URL, dZ as validPitchPositions, d_ as mountStudySessionClockControl, d$ as combinedApiCredentialLabel, e0 as assessKanjiStrokes, e1 as SHAPE_PASS_SCORE, e2 as activeLanguageProfile, e3 as packagedExtensionStorageAdapterMissing, e4 as readSettingsPersistenceViewStrict, e5 as FURIGANA_HIDE_STATE_GROUPS, e6 as WORD_COLOR_HIDE_STATE_GROUPS, e7 as accentToRgba, e8 as effectiveReaderTextColorSource, e9 as effectiveReaderColorSource, ea as effectiveSubtitleTextColorSource, eb as effectiveSubtitleColorSource, ec as accessibleOcrBackgroundOpacity, ed as accessibleOcrBackgroundColor, ee as READER_THEME_COLOR_TOKENS, ef as EXTENSION_STORE_URLS, eg as USERSCRIPT_INSTALL_URL, eh as learnerLanguageById, ei as readApiCredentialsFromFormData, ej as normalizeReaderSettings, ek as DEFAULT_AUDIO_SOURCES, el as learningTargetRosterIdForTag, em as dictionaryLookupLinksForTarget, en as availableInterfaceLocales, eo as credentialValueFromReader, ep as normalizeOcrProvider, eq as slice1LanguageIdForTag, er as canonicalTagForSlice1Language, es as canonicalTagForLearningTarget, et as languageProfileDictionariesFromPreferences, eu as activateLanguageProfileForOutputLanguage, ev as normalizeDictionaryLookupLinks, ew as normalizeAudioSource, ex as isLearningTargetRosterId, ey as MAX_LOOKUP_LINK_ROWS, ez as normalizeAnkiFieldMappings, eA as isLearnerLanguageId, eB as COPY_LOOKUP_LINK, eC as exportManagedStoredValues, eD as RETIRED_SETTINGS_STORAGE_KEYS, eE as SETTINGS_STORAGE_KEY, eF as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eG as applySettingsIntent, eH as serializeSettingsPersistencePair, eI as defaultDictionaryLookupLinks, eJ as MAX_EXTRA_LOOKUP_LINKS, eK as missingLookupComponents, eL as AUDIO_SOURCE_UI_TYPE_VALUES, eM as audioSourceLabel, eN as lookupSiteComponents, eO as DEFAULT_POPUP_FONT_FAMILY, eP as DEFAULT_READER_FONT_FAMILY, eQ as isPromiseLike$2, eR as dispatchAuthorizedReaderControlEvent, eS as ANKI_CONNECT_ADDON_URL, eT as redactedApiCredentialsFromForm, eU as LEARNER_LANGUAGE_IDS, eV as externalLinkIcon, eW as LEARNING_TARGET_ROSTER, eX as furiganaModeNeedsDifficultyExplanation, eY as DEFAULT_OVERLAY_TEXT_COLOR, eZ as DEFAULT_OVERLAY_OUTLINE_COLOR, e_ as storedCredentialClearName, e$ as hasStatusColorSource, f0 as NEW_TAB_PAGE_URL, f1 as AUDIO_GUIDE_URL, f2 as NADESHIKO_DEVELOPER_URL, f3 as VIDEO_PLAYER_PAGE_URL, f4 as PDF_READER_PAGE_URL, f5 as DONATE_URL, f6 as SUPPORT_COPY, f7 as SUPPORT_COPY_EXTRA, f8 as LEARNER_LANGUAGES, f9 as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fa as gmPrivateStorageDelete, fb as gmPrivateStorageGet, fc as subscribeToSettingsChanges, fd as subscribeLocalYomuSrsMutations, fe as LocalYomuSrsRepository, ff as withGmStorageLease, fg as unwrapProfileKey, fh as parseAcademyPairingTicket, fi as wrapProfileKey, fj as decryptProfileEvent, fk as encryptProfileEvent, fl as mergeStoredYomuSrsDecks, fm as settingsPanelHash, fn as readTrustedYomuUrl, fo as isPrivilegedYomuLocalDevelopmentOrigin, fp as settingsPanelFromHash, fq as readBackupSettingsPersistenceView, fr as beginStoredValuesImport, fs as settingsIntentKeys, ft as mergeDictionaryPreferences, fu as retireStaleDictionaryPreferences, fv as captureActiveLanguageProfileDictionaries, fw as SETTINGS_TITLE, fx as learningTargetRosterEntry, fy as NEW_TAB_VERSION_URL, fz as NO_EXPLICIT_USER_CHOICE, fA as normalizeAudioSubSources, fB as publishSettingsChange$1, fC as mergeApiCredentialValues, fD as configureLogger, fE as localeDirection, fF as subscribeToSettingsStorageChanges, fG as isHostedYomuOrigin, fH as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, fI as loadSettingsWithWitnessedAuthority, fJ as copyIcon, fK as ankiIcon, fL as createYomuLocalSrsAdapter, fM as saveSettings, fN as yomuOnboardingController, fO as clearManagedBrowserCaches, fP as unregisterManagedServiceWorkers, fQ as setRenderedWordCardIdentity, fR as renderedWordCardKey, fS as renderedWordsInRoot, fT as renderedWordElementKey, fU as applyInterfaceLocaleToRoot, fV as applyInterfaceLocaleToDocument, fW as ensureManagedWebStorageCurrent } from "./entrypoint-DnBJG13A.js";
+import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as activeLearningTarget, R as isAppleTouchBrowser, S as attempt, T as DOCS_ORIGIN, U as GITHUB_PAGES_ORIGIN, V as APP_REPOSITORY_NAME, W as addWindowEventListener, X as bridgeEventDetail, Y as dispatchWindowEvent, Z as createWindowCustomEvent, _ as bridgeEventId, $ as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a0 as bridgeResponseEventDetail, a1 as removeWindowEventListener, a2 as updateRenderedWordPrivateState, a3 as renderedWordPrivateStateForCard, a4 as renderedWordPrivateValue, a5 as subscribeToStoredValueChanges, a6 as currentAccountDataSurfaceIsTrusted, a7 as gmPrivateStorageSet, a8 as Logger, a9 as uiText, aa as overlayViewport, ab as overlayViewportBounds, ac as layoutPointToOverlay, ad as sourceRectToOverlay, ae as trustedReaderEventHandler, af as readCardCommandCapability, ag as privateReviewGradeAllowed, ah as normalizeAttemptedAudioUrl, ai as audioSubSourceNameKey, aj as audioSubSourceProviderName, ak as disabledAudioSubSourceNameKeys, al as parseJson, am as escapeRegExp, an as uniqueStrings, ao as getOrderedAudioSources, ap as orderAudioSources, aq as isTextToSpeechFallbackSource, ar as isBrowserTextToSpeechSource, as as audioPreloadLimits, at as preloadableAudioSources, au as cheapCandidatePreloadAudioSources, av as orderAudioCandidates, aw as getAudioBagKey, ax as audioCandidateSelectionMode, ay as registerAudioAttempt, az as getJpdbAudioBagKey, aA as preparedAudioCacheKey, aB as getAudioCandidateCacheKey, aC as cloneAudioCandidates, aD as isApiTextToSpeechSource, aE as canonicalLanguageTag, aF as languageSubtag, aG as hasJitenAudioReference, aH as yomuAnkiCompanion, aI as flattenNoteFields, aJ as stablePositiveHashId, aK as normalizeAnkiFieldName, aL as HAS_JAPANESE, aM as codePointSafePrefix, aN as ANKI_EXPRESSION_FIELD_NAMES, aO as ANKI_READING_FIELD_NAMES, aP as ANKI_MEANING_FIELD_NAMES, aQ as ANKI_SENTENCE_FIELD_NAMES, aR as escapeHtml$2, aS as privateCommandAttributes, aT as ACADEMY_SRS_LABEL, aU as sharedHexToRgb, aV as sanitizeAccentColor, aW as sharedContrastRatio, aX as CORE_COLOR_TOKENS, aY as sharedMixHex, aZ as RENDERED_WORD_CONTRAST_VARS, a_ as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, a$ as PAGE_WORD_COLOR_TOKENS, b0 as renderedWordHasAnkiState, b1 as canonicalStudyCardIdentity, b2 as applyLocalYomuSrsStateToRenderedWord, b3 as hasJpdbApiCredential, b4 as hasJitenApiCredential, b5 as hasBunproFrontendCredential, b6 as isBunproFrontendCredentialExpired, b7 as hasWanikaniApiCredential, b8 as isLocalYomuSrsStorageError, b9 as activeLearningTargetLanguage, ba as effectiveWanikaniApiToken, bb as effectiveBunproFrontendApiToken, bc as effectiveBunproLegacyApiKey, bd as effectiveJpdbApiKey, be as effectiveJitenApiKey, bf as yomuKanjiStudyCompanion, bg as isUnifiedIdeograph, bh as readerWordSurfaceText$1, bi as readAnkiAudioMergeCapability, bj as formatUiText, bk as uiList, bl as readReviewTargetCapability, bm as renderKanjiNavigationText, bn as shouldRenderRuby, bo as renderRuby, bp as cleanCardHighlightValue, bq as renderHighlightedTextHtml, br as cardHighlightTargets, bs as compactCardHighlightValue, bt as IMMERSION_KIT_SOURCE_ID, bu as JITEN_DEFINITION_SOURCE_ID, bv as JPDB_DEFINITION_SOURCE_ID, bw as BUNPRO_DEFINITION_SOURCE_ID, bx as WANIKANI_DEFINITION_SOURCE_ID, by as STUDY_TRANSLATION_SOURCE_ID, bz as ANKI_SOURCE_ID, bA as STUDY_GRAMMAR_SOURCE_ID, bB as LOOKUP_PILL_COLOR_TOKENS, bC as normalizeDictionaryPreferences, bD as genericLookupTextVariants, bE as ownedDatabaseName, bF as yomitanDictionaryIdentity, bG as gmStorageGet, bH as gmStorageSet, bI as gmStorageDelete, bJ as assertManagedStateMutationAllowed, bK as managedStateEpochToken, bL as managedStateEpochTokenRelation, bM as assertManagedStateReadAllowed, bN as normalizeZipKanjiMetaRow, bO as normalizeZipTermMetaRow, bP as normalizeZipKanjiRow, bQ as normalizeZipTermRow, bR as isRecord$5, bS as isJapaneseKanjiCharacter, bT as lookupSpansStartingInRange, bU as normalizeImportedLookupMeta, bV as normalizeGenericLookupText, bW as splitTags, bX as JAPANESE_RE$1, bY as codePointBoundaryAtOrAfter, bZ as yomitanZipDictionaryName, b_ as yomitanZipVersion, b$ as countYomitanZipBanks, c0 as normalizeImportedLookupTerm, c1 as activeLearningTargetGeneration, c2 as imageMimeType, c3 as bytesToBase64$1, c4 as speakerIcon, c5 as renderedWordPrivateAttributesForState, c6 as gmStorageGetSync, c7 as gmStorageSetSync, c8 as isNonNullObject, c9 as uniqueNonEmptyStrings, ca as pitchNumberForReading, cb as pitchPatternFromPosition, cc as KANA, cd as COMBINING_KANA_MARKS, ce as collectPitchVariants, cf as splitMorae, cg as pitchLevelsForDisplay, ch as pitchClassNameForPattern, ci as learningTargetModuleFor, cj as defaultLearningTargetModule, ck as languageDisplayName, cl as resolveUiLanguage, cm as primaryCardState, cn as cardStateLabel, co as ConcurrencyGate, cp as KANA_ONLY_RUN_RE, cq as ITERATION_MARK, cr as KANA_WITH_PROLONGED, cs as mapLimited, ct as bareFallbackCardFromText, cu as inferredInflectedSurfaceRubies, cv as nonOverlappingTokens, cw as READING_KANA_ONLY_RE, cx as HALFWIDTH_KATAKANA, cy as PROLONGED_SOUND_MARK, cz as KATAKANA_MIDDLE_DOT, cA as fallbackLookupTermsForCard, cB as yomuBunproCompanion, cC as shouldLookupAnkiStatus, cD as setRenderedWordPitchClass, cE as shouldHideFuriganaForCardState, cF as isPopupLookupEnabled, cG as yomuNormalizeOcrRenderedText, cH as replaceRenderedWordFurigana, cI as htmlToFirstElement, cJ as clearRenderedWordAnkiState, cK as clearRenderedWordFurigana, cL as cardDeckMembershipClassNames, cM as setInnerHtml, cN as gmStorageDeleteSync, cO as appendToDocumentHead, cP as yomuSettingsSurfaceCompanion, cQ as subscribeToFactoryResetSignals, cR as APP_NAME, cS as createFactoryResetSignal, cT as beginSettingsResetGuard, cU as publishFactoryResetSignal, cV as delay, cW as clearManagedStoredValues, cX as deleteSettingsStorage, cY as commitManagedStateResetEpoch, cZ as clearFactoryResetSignal, c_ as managedStateResetEpochMayHaveCommitted, c$ as endSettingsResetGuard, d0 as managedStoredKeysStillPresent, d1 as ManagedStateResetError, d2 as stableHash32, d3 as uniqueTrimmedStrings, d4 as stableHashBase36, d5 as isTargetLanguageText, d6 as KANJI_LIKE_WITH_COUNTERS, d7 as HIRAGANA_WITH_PROLONGED, d8 as KATAKANA_WITH_PROLONGED, d9 as KANJI_LIKE_RE, da as applyOverlayPageScale, db as overlayViewportBottomInset, dc as renderImmersionSearchLinksHtml, dd as renderTokensToHtml, de as readPrivateReviewTarget, df as runLimited, dg as isManagedStorageKey, dh as managedLocalStorage, di as readJitenKanjiWordsCommandCapability, dj as bindPrivateCommandCapability, dk as parseHtmlDocument, dl as isCurrentScanTarget, dm as applyTokensToScanTarget, dn as unwrapReaderWords, dp as collectFragmentTextTargetsIn, dq as collectFormControlTextTargetsIn, dr as newTabText, ds as CARD_STATE_LABEL_KEYS, dt as readKanjiCommandCapability, du as DEFAULT_OVERLAY_BACKGROUND_COLOR, dv as dispatchPrivateCommand, dw as claimLocalTapActivation, dx as installControlTapActivation, dy as enabledReaderControl, dz as effectiveFuriganaMode, dA as KANJI_DOODLE_CLEAR_EVENT, dB as installKanjiDoodle, dC as rankKanjiStrokeCandidates, dD as promiseWithTimeout, dE as isYomuNewTabUrl, dF as convertRomajiToKana, dG as normalizeJapaneseStudyAnswer, dH as isolate, dI as contextPitchPattern, dJ as managedStateWritesSuppressed, dK as createStorageCoordinationId, dL as managedSessionStorage, dM as bindAuthorizedReaderFormSubmit, dN as isDirectTrustedReaderInteraction, dO as normalizedJapaneseCardReading, dP as parseManagedStateEpoch, dQ as sameManagedStateEpoch, dR as gmStorageGetStrict, dS as DEFAULT_SETTINGS, dT as renderImmersionSearchLinks, dU as createStudySessionClock, dV as readJpdbKanjiCommandCapability, dW as isNewTabCopyKey, dX as nextExplicitUiLanguage, dY as GITHUB_REPOSITORY_URL, dZ as DISCORD_INVITE_URL, d_ as dispatchAuthorizedReaderControlClick, d$ as DOCS_BASE_URL, e0 as SUPPORT_STATUS_URL, e1 as validPitchPositions, e2 as mountStudySessionClockControl, e3 as combinedApiCredentialLabel, e4 as assessKanjiStrokes, e5 as SHAPE_PASS_SCORE, e6 as activeLanguageProfile, e7 as packagedExtensionStorageAdapterMissing, e8 as readSettingsPersistenceViewStrict, e9 as FURIGANA_HIDE_STATE_GROUPS, ea as WORD_COLOR_HIDE_STATE_GROUPS, eb as accentToRgba, ec as effectiveReaderTextColorSource, ed as effectiveReaderColorSource, ee as effectiveSubtitleTextColorSource, ef as effectiveSubtitleColorSource, eg as accessibleOcrBackgroundOpacity, eh as accessibleOcrBackgroundColor, ei as READER_THEME_COLOR_TOKENS, ej as EXTENSION_STORE_URLS, ek as USERSCRIPT_INSTALL_URL, el as learnerLanguageById, em as readApiCredentialsFromFormData, en as normalizeReaderSettings, eo as DEFAULT_AUDIO_SOURCES, ep as learningTargetRosterIdForTag, eq as dictionaryLookupLinksForTarget, er as availableInterfaceLocales, es as credentialValueFromReader, et as normalizeOcrProvider, eu as slice1LanguageIdForTag, ev as canonicalTagForSlice1Language, ew as canonicalTagForLearningTarget, ex as languageProfileDictionariesFromPreferences, ey as activateLanguageProfileForOutputLanguage, ez as normalizeDictionaryLookupLinks, eA as normalizeAudioSource, eB as isLearningTargetRosterId, eC as MAX_LOOKUP_LINK_ROWS, eD as normalizeAnkiFieldMappings, eE as isLearnerLanguageId, eF as COPY_LOOKUP_LINK, eG as exportManagedStoredValues, eH as RETIRED_SETTINGS_STORAGE_KEYS, eI as SETTINGS_STORAGE_KEY, eJ as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eK as applySettingsIntent, eL as serializeSettingsPersistencePair, eM as defaultDictionaryLookupLinks, eN as MAX_EXTRA_LOOKUP_LINKS, eO as missingLookupComponents, eP as AUDIO_SOURCE_UI_TYPE_VALUES, eQ as audioSourceLabel, eR as lookupSiteComponents, eS as DEFAULT_POPUP_FONT_FAMILY, eT as DEFAULT_READER_FONT_FAMILY, eU as isPromiseLike$2, eV as dispatchAuthorizedReaderControlEvent, eW as ANKI_CONNECT_ADDON_URL, eX as redactedApiCredentialsFromForm, eY as LEARNER_LANGUAGE_IDS, eZ as externalLinkIcon, e_ as LEARNING_TARGET_ROSTER, e$ as furiganaModeNeedsDifficultyExplanation, f0 as DEFAULT_OVERLAY_TEXT_COLOR, f1 as DEFAULT_OVERLAY_OUTLINE_COLOR, f2 as storedCredentialClearName, f3 as hasStatusColorSource, f4 as NEW_TAB_PAGE_URL, f5 as AUDIO_GUIDE_URL, f6 as NADESHIKO_DEVELOPER_URL, f7 as VIDEO_PLAYER_PAGE_URL, f8 as PDF_READER_PAGE_URL, f9 as DONATE_URL, fa as SUPPORT_COPY, fb as SUPPORT_COPY_EXTRA, fc as LEARNER_LANGUAGES, fd as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fe as gmPrivateStorageDelete, ff as gmPrivateStorageGet, fg as subscribeToSettingsChanges, fh as subscribeLocalYomuSrsMutations, fi as LocalYomuSrsRepository, fj as withGmStorageLease, fk as unwrapProfileKey, fl as parseAcademyPairingTicket, fm as wrapProfileKey, fn as decryptProfileEvent, fo as encryptProfileEvent, fp as mergeStoredYomuSrsDecks, fq as settingsPanelHash, fr as readTrustedYomuUrl, fs as isPrivilegedYomuLocalDevelopmentOrigin, ft as settingsPanelFromHash, fu as readBackupSettingsPersistenceView, fv as beginStoredValuesImport, fw as settingsIntentKeys, fx as mergeDictionaryPreferences, fy as retireStaleDictionaryPreferences, fz as captureActiveLanguageProfileDictionaries, fA as SETTINGS_TITLE, fB as learningTargetRosterEntry, fC as NEW_TAB_VERSION_URL, fD as NO_EXPLICIT_USER_CHOICE, fE as normalizeAudioSubSources, fF as publishSettingsChange$1, fG as mergeApiCredentialValues, fH as configureLogger, fI as localeDirection, fJ as subscribeToSettingsStorageChanges, fK as isHostedYomuOrigin, fL as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, fM as loadSettings, fN as copyIcon, fO as ankiIcon, fP as createYomuLocalSrsAdapter, fQ as saveSettings, fR as yomuOnboardingController, fS as clearManagedBrowserCaches, fT as unregisterManagedServiceWorkers, fU as setRenderedWordCardIdentity, fV as renderedWordCardKey, fW as renderedWordsInRoot, fX as renderedWordElementKey, fY as applyInterfaceLocaleToRoot, fZ as applyInterfaceLocaleToDocument, f_ as ensureManagedWebStorageCurrent } from "./entrypoint-DF4AggMH.js";
 function assignSentenceInfo(paragraphs, tokens) {
   paragraphs.forEach((paragraph, index) => {
     const tokenData = tokens[index] ?? [];
@@ -1521,15 +1521,17 @@ const four = [
   ["easy", "gradeEasyLabel", "gradeOkay"]
 ];
 const two = [["fail", "gradeFailLabel", "gradeFail"], ["pass", "gradePassLabel", "gradePass"]];
+const ankiTwo = [["fail", "gradeAgainLabel", "gradeFail"], ["pass", "gradeGoodLabel", "gradePass"]];
 const bunproRegular = [["fail", "gradeHardLabel", "gradeFail"], ["pass", "gradeGoodLabel", "gradePass"]];
 function reviewGradeProfile(card, target) {
   const destination = target && target !== "both" ? target : card?.reviewSource ?? card?.source;
   if (destination === "bunpro" || destination === "bunpro-api") return card?.bunproReviewInputMode === "fsrs" ? "bunpro-fsrs" : "bunpro-regular";
   if (destination === "jiten" || destination === "jiten-api") return "jiten";
+  if (destination === "anki") return "anki";
   return "standard";
 }
 function reviewGradeScale(settings, profile = "standard") {
-  const entries2 = profile === "bunpro-fsrs" ? four : profile === "bunpro-regular" ? bunproRegular : settings.twoButtonReviews ? two : profile === "jiten" ? four : five;
+  const entries2 = profile === "bunpro-fsrs" ? four : profile === "bunpro-regular" ? bunproRegular : settings.twoButtonReviews ? profile === "anki" ? ankiTwo : two : profile === "standard" ? five : four;
   return {
     grades: entries2.map(([grade, label]) => [grade, uiText(settings.interfaceLanguage, label)]),
     shortcuts: entries2.map(([grade, , key]) => [key, grade]),
@@ -8231,6 +8233,12 @@ function collectTermMatchCandidates(db, target, candidates, rank) {
     tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
   });
 }
+function yomitanDatabaseName() {
+  return ownedDatabaseName("jpdb-popup-reader-yomitan");
+}
+function assertYomitanStorageOwner(databaseName) {
+  if (databaseName !== yomitanDatabaseName()) throw new Error("Dictionary storage owner changed; reload to reconnect.");
+}
 function firefoxXrayWaiver(value) {
   if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
   try {
@@ -8420,6 +8428,13 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
     const markerStore = tx.objectStore(options.markerStoreName);
     const request = markerStore.get(options.markerKey);
     request.onsuccess = () => {
+      try {
+        options.beforeMutate?.();
+      } catch (error) {
+        reconciliationError = error instanceof Error ? error : new Error("IndexedDB ownership changed.");
+        tx.abort();
+        return;
+      }
       const record2 = request.result;
       const markerMissing = record2 === void 0;
       if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
@@ -8444,7 +8459,7 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
     request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-    tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+    tx.onabort = () => reject(reconciliationError ?? tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
   });
   if (reconciliationError) throw reconciliationError;
   await assertManagedStateMutationAllowed();
@@ -8508,6 +8523,9 @@ function assertManagedStateIdbMarker(record2, epoch) {
     throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
   }
 }
+function assertYomitanDatabaseOwner(db) {
+  assertYomitanStorageOwner(db.name);
+}
 const MANAGED_STATE_STORE = "managedState";
 const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
 const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
@@ -8531,21 +8549,25 @@ function reconcileYomitanManagedStateEpoch(db, epoch) {
     markerStoreName: MANAGED_STATE_STORE,
     markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
     markerKeyPath: "key",
-    clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
+    clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName)),
+    beforeMutate: () => assertYomitanDatabaseOwner(db)
   });
 }
-async function fencedYomitanDbHandle(current, open) {
+async function fencedYomitanDbHandle(databaseName, current, open) {
+  assertYomitanStorageOwner(databaseName);
   const existing = current();
-  if (existing) {
-    await assertManagedStateReadAllowed();
-    return existing;
-  }
-  const db = await open(await assertManagedStateMutationAllowed());
-  await assertManagedStateMutationAllowed();
+  const epoch = existing ? await assertManagedStateReadAllowed() : await assertManagedStateMutationAllowed();
+  assertYomitanStorageOwner(databaseName);
+  const db = await (existing ?? open(epoch));
+  if (!existing) await assertManagedStateMutationAllowed();
+  assertYomitanStorageOwner(databaseName);
   return db;
 }
 function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
-  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
+  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, (tx) => {
+    assertYomitanDatabaseOwner(db);
+    mutate(tx);
+  }, options);
 }
 function readBlobWithFileReader(blob, read, result) {
   return new Promise((resolve, reject) => {
@@ -8900,8 +8922,12 @@ function requestPersistentDictionaryStorage() {
 }
 function runDictionaryImportWrite(db, stores, mutate, options, importing) {
   return runYomitanManagedStateWrite(db, stores, (tx) => {
-    if (importing) importing(tx, () => mutate(tx));
-    else mutate(tx);
+    const apply = () => {
+      assertYomitanDatabaseOwner(db);
+      mutate(tx);
+    };
+    if (importing) importing(tx, apply);
+    else apply();
   }, options);
 }
 async function validateZipDictionaryBanks(zip, dictionary, version) {
@@ -10789,7 +10815,6 @@ ${entry.reading}`;
   }
   return entries2;
 }
-const DB_NAME = "jpdb-popup-reader-yomitan";
 const DB_VERSION = 7;
 const DB_OPEN_TIMEOUT_MS = 1e4;
 const DEXIE_IMPORT_BATCH_SIZE = 5e3;
@@ -10821,6 +10846,7 @@ class YomitanDictionaryStore {
     this.getCorsProxyUrl = getCorsProxyUrl;
     this.getInterfaceLanguage = getInterfaceLanguage;
   }
+  databaseName = yomitanDatabaseName();
   dbPromise;
   dictionaryInfoPromise;
   summaryPromise;
@@ -11585,15 +11611,17 @@ class YomitanDictionaryStore {
     try {
       const db = await dbPromise;
       db.close();
-      log$n.info("Dictionary DB closed for reset", { name: DB_NAME });
+      log$n.info("Dictionary DB closed for reset", { name: this.databaseName });
     } catch {
     }
   }
   async deleteDatabase(options = {}) {
+    assertYomitanStorageOwner(this.databaseName);
     const done = log$n.time("Dictionary database delete");
     try {
       const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
       const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
+      assertYomitanStorageOwner(this.databaseName);
       db?.close();
       this.dbPromise = void 0;
       this.invalidateCaches();
@@ -11611,15 +11639,15 @@ class YomitanDictionaryStore {
           globalThis.clearTimeout(timeout);
           callback();
         };
-        const request = indexedDB.deleteDatabase(DB_NAME);
+        const request = indexedDB.deleteDatabase(this.databaseName);
         request.onsuccess = () => settle(resolve);
         request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
         request.onblocked = () => {
           blocked = true;
-          log$n.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+          log$n.warn("Dictionary delete blocked by another tab", { name: this.databaseName });
         };
       });
-      log$n.info("Dictionary database deleted", { name: DB_NAME });
+      log$n.info("Dictionary database deleted", { name: this.databaseName });
     } catch (error) {
       log$n.warn("Dictionary database delete failed", { error });
       throw error;
@@ -12123,7 +12151,7 @@ class YomitanDictionaryStore {
     });
   }
   db() {
-    return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
+    return fencedYomitanDbHandle(this.databaseName, () => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
   }
   // A blocked or wedged upgrade (an older runtime still holding the
   // connection) used to leave the open promise pending FOREVER — every local
@@ -12132,7 +12160,7 @@ class YomitanDictionaryStore {
   // (the delete path at clearAll already does both).
   openDb(epoch) {
     const promise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = indexedDB.open(this.databaseName, DB_VERSION);
       let settled = false;
       const failOpen = (reason, error) => {
         if (settled) return;
@@ -12144,6 +12172,14 @@ class YomitanDictionaryStore {
       const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
       request.onblocked = () => failOpen("Dictionary database upgrade blocked by another open connection");
       request.onupgradeneeded = (event) => {
+        try {
+          assertYomitanStorageOwner(this.databaseName);
+        } catch (error) {
+          request.transaction?.abort();
+          clearTimeout(openTimeout);
+          failOpen("Dictionary storage owner changed", error);
+          return;
+        }
         const db = request.result;
         const tx = request.transaction;
         log$n.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
@@ -12216,7 +12252,7 @@ class YomitanDictionaryStore {
   installVersionChangeHandler(db) {
     db.onversionchange = (event) => {
       log$n.info("Dictionary DB version change; closing", {
-        name: DB_NAME,
+        name: this.databaseName,
         oldVersion: event.oldVersion,
         newVersion: event.newVersion
       });
@@ -16168,7 +16204,7 @@ class CardPopoverRenderer {
       plainLabel: label,
       label: formatTargetLabel(uiText(language2, "gradeTargetAnki"), label),
       shortLabel: compactAnkiReviewTargetLabel(label, cardId),
-      gradeProfile: "standard"
+      gradeProfile: "anki"
     }));
   }
   renderTargetedReviewButtons(targets, language2, canSwitchTarget, switchProviderTarget) {
@@ -28386,6 +28422,7 @@ const NEW_TAB_ACTIONS = [
   "grade",
   "empty-fallback",
   "continue-batch",
+  "recover-review-recording",
   "study-step",
   "study-hint",
   "return-to-review",
@@ -28420,6 +28457,7 @@ const NEW_TAB_ACTIONS = [
   "browse-page",
   "browse-bulk",
   "browse-card",
+  "browse-start-review",
   // Stats dashboard.
   "stats-source",
   "stats-activity-metric",
@@ -28677,7 +28715,7 @@ function renderBrowseList(cards, page, language2, copy) {
     el(
       "ol",
       { class: "jpdb-reader-newtab-browse-rows" },
-      ...visible.map((card) => renderBrowseRow(card, language2, Boolean(copy.bulk), copy.dueIn?.(card) ?? ""))
+      ...visible.map((card) => renderBrowseRow(card, language2, Boolean(copy.bulk), copy.dueIn?.(card) ?? "", copy.startReview))
     ),
     pageCount > 1 ? el(
       "div",
@@ -28718,7 +28756,7 @@ function renderBrowseBulkBar(copy) {
     copy.forget ? action("jiten-forget", copy.forget) : null
   );
 }
-function renderBrowseRow(card, language2, selectable = false, dueIn = "") {
+function renderBrowseRow(card, language2, selectable = false, dueIn = "", startReview) {
   const state = primaryCardState(card.cardState);
   const meaning = firstCardMeaning(card);
   const reading = browseReading(card);
@@ -28757,7 +28795,11 @@ function renderBrowseRow(card, language2, selectable = false, dueIn = "") {
         cardStateLabel(state, language2),
         browseStateDetails(card, dueIn)
       )
-    )
+    ),
+    startReview && card.source === "yomu-local" && card.dueAt == null ? el("button", {
+      type: "button",
+      dataset: { newtabAction: newTabAction("browse-start-review"), browseCardKey: cardKey(card) }
+    }, startReview) : null
   );
 }
 function browseReading(card) {
@@ -29165,6 +29207,12 @@ function markJpdbApiReviewCards(cards) {
 function isScheduledStudyCard(card) {
   return card.cardState.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "locked");
 }
+const NEW_TAB_GRADE_QUEUE_KEY = "jpdb-reader-newtab-grade-queue";
+const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
+const REVIEW_QUEUE_OWNER_KEY = "yomu:private:review-delivery:v2";
+function reviewDeliveryScope(target, providerContext) {
+  return `${target}:${providerContext}`;
+}
 const NEW_TAB_WORD_STATE_CLASSES = [
   "new",
   "learning",
@@ -29232,7 +29280,6 @@ const NEW_TAB_LIVE_REVIEW_STALE_MS = 1500;
 const NEW_TAB_HANDWRITING_DEBOUNCE_MS = 360;
 const NEW_TAB_HANDWRITING_GEOMETRY_CANDIDATE_LIMIT = 240;
 const NEW_TAB_HEADER_LABEL = "yomu";
-const NEW_TAB_GRADE_QUEUE_KEY = "jpdb-reader-newtab-grade-queue";
 const NEW_TAB_STATS_JPDB_HISTORY_KEY = "jpdb-reader-newtab-jpdb-stats-history";
 const NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY = "jpdb-reader-newtab-disabled-anki-decks";
 const NEW_TAB_STATS_JPDB_CARD_LIMIT = 2e3;
@@ -34276,7 +34323,12 @@ class PracticeSessionStore {
   constructor(factory = indexedDB) {
     this.factory = factory;
   }
+  databaseName = ownedDatabaseName(PRACTICE_SESSION_DATABASE);
+  assertOwner() {
+    if (this.databaseName !== ownedDatabaseName(PRACTICE_SESSION_DATABASE)) throw new Error("Practice storage owner changed; reload to reconnect.");
+  }
   async read(id) {
+    this.assertOwner();
     const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
     return this.transaction("readonly", async (store, material) => {
       const checkpoint = await requestValue(store.get([epoch, id]));
@@ -34289,21 +34341,26 @@ class PracticeSessionStore {
     });
   }
   async list() {
+    this.assertOwner();
     const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
     return this.transaction("readonly", (store) => requestValue(store.index("epoch").getAll(epoch)));
   }
   async write(record2, previousRevision) {
+    this.assertOwner();
     const epoch = managedStateEpochToken(await assertManagedStateMutationAllowed());
     await this.transaction("readwrite", async (store, material) => {
       if (managedStateWritesSuppressed()) throw new Error("Practice saving is paused during reset.");
       const previous = await requestValue(store.get([epoch, record2.id]));
+      this.assertOwner();
       if (previousRevision === null ? previous !== void 0 : previous?.revision !== previousRevision || previous?.version !== record2.version || previous?.purpose !== record2.purpose) {
         throw new PracticeSessionConflict();
       }
       if (managedStateWritesSuppressed()) throw new Error("Practice saving is paused during reset.");
       const { items, material: original, ...checkpoint } = record2;
       if (previousRevision === null) await requestValue(material.put({ epoch, id: record2.id, items, material: original }));
+      this.assertOwner();
       await requestValue(store.put({ ...checkpoint, epoch, itemCount: items.length, materialCount: original.length }));
+      this.assertOwner();
     });
   }
   async transaction(mode, run) {
@@ -34311,6 +34368,7 @@ class PracticeSessionStore {
     try {
       if (mode === "readwrite") await assertManagedStateMutationAllowed();
       else await assertManagedStateReadAllowed();
+      this.assertOwner();
       const transaction = db.transaction(["sessions", "material"], mode);
       let result;
       let failure;
@@ -34335,10 +34393,18 @@ class PracticeSessionStore {
     }
   }
   open() {
+    this.assertOwner();
     return new Promise((resolve, reject) => {
       let settled = false;
-      const request = this.factory.open(PRACTICE_SESSION_DATABASE, 1);
+      const request = this.factory.open(this.databaseName, 1);
       request.onupgradeneeded = () => {
+        try {
+          this.assertOwner();
+        } catch (error) {
+          request.transaction?.abort();
+          reject(error);
+          return;
+        }
         const store = request.result.createObjectStore("sessions", { keyPath: ["epoch", "id"] });
         store.createIndex("epoch", "epoch");
         request.result.createObjectStore("material", { keyPath: ["epoch", "id"] });
@@ -35709,8 +35775,140 @@ class KanjiDetailSource {
     return settings.kanjiOriginsEnabled && settings.kanjiOriginKanjiMapEnabled;
   }
 }
+const REVIEW_QUEUE_CHANNEL = "yomu.review-queue.v2";
+function isReviewQueueRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record2 = value;
+  const shortString = (item) => typeof item === "string" && item.length > 0 && item.length <= 256;
+  if (!shortString(record2.id) || !(shortString(record2.providerContext) || record2.target === "yomu-local" && record2.providerContext === "") || typeof record2.at !== "number" || !Number.isFinite(record2.at) || typeof record2.attempts !== "number" || !Number.isSafeInteger(record2.attempts) || record2.attempts < 0 || typeof record2.target !== "string" || !["anki", "jpdb-api", "jiten-api", "yomu-local"].includes(record2.target) || typeof record2.grade !== "string" || !["nothing", "something", "hard", "okay", "easy", "fail", "pass"].includes(record2.grade) || !record2.card || typeof record2.card !== "object" || Array.isArray(record2.card)) return false;
+  const card = record2.card;
+  return typeof card.spelling === "string" && typeof card.reading === "string" && JSON.stringify(value).length <= 256e3;
+}
+class ReviewDraftResetError extends Error {
+  constructor() {
+    super("The previous answer was cleared by factory reset. Reload Study.");
+  }
+}
+class ExtensionReviewQueueClient {
+  constructor(send, currentEpoch, drafts, timeoutMs = 1e4) {
+    this.send = send;
+    this.currentEpoch = currentEpoch;
+    this.drafts = drafts;
+    this.timeoutMs = timeoutMs;
+  }
+  epoch;
+  async record(reviews) {
+    if (!reviews.length || reviews.length > 4 || !reviews.every((item) => isReviewQueueRecord(item) && item.attempts === 0)) {
+      throw new Error("Invalid review batch.");
+    }
+    const captured = structuredClone([...reviews]);
+    const epoch = await this.checkEpoch();
+    if (this.drafts.read() !== null) throw new Error("An earlier review recording is unresolved; resume it before answering again.");
+    this.drafts.write({ epoch: epoch.generation === 0 ? null : epoch, reviews: captured });
+    await this.resumeRecord();
+  }
+  hasPendingRecord() {
+    return this.drafts.read() !== null;
+  }
+  async resumeRecord() {
+    const draft = this.drafts.read();
+    if (draft === null) return null;
+    if (!draft || typeof draft !== "object" || Array.isArray(draft)) throw new Error("Invalid review action draft.");
+    const value = draft;
+    if (!Object.hasOwn(value, "epoch") || value.epoch === void 0 || !Array.isArray(value.reviews) || !value.reviews.length || value.reviews.length > 4 || !value.reviews.every((item) => isReviewQueueRecord(item) && item.attempts === 0)) throw new Error("Invalid review action draft.");
+    const epoch = parseManagedStateEpoch(value.epoch);
+    const current = await this.currentEpoch();
+    if (current.generation > epoch.generation) {
+      if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+      throw new ReviewDraftResetError();
+    }
+    this.epoch ??= epoch;
+    if (!sameManagedStateEpoch(this.epoch, epoch)) throw new Error("Review draft belongs to a different reset generation.");
+    await this.request({ kind: "record", reviews: structuredClone(value.reviews) });
+    if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+    return structuredClone(value.reviews);
+  }
+  async claim(id, providerContext) {
+    const value = await this.request({ kind: "claim", id, providerContext });
+    if (value === null) return null;
+    if (!isReviewQueueRecord(value) || value.id !== id || value.providerContext !== providerContext || value.attempts !== 1) {
+      throw new Error("Invalid review claim response.");
+    }
+    return value;
+  }
+  async acknowledge(id, providerContext) {
+    await this.request({ kind: "acknowledge", id, providerContext });
+  }
+  async list() {
+    const value = await this.request({ kind: "list" });
+    if (!Array.isArray(value) || !value.every(isReviewQueueRecord)) throw new Error("Invalid review queue response.");
+    return value;
+  }
+  async snapshot(ids, scopes) {
+    const value = await this.request({ kind: "snapshot", ids: [...ids], scopes: [...scopes] });
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid review status response.");
+    const result = value;
+    const statuses = result.statuses;
+    const revisions = result.revisions;
+    if (!Array.isArray(result.reviews) || !result.reviews.every(isReviewQueueRecord) || !statuses || typeof statuses !== "object" || Array.isArray(statuses) || !revisions || typeof revisions !== "object" || Array.isArray(revisions) || Object.keys(statuses).length !== new Set(ids).size || Object.keys(revisions).length !== new Set(scopes).size || !ids.every((id) => Object.hasOwn(statuses, id) && typeof statuses[id] === "string" && ["pending", "held", "completed", "unknown"].includes(statuses[id])) || !scopes.every((scope) => Object.hasOwn(revisions, scope) && Number.isSafeInteger(revisions[scope]) && revisions[scope] >= 0)) {
+      throw new Error("Invalid review snapshot response.");
+    }
+    return result;
+  }
+  async request(payload) {
+    const before = await this.checkEpoch();
+    let timer;
+    try {
+      const response = await Promise.race([
+        this.send({ channel: REVIEW_QUEUE_CHANNEL, epoch: before.generation === 0 ? null : before, ...payload }),
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error("Review queue response was lost; delivery outcome is unknown.")), this.timeoutMs);
+        })
+      ]);
+      if (!sameManagedStateEpoch(before, await this.currentEpoch())) throw new Error("Review queue reset generation changed; reload Study.");
+      if (!response || typeof response !== "object" || Array.isArray(response)) throw new Error("Invalid review queue response.");
+      const result = response;
+      if (result.ok !== true) throw new Error(typeof result.error === "string" ? result.error : "Review queue request failed.");
+      return result.value;
+    } finally {
+      if (timer !== void 0) clearTimeout(timer);
+    }
+  }
+  async checkEpoch() {
+    const current = await this.currentEpoch();
+    this.epoch ??= structuredClone(current);
+    if (!sameManagedStateEpoch(this.epoch, current)) throw new Error("Review queue reset generation changed; reload Study.");
+    return current;
+  }
+}
+const REVIEW_ACTION_DRAFT_KEY = "yomu:review-action-draft:v2";
+function createPackagedReviewQueueClient(root = globalThis, currentEpoch = assertManagedStateMutationAllowed, storage = managedSessionStorage) {
+  if (!root.location || !/^(?:moz|chrome|safari-web)-extension:$/u.test(root.location.protocol)) return null;
+  const runtime = root.browser?.runtime ?? root.chrome?.runtime;
+  if (!runtime?.id || typeof runtime.getURL !== "function" || typeof runtime.sendMessage !== "function") {
+    throw new Error("Packaged review queue runtime is unavailable.");
+  }
+  if (root.location.href.split(/[?#]/u)[0] !== runtime.getURL("newtab/index.html")) {
+    return null;
+  }
+  return new ExtensionReviewQueueClient((message) => runtime.sendMessage(message), currentEpoch, {
+    read: () => {
+      const saved = storage.getItem(REVIEW_ACTION_DRAFT_KEY);
+      return saved === null ? null : JSON.parse(saved);
+    },
+    write: (draft) => {
+      const saved = JSON.stringify(draft);
+      storage.setItem(REVIEW_ACTION_DRAFT_KEY, saved);
+      if (storage.getItem(REVIEW_ACTION_DRAFT_KEY) !== saved) throw new Error("Review action draft could not be saved.");
+    },
+    clear: () => {
+      storage.removeItem(REVIEW_ACTION_DRAFT_KEY);
+      if (storage.getItem(REVIEW_ACTION_DRAFT_KEY) !== null) throw new Error("Review action draft could not be cleared.");
+    }
+  });
+}
 const gmGradeQueueStorage = {
-  get: gmStorageGet,
+  get: gmStorageGetStrict,
   set: gmStorageSet,
   delete: gmStorageDelete
 };
@@ -35718,12 +35916,19 @@ class NewTabGradeQueue {
   constructor(deps) {
     this.deps = deps;
     this.storage = deps.storage ?? gmGradeQueueStorage;
+    this.owner = deps.owner !== void 0 ? deps.owner : createPackagedReviewQueueClient();
   }
   // Read-modify-write mutex: a flush that snapshotted the queue while an
   // enqueue landed would otherwise clobber the fresh grade with its stale
   // snapshot on the final write — a silently deleted review.
   serial = Promise.resolve();
   storage;
+  owner;
+  ownerReady = false;
+  ownerPending = [];
+  legacyPending = false;
+  notifiedCompletions = /* @__PURE__ */ new Set();
+  completionVersions = /* @__PURE__ */ new Map();
   enqueue(card, grade, targets, providerContextForTarget = this.deps.providerContextForTarget) {
     return this.locked(() => this.enqueueUnlocked(card, grade, targets, providerContextForTarget));
   }
@@ -35738,9 +35943,8 @@ class NewTabGradeQueue {
   async enqueueUnlocked(card, grade, targets, providerContextForTarget) {
     const queueTargets = queueableNewTabReviewTargets(targets);
     if (!queueTargets.length || !this.deps.offlineEnabled()) return false;
-    const queue = await this.read();
     const entries2 = queueTargets.map((target) => ({
-      id: `${target}:${cardKey(card)}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+      id: this.owner ? `${target}:${crypto.randomUUID()}` : `${target}:${cardKey(card)}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
       at: Date.now(),
       target,
       card,
@@ -35748,33 +35952,126 @@ class NewTabGradeQueue {
       attempts: 0,
       ...queuedGradeProviderBinding(target, providerContextForTarget)
     }));
+    if (this.owner) {
+      await this.owner.record(entries2.map((item) => ({ ...item, providerContext: item.providerContext ?? "" })));
+      this.ownerPending.push(...structuredClone(entries2));
+      return true;
+    }
+    const queue = await this.read();
     const entryKeys = new Set(entries2.map((entry) => this.key(entry)));
+    if (queue.some((item) => item.target === "anki" && item.attempts > 0 && entryKeys.has(this.key(item)))) return false;
     const deduped = queue.filter((item) => !entryKeys.has(this.key(item)));
     deduped.push(...entries2);
-    await this.write(deduped.slice(-200));
+    if (deduped.length > NEW_TAB_GRADE_QUEUE_LIMIT) return false;
+    await this.write(deduped);
     return true;
   }
   // Number of grades waiting to sync back to the providers (for the sync-status UI).
   async pendingCount() {
+    if (this.owner) return (await this.owner.list()).length;
     return (await this.read()).length;
+  }
+  async hasUncertainReviews() {
+    if (this.owner) return this.legacyPending || (await this.owner.list()).some((item) => item.attempts > 0);
+    return (await this.read()).some((item) => item.target === "anki" && item.attempts > 0);
+  }
+  needsRecordingRecovery() {
+    try {
+      return this.owner?.hasPendingRecord() ?? false;
+    } catch {
+      return true;
+    }
+  }
+  usesSharedOwner() {
+    return this.owner !== null;
+  }
+  blocksReview(card) {
+    return Boolean(this.owner && (this.needsRecordingRecovery() || !this.ownerReady || this.legacyPending || this.ownerPending.some((item) => this.providerIsCurrent(item) && cardKey(item.card) === cardKey(card))));
+  }
+  recoverRecording() {
+    return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
+  }
+  async flushOwned() {
+    const owner = this.owner;
+    this.ownerReady = false;
+    const legacy = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null);
+    this.legacyPending = legacy !== null && (!Array.isArray(legacy) || legacy.length > 0);
+    await this.refreshOwnerPending();
+    if (!this.needsRecordingRecovery() && !this.legacyPending) {
+      for (const item of this.ownerPending) {
+        if (!this.providerIsCurrent(item)) continue;
+        if (item.attempts !== 0) {
+          if (this.notifiedCompletions.has(item.id)) await owner.acknowledge(item.id, item.providerContext ?? "");
+          continue;
+        }
+        const claimed = await owner.claim(item.id, item.providerContext ?? "");
+        if (!claimed || !this.providerIsCurrent(claimed)) continue;
+        try {
+          if (await this.deps.submit(claimed)) {
+            this.notifySubmitted(claimed);
+            await owner.acknowledge(claimed.id, claimed.providerContext ?? "");
+          }
+        } catch {
+        }
+      }
+    }
+    await this.refreshOwnerPending();
+    this.ownerReady = true;
+    return this.ownerPending.length;
+  }
+  async refreshOwnerPending() {
+    const owner = this.owner;
+    const scopes = ["anki", "jpdb-api", "jiten-api", "yomu-local"].map((target) => {
+      const context = this.deps.providerContextForTarget(target);
+      return { target, context, key: reviewDeliveryScope(target, context) };
+    });
+    const { reviews: pending2, statuses, revisions } = await owner.snapshot(this.ownerPending.map((item) => item.id), scopes.map((scope) => scope.key));
+    const missing = this.ownerPending.filter((item) => !pending2.some((current) => current.id === item.id));
+    if (missing.some((item) => statuses[item.id] === "unknown")) throw new Error("Review completion could not be verified.");
+    if (scopes.some((scope) => revisions[scope.key] < (this.completionVersions.get(scope.key) ?? 0))) {
+      throw new Error("Review completion history changed unexpectedly.");
+    }
+    for (const item of missing) if (statuses[item.id] === "completed") this.notifySubmitted(item);
+    for (const scope of scopes) {
+      const revision2 = revisions[scope.key];
+      if (scope.context !== this.deps.providerContextForTarget(scope.target)) continue;
+      if (revision2 > (this.completionVersions.get(scope.key) ?? 0)) {
+        this.deps.onProviderCompleted?.(scope.target);
+      }
+      this.completionVersions.set(scope.key, revision2);
+    }
+    this.ownerPending = pending2;
+  }
+  notifySubmitted(item) {
+    if (this.notifiedCompletions.has(item.id) || !this.providerIsCurrent(item)) return;
+    this.deps.onSubmitted(item.card);
+    this.notifiedCompletions.add(item.id);
   }
   // Flushes the queue and returns how many grades still remain unsynced.
   async flushUnlocked() {
+    if (this.owner) return this.flushOwned();
     const queue = await this.read();
     if (!queue.length) return 0;
-    const pending2 = [];
+    let pending2 = [...queue];
     for (const item of queue) {
-      const retry = await this.flushItem(item);
-      if (retry) pending2.push(retry);
+      if (!this.canSubmit(item)) continue;
+      const attempted = item.target === "anki" ? { ...item, attempts: 1 } : item;
+      if (attempted !== item) {
+        pending2 = pending2.map((entry) => entry.id === item.id ? attempted : entry);
+        await this.write(pending2);
+      }
+      if (!this.providerIsCurrent(attempted)) continue;
+      const retry = await this.flushItem(attempted);
+      pending2 = retry ? pending2.map((entry) => entry.id === item.id ? retry : entry) : pending2.filter((entry) => entry.id !== item.id);
     }
     await this.write(pending2);
     return pending2.length;
   }
   async flushItem(item) {
-    if (!this.canSubmit(item)) return item;
     try {
       const submitted = await this.deps.submit(item);
-      if (submitted) this.deps.onSubmitted(item.card);
+      if (!submitted) return item;
+      this.deps.onSubmitted(item.card);
       return null;
     } catch (error) {
       return failedQueuedGrade(item, error);
@@ -35785,18 +36082,22 @@ class NewTabGradeQueue {
     return `${context}:${item.target}:${cardKey(item.card)}`;
   }
   canSubmit(item) {
+    if (item.target === "anki" && item.attempts > 0) return false;
+    return this.providerIsCurrent(item);
+  }
+  providerIsCurrent(item) {
     return item.target === "yomu-local" || Boolean(item.providerContext && item.providerContext === this.deps.providerContextForTarget(item.target));
   }
   async read() {
-    const stored = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
+    const stored = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null);
     if (!Array.isArray(stored)) return [];
-    const valid = stored.filter(isQueuedNewTabGrade).slice(-200);
+    const valid = stored.filter(isQueuedNewTabGrade);
     const queue = valid.filter((item) => item.target !== "bunpro-api");
     if (queue.length !== valid.length) await this.write(queue).catch(() => void 0);
     return queue;
   }
   write(queue) {
-    return queue.length ? this.storage.set(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : this.storage.delete(NEW_TAB_GRADE_QUEUE_KEY);
+    return queue.length ? this.storage.set(NEW_TAB_GRADE_QUEUE_KEY, queue) : this.storage.delete(NEW_TAB_GRADE_QUEUE_KEY);
   }
 }
 function queuedGradeProviderBinding(target, providerContextForTarget) {
@@ -35805,7 +36106,7 @@ function queuedGradeProviderBinding(target, providerContextForTarget) {
 function failedQueuedGrade(item, error) {
   return {
     ...item,
-    attempts: item.attempts + 1,
+    attempts: item.target === "anki" ? item.attempts : item.attempts + 1,
     lastError: error instanceof Error ? error.message : String(error)
   };
 }
@@ -36009,13 +36310,13 @@ function bunproReviewableKind(type) {
   if (type === "grammar" || type === "vocabulary" || type === "sentence") return type;
   return "unknown";
 }
-const CONSUMED_REVIEW_SOURCES = /* @__PURE__ */ new Set(["bunpro-api", "wanikani-api"]);
-const CONSUMED_CARD_SOURCES = /* @__PURE__ */ new Set(["bunpro", "wanikani"]);
+const CONSUMED_REVIEW_SOURCES = /* @__PURE__ */ new Set(["anki", "bunpro-api", "wanikani-api"]);
+const CONSUMED_CARD_SOURCES = /* @__PURE__ */ new Set(["anki", "bunpro", "wanikani"]);
 function isSessionBunproCard(card) {
   return card.source === "bunpro" || card.reviewSource === "bunpro-api";
 }
 function newTabUndoableReview(card, isCorrection, canUndoJiten, at = Date.now()) {
-  if (reviewConsumesProviderObligation(card)) return void 0;
+  if (requiresFreshProviderReview(card)) return void 0;
   return {
     card,
     at,
@@ -36023,7 +36324,7 @@ function newTabUndoableReview(card, isCorrection, canUndoJiten, at = Date.now())
     counted: !isCorrection
   };
 }
-function reviewConsumesProviderObligation(card) {
+function requiresFreshProviderReview(card) {
   return CONSUMED_REVIEW_SOURCES.has(card.reviewSource) || CONSUMED_CARD_SOURCES.has(card.source);
 }
 function renderNewTabBrand(overflowMenu, brand) {
@@ -38284,7 +38585,8 @@ class NewTabController {
       offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
       providerContextForTarget: (target) => newTabReviewProviderContext(this.providerContexts, target),
       submit: (item) => this.submitQueuedGrade(item),
-      onSubmitted: (card) => this.invalidateReviewSourceCache(card)
+      onSubmitted: (card) => this.queuedReviewSubmitted(card),
+      onProviderCompleted: (target) => this.reviewProviderCompleted(target)
     });
     this.studyExamples = new StudyExamples({
       getSettings: () => this.dependencies.getSettings(),
@@ -38330,6 +38632,7 @@ class NewTabController {
   offlineWarmTotal = 0;
   offlineWarmRetryTimer;
   syncPendingCount = 0;
+  syncProblem;
   lastSyncedAt = null;
   // n+1 sentence selection: once per card the example sentences from every
   // source are scored against the learner's known words and the best one
@@ -38623,6 +38926,8 @@ class NewTabController {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.queueSyncAgain = false;
+    this.loadGeneration++;
     this.practicePanel?.destroy();
     cancelConnectionLostDialog();
     this.stopSessionClock();
@@ -39023,6 +39328,12 @@ class NewTabController {
     }
     for (const [target, type, handle] of this.pageEventBindings(root)) {
       target.addEventListener(type, handle, options);
+    }
+    if (this.gradeQueue.usesSharedOwner()) {
+      const unsubscribe = subscribeToStoredValueChanges(REVIEW_QUEUE_OWNER_KEY, () => {
+        if (!controller.signal.aborted) void this.flushQueuedGrades().catch((error) => log$8.warn("Review owner refresh failed", error));
+      });
+      controller.signal.addEventListener("abort", unsubscribe, { once: true });
     }
     installNewTabSwipeGesture({
       root,
@@ -39426,6 +39737,11 @@ class NewTabController {
     return false;
   }
   handleRootUtilityClick(root, event, action) {
+    if (action === "recover-review-recording") {
+      event.preventDefault();
+      void this.recoverReviewRecording(root);
+      return true;
+    }
     if (action === "practice-sessions") {
       event.preventDefault();
       void this.showPracticeSessions(root);
@@ -40309,10 +40625,9 @@ class NewTabController {
     return {
       label,
       load: async () => {
-        const snapshot = await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, {
-          language: activeLearningTarget().language
-        });
-        return snapshot.cards.filter(newTabCardMatchesActiveTarget).map(newTabCardFromSrsReviewable).filter((card) => card !== null);
+        const options = { language: activeLearningTarget().language };
+        const cards = adapter.collection ? await adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT, options) : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)).cards;
+        return cards.filter(newTabCardMatchesActiveTarget).map(newTabCardFromSrsReviewable).filter((card) => card !== null);
       }
     };
   }
@@ -40988,7 +41303,7 @@ class NewTabController {
     }
   }
   isCurrentLoad(loadGeneration) {
-    return this.loadGeneration === loadGeneration;
+    return !this.destroyed && this.loadGeneration === loadGeneration;
   }
   persistSourceSettingChange(source) {
     return Promise.resolve().then(() => this.dependencies.onSettingsChange(["newTabSource"])).catch((error) => {
@@ -41223,7 +41538,7 @@ class NewTabController {
     return this.reviewHistoryCards.some((historyCard) => cardKey(historyCard) === key);
   }
   rememberReviewHistoryCard(card) {
-    if (!this.reviewCountMode || !this.isReviewCard(card)) return;
+    if (!this.reviewCountMode || !this.isReviewCard(card) || requiresFreshProviderReview(card)) return;
     const key = cardKey(card);
     this.reviewHistoryCards = [
       normalizeNewTabCard(card),
@@ -41865,6 +42180,7 @@ class NewTabController {
   // Eventually-consistent sync status: how many grades are still queued to sync
   // back to the providers, or a synced confirmation once the queue drains.
   syncStatusSegment() {
+    if (this.syncProblem) return this.text(this.syncProblem);
     if (this.syncPendingCount > 0) return `${this.text("syncPending")} ${this.syncPendingCount}`;
     return this.lastSyncedAt != null ? this.text("syncSynced") : "";
   }
@@ -43975,6 +44291,10 @@ class NewTabController {
   renderEmptyControls(controls) {
     if (!controls) return;
     controls.hidden = false;
+    if (this.gradeQueue.needsRecordingRecovery()) {
+      replaceChildrenWith(controls, this.recordingRecoveryButton());
+      return;
+    }
     replaceChildrenWith(
       controls,
       el("button", { type: "button", dataset: { newtabAction: newTabAction("empty-fallback") } }, this.text("starterWords")),
@@ -44027,6 +44347,10 @@ class NewTabController {
         return this.handleBrowseBulkClick(root, target, event);
       case "browse-card":
         return this.handleBrowseCardClick(target, event);
+      case "browse-start-review":
+        event.preventDefault();
+        void this.startBrowseReview(target);
+        return true;
       default:
         return false;
     }
@@ -44072,6 +44396,24 @@ class NewTabController {
     const bulkAction = target.closest("[data-bulk-action]")?.dataset.bulkAction ?? "";
     if (bulkAction) void this.performBrowseBulkAction(root, bulkAction);
     return true;
+  }
+  async startBrowseReview(target) {
+    const button = target.closest(newTabActionSelector("browse-start-review"));
+    const card = this.browseCardForRow(button ?? null);
+    const adapter = this.dependencies.srsAdapters?.["yomu-local"];
+    if (!button || button.disabled || card?.source !== "yomu-local" || !card.sourceCardKey || !adapter?.startReview) return;
+    button.disabled = true;
+    try {
+      await adapter.startReview(card.sourceCardKey);
+      if (this.destroyed) return;
+      this.invalidateSourceResultCache("yomu-local");
+      this.refreshBrowseAfterCardMutation(card);
+      this.showToast("browseReviewAdded");
+    } catch {
+      if (!this.destroyed) this.showToast("browseReviewFailed");
+    } finally {
+      button.disabled = false;
+    }
   }
   handleBrowseCardClick(target, event) {
     event.preventDefault();
@@ -44204,6 +44546,7 @@ class NewTabController {
       }),
       renderBrowseList(filtered, this.browsePage, language2, {
         empty: this.text("browseNoCards"),
+        startReview: this.dependencies.srsAdapters?.["yomu-local"]?.startReview ? this.text("browseStartReview") : void 0,
         previous: this.text("browsePreviousPage"),
         next: this.text("browseNextPage"),
         showing: (from, to, total) => `${from}–${to} / ${total}`,
@@ -44362,6 +44705,7 @@ class NewTabController {
     replaceChildrenWith(slots.controls, buttons);
   }
   controlButtonsForCard(card) {
+    if (this.gradeQueue.needsRecordingRecovery()) return [this.recordingRecoveryButton()];
     if (this.studySessionForCard(card).activity === "practice") {
       return [
         el("button", { type: "button", dataset: { newtabAction: newTabAction("reveal") } }, this.revealButtonLabel()),
@@ -44376,6 +44720,8 @@ class NewTabController {
     return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind === "final-reveal";
   }
   canReviewCard(card) {
+    if (this.destroyed || this.queuedReviewNeedsRefresh) return false;
+    if (this.gradeQueue.blocksReview(card)) return false;
     if ((this.isOfflineSourceLabel(this.sourceLabel) || typeof navigator !== "undefined" && navigator.onLine === false) && !this.offlineGradeTargets(card).length) return false;
     return this.reviewSourceSummary(card).targets.length > 0;
   }
@@ -44579,6 +44925,7 @@ class NewTabController {
     this.setStatus(root, this.text("jpdbKanjiUpdated"));
   }
   gradeSubmissionInFlight = false;
+  queuedReviewNeedsRefresh = false;
   async gradeCurrentCard(grade, selectedTarget2, expectedCard) {
     if (this.practiceVisible) return false;
     const submittedCard = this.visibleWords[this.index];
@@ -44592,11 +44939,19 @@ class NewTabController {
     });
     try {
       return await this.gradeCurrentCardUnlocked(grade, selectedTarget2);
+    } catch (error) {
+      if (!this.gradeQueue.needsRecordingRecovery()) throw error;
+      log$8.warn("Review recording needs recovery", error);
+      const root = this.currentRoot();
+      if (root) this.setStatus(root, this.text("recoverReviewRecording"));
+      return false;
     } finally {
       this.gradeSubmissionInFlight = false;
       gradeButtons.filter(({ button }) => button.isConnected).forEach(({ button, disabled }) => {
         button.disabled = disabled;
       });
+      const current = this.currentGradeTarget();
+      if (current && this.gradeQueue.needsRecordingRecovery()) this.renderControls(this.studySlots(current.root), current.card);
     }
   }
   sameGradeCardIdentity(current, expected) {
@@ -44685,8 +45040,8 @@ class NewTabController {
       this.reportLocalYomuGradeFailure(target.root);
       return false;
     }
-    if (isSessionBunproCard(target.card)) {
-      await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+    if (isSessionBunproCard(target.card) || error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => failure.target === "anki")) {
+      await this.reloadAfterAmbiguousGrade(target.root, target.card);
       return true;
     }
     const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget2, error);
@@ -44767,7 +45122,7 @@ class NewTabController {
     if (choice === "stop") this.setStatus(root, this.text("reviewsPausedOffline"));
     return choice;
   }
-  async reloadAfterAmbiguousBunproGrade(root, card) {
+  async reloadAfterAmbiguousGrade(root, card) {
     const key = cardKey(card);
     this.lastUndoableReview = void 0;
     this.invalidateReviewSourceCache(card);
@@ -44818,7 +45173,9 @@ class NewTabController {
     const target = this.lookupReviewTargetForSelection(card, selectedTarget2);
     if (!target) throw new Error(this.text("couldNotSubmitGrade"));
     if (target.kind === "anki") {
-      const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId);
+      const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId).catch((error) => {
+        throw new NewTabGradeSubmissionError([{ target: "anki", error }]);
+      });
       const state = refreshed ? this.ankiLookupStateForCardId(refreshed, target.ankiCardId) ?? refreshed.state : null;
       return state ? this.lookupReviewTargetWithAnkiState(target, state) : target;
     }
@@ -45068,11 +45425,104 @@ class NewTabController {
   offlineGradeTarget(card) {
     return this.offlineGradeTargets(card)[0] ?? null;
   }
-  async flushQueuedGrades() {
-    const remaining = await this.gradeQueue.flush();
-    this.syncPendingCount = remaining;
-    if (remaining === 0) this.lastSyncedAt = Date.now();
+  queueSync;
+  queueSyncAgain = false;
+  flushQueuedGrades() {
+    if (this.destroyed) return Promise.resolve();
+    this.queueSyncAgain = true;
+    this.queueSync ??= Promise.resolve().then(async () => {
+      try {
+        while (this.queueSyncAgain && !this.destroyed) {
+          this.queueSyncAgain = false;
+          await this.performQueueSync();
+        }
+      } finally {
+        this.queueSync = void 0;
+      }
+    });
+    return this.queueSync;
+  }
+  async performQueueSync() {
+    try {
+      this.syncPendingCount = await this.gradeQueue.flush();
+      if (this.destroyed) return;
+      this.syncProblem = await this.gradeQueue.hasUncertainReviews() ? "syncReviewCheck" : void 0;
+      if (this.destroyed) return;
+      if (this.syncPendingCount === 0) this.lastSyncedAt = Date.now();
+      const root = this.currentRoot();
+      if (root && this.queuedReviewNeedsRefresh) {
+        await this.loadWordsInto(root, false, { useOfflineCache: false });
+        if (this.destroyed) return;
+        this.queuedReviewNeedsRefresh = false;
+      }
+    } catch (error) {
+      if (this.destroyed) return;
+      log$8.warn("Review queue sync failed", error);
+      this.syncProblem = "syncUnavailable";
+    }
     this.refreshSessionProgressSoon();
+    const current = this.currentGradeTarget();
+    if (current && this.gradeQueue.usesSharedOwner()) {
+      current.root.classList.toggle("jpdb-reader-newtab-review-mode", this.canReviewCard(current.card));
+      this.renderControls(this.studySlots(current.root), current.card);
+    }
+  }
+  queuedReviewSubmitted(card) {
+    if (this.destroyed) return;
+    this.invalidateReviewSourceCache(card);
+    if (!this.gradeQueue.usesSharedOwner() || !this.visibleWords.some((item) => this.sameGradeCardIdentity(item, card))) return;
+    this.requireFreshReviewView();
+  }
+  reviewProviderCompleted(target) {
+    if (this.destroyed) return;
+    const source = target === "anki" ? "anki" : target === "yomu-local" ? "yomu-local" : "jpdb";
+    this.invalidateSourceResultCache(source);
+    const visible = this.visibleWords[this.index];
+    if (this.state.source === "auto" || this.state.source === source || visible && this.reviewTargetsForCard(visible).includes(target)) this.requireFreshReviewView();
+  }
+  requireFreshReviewView() {
+    this.queuedReviewNeedsRefresh = true;
+    this.allWords = [];
+    this.visibleWords = [];
+    this.visiblePoolSignature = "";
+    this.state.revealAnswer = false;
+    this.lastUndoableReview = void 0;
+    this.clearReviewHistory();
+    const root = this.currentRoot();
+    if (root) {
+      root.querySelectorAll(newTabActionSelector("grade")).forEach((button) => {
+        button.disabled = true;
+      });
+      this.setStatus(root, this.text("loading"));
+    }
+  }
+  async recoverReviewRecording(root) {
+    if (this.destroyed || this.gradeSubmissionInFlight) return;
+    this.gradeSubmissionInFlight = true;
+    root.querySelector(newTabActionSelector("recover-review-recording"))?.setAttribute("disabled", "");
+    try {
+      const recovered = await this.gradeQueue.recoverRecording();
+      if (this.destroyed) return;
+      if (recovered?.length) {
+        recovered.forEach((item) => this.invalidateReviewSourceCache(item.card));
+        this.requireFreshReviewView();
+      }
+      await this.flushQueuedGrades();
+    } catch (error) {
+      if (this.destroyed) return;
+      if (error instanceof ReviewDraftResetError) this.queuedReviewNeedsRefresh = true;
+      log$8.warn("Review recording recovery failed", error);
+      this.setStatus(root, this.text(error instanceof ReviewDraftResetError ? "reviewResetReload" : "syncUnavailable"));
+    } finally {
+      this.gradeSubmissionInFlight = false;
+      if (this.destroyed) return;
+      const current = this.currentGradeTarget();
+      if (current) this.renderControls(this.studySlots(current.root), current.card);
+      else if (root.isConnected) this.renderEmptyControls(this.studySlots(root).controls);
+    }
+  }
+  recordingRecoveryButton() {
+    return el("button", { type: "button", dataset: { newtabAction: newTabAction("recover-review-recording") } }, this.text("recoverReviewRecording"));
   }
   // Thin delegation to the same table-driven adapter dispatch the live grade
   // path uses; the Bunpro migration guard is handled inside the submitter.
@@ -45084,7 +45534,7 @@ class NewTabController {
     const previousIndex = this.index;
     const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
     this.rememberReviewHistoryCard(card);
-    if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && card.reviewSource !== "bunpro-api") {
+    if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && !requiresFreshProviderReview(card)) {
       this.requeueFailedCard(root, key, previousIndex);
       return;
     }
@@ -45093,7 +45543,7 @@ class NewTabController {
     this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
     this.state.revealAnswer = false;
     this.persistState();
-    if (card.reviewSource === "bunpro-api") {
+    if (requiresFreshProviderReview(card)) {
       this.markQueueRefreshed();
       return this.loadWordsInto(root, false, { useOfflineCache: false });
     }
@@ -93236,7 +93686,7 @@ function subscribeToReaderSettingsChanges(onSettings) {
   const hostedBridge = isHostedYomuOrigin();
   const reconciliation = createAsyncReconciliation(async () => {
     if (!active) return;
-    receive(await loadSettingsWithWitnessedAuthority());
+    receive(await loadSettings());
   }, () => void 0);
   const onStorageBridgeReady = () => reconciliation.request();
   if (hostedBridge) addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
@@ -94952,7 +95402,7 @@ class NewTabRuntime {
     this.installExternalRefreshListener();
     configureLogger({ settingsProvider: () => this.settings });
     this.factoryReset.bind();
-    this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettingsWithWitnessedAuthority(), this.options.interfaceLanguage);
+    this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettings(), this.options.interfaceLanguage);
     this.installSettingsStorageSubscription();
     configureLogger({ forceEnabled: this.settings.enableLogging });
     this.applyInterfaceLocale();

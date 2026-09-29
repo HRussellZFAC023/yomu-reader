@@ -6034,6 +6034,16 @@ function callDispatchEvent$1(target, event) {
 }
 function noop$1() {
 }
+function detectInstalledReaderRuntime(globals = globalThis) {
+  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+  return "userscript";
+  }
+  return null;
+}
+function isHostedReaderRuntime() {
+  return document.documentElement?.dataset.yomuHosted !== void 0;
+}
 const MANAGED_STORAGE_KEY_PREFIXES = [
   "yomu-",
   "yomu:",
@@ -6075,18 +6085,23 @@ function isManagedStorageSlotKey(key) {
 const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
 const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
+const BRIDGE_OWNER = "yomuStorageBridgeOwner";
 const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
 const EXTENSION_STORAGE_TARGET = "extension-storage";
 const BRIDGE_TIMEOUT_MS = 1e4;
+let clientOwnerId;
 function getUserscriptGmStorage() {
-  if (!storageBridgeClientReady()) return void 0;
+  if (!storageBridgeClientReady() && !clientOwnerId) return void 0;
+  clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
+  const ownerId = clientOwnerId;
+  const request = (detail) => storageBridgeRequest(detail, ownerId);
   return {
-  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
-  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
-  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
-  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
-  clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0),
-  clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? storageBridgeRequest({
+  getValue: (key, fallback) => request({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+  setValue: (key, value) => request({ op: "set", key, value }).then(() => void 0),
+  deleteValue: (key) => request({ op: "delete", key }).then(() => void 0),
+  listValues: () => request({ op: "list" }).then((detail) => detail.keys ?? []),
+  clearPrivateManagedValues: () => request({ op: "clear-private-managed" }).then(() => void 0),
+  clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? request({
     op: "clear-legacy-extension-managed",
     target: EXTENSION_STORAGE_TARGET
   }).then(() => void 0) : Promise.resolve()
@@ -6097,11 +6112,19 @@ function storageBridgeClientReady() {
   if (typeof document === "undefined") return false;
   return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
 }
-function storageBridgeRequest(request) {
+function storageBridgeRequest(request, ownerId) {
   return new Promise((resolve, reject) => {
+  if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
+    reject(new Error("Storage bridge authority changed; reload to reconnect."));
+    return;
+  }
   const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   const timeout = window.setTimeout(() => {
     cleanup();
+    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+      reject(new Error("Storage bridge authority changed during the request."));
+      return;
+    }
     reject(new Error("Storage bridge request timed out."));
   }, BRIDGE_TIMEOUT_MS);
   let cleanupResponseListener = noop;
@@ -6113,11 +6136,15 @@ function storageBridgeRequest(request) {
     const detail = storageBridgeResponseDetail(event);
     if (!detail || detail.id !== id) return;
     cleanup();
+    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+      reject(new Error("Storage bridge authority changed during the request."));
+      return;
+    }
     if (detail.ok) resolve(detail);
     else reject(new Error(detail.message || "Storage bridge request failed."));
   };
   cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ...request });
+  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId, ...request });
   });
 }
 function storageBridgeResponseDetail(event) {
@@ -6597,6 +6624,151 @@ function createAudioPreviewCard() {
 function isPromiseLike$1(value) {
   return Boolean(value && typeof value.then === "function");
 }
+function managedStorageOwner() {
+  const installed = detectInstalledReaderRuntime();
+  if (installed) return installed;
+  if (!getUserscriptGmStorage()) return "standalone";
+  return document.documentElement?.dataset.yomuStorageBridgeKind === "extension" ? "extension" : "userscript";
+}
+function asyncGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmGetValue();
+  if (direct) return direct;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
+}
+function legacyGmGetValue() {
+  return typeof GM_getValue === "function" ? GM_getValue : null;
+}
+function modernGmGetValue() {
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function asyncGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmSetValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmSetValue();
+}
+function directGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+}
+function legacyGmSetValue() {
+  return typeof GM_setValue === "function" ? GM_setValue : null;
+}
+function modernGmSetValue() {
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmSetValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
+}
+function bridgeGmSetValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmDeleteValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmDeleteValue();
+}
+function directGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+}
+function legacyGmDeleteValue() {
+  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+}
+function modernGmDeleteValue() {
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmDeleteValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key) => extension.remove(key) : null;
+}
+function bridgeGmDeleteValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
+}
+function asyncGmListValues() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmListValues();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmListValues();
+}
+function directGmListValues() {
+  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
+}
+function legacyGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const directListValues = globalThis.GM_listValues;
+  return typeof directListValues === "function" ? directListValues : null;
+}
+function modernGmListValues() {
+  const modern = globalThis.GM?.listValues;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmListValues() {
+  const extension = extensionStorageArea();
+  if (!extension) return null;
+  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+}
+function bridgeGmListValues() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  return extensionCapability((extension) => extension.storage?.local);
+}
+function extensionCapability(select2) {
+  const candidate = globalThis;
+  return activeExtensionCapability(candidate.browser, select2) ?? activeExtensionCapability(candidate.chrome, select2) ?? null;
+}
+function activeExtensionCapability(extension, select2) {
+  return extension?.runtime?.id ? select2(extension) : void 0;
+}
+function packagedExtensionStorageAdapterMissing() {
+  if (!isPackagedExtensionDocument()) return false;
+  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+}
+function isPackagedExtensionDocument() {
+  try {
+  const protocol = globalThis.location?.protocol ?? "";
+  return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+  } catch {
+  return false;
+  }
+}
+function rawExtensionStorageGetValue() {
+  const extension = extensionStorageArea();
+  return extension ? extensionStorageGetValue(extension) : null;
+}
+function extensionStorageGetValue(extension) {
+  return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
+}
+function extensionStorageChangedEvent() {
+  return extensionCapability((extension) => extension.storage?.onChanged);
+}
+function ownedDatabaseName(base) {
+  const owner = managedStorageOwner();
+  if (owner === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol)) return base;
+  return `${base}-${owner}-v2`;
+}
 const entries$1 = [];
 const registeredEntryIndexes = /* @__PURE__ */ new Map();
 let resetWritesSuppressed = false;
@@ -6662,6 +6834,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "app/managed-web-storage", kind: "session", key: "yomu:web-storage-epoch:v1:session" },
   { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-storage-slot:v1:" },
   { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-owner:v2:" },
+  { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
   { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
   { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
@@ -6682,6 +6856,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-userscript-v2" },
+  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-extension-v2" },
   // Bunpro vocab SRS-state index for page word colouring.
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   // Public lookup caches.
@@ -6693,6 +6869,8 @@ const MANAGED_STATE_MANIFEST = [
   // store's own deleteDatabase during reset; registered so the invariant test
   // asserts it and the reset sweep nets it as a fallback.
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
+  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-userscript-v2" },
+  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-extension-v2" },
   { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
   {
   owner: "dictionaries/archive-cache",
@@ -6738,10 +6916,14 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-userscript-v2" },
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-extension-v2" },
   { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
+  { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
   { owner: "newtab/controller-config", kind: "session", key: "jpdb-reader-newtab-current-word" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
@@ -6931,6 +7113,18 @@ async function managedGmValue(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   return read.kind === "found" ? read.value : fallback;
 }
+const OWNER_PREFIX = "yomu:web-owner:v2:";
+let selectedOwner;
+function selectOwner(owner) {
+  if (selectedOwner && selectedOwner !== owner) throw new Error("Managed web storage owner changed; reload to reconnect.");
+  selectedOwner = owner;
+}
+function ownedKey(key) {
+  return selectedOwner && selectedOwner !== "standalone" ? `${OWNER_PREFIX}${selectedOwner}:${key}` : key;
+}
+function belongsToOwner(key) {
+  return selectedOwner && selectedOwner !== "standalone" ? key.startsWith(`${OWNER_PREFIX}${selectedOwner}:`) : !key.startsWith(OWNER_PREFIX) && isManagedStorageKey(key);
+}
 const AREA_MARKER_KEYS = {
   local: "yomu:web-storage-epoch:v1:local",
   session: "yomu:web-storage-epoch:v1:session"
@@ -6942,7 +7136,8 @@ const PRESERVED_LOCAL_CONTROL_KEYS = /* @__PURE__ */ new Set([
 let certifiedEpoch;
 let reconciliation;
 let reconciliationToken;
-function ensureManagedWebStorageEpochCurrent(epoch) {
+function ensureManagedWebStorageEpochCurrent(epoch, owner = "standalone") {
+  selectOwner(owner);
   if (certifiedEpoch) {
   if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
     return Promise.reject(new Error("Managed web storage is already certified for another epoch."));
@@ -6960,13 +7155,14 @@ function ensureManagedWebStorageEpochCurrent(epoch) {
   return reconciliationToken === expectedToken ? reconciliation : Promise.reject(new Error("Managed web storage is reconciling another epoch."));
   }
   reconciliationToken = expectedToken;
-  reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch)).finally(() => {
+  reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch, owner)).finally(() => {
   reconciliation = void 0;
   reconciliationToken = void 0;
   });
   return reconciliation;
 }
-function ensureManagedWebStorageEpochCurrentSync(epoch) {
+function ensureManagedWebStorageEpochCurrentSync(epoch, owner = "standalone") {
+  selectOwner(owner);
   if (certifiedEpoch) {
   if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
     throw new Error("Managed web storage is already certified for another epoch.");
@@ -6986,7 +7182,7 @@ function ensureManagedWebStorageEpochCurrentSync(epoch) {
 }
 function reconcileArea(area, epoch) {
   const storage = storageArea(area);
-  const markerKey = AREA_MARKER_KEYS[area];
+  const markerKey = ownedKey(AREA_MARKER_KEYS[area]);
   const expectedToken = managedStateEpochToken(epoch);
   const marker = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
   if (marker === expectedToken) return;
@@ -7000,16 +7196,17 @@ function reconcileArea(area, epoch) {
   writeAndVerify(storage, markerKey, expectedToken, `${area}Storage epoch marker`);
 }
 function purgeManagedArea(storage, area) {
-  const preserved = area === "local" ? PRESERVED_LOCAL_CONTROL_KEYS : /* @__PURE__ */ new Set([AREA_MARKER_KEYS.session]);
+  const logicalPreserved = area === "local" ? PRESERVED_LOCAL_CONTROL_KEYS : /* @__PURE__ */ new Set([AREA_MARKER_KEYS.session]);
+  const preserved = new Set([...logicalPreserved].map(ownedKey));
   const keys = enumerateStorageKeys(storage, `${area}Storage`);
-  const managedKeys = keys.filter((key) => isManagedStorageKey(key) && !preserved.has(key));
+  const managedKeys = keys.filter((key) => belongsToOwner(key) && !preserved.has(key));
   for (const key of managedKeys) {
   removeStorageValue(storage, key, `${area}Storage key "${key}"`);
   if (readStorageValue(storage, key, `${area}Storage key "${key}"`) !== null) {
     throw new Error(`${area}Storage retained managed key "${key}".`);
   }
   }
-  const remaining = enumerateStorageKeys(storage, `${area}Storage`).filter((key) => isManagedStorageKey(key) && !preserved.has(key));
+  const remaining = enumerateStorageKeys(storage, `${area}Storage`).filter((key) => belongsToOwner(key) && !preserved.has(key));
   if (remaining.length) throw new Error(`${area}Storage retained managed keys: ${remaining.join(", ")}.`);
 }
 function enumerateStorageKeys(storage, label) {
@@ -7042,6 +7239,11 @@ function enumerateStorageKeys(storage, label) {
   return keys;
 }
 const managedLocalStorage = managedStorageFacade("local");
+function managedLocalStorageKeys() {
+  const { storage } = certifiedArea("local");
+  const prefix = ownedKey("");
+  return enumerateStorageKeys(storage, "localStorage").filter(belongsToOwner).map((key) => logicalManagedStorageKey(key.slice(prefix.length))).filter((key) => key !== null && managedLocalStorage.getItem(key) !== null);
+}
 function managedStorageFacade(area) {
   return {
   getItem(key) {
@@ -7082,15 +7284,15 @@ function certifiedArea(area) {
   return { storage: storageArea(area), epoch };
 }
 function assertAreaCertificate(area, epoch) {
-  const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+  const marker = readStorageValue(storageArea(area), ownedKey(AREA_MARKER_KEYS[area]), `${area}Storage epoch marker`);
   if (marker !== managedStateEpochToken(epoch)) {
   throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
   }
 }
 function physicalStorageKey(key, epoch) {
   assertManagedLogicalKey(key);
-  if (epoch.generation === 0) return key;
-  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+  if (epoch.generation === 0) return ownedKey(key);
+  return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`);
 }
 function assertManagedLogicalKey(key) {
   if (!isManagedStorageKey(key) || isManagedStorageSlotKey(key)) {
@@ -7319,183 +7521,7 @@ const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
 function isManagedStorageBackupKey(key) {
   return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
 }
-function isRecord$3(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-const HOSTED_LOCAL_SETTINGS_KEYS = [
-  "showFurigana",
-  "furiganaMode",
-  "showPitchAccent",
-  "wordUnderlineColorSource",
-  "subtitlePlayerEnabled",
-  "subtitleAutoDetect",
-  "subtitleOverlayVisible",
-  "subtitleControlsMode",
-  "subtitleTranscriptVisible",
-  "ocrEnabled",
-  "ocrVideoPauseFrames",
-  "ocrProvider",
-  "ocrOverlayTheme",
-  "preferJapaneseSiteLanguage"
-];
-function hasOwn(value, key) {
-  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
-}
-function objectRecord$2(value) {
-  return value && typeof value === "object" ? value : null;
-}
-function trimmedText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-function stringValue(value) {
-  return typeof value === "string" ? value : "";
-}
-function finiteNumber$1(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-function booleanValue(value, fallback) {
-  return typeof value === "boolean" ? value : fallback;
-}
-const SETTINGS_INTENT_LEDGER_STORAGE_KEY$1 = "yomu:settings-intent:v2";
-const NO_EXPLICIT_USER_CHOICE = [];
-const CHOSEN_SUFFIX = "Chosen";
-function coupledIntentKeys(keys, known) {
-  const expanded = new Set(keys);
-  for (const key of keys) {
-  const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
-  if (known(sibling)) expanded.add(sibling);
-  }
-  return [...expanded];
-}
-function parseSettingsIntentLedger(value) {
-  const record2 = objectRecord$1(value);
-  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
-  const records = objectRecord$1(record2.records);
-  if (!records) return null;
-  const parsed = {};
-  for (const [key, entry] of Object.entries(records)) {
-  const item = objectRecord$1(entry);
-  if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
-  const seq = item.seq;
-  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
-  }
-  return { revision: record2.revision, records: parsed };
-}
-function objectRecord$1(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function recordSettingsIntent(ledger, keys, settings) {
-  if (!keys.length) return ledger;
-  const records = { ...ledger.records };
-  let revision2 = ledger.revision;
-  for (const key of keys) {
-  if (!hasOwn(settings, key)) continue;
-  const value = settings[key];
-  records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
-  }
-  return revision2 === ledger.revision ? ledger : { revision: revision2, records };
-}
-function clearSettingsIntent(ledger, keys) {
-  const cleared = keys.filter((key) => hasOwn(ledger.records, key));
-  if (!cleared.length) return ledger;
-  const records = { ...ledger.records };
-  for (const key of cleared) delete records[key];
-  return { revision: ledger.revision + 1, records };
-}
-function applySettingsIntent(settings, ledger) {
-  const keys = Object.keys(ledger.records);
-  if (!keys.length) return settings;
-  const next = { ...settings };
-  let changed = false;
-  for (const key of keys) {
-  const record2 = ledger.records[key];
-  if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
-  if (sameSettingsValue(next[key], record2.value)) continue;
-  next[key] = record2.value;
-  changed = true;
-  }
-  return changed ? next : settings;
-}
-function isSubstitutableSettingValue(value) {
-  return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
-}
-function settingsIntentKeys(ledger) {
-  return Object.keys(ledger.records);
-}
-function sameSettingsValue(left, right) {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
-const TRANSACTION_FIELD$1 = "__yomuSettingsPersistenceTransactionV1";
-const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
-function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
-  const marker = transactionMarker(storedSettings);
-  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
-  return matchingCommittedPair(settings, intentLedger);
-}
-function matchingCommittedPair(settings, intentLedger) {
-  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
-  const settingsId = commitId(settings);
-  const ledgerId = commitId(intentLedger);
-  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
-}
-function commitId(value) {
-  const record2 = objectRecord$2(value);
-  if (!record2) return void 0;
-  return recordCommitId(record2);
-}
-function recordCommitId(record2) {
-  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
-  const id = record2[COMMIT_FIELD];
-  return typeof id === "string" && id ? id : null;
-}
-function withCommit(value, id) {
-  return { ...value, [COMMIT_FIELD]: id };
-}
-function withoutCommit(value) {
-  const record2 = objectRecord$2(value);
-  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
-  const clean = { ...record2 };
-  delete clean[COMMIT_FIELD];
-  return clean;
-}
-function transactionMarker(value) {
-  const owner = objectRecord$2(value);
-  const marker = owner && objectRecord$2(owner[TRANSACTION_FIELD$1]);
-  if (!marker) return null;
-  return validatedTransactionMarker(marker);
-}
-function validatedTransactionMarker(marker) {
-  if (marker.version !== 1) return null;
-  const settings = serializedSnapshot(marker.settings);
-  const intentLedger = serializedSnapshot(marker.intentLedger);
-  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
-}
-function serializedSnapshot(value) {
-  const record2 = objectRecord$2(value);
-  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
-  existed: record2.existed,
-  previousValue: record2.previousValue,
-  localFallbackExisted: record2.localFallbackExisted,
-  localFallbackValue: record2.localFallbackValue
-  } : null;
-}
-function snapshotValue(snapshot) {
-  return snapshot.existed ? snapshot.previousValue : null;
-}
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
-const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
-const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
-const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
-const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
-  HOSTED_SETTINGS_BLOB_KEY,
-  "yomu:explicit-user-settings:v1"
-]);
-const HOSTED_SETTINGS_COORDINATION_FIELDS = [
-  HOSTED_SETTINGS_TRANSACTION_FIELD,
-  HOSTED_SETTINGS_COMMIT_FIELD
-];
 function isHostedSettingsStorageKey(key) {
   return key === HOSTED_SETTINGS_BLOB_KEY;
 }
@@ -7517,85 +7543,6 @@ function isHostedGithubPagesLocation(hostname, pathname) {
 function isHostedLocalDevelopmentLocation(origin, pathname) {
   if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
   return pathname.includes("/study/") || pathname.includes("/newtab/");
-}
-function hostedStoragePromotionValue(key, value, hostedOrigin) {
-  const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
-  return isRecord$3(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
-}
-function pendingHostedSettingsPatch(key, localValue, hostedOrigin) {
-  const localSettings = rawHostedSettingsRecord(key, localValue, hostedOrigin);
-  if (!localSettings) return void 0;
-  const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  if (!isRecord$3(patch)) return void 0;
-  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
-  const pending2 = withoutSettingsCoordination(sanitized);
-  return Object.keys(pending2).length ? pending2 : void 0;
-}
-function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious, readIntent) {
-  const current = sanitizedHostedSettingsRecord(key, value, hostedOrigin);
-  if (!current) return value;
-  const previousValue = readPrevious();
-  if (Object.hasOwn(current, HOSTED_SETTINGS_TRANSACTION_FIELD)) return value;
-  if (Object.hasOwn(current, HOSTED_SETTINGS_COMMIT_FIELD)) {
-  const intent = readIntent();
-  const ledger = parseSettingsIntentLedger(intent);
-  if (!ledger || !commitId(current) || !committedSettingsStoragePair(current, intent)) {
-    throw new Error("Hosted settings publication requires a matching intent ledger.");
-  }
-  const marker = transactionMarker(previousValue);
-  if (!marker) throw new Error("Hosted settings publication requires a valid prior transaction marker.");
-  const previousIntent = snapshotValue(marker.intentLedger);
-  const previousLedger = previousIntent == null ? { records: {} } : parseSettingsIntentLedger(previousIntent);
-  if (!previousLedger) throw new Error("Hosted settings transaction has invalid previous intent.");
-  const snapshot = snapshotValue(marker.settings);
-  const patch = earlierHostedPatch(snapshot);
-  for (const key2 of Object.keys(patch)) {
-    if (!Object.hasOwn(ledger.records, key2) || !Object.hasOwn(current, key2)) delete patch[key2];
-    else patch[key2] = current[key2];
-  }
-  for (const [key2, record2] of Object.entries(ledger.records)) {
-    if (record2.seq === previousLedger?.records[key2]?.seq || !Object.hasOwn(current, key2)) continue;
-    patch[key2] = current[key2];
-  }
-  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
-  return { ...current, [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: withoutSettingsCoordination(sanitized) };
-  }
-  return current;
-}
-function sanitizedHostedStorageValue(key, value, hostedOrigin) {
-  if (!hostedOrigin || !isRecord$3(value)) return value;
-  const record2 = { ...value };
-  const policy = hostedPolicyRecord(key, record2);
-  if (!policy) return value;
-  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
-  return record2;
-}
-function hostedPolicyRecord(key, record2) {
-  if (key === HOSTED_SETTINGS_INTENT_KEY) return hostedIntentRecords(record2);
-  return HOSTED_ROOT_POLICY_KEYS.has(key) ? record2 : null;
-}
-function hostedIntentRecords(record2) {
-  if (!isRecord$3(record2.records)) return null;
-  return record2.records = { ...record2.records };
-}
-function rawHostedSettingsRecord(key, value, hostedOrigin) {
-  if (!hostedOrigin || !isHostedSettingsStorageKey(key)) return null;
-  return isRecord$3(value) ? value : null;
-}
-function sanitizedHostedSettingsRecord(key, value, hostedOrigin) {
-  const record2 = rawHostedSettingsRecord(key, value, hostedOrigin);
-  return record2 ? sanitizedHostedStorageValue(key, record2, hostedOrigin) : null;
-}
-function earlierHostedPatch(value) {
-  if (!isRecord$3(value)) return {};
-  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  return isRecord$3(patch) ? withoutSettingsCoordination(patch) : {};
-}
-function withoutSettingsCoordination(record2) {
-  const clean = { ...record2 };
-  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field) => delete clean[field]);
-  return clean;
 }
 function localStorageGet(key, fallback) {
   try {
@@ -7652,18 +7599,21 @@ const RETIRED_SETTINGS_STORAGE_KEYS = [
   "yomu-settings",
   "yomu:explicit-user-settings:v1"
 ];
-const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY$1 = "yomu:settings-intent:v2";
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1 = "yomu:prefer-japanese-site-language:v1";
 const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
 const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
   SETTINGS_STORAGE_KEY,
   ...RETIRED_SETTINGS_STORAGE_KEYS,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY$1,
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1,
   PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
 ]);
 function isSettingsAuthorityStorageKey(key) {
   return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
+}
+function isRecord$3(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
@@ -7715,13 +7665,6 @@ function writeLocalManagedValueOrThrow(key, value, epoch) {
   throw error;
   }
 }
-function mirrorLocalManagedValue(key, value, epoch, onFailure) {
-  try {
-  writeLocalManagedValueOrThrow(key, value, epoch);
-  } catch (error) {
-  onFailure(error);
-  }
-}
 function removeLocalManagedValue(key) {
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
@@ -7731,15 +7674,6 @@ function restoreLocalFallbackStoredValueAtEpoch(key, value, existed, epoch) {
   if (!existed) return removeLocalManagedValue(key);
   if (!epoch) throw storageWriteError(key, "Managed storage cannot restore its localStorage fallback");
   writeLocalManagedValueOrThrow(key, value, epoch);
-}
-function cacheManagedStateEpochForLocalFallback(epoch) {
-  if (epoch.generation <= 0) return removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
-  try {
-  const cached = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
-  if (sameManagedStateEpoch(cached, epoch)) return;
-  } catch {
-  }
-  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
 }
 function localMirrorBelongsToEpoch(key, epoch) {
   const serialized = recoverableSerializedValue(key);
@@ -8040,140 +7974,6 @@ function managedStoredValuesMatch(left, right) {
 function managedWriteConflict(key, label) {
   return new Error(`${label} "${key}" changed after staging; rollback left the newer value intact.`);
 }
-function asyncGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmGetValue();
-  if (direct) return direct;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-}
-function directGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
-}
-function legacyGmGetValue() {
-  return typeof GM_getValue === "function" ? GM_getValue : null;
-}
-function modernGmGetValue() {
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function asyncGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmSetValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmSetValue();
-}
-function directGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
-}
-function legacyGmSetValue() {
-  return typeof GM_setValue === "function" ? GM_setValue : null;
-}
-function modernGmSetValue() {
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmSetValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key, value) => extension.set({ [key]: value }) : null;
-}
-function bridgeGmSetValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, value) => bridge.setValue(key, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmDeleteValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmDeleteValue();
-}
-function directGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
-}
-function legacyGmDeleteValue() {
-  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
-}
-function modernGmDeleteValue() {
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmDeleteValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key) => extension.remove(key) : null;
-}
-function bridgeGmDeleteValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key) => bridge.deleteValue(key) : null;
-}
-function asyncGmListValues() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmListValues();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmListValues();
-}
-function directGmListValues() {
-  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
-}
-function legacyGmListValues() {
-  if (typeof GM_listValues === "function") return GM_listValues;
-  const directListValues = globalThis.GM_listValues;
-  return typeof directListValues === "function" ? directListValues : null;
-}
-function modernGmListValues() {
-  const modern = globalThis.GM?.listValues;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmListValues() {
-  const extension = extensionStorageArea();
-  if (!extension) return null;
-  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-}
-function bridgeGmListValues() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? () => bridge.listValues() : null;
-}
-function extensionStorageArea() {
-  return extensionCapability((extension) => extension.storage?.local);
-}
-function extensionCapability(select2) {
-  const candidate = globalThis;
-  return activeExtensionCapability(candidate.browser, select2) ?? activeExtensionCapability(candidate.chrome, select2) ?? null;
-}
-function activeExtensionCapability(extension, select2) {
-  return extension?.runtime?.id ? select2(extension) : void 0;
-}
-function packagedExtensionStorageAdapterMissing() {
-  if (!isPackagedExtensionDocument()) return false;
-  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
-  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
-}
-function isPackagedExtensionDocument() {
-  try {
-  const protocol = globalThis.location?.protocol ?? "";
-  return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
-  } catch {
-  return false;
-  }
-}
-function rawExtensionStorageGetValue() {
-  const extension = extensionStorageArea();
-  return extension ? extensionStorageGetValue(extension) : null;
-}
-function extensionStorageGetValue(extension) {
-  return async (key, fallback) => {
-  const value = (await extension.get(key))[key];
-  return value === void 0 ? fallback : value;
-  };
-}
-function extensionStorageChangedEvent() {
-  return extensionCapability((extension) => extension.storage?.onChanged);
-}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
 const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
@@ -8195,7 +7995,6 @@ async function assertRealmManagedStateEpoch(getValue) {
   return epoch2.generation === 0 ? void 0 : epoch2;
   } : async () => localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0);
   const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
-  if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
   return epoch;
 }
 async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
@@ -8233,7 +8032,6 @@ function managedStateEpochFromSynchronousGetter(getValue) {
   }
   const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
   managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
-  cacheManagedStateEpochForLocalFallback(shared2);
   return shared2;
 }
 function managedStateEpochForSynchronousLocalRead() {
@@ -8253,9 +8051,6 @@ function managedStateEpochForSynchronousLocalRead() {
   return null;
   }
 }
-function hasAsyncGmStorageBackend() {
-  return asyncGmGetValue() !== null;
-}
 async function assertManagedStateMutationAllowed() {
   const getValue = asyncGmGetValue();
   const epoch = await assertRealmManagedStateEpoch(getValue);
@@ -8265,7 +8060,7 @@ async function assertManagedStateMutationAllowed() {
 const assertManagedStateReadAllowed = () => assertRealmManagedStateEpoch(asyncGmGetValue());
 async function ensureManagedWebStorageCurrent() {
   const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
-  await ensureManagedWebStorageEpochCurrent(epoch);
+  await ensureManagedWebStorageEpochCurrent(epoch, managedStorageOwner());
 }
 function localFallbackStoredValue(key, fallback) {
   const epoch = managedStateEpochForSynchronousLocalRead();
@@ -8283,7 +8078,7 @@ async function gmStorageGet(key, fallback) {
   epoch = await assertRealmManagedStateEpoch(getValue);
   return await sharedManagedValue(getValue, key, fallback, epoch);
   } catch (error) {
-  return failedManagedReadValue(error, key, fallback, epoch);
+  return failedManagedReadValue(error, key, fallback);
   }
 }
 async function gmStorageGetStrict(key, fallback) {
@@ -8319,13 +8114,13 @@ async function gmStorageGetMany(keys, fallback) {
   try {
   passEpoch = await assertRealmManagedStateEpoch(getValue);
   } catch (error) {
-  return keys.map((key) => failedManagedReadValue(error, key, fallback, void 0));
+  return keys.map((key) => failedManagedReadValue(error, key, fallback));
   }
   return Promise.all(keys.map(async (key) => {
   try {
     return await sharedManagedValue(getValue, key, fallback, passEpoch);
   } catch (error) {
-    return failedManagedReadValue(error, key, fallback, passEpoch);
+    return failedManagedReadValue(error, key, fallback);
   }
   }));
 }
@@ -8338,25 +8133,11 @@ async function sharedManagedValue(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
-  return promoteLocalManagedValue(key, fallback, epoch);
-}
-async function promoteLocalManagedValue(key, fallback, epoch) {
-  if (isSettingsAuthorityStorageKey(key)) return fallback;
-  const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
-  if (!isMissingSentinel(migrated)) {
-  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
-  await gmStorageSet(key, promoted);
-  return promoted;
-  }
   return fallback;
 }
-function failedManagedReadValue(error, key, fallback, epoch) {
+function failedManagedReadValue(error, key, fallback) {
   if (isStaleManagedStateEpochError(error)) throw error;
   debugStorageError("GM storage read failed", key, error);
-  if (isSettingsAuthorityStorageKey(key)) return fallback;
-  if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
-  return localStorageGet(key, fallback);
-  }
   return fallback;
 }
 function localOnlyManagedValue(key, fallback, epoch) {
@@ -8432,7 +8213,7 @@ function gmStorageGetSync(key, fallback) {
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   }
-  if (isSettingsAuthorityStorageKey(key) && asyncGmGetValue()) return fallback;
+  if (asyncGmGetValue()) return fallback;
   epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
@@ -8453,70 +8234,32 @@ function gmStorageSyncRead(key, getValue, epoch) {
     if (isMissingSentinel(value)) return { kind: "deleted" };
     return { kind: "found", value };
   }
-  return migratedLocalStorageSyncValue(key, epoch);
+  return { kind: "fallback" };
   } catch (error) {
   debugStorageError("GM storage sync read failed", key, error);
   return { kind: "fallback" };
   }
 }
-function migratedLocalStorageSyncValue(key, epoch) {
-  if (isSettingsAuthorityStorageKey(key)) return { kind: "fallback" };
-  if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
-  const migrated = localStorageGet(key, MISSING);
-  if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
-  void gmStorageSet(key, promoted);
-  return { kind: "found", value: promoted };
-}
-function localFallbackValueForWrite(key, value) {
-  if (!isHostedSettingsStorageKey(key)) return value;
-  return hostedSettingsLocalFallbackValue(
-  key,
-  value,
-  isHostedYomuOrigin(),
-  () => localStorageGet(key, void 0),
-  () => localStorageGet("yomu:settings-intent:v2", void 0)
-  );
-}
-async function gmStorageSet(key, value, options = {}) {
+async function gmStorageSet(key, value) {
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
+  if (setValue) return setSharedManagedValue(key, value, getValue, setValue);
+  if (getValue) throw storageWriteError(key, "Installed storage has no writer");
   if (packagedExtensionStorageAdapterMissing()) {
   throw storageWriteError(key, "Packaged Study storage adapter is unavailable");
   }
   const epoch = await assertRealmManagedStateEpoch(null);
-  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+  writeLocalManagedValueOrThrow(key, value, epoch);
 }
-async function setSharedManagedValue(key, value, options, getValue, setValue) {
+async function setSharedManagedValue(key, value, getValue, setValue) {
   let epoch;
   try {
   if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
   epoch = await assertRealmManagedStateEpoch(getValue);
   await writeManagedGmValue(key, value, epoch, getValue, setValue);
-  mirrorManagedValueToHostedStorage(key, value, epoch);
   } catch (error) {
-  await handleSharedManagedWriteFailure(key, value, options, error, epoch);
-  }
-}
-async function handleSharedManagedWriteFailure(key, value, options, error, epoch) {
   if (isStaleManagedStateEpochError(error)) throw error;
-  debugStorageError("GM storage write failed", key, error);
-  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
   throw storageWriteError(key, "GM storage write failed", error);
-  }
-  await writeFailedManagedValueFallback(key, value, error, epoch);
-  throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-}
-async function writeFailedManagedValueFallback(key, value, error, epoch) {
-  if (packagedExtensionStorageAdapterMissing()) {
-  throw storageWriteError(key, "Packaged Study storage adapter rejected the authoritative write", error);
-  }
-  try {
-  const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
-  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
-  } catch (fallbackError) {
-  throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
   }
 }
 async function gmPrivateStorageSet(key, value) {
@@ -8556,13 +8299,11 @@ function gmStorageSetSync(key, value) {
     if (isPromiseLike$1(result)) {
       void result.then(async () => {
         await assertRealmManagedStateEpoch(getValue);
-        mirrorManagedValueToHostedStorage(key, value, epoch);
       }).catch((error) => debugStorageError("GM storage async write failed", key, error));
       return;
     }
     const after = managedStateEpochFromSynchronousGetter(getValue);
     if (!after || !sameManagedStateEpoch(epoch, after)) return;
-    mirrorManagedValueToHostedStorage(key, value, epoch);
     return;
   } catch (error) {
     if (isStaleManagedStateEpochError(error)) {
@@ -8570,16 +8311,18 @@ function gmStorageSetSync(key, value) {
       return;
     }
     debugStorageError("GM storage sync write failed", key, error);
+    return;
   }
   }
   if ((!getValue || !setValue) && asyncGmSetValue()) {
   void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
   return;
   }
+  if (asyncGmGetValue()) return;
   try {
   epoch ??= managedStateEpochForSynchronousLocalRead();
   if (!epoch) return;
-  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+  writeLocalManagedValueOrThrow(key, value, epoch);
   } catch (error) {
   debugStorageError("localStorage sync write failed", key, error);
   }
@@ -8607,6 +8350,7 @@ async function gmStorageDelete(key) {
   } else {
   await assertRealmManagedStateEpoch(null);
   }
+  if (getValue) return;
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
   removeLocalMirrorProvenance(key);
@@ -8657,13 +8401,11 @@ function gmStorageDeleteSync(key) {
     if (isPromiseLike$1(result)) {
       void result.then(async () => {
         await assertRealmManagedStateEpoch(getValue);
-        removeLocalManagedValue(key);
       }).catch((error) => debugStorageError("GM storage async delete failed", key, error));
       return;
     }
     const after = managedStateEpochFromSynchronousGetter(getValue);
     if (!after || !sameManagedStateEpoch(epoch, after)) return;
-    removeLocalManagedValue(key);
     return;
   } catch (error) {
     debugStorageError("GM storage sync delete failed", key, error);
@@ -8674,6 +8416,7 @@ function gmStorageDeleteSync(key) {
   void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
   return;
   }
+  if (asyncGmGetValue()) return;
   try {
   if (!managedStateEpochForSynchronousLocalRead()) return;
   removeLocalManagedValue(key);
@@ -8719,11 +8462,7 @@ async function beginStoredValuesImport(values) {
 }
 const MANAGED_WRITE_STORAGE = {
   readAuthority: readManagedStoredValueAuthority,
-  writeAuthority: (key, value, preserveLocalFallback) => gmStorageSet(
-  key,
-  value,
-  preserveLocalFallback ? { localFallbackOnAuthoritativeFailure: "preserve" } : {}
-  ),
+  writeAuthority: (key, value) => gmStorageSet(key, value),
   restoreAuthority: (key, target) => restoreManagedStoredValueAuthority(key, target.value, target.existed),
   readLocalTarget: (key) => managedStoredValueState(localFallbackStoredValue(key, MISSING)),
   restoreLocalTarget: (key, target) => restoreLocalFallbackStoredValue(key, target.value, target.existed)
@@ -8979,12 +8718,7 @@ async function addPrefixedGmStorageKeys(keys, prefixes) {
 }
 function addLocalStorageKeys(keys, prefixes) {
   try {
-  const candidates = [];
-  for (let index = 0; index < localStorage.length; index++) {
-    const key = localStorage.key(index);
-    if (key) candidates.push(key);
-  }
-  addMatchingStorageKeys(keys, candidates, prefixes);
+  addMatchingStorageKeys(keys, managedLocalStorageKeys(), prefixes);
   } catch {
   }
 }
@@ -9018,17 +8752,8 @@ async function storedValueExists(key) {
   const epoch = managedStateEpochForSynchronousLocalRead();
   return Boolean(epoch && localMirrorBelongsToEpoch(key, epoch) && (webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key)));
 }
-function mirrorManagedValueToHostedStorage(key, value, epoch) {
-  if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-  mirrorLocalManagedValue(key, value, epoch, (error) => {
-  debugStorageError("Hosted localStorage mirror failed", key, error);
-  });
-}
 function restoreLocalFallbackStoredValue(key, value, existed) {
   restoreLocalFallbackStoredValueAtEpoch(key, value, existed, managedStateEpochForSynchronousLocalRead());
-}
-function shouldMirrorManagedValueToHostedStorage(key) {
-  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
 }
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
@@ -10132,6 +9857,25 @@ const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
   DEFAULT_ACCENT_COLOR,
   DEFAULT_OCR_BACKGROUND_OPACITY
 );
+function hasOwn(value, key) {
+  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+function objectRecord$2(value) {
+  return value && typeof value === "object" ? value : null;
+}
+function trimmedText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function stringValue(value) {
+  return typeof value === "string" ? value : "";
+}
+function finiteNumber$1(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+function booleanValue(value, fallback) {
+  return typeof value === "boolean" ? value : fallback;
+}
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
@@ -15351,6 +15095,75 @@ function inferDictionaryTypeFromName(name) {
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
 }
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const NO_EXPLICIT_USER_CHOICE = [];
+const CHOSEN_SUFFIX = "Chosen";
+function coupledIntentKeys(keys, known) {
+  const expanded = new Set(keys);
+  for (const key of keys) {
+  const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+  if (known(sibling)) expanded.add(sibling);
+  }
+  return [...expanded];
+}
+function parseSettingsIntentLedger(value) {
+  const record2 = objectRecord$1(value);
+  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
+  const records = objectRecord$1(record2.records);
+  if (!records) return null;
+  const parsed = {};
+  for (const [key, entry] of Object.entries(records)) {
+  const item = objectRecord$1(entry);
+  if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
+  const seq = item.seq;
+  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+  }
+  return { revision: record2.revision, records: parsed };
+}
+function objectRecord$1(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function recordSettingsIntent(ledger, keys, settings) {
+  if (!keys.length) return ledger;
+  const records = { ...ledger.records };
+  let revision2 = ledger.revision;
+  for (const key of keys) {
+  if (!hasOwn(settings, key)) continue;
+  const value = settings[key];
+  records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
+  }
+  return revision2 === ledger.revision ? ledger : { revision: revision2, records };
+}
+function clearSettingsIntent(ledger, keys) {
+  const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+  if (!cleared.length) return ledger;
+  const records = { ...ledger.records };
+  for (const key of cleared) delete records[key];
+  return { revision: ledger.revision + 1, records };
+}
+function applySettingsIntent(settings, ledger) {
+  const keys = Object.keys(ledger.records);
+  if (!keys.length) return settings;
+  const next = { ...settings };
+  let changed = false;
+  for (const key of keys) {
+  const record2 = ledger.records[key];
+  if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+  if (sameSettingsValue(next[key], record2.value)) continue;
+  next[key] = record2.value;
+  changed = true;
+  }
+  return changed ? next : settings;
+}
+function isSubstitutableSettingValue(value) {
+  return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+function settingsIntentKeys(ledger) {
+  return Object.keys(ledger.records);
+}
+function sameSettingsValue(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
 function createDefaultSubtitleSettings(fontFamily) {
   return {
   subtitlePlayerEnabled: true,
@@ -15486,34 +15299,68 @@ function normalizedInterfaceLanguage(value, fallback) {
 function isInterfaceLanguage(value) {
   return value === "auto" || value === "en" || value === "ja";
 }
+const TRANSACTION_FIELD$1 = "__yomuSettingsPersistenceTransactionV1";
+const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+  const marker = transactionMarker(storedSettings);
+  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
+  return matchingCommittedPair(settings, intentLedger);
+}
+function matchingCommittedPair(settings, intentLedger) {
+  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
+  const settingsId = commitId(settings);
+  const ledgerId = commitId(intentLedger);
+  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+}
+function commitId(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2) return void 0;
+  return recordCommitId(record2);
+}
+function recordCommitId(record2) {
+  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
+  const id = record2[COMMIT_FIELD];
+  return typeof id === "string" && id ? id : null;
+}
+function withCommit(value, id) {
+  return { ...value, [COMMIT_FIELD]: id };
+}
+function withoutCommit(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
+  const clean = { ...record2 };
+  delete clean[COMMIT_FIELD];
+  return clean;
+}
+function transactionMarker(value) {
+  const owner = objectRecord$2(value);
+  const marker = owner && objectRecord$2(owner[TRANSACTION_FIELD$1]);
+  if (!marker) return null;
+  return validatedTransactionMarker(marker);
+}
+function validatedTransactionMarker(marker) {
+  if (marker.version !== 1) return null;
+  const settings = serializedSnapshot(marker.settings);
+  const intentLedger = serializedSnapshot(marker.intentLedger);
+  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
+}
+function serializedSnapshot(value) {
+  const record2 = objectRecord$2(value);
+  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
+  existed: record2.existed,
+  previousValue: record2.previousValue,
+  localFallbackExisted: record2.localFallbackExisted,
+  localFallbackValue: record2.localFallbackValue
+  } : null;
+}
+function snapshotValue(snapshot) {
+  return snapshot.existed ? snapshot.previousValue : null;
+}
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
 class InvalidSettingsBackupAuthorityError extends Error {
   name = "InvalidSettingsBackupAuthorityError";
   yomuUiCopyKey = "settingsImportIncomplete";
-}
-async function reconcileHostedSettingsChoices() {
-  if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return;
-  await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-  const settings = localFallbackStoredValue(SETTINGS_STORAGE_KEY, null);
-  const patch = pendingHostedSettingsPatch(SETTINGS_STORAGE_KEY, settings, true);
-  if (!patch) return;
-  const ledger = localFallbackStoredValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, null);
-  const local = await readBackupSettingsPersistenceView({
-    [SETTINGS_STORAGE_KEY]: settings,
-    [SETTINGS_INTENT_LEDGER_STORAGE_KEY$1]: ledger
-  });
-  if (!local || !objectRecord(local.settings)) throw new Error("Pending settings have no witnessed authority.");
-  for (const key of Object.keys(patch)) {
-    if (!Object.hasOwn(local.intentLedger.records, key) || !valuesMatch(patch[key], local.settings[key])) {
-      throw new Error("Pending settings do not match declared local choices.");
-    }
-  }
-  const shared2 = await readSettingsPersistenceViewStrictFrom(gmStorageGetSharedStrict);
-  const merged = { ...objectRecord(shared2.settings) ?? {}, ...patch };
-  const next = recordSettingsIntent(shared2.intentLedger, Object.keys(patch), merged);
-  await persistSettingsStorageTransaction(next, applySettingsIntent(merged, next));
-  });
 }
 function readSettingsPersistenceViewStrict() {
   return readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
@@ -15522,7 +15369,7 @@ function serializeSettingsPersistencePair(settings, intentLedger) {
   const commit = createStorageCoordinationId();
   return {
   [SETTINGS_STORAGE_KEY]: withCommit(settings, commit),
-  [SETTINGS_INTENT_LEDGER_STORAGE_KEY$1]: withCommit(intentLedger, commit)
+  [SETTINGS_INTENT_LEDGER_STORAGE_KEY]: withCommit(intentLedger, commit)
   };
 }
 async function readSettingsPersistenceViewStrictFrom(read) {
@@ -15539,8 +15386,8 @@ async function stableSettingsPersistenceView(read) {
 }
 async function sampledSettingsView(read) {
   const beforeSettings = await read(SETTINGS_STORAGE_KEY, null);
-  const beforeLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, null);
-  const afterLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, null);
+  const beforeLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
+  const afterLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
   const afterSettings = await read(SETTINGS_STORAGE_KEY, null);
   if (!sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger)) return null;
   const committed = committedSettingsStoragePair(afterSettings, afterLedger);
@@ -15564,7 +15411,7 @@ function backupAuthority(values) {
   const record2 = objectRecord(values);
   if (!record2) return null;
   const hasSettings = Object.hasOwn(record2, SETTINGS_STORAGE_KEY);
-  const hasIntentLedger = Object.hasOwn(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY$1);
+  const hasIntentLedger = Object.hasOwn(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
   if (!hasSettings && !hasIntentLedger) return null;
   validateBackupAuthority(record2);
   return record2;
@@ -15576,7 +15423,7 @@ function validateBackupAuthority(record2) {
     "Settings backup contains a malformed canonical settings value."
   );
   }
-  const ledger = record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY$1];
+  const ledger = record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY];
   if (!parseSettingsIntentLedger(ledger)) {
   throw new InvalidSettingsBackupAuthorityError(
     "Settings backup contains a malformed settings intent ledger."
@@ -15608,10 +15455,10 @@ async function storageSnapshots(journal) {
   if (!marker) {
   return {
     settings: rawSettings,
-    intentLedger: storageSnapshot(await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1))
+    intentLedger: storageSnapshot(await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY))
   };
   }
-  const intentReceipt = await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1);
+  const intentReceipt = await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
   const settings = markerSnapshot(settingsReceipt, marker.settings);
   const intentLedger = markerSnapshot(intentReceipt, marker.intentLedger);
   journal.adoptInterrupted(
@@ -15679,9 +15526,6 @@ function valuesMatch(left, right) {
 }
 function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function isHostedReaderRuntime() {
-  return document.documentElement?.dataset.yomuHosted !== void 0;
 }
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
@@ -16733,7 +16577,6 @@ async function saveSettings(settings, options) {
   const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
   try {
   const normalizedSettings = mergeSettings(settings);
-  await reconcileHostedSettingsChoices();
   await persistSettingsWithIntent(normalizedSettings, intent);
   } catch (error) {
   log$c.warn("Settings save failed", { error });
@@ -54917,7 +54760,7 @@ async function exportSettingsBackupSnapshot(fallbackSettings) {
   for (const key of RETIRED_SETTINGS_STORAGE_KEYS) delete storage[key];
   const view = await readSettingsPersistenceViewStrict();
   if (!isRecord$3(view.settings)) {
-  if (Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY$1)) {
+  if (Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY)) {
     throw new Error("Could not capture canonical settings for backup.");
   }
   return structuredClone({ settings: normalizeReaderSettings(fallbackSettings), storage });
@@ -61333,6 +61176,12 @@ function requestPublishedCatalog(url) {
   timeoutMs: 15e3
   });
 }
+function yomitanDatabaseName() {
+  return ownedDatabaseName("jpdb-popup-reader-yomitan");
+}
+function assertYomitanStorageOwner(databaseName) {
+  if (databaseName !== yomitanDatabaseName()) throw new Error("Dictionary storage owner changed; reload to reconnect.");
+}
 Logger.scope("DictionaryReplicaPurge");
 const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
 const STATE_STORE = "managedState";
@@ -61783,6 +61632,7 @@ function normalizeStoredCard(value) {
   ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
   tags: stringArray(value.tags),
   dueAt: finiteNumber(value.dueAt, createdAt),
+  ...value.reviewEnabled === false ? { reviewEnabled: false } : {},
   lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
   createdAt,
   updatedAt,
@@ -61801,6 +61651,9 @@ function storedCardIdentity(card) {
   });
 }
 function preferredSchedule(left, right) {
+  if (left.reviewEnabled === false !== (right.reviewEnabled === false)) {
+  return left.reviewEnabled === false ? right : left;
+  }
   if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
   const leftReviewed = left.lastReviewAt ?? -1;
   const rightReviewed = right.lastReviewAt ?? -1;
@@ -62052,10 +61905,15 @@ class LocalYomuSrsRepository {
     };
   });
   }
+  async collection(limit = 50, options = {}) {
+  const now = this.now();
+  const language2 = options.language ? canonicalLanguageTag(options.language) : "";
+  return Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
+  }
   async queue(limit = 50, options = {}) {
   const now = this.now();
   const language2 = options.language ? canonicalLanguageTag(options.language) : "";
-  const cards = Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
+  const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
   const cap = normalizedQueueLimit(limit);
   const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
   const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -62073,7 +61931,7 @@ class LocalYomuSrsRepository {
   }
   async stats() {
   const now = this.now();
-  const cards = Object.values((await this.readDeck()).cards);
+  const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false);
   const today = startOfLocalDay(now);
   return {
     providerId: "yomu-local",
@@ -62119,6 +61977,19 @@ class LocalYomuSrsRepository {
   }
   return [...cards.values()];
   }
+  async startReview(cardId) {
+  return this.mutateDeck((deck) => {
+    const card = deck.cards[cardId];
+    if (!card) throw new Error("Saved word not found.");
+    const now = this.now();
+    if (card.reviewEnabled === false) {
+      delete card.reviewEnabled;
+      card.dueAt = now;
+      card.updatedAt = now;
+    }
+    return this.toReviewable(card, now);
+  });
+  }
   async review(request) {
   return this.mutateDeck((deck) => {
     const now = this.now();
@@ -62127,6 +61998,7 @@ class LocalYomuSrsRepository {
       language: request.card.language
     });
     const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
+    if (existing.reviewEnabled === false) throw new Error("Saved word is not enrolled in review.");
     const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
     if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
       delete deck.cards[request.card.providerCardId];
@@ -62150,8 +62022,18 @@ class LocalYomuSrsRepository {
       sourceUrl: request.sourceUrl
     }, now);
     if (!candidate) throw new TypeError("Vocabulary expression is required.");
+    candidate.reviewEnabled = false;
     const existing = deck.cards[candidate.id];
-    const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
+    const stored = existing ? {
+      ...mergeStoredYomuSrsCards(existing, candidate),
+      dueAt: existing.dueAt,
+      lastReviewAt: existing.lastReviewAt,
+      reviews: existing.reviews,
+      lapses: existing.lapses,
+      intervalDays: existing.intervalDays,
+      ease: existing.ease,
+      reviewEnabled: existing.reviewEnabled
+    } : candidate;
     deck.cards[candidate.id] = stored;
     if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
     return {
@@ -62274,7 +62156,7 @@ class LocalYomuSrsRepository {
     sentence: card.sentence,
     state: localCardState(card, now),
     srsLevel: localSrsLevel(card),
-    dueAt: card.dueAt,
+    dueAt: card.reviewEnabled === false ? void 0 : card.dueAt,
     lastReviewAt: card.lastReviewAt,
     sourceUrl: card.sourceUrl,
     raw: card
@@ -62316,12 +62198,14 @@ function meaningsFromGlosses(glosses) {
   return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
 }
 function localCardState(card, now) {
+  if (card.reviewEnabled === false) return [];
   if (card.reviews === 0) return ["new"];
   if (card.dueAt <= now) return ["due"];
   if (card.intervalDays >= 21) return ["known"];
   return ["learning"];
 }
 function localSrsLevel(card) {
+  if (card.reviewEnabled === false) return "Saved";
   if (card.reviews === 0) return "New";
   if (card.intervalDays >= 21) return "Known";
   if (card.intervalDays >= 7) return "Young";
@@ -67727,6 +67611,13 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
   const markerStore = tx.objectStore(options.markerStoreName);
   const request = markerStore.get(options.markerKey);
   request.onsuccess = () => {
+    try {
+      options.beforeMutate?.();
+    } catch (error) {
+      reconciliationError = error instanceof Error ? error : new Error("IndexedDB ownership changed.");
+      tx.abort();
+      return;
+    }
     const record2 = request.result;
     const markerMissing = record2 === void 0;
     if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
@@ -67751,7 +67642,7 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
   request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
   tx.oncomplete = () => resolve();
   tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-  tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+  tx.onabort = () => reject(reconciliationError ?? tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
   });
   if (reconciliationError) throw reconciliationError;
   await assertManagedStateMutationAllowed();
@@ -67815,6 +67706,9 @@ function assertManagedStateIdbMarker(record2, epoch) {
   throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
   }
 }
+function assertYomitanDatabaseOwner(db) {
+  assertYomitanStorageOwner(db.name);
+}
 const MANAGED_STATE_STORE = "managedState";
 const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
 const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
@@ -67838,21 +67732,25 @@ function reconcileYomitanManagedStateEpoch(db, epoch) {
   markerStoreName: MANAGED_STATE_STORE,
   markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
   markerKeyPath: "key",
-  clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
+  clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName)),
+  beforeMutate: () => assertYomitanDatabaseOwner(db)
   });
 }
-async function fencedYomitanDbHandle(current, open) {
+async function fencedYomitanDbHandle(databaseName, current, open) {
+  assertYomitanStorageOwner(databaseName);
   const existing = current();
-  if (existing) {
-  await assertManagedStateReadAllowed();
-  return existing;
-  }
-  const db = await open(await assertManagedStateMutationAllowed());
-  await assertManagedStateMutationAllowed();
+  const epoch = existing ? await assertManagedStateReadAllowed() : await assertManagedStateMutationAllowed();
+  assertYomitanStorageOwner(databaseName);
+  const db = await (existing ?? open(epoch));
+  if (!existing) await assertManagedStateMutationAllowed();
+  assertYomitanStorageOwner(databaseName);
   return db;
 }
 function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
-  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
+  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, (tx) => {
+  assertYomitanDatabaseOwner(db);
+  mutate(tx);
+  }, options);
 }
 function readBlobWithFileReader(blob, read, result) {
   return new Promise((resolve, reject) => {
@@ -68170,8 +68068,12 @@ function requestPersistentDictionaryStorage() {
 }
 function runDictionaryImportWrite(db, stores, mutate, options, importing) {
   return runYomitanManagedStateWrite(db, stores, (tx) => {
-  if (importing) importing(tx, () => mutate(tx));
-  else mutate(tx);
+  const apply = () => {
+    assertYomitanDatabaseOwner(db);
+    mutate(tx);
+  };
+  if (importing) importing(tx, apply);
+  else apply();
   }, options);
 }
 async function validateZipDictionaryBanks(zip, dictionary, version) {
@@ -70026,7 +69928,6 @@ ${entry.reading}`;
     }
     return entries2;
   }
-  const DB_NAME = "jpdb-popup-reader-yomitan";
   const DB_VERSION = 7;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
@@ -70058,6 +69959,7 @@ ${entry.reading}`;
       this.getCorsProxyUrl = getCorsProxyUrl;
       this.getInterfaceLanguage = getInterfaceLanguage;
     }
+    databaseName = yomitanDatabaseName();
     dbPromise;
     dictionaryInfoPromise;
     summaryPromise;
@@ -70822,15 +70724,17 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$1.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$1.info("Dictionary DB closed for reset", { name: this.databaseName });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
+      assertYomitanStorageOwner(this.databaseName);
       const done = log$1.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
+        assertYomitanStorageOwner(this.databaseName);
         db?.close();
         this.dbPromise = void 0;
         this.invalidateCaches();
@@ -70848,15 +70752,15 @@ ${entry.reading}`;
             globalThis.clearTimeout(timeout);
             callback();
           };
-          const request = indexedDB.deleteDatabase(DB_NAME);
+          const request = indexedDB.deleteDatabase(this.databaseName);
           request.onsuccess = () => settle(resolve);
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$1.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$1.warn("Dictionary delete blocked by another tab", { name: this.databaseName });
           };
         });
-        log$1.info("Dictionary database deleted", { name: DB_NAME });
+        log$1.info("Dictionary database deleted", { name: this.databaseName });
       } catch (error) {
         log$1.warn("Dictionary database delete failed", { error });
         throw error;
@@ -71360,7 +71264,7 @@ ${entry.reading}`;
       });
     }
     db() {
-      return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
+      return fencedYomitanDbHandle(this.databaseName, () => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
     }
     // A blocked or wedged upgrade (an older runtime still holding the
     // connection) used to leave the open promise pending FOREVER — every local
@@ -71369,7 +71273,7 @@ ${entry.reading}`;
     // (the delete path at clearAll already does both).
     openDb(epoch) {
       const promise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        const request = indexedDB.open(this.databaseName, DB_VERSION);
         let settled = false;
         const failOpen = (reason, error) => {
           if (settled) return;
@@ -71381,6 +71285,14 @@ ${entry.reading}`;
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
         request.onblocked = () => failOpen("Dictionary database upgrade blocked by another open connection");
         request.onupgradeneeded = (event) => {
+          try {
+            assertYomitanStorageOwner(this.databaseName);
+          } catch (error) {
+            request.transaction?.abort();
+            clearTimeout(openTimeout);
+            failOpen("Dictionary storage owner changed", error);
+            return;
+          }
           const db = request.result;
           const tx = request.transaction;
           log$1.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
@@ -71453,7 +71365,7 @@ ${entry.reading}`;
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
         log$1.info("Dictionary DB version change; closing", {
-          name: DB_NAME,
+          name: this.databaseName,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
         });

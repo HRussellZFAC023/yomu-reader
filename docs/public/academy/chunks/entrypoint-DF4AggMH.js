@@ -27817,6 +27817,20 @@ function isLoopbackStudyRoutePath(path) {
 function isRepositoryStudyRoutePath(path) {
   return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
 }
+const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+function detectInstalledReaderRuntime(globals = globalThis) {
+  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+    return "userscript";
+  }
+  return null;
+}
+function isHostedReaderRuntime() {
+  return document.documentElement?.dataset.yomuHosted !== void 0;
+}
+function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
+  return forceLocalRuntime || !root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
+}
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
@@ -28186,11 +28200,11 @@ async function legacyExtensionManagedStorageKeys(root = globalThis) {
   const values = await storage.get(null);
   return Object.keys(values).filter(isManagedStorageKey).sort();
 }
-async function clearLegacyExtensionManagedStorage(root = globalThis) {
+async function clearLegacyExtensionManagedStorage(root = globalThis, assertActive2 = () => void 0) {
   const storage = extensionStorageArea$1(root);
   if (!storage) return 0;
   const keys = await legacyExtensionManagedStorageKeys(root);
-  await removeStorageKeys(storage, keys);
+  await removeStorageKeys(storage, keys, assertActive2);
   assertAllStorageKeysRemoved(await retainedStorageKeys(storage, keys));
   return keys.length;
 }
@@ -28211,8 +28225,11 @@ function localStorageArea(api) {
   if (!api.storage) return null;
   return api.storage.local ?? null;
 }
-async function removeStorageKeys(storage, keys) {
-  for (const key2 of keys) await storage.remove(key2);
+async function removeStorageKeys(storage, keys, assertActive2) {
+  for (const key2 of keys) {
+    assertActive2();
+    await storage.remove(key2);
+  }
 }
 async function retainedStorageKeys(storage, keys) {
   const retained = [];
@@ -28228,18 +28245,23 @@ function assertAllStorageKeysRemoved(retained) {
 const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
 const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
+const BRIDGE_OWNER = "yomuStorageBridgeOwner";
 const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
 const EXTENSION_STORAGE_TARGET = "extension-storage";
 const BRIDGE_TIMEOUT_MS = 1e4;
+let clientOwnerId;
 function getUserscriptGmStorage() {
-  if (!storageBridgeClientReady()) return void 0;
+  if (!storageBridgeClientReady() && !clientOwnerId) return void 0;
+  clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
+  const ownerId = clientOwnerId;
+  const request2 = (detail) => storageBridgeRequest(detail, ownerId);
   return {
-    getValue: (key2, fallback) => storageBridgeRequest({ op: "get", key: key2 }).then((detail) => detail.found ? detail.value : fallback),
-    setValue: (key2, value) => storageBridgeRequest({ op: "set", key: key2, value }).then(() => void 0),
-    deleteValue: (key2) => storageBridgeRequest({ op: "delete", key: key2 }).then(() => void 0),
-    listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
-    clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0),
-    clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? storageBridgeRequest({
+    getValue: (key2, fallback) => request2({ op: "get", key: key2 }).then((detail) => detail.found ? detail.value : fallback),
+    setValue: (key2, value) => request2({ op: "set", key: key2, value }).then(() => void 0),
+    deleteValue: (key2) => request2({ op: "delete", key: key2 }).then(() => void 0),
+    listValues: () => request2({ op: "list" }).then((detail) => detail.keys ?? []),
+    clearPrivateManagedValues: () => request2({ op: "clear-private-managed" }).then(() => void 0),
+    clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? request2({
       op: "clear-legacy-extension-managed",
       target: EXTENSION_STORAGE_TARGET
     }).then(() => void 0) : Promise.resolve()
@@ -28250,11 +28272,19 @@ function storageBridgeClientReady() {
   if (typeof document === "undefined") return false;
   return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
 }
-function storageBridgeRequest(request2) {
+function storageBridgeRequest(request2, ownerId) {
   return new Promise((resolve, reject) => {
+    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
+      reject(new Error("Storage bridge authority changed; reload to reconnect."));
+      return;
+    }
     const id2 = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const timeout = window.setTimeout(() => {
       cleanup();
+      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+        reject(new Error("Storage bridge authority changed during the request."));
+        return;
+      }
       reject(new Error("Storage bridge request timed out."));
     }, BRIDGE_TIMEOUT_MS);
     let cleanupResponseListener = noop;
@@ -28266,11 +28296,15 @@ function storageBridgeRequest(request2) {
       const detail = storageBridgeResponseDetail(event);
       if (!detail || detail.id !== id2) return;
       cleanup();
+      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+        reject(new Error("Storage bridge authority changed during the request."));
+        return;
+      }
       if (detail.ok) resolve(detail);
       else reject(new Error(detail.message || "Storage bridge request failed."));
     };
     cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id: id2, ...request2 });
+    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id: id2, ownerId, ...request2 });
   });
 }
 function storageBridgeResponseDetail(event) {
@@ -28343,6 +28377,157 @@ function callDispatchEvent(target2, event) {
   }
 }
 function noop() {
+}
+function managedStorageOwner() {
+  const installed = detectInstalledReaderRuntime();
+  if (installed) return installed;
+  if (!getUserscriptGmStorage()) return "standalone";
+  return document.documentElement?.dataset.yomuStorageBridgeKind === "extension" ? "extension" : "userscript";
+}
+function asyncGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmGetValue();
+  if (direct) return direct;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
+}
+function directGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
+}
+function legacyGmGetValue() {
+  return typeof GM_getValue === "function" ? GM_getValue : null;
+}
+function modernGmGetValue() {
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function asyncGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmSetValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmSetValue();
+}
+function directGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+}
+function legacyGmSetValue() {
+  return typeof GM_setValue === "function" ? GM_setValue : null;
+}
+function modernGmSetValue() {
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmSetValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
+}
+function bridgeGmSetValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmDeleteValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmDeleteValue();
+}
+function directGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+}
+function legacyGmDeleteValue() {
+  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+}
+function modernGmDeleteValue() {
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmDeleteValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key2) => extension.remove(key2) : null;
+}
+function bridgeGmDeleteValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key2) => bridge.deleteValue(key2) : null;
+}
+function asyncGmListValues() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmListValues();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmListValues();
+}
+function directGmListValues() {
+  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
+}
+function legacyGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const directListValues = globalThis.GM_listValues;
+  return typeof directListValues === "function" ? directListValues : null;
+}
+function modernGmListValues() {
+  const modern = globalThis.GM?.listValues;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmListValues() {
+  const extension = extensionStorageArea();
+  if (!extension) return null;
+  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+}
+function bridgeGmListValues() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  return extensionCapability((extension) => extension.storage?.local);
+}
+function extensionCapability(select2) {
+  const candidate2 = globalThis;
+  return activeExtensionCapability(candidate2.browser, select2) ?? activeExtensionCapability(candidate2.chrome, select2) ?? null;
+}
+function activeExtensionCapability(extension, select2) {
+  return extension?.runtime?.id ? select2(extension) : void 0;
+}
+function packagedExtensionStorageAdapterMissing() {
+  if (!isPackagedExtensionDocument()) return false;
+  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+}
+function isPackagedExtensionDocument() {
+  try {
+    const protocol = globalThis.location?.protocol ?? "";
+    return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+  } catch {
+    return false;
+  }
+}
+function rawExtensionStorageGetValue() {
+  const extension = extensionStorageArea();
+  return extension ? extensionStorageGetValue(extension) : null;
+}
+function extensionStorageGetValue(extension) {
+  return async (key2, fallback) => {
+    const value = (await extension.get(key2))[key2];
+    return value === void 0 ? fallback : value;
+  };
+}
+function extensionStorageChangedEvent() {
+  return extensionCapability((extension) => extension.storage?.onChanged);
+}
+const BASES = ["jpdb-popup-reader-yomitan", "yomu-practice-sessions-v1", "yomu-anki-status-index"];
+function ownedDatabaseName(base) {
+  const owner = managedStorageOwner();
+  if (owner === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol)) return base;
+  return `${base}-${owner}-v2`;
+}
+function databaseBelongsToCurrentOwner(name) {
+  const base = BASES.find((base2) => name === base2 || name === `${base2}-userscript-v2` || name === `${base2}-extension-v2`);
+  if (base) return name === ownedDatabaseName(base);
+  return managedStorageOwner() === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
 }
 const entries = [];
 const registeredEntryIndexes = /* @__PURE__ */ new Map();
@@ -28461,6 +28646,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "app/managed-web-storage", kind: "session", key: "yomu:web-storage-epoch:v1:session" },
   { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-storage-slot:v1:" },
   { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-owner:v2:" },
+  { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
   { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
   { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
@@ -28481,6 +28668,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-userscript-v2" },
+  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-extension-v2" },
   // Bunpro vocab SRS-state index for page word colouring.
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   // Public lookup caches.
@@ -28492,6 +28681,8 @@ const MANAGED_STATE_MANIFEST = [
   // store's own deleteDatabase during reset; registered so the invariant test
   // asserts it and the reset sweep nets it as a fallback.
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
+  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-userscript-v2" },
+  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-extension-v2" },
   { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
   {
     owner: "dictionaries/archive-cache",
@@ -28537,10 +28728,14 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-userscript-v2" },
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-extension-v2" },
   { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
+  { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
   { owner: "newtab/controller-config", kind: "session", key: "jpdb-reader-newtab-current-word" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
@@ -28740,6 +28935,18 @@ async function managedGmValue(getValue, key2, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key2, epoch);
   return read.kind === "found" ? read.value : fallback;
 }
+const OWNER_PREFIX = "yomu:web-owner:v2:";
+let selectedOwner;
+function selectOwner(owner) {
+  if (selectedOwner && selectedOwner !== owner) throw new Error("Managed web storage owner changed; reload to reconnect.");
+  selectedOwner = owner;
+}
+function ownedKey(key2) {
+  return selectedOwner && selectedOwner !== "standalone" ? `${OWNER_PREFIX}${selectedOwner}:${key2}` : key2;
+}
+function belongsToOwner(key2) {
+  return selectedOwner && selectedOwner !== "standalone" ? key2.startsWith(`${OWNER_PREFIX}${selectedOwner}:`) : !key2.startsWith(OWNER_PREFIX) && isManagedStorageKey(key2);
+}
 const AREA_MARKER_KEYS = {
   local: "yomu:web-storage-epoch:v1:local",
   session: "yomu:web-storage-epoch:v1:session"
@@ -28751,7 +28958,8 @@ const PRESERVED_LOCAL_CONTROL_KEYS = /* @__PURE__ */ new Set([
 let certifiedEpoch;
 let reconciliation;
 let reconciliationToken;
-function ensureManagedWebStorageEpochCurrent(epoch) {
+function ensureManagedWebStorageEpochCurrent(epoch, owner = "standalone") {
+  selectOwner(owner);
   if (certifiedEpoch) {
     if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
       return Promise.reject(new Error("Managed web storage is already certified for another epoch."));
@@ -28769,13 +28977,14 @@ function ensureManagedWebStorageEpochCurrent(epoch) {
     return reconciliationToken === expectedToken ? reconciliation : Promise.reject(new Error("Managed web storage is reconciling another epoch."));
   }
   reconciliationToken = expectedToken;
-  reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch)).finally(() => {
+  reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch, owner)).finally(() => {
     reconciliation = void 0;
     reconciliationToken = void 0;
   });
   return reconciliation;
 }
-function ensureManagedWebStorageEpochCurrentSync(epoch) {
+function ensureManagedWebStorageEpochCurrentSync(epoch, owner = "standalone") {
+  selectOwner(owner);
   if (certifiedEpoch) {
     if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
       throw new Error("Managed web storage is already certified for another epoch.");
@@ -28795,7 +29004,7 @@ function ensureManagedWebStorageEpochCurrentSync(epoch) {
 }
 function reconcileArea(area, epoch) {
   const storage = storageArea(area);
-  const markerKey = AREA_MARKER_KEYS[area];
+  const markerKey = ownedKey(AREA_MARKER_KEYS[area]);
   const expectedToken = managedStateEpochToken(epoch);
   const marker = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
   if (marker === expectedToken) return;
@@ -28809,16 +29018,17 @@ function reconcileArea(area, epoch) {
   writeAndVerify(storage, markerKey, expectedToken, `${area}Storage epoch marker`);
 }
 function purgeManagedArea(storage, area) {
-  const preserved = area === "local" ? PRESERVED_LOCAL_CONTROL_KEYS : /* @__PURE__ */ new Set([AREA_MARKER_KEYS.session]);
+  const logicalPreserved = area === "local" ? PRESERVED_LOCAL_CONTROL_KEYS : /* @__PURE__ */ new Set([AREA_MARKER_KEYS.session]);
+  const preserved = new Set([...logicalPreserved].map(ownedKey));
   const keys = enumerateStorageKeys(storage, `${area}Storage`);
-  const managedKeys = keys.filter((key2) => isManagedStorageKey(key2) && !preserved.has(key2));
+  const managedKeys = keys.filter((key2) => belongsToOwner(key2) && !preserved.has(key2));
   for (const key2 of managedKeys) {
     removeStorageValue(storage, key2, `${area}Storage key "${key2}"`);
     if (readStorageValue(storage, key2, `${area}Storage key "${key2}"`) !== null) {
       throw new Error(`${area}Storage retained managed key "${key2}".`);
     }
   }
-  const remaining = enumerateStorageKeys(storage, `${area}Storage`).filter((key2) => isManagedStorageKey(key2) && !preserved.has(key2));
+  const remaining = enumerateStorageKeys(storage, `${area}Storage`).filter((key2) => belongsToOwner(key2) && !preserved.has(key2));
   if (remaining.length) throw new Error(`${area}Storage retained managed keys: ${remaining.join(", ")}.`);
 }
 function enumerateStorageKeys(storage, label) {
@@ -28852,6 +29062,18 @@ function enumerateStorageKeys(storage, label) {
 }
 const managedLocalStorage = managedStorageFacade("local");
 const managedSessionStorage = managedStorageFacade("session");
+function managedLocalStorageKeys() {
+  const { storage } = certifiedArea("local");
+  const prefix = ownedKey("");
+  return enumerateStorageKeys(storage, "localStorage").filter(belongsToOwner).map((key2) => logicalManagedStorageKey(key2.slice(prefix.length))).filter((key2) => key2 !== null && managedLocalStorage.getItem(key2) !== null);
+}
+function managedWebStorageResetKeys(owner) {
+  selectOwner(owner);
+  return [.../* @__PURE__ */ new Set([
+    ...enumerateStorageKeys(storageArea("local"), "localStorage"),
+    ...enumerateStorageKeys(storageArea("session"), "sessionStorage")
+  ])].filter(belongsToOwner);
+}
 function managedStorageFacade(area) {
   return {
     getItem(key2) {
@@ -28892,15 +29114,15 @@ function certifiedArea(area) {
   return { storage: storageArea(area), epoch };
 }
 function assertAreaCertificate(area, epoch) {
-  const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+  const marker = readStorageValue(storageArea(area), ownedKey(AREA_MARKER_KEYS[area]), `${area}Storage epoch marker`);
   if (marker !== managedStateEpochToken(epoch)) {
     throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
   }
 }
 function physicalStorageKey(key2, epoch) {
   assertManagedLogicalKey(key2);
-  if (epoch.generation === 0) return key2;
-  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`;
+  if (epoch.generation === 0) return ownedKey(key2);
+  return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`);
 }
 function assertManagedLogicalKey(key2) {
   if (!isManagedStorageKey(key2) || isManagedStorageSlotKey(key2)) {
@@ -28941,15 +29163,16 @@ function removeStorageValue(storage, key2, label) {
 const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
 async function withGmStorageLeaseCore(name, operation, options, environment) {
+  return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
+}
+async function withSharedStorageLease(name, operation, options, environment) {
   const { getValue, setValue, deleteValue, listValues } = environment.backend;
   if (!getValue || !setValue || !deleteValue || !listValues) {
-    return withWebStorageLock(name, async () => {
-      const epoch2 = await environment.captureEpoch(getValue);
-      await environment.assertMutationFence(getValue, epoch2);
-      const result2 = await operation();
-      await environment.assertMutationFence(getValue, epoch2);
-      return result2;
-    });
+    const epoch2 = await environment.captureEpoch(getValue);
+    await environment.assertMutationFence(getValue, epoch2);
+    const result2 = await operation();
+    await environment.assertMutationFence(getValue, epoch2);
+    return result2;
   }
   const epoch = await environment.captureEpoch(getValue);
   await environment.assertMutationFence(getValue, epoch);
@@ -29228,41 +29451,7 @@ const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
 function isManagedStorageBackupKey(key2) {
   return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && !isManagedStorageSlotKey(key2) && !key2.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key2.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
 }
-function isRecord$6(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isNonNullObject(value) {
-  return typeof value === "object" && value !== null;
-}
-const HOSTED_LOCAL_SETTINGS_KEYS = [
-  "showFurigana",
-  "furiganaMode",
-  "showPitchAccent",
-  "wordUnderlineColorSource",
-  "subtitlePlayerEnabled",
-  "subtitleAutoDetect",
-  "subtitleOverlayVisible",
-  "subtitleControlsMode",
-  "subtitleTranscriptVisible",
-  "ocrEnabled",
-  "ocrVideoPauseFrames",
-  "ocrProvider",
-  "ocrOverlayTheme",
-  "preferJapaneseSiteLanguage"
-];
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
-const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
-const HOSTED_SETTINGS_TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
-const HOSTED_SETTINGS_COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
-const HOSTED_ROOT_POLICY_KEYS = /* @__PURE__ */ new Set([
-  HOSTED_SETTINGS_BLOB_KEY,
-  "yomu:explicit-user-settings:v1"
-]);
-const HOSTED_SETTINGS_COORDINATION_FIELDS = [
-  HOSTED_SETTINGS_TRANSACTION_FIELD,
-  HOSTED_SETTINGS_COMMIT_FIELD
-];
 function isHostedSettingsStorageKey(key2) {
   return key2 === HOSTED_SETTINGS_BLOB_KEY;
 }
@@ -29284,74 +29473,6 @@ function isHostedGithubPagesLocation(hostname, pathname) {
 function isHostedLocalDevelopmentLocation(origin, pathname) {
   if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
   return pathname.includes("/study/") || pathname.includes("/newtab/");
-}
-function hostedStoragePromotionValue(key2, value, hostedOrigin) {
-  const sanitized = sanitizedHostedStorageValue(key2, value, hostedOrigin);
-  return isRecord$6(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
-}
-function pendingHostedSettingsPatch(key2, localValue, hostedOrigin) {
-  const localSettings = rawHostedSettingsRecord(key2, localValue, hostedOrigin);
-  if (!localSettings) return void 0;
-  const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  if (!isRecord$6(patch)) return void 0;
-  const sanitized = sanitizedHostedStorageValue(key2, patch, hostedOrigin);
-  return withoutSettingsCoordination(sanitized);
-}
-function hostedSettingsLocalFallbackValue(key2, value, hostedOrigin, readPrevious) {
-  const current = sanitizedHostedSettingsRecord(key2, value, hostedOrigin);
-  if (!current) return value;
-  const previousValue = readPrevious();
-  const previous = sanitizedHostedSettingsRecord(key2, previousValue, hostedOrigin);
-  if (!previous) return current;
-  return {
-    ...current,
-    [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: {
-      ...earlierHostedPatch(previousValue),
-      ...changedRecordFields(previous, current)
-    }
-  };
-}
-function sanitizedHostedStorageValue(key2, value, hostedOrigin) {
-  if (!hostedOrigin || !isRecord$6(value)) return value;
-  const record2 = { ...value };
-  const policy = hostedPolicyRecord(key2, record2);
-  if (!policy) return value;
-  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
-  return record2;
-}
-function hostedPolicyRecord(key2, record2) {
-  if (key2 === HOSTED_SETTINGS_INTENT_KEY) return hostedIntentRecords(record2);
-  return HOSTED_ROOT_POLICY_KEYS.has(key2) ? record2 : null;
-}
-function hostedIntentRecords(record2) {
-  if (!isRecord$6(record2.records)) return null;
-  return record2.records = { ...record2.records };
-}
-function rawHostedSettingsRecord(key2, value, hostedOrigin) {
-  if (!hostedOrigin || !isHostedSettingsStorageKey(key2)) return null;
-  return isRecord$6(value) ? value : null;
-}
-function sanitizedHostedSettingsRecord(key2, value, hostedOrigin) {
-  const record2 = rawHostedSettingsRecord(key2, value, hostedOrigin);
-  return record2 ? sanitizedHostedStorageValue(key2, record2, hostedOrigin) : null;
-}
-function earlierHostedPatch(value) {
-  if (!isRecord$6(value)) return {};
-  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  return isRecord$6(patch) ? withoutSettingsCoordination(patch) : {};
-}
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field2, value] of Object.entries(current)) {
-    if (JSON.stringify(previous[field2]) !== JSON.stringify(value)) changed[field2] = value;
-  }
-  return withoutSettingsCoordination(changed);
-}
-function withoutSettingsCoordination(record2) {
-  const clean = { ...record2 };
-  HOSTED_SETTINGS_COORDINATION_FIELDS.forEach((field2) => delete clean[field2]);
-  return clean;
 }
 function localStorageGet(key2, fallback) {
   try {
@@ -29421,6 +29542,12 @@ const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
 function isSettingsAuthorityStorageKey(key2) {
   return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key2);
 }
+function isRecord$6(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isNonNullObject(value) {
+  return typeof value === "object" && value !== null;
+}
 const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key2) {
@@ -29471,13 +29598,6 @@ function writeLocalManagedValueOrThrow(key2, value, epoch) {
     throw error;
   }
 }
-function mirrorLocalManagedValue(key2, value, epoch, onFailure) {
-  try {
-    writeLocalManagedValueOrThrow(key2, value, epoch);
-  } catch (error) {
-    onFailure(error);
-  }
-}
 function removeLocalManagedValue(key2) {
   removeLocalStorageKey(key2);
   removeSessionStorageKey(key2);
@@ -29487,15 +29607,6 @@ function restoreLocalFallbackStoredValueAtEpoch(key2, value, existed, epoch) {
   if (!existed) return removeLocalManagedValue(key2);
   if (!epoch) throw storageWriteError(key2, "Managed storage cannot restore its localStorage fallback");
   writeLocalManagedValueOrThrow(key2, value, epoch);
-}
-function cacheManagedStateEpochForLocalFallback(epoch) {
-  if (epoch.generation <= 0) return removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
-  try {
-    const cached = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
-    if (sameManagedStateEpoch(cached, epoch)) return;
-  } catch {
-  }
-  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
 }
 function localMirrorBelongsToEpoch(key2, epoch) {
   const serialized = recoverableSerializedValue(key2);
@@ -29586,6 +29697,7 @@ class ConcreteManagedWriteJournal {
       stagedAuthority: [],
       stagedLocal: [],
       interrupted: false,
+      restoreCapturedLocal: true,
       active: false
     };
     this.receipts.set(key2, receipt);
@@ -29596,6 +29708,7 @@ class ConcreteManagedWriteJournal {
     record2.authorityTarget = previous;
     record2.localTarget = localPrevious;
     record2.interrupted = true;
+    record2.restoreCapturedLocal = Boolean(record2.localBefore && record2.localBefore.serializedValue !== (record2.previous.existed ? JSON.stringify(record2.previous.value) : null));
     if (record2.localBefore) rememberLocalStage(record2, record2.localBefore, record2.previous);
     this.activate(record2);
   }
@@ -29667,17 +29780,26 @@ function createConcreteManagedWriteJournal(storage, preserveLocalFallbackOnWrite
 }
 async function rollbackManagedWrites(storage, receipts, stopOnError, forceAuthorityRestore) {
   const errors = [];
+  let authorityStopped = false;
   for (let index = receipts.length - 1; index >= 0; index--) {
+    if (authorityStopped) {
+      const receipt = receipts[index];
+      if (receipt.restoreCapturedLocal) {
+        const local = captureManagedWriteLocal(receipt, errors);
+        rollbackManagedWriteLocal(storage, receipt, local, errors);
+      }
+      continue;
+    }
     const current = await rollbackManagedWrite(storage, receipts[index], forceAuthorityRestore);
     errors.push(...current);
-    if (stopOnError && current.length) break;
+    if (stopOnError && current.length) authorityStopped = true;
   }
   return errors;
 }
 async function rollbackManagedWrite(storage, receipt, forceAuthorityRestore) {
   const errors = [];
-  const currentLocal = captureManagedWriteLocal(receipt, errors);
   await rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors);
+  const currentLocal = captureManagedWriteLocal(receipt, errors);
   rollbackManagedWriteLocal(storage, receipt, currentLocal, errors);
   return errors;
 }
@@ -29732,7 +29854,7 @@ function restoreManagedWriteLocal(storage, receipt, current) {
   if (!receipt.localBefore) return restoreUntrackedWriteLocal(storage, receipt);
   if (!current) return;
   assertLocalStateCanRollback(storage, receipt, current);
-  if (!receipt.interrupted) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
+  if (receipt.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
   storage.restoreLocalTarget(receipt.key, receipt.localTarget);
 }
 function restoreUntrackedWriteLocal(storage, receipt) {
@@ -29785,140 +29907,6 @@ function managedStoredValuesMatch(left, right) {
 function managedWriteConflict(key2, label) {
   return new Error(`${label} "${key2}" changed after staging; rollback left the newer value intact.`);
 }
-function asyncGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmGetValue();
-  if (direct) return direct;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
-}
-function directGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
-}
-function legacyGmGetValue() {
-  return typeof GM_getValue === "function" ? GM_getValue : null;
-}
-function modernGmGetValue() {
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function asyncGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmSetValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmSetValue();
-}
-function directGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
-}
-function legacyGmSetValue() {
-  return typeof GM_setValue === "function" ? GM_setValue : null;
-}
-function modernGmSetValue() {
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmSetValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
-}
-function bridgeGmSetValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmDeleteValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmDeleteValue();
-}
-function directGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
-}
-function legacyGmDeleteValue() {
-  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
-}
-function modernGmDeleteValue() {
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmDeleteValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key2) => extension.remove(key2) : null;
-}
-function bridgeGmDeleteValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key2) => bridge.deleteValue(key2) : null;
-}
-function asyncGmListValues() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmListValues();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmListValues();
-}
-function directGmListValues() {
-  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
-}
-function legacyGmListValues() {
-  if (typeof GM_listValues === "function") return GM_listValues;
-  const directListValues = globalThis.GM_listValues;
-  return typeof directListValues === "function" ? directListValues : null;
-}
-function modernGmListValues() {
-  const modern = globalThis.GM?.listValues;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmListValues() {
-  const extension = extensionStorageArea();
-  if (!extension) return null;
-  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-}
-function bridgeGmListValues() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? () => bridge.listValues() : null;
-}
-function extensionStorageArea() {
-  return extensionCapability((extension) => extension.storage?.local);
-}
-function extensionCapability(select2) {
-  const candidate2 = globalThis;
-  return activeExtensionCapability(candidate2.browser, select2) ?? activeExtensionCapability(candidate2.chrome, select2) ?? null;
-}
-function activeExtensionCapability(extension, select2) {
-  return extension?.runtime?.id ? select2(extension) : void 0;
-}
-function packagedExtensionStorageAdapterMissing() {
-  if (!isPackagedExtensionDocument()) return false;
-  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
-  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
-}
-function isPackagedExtensionDocument() {
-  try {
-    const protocol = globalThis.location?.protocol ?? "";
-    return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
-  } catch {
-    return false;
-  }
-}
-function rawExtensionStorageGetValue() {
-  const extension = extensionStorageArea();
-  return extension ? extensionStorageGetValue(extension) : null;
-}
-function extensionStorageGetValue(extension) {
-  return async (key2, fallback) => {
-    const value = (await extension.get(key2))[key2];
-    return value === void 0 ? fallback : value;
-  };
-}
-function extensionStorageChangedEvent() {
-  return extensionCapability((extension) => extension.storage?.onChanged);
-}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
@@ -29955,7 +29943,6 @@ async function assertRealmManagedStateEpoch(getValue) {
     return epoch2.generation === 0 ? void 0 : epoch2;
   } : async () => localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0);
   const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
-  if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
   return epoch;
 }
 async function writeManagedGmValue(key2, value, epoch, getValue, setValue) {
@@ -30000,7 +29987,6 @@ function managedStateEpochFromSynchronousGetter(getValue) {
   }
   const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
   managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
-  cacheManagedStateEpochForLocalFallback(shared2);
   return shared2;
 }
 function managedStateEpochForSynchronousLocalRead() {
@@ -30032,7 +30018,7 @@ async function assertManagedStateMutationAllowed() {
 const assertManagedStateReadAllowed = () => assertRealmManagedStateEpoch(asyncGmGetValue());
 async function ensureManagedWebStorageCurrent() {
   const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
-  await ensureManagedWebStorageEpochCurrent(epoch);
+  await ensureManagedWebStorageEpochCurrent(epoch, managedStorageOwner());
 }
 function localFallbackStoredValue(key2, fallback) {
   const epoch = managedStateEpochForSynchronousLocalRead();
@@ -30050,7 +30036,7 @@ async function gmStorageGet(key2, fallback) {
     epoch = await assertRealmManagedStateEpoch(getValue);
     return await sharedManagedValue(getValue, key2, fallback, epoch);
   } catch (error) {
-    return failedManagedReadValue(error, key2, fallback, epoch);
+    return failedManagedReadValue(error, key2, fallback);
   }
 }
 async function gmStorageGetStrict(key2, fallback) {
@@ -30086,13 +30072,13 @@ async function gmStorageGetMany(keys, fallback) {
   try {
     passEpoch = await assertRealmManagedStateEpoch(getValue);
   } catch (error) {
-    return keys.map((key2) => failedManagedReadValue(error, key2, fallback, void 0));
+    return keys.map((key2) => failedManagedReadValue(error, key2, fallback));
   }
   return Promise.all(keys.map(async (key2) => {
     try {
       return await sharedManagedValue(getValue, key2, fallback, passEpoch);
     } catch (error) {
-      return failedManagedReadValue(error, key2, fallback, passEpoch);
+      return failedManagedReadValue(error, key2, fallback);
     }
   }));
 }
@@ -30102,39 +30088,14 @@ async function localManagedValuesWithoutBackend(keys, fallback) {
   return keys.map((key2) => localOnlyManagedValue(key2, fallback, epoch));
 }
 async function sharedManagedValue(getValue, key2, fallback, epoch) {
-  const pendingPatch = pendingHostedLocalPatch(key2, epoch);
-  return pendingPatch ? reconcilePendingHostedLocalPatch(getValue, key2, pendingPatch, epoch) : sharedManagedValueWithoutPendingPatch(getValue, key2, fallback, epoch);
-}
-async function reconcilePendingHostedLocalPatch(getValue, key2, pendingPatch, epoch) {
-  const shared2 = await managedGmValue(getValue, key2, void 0, epoch);
-  const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
-  const reconciled = { ...sharedRecord, ...pendingPatch };
-  await gmStorageSet(key2, reconciled);
-  return reconciled;
-}
-async function sharedManagedValueWithoutPendingPatch(getValue, key2, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key2, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
-  return promoteLocalManagedValue(key2, fallback, epoch);
-}
-async function promoteLocalManagedValue(key2, fallback, epoch) {
-  if (isSettingsAuthorityStorageKey(key2)) return fallback;
-  const migrated = localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, MISSING) : MISSING;
-  if (!isMissingSentinel(migrated)) {
-    const promoted = hostedStoragePromotionValue(key2, migrated, isHostedYomuOrigin());
-    await gmStorageSet(key2, promoted);
-    return promoted;
-  }
   return fallback;
 }
-function failedManagedReadValue(error, key2, fallback, epoch) {
+function failedManagedReadValue(error, key2, fallback) {
   if (isStaleManagedStateEpochError(error)) throw error;
   debugStorageError("GM storage read failed", key2, error);
-  if (isSettingsAuthorityStorageKey(key2)) return fallback;
-  if (epoch && localMirrorBelongsToEpoch(key2, epoch)) {
-    return localStorageGet(key2, fallback);
-  }
   return fallback;
 }
 function localOnlyManagedValue(key2, fallback, epoch) {
@@ -30215,7 +30176,7 @@ function gmStorageGetSync(key2, fallback) {
     if (read.kind === "found") return read.value;
     if (read.kind === "deleted") return fallback;
   }
-  if (isSettingsAuthorityStorageKey(key2) && asyncGmGetValue()) return fallback;
+  if (asyncGmGetValue()) return fallback;
   epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, fallback) : fallback;
 }
@@ -30236,75 +30197,33 @@ function gmStorageSyncRead(key2, getValue, epoch) {
       if (isMissingSentinel(value)) return { kind: "deleted" };
       return { kind: "found", value };
     }
-    return migratedLocalStorageSyncValue(key2, epoch);
+    return { kind: "fallback" };
   } catch (error) {
     debugStorageError("GM storage sync read failed", key2, error);
     return { kind: "fallback" };
   }
 }
-function migratedLocalStorageSyncValue(key2, epoch) {
-  if (isSettingsAuthorityStorageKey(key2)) return { kind: "fallback" };
-  if (!localMirrorBelongsToEpoch(key2, epoch)) return { kind: "fallback" };
-  const migrated = localStorageGet(key2, MISSING);
-  if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = hostedStoragePromotionValue(key2, migrated, isHostedYomuOrigin());
-  void gmStorageSet(key2, promoted);
-  return { kind: "found", value: promoted };
-}
-function pendingHostedLocalPatch(key2, epoch) {
-  if (!isHostedSettingsStorageKey(key2) || !isHostedYomuOrigin()) return void 0;
-  if (!localMirrorBelongsToEpoch(key2, epoch)) return void 0;
-  return pendingHostedSettingsPatch(key2, localStorageGet(key2, void 0), true);
-}
-function localFallbackValueForWrite(key2, value) {
-  if (!isHostedSettingsStorageKey(key2)) return value;
-  return hostedSettingsLocalFallbackValue(
-    key2,
-    value,
-    isHostedYomuOrigin(),
-    () => localStorageGet(key2, void 0)
-  );
-}
-async function gmStorageSet(key2, value, options = {}) {
+async function gmStorageSet(key2, value) {
   if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
   const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
-  if (setValue) return setSharedManagedValue(key2, value, options, getValue, setValue);
+  if (setValue) return setSharedManagedValue(key2, value, getValue, setValue);
+  if (getValue) throw storageWriteError(key2, "Installed storage has no writer");
   if (packagedExtensionStorageAdapterMissing()) {
     throw storageWriteError(key2, "Packaged Study storage adapter is unavailable");
   }
   const epoch = await assertRealmManagedStateEpoch(null);
-  writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), epoch);
+  writeLocalManagedValueOrThrow(key2, value, epoch);
 }
-async function setSharedManagedValue(key2, value, options, getValue, setValue) {
+async function setSharedManagedValue(key2, value, getValue, setValue) {
   let epoch;
   try {
     if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
     epoch = await assertRealmManagedStateEpoch(getValue);
     await writeManagedGmValue(key2, value, epoch, getValue, setValue);
-    mirrorManagedValueToHostedStorage(key2, value, epoch);
   } catch (error) {
-    await handleSharedManagedWriteFailure(key2, value, options, error, epoch);
-  }
-}
-async function handleSharedManagedWriteFailure(key2, value, options, error, epoch) {
-  if (isStaleManagedStateEpochError(error)) throw error;
-  debugStorageError("GM storage write failed", key2, error);
-  if (options.localFallbackOnAuthoritativeFailure === "preserve") {
+    if (isStaleManagedStateEpochError(error)) throw error;
     throw storageWriteError(key2, "GM storage write failed", error);
-  }
-  await writeFailedManagedValueFallback(key2, value, error, epoch);
-  throw storageWriteError(key2, "GM storage write failed; saved only to localStorage fallback", error);
-}
-async function writeFailedManagedValueFallback(key2, value, error, epoch) {
-  if (packagedExtensionStorageAdapterMissing()) {
-    throw storageWriteError(key2, "Packaged Study storage adapter rejected the authoritative write", error);
-  }
-  try {
-    const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
-    writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), fallbackEpoch);
-  } catch (fallbackError) {
-    throw storageWriteError(key2, "GM storage and localStorage fallback writes failed", error, fallbackError);
   }
 }
 async function gmPrivateStorageSet(key2, value) {
@@ -30349,13 +30268,11 @@ function gmStorageSetSync(key2, value) {
       if (isPromiseLike(result2)) {
         void result2.then(async () => {
           await assertRealmManagedStateEpoch(getValue);
-          mirrorManagedValueToHostedStorage(key2, value, epoch);
         }).catch((error) => debugStorageError("GM storage async write failed", key2, error));
         return;
       }
       const after = managedStateEpochFromSynchronousGetter(getValue);
       if (!after || !sameManagedStateEpoch(epoch, after)) return;
-      mirrorManagedValueToHostedStorage(key2, value, epoch);
       return;
     } catch (error) {
       if (isStaleManagedStateEpochError(error)) {
@@ -30363,16 +30280,18 @@ function gmStorageSetSync(key2, value) {
         return;
       }
       debugStorageError("GM storage sync write failed", key2, error);
+      return;
     }
   }
   if ((!getValue || !setValue) && asyncGmSetValue()) {
     void gmStorageSet(key2, value).catch((error) => debugStorageError("GM storage async write failed", key2, error));
     return;
   }
+  if (asyncGmGetValue()) return;
   try {
     epoch ??= managedStateEpochForSynchronousLocalRead();
     if (!epoch) return;
-    writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), epoch);
+    writeLocalManagedValueOrThrow(key2, value, epoch);
   } catch (error) {
     debugStorageError("localStorage sync write failed", key2, error);
   }
@@ -30400,6 +30319,7 @@ async function gmStorageDelete(key2) {
   } else {
     await assertRealmManagedStateEpoch(null);
   }
+  if (getValue) return;
   removeLocalStorageKey(key2);
   removeSessionStorageKey(key2);
   removeLocalMirrorProvenance(key2);
@@ -30422,9 +30342,11 @@ async function deleteManagedStoredValue(key2) {
       }
     }
   }
-  for (const target2 of targets2) {
-    removeLocalStorageKey(target2);
-    removeSessionStorageKey(target2);
+  if (!getValue) {
+    for (const target2 of targets2) {
+      removeLocalStorageKey(target2);
+      removeSessionStorageKey(target2);
+    }
   }
   if (getValue) {
     for (const target2 of targets2) {
@@ -30439,9 +30361,11 @@ async function deleteManagedStoredValue(key2) {
       }
     }
   }
-  for (const target2 of targets2) {
-    if (resetWebStorageHasKey(localStorage, target2, "localStorage") || resetWebStorageHasKey(sessionStorage, target2, "sessionStorage")) {
-      throw new ManagedStateResetError(`Web storage still contains "${target2}" after deletion.`);
+  if (!getValue) {
+    for (const target2 of targets2) {
+      if (resetWebStorageHasKey(localStorage, target2, "localStorage") || resetWebStorageHasKey(sessionStorage, target2, "sessionStorage")) {
+        throw new ManagedStateResetError(`Web storage still contains "${target2}" after deletion.`);
+      }
     }
   }
 }
@@ -30491,13 +30415,11 @@ function gmStorageDeleteSync(key2) {
       if (isPromiseLike(result2)) {
         void result2.then(async () => {
           await assertRealmManagedStateEpoch(getValue);
-          removeLocalManagedValue(key2);
         }).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
         return;
       }
       const after = managedStateEpochFromSynchronousGetter(getValue);
       if (!after || !sameManagedStateEpoch(epoch, after)) return;
-      removeLocalManagedValue(key2);
       return;
     } catch (error) {
       debugStorageError("GM storage sync delete failed", key2, error);
@@ -30508,6 +30430,7 @@ function gmStorageDeleteSync(key2) {
     void gmStorageDelete(key2).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
     return;
   }
+  if (asyncGmGetValue()) return;
   try {
     if (!managedStateEpochForSynchronousLocalRead()) return;
     removeLocalManagedValue(key2);
@@ -30553,11 +30476,7 @@ async function beginStoredValuesImport(values) {
 }
 const MANAGED_WRITE_STORAGE = {
   readAuthority: readManagedStoredValueAuthority,
-  writeAuthority: (key2, value, preserveLocalFallback) => gmStorageSet(
-    key2,
-    value,
-    preserveLocalFallback ? { localFallbackOnAuthoritativeFailure: "preserve" } : {}
-  ),
+  writeAuthority: (key2, value) => gmStorageSet(key2, value),
   restoreAuthority: (key2, target2) => restoreManagedStoredValueAuthority(key2, target2.value, target2.existed),
   readLocalTarget: (key2) => managedStoredValueState(localFallbackStoredValue(key2, MISSING)),
   restoreLocalTarget: (key2, target2) => restoreLocalFallbackStoredValue(key2, target2.value, target2.existed)
@@ -30722,6 +30641,8 @@ function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 async function clearManagedStoredValues() {
+  const installed = hasAsyncGmStorageBackend();
+  const webKeys = installed ? managedWebStorageResetKeys(managedStorageOwner()) : [];
   const keys = await allStorageKeys();
   await clearBridgePrivateManagedValuesForReset();
   let count2 = 0;
@@ -30729,16 +30650,27 @@ async function clearManagedStoredValues() {
     await deleteManagedStoredValue(key2);
     count2++;
   }
+  for (const key2 of webKeys) {
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+    if (resetWebStorageHasKey(localStorage, key2, "localStorage") || resetWebStorageHasKey(sessionStorage, key2, "sessionStorage")) {
+      throw new ManagedStateResetError("Factory reset could not clear the selected owner cache.");
+    }
+    count2++;
+  }
   count2 += await clearStrandedExtensionStudyManagedValuesForReset();
   await clearManagedIndexedDatabases();
-  count2 += await clearManagedBrowserCaches();
-  count2 += await unregisterManagedServiceWorkers();
+  if (ownsOriginBrowserStorage()) {
+    count2 += await clearManagedBrowserCaches();
+    count2 += await unregisterManagedServiceWorkers();
+  }
   return count2;
 }
 async function managedStoredKeysStillPresent() {
   const keys = await allStorageKeys();
   await clearBridgePrivateManagedValuesForReset();
-  return [.../* @__PURE__ */ new Set([...keys, ...await strandedExtensionStudyManagedKeys()])].sort();
+  const webKeys = hasAsyncGmStorageBackend() ? managedWebStorageResetKeys(managedStorageOwner()) : [];
+  return [.../* @__PURE__ */ new Set([...keys, ...webKeys, ...await strandedExtensionStudyManagedKeys()])].sort();
 }
 async function clearStrandedExtensionStudyManagedValuesForReset() {
   try {
@@ -30754,7 +30686,11 @@ async function strandedExtensionStudyManagedKeys() {
     throw new ManagedStateResetError("Factory reset could not inspect legacy extension Study storage.", { cause: error });
   }
 }
+function ownsOriginBrowserStorage() {
+  return !hasAsyncGmStorageBackend() || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
+}
 async function clearManagedBrowserCaches() {
+  if (!ownsOriginBrowserStorage()) return 0;
   if (typeof caches === "undefined") return 0;
   try {
     const keys = await caches.keys();
@@ -30770,6 +30706,7 @@ async function clearManagedBrowserCaches() {
   }
 }
 async function unregisterManagedServiceWorkers() {
+  if (!ownsOriginBrowserStorage()) return 0;
   if (typeof navigator === "undefined" || !navigator.serviceWorker?.getRegistrations) return 0;
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
@@ -30788,7 +30725,6 @@ async function setRawControlStorageValue(key2, value) {
   const setValue = asyncGmSetValue();
   if (setValue) {
     await setValue(key2, value);
-    if (key2 === MANAGED_STATE_EPOCH_KEY || isHostedYomuOrigin()) localStorageSet(key2, value);
     return;
   }
   localStorageSetOrThrow(key2, value);
@@ -30802,8 +30738,10 @@ async function deleteRawControlStorageValue(key2) {
     const stored = await getValue(key2, MISSING);
     if (!isMissingSentinel(stored)) throw new Error(`Managed storage retained control key "${key2}".`);
   }
-  removeLocalStorageKey(key2);
-  removeSessionStorageKey(key2);
+  if (!getValue) {
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+  }
 }
 async function clearFactoryResetSignal() {
   await deleteRawControlStorageValue(FACTORY_RESET_SIGNAL_KEY);
@@ -30855,15 +30793,17 @@ async function commitManagedStateResetEpoch(resetId) {
 }
 function subscribeToFactoryResetSignals(onSignal) {
   const cleanups = [];
+  const owner = managedStorageOwner();
   addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
     const signal = parseFactoryResetSignal(newValue);
     if (signal) onSignal(signal, { remote, transport: "gm-storage" });
   }, "GM factory reset listener failed");
   if (typeof BroadcastChannel === "function") {
     try {
-      const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+      const channel = new BroadcastChannel(`${FACTORY_RESET_CHANNEL_NAME}:${owner}`);
       channel.onmessage = (event) => {
-        const signal = parseFactoryResetSignal(event.data);
+        if (!isPlainRecord(event.data) || event.data.owner !== owner) return;
+        const signal = parseFactoryResetSignal(event.data.signal);
         if (signal) onSignal(signal, { remote: true, transport: "broadcast-channel" });
       };
       cleanups.push(() => channel.close());
@@ -30871,10 +30811,12 @@ function subscribeToFactoryResetSignals(onSignal) {
       debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
     }
   }
-  addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (event) => {
-    const signal = parseFactoryResetSignal(event.newValue);
-    if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
-  });
+  if (owner === "standalone") {
+    addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (event) => {
+      const signal = parseFactoryResetSignal(event.newValue);
+      if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
+    });
+  }
   return () => runStorageCleanups(cleanups);
 }
 function subscribeToStoredValueChanges(key2, onChange) {
@@ -30969,12 +30911,7 @@ async function addPrefixedGmStorageKeys(keys, prefixes) {
 }
 function addLocalStorageKeys(keys, prefixes) {
   try {
-    const candidates = [];
-    for (let index = 0; index < localStorage.length; index++) {
-      const key2 = localStorage.key(index);
-      if (key2) candidates.push(key2);
-    }
-    addMatchingStorageKeys(keys, candidates, prefixes);
+    addMatchingStorageKeys(keys, managedLocalStorageKeys(), prefixes);
   } catch {
   }
 }
@@ -30997,8 +30934,9 @@ async function allStorageKeys() {
   const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
   const keys = /* @__PURE__ */ new Set();
   const gmEnumeration = await addGmStorageKeys(keys);
-  collectWebStorageKeys(localStorage, keys, "localStorage");
-  collectWebStorageKeys(sessionStorage, keys, "sessionStorage");
+  if (!hasAsyncGmStorageBackend()) {
+    for (const key2 of managedWebStorageResetKeys("standalone")) keys.add(key2);
+  }
   await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
   if (!gmEnumeration.complete) {
     const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
@@ -31098,16 +31036,6 @@ async function addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately) {
     if (await resetStoredValueExists(key2)) keys.add(key2);
   }
 }
-function collectWebStorageKeys(storage, keys, label) {
-  try {
-    for (let index = 0; index < storage.length; index++) {
-      const key2 = storage.key(index);
-      if (key2 && isManagedStorageKey(key2)) keys.add(key2);
-    }
-  } catch (error) {
-    throw new ManagedStateResetError(`Factory reset could not enumerate ${label}.`, { cause: error });
-  }
-}
 async function resetStoredValueExists(key2) {
   const getValue = asyncGmGetValue();
   if (getValue) {
@@ -31120,6 +31048,7 @@ async function resetStoredValueExists(key2) {
         const logical = await getValue(key2, MISSING);
         if (!isMissingSentinel(logical)) return true;
       }
+      return false;
     } catch (error) {
       throw new ManagedStateResetError(`Factory reset could not inspect "${key2}".`, { cause: error });
     }
@@ -31149,29 +31078,13 @@ function resetWebStorageHasKey(storage, key2, label) {
     throw new ManagedStateResetError(`Factory reset could not verify ${label} key "${key2}".`, { cause: error });
   }
 }
-function mirrorManagedValueToHostedStorage(key2, value, epoch) {
-  if (!shouldMirrorManagedValueToHostedStorage(key2)) return;
-  mirrorLocalManagedValue(key2, value, epoch, (error) => {
-    debugStorageError("Hosted localStorage mirror failed", key2, error);
-  });
-}
-function cacheManagedValueForHostedStartup(key2, value) {
-  const epoch = managedStateEpochForSynchronousLocalRead();
-  if (epoch) mirrorManagedValueToHostedStorage(key2, value, epoch);
-}
-function cacheManagedValueForHostedStartupIfAbsent(key2, value) {
-  if (webStorageHasKey(localStorage, key2)) return;
-  cacheManagedValueForHostedStartup(key2, value);
-}
 function restoreLocalFallbackStoredValue(key2, value, existed) {
   if (managedStateWritesSuppressed()) return;
   restoreLocalFallbackStoredValueAtEpoch(key2, value, existed, managedStateEpochForSynchronousLocalRead());
 }
-function shouldMirrorManagedValueToHostedStorage(key2) {
-  return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && isHostedYomuOrigin();
-}
 async function clearManagedIndexedDatabases() {
-  await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
+  const names = registeredManagedIndexedDbNames().filter(databaseBelongsToCurrentOwner);
+  await Promise.all(names.map(deleteIndexedDbDatabase));
 }
 function isManagedBrowserCacheName(name) {
   return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -31283,8 +31196,9 @@ function parseJsonRecord(value) {
 function publishBroadcastFactoryResetSignal(signal) {
   if (typeof BroadcastChannel !== "function") return;
   try {
-    const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
-    channel.postMessage(signal);
+    const owner = managedStorageOwner();
+    const channel = new BroadcastChannel(`${FACTORY_RESET_CHANNEL_NAME}:${owner}`);
+    channel.postMessage({ owner, signal });
     channel.close();
   } catch (error) {
     debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
@@ -33670,6 +33584,7 @@ function normalizeStoredCard(value) {
     ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
     tags: stringArray$2(value.tags),
     dueAt: finiteNumber$2(value.dueAt, createdAt),
+    ...value.reviewEnabled === false ? { reviewEnabled: false } : {},
     lastReviewAt: value.lastReviewAt === null ? null : finiteNumber$2(value.lastReviewAt, null),
     createdAt,
     updatedAt,
@@ -33688,6 +33603,9 @@ function storedCardIdentity(card) {
   });
 }
 function preferredSchedule(left, right) {
+  if (left.reviewEnabled === false !== (right.reviewEnabled === false)) {
+    return left.reviewEnabled === false ? right : left;
+  }
   if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
   const leftReviewed = left.lastReviewAt ?? -1;
   const rightReviewed = right.lastReviewAt ?? -1;
@@ -33942,10 +33860,15 @@ class LocalYomuSrsRepository {
       };
     });
   }
+  async collection(limit = 50, options = {}) {
+    const now = this.now();
+    const language = options.language ? canonicalLanguageTag(options.language) : "";
+    return Object.values((await this.readDeck()).cards).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
+  }
   async queue(limit = 50, options = {}) {
     const now = this.now();
     const language = options.language ? canonicalLanguageTag(options.language) : "";
-    const cards = Object.values((await this.readDeck()).cards).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language);
+    const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language);
     const cap = normalizedQueueLimit(limit);
     const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
     const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -33963,7 +33886,7 @@ class LocalYomuSrsRepository {
   }
   async stats() {
     const now = this.now();
-    const cards = Object.values((await this.readDeck()).cards);
+    const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false);
     const today = startOfLocalDay(now);
     return {
       providerId: "yomu-local",
@@ -34009,6 +33932,19 @@ class LocalYomuSrsRepository {
     }
     return [...cards.values()];
   }
+  async startReview(cardId) {
+    return this.mutateDeck((deck) => {
+      const card = deck.cards[cardId];
+      if (!card) throw new Error("Saved word not found.");
+      const now = this.now();
+      if (card.reviewEnabled === false) {
+        delete card.reviewEnabled;
+        card.dueAt = now;
+        card.updatedAt = now;
+      }
+      return this.toReviewable(card, now);
+    });
+  }
   async review(request2) {
     return this.mutateDeck((deck) => {
       const now = this.now();
@@ -34017,6 +33953,7 @@ class LocalYomuSrsRepository {
         language: request2.card.language
       });
       const existing = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
+      if (existing.reviewEnabled === false) throw new Error("Saved word is not enrolled in review.");
       const updated = scheduleReviewedCard({ ...existing, id: identity2.key }, request2.grade, now);
       if (request2.card.providerCardId !== identity2.key && deck.cards[request2.card.providerCardId]) {
         delete deck.cards[request2.card.providerCardId];
@@ -34040,8 +33977,18 @@ class LocalYomuSrsRepository {
         sourceUrl: request2.sourceUrl
       }, now);
       if (!candidate2) throw new TypeError("Vocabulary expression is required.");
+      candidate2.reviewEnabled = false;
       const existing = deck.cards[candidate2.id];
-      const stored = existing ? mergeStoredYomuSrsCards(existing, candidate2) : candidate2;
+      const stored = existing ? {
+        ...mergeStoredYomuSrsCards(existing, candidate2),
+        dueAt: existing.dueAt,
+        lastReviewAt: existing.lastReviewAt,
+        reviews: existing.reviews,
+        lapses: existing.lapses,
+        intervalDays: existing.intervalDays,
+        ease: existing.ease,
+        reviewEnabled: existing.reviewEnabled
+      } : candidate2;
       deck.cards[candidate2.id] = stored;
       if ((deck.tombstones?.[candidate2.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate2.id];
       return {
@@ -34164,7 +34111,7 @@ class LocalYomuSrsRepository {
       sentence: card.sentence,
       state: localCardState(card, now),
       srsLevel: localSrsLevel(card),
-      dueAt: card.dueAt,
+      dueAt: card.reviewEnabled === false ? void 0 : card.dueAt,
       lastReviewAt: card.lastReviewAt,
       sourceUrl: card.sourceUrl,
       raw: card
@@ -34186,6 +34133,8 @@ function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
     verify: async () => true,
     stats: () => repository.stats(),
     queue: (limit, options) => repository.queue(limit, options),
+    collection: (limit, options) => repository.collection(limit, options),
+    startReview: (cardId) => repository.startReview(cardId),
     review: (request2) => repository.review(request2),
     mine: (request2) => repository.mine(request2),
     lookupCards: (items) => repository.lookupCards(items),
@@ -34222,12 +34171,14 @@ function meaningsFromGlosses(glosses) {
   return normalized2.length ? [{ glosses: normalized2, partOfSpeech: [] }] : [];
 }
 function localCardState(card, now) {
+  if (card.reviewEnabled === false) return [];
   if (card.reviews === 0) return ["new"];
   if (card.dueAt <= now) return ["due"];
   if (card.intervalDays >= 21) return ["known"];
   return ["learning"];
 }
 function localSrsLevel(card) {
+  if (card.reviewEnabled === false) return "Saved";
   if (card.reviews === 0) return "New";
   if (card.intervalDays >= 21) return "Known";
   if (card.intervalDays >= 7) return "Young";
@@ -43314,9 +43265,65 @@ function normalizedInterfaceLanguage(value, fallback) {
 function isInterfaceLanguage(value) {
   return value === "auto" || value === "en" || value === "ja";
 }
+const TRANSACTION_FIELD$1 = "__yomuSettingsPersistenceTransactionV1";
+const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+  const marker = transactionMarker(storedSettings);
+  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
+  return matchingCommittedPair(settings, intentLedger);
+}
+function matchingCommittedPair(settings, intentLedger) {
+  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
+  const settingsId = commitId(settings);
+  const ledgerId = commitId(intentLedger);
+  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+}
+function commitId(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2) return void 0;
+  return recordCommitId(record2);
+}
+function recordCommitId(record2) {
+  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
+  const id2 = record2[COMMIT_FIELD];
+  return typeof id2 === "string" && id2 ? id2 : null;
+}
+function withCommit(value, id2) {
+  return { ...value, [COMMIT_FIELD]: id2 };
+}
+function withoutCommit(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
+  const clean = { ...record2 };
+  delete clean[COMMIT_FIELD];
+  return clean;
+}
+function transactionMarker(value) {
+  const owner = objectRecord$2(value);
+  const marker = owner && objectRecord$2(owner[TRANSACTION_FIELD$1]);
+  if (!marker) return null;
+  return validatedTransactionMarker(marker);
+}
+function validatedTransactionMarker(marker) {
+  if (marker.version !== 1) return null;
+  const settings = serializedSnapshot(marker.settings);
+  const intentLedger = serializedSnapshot(marker.intentLedger);
+  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
+}
+function serializedSnapshot(value) {
+  const record2 = objectRecord$2(value);
+  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
+    existed: record2.existed,
+    previousValue: record2.previousValue,
+    localFallbackExisted: record2.localFallbackExisted,
+    localFallbackValue: record2.localFallbackValue
+  } : null;
+}
+function snapshotValue(snapshot) {
+  return snapshot.existed ? snapshot.previousValue : null;
+}
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
-const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
 class InvalidSettingsBackupAuthorityError extends Error {
   name = "InvalidSettingsBackupAuthorityError";
   yomuUiCopyKey = "settingsImportIncomplete";
@@ -43394,36 +43401,6 @@ function validateBackupAuthority(record2) {
     );
   }
 }
-function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
-  const marker = transactionMarker(storedSettings);
-  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
-  return matchingCommittedPair(settings, intentLedger);
-}
-function matchingCommittedPair(settings, intentLedger) {
-  const settingsId = commitId(settings);
-  const ledgerId = commitId(intentLedger);
-  return settingsId !== null && ledgerId !== null && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
-}
-function commitId(value) {
-  const record2 = objectRecord(value);
-  if (!record2) return void 0;
-  return recordCommitId(record2);
-}
-function recordCommitId(record2) {
-  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
-  const id2 = record2[COMMIT_FIELD];
-  return typeof id2 === "string" && id2 ? id2 : null;
-}
-function withCommit(value, id2) {
-  return { ...value, [COMMIT_FIELD]: id2 };
-}
-function withoutCommit(value) {
-  const record2 = objectRecord(value);
-  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
-  const clean = { ...record2 };
-  delete clean[COMMIT_FIELD];
-  return clean;
-}
 async function persistSettingsStorageTransaction(nextIntentLedger, settings) {
   const journal2 = createManagedWriteJournal(true);
   const snapshots = await storageSnapshots(journal2);
@@ -43492,18 +43469,6 @@ function transactionRecord(settings, intentLedger) {
     }
   };
 }
-function transactionMarker(value) {
-  const owner = objectRecord(value);
-  const marker = owner && objectRecord(owner[TRANSACTION_FIELD]);
-  if (!marker) return null;
-  return validatedTransactionMarker(marker);
-}
-function validatedTransactionMarker(marker) {
-  if (marker.version !== 1) return null;
-  const settings = serializedSnapshot(marker.settings);
-  const intentLedger = serializedSnapshot(marker.intentLedger);
-  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
-}
 function serializeSnapshot(snapshot) {
   return {
     existed: snapshot.existed,
@@ -43512,20 +43477,8 @@ function serializeSnapshot(snapshot) {
     localFallbackValue: snapshot.previousValue
   };
 }
-function serializedSnapshot(value) {
-  const record2 = objectRecord(value);
-  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
-    existed: record2.existed,
-    previousValue: record2.previousValue,
-    localFallbackExisted: record2.localFallbackExisted,
-    localFallbackValue: record2.localFallbackValue
-  } : null;
-}
 function markerSnapshot(receipt, snapshot) {
   return { receipt, ...snapshot };
-}
-function snapshotValue(snapshot) {
-  return snapshot.existed ? snapshot.previousValue : null;
 }
 function readSettingsStorageValueStrict(key2, fallback) {
   return isHostedYomuOrigin() ? gmStorageGetStrict(key2, fallback) : gmStorageGetSharedStrict(key2, fallback);
@@ -43540,27 +43493,10 @@ function valuesMatch(left, right) {
 function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
-const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
-function isHostedReaderRuntime() {
-  return document.documentElement?.dataset.yomuHosted !== void 0;
-}
-function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
-  return forceLocalRuntime || !root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
-}
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
-async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
-  if (typeof storedValue === "boolean") return storedValue;
-  if (isHostedReaderRuntime()) return migrationFallback;
-  return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-    const currentValue = await gmStorageGet(
-      PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-      void 0
-    );
-    if (typeof currentValue === "boolean") return currentValue;
-    await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-    return migrationFallback;
-  });
+function authoritativePreferredJapaneseSiteLanguage(storedValue, currentPreference) {
+  return typeof storedValue === "boolean" ? storedValue : currentPreference;
 }
 async function persistPreferredJapaneseSiteLanguageWithSettings(value, persistSettings2) {
   if (isHostedReaderRuntime()) return persistSettings2();
@@ -44780,7 +44716,7 @@ function normalizeOcrEngine(value) {
 function normalizedOcrEngineInput(value) {
   return typeof value === "string" ? value.trim() : "";
 }
-async function loadSettingsWithWitnessedAuthority() {
+async function loadSettings() {
   if (settingsResetInProgress) return mergeSettings(null);
   return loadSettingsFromStorage();
 }
@@ -44790,25 +44726,19 @@ async function loadSettingsFromStorage() {
     void 0
   );
   const view = await readSettingsPersistenceViewStrictFrom(readSettingsOwnedValueStrict);
-  const canonicalSettingsWitnessed = settingsRecord(view.settings) !== null;
   const current = mergeSettings(settingsRecord(view.settings));
-  const withSitePreference = await applyStoredSitePreference(current, storedSitePreference);
+  const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
   const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger));
-  await finalizeLoadedSettings(settings, canonicalSettingsWitnessed);
   return settings;
 }
-async function applyStoredSitePreference(settings, storedSitePreference) {
+function applyStoredSitePreference(settings, storedSitePreference) {
   return {
     ...settings,
-    preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+    preferJapaneseSiteLanguage: authoritativePreferredJapaneseSiteLanguage(
       storedSitePreference,
       settings.preferJapaneseSiteLanguage
     )
   };
-}
-async function finalizeLoadedSettings(settings, canonicalSettingsWitnessed) {
-  if (![canonicalSettingsWitnessed, isHostedYomuOrigin(), hasAsyncGmStorageBackend()].every(Boolean)) return;
-  cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
 }
 function readSettingsOwnedValueStrict(key2, fallback) {
   return isHostedYomuOrigin() ? gmStorageGetStrict(key2, fallback) : gmStorageGetSharedStrict(key2, fallback);
@@ -44821,7 +44751,7 @@ function subscribeToSettingsStorageChanges(onSettings) {
   let refreshRevision = 0;
   const refresh2 = () => {
     const revision2 = ++refreshRevision;
-    void loadSettingsWithWitnessedAuthority().then((settings) => {
+    void loadSettings().then((settings) => {
       if (active && revision2 === refreshRevision) onSettings(settings);
     }).catch((error) => log$1.warn("Settings change reconciliation failed", { error }));
   };
@@ -44870,7 +44800,6 @@ async function readSettingsIntentLedger() {
 }
 async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
   const normalizedSettings = mergeSettings(settings);
-  primeStandaloneHostedSettingsBaseline();
   let storedSettings = normalizedSettings;
   await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
     const ledger = await readSettingsIntentLedger();
@@ -44888,14 +44817,6 @@ async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUs
     storedSettings = supportedSettings;
   });
   dispatchSettingsChange(storedSettings);
-}
-function primeStandaloneHostedSettingsBaseline() {
-  if (!isHostedYomuOrigin() || hasAsyncGmStorageBackend()) return;
-  const baseline = mergeSettings(null);
-  cacheManagedValueForHostedStartupIfAbsent(
-    SETTINGS_STORAGE_KEY,
-    stripUnsupportedSettings(baseline) ?? baseline
-  );
 }
 function dispatchSettingsChange(settings) {
   publishSettingsChange({ settings });
@@ -265832,6 +265753,9 @@ const NEW_TAB_COPY = {
     browsePreviousPage: "Previous page",
     browseNextPage: "Next page",
     browseNoCards: "No cards match this filter yet.",
+    browseStartReview: "Add to review",
+    browseReviewAdded: "Added to review.",
+    browseReviewFailed: "Could not add to review.",
     studyDeckSelector: "Study deck",
     showOnlyFilter: "Show only",
     browseSelectPage: "Select page",
@@ -265877,6 +265801,10 @@ const NEW_TAB_COPY = {
     sessionResume: "Resume",
     sessionComplete: "Study time complete",
     syncPending: "⟳ To sync",
+    syncReviewCheck: "Review outcome unknown — check your SRS",
+    recoverReviewRecording: "Recover previous answer",
+    reviewResetReload: "Previous answer cleared by reset. Reload Study.",
+    syncUnavailable: "Review sync unavailable",
     syncSynced: "✓ Synced",
     dailyGoalUnit: "min",
     dailyGoalReached: "Goal reached",
@@ -266116,6 +266044,9 @@ const JA_NEW_TAB_COPY = {
   browsePreviousPage: "前のページ",
   browseNextPage: "次のページ",
   browseNoCards: "このフィルタに一致するカードはまだありません。",
+  browseStartReview: "復習に追加",
+  browseReviewAdded: "復習に追加しました。",
+  browseReviewFailed: "復習に追加できませんでした。",
   studyDeckSelector: "学習デッキ",
   showOnlyFilter: "表示対象",
   browseSelectPage: "ページを選択",
@@ -266161,6 +266092,10 @@ const JA_NEW_TAB_COPY = {
   sessionResume: "再開",
   sessionComplete: "学習時間が終わりました",
   syncPending: "⟳ 同期待ち",
+  syncReviewCheck: "復習結果が不明です。連携先で確認してください",
+  recoverReviewRecording: "前の回答を復元",
+  reviewResetReload: "リセットにより前の回答は消去されました。Studyを再読み込みしてください。",
+  syncUnavailable: "復習結果を同期できません",
   syncSynced: "✓ 同期済み",
   dailyGoalUnit: "分",
   dailyGoalReached: "目標達成",
@@ -266499,7 +266434,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DFq-XjPO.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BSF4gFq-.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -272747,7 +272682,7 @@ export {
   registerAudioAttempt as ay,
   getJpdbAudioBagKey as az,
   KANJI_PATTERN as b,
-  normalizeImportedLookupTerm as b$,
+  countYomitanZipBanks as b$,
   renderedWordHasAnkiState as b0,
   canonicalStudyCardIdentity as b1,
   applyLocalYomuSrsStateToRenderedWord as b2,
@@ -272762,29 +272697,29 @@ export {
   LOOKUP_PILL_COLOR_TOKENS as bB,
   normalizeDictionaryPreferences as bC,
   genericLookupTextVariants as bD,
-  yomitanDictionaryIdentity as bE,
-  gmStorageGet as bF,
-  gmStorageSet as bG,
-  gmStorageDelete as bH,
-  assertManagedStateMutationAllowed as bI,
-  managedStateEpochToken as bJ,
-  managedStateEpochTokenRelation as bK,
-  assertManagedStateReadAllowed as bL,
-  normalizeZipKanjiMetaRow as bM,
-  normalizeZipTermMetaRow as bN,
-  normalizeZipKanjiRow as bO,
-  normalizeZipTermRow as bP,
-  isRecord$6 as bQ,
-  isJapaneseKanjiCharacter as bR,
-  lookupSpansStartingInRange as bS,
-  normalizeImportedLookupMeta as bT,
-  normalizeGenericLookupText as bU,
-  splitTags as bV,
-  JAPANESE_RE as bW,
-  codePointBoundaryAtOrAfter as bX,
-  yomitanZipDictionaryName as bY,
-  yomitanZipVersion as bZ,
-  countYomitanZipBanks as b_,
+  ownedDatabaseName as bE,
+  yomitanDictionaryIdentity as bF,
+  gmStorageGet as bG,
+  gmStorageSet as bH,
+  gmStorageDelete as bI,
+  assertManagedStateMutationAllowed as bJ,
+  managedStateEpochToken as bK,
+  managedStateEpochTokenRelation as bL,
+  assertManagedStateReadAllowed as bM,
+  normalizeZipKanjiMetaRow as bN,
+  normalizeZipTermMetaRow as bO,
+  normalizeZipKanjiRow as bP,
+  normalizeZipTermRow as bQ,
+  isRecord$6 as bR,
+  isJapaneseKanjiCharacter as bS,
+  lookupSpansStartingInRange as bT,
+  normalizeImportedLookupMeta as bU,
+  normalizeGenericLookupText as bV,
+  splitTags as bW,
+  JAPANESE_RE as bX,
+  codePointBoundaryAtOrAfter as bY,
+  yomitanZipDictionaryName as bZ,
+  yomitanZipVersion as b_,
   effectiveWanikaniApiToken as ba,
   effectiveBunproFrontendApiToken as bb,
   effectiveBunproLegacyApiKey as bc,
@@ -272812,259 +272747,263 @@ export {
   STUDY_TRANSLATION_SOURCE_ID as by,
   ANKI_SOURCE_ID as bz,
   thCatalog as c,
-  managedStoredKeysStillPresent as c$,
-  activeLearningTargetGeneration as c0,
-  imageMimeType as c1,
-  bytesToBase64 as c2,
-  speakerIcon as c3,
-  renderedWordPrivateAttributesForState as c4,
-  gmStorageGetSync as c5,
-  gmStorageSetSync as c6,
-  isNonNullObject as c7,
-  uniqueNonEmptyStrings$1 as c8,
-  pitchNumberForReading as c9,
-  yomuBunproCompanion as cA,
-  shouldLookupAnkiStatus as cB,
-  setRenderedWordPitchClass as cC,
-  shouldHideFuriganaForCardState as cD,
-  isPopupLookupEnabled as cE,
-  yomuNormalizeOcrRenderedText as cF,
-  replaceRenderedWordFurigana as cG,
-  htmlToFirstElement as cH,
-  clearRenderedWordAnkiState as cI,
-  clearRenderedWordFurigana as cJ,
-  cardDeckMembershipClassNames as cK,
-  setInnerHtml as cL,
-  gmStorageDeleteSync as cM,
-  appendToDocumentHead as cN,
-  yomuSettingsSurfaceCompanion as cO,
-  subscribeToFactoryResetSignals as cP,
-  APP_NAME as cQ,
-  createFactoryResetSignal as cR,
-  beginSettingsResetGuard as cS,
-  publishFactoryResetSignal as cT,
-  delay as cU,
-  clearManagedStoredValues as cV,
-  deleteSettingsStorage as cW,
-  commitManagedStateResetEpoch as cX,
-  clearFactoryResetSignal as cY,
-  managedStateResetEpochMayHaveCommitted as cZ,
-  endSettingsResetGuard as c_,
-  pitchPatternFromPosition as ca,
-  KANA as cb,
-  COMBINING_KANA_MARKS as cc,
-  collectPitchVariants as cd,
-  splitMorae as ce,
-  pitchLevelsForDisplay as cf,
-  pitchClassNameForPattern as cg,
-  learningTargetModuleFor as ch,
-  defaultLearningTargetModule as ci,
-  languageDisplayName as cj,
-  resolveUiLanguage as ck,
-  primaryCardState as cl,
-  cardStateLabel as cm,
-  ConcurrencyGate as cn,
-  KANA_ONLY_RUN_RE as co,
-  ITERATION_MARK as cp,
-  KANA_WITH_PROLONGED as cq,
-  mapLimited as cr,
-  bareFallbackCardFromText as cs,
-  inferredInflectedSurfaceRubies as ct,
-  nonOverlappingTokens as cu,
-  READING_KANA_ONLY_RE as cv,
-  HALFWIDTH_KATAKANA as cw,
-  PROLONGED_SOUND_MARK as cx,
-  KATAKANA_MIDDLE_DOT as cy,
-  fallbackLookupTermsForCard as cz,
+  endSettingsResetGuard as c$,
+  normalizeImportedLookupTerm as c0,
+  activeLearningTargetGeneration as c1,
+  imageMimeType as c2,
+  bytesToBase64 as c3,
+  speakerIcon as c4,
+  renderedWordPrivateAttributesForState as c5,
+  gmStorageGetSync as c6,
+  gmStorageSetSync as c7,
+  isNonNullObject as c8,
+  uniqueNonEmptyStrings$1 as c9,
+  fallbackLookupTermsForCard as cA,
+  yomuBunproCompanion as cB,
+  shouldLookupAnkiStatus as cC,
+  setRenderedWordPitchClass as cD,
+  shouldHideFuriganaForCardState as cE,
+  isPopupLookupEnabled as cF,
+  yomuNormalizeOcrRenderedText as cG,
+  replaceRenderedWordFurigana as cH,
+  htmlToFirstElement as cI,
+  clearRenderedWordAnkiState as cJ,
+  clearRenderedWordFurigana as cK,
+  cardDeckMembershipClassNames as cL,
+  setInnerHtml as cM,
+  gmStorageDeleteSync as cN,
+  appendToDocumentHead as cO,
+  yomuSettingsSurfaceCompanion as cP,
+  subscribeToFactoryResetSignals as cQ,
+  APP_NAME as cR,
+  createFactoryResetSignal as cS,
+  beginSettingsResetGuard as cT,
+  publishFactoryResetSignal as cU,
+  delay as cV,
+  clearManagedStoredValues as cW,
+  deleteSettingsStorage as cX,
+  commitManagedStateResetEpoch as cY,
+  clearFactoryResetSignal as cZ,
+  managedStateResetEpochMayHaveCommitted as c_,
+  pitchNumberForReading as ca,
+  pitchPatternFromPosition as cb,
+  KANA as cc,
+  COMBINING_KANA_MARKS as cd,
+  collectPitchVariants as ce,
+  splitMorae as cf,
+  pitchLevelsForDisplay as cg,
+  pitchClassNameForPattern as ch,
+  learningTargetModuleFor as ci,
+  defaultLearningTargetModule as cj,
+  languageDisplayName as ck,
+  resolveUiLanguage as cl,
+  primaryCardState as cm,
+  cardStateLabel as cn,
+  ConcurrencyGate as co,
+  KANA_ONLY_RUN_RE as cp,
+  ITERATION_MARK as cq,
+  KANA_WITH_PROLONGED as cr,
+  mapLimited as cs,
+  bareFallbackCardFromText as ct,
+  inferredInflectedSurfaceRubies as cu,
+  nonOverlappingTokens as cv,
+  READING_KANA_ONLY_RE as cw,
+  HALFWIDTH_KATAKANA as cx,
+  PROLONGED_SOUND_MARK as cy,
+  KATAKANA_MIDDLE_DOT as cz,
   tlCatalog as d,
-  combinedApiCredentialLabel as d$,
-  ManagedStateResetError as d0,
-  stableHash32 as d1,
-  uniqueTrimmedStrings as d2,
-  stableHashBase36 as d3,
-  isTargetLanguageText as d4,
-  KANJI_LIKE_WITH_COUNTERS as d5,
-  HIRAGANA_WITH_PROLONGED as d6,
-  KATAKANA_WITH_PROLONGED as d7,
-  KANJI_LIKE_RE as d8,
-  applyOverlayPageScale as d9,
-  installKanjiDoodle as dA,
-  rankKanjiStrokeCandidates as dB,
-  promiseWithTimeout as dC,
-  isYomuNewTabUrl as dD,
-  convertRomajiToKana as dE,
-  normalizeJapaneseStudyAnswer as dF,
-  isolate as dG,
-  contextPitchPattern as dH,
-  managedStateWritesSuppressed as dI,
-  createStorageCoordinationId as dJ,
-  managedSessionStorage as dK,
-  bindAuthorizedReaderFormSubmit as dL,
-  isDirectTrustedReaderInteraction as dM,
-  normalizedJapaneseCardReading as dN,
-  DEFAULT_SETTINGS as dO,
-  renderImmersionSearchLinks as dP,
-  createStudySessionClock as dQ,
-  readJpdbKanjiCommandCapability as dR,
-  isNewTabCopyKey as dS,
-  nextExplicitUiLanguage as dT,
-  GITHUB_REPOSITORY_URL as dU,
-  DISCORD_INVITE_URL as dV,
-  dispatchAuthorizedReaderControlClick as dW,
-  DOCS_BASE_URL as dX,
-  SUPPORT_STATUS_URL as dY,
-  validPitchPositions as dZ,
-  mountStudySessionClockControl as d_,
-  overlayViewportBottomInset as da,
-  renderImmersionSearchLinksHtml as db,
-  renderTokensToHtml as dc,
-  readPrivateReviewTarget as dd,
-  runLimited as de,
-  isManagedStorageKey as df,
-  managedLocalStorage as dg,
-  readJitenKanjiWordsCommandCapability as dh,
-  bindPrivateCommandCapability as di,
-  parseHtmlDocument as dj,
-  isCurrentScanTarget as dk,
-  applyTokensToScanTarget as dl,
-  unwrapReaderWords as dm,
-  collectFragmentTextTargetsIn as dn,
-  collectFormControlTextTargetsIn as dp,
-  newTabText as dq,
-  CARD_STATE_LABEL_KEYS as dr,
-  readKanjiCommandCapability as ds,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as dt,
-  dispatchPrivateCommand as du,
-  claimLocalTapActivation as dv,
-  installControlTapActivation as dw,
-  enabledReaderControl as dx,
-  effectiveFuriganaMode as dy,
-  KANJI_DOODLE_CLEAR_EVENT as dz,
+  DOCS_BASE_URL as d$,
+  managedStoredKeysStillPresent as d0,
+  ManagedStateResetError as d1,
+  stableHash32 as d2,
+  uniqueTrimmedStrings as d3,
+  stableHashBase36 as d4,
+  isTargetLanguageText as d5,
+  KANJI_LIKE_WITH_COUNTERS as d6,
+  HIRAGANA_WITH_PROLONGED as d7,
+  KATAKANA_WITH_PROLONGED as d8,
+  KANJI_LIKE_RE as d9,
+  KANJI_DOODLE_CLEAR_EVENT as dA,
+  installKanjiDoodle as dB,
+  rankKanjiStrokeCandidates as dC,
+  promiseWithTimeout as dD,
+  isYomuNewTabUrl as dE,
+  convertRomajiToKana as dF,
+  normalizeJapaneseStudyAnswer as dG,
+  isolate as dH,
+  contextPitchPattern as dI,
+  managedStateWritesSuppressed as dJ,
+  createStorageCoordinationId as dK,
+  managedSessionStorage as dL,
+  bindAuthorizedReaderFormSubmit as dM,
+  isDirectTrustedReaderInteraction as dN,
+  normalizedJapaneseCardReading as dO,
+  parseManagedStateEpoch as dP,
+  sameManagedStateEpoch as dQ,
+  gmStorageGetStrict as dR,
+  DEFAULT_SETTINGS as dS,
+  renderImmersionSearchLinks as dT,
+  createStudySessionClock as dU,
+  readJpdbKanjiCommandCapability as dV,
+  isNewTabCopyKey as dW,
+  nextExplicitUiLanguage as dX,
+  GITHUB_REPOSITORY_URL as dY,
+  DISCORD_INVITE_URL as dZ,
+  dispatchAuthorizedReaderControlClick as d_,
+  applyOverlayPageScale as da,
+  overlayViewportBottomInset as db,
+  renderImmersionSearchLinksHtml as dc,
+  renderTokensToHtml as dd,
+  readPrivateReviewTarget as de,
+  runLimited as df,
+  isManagedStorageKey as dg,
+  managedLocalStorage as dh,
+  readJitenKanjiWordsCommandCapability as di,
+  bindPrivateCommandCapability as dj,
+  parseHtmlDocument as dk,
+  isCurrentScanTarget as dl,
+  applyTokensToScanTarget as dm,
+  unwrapReaderWords as dn,
+  collectFragmentTextTargetsIn as dp,
+  collectFormControlTextTargetsIn as dq,
+  newTabText as dr,
+  CARD_STATE_LABEL_KEYS as ds,
+  readKanjiCommandCapability as dt,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as du,
+  dispatchPrivateCommand as dv,
+  claimLocalTapActivation as dw,
+  installControlTapActivation as dx,
+  enabledReaderControl as dy,
+  effectiveFuriganaMode as dz,
   esCatalog as e,
-  hasStatusColorSource as e$,
-  assessKanjiStrokes as e0,
-  SHAPE_PASS_SCORE as e1,
-  activeLanguageProfile as e2,
-  packagedExtensionStorageAdapterMissing as e3,
-  readSettingsPersistenceViewStrict as e4,
-  FURIGANA_HIDE_STATE_GROUPS as e5,
-  WORD_COLOR_HIDE_STATE_GROUPS as e6,
-  accentToRgba as e7,
-  effectiveReaderTextColorSource as e8,
-  effectiveReaderColorSource as e9,
-  isLearnerLanguageId as eA,
-  COPY_LOOKUP_LINK as eB,
-  exportManagedStoredValues as eC,
-  RETIRED_SETTINGS_STORAGE_KEYS as eD,
-  SETTINGS_STORAGE_KEY as eE,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eF,
-  applySettingsIntent as eG,
-  serializeSettingsPersistencePair as eH,
-  defaultDictionaryLookupLinks as eI,
-  MAX_EXTRA_LOOKUP_LINKS as eJ,
-  missingLookupComponents as eK,
-  AUDIO_SOURCE_UI_TYPE_VALUES as eL,
-  audioSourceLabel as eM,
-  lookupSiteComponents as eN,
-  DEFAULT_POPUP_FONT_FAMILY as eO,
-  DEFAULT_READER_FONT_FAMILY as eP,
-  isPromiseLike as eQ,
-  dispatchAuthorizedReaderControlEvent as eR,
-  ANKI_CONNECT_ADDON_URL as eS,
-  redactedApiCredentialsFromForm as eT,
-  LEARNER_LANGUAGE_IDS as eU,
-  externalLinkIcon as eV,
-  LEARNING_TARGET_ROSTER as eW,
-  furiganaModeNeedsDifficultyExplanation as eX,
-  DEFAULT_OVERLAY_TEXT_COLOR as eY,
-  DEFAULT_OVERLAY_OUTLINE_COLOR as eZ,
-  storedCredentialClearName as e_,
-  effectiveSubtitleTextColorSource as ea,
-  effectiveSubtitleColorSource as eb,
-  accessibleOcrBackgroundOpacity as ec,
-  accessibleOcrBackgroundColor as ed,
-  READER_THEME_COLOR_TOKENS as ee,
-  EXTENSION_STORE_URLS as ef,
-  USERSCRIPT_INSTALL_URL as eg,
-  learnerLanguageById as eh,
-  readApiCredentialsFromFormData as ei,
-  normalizeReaderSettings as ej,
-  DEFAULT_AUDIO_SOURCES as ek,
-  learningTargetRosterIdForTag as el,
-  dictionaryLookupLinksForTarget as em,
-  availableInterfaceLocales as en,
-  credentialValueFromReader as eo,
-  normalizeOcrProvider as ep,
-  slice1LanguageIdForTag as eq,
-  canonicalTagForSlice1Language as er,
-  canonicalTagForLearningTarget as es,
-  languageProfileDictionariesFromPreferences as et,
-  activateLanguageProfileForOutputLanguage as eu,
-  normalizeDictionaryLookupLinks as ev,
-  normalizeAudioSource as ew,
-  isLearningTargetRosterId as ex,
-  MAX_LOOKUP_LINK_ROWS as ey,
-  normalizeAnkiFieldMappings as ez,
+  furiganaModeNeedsDifficultyExplanation as e$,
+  SUPPORT_STATUS_URL as e0,
+  validPitchPositions as e1,
+  mountStudySessionClockControl as e2,
+  combinedApiCredentialLabel as e3,
+  assessKanjiStrokes as e4,
+  SHAPE_PASS_SCORE as e5,
+  activeLanguageProfile as e6,
+  packagedExtensionStorageAdapterMissing as e7,
+  readSettingsPersistenceViewStrict as e8,
+  FURIGANA_HIDE_STATE_GROUPS as e9,
+  normalizeAudioSource as eA,
+  isLearningTargetRosterId as eB,
+  MAX_LOOKUP_LINK_ROWS as eC,
+  normalizeAnkiFieldMappings as eD,
+  isLearnerLanguageId as eE,
+  COPY_LOOKUP_LINK as eF,
+  exportManagedStoredValues as eG,
+  RETIRED_SETTINGS_STORAGE_KEYS as eH,
+  SETTINGS_STORAGE_KEY as eI,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eJ,
+  applySettingsIntent as eK,
+  serializeSettingsPersistencePair as eL,
+  defaultDictionaryLookupLinks as eM,
+  MAX_EXTRA_LOOKUP_LINKS as eN,
+  missingLookupComponents as eO,
+  AUDIO_SOURCE_UI_TYPE_VALUES as eP,
+  audioSourceLabel as eQ,
+  lookupSiteComponents as eR,
+  DEFAULT_POPUP_FONT_FAMILY as eS,
+  DEFAULT_READER_FONT_FAMILY as eT,
+  isPromiseLike as eU,
+  dispatchAuthorizedReaderControlEvent as eV,
+  ANKI_CONNECT_ADDON_URL as eW,
+  redactedApiCredentialsFromForm as eX,
+  LEARNER_LANGUAGE_IDS as eY,
+  externalLinkIcon as eZ,
+  LEARNING_TARGET_ROSTER as e_,
+  WORD_COLOR_HIDE_STATE_GROUPS as ea,
+  accentToRgba as eb,
+  effectiveReaderTextColorSource as ec,
+  effectiveReaderColorSource as ed,
+  effectiveSubtitleTextColorSource as ee,
+  effectiveSubtitleColorSource as ef,
+  accessibleOcrBackgroundOpacity as eg,
+  accessibleOcrBackgroundColor as eh,
+  READER_THEME_COLOR_TOKENS as ei,
+  EXTENSION_STORE_URLS as ej,
+  USERSCRIPT_INSTALL_URL as ek,
+  learnerLanguageById as el,
+  readApiCredentialsFromFormData as em,
+  normalizeReaderSettings as en,
+  DEFAULT_AUDIO_SOURCES as eo,
+  learningTargetRosterIdForTag as ep,
+  dictionaryLookupLinksForTarget as eq,
+  availableInterfaceLocales as er,
+  credentialValueFromReader as es,
+  normalizeOcrProvider as et,
+  slice1LanguageIdForTag as eu,
+  canonicalTagForSlice1Language as ev,
+  canonicalTagForLearningTarget as ew,
+  languageProfileDictionariesFromPreferences as ex,
+  activateLanguageProfileForOutputLanguage as ey,
+  normalizeDictionaryLookupLinks as ez,
   shCatalog as f,
-  NEW_TAB_PAGE_URL as f0,
-  AUDIO_GUIDE_URL as f1,
-  NADESHIKO_DEVELOPER_URL as f2,
-  VIDEO_PLAYER_PAGE_URL as f3,
-  PDF_READER_PAGE_URL as f4,
-  DONATE_URL as f5,
-  SUPPORT_COPY as f6,
-  SUPPORT_COPY_EXTRA as f7,
-  LEARNER_LANGUAGES as f8,
-  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as f9,
-  normalizeAudioSubSources as fA,
-  publishSettingsChange as fB,
-  mergeApiCredentialValues as fC,
-  configureLogger as fD,
-  localeDirection as fE,
-  subscribeToSettingsStorageChanges as fF,
-  isHostedYomuOrigin as fG,
-  USERSCRIPT_STORAGE_BRIDGE_READY_EVENT as fH,
-  loadSettingsWithWitnessedAuthority as fI,
-  copyIcon as fJ,
-  ankiIcon as fK,
-  createYomuLocalSrsAdapter as fL,
-  saveSettings as fM,
-  yomuOnboardingController as fN,
-  clearManagedBrowserCaches as fO,
-  unregisterManagedServiceWorkers as fP,
-  setRenderedWordCardIdentity as fQ,
-  renderedWordCardKey as fR,
-  renderedWordsInRoot as fS,
-  renderedWordElementKey as fT,
-  applyInterfaceLocaleToRoot as fU,
-  applyInterfaceLocaleToDocument as fV,
-  ensureManagedWebStorageCurrent as fW,
-  gmPrivateStorageDelete as fa,
-  gmPrivateStorageGet as fb,
-  subscribeToSettingsChanges as fc,
-  subscribeLocalYomuSrsMutations as fd,
-  LocalYomuSrsRepository as fe,
-  withGmStorageLease as ff,
-  unwrapProfileKey as fg,
-  parseAcademyPairingTicket as fh,
-  wrapProfileKey as fi,
-  decryptProfileEvent as fj,
-  encryptProfileEvent as fk,
-  mergeStoredYomuSrsDecks as fl,
-  settingsPanelHash as fm,
-  readTrustedYomuUrl as fn,
-  isPrivilegedYomuLocalDevelopmentOrigin as fo,
-  settingsPanelFromHash as fp,
-  readBackupSettingsPersistenceView as fq,
-  beginStoredValuesImport as fr,
-  settingsIntentKeys as fs,
-  mergeDictionaryPreferences as ft,
-  retireStaleDictionaryPreferences as fu,
-  captureActiveLanguageProfileDictionaries as fv,
-  SETTINGS_TITLE as fw,
-  learningTargetRosterEntry as fx,
-  NEW_TAB_VERSION_URL as fy,
-  NO_EXPLICIT_USER_CHOICE as fz,
+  DEFAULT_OVERLAY_TEXT_COLOR as f0,
+  DEFAULT_OVERLAY_OUTLINE_COLOR as f1,
+  storedCredentialClearName as f2,
+  hasStatusColorSource as f3,
+  NEW_TAB_PAGE_URL as f4,
+  AUDIO_GUIDE_URL as f5,
+  NADESHIKO_DEVELOPER_URL as f6,
+  VIDEO_PLAYER_PAGE_URL as f7,
+  PDF_READER_PAGE_URL as f8,
+  DONATE_URL as f9,
+  SETTINGS_TITLE as fA,
+  learningTargetRosterEntry as fB,
+  NEW_TAB_VERSION_URL as fC,
+  NO_EXPLICIT_USER_CHOICE as fD,
+  normalizeAudioSubSources as fE,
+  publishSettingsChange as fF,
+  mergeApiCredentialValues as fG,
+  configureLogger as fH,
+  localeDirection as fI,
+  subscribeToSettingsStorageChanges as fJ,
+  isHostedYomuOrigin as fK,
+  USERSCRIPT_STORAGE_BRIDGE_READY_EVENT as fL,
+  loadSettings as fM,
+  copyIcon as fN,
+  ankiIcon as fO,
+  createYomuLocalSrsAdapter as fP,
+  saveSettings as fQ,
+  yomuOnboardingController as fR,
+  clearManagedBrowserCaches as fS,
+  unregisterManagedServiceWorkers as fT,
+  setRenderedWordCardIdentity as fU,
+  renderedWordCardKey as fV,
+  renderedWordsInRoot as fW,
+  renderedWordElementKey as fX,
+  applyInterfaceLocaleToRoot as fY,
+  applyInterfaceLocaleToDocument as fZ,
+  ensureManagedWebStorageCurrent as f_,
+  SUPPORT_COPY as fa,
+  SUPPORT_COPY_EXTRA as fb,
+  LEARNER_LANGUAGES as fc,
+  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as fd,
+  gmPrivateStorageDelete as fe,
+  gmPrivateStorageGet as ff,
+  subscribeToSettingsChanges as fg,
+  subscribeLocalYomuSrsMutations as fh,
+  LocalYomuSrsRepository as fi,
+  withGmStorageLease as fj,
+  unwrapProfileKey as fk,
+  parseAcademyPairingTicket as fl,
+  wrapProfileKey as fm,
+  decryptProfileEvent as fn,
+  encryptProfileEvent as fo,
+  mergeStoredYomuSrsDecks as fp,
+  settingsPanelHash as fq,
+  readTrustedYomuUrl as fr,
+  isPrivilegedYomuLocalDevelopmentOrigin as fs,
+  settingsPanelFromHash as ft,
+  readBackupSettingsPersistenceView as fu,
+  beginStoredValuesImport as fv,
+  settingsIntentKeys as fw,
+  mergeDictionaryPreferences as fx,
+  retireStaleDictionaryPreferences as fy,
+  captureActiveLanguageProfileDictionaries as fz,
   getPitchClass as g,
   roCatalog as h,
   plCatalog as i,
