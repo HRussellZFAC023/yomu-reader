@@ -1,6 +1,8 @@
 import { ANKI_NEVER_FORGET_TAG, AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, resolveAnkiWordAudio, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from '../anki/index';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { copyText } from '../ui/browser';
+import { PreparedBatchActions, type BatchMiningCardCandidate, type BatchMutationResult } from './prepared-batch-actions';
+export type { BatchMiningCardCandidate } from './prepared-batch-actions';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -33,6 +35,7 @@ import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 import {
     readAnkiAudioMergeCapability,
     readReviewTargetCapability,
+    privateReviewGradeAllowed,
     type CardCommandCapability,
 } from '../dom/private-command-capabilities';
 
@@ -96,11 +99,6 @@ interface PreparedAnkiAdd {
     sentence: string | undefined;
 }
 
-export interface BatchMiningCardCandidate {
-    card: JPDBCard;
-    sentence?: string;
-}
-
 function assertReviewableApiCardState(states: string[]): void {
     if (states.includes('blacklisted')) throw userFacingError('reviewBlockedBlacklisted');
     if (states.includes('never-forget')) throw userFacingError('reviewBlockedNeverForget');
@@ -108,26 +106,25 @@ function assertReviewableApiCardState(states: string[]): void {
 }
 
 export class CardActionController {
-    constructor(private options: CardActionControllerOptions) {}
-
-    async addBatchMiningCards(candidates: BatchMiningCardCandidate[]): Promise<number> {
-        let added = 0;
-        for (const candidate of candidates) {
-            if (await this.addBatchMiningCard(candidate.card, candidate.sentence)) added += 1;
-        }
-        return added;
+    readonly batchMining: PreparedBatchActions;
+    constructor(private options: CardActionControllerOptions) {
+        this.batchMining = new PreparedBatchActions({
+            getSettings: () => this.options.getSettings(),
+            resolveProvider: (card, settings) => this.apiProviderForCard(card, settings),
+            collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
+            collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
+            collectForReview: (card, sentence, deck) => this.options.jpdb.addToDeck(deck, card, sentence),
+            review: (provider, card, grade, sentence, assertCurrent, onReviewed) => this.reviewApiCard(grade, card, sentence, { providerId: provider.id, deckId: defaultJpdbDeckId(this.options.getSettings()), suppressToast: true, assertCurrent, onReviewed }),
+            notify: card => this.notifyApiCardStateChanged(card),
+        });
     }
 
-    async reviewBatchMiningCards(candidates: BatchMiningCardCandidate[], grade: JPDBGrade): Promise<number> {
-        let reviewed = 0;
-        for (const candidate of candidates) {
-            await this.reviewGrade(grade, candidate.card, candidate.sentence, {
-                deckId: defaultJpdbDeckId(this.options.getSettings()),
-                suppressToast: true,
-            });
-            reviewed += 1;
-        }
-        return reviewed;
+    addBatchMiningCards(candidates: BatchMiningCardCandidate[]): Promise<BatchMutationResult> {
+        return this.batchMining.execute(this.batchMining.prepare(candidates).map(plan => plan.token), 'collect');
+    }
+
+    reviewBatchMiningCards(candidates: BatchMiningCardCandidate[], grade: JPDBGrade): Promise<BatchMutationResult> {
+        return this.batchMining.execute(this.batchMining.prepare(candidates).map(plan => plan.token), 'review', grade);
     }
 
     async perform(command: CardCommandCapability | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
@@ -141,24 +138,6 @@ export class CardActionController {
         if (miningAction !== undefined) return miningAction;
 
         return Boolean(command);
-    }
-
-    private async addBatchMiningCard(card: JPDBCard, sentence: string | undefined): Promise<boolean> {
-        const settings = this.options.getSettings();
-        const candidate = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
-        const provider = candidate && isApiSrsProviderEnabled(settings, candidate.id) ? candidate : null;
-        if (provider?.hasApiKey) {
-            const deckId = provider.id === 'jiten'
-                ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? '')
-                : provider.selectedDeckId(settings.miningDeck, settings);
-            if (!deckId) throw userFacingError(provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey);
-            await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
-            this.notifyApiCardStateChanged(card);
-            if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
-            return true;
-        }
-        if (settings.ankiEnabled) return await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
-        throw userFacingError('batchMiningNoDestination');
     }
 
     private performStudyAction(command: CardCommandCapability | undefined, button: HTMLButtonElement, sentence?: string): boolean | Promise<boolean> | undefined {
@@ -617,6 +596,7 @@ export class CardActionController {
     }
 
     private async gradeCard(command: CardCommandCapability, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+        if (!privateReviewGradeAllowed(button, command)) throw userFacingError('actionFailed');
         const grade = command.grade;
         if (!grade) throw userFacingError('actionFailed');
         const selection = selectedPopoverReviewTarget(button, command);
@@ -655,7 +635,7 @@ export class CardActionController {
         throw userFacingError('missingAnkiCardId');
     }
 
-    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId; suppressToast?: boolean }): Promise<void> {
+    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId; suppressToast?: boolean; assertCurrent?: () => void; onReviewed?: () => void }): Promise<void> {
         const settings = this.options.getSettings();
         const provider = options.providerId
             ? this.apiProviders(settings).find(candidate => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null
@@ -664,6 +644,8 @@ export class CardActionController {
         const states = normalizeCardStates(card.cardState);
         assertReviewableApiCardState(states);
         const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
+        options.onReviewed?.();
+        options.assertCurrent?.();
         if (result.addedBeforeReview) {
             if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
         } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
@@ -702,13 +684,16 @@ export class CardActionController {
         this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
     }
 
-    private async addToAnkiForBatch(card: JPDBCard, sentence: string | undefined, deckName?: string): Promise<boolean> {
+    private async addToAnkiForBatch(card: JPDBCard, sentence: string | undefined, deckName: string, assertCurrent: () => void): Promise<boolean> {
         const settings = this.options.getSettings();
         const existing = await this.options.anki.findExistingCards(card);
-        if (existing.primary) return false;
+        assertCurrent();
+        if (existing.primary) return true;
         const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, {});
+        assertCurrent();
         const noteId = await this.addPreparedAnkiCard(card, prepared);
-        if (noteId === 'duplicate' || noteId === null) return false;
+        if (noteId === 'duplicate') return true;
+        if (noteId === null) return false;
         this.notifyAnkiStatusChanged(card);
         return true;
     }

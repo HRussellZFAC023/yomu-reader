@@ -156,7 +156,7 @@ describe('New Tab background target generations', () => {
         const unresolved = card(72, '犬', 'いぬ', 'fallback');
         const resolved = card(171, '猫', 'ねこ', 'jiten');
         const scope = new NewTabLookupTargetScope();
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const resolver = new NewTabTargetLookupResolver({
             getSettings: () => ({ ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: true }),
             getDictionaries: () => ({ lookup: vi.fn(async () => []) }),

@@ -24,8 +24,15 @@ const runtime = {
     ]),
 };
 
-await writeFile(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`);
-console.log(`Built runtime dictionary catalog with ${runtime.entries.length} entries.`);
+const output = `${JSON.stringify(runtime, null, 2)}\n`;
+if (process.argv.includes('--check')) {
+    if (await readFile(runtimePath, 'utf8') !== output) {
+        throw new Error('Runtime dictionary catalog is stale relative to published catalog.json. Run node scripts/dictionaries/build-runtime-catalog.mjs before generating offline starters.');
+    }
+} else {
+    await writeFile(runtimePath, output);
+    console.log(`Built runtime dictionary catalog with ${runtime.entries.length} entries.`);
+}
 
 function compactDistribution(distribution) {
     switch (distribution.state) {

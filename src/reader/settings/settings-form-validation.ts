@@ -42,5 +42,6 @@ function firstInvalidSettingsControl(form: HTMLFormElement): SettingsConstraintC
 function revealInvalidSettingsControl(control: SettingsConstraintControl, form: HTMLFormElement): void {
     for (let ancestor = control.parentElement; ancestor && ancestor !== form; ancestor = ancestor.parentElement) {
         if (ancestor.hidden) ancestor.hidden = false;
+        if (ancestor.tagName === 'DETAILS') (ancestor as HTMLDetailsElement).open = true;
     }
 }

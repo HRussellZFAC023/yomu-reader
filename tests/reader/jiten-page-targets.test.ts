@@ -22,8 +22,10 @@ function renderStudyPage(options: { revealed: boolean }): void {
                     <div class="w-full mx-auto">
                         <div class="relative bg-surface-0 rounded-2xl shadow-lg" data-case="card">
                             <div lang="ja" data-case="headword">百科事典</div>
+                            ${options.revealed ? '<div role="region" aria-label="Answer">' : ''}
                             <div data-case="kanji-breakdown">Kanji breakdown</div>
                             <div data-case="composed-of">Composed of</div>
+                            ${options.revealed ? '</div>' : ''}
                         </div>
                     </div>
                 </div>
@@ -89,6 +91,37 @@ describe('jiten parse-page addon target', () => {
 });
 
 describe('jiten study-page addon anchor', () => {
+    it.each(['reveal-leave-from', 'reveal-leave-active', 'reveal-leave-to'])('rejects the outgoing answer during %s', className => {
+        stubStudyLocation();
+        renderStudyPage({ revealed: true });
+        document.querySelector('[aria-label="Answer"]')!.classList.add(className);
+        expect(currentJitenTermTarget()).toBeNull();
+    });
+
+    it('accepts the native answer during its reveal animation', () => {
+        stubStudyLocation();
+        renderStudyPage({ revealed: true });
+        document.querySelector('[aria-label="Answer"]')!.classList.add('reveal-enter-active');
+        expect(currentJitenTermTarget()?.anchor.dataset.case).toBe('composed-of');
+    });
+
+    it('ignores answer regions outside the card or inside reader content', () => {
+        stubStudyLocation();
+        renderStudyPage({ revealed: false });
+        document.querySelector('button')!.remove();
+        document.body.insertAdjacentHTML('beforeend', '<div role="region" aria-label="Answer"><div>Other answer</div></div>');
+        document.querySelector('[data-case="card"]')!.insertAdjacentHTML('beforeend',
+            '<div data-jpdb-reader-root><div role="region" aria-label="Answer"><div>Reader answer</div></div></div>');
+        expect(currentJitenTermTarget()).toBeNull();
+    });
+
+    it('does not treat a write-in front without Show Answer as revealed', () => {
+        stubStudyLocation();
+        renderStudyPage({ revealed: false });
+        document.querySelector('button')!.remove();
+        expect(currentJitenTermTarget()).toBeNull();
+    });
+
     afterEach(() => {
         vi.unstubAllGlobals();
         document.body.replaceChildren();
@@ -104,9 +137,10 @@ describe('jiten study-page addon anchor', () => {
         // places the addon INSIDE the card, after Composed of.
         expect(target?.anchor.dataset.case).toBe('composed-of');
         expect(target?.anchor.closest('[data-case="card"]')).not.toBeNull();
+        expect(target?.anchor.closest('[role="region"][aria-label="Answer"]')).not.toBeNull();
     });
 
-    it('keeps the coarse fallback anchor while the answer is hidden so nothing spoils the front', () => {
+    it('produces no anchor while the answer is hidden so nothing spoils the front', () => {
         stubStudyLocation();
         renderStudyPage({ revealed: false });
 

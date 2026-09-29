@@ -1,7 +1,7 @@
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../../src/reader/newtab/state';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
-    WORD_ONLY_STUDY_DISABLED_STEPS,
     DEFAULT_SETTINGS,
     newTabTestCard,
     deferred,
@@ -25,8 +25,9 @@ import { cardKey } from '../../../src/reader/cards/utils';
 import { bindPrivateCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
 import { renderedWordPrivateValue } from '../../../src/reader/dom/rendered-word-private-state';
 import { isolate } from '../../../src/reader/locales/direction';
+import { reviewGradeScale, type ReviewGradeProfile } from '../../../src/reader/cards/grade-scale';
 
-function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]): { root: HTMLElement; clicks: string[] } {
+function bindKeyboardGradeFixture(controller: NewTabController, grades: string[], profile: ReviewGradeProfile = 'standard'): { root: HTMLElement; clicks: string[] } {
     const root = document.createElement('main');
     root.className = 'jpdb-reader-newtab';
     root.dataset.jpdbReaderRoot = 'true';
@@ -37,6 +38,8 @@ function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]
         const button = document.createElement('button');
         button.dataset.newtabAction = 'grade';
         button.dataset.grade = grade;
+        const shortcut = reviewGradeScale(DEFAULT_SETTINGS, profile).shortcuts.find(([, outcome]) => outcome === grade);
+        bindPrivateCommandCapability(button, { kind: 'card-action', action: 'grade', grade: shortcut?.[1], gradeShortcut: shortcut?.[0], gradeProfile: profile });
         button.addEventListener('click', () => clicks.push(grade));
         study.append(button);
     });
@@ -57,8 +60,8 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
     });
 
 
-    it('continues to the reveal step, then reveals word study cards with Space and Enter', () => {
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, newTabStudyDisabledSteps: [] });
+    it('reveals native word cards with Space and hides them with Enter', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS,  });
         const card = newTabTestCard({
             spelling: '読む',
             reading: 'よむ',
@@ -68,7 +71,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         });
         const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             bindRootEvents: true,
         });
 
@@ -76,12 +79,12 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
             const space = dispatchNewTabKeyboard(root, ' ');
             expect(space.defaultPrevented).toBe(true);
-            expect(study.dataset.newtabStudyStep).toBe('type-word');
-            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
+            expect(study.dataset.newtabStudyStep).toBe('final-reveal');
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(true);
 
             const enter = dispatchNewTabKeyboard(study, 'Enter');
             expect(enter.defaultPrevented).toBe(true);
-            expect(study.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect(study.dataset.newtabStudyStep).toBe('word');
             expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
         } finally {
             root.remove();
@@ -91,7 +94,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
     it('uses configurable shortcuts for study reveal and navigation', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
-            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
             shortcuts: {
                 ...DEFAULT_SETTINGS.shortcuts,
                 studyReveal: 'R',
@@ -109,7 +112,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         const root = renderSeededNewTabWord(controller, cards[0]!, {
             visibleWords: cards,
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             bindRootEvents: true,
         });
         const navigation = { next: 0, previous: 0 };
@@ -121,7 +124,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         };
 
         try {
-            expect(root.querySelector('[data-newtab-action="next"] .jpdb-reader-newtab-key-hint')?.textContent).toBe('R');
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')?.textContent).toBe('R');
 
             const space = dispatchNewTabKeyboard(root, ' ');
             expect(space.defaultPrevented).toBe(false);
@@ -134,58 +137,36 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
             const previous = dispatchNewTabKeyboard(root, 'H');
             expect(previous.defaultPrevented).toBe(true);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
-
-            const previousCard = dispatchNewTabKeyboard(root, 'H');
-            expect(previousCard.defaultPrevented).toBe(true);
             expect(navigation.previous).toBe(1);
+            const next = dispatchNewTabKeyboard(root, 'L');
+            expect(next.defaultPrevented).toBe(true);
+            expect(navigation.next).toBe(1);
         } finally {
             root.remove();
         }
     });
 
-    it('shows a compact first-run guide for the enabled merged study steps', async () => {
-        const settings = { ...DEFAULT_SETTINGS, newTabStudyTourSeen: false, newTabStudyDisabledSteps: [] };
+    it('offers standalone practice in a separate panel without a settings write', async () => {
         const onSettingsChange = vi.fn();
-        const controller = newTabPromptController(settings, { onSettingsChange });
-        const card = newTabTestCard({
-            spelling: '猫',
-            reading: 'ねこ',
-            meanings: [{ glosses: ['cat'], partOfSpeech: [] }],
-            sentence: '猫が好きです。',
-            pitchAccent: ['LH'],
-        });
-        const root = renderSeededNewTabWord(controller, card, {
-            sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
-            bindRootEvents: true,
-        });
-
+        const controller = newTabPromptController(DEFAULT_SETTINGS, { onSettingsChange });
+        const card = newTabTestCard({ spelling: '猫', reading: 'ねこ', sentence: '猫が好きです。', pitchAccent: ['LH'] });
+        const root = renderSeededNewTabWord(controller, card, { bindRootEvents: true });
         try {
-            const tour = root.querySelector<HTMLElement>('[data-newtab-study-tour]')!;
-            expect(tour.hidden).toBe(false);
-            expect(tour.textContent).toContain('One review, a few quick checks. Grade once at the reveal.');
-            expect(tour.textContent).toContain('Draw it before the answers appear.');
-            expect(tour.textContent).toContain('Type the missing Japanese.');
-            expect(tour.textContent).toContain('Listen and choose the pitch shape.');
-            expect(tour.textContent).toContain('Check the details, then grade.');
-
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="dismiss-study-tour"]')!.click();
-
-            expect(settings.newTabStudyTourSeen).toBe(true);
-            await waitForExpect(() => {
-                expect(onSettingsChange).toHaveBeenCalledTimes(1);
-                expect(tour.hidden).toBe(true);
-            });
-        } finally {
-            root.remove();
-        }
+            expect(root.querySelector('[data-newtab-study-tour]')).toBeNull();
+            expect(root.querySelector('.jpdb-reader-newtab-practice')).toBeNull();
+            const practice = root.querySelector<HTMLButtonElement>('[data-newtab-action="practice-sessions"]');
+            expect(practice).not.toBeNull();
+            practice!.click();
+            await waitForExpect(() => expect(root.querySelector('[data-practice-panel]')).not.toBeNull());
+            expect(root.dataset.practiceActive).toBe('true');
+            expect(onSettingsChange).not.toHaveBeenCalled();
+        } finally { controller.destroy(); root.remove(); sessionStorage.removeItem('yomu:practice-session-tab:v1'); }
     });
 
-    it('uses configurable navigation shortcuts to advance merged study subtasks before changing cards', () => {
+    it('uses configurable navigation shortcuts to change cards without an exercise chain', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
-            newTabStudyDisabledSteps: ['kanji-doodle', 'listen-pitch', 'speaking'],
+
             shortcuts: {
                 ...DEFAULT_SETTINGS.shortcuts,
                 studyPrevious: 'H',
@@ -205,13 +186,9 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         const root = renderSeededNewTabWord(controller, card, {
             visibleWords: [card, nextCard],
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             bindRootEvents: true,
         });
-        const navigation = { next: 0 };
-        (controller as unknown as { showNextWord(): void }).showNextWord = () => {
-            navigation.next += 1;
-        };
 
         try {
             const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
@@ -219,33 +196,41 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
             const next = dispatchNewTabKeyboard(root, 'L');
             expect(next.defaultPrevented).toBe(true);
-            expect(navigation.next).toBe(0);
-            expect(study.dataset.newtabStudyStep).toBe('type-word');
-            expect(root.querySelector('[data-newtab-type-input]')).not.toBeNull();
+            expect(newTabPromptText()).toBe('犬');
+            expect(study.dataset.newtabStudyStep).toBe('word');
+            expect(root.querySelector('[data-newtab-type-input]')).toBeNull();
 
             const previous = dispatchNewTabKeyboard(root, 'H');
             expect(previous.defaultPrevented).toBe(true);
             expect(study.dataset.newtabStudyStep).toBe('word');
+            expect(newTabPromptText()).toBe('猫');
         } finally {
+            controller.destroy();
             root.remove();
         }
     });
 
-    it('keeps the Type field primary, supports retry feedback, and advances only after a correct retry', () => {
-        const controller = newTabPromptController({
-            ...DEFAULT_SETTINGS,
-            newTabStudyDisabledSteps: ['kanji-doodle', 'listen-pitch', 'speaking'],
-        });
+    it('keeps embedded Academy Type feedback isolated and returns to native review after a correct retry', () => {
+        const reviewCard = vi.fn(async () => {});
+        const fixture = newTabPromptController({
+            ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', enableReviews: true, jpdbMiningEnabled: true,
+        }, { jpdb: { reviewCard } as never });
+        const controller = new NewTabController(
+            (fixture as unknown as { dependencies: ConstructorParameters<typeof NewTabController>[0] }).dependencies,
+            { surface: 'academy' },
+        );
+        fixture.destroy();
         const card = newTabTestCard({
             spelling: '猫',
             reading: 'ねこ',
             meanings: [{ glosses: ['cat'], partOfSpeech: [] }],
             sentence: '猫が好きです。',
             pitchAccent: [],
+            source: 'jpdb', reviewSource: 'jpdb-api',
         });
         const root = renderSeededNewTabWord(controller, card, {
-            sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
+            sourceLabel: 'JPDB',
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             bindRootEvents: true,
         });
 
@@ -254,7 +239,8 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
             expect(input).not.toBeNull();
             expect(root.querySelector('[data-action="study-word-audio"]')).not.toBeNull();
-            expect(root.querySelector('[data-newtab-action="previous"]')?.textContent).toBe('Previous');
+            expect(root.querySelector('[data-newtab-action="return-to-review"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="grade"]')).toBeNull();
 
             input.value = 'いぬ';
             input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -278,8 +264,12 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             expect(states.get(cardKey(card))?.type).toMatchObject({ outcome: 'incorrect', feedback: 'accepted' });
 
             root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-submit"]')?.click();
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
+            dispatchNewTabKeyboard(root, '3');
+            expect(reviewCard).not.toHaveBeenCalled();
         } finally {
+            controller.destroy();
             root.remove();
         }
     });
@@ -287,7 +277,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
     it('uses arrow keys for previous and next word study cards', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
-            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
         });
         const cards = [
             newTabTestCard({ spelling: '一', reading: 'いち' }),
@@ -296,7 +286,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         const root = renderSeededNewTabWord(controller, cards[0]!, {
             visibleWords: cards,
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             bindRootEvents: true,
         });
         const navigation = { next: 0, previous: 0 };
@@ -313,20 +303,12 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
             const right = dispatchNewTabKeyboard(root, 'ArrowRight');
             expect(right.defaultPrevented).toBe(true);
-            expect(study.dataset.newtabStudyStep).toBe('final-reveal');
-            expect(navigation.next).toBe(0);
-
-            const nextCard = dispatchNewTabKeyboard(root, 'ArrowRight');
-            expect(nextCard.defaultPrevented).toBe(true);
+            expect(study.dataset.newtabStudyStep).toBe('word');
             expect(navigation.next).toBe(1);
 
             const left = dispatchNewTabKeyboard(root, 'ArrowLeft');
             expect(left.defaultPrevented).toBe(true);
             expect(study.dataset.newtabStudyStep).toBe('word');
-            expect(navigation.previous).toBe(0);
-
-            const previousCard = dispatchNewTabKeyboard(root, 'ArrowLeft');
-            expect(previousCard.defaultPrevented).toBe(true);
             expect(navigation.previous).toBe(1);
         } finally {
             root.remove();
@@ -335,12 +317,17 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
     it('uses arrow keys for previous and next kanji study cards', () => {
         const controller = newTabPromptController();
-        const root = document.createElement('main');
-        root.className = 'jpdb-reader-newtab';
-        root.dataset.jpdbReaderRoot = 'true';
-        Object.assign(controller as unknown as { state: { mode: string; revealAnswer: boolean } }, {
-            state: { mode: 'kanji', revealAnswer: false },
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const card = newTabTestCard({
+            spelling: '記', reading: 'き', kanjiKeyword: 'record',
+            source: 'jpdb', reviewSource: 'jpdb-live', jpdbReviewId: 'kb,記',
         });
+        const root = renderSeededNewTabWord(controller, card, {
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study' },
+            studyStepId: null,
+            bindRootEvents: true,
+        });
+        expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
         const navigation = { next: 0, previous: 0 };
         (controller as unknown as { showNextWord(): void }).showNextWord = () => {
             navigation.next += 1;
@@ -348,8 +335,6 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         (controller as unknown as { showPreviousWord(): void }).showPreviousWord = () => {
             navigation.previous += 1;
         };
-        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
-        document.body.append(root);
 
         try {
             const right = dispatchNewTabKeyboard(root, 'ArrowRight');
@@ -360,6 +345,8 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             expect(left.defaultPrevented).toBe(true);
             expect(navigation.previous).toBe(1);
         } finally {
+            controller.destroy();
+            restoreCanvas();
             root.remove();
         }
     });
@@ -405,6 +392,8 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             const button = document.createElement('button');
             button.dataset.newtabAction = 'grade';
             button.dataset.grade = grade;
+            const shortcut = reviewGradeScale(DEFAULT_SETTINGS, 'bunpro-regular').shortcuts.find(([, outcome]) => outcome === grade);
+            bindPrivateCommandCapability(button, { kind: 'card-action', action: 'grade', grade: shortcut?.[1], gradeShortcut: shortcut?.[0], gradeProfile: 'bunpro-regular' });
             button.addEventListener('click', () => clicks.push(grade));
             controls.append(button);
         }
@@ -452,6 +441,24 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         }
     });
 
+    it('grades Jiten 1..4 from rendered private bindings even after the queue changes', () => {
+        const controller = newTabPromptController();
+        const { root, clicks } = bindKeyboardGradeFixture(controller, ['nothing', 'hard', 'okay', 'easy'], 'jiten');
+        try {
+            Object.assign(controller, { visibleWords: [newTabTestCard({ source: 'bunpro', reviewSource: 'bunpro-api' })], index: 0 });
+            for (const key of ['1', '2', '3', '4']) expect(dispatchNewTabKeyboard(root, key).defaultPrevented).toBe(true);
+            expect(dispatchNewTabKeyboard(root, '5').defaultPrevented).toBe(false);
+            expect(clicks).toEqual(['nothing', 'hard', 'okay', 'easy']);
+            const input = document.createElement('input');
+            root.append(input);
+            expect(dispatchNewTabKeyboard(input, '2').defaultPrevented).toBe(false);
+            expect(clicks).toHaveLength(4);
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
     it('does not hijack study shortcuts from text inputs or selects', () => {
         const controller = newTabPromptController();
         const cards = [
@@ -461,7 +468,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         const root = renderSeededNewTabWord(controller, cards[0]!, {
             visibleWords: cards,
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             bindRootEvents: true,
         });
         const input = document.createElement('input');
@@ -630,7 +637,6 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                uchisenEnabled: false,
             };
 
             const trigger = document.createElement('button');
@@ -702,7 +708,6 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
                     kanjivgEnabled: true,
                     kanjiOriginsEnabled: true,
                     kanjiOriginGraphEnabled: true,
-                    uchisenEnabled: false,
                 };
 
                 await internals.showKanjiLookupCard(card, '漢', '漢字です。');
@@ -879,7 +884,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             settings: typeof DEFAULT_SETTINGS;
             activeDialog?: HTMLElement;
             parser: { canParse(): boolean; parse: typeof parse };
-            jpdbVocabulary: { search(query: string, limit?: number): Promise<JPDBCard[]> };
+            jpdbVocabulary: { search(query: string, limit?: number): Promise<{ cards: JPDBCard[]; status: 'complete' | 'partial' }> };
             jpdbPublicPitch: { lookup(expression: string, reading: string): Promise<string[]> };
             parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
         };
@@ -894,7 +899,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         };
         internals.activeDialog = form;
         internals.parser = { canParse: () => true, parse };
-        internals.jpdbVocabulary = { search: vi.fn(async () => []) };
+        internals.jpdbVocabulary = { search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) };
         internals.jpdbPublicPitch = { lookup: vi.fn(async () => []) };
 
         try {
@@ -1157,7 +1162,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         }).createNewTabController() as unknown as {
             visibleWords: JPDBCard[];
             index: number;
-            state: { mode: string };
+            state: { route: string };
             nestedLookupOptions(): {
                 navigation?: string;
                 previousNavigationEntry?: { kind: string; card: JPDBCard; sentence?: string };
@@ -1169,7 +1174,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         try {
             internals.visibleWords = [current];
             internals.index = 0;
-            internals.state = { mode: 'word' };
+            internals.state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study' };
 
             expect(internals.nestedLookupOptions()).toMatchObject({
                 navigation: 'push-current',

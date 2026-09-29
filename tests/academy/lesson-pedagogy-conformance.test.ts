@@ -6,7 +6,8 @@ import {
     assertActivityPedagogy,
     assertBoundedRepairHints,
 } from '../../src/academy/domain/lesson-pedagogy';
-import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
+import { ACADEMY_LESSON_CONTENT_REGISTRY, getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import { loadClassWeekDeliveryCatalog } from '../../src/academy/content/class-week-delivery-catalog';
 import type { ClassWeekCastPlan } from '../../src/academy/content/class-week-cast-plan';
 import {
@@ -72,7 +73,10 @@ describe('reachable lesson pedagogy gate', () => {
 
         for (const packageId of LESSON_ACTIVITY_CHAPTER_PACKAGES) {
             expect(reachablePackages.has(packageId)).toBe(true);
-            const chapter = await loadReachableLessonActivityChapter(packageId, kanjiWriting);
+            const materialized = ['l1-l09', 'l1-l19', 'l1-l20'].includes(packageId);
+            const loaded = materialized ? await validateCommittedAuthoredWeek(getAuthoredWeekRegistration(packageId)) : undefined;
+            const chapter = await loadReachableLessonActivityChapter(packageId, kanjiWriting, loaded);
+            if (materialized) expect(chapter, packageId).not.toBeNull();
             if (!chapter) continue;
             const extension = createReachableLessonActivityExtension({
                 language: 'en',

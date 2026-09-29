@@ -33,7 +33,6 @@ import {
 import {
     createLessonZeroMissionDefinition,
     isLessonZeroMissionActivity,
-    LESSON_ZERO_MISSION_ACTIVITY_IDS,
     type LessonZeroMissionActivityId,
     type LessonZeroMissionResponse,
 } from '../content/lesson-zero-mission-activity';
@@ -96,9 +95,9 @@ import {
     transitionClassroomInstructionSession,
 } from '../domain/classroom-instruction-session';
 import {
-    startLessonZeroRepeatRequestSession,
-    transitionLessonZeroRepeatRequestSession,
-} from '../domain/lesson-zero-repeat-request-session';
+    startRepeatRequestCoverageSession,
+    transitionRepeatRequestCoverageSession,
+} from '../content/lesson-zero-repeat-request-coverage';
 import {
     startLessonZeroDeskLanguageSession,
     transitionLessonZeroDeskLanguageSession,
@@ -171,8 +170,18 @@ import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
 import type { AcademyRouteContext, AcademyRouteFlow } from './types';
 import { lessonCompletionReturn } from './lesson-return';
+import { restoreLessonZeroMissionSession, reconcileMissionReceipt } from '../domain/lesson-zero-mission-session';
+import { LESSON_ZERO_CONTENT_SHA256 } from '../content/lesson-zero-pedagogy-definitions';
 
 const LESSON_ZERO_ID = 'lesson:foundation-00';
+const LESSON_ZERO_CLOSE_DESTINATIONS: Readonly<Record<string, { route: AcademyRoute; lessonId?: string }>> = {
+    'finish-or-break': { route: 'lesson-overview', lessonId: LESSON_ZERO_ID },
+    'more-class': { route: 'lesson-overview', lessonId: LESSON_ZERO_ID },
+    'another-lesson': { route: 'lesson-overview', lessonId: 'authored-week:l1-l01' },
+    explore: { route: 'campus' },
+    study: { route: 'review' },
+    'end-day': { route: 'day-end' },
+};
 
 export interface LessonFlowOptions {
     readonly evidence: LearnerEvidence;
@@ -255,6 +264,7 @@ class LessonFlow implements AcademyRouteFlow {
             onOpenActivity: activityId => void context.go('source-activity', {
                 lessonId,
                 activityId,
+                sectionId: undefined,
                 selectedFork: activityId === 'activity:lesson-zero-reconstruct-repair'
                     ? 'text'
                     : context.checkpoint.selectedFork,
@@ -274,10 +284,11 @@ class LessonFlow implements AcademyRouteFlow {
             throw new Error(`Class Week ${registration.classWeekId} has no grounded attendee roster.`);
         }
         const primary = classWeek.primary;
-        const { week } = await loadAuthoredWeekPackage(packageId);
+        const loadedPackage = await loadAuthoredWeekPackage(packageId);
+        const { week } = loadedPackage;
         const authoredLessonId = `authored-week:${registration.packageId}` as const;
         const prerequisite = await loadSenseiVocabularyPrerequisite(authoredLessonId);
-        const chapter = await loadReachableLessonActivityChapter(packageId, this.options.kanjiWriting);
+        const chapter = await loadReachableLessonActivityChapter(packageId, this.options.kanjiWriting, loadedPackage);
         const extension = chapter ? createReachableLessonActivityExtension({
             language: context.language,
             chapter,
@@ -571,11 +582,20 @@ class LessonFlow implements AcademyRouteFlow {
     ): Promise<void> {
         const content = await loadLessonZeroContent();
         const learnerName = context.projection.profile?.displayName ?? '';
+        const revision = `${LESSON_ZERO_CONTENT_SHA256}:mission-v1`;
+        let progress = context.checkpoint.lessonZeroMissionProgress ?? {};
+        let chosenCard = restoreLessonZeroMissionSession('activity:lesson-zero-write-name-card', revision,
+            progress['activity:lesson-zero-write-name-card']);
+        if (chosenCard?.receipt && this.options.evidence.history) {
+            chosenCard = reconcileMissionReceipt(chosenCard, await this.options.evidence.history());
+        }
         const savedNameCard = context.checkpoint.lessonZeroNameCardProgress;
         const nameCardActivity = content.lesson.activities.find(candidate =>
             candidate.id === LESSON_ZERO_NAME_CARD_ACTIVITY_ID);
-        const lockedClassName =
-            activityId === 'activity:lesson-zero-write-name-card'
+        const lockedClassName = (activityId === 'activity:lesson-zero-write-name-card' || activityId === 'activity:lesson-zero-written-transfer')
+            && chosenCard?.receipt?.committed && chosenCard.receipt.outcome === 'pass'
+            ? chosenCard.selectedCardName :
+            (activityId === 'activity:lesson-zero-write-name-card' || activityId === 'activity:lesson-zero-written-transfer')
             && savedNameCard?.status === 'complete'
             && nameCardActivity
                 ? lessonZeroNameCardDisplayName(
@@ -589,10 +609,22 @@ class LessonFlow implements AcademyRouteFlow {
             learnerName,
             lockedClassName,
         );
+        let initialState = restoreLessonZeroMissionSession(activityId, revision, progress[activityId]);
+        if (initialState?.receipt && this.options.evidence.history) {
+            const history = await this.options.evidence.history();
+            initialState = reconcileMissionReceipt(initialState, history);
+        }
         const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         const screen = createLessonZeroMissionScreen({
             language: context.language,
             definition,
+            revision,
+            initialState,
+            onStateChange: async state => {
+                const next = { ...progress, [activityId]: state };
+                await context.save?.({ lessonZeroMissionProgress: next });
+                progress = next;
+            },
             pronunciation: this.options.pronunciation,
             onEvaluation: async (evaluation, response) => {
                 this.playFeedbackSfx(evaluation.result.outcome);
@@ -607,7 +639,13 @@ class LessonFlow implements AcademyRouteFlow {
                 }
             },
             onBack: () => context.back(),
-            onComplete: () => this.completeSourceActivity(context, returning),
+            onComplete: async response => {
+                if (activityId === 'activity:lesson-zero-close-room' && response?.kind === 'room-action') {
+                    const destination = LESSON_ZERO_CLOSE_DESTINATIONS[response.actionId];
+                    if (!destination) throw new Error(`Unknown Lesson Zero close action: ${response.actionId}`);
+                    await context.go(destination.route, { lessonId: destination.lessonId, sectionId: undefined, activityId: undefined });
+                } else this.completeSourceActivity(context, returning);
+            },
         });
         screen.element.dataset.academyRoute = 'source-activity';
         screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
@@ -716,15 +754,15 @@ class LessonFlow implements AcademyRouteFlow {
         const definition = createLessonZeroRepeatRequestDefinition(classroom, activity);
         let state;
         try {
-            state = startLessonZeroRepeatRequestSession(
+            state = startRepeatRequestCoverageSession(
                 definition,
                 context.checkpoint.lessonZeroRepeatRequestProgress,
             );
         } catch {
-            state = startLessonZeroRepeatRequestSession(definition);
+            state = startRepeatRequestCoverageSession(definition);
         }
         if (state.status === 'paused') {
-            state = transitionLessonZeroRepeatRequestSession(
+            state = transitionRepeatRequestCoverageSession(
                 definition,
                 state,
                 { kind: 'resume' },
@@ -1499,6 +1537,13 @@ class LessonFlow implements AcademyRouteFlow {
             });
             return;
         }
+        const origin = context.checkpoint.routeHistory.at(-1);
+        if (origin?.route === 'lesson-overview' && (origin.lessonId ?? LESSON_ZERO_ID) === LESSON_ZERO_ID) {
+            const destination = { route: 'lesson-overview' as const, lessonId: LESSON_ZERO_ID };
+            if (context.returnTo) void context.returnTo(destination);
+            else void context.go(destination.route, { lessonId: destination.lessonId, sectionId: undefined, activityId: undefined });
+            return;
+        }
         void context.go(returning ? 'campus' : 'aakash-meet', {
             lessonId: undefined,
             sectionId: undefined,
@@ -1571,18 +1616,8 @@ function overviewState(
         else needsReviewActivityIds.add(activity.activityId);
     }
     return {
-        boundActivityIds: new Set([
-            LESSON_ZERO_GREETING_ACTIVITY_ID,
-            LESSON_ZERO_VOWEL_SOUND_MAP_ID,
-            LESSON_ZERO_VOWEL_WRITING_ID,
-            LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
-            LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
-            ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
-            LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
-            LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
-            LESSON_ZERO_SOUND_ACTIVITY_ID,
-            ...LESSON_ZERO_MISSION_ACTIVITY_IDS,
-        ]),
+        boundActivityIds: new Set(getCompleteLessonRegistration(LESSON_ZERO_ID).trustedActivityIds
+            .filter(activityId => authored.has(activityId))),
         attemptedActivityIds,
         completedActivityIds,
         needsReviewActivityIds,

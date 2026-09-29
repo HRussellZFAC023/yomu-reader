@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
@@ -342,7 +343,9 @@ describe('committed standalone hosted runtime consumers', () => {
     it('prepares and activates one fresh PDF cache, matches its graph/vendor policy, and falls back offline', async () => {
         const source = readFileSync('docs/public/pdf-reader/sw.js', 'utf8');
         const harness = hostedWorkerHarness('/pdf-reader/', source);
-        const cacheName = `yomu-pdf-reader-${FINAL_GRAPH.cacheRevision}`;
+        const appearanceRevision = source.match(/const APPEARANCE_REVISION = '([a-f\d]{12})';/u)?.[1];
+        expect(appearanceRevision).toBe(createHash('sha256').update(readFileSync('docs/public/hosted-appearance-settings.js')).digest('hex').slice(0, 12));
+        const cacheName = `yomu-pdf-reader-${FINAL_GRAPH.cacheRevision}-${appearanceRevision}`;
         const oldCacheName = 'yomu-pdf-reader-000000000000';
         let installPromise = Promise.resolve<unknown>(undefined);
         harness.listeners.get('install')!({ waitUntil: promise => { installPromise = promise; } });
@@ -356,6 +359,7 @@ describe('committed standalone hosted runtime consumers', () => {
             './manifest.webmanifest',
             '../yomu.css',
             '../yomu.user.js',
+            '../hosted-appearance-settings.js',
             ...FINAL_GRAPH.serviceWorkerPaths.map(pathname => `..${pathname}`),
             '../yomu-icon.svg',
             '../favicon-16x16.png',
@@ -413,6 +417,12 @@ describe('committed standalone hosted runtime consumers', () => {
         );
         expect(graph.response).toBe(cachedGraph);
         expect(harness.cacheMatch).toHaveBeenLastCalledWith(graph.request, { ignoreSearch: true });
+        const cachedAppearance = new Response('offline appearance module');
+        harness.cacheMatch.mockResolvedValueOnce(cachedAppearance);
+        harness.networkFetch.mockRejectedValueOnce(new Error('offline'));
+        const appearance = await dispatchHostedWorkerFetch(fetchListener, 'https://yomureader.com/hosted-appearance-settings.js');
+        expect(appearance.response).toBe(cachedAppearance);
+        expect(harness.cacheMatch).toHaveBeenLastCalledWith(appearance.request, { ignoreSearch: true });
         expect(harness.cacheStorage.match).not.toHaveBeenCalled();
     });
 

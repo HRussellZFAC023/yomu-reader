@@ -61,7 +61,7 @@ const WIKIPEDIA_ANKI_HANDLERS = {
     modelFieldNames: () => ['Word', 'Reading', 'Meaning', 'Sentence'],
     updateNoteFields: () => null,
     guiBrowse: () => null,
-    answerCards: () => null,
+    answerCards: params => arrayParam(params.answers).map(() => true),
 };
 
 mkdirSync(ARTIFACTS, { recursive: true });

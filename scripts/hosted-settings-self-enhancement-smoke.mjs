@@ -78,7 +78,6 @@ const SETTINGS = {
     localDictionariesEnabled: false,
     ankiEnabled: false,
     ankiSectionEnabled: false,
-    newTabEnabled: true,
     newTabAnkiEnabled: false,
     newTabSource: 'auto',
     audioEnabled: false,
@@ -473,7 +472,7 @@ async function verifyCredentialFreeBackupImport({ page, authoritativeRaw }) {
         accentColor: IMPORTED_AUTHORITY_ACCENT,
     };
     const fileChooserReady = page.waitForEvent('filechooser');
-    await page.locator('[data-action="import-yomitan-settings"]').click();
+    await page.locator('[data-action="import-reader-settings"]').click();
     const fileChooser = await fileChooserReady;
     await fileChooser.setFiles({
         name: 'yomu-credential-free-settings.json',

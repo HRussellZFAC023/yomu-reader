@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import academyRevisionModule from './lib/academy-revision.cjs';
 
 const {
-    HOSTED_COUNTERPARTS,
+    academyHostedCounterpart,
     REVISION_PATTERN,
     TEMPLATES: ACADEMY_TEMPLATES,
     academyRevision,
@@ -142,9 +142,9 @@ function checkStudyCacheBusting() {
 // rebuild on a different dependency tree writes a different dist/academy/app.js.
 //
 // It is perfectly reproducible from the COMMITTED bytes: the only inputs that
-// live outside git are dist/academy/{app.js,style.css}, and the sync copies
+// live outside git are the manifest and its emitted assets, and the sync copies
 // those verbatim to docs/public/academy/, so the committed hosted file is the
-// exact byte string that was hashed (see HOSTED_COUNTERPARTS). This recomputes
+// exact byte string that was hashed (see academyHostedCounterpart). This recomputes
 // it with that substitution and needs no build, no node_modules and no network
 // -- the same properties as every other assertion here.
 function checkAcademyShellRevision() {
@@ -186,10 +186,10 @@ function checkAcademyShellRevision() {
  * verifies.
  */
 function committedAcademyEntries(sourcePaths) {
-    const tree = listCommitted(sourcePaths.map(source => HOSTED_COUNTERPARTS.get(source) ?? source)).sort();
+    const tree = listCommitted(sourcePaths.map(academyHostedCounterpart)).sort();
     const files = new Set(tree);
     return function* entries(source) {
-        const committedPath = HOSTED_COUNTERPARTS.get(source) ?? source;
+        const committedPath = academyHostedCounterpart(source);
         if (files.has(committedPath)) {
             for (const [, bytes] of readCommittedFiles([committedPath])) yield [source, bytes];
             return;
@@ -208,7 +208,7 @@ function committedAcademyEntries(sourcePaths) {
 }
 
 function readCommittedJson(path) {
-    const raw = readCommitted(path);
+    const raw = readCommitted(academyHostedCounterpart(path));
     if (raw === null) throw new Error(`${COMMIT} does not carry ${path}`);
     return JSON.parse(raw);
 }

@@ -1,9 +1,6 @@
 import { isRecord } from '../core/object-utils';
 import {
-    MANAGED_STATE_EPOCH_KEY,
     managedStateEpochToken,
-    parseManagedStateEpoch,
-    sameManagedStateEpoch,
     type ManagedStateEpoch,
 } from './managed-state-epoch';
 import {
@@ -91,18 +88,6 @@ export function writeLocalManagedValueOrThrow(key: string, value: unknown, epoch
     }
 }
 
-export function mirrorLocalManagedValue(
-    key: string,
-    value: unknown,
-    epoch: ManagedStateEpoch,
-    onFailure: (error: unknown) => void,
-): void {
-    try {
-        writeLocalManagedValueOrThrow(key, value, epoch);
-    } catch (error) {
-        onFailure(error);
-    }
-}
 
 export function removeLocalManagedValue(key: string): void {
     removeLocalStorageKey(key);
@@ -121,16 +106,6 @@ export function restoreLocalFallbackStoredValueAtEpoch(
     writeLocalManagedValueOrThrow(key, value, epoch);
 }
 
-export function cacheManagedStateEpochForLocalFallback(epoch: ManagedStateEpoch): void {
-    if (epoch.generation <= 0) return removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
-    try {
-        const cached = parseManagedStateEpoch(localStorageGet<unknown>(MANAGED_STATE_EPOCH_KEY, undefined));
-        if (sameManagedStateEpoch(cached, epoch)) return;
-    } catch {
-        // Replace malformed or page-written cache state with shared authority.
-    }
-    localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
-}
 
 export function localMirrorBelongsToEpoch(key: string, epoch: ManagedStateEpoch): boolean {
     const serialized = recoverableSerializedValue(key);

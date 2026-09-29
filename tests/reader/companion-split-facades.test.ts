@@ -71,7 +71,7 @@ describe('JPDB companion facades', () => {
             this.tag = 'companion-jpdb';
         });
         const CompanionVocabularyClient = vi.fn(function CompanionVocabularyClient(this: Record<string, unknown>) {
-            this.tag = 'companion-vocabulary';
+            this.lookup = async () => ({ info: null, status: 'complete' });
         });
         const CompanionPublicPitchClient = vi.fn(function CompanionPublicPitchClient(this: Record<string, unknown>) {
             this.tag = 'companion-pitch';
@@ -96,7 +96,7 @@ describe('JPDB companion facades', () => {
         const proxy = () => 'proxy';
         expect(new JpdbClientFacade(apiKey, proxy)).toMatchObject({ tag: 'companion-jpdb' });
         expect(CompanionJpdbClient).toHaveBeenCalledWith(apiKey, proxy);
-        expect(new JpdbVocabularyClientFacade(proxy)).toMatchObject({ tag: 'companion-vocabulary' });
+        await expect(new JpdbVocabularyClientFacade(proxy).lookup(12, '猫', 'ねこ')).resolves.toEqual({ info: null, status: 'complete' });
         expect(CompanionVocabularyClient).toHaveBeenCalledWith(proxy);
         expect(new JpdbPublicPitchClientFacade(proxy)).toMatchObject({ tag: 'companion-pitch' });
         expect(CompanionPublicPitchClient).toHaveBeenCalledWith(proxy);
@@ -106,7 +106,7 @@ describe('JPDB companion facades', () => {
         expect(renderedJpdbRelatedWordsFacade(document)).toEqual([relatedWord]);
     });
 
-    it('are inert — never throwing — without the JPDB companion', async () => {
+    it('reports vocabulary unavailability without treating it as a successful empty lookup', async () => {
         setCompanions({});
 
         // tsc never follows the build alias, so the facade's class expression
@@ -124,9 +124,9 @@ describe('JPDB companion facades', () => {
         expect(client.getCard(12, 34)).toBeUndefined();
         expect(() => client.clear()).not.toThrow();
 
-        const vocabulary = new JpdbVocabularyClientFacade(() => '') as unknown as JpdbVocabularyClient;
-        await expect(vocabulary.lookup(12, '猫', 'ねこ')).resolves.toBeNull();
-        await expect(vocabulary.search('猫')).resolves.toEqual([]);
+        const vocabulary = new JpdbVocabularyClientFacade(() => '');
+        await expect(vocabulary.lookup(12, '猫', 'ねこ')).rejects.toThrow('companion is unavailable');
+        await expect(vocabulary.search('猫')).rejects.toThrow('companion is unavailable');
         expect(() => vocabulary.clear()).not.toThrow();
 
         const pitch = new JpdbPublicPitchClientFacade(() => '') as unknown as JpdbPublicPitchClient;
@@ -303,7 +303,7 @@ describe('Greasy Fork split manifest', () => {
             path.join(repoRoot, 'src/reader/settings/index-companion.ts'),
             'utf8',
         );
-        expect(facade).toContain('loadSettingsWithWitnessedAuthority,');
+        expect(facade).toContain('loadSettings,');
     });
 
     it('registers the shared learning-target runtime on aggregate and hosted companion paths', () => {

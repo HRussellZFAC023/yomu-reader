@@ -8,7 +8,6 @@ import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
     loadSettings,
-    loadSettingsWithWitnessedAuthority,
     saveSettings,
 } from '../../src/reader/settings';
 import { readSettingsPersistenceViewStrictFrom } from '../../src/reader/settings/settings-persistence-transaction';
@@ -46,7 +45,7 @@ describe('hosted settings authority availability', () => {
         expectNoStoredSettingsAuthority();
     });
 
-    it('promotes only the learner change after an unwritten standalone default snapshot', async () => {
+    it('saves a standalone choice without queuing transfer to installed storage', async () => {
         vi.stubGlobal('location', HOSTED_STUDY);
         const settings = await loadSettings();
 
@@ -55,7 +54,8 @@ describe('hosted settings authority availability', () => {
         });
 
         const stored = JSON.parse(storedSettingsBytes() ?? '{}') as Record<string, unknown>;
-        expect(stored.__yomuHostedPendingGmPatch).toEqual({ theme: 'dark' });
+        expect(stored.theme).toBe('dark');
+        expect(stored).not.toHaveProperty('__yomuHostedPendingGmPatch');
     });
 
     it('does not mirror defaults when an advertised authority rejects every read', async () => {
@@ -65,10 +65,7 @@ describe('hosted settings authority availability', () => {
         });
         vi.stubGlobal('GM_getValue', getValue);
 
-        await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
-        });
+        await expect(loadSettings()).rejects.toThrow('hosted storage authority rejected the request');
 
         expect(getValue).toHaveBeenCalled();
         expectNoStoredSettingsAuthority();
@@ -78,7 +75,7 @@ describe('hosted settings authority availability', () => {
         vi.useFakeTimers();
         vi.stubGlobal('location', HOSTED_STUDY);
         document.documentElement.dataset.yomuUserscriptStorageBridge = 'true';
-        const outcome = loadSettingsWithWitnessedAuthority().then(
+        const outcome = loadSettings().then(
             () => ({ error: null as Error | null }),
             error => ({ error: error as Error }),
         );
@@ -111,10 +108,7 @@ describe('hosted settings authority availability', () => {
             },
         }));
 
-        await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
-        });
+        await expect(loadSettings()).rejects.toThrow();
 
         expect(storedSettingsBytes()).toBe(before);
         expect(JSON.parse(storedSettingsBytes() ?? 'null')).toMatchObject({
@@ -126,12 +120,12 @@ describe('hosted settings authority availability', () => {
 
     it('does not publish a default remote snapshot after a chosen tab loses authority', async () => {
         vi.stubGlobal('location', HOSTED_STUDY);
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        await saveSettings({
             ...DEFAULT_SETTINGS,
             learningTargetChosen: true,
             onboardingSeen: true,
             theme: 'dark',
-        }));
+        }, { explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen', 'theme'] });
         const onSettings = vi.fn<[ReaderSettings], void>();
         const unsubscribe = subscribeToReaderSettingsChanges(onSettings);
         await vi.waitFor(() => expect(onSettings).toHaveBeenCalledTimes(1));

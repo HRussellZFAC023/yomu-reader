@@ -98,8 +98,9 @@ describe('World Cafe route', () => {
         expect(first.querySelector('[data-world-character="felix"]')?.textContent).toContain('Holding the next menu');
         expect(first.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
         expect(first.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
-        expect(first.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).not.toBeNull();
-        expect(first.querySelectorAll('.academy-world-character-silhouette')).toHaveLength(1);
+        expect(first.querySelector<HTMLImageElement>('[data-world-character="felix"] .academy-sprite img')?.getAttribute('src'))
+            .toBe('/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp');
+        expect(first.querySelectorAll('.academy-world-character-silhouette')).toHaveLength(0);
         expect([...first.querySelectorAll<HTMLElement>('[data-location]')].map(exit => exit.dataset.location))
             .toEqual(['courtyard', 'classroom', 'cafeteria', 'street']);
 

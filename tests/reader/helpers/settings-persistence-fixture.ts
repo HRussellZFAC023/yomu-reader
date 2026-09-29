@@ -6,6 +6,7 @@ import {
     saveSettings,
     SETTINGS_STORAGE_KEY,
 } from '../../../src/reader/settings';
+import { serializeSettingsPersistencePair } from '../../../src/reader/settings/settings-persistence-transaction';
 
 export const HOSTED_STUDY_LOCATION = {
     href: 'https://yomureader.com/study/',
@@ -70,6 +71,7 @@ export function installRejectedTargetCommit(
     clone: ValueClone = structuredCloneValue,
 ): {
     previousSettings: ReaderSettings;
+    previousPair: Record<string, unknown>;
     store: Map<string, unknown>;
     storage: GmStorageFixture;
 } {
@@ -78,12 +80,13 @@ export function installRejectedTargetCommit(
         learningTargetChosen: false,
         onboardingSeen: false,
     };
-    const values = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
+    const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
+    const values = new Map<string, unknown>(Object.entries(previousPair));
     const storage = installGmStorageFixture(values, {
         clone,
         beforeSet: rejectChosenSettingsCommit,
     });
-    return { previousSettings, store: values, storage };
+    return { previousSettings, previousPair, store: values, storage };
 }
 
 export function saveChosenTarget(previousSettings: ReaderSettings): Promise<void> {

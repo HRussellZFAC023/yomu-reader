@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import type { JpdbVocabularySearchResult } from '../../src/reader/jpdb/jpdb-vocabulary';
 import {
     LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS,
     type PitchEnrichmentOptions,
@@ -21,7 +22,7 @@ interface AppInternals {
         lookupMany: (terms: string[]) => Promise<Map<string, JPDBCard>>;
     };
     jpdbVocabulary: {
-        search: (term: string, limit?: number) => Promise<JPDBCard[]>;
+        search: (term: string, limit?: number) => Promise<JpdbVocabularySearchResult>;
     };
     jpdbPublicPitch: { lookup: (spelling: string, reading: string) => Promise<string[]> };
     toast(message: string): void;
@@ -150,7 +151,7 @@ describe('visible pitch hydration', () => {
             lookupTermMeta: vi.fn(async () => []),
         };
         app.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map()) };
-        app.jpdbVocabulary = { search: vi.fn(async () => []) };
+        app.jpdbVocabulary = { search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) };
         app.jpdbPublicPitch = { lookup: publicPitch };
 
         const enrichment = app.enrichPitchWords([pitchToken(fallback)], {
@@ -184,7 +185,7 @@ describe('visible pitch hydration', () => {
             lookupTermMeta: vi.fn(async () => []),
         };
         app.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map()) };
-        app.jpdbVocabulary = { search: vi.fn(async () => []) };
+        app.jpdbVocabulary = { search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) };
         app.jpdbPublicPitch = { lookup: publicPitch };
 
         try {
@@ -214,7 +215,7 @@ describe('visible pitch hydration', () => {
             lookupTermMeta: vi.fn(async () => []),
         };
         app.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map()) };
-        app.jpdbVocabulary = { search: vi.fn(async () => []) };
+        app.jpdbVocabulary = { search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) };
         app.jpdbPublicPitch = { lookup: publicPitch };
 
         try {

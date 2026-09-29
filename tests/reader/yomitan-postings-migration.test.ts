@@ -10,13 +10,6 @@ const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DICTIONARY = 'Legacy Clone Dictionary';
 const activeStores: Array<{ invalidateForFactoryReset(): Promise<void> }> = [];
 
-function installGmStore(values: Map<string, unknown>): void {
-    vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
-    vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { values.set(key, value); }));
-    vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { values.delete(key); }));
-    vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
-}
-
 afterEach(async () => {
     for (const store of activeStores.splice(0)) await store.invalidateForFactoryReset().catch(() => undefined);
     await deleteDatabase(DB_NAME);
@@ -29,7 +22,7 @@ afterEach(async () => {
 
 describe('Yomitan v6 to v7 derived-index migration', () => {
     it('keeps imported dictionaries and drops the full-row derived clones', async () => {
-        installGmStore(new Map<string, unknown>());
+        // This is an existing standalone library, not a donor for an installed runtime.
         await createVersionSixDatabase();
         await expect(countStore('termSearch')).resolves.toBe(2);
         await expect(countStore('termKanji')).resolves.toBe(1);
@@ -40,7 +33,9 @@ describe('Yomitan v6 to v7 derived-index migration', () => {
 
         // The dictionary survives the upgrade: same title, same term, and the
         // glossary still answers a lookup.
-        await expect(store.summary()).resolves.toMatchObject({
+        const summary = await store.summary();
+        expect((await indexedDB.databases()).map(database => database.name)).toEqual([DB_NAME]);
+        expect(summary).toMatchObject({
             dictionaries: [expect.objectContaining({ title: DICTIONARY })],
             terms: 1,
         });
@@ -56,7 +51,6 @@ describe('Yomitan v6 to v7 derived-index migration', () => {
     });
 
     it('rebuilds the derived indexes as postings after the upgrade', async () => {
-        installGmStore(new Map<string, unknown>());
         await createVersionSixDatabase();
 
         const module = await import('../../src/reader/dictionaries/yomitan');
@@ -170,10 +164,10 @@ async function readStore(storeName: 'termSearch' | 'termKanji'): Promise<Record<
 }
 
 function deleteDatabase(name: string): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         const request = indexedDB.deleteDatabase(name);
         request.onsuccess = () => resolve();
-        request.onerror = () => resolve();
-        request.onblocked = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(new Error(`Test database cleanup blocked: ${name}`));
     });
 }

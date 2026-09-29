@@ -5,10 +5,13 @@ import {
     jpdbSearchUrl,
 } from './jpdb-public-lookup';
 import { unique } from '../core/array-utils';
+import { isRecord } from '../core/object-utils';
 import { readJpdbPitchPatterns } from './jpdb-public-pitch';
 import { readPublicJpdbCache, writePublicJpdbCache } from './jpdb-public-cache';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl, type JpdbVocabularyUrlIdentity } from './jpdb-text';
 import { Logger } from '../app/logger';
+import { BoundedMap } from '../core/bounded-map';
+import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import type { JPDBCard } from '../app/types';
 import {
     isBetterJpdbAudioIds,
@@ -20,10 +23,10 @@ import { JPDB_COMPOUND_LIMIT, JPDB_EXAMPLE_LIMIT, JPDB_LINKED_AUDIO_ENRICHMENT_B
 import { baseText, cleanMeaning, escapeRegExp, isJapaneseTerm, optionalRichHtml, readingText, sectionLabel, uniqueBy } from './jpdb-vocabulary-dom';
 import { vocabularyRoot } from './jpdb-vocabulary-root';
 import { mergeVocabularyInfo, needsSupplement, requestSearchText, requestText, vocabularyLookupUrls, vocabularySupplementUrls } from './jpdb-vocabulary-request';
-import type { JpdbVocabularyCompound, JpdbVocabularyExample, JpdbVocabularyInfo } from './jpdb-vocabulary-types';
+import type { JpdbVocabularyCompound, JpdbVocabularyExample, JpdbVocabularyInfo, JpdbVocabularyLookupResult, JpdbVocabularySearchResult } from './jpdb-vocabulary-types';
 
 export { parseJpdbAudioData } from './jpdb-audio-ids';
-export type { JpdbVocabularyInfo } from './jpdb-vocabulary-types';
+export type { JpdbVocabularyInfo, JpdbVocabularyLookupResult, JpdbVocabularySearchResult } from './jpdb-vocabulary-types';
 
 const log = Logger.scope('JpdbVocabulary');
 
@@ -36,138 +39,234 @@ interface SearchResultModel {
     frequencyRank: number | null;
 }
 
+type VocabularyScope = { proxy: string; backoff: JpdbPublicLookupBackoff };
+type VocabularyRequest = { scope: VocabularyScope; failure: Error | null };
+type QueryEntry<T> = { expiresAt: number; promise: Promise<T>; result?: T };
+const QUERY_CACHE_LIMIT = 160;
+const COMPLETE_QUERY_TTL_MS = 300_000;
+const EMPTY_QUERY_TTL_MS = 10_000;
+const INCOMPLETE_QUERY_TTL_MS = 1_000;
+
 export class JpdbVocabularyClient {
-    private cache = new Map<string, Promise<JpdbVocabularyInfo | null>>();
-    private searchCache = new Map<string, Promise<JPDBCard[]>>();
-    private readonly requestBackoff = new JpdbPublicLookupBackoff();
+    private cache = new BoundedMap<string, QueryEntry<JpdbVocabularyLookupResult>>(QUERY_CACHE_LIMIT);
+    private searchCache = new BoundedMap<string, QueryEntry<JpdbVocabularySearchResult>>(QUERY_CACHE_LIMIT);
+    private backoffs = new BoundedMap<string, JpdbPublicLookupBackoff>(QUERY_CACHE_LIMIT);
+    private scope?: VocabularyScope;
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
     clear(): void {
         this.cache.clear();
         this.searchCache.clear();
-        this.requestBackoff.reset();
+        this.scope = undefined;
     }
 
-    lookup(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
-        if (!spelling) return Promise.resolve(null);
-        const key = `${vid}:${spelling}:${reading}`;
-        let promise = this.cache.get(key);
-        if (!promise) {
-            const cached = readPublicJpdbCache<JpdbVocabularyInfo>('vocabulary', key);
-            promise = cached
-                ? Promise.resolve(cached)
-                : this.fetchInfo(vid, spelling, reading).then(info => {
-                    if (info) writePublicJpdbCache('vocabulary', key, info);
-                    return info;
-                });
-            this.cache.set(key, promise);
-        }
-        return promise;
+    lookup(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyLookupResult> {
+        if (!spelling) return Promise.resolve({ info: null, status: 'complete' });
+        const request = this.request();
+        const key = JSON.stringify([sensitiveFingerprint(request.scope.proxy), vid, spelling, reading]);
+        return this.query(this.cache, 'vocabulary-complete-v2', key, request,
+            () => this.fetchInfo(request, vid, spelling, reading),
+            result => result.info !== null, isCachedVocabularyLookup);
     }
 
-    search(query: string, limit = 10): Promise<JPDBCard[]> {
+    search(query: string, limit = 10): Promise<JpdbVocabularySearchResult> {
         const normalized = cleanText(query);
-        if (!normalized) return Promise.resolve([]);
-        const key = `${normalized}:${limit}`;
-        let promise = this.searchCache.get(key);
-        if (!promise) {
-            const cached = readPublicJpdbCache<JPDBCard[]>('search', key);
-            promise = cached
-                ? Promise.resolve(cached)
-                : this.fetchSearch(normalized, limit).then(cards => {
-                    if (cards.length) writePublicJpdbCache('search', key, cards);
-                    return cards;
-                });
-            this.searchCache.set(key, promise);
-        }
-        return promise;
+        if (!normalized) return Promise.resolve({ cards: [], status: 'complete' });
+        const request = this.request();
+        const key = JSON.stringify([sensitiveFingerprint(request.scope.proxy), normalized, limit]);
+        return this.query(this.searchCache, 'search-complete-v2', key, request,
+            () => this.fetchSearch(request, normalized, limit),
+            result => result.cards.length > 0, isCachedVocabularySearch);
     }
 
-    private async fetchInfo(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
-        if (this.requestBackoff.isActive()) return null;
+    private request(): VocabularyRequest {
+        const proxy = this.getCorsProxyUrl();
+        if (!this.scope || this.scope.proxy !== proxy) {
+            this.cache.clear();
+            this.searchCache.clear();
+            let backoff = this.backoffs.get(proxy);
+            if (!backoff) {
+                backoff = new JpdbPublicLookupBackoff();
+                this.backoffs.set(proxy, backoff);
+            }
+            this.scope = { proxy, backoff };
+        }
+        return { scope: this.scope, failure: null };
+    }
+
+    private assertCurrent(request: VocabularyRequest): void {
+        if (request.scope !== this.request().scope) throw new Error('JPDB vocabulary request context changed.');
+    }
+
+    private query<T extends { status: 'complete' | 'partial' }>(
+        cache: Map<string, QueryEntry<T>>,
+        kind: string,
+        key: string,
+        request: VocabularyRequest,
+        load: () => Promise<T>,
+        usable: (result: T) => boolean,
+        valid: (value: unknown) => value is T,
+    ): Promise<T> {
+        const existing = cache.get(key);
+        if (existing && (existing.expiresAt > Date.now()
+            || existing.result?.status === 'partial' && usable(existing.result) && request.scope.backoff.isActive())) {
+            return existing.promise;
+        }
+        const stored = readPublicJpdbCache<unknown>(kind, key);
+        const cached = valid(stored) && usable(stored) ? stored : undefined;
+        const entry: QueryEntry<T> = {
+            expiresAt: Infinity,
+            promise: (cached ? Promise.resolve(cached) : load()).then(result => {
+                this.assertCurrent(request);
+                entry.result = result;
+                const hasData = usable(result);
+                entry.expiresAt = Date.now() + (result.status === 'partial'
+                    ? request.scope.backoff.retryAfterMs() || INCOMPLETE_QUERY_TTL_MS
+                    : hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
+                if (!cached && result.status === 'complete' && hasData) writePublicJpdbCache(kind, key, result);
+                return result;
+            }).catch(error => {
+                entry.expiresAt = Date.now() + (request.scope.backoff.retryAfterMs() || INCOMPLETE_QUERY_TTL_MS);
+                throw error;
+            }),
+        };
+        cache.set(key, entry);
+        return entry.promise;
+    }
+
+    private async text(
+        request: VocabularyRequest,
+        url: string,
+        transport = requestText,
+        timeoutMs = 8_000,
+    ): Promise<string> {
+        this.assertCurrent(request);
+        if (request.scope.backoff.isActive()) {
+            request.failure = new Error('JPDB public lookup is temporarily rate limited.');
+            throw request.failure;
+        }
+        try {
+            const html = await transport(url, request.scope.proxy, timeoutMs);
+            this.assertCurrent(request);
+            if (!request.scope.backoff.isActive()) request.scope.backoff.noteSuccess();
+            return html;
+        } catch (error) {
+            request.failure = error instanceof Error ? error : new Error('JPDB public lookup failed.', { cause: error });
+            this.assertCurrent(request);
+            request.scope.backoff.noteFailure(error);
+            log.warn('JPDB public lookup failed', { url }, error);
+            throw request.failure;
+        }
+    }
+
+    private async fetchInfo(request: VocabularyRequest, vid: number, spelling: string, reading: string): Promise<JpdbVocabularyLookupResult> {
         for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
-            const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
-                this.noteRequestFailure('Vocabulary page request failed', { vid, spelling, url }, error);
-                return '';
-            });
-            if (html) this.requestBackoff.noteSuccess();
-            const info = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
-            if (info) return await this.fetchSupplementaryInfo(info, html, url, vid, spelling, reading);
-            if (this.requestBackoff.isActive()) break;
+            const html = await this.text(request, url).catch(() => '');
+            this.assertCurrent(request);
+            const initial = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
+            if (initial) {
+                const info = await this.fetchSupplementaryInfo(request, initial, html, url, spelling, reading);
+                return { info, status: request.failure ? 'partial' : 'complete' };
+            }
+            if (request.scope.backoff.isActive()) break;
         }
-        return null;
+        if (request.failure) throw request.failure;
+        return { info: null, status: 'complete' };
     }
 
-    private async fetchSearch(query: string, limit: number): Promise<JPDBCard[]> {
-        if (this.requestBackoff.isActive()) return [];
-        const url = jpdbSearchUrl(query);
-        const html = await requestSearchText(url, this.getCorsProxyUrl()).catch(error => {
-            this.noteRequestFailure('Vocabulary search request failed', { query }, error);
-            return '';
-        });
-        if (html) this.requestBackoff.noteSuccess();
-        return html ? parseJpdbSearchHtml(html, limit) : [];
+    private async fetchSearch(request: VocabularyRequest, query: string, limit: number): Promise<JpdbVocabularySearchResult> {
+        const html = await this.text(request, jpdbSearchUrl(query), requestSearchText);
+        return { cards: parseJpdbSearchHtml(html, limit), status: 'complete' };
     }
 
     private async fetchSupplementaryInfo(
+        request: VocabularyRequest,
         initialInfo: JpdbVocabularyInfo,
         html: string,
         initialUrl: string,
-        vid: number,
         spelling: string,
         reading: string,
     ): Promise<JpdbVocabularyInfo> {
         let info = initialInfo;
         for (const supplement of vocabularySupplementUrls(html, spelling, reading, initialUrl)) {
-            if (this.requestBackoff.isActive()) break;
             if (!needsSupplement(info, supplement.kind)) continue;
-            const supplementHtml = await requestText(supplement.url, this.getCorsProxyUrl()).catch(error => {
-                this.noteRequestFailure('Vocabulary supplement request failed', { vid, spelling, url: supplement.url }, error);
-                return '';
-            });
-            if (supplementHtml) this.requestBackoff.noteSuccess();
+            const supplementHtml = await this.text(request, supplement.url).catch(() => '');
+            this.assertCurrent(request);
             const supplementalInfo = supplementHtml ? parseJpdbVocabularyHtml(supplementHtml, spelling, reading) : null;
             if (supplementalInfo) info = mergeVocabularyInfo(info, supplementalInfo);
         }
-        return await this.enrichLinkedVocabularyAudio(info);
+        return this.enrichLinkedVocabularyAudio(request, info);
     }
 
-    private async enrichLinkedVocabularyAudio(info: JpdbVocabularyInfo): Promise<JpdbVocabularyInfo> {
+    private async enrichLinkedVocabularyAudio(request: VocabularyRequest, info: JpdbVocabularyInfo): Promise<JpdbVocabularyInfo> {
         const budget = { remaining: JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET };
-        const compounds = await this.enrichVocabularyEntryAudio(info.compounds, budget, 'Compound vocabulary audio request failed');
-        const entries = info.usedInVocabulary ?? [];
-        const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, budget, 'Used-in vocabulary audio request failed');
+        const compounds = await this.enrichVocabularyEntryAudio(request, info.compounds, budget);
+        const usedInVocabulary = await this.enrichVocabularyEntryAudio(request, info.usedInVocabulary ?? [], budget);
         return { ...info, compounds, usedInVocabulary };
     }
 
-    private async enrichVocabularyEntryAudio(entries: JpdbVocabularyCompound[], budget: { remaining: number }, failureLabel: string): Promise<JpdbVocabularyCompound[]> {
-        if (budget.remaining <= 0 || !entries.some(entry => shouldRefreshVocabularyEntryAudio(entry))) return entries;
-        return await Promise.all(entries.map(entry => {
-            if (budget.remaining <= 0 || !shouldRefreshVocabularyEntryAudio(entry)) return Promise.resolve(entry);
-            budget.remaining -= 1;
-            return this.vocabularyEntryWithAudio(entry, failureLabel);
+    private enrichVocabularyEntryAudio(request: VocabularyRequest, entries: JpdbVocabularyCompound[], budget: { remaining: number }): Promise<JpdbVocabularyCompound[]> {
+        return Promise.all(entries.map(entry => {
+            if (budget.remaining <= 0 || !shouldRefreshVocabularyEntryAudio(entry)) return entry;
+            budget.remaining--;
+            return this.vocabularyEntryWithAudio(request, entry);
         }));
     }
 
-    private async vocabularyEntryWithAudio(entry: JpdbVocabularyCompound, failureLabel: string): Promise<JpdbVocabularyCompound> {
-        if (!shouldRefreshVocabularyEntryAudio(entry) || this.requestBackoff.isActive()) return entry;
+    private async vocabularyEntryWithAudio(request: VocabularyRequest, entry: JpdbVocabularyCompound): Promise<JpdbVocabularyCompound> {
         if (!parseJpdbVocabularyUrl(entry.url)) return entry;
         const url = absoluteJpdbUrl(entry.url);
         if (!url) return entry;
-        const html = await requestText(url, this.getCorsProxyUrl(), JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS).catch(error => {
-            this.noteRequestFailure(failureLabel, { term: entry.term, url }, error);
-            return '';
-        });
-        if (html) this.requestBackoff.noteSuccess();
+        const html = await this.text(request, url, requestText, JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS).catch(() => '');
+        this.assertCurrent(request);
         const audioIds = html ? jpdbVocabularyAudioIds(html, entry.term, entry.reading) : [];
         return isBetterJpdbAudioIds(audioIds, entry.audioIds ?? []) ? { ...entry, audioIds } : entry;
     }
+}
 
-    private noteRequestFailure(message: string, context: Record<string, unknown>, error: unknown): void {
-        this.requestBackoff.noteFailure(error);
-        log.warn(message, context, error);
-    }
+function isCachedVocabularyLookup(value: unknown): value is JpdbVocabularyLookupResult {
+    if (!isRecord(value) || value.status !== 'complete') return false;
+    const info = value.info;
+    if (info === null) return true;
+    return isRecord(info)
+        && isStringArray(info.meanings)
+        && Array.isArray(info.compounds) && info.compounds.every(isVocabularyCompound)
+        && (info.usedInVocabulary === undefined || Array.isArray(info.usedInVocabulary) && info.usedInVocabulary.every(isVocabularyCompound))
+        && Array.isArray(info.examples) && info.examples.every(example =>
+            isRecord(example) && typeof example.sentence === 'string' && typeof example.translation === 'string'
+            && (example.sentenceHtml === undefined || typeof example.sentenceHtml === 'string')
+            && (example.audioIds === undefined || isStringArray(example.audioIds)));
+}
+
+function isVocabularyCompound(value: unknown): boolean {
+    return isRecord(value) && ['term', 'reading', 'meaning', 'url'].every(key => typeof value[key] === 'string')
+        && (value.termHtml === undefined || typeof value.termHtml === 'string')
+        && (value.audioIds === undefined || isStringArray(value.audioIds));
+}
+
+function isStringArray(value: unknown): value is string[] {
+    return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+const PUBLIC_SEARCH_CARD_FIELDS = new Set<keyof JPDBCard>([
+    'vid', 'sid', 'rid', 'spelling', 'reading', 'frequencyRank', 'partOfSpeech',
+    'meanings', 'cardState', 'pitchAccent', 'wordWithReading', 'source', 'sentence',
+]);
+
+function isCachedVocabularySearch(value: unknown): value is JpdbVocabularySearchResult {
+    return isRecord(value) && value.status === 'complete' && Array.isArray(value.cards)
+        && value.cards.every(card => isRecord(card)
+            && Object.keys(card).every(key => PUBLIC_SEARCH_CARD_FIELDS.has(key as keyof JPDBCard))
+            && typeof card.spelling === 'string' && typeof card.reading === 'string'
+            && Number.isFinite(card.vid) && Number.isFinite(card.sid) && Number.isFinite(card.rid)
+            && (card.frequencyRank === null || Number.isFinite(card.frequencyRank))
+            && isStringArray(card.partOfSpeech)
+            && card.source === 'jpdb' && typeof card.sentence === 'string' && card.wordWithReading === null
+            && Array.isArray(card.cardState) && card.cardState.length === 1 && card.cardState[0] === 'not-in-deck'
+            && isStringArray(card.pitchAccent)
+            && Array.isArray(card.meanings) && card.meanings.every(meaning =>
+                isRecord(meaning) && isStringArray(meaning.glosses) && isStringArray(meaning.partOfSpeech)));
 }
 
 export function parseJpdbVocabularyHtml(html: string, spelling = '', reading = ''): JpdbVocabularyInfo | null {

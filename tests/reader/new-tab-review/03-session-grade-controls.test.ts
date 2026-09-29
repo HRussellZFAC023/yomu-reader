@@ -1,3 +1,4 @@
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../../src/reader/newtab/state';
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -5,6 +6,7 @@ import {
     newTabTestCard,
     deferred,
     dispatchPointerSwipe,
+    dispatchNewTabKeyboard,
     newTabPromptController,
     renderEnabledNewTabRoot,
     newTabBareController,
@@ -35,6 +37,7 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../../src/reader/languages/active';
+import { readReviewTargetCapability } from '../../../src/reader/dom/private-command-capabilities';
 
 type JpdbDeckOption = {
     id: string;
@@ -96,13 +99,13 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                 index: number;
                 reviewCountMode: boolean;
                 sourceLabel: string;
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             }, {
                 visibleWords: cards,
                 index: 0,
                 reviewCountMode: false,
                 sourceLabel: 'Jiten + JPDB + Anki',
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
+                state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
             });
 
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[0]!);
@@ -238,7 +241,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             bindRootEvents(root: HTMLElement): void;
             renderWord(root: HTMLElement, card: JPDBCard): void;
             showNextWord(): void;
@@ -251,7 +254,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                 index: 0,
                 reviewCountMode: true,
                 sourceLabel: 'JPDB',
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+                state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
             });
             internals.bindRootEvents(root);
             internals.renderWord(root, first);
@@ -375,7 +378,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             bindRootEvents(root: HTMLElement): void;
             renderWord(root: HTMLElement, card: JPDBCard): void;
             loadWordsInto: typeof loadWordsInto;
@@ -387,7 +390,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                 index: 359,
                 reviewCountMode: true,
                 sourceLabel: 'JPDB',
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+                state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
                 loadWordsInto,
             });
             internals.bindRootEvents(root);
@@ -498,7 +501,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         expect(gradeButtons[1]?.title).toContain('+3d');
     });
 
-    it('gates swipe grades on the revealed answer: pre-reveal drags navigate steps, revealed swipes grade', async () => {
+    it('gates swipe grades on the revealed answer: pre-reveal drags navigate cards, revealed swipes grade', async () => {
         vi.stubGlobal('PointerEvent', class {});
         const runSwipe = async (deltaX: number, expectedGrade: JPDBGrade): Promise<void> => {
             const current = newTabTestCard({
@@ -532,7 +535,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                 index: number;
                 reviewCountMode: boolean;
                 sourceLabel: string;
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
                 bindRootEvents(root: HTMLElement): void;
                 renderWord(root: HTMLElement, card: JPDBCard): void;
             };
@@ -543,29 +546,26 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                     index: 0,
                     reviewCountMode: true,
                     sourceLabel: 'JPDB',
-                    state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+                    state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
                 });
                 internals.bindRootEvents(root);
                 internals.renderWord(root, current);
 
-                // Answer hidden on a mid-flow step: a horizontal swipe now walks
-                // the study steps rather than grading. It must engage navigation
-                // and must NEVER submit a grade for an unseen answer (grading an
-                // unrevealed card would corrupt the provider's SRS state).
-                const navigateStudyStep = vi.spyOn(
-                    controller as unknown as { navigateStudyStep(direction: string): boolean },
-                    'navigateStudyStep',
-                );
+                // Hidden answers may navigate, but must never submit a provider grade.
+                const navigationMethod = deltaX < 0 ? 'showNextWord' : 'showPreviousWord';
+                const navigate = vi.spyOn(
+                    controller as unknown as { showNextWord(): void; showPreviousWord(): void },
+                    navigationMethod,
+                ).mockImplementation(() => {});
                 dispatchPointerSwipe(root.querySelector<HTMLElement>('[data-newtab-study]')!, window, deltaX);
                 await Promise.resolve();
-                await Promise.resolve();
-                expect(navigateStudyStep).toHaveBeenCalledWith(deltaX < 0 ? 'next' : 'previous');
+                expect(navigate).toHaveBeenCalledOnce();
                 expect(reviewCard).not.toHaveBeenCalled();
-                navigateStudyStep.mockRestore();
+                navigate.mockRestore();
 
                 // Reveal the answer on the final-reveal step: the same swipe grades.
                 internals.state.revealAnswer = true;
-                internals.state.mode = 'word';
+                internals.state.route = 'study';
                 internals.renderWord(root, current);
                 dispatchPointerSwipe(root.querySelector<HTMLElement>('[data-newtab-study]')!, window, deltaX);
                 await Promise.resolve();
@@ -643,7 +643,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         expect(status.disabled).toBe(true);
         expect(status.closest('[data-newtab-controls]')).toBeNull();
         expect(Array.from(document.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
-            .map(element => element.dataset.newtabAction)).toEqual(['previous', 'next']);
+            .map(element => element.dataset.newtabAction)).toEqual(['previous', 'reveal', 'next']);
         expect(newTabSourceSelect().hidden).toBe(false);
         expect(newTabSourceSelect().value).toBe('jpdb');
         expect(newTabSourceSelectValues()).toContain('anki');
@@ -680,7 +680,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             expect(newTabSourceSelectValues()).toContain('anki');
 
             const internals = controller as unknown as {
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             };
             internals.state = { ...internals.state, source: 'anki' };
             switchNewTabSource('anki');
@@ -853,12 +853,13 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         }
     });
 
-    it('keeps Anki source cards intact while the stepper derives their kanji drills', () => {
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, newTabStudyDisabledSteps: [] }, {});
+    it('keeps Anki native review separate from optional kanji practice', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS,  }, {});
         try {
             const internals = controller as unknown as {
                 studySessionForCard(card: JPDBCard, renderAsKanji?: boolean): {
                     steps: Array<{ kind: string; kanji?: string }>;
+                    practiceSteps: Array<{ kind: string; kanji?: string; gradeable: boolean }>;
                 };
             };
             const wordCard = newTabTestCard({ vid: -1, sid: -1, rid: 401, ankiCardId: 401, spelling: '暗記', reading: 'あんき', cardState: ['due'], source: 'anki', reviewSource: 'anki' });
@@ -866,8 +867,11 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             const wordSession = internals.studySessionForCard(wordCard, false);
             const rtkSession = internals.studySessionForCard(rtkCard, true);
 
-            expect(wordSession.steps.filter(step => step.kind === 'kanji-doodle').map(step => step.kanji)).toEqual(['暗', '記']);
-            expect(rtkSession.steps.filter(step => step.kind === 'kanji-doodle').map(step => step.kanji)).toEqual(['記']);
+            expect(wordSession.practiceSteps.filter(step => step.kind === 'kanji-doodle').map(step => step.kanji)).toEqual(['暗', '記']);
+            expect(rtkSession.practiceSteps.filter(step => step.kind === 'kanji-doodle').map(step => step.kanji)).toEqual(['記']);
+            expect(wordSession.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
+            expect(wordSession.practiceSteps.every(step => !step.gradeable)).toBe(true);
+            expect(rtkSession.practiceSteps.every(step => !step.gradeable)).toBe(true);
             expect(wordCard).toMatchObject({ spelling: '暗記', ankiCardId: 401, source: 'anki', reviewSource: 'anki' });
             expect(rtkCard).toMatchObject({ spelling: '記', ankiCardId: 402, kanjiKeyword: 'scribe' });
         } finally {
@@ -1088,6 +1092,245 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         expect(gradeButtons[0]?.querySelector('.jpdb-reader-newtab-key-hint')?.getAttribute('aria-hidden')).toBe('true');
     });
 
+    it('uses four positional Jiten shortcuts and hints', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key' }, {});
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api' });
+        const internals = controller as unknown as { studyGradeShortcutHints(card: JPDBCard): unknown };
+        expect(internals.studyGradeShortcutHints(card)).toEqual({ nothing: '1', hard: '2', okay: '3', easy: '4' });
+        controller.destroy();
+    });
+
+    it.each([false, true])('uses the actual Anki destination for a Jiten-origin card (Jiten available=%s)', async jitenAvailable => {
+        const answerCard = vi.fn(async () => undefined);
+        const reviewCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: jitenAvailable ? 'jiten-key' : '',
+            ankiEnabled: true, newTabAnkiEnabled: true, newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { anki: { answerCard } as never, jiten: { reviewCard } as never });
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api', ankiCardId: 404, cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
+            if (jitenAvailable) {
+                expect(root.querySelectorAll('[data-newtab-action="grade"]')).toHaveLength(4);
+                select!.selectedIndex = [...select!.options].findIndex(option => readReviewTargetCapability(option)?.target === 'anki');
+                const option = select!.options[select!.selectedIndex]!;
+                option.dataset.newtabReviewTarget = 'jiten';
+                option.dataset.ankiCardId = '999';
+                select!.dispatchEvent(new Event('change', { bubbles: true }));
+            } else expect(select).toBeNull();
+            expect(root.querySelectorAll('[data-newtab-action="grade"]')).toHaveLength(4);
+            expect([...root.querySelectorAll('.jpdb-reader-newtab-grade-label')].map(node => node.textContent)).toEqual(['Again', 'Hard', 'Good', 'Easy']);
+            const hard = root.querySelector<HTMLButtonElement>('[data-grade="hard"]')!;
+            hard.dataset.grade = 'easy';
+            expect(dispatchNewTabKeyboard(root, '2').defaultPrevented).toBe(true);
+            await waitForExpect(() => expect(answerCard).toHaveBeenCalledWith(404, 'hard'));
+            expect(answerCard).toHaveBeenCalledTimes(1);
+            expect(reviewCard).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('rejects a grade when the displayed card was replaced in the queue', async () => {
+        const reviewCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', newTabParsingEnabled: false, immersionKitEnabled: false },
+            { jiten: { reviewCard } as never });
+        const displayed = newTabTestCard({ vid: 42, source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] });
+        const replacement = newTabTestCard({ vid: 43, spelling: '別', source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, displayed, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            Object.assign(controller, { visibleWords: [replacement], allWords: [replacement], index: 0 });
+            dispatchNewTabKeyboard(root, '2');
+            await Promise.resolve();
+            expect(reviewCard).not.toHaveBeenCalled();
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it('rejects a replacement Anki card with the same word identity', async () => {
+        const answerCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: '', apiKey: '', ankiEnabled: true,
+            newTabAnkiEnabled: true, newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { anki: { answerCard } as never });
+        const displayed = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api', ankiCardId: 404, cardState: ['due'] });
+        const replacement = { ...displayed, ankiCardId: 405 };
+        const root = renderSeededNewTabWord(controller, displayed, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            Object.assign(controller, { visibleWords: [replacement], allWords: [replacement], index: 0 });
+            dispatchNewTabKeyboard(root, '2');
+            await Promise.resolve();
+            expect(answerCard).not.toHaveBeenCalled();
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it('submits at most one Jiten grade while the first provider request is pending', async () => {
+        const pending = deferred<void>();
+        const reviewCard = vi.fn(() => pending.promise);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', newTabParsingEnabled: false, immersionKitEnabled: false },
+            { jiten: { reviewCard } as never });
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            dispatchNewTabKeyboard(root, '2');
+            dispatchNewTabKeyboard(root, '3');
+            root.querySelector<HTMLButtonElement>('[data-grade="easy"]')!.click();
+            await Promise.resolve();
+            expect(reviewCard).toHaveBeenCalledTimes(1);
+        } finally { pending.resolve(); controller.destroy(); root.remove(); }
+    });
+
+    it('unlocks after a rejected Jiten request and allows the next rendered card', async () => {
+        const pending = deferred<void>();
+        const reviewCard = vi.fn().mockImplementationOnce(async () => { await pending.promise; throw new Error('Provider rejected the review'); }).mockResolvedValue(undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', newTabOfflineEnabled: false, newTabParsingEnabled: false, immersionKitEnabled: false },
+            { jiten: { reviewCard } as never });
+        const first = newTabTestCard({ vid: 42, source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] });
+        const next = newTabTestCard({ vid: 43, source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, first, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            dispatchNewTabKeyboard(root, '2');
+            pending.resolve();
+            await waitForExpect(() => expect((controller as unknown as { gradeSubmissionInFlight: boolean }).gradeSubmissionInFlight).toBe(false));
+            Object.assign(controller, { visibleWords: [next], allWords: [next], index: 0 });
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, next);
+            dispatchNewTabKeyboard(root, '2');
+            await waitForExpect(() => expect(reviewCard).toHaveBeenCalledWith(next, 'hard'));
+            expect(reviewCard).toHaveBeenCalledTimes(2);
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it.each([['jiten', false], ['jiten', true], ['jpdb', false]] as const)('preserves Both writes for %s-origin merged cards with Anki=%s', async (source, withAnki) => {
+        const jitenReview = vi.fn(async () => undefined);
+        const jpdbReview = vi.fn(async () => undefined);
+        const answerCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', apiKey: 'jpdb-key',
+            ankiEnabled: withAnki, newTabAnkiEnabled: withAnki, newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { jiten: { reviewCard: jitenReview } as never, jpdb: { reviewCard: jpdbReview } as never, anki: { answerCard } as never });
+        const card = newTabTestCard({ source, reviewSource: 'jpdb-api', jitenWordId: 42, jitenReadingIndex: 0, ankiCardId: withAnki ? 404 : undefined, cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')!;
+            expect(readReviewTargetCapability(select.options[select.selectedIndex])?.target).toBe('both');
+            expect(root.querySelectorAll('[data-newtab-action="grade"]')).toHaveLength(4);
+            dispatchNewTabKeyboard(root, '2');
+            await waitForExpect(() => {
+                expect(jitenReview).toHaveBeenCalledWith(card, 'hard');
+                expect(jpdbReview).toHaveBeenCalledWith(card, 'hard');
+                expect(answerCard).toHaveBeenCalledTimes(withAnki ? 1 : 0);
+            });
+            expect(jitenReview).toHaveBeenCalledTimes(1);
+            expect(jpdbReview).toHaveBeenCalledTimes(1);
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it.each(['regular', 'fsrs'] as const)('preserves Bunpro %s input with the two-button preference enabled', async mode => {
+        vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('pointer: fine') || query.includes('hover: hover') }));
+        const review = vi.fn(async (_request: { grade: JPDBGrade }) => ({}));
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, twoButtonReviews: true,
+            bunproFrontendApiToken: 'bunpro-token', bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+            newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { srsAdapters: { bunpro: { hasCredential: () => true, review } as never } });
+        const card = newTabTestCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewId: '7701',
+            bunproReviewableId: 8801, bunproReviewableType: 'vocabulary', bunproReviewSessionId: '44',
+            bunproReviewInputMode: mode, bunproReviewEndpoint: 'review', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'bunpro', revealAnswer: true }, bindRootEvents: true });
+        try {
+            expect([...root.querySelectorAll('.jpdb-reader-newtab-grade-label')].map(node => node.textContent)).toEqual(mode === 'fsrs' ? ['Again', 'Hard', 'Good', 'Easy'] : ['Hard', 'Good']);
+            expect([...root.querySelectorAll('[data-newtab-action="grade"] .jpdb-reader-newtab-key-hint')].map(node => node.textContent)).toEqual(mode === 'fsrs' ? ['1', '2', '3', '4'] : ['1', '2']);
+            dispatchNewTabKeyboard(root, '2');
+            await waitForExpect(() => expect(review).toHaveBeenCalledTimes(1));
+            expect(review.mock.calls[0]?.[0].grade).toBe(mode === 'fsrs' ? 'hard' : 'pass');
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it.each(['jpdb', 'anki', 'both'] as const)('switches five-to-four native controls and submits only the selected %s destination', async selectedTarget => {
+        const reviewCard = vi.fn(async () => undefined);
+        const answerCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: '', ankiEnabled: true,
+            newTabAnkiEnabled: true, newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { jpdb: { reviewCard } as never, anki: { answerCard } as never });
+        const card = newTabTestCard({ source: 'jpdb', reviewSource: 'jpdb-api', ankiCardId: 404, cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')!;
+            for (const target of ['both', 'anki', 'jpdb', selectedTarget]) {
+                select.selectedIndex = [...select.options].findIndex(option => readReviewTargetCapability(option)?.target === target);
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                expect([...root.querySelectorAll('.jpdb-reader-newtab-grade-label')].map(node => node.textContent)).toEqual(target === 'anki'
+                    ? ['Again', 'Hard', 'Good', 'Easy'] : ['Nothing', 'Something', 'Hard', 'Okay', 'Easy']);
+                if (target === 'anki') {
+                    dispatchNewTabKeyboard(root, '5');
+                    await Promise.resolve();
+                    expect(answerCard).not.toHaveBeenCalled();
+                    expect(reviewCard).not.toHaveBeenCalled();
+                }
+            }
+            dispatchNewTabKeyboard(root, '2');
+            await waitForExpect(() => {
+                expect(reviewCard).toHaveBeenCalledTimes(selectedTarget === 'anki' ? 0 : 1);
+                expect(answerCard).toHaveBeenCalledTimes(selectedTarget === 'jpdb' ? 0 : 1);
+            });
+            if (selectedTarget !== 'anki') expect(reviewCard).toHaveBeenCalledWith(card, 'something');
+            if (selectedTarget !== 'jpdb') expect(answerCard).toHaveBeenCalledWith(404, selectedTarget === 'anki' ? 'hard' : 'something');
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it.each(['jiten', 'anki', 'both'] as const)('submits to %s after cycling actual Jiten/Anki/Both controls', async selectedTarget => {
+        vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('pointer: fine') || query.includes('hover: hover') }));
+        const reviewCard = vi.fn(async () => undefined);
+        const answerCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', apiKey: '', ankiEnabled: true,
+            newTabAnkiEnabled: true, newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { jiten: { reviewCard } as never, anki: { answerCard } as never });
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api', ankiCardId: 404, cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')!;
+            for (const target of ['jiten', 'anki', 'both', selectedTarget]) {
+                select.selectedIndex = [...select.options].findIndex(option => readReviewTargetCapability(option)?.target === target);
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                expect([...root.querySelectorAll('[data-newtab-action="grade"] .jpdb-reader-newtab-key-hint')].map(node => node.textContent))
+                    .toEqual(['1', '2', '3', '4']);
+            }
+            dispatchNewTabKeyboard(root, '2');
+            await waitForExpect(() => {
+                expect(reviewCard).toHaveBeenCalledTimes(selectedTarget === 'anki' ? 0 : 1);
+                expect(answerCard).toHaveBeenCalledTimes(selectedTarget === 'jiten' ? 0 : 1);
+            });
+            if (selectedTarget !== 'anki') expect(reviewCard).toHaveBeenCalledWith(card, 'hard');
+            if (selectedTarget !== 'jiten') expect(answerCard).toHaveBeenCalledWith(404, 'hard');
+        } finally { controller.destroy(); root.remove(); }
+    });
+
+    it('fails closed on Study click, key and swipe until its own selector is restored', async () => {
+        const reviewCard = vi.fn(async () => undefined);
+        const answerCard = vi.fn(async () => undefined);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', apiKey: '', ankiEnabled: true,
+            newTabAnkiEnabled: true, newTabSwipeReviews: true, newTabParsingEnabled: false, immersionKitEnabled: false,
+        }, { jiten: { reviewCard } as never, anki: { answerCard } as never });
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api', ankiCardId: 404, cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, { state: { source: 'jpdb', revealAnswer: true }, bindRootEvents: true });
+        try {
+            const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')!;
+            const parent = select.parentElement!;
+            select.remove();
+            root.querySelector<HTMLButtonElement>('[data-grade="hard"]')!.click();
+            dispatchNewTabKeyboard(root, '2');
+            (controller as unknown as { handleNewTabSwipe(root: HTMLElement, action: string, direction: string): void }).handleNewTabSwipe(root, 'good', 'left');
+            await Promise.resolve();
+            expect(reviewCard).not.toHaveBeenCalled();
+            expect(answerCard).not.toHaveBeenCalled();
+            parent.append(select);
+            dispatchNewTabKeyboard(root, '2');
+            await waitForExpect(() => {
+                expect(reviewCard).toHaveBeenCalledWith(card, 'hard');
+                expect(answerCard).toHaveBeenCalledWith(404, 'hard');
+            });
+            expect(reviewCard).toHaveBeenCalledTimes(1);
+            expect(answerCard).toHaveBeenCalledTimes(1);
+        } finally { controller.destroy(); root.remove(); }
+    });
+
     it('advertises Space on the active Study control', () => {
         const controller = newTabPromptController(DEFAULT_SETTINGS, {});
         const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'local' });
@@ -1096,7 +1339,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             state: { source: 'dictionary', revealAnswer: false },
         });
         try {
-            expect(root.querySelector('[data-newtab-action="next"] .jpdb-reader-newtab-key-hint')?.textContent).toBe('Space');
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')?.textContent).toBe('Space');
         } finally {
             controller.destroy();
         }
@@ -1110,7 +1353,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             state: { source: 'dictionary', revealAnswer: false },
         });
         try {
-            expect(root.querySelector('[data-newtab-action="next"] .jpdb-reader-newtab-key-hint')).toBeNull();
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -1138,7 +1381,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             state: { source: 'dictionary', revealAnswer: false },
         });
         try {
-            expect(root.querySelector('[data-newtab-action="next"] .jpdb-reader-newtab-key-hint')).toBeNull();
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')).toBeNull();
         } finally {
             controller.destroy();
             root.remove();
@@ -1183,7 +1426,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             immersionKitEnabled: false,
-            newTabStudyDisabledSteps: [],
+
         }, {
             showKanjiCard,
             rtk: { lookup: vi.fn(async () => null) } as never,

@@ -2593,6 +2593,8 @@ const SUBTITLE_SETTINGS_COPY = {
 };
 const LOCAL_DICTIONARY_STORAGE_COPY = {
   enSettings: {
+  extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
+  extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
   localDictionariesEnabled: "Show imported dictionary definitions",
   localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
   clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
@@ -2609,6 +2611,8 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
   },
   jaSettings: {
+  extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
+  extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
   localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
   clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
@@ -2645,32 +2649,111 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
 });
 const SETTINGS_RECOVERY_COPY = {
   en: {
-  extensionSettingsRecoveryTitle: "Study paused to protect your settings",
-  extensionSettingsRecoveryBody: "Yomu could not reconnect your saved settings. The existing data was retained unchanged, and Study will not replace it with setup defaults.",
-  extensionSettingsRecoveryGuidance: "Retry recovery or reload Study. If this continues, import your latest settings backup once after recovery succeeds. Do not use Factory Reset or downgrade Yomu.",
-  extensionSettingsRecoveryRetry: "Retry recovery",
+  settingsImportUnsupportedFormat: "This settings backup format is not supported.",
+  settingsImportIncomplete: "The settings data in this backup is incomplete.",
+  extensionSettingsRecoveryTitle: "Could not load settings",
+  extensionSettingsRecoveryBody: "Your saved settings have not been changed.",
+  extensionSettingsRecoveryRetry: "Try again",
   extensionSettingsRecoveryReload: "Reload Study",
-  extensionSettingsRecoveryRetrying: "Retrying settings recovery…",
-  extensionSettingsRecoveryStillBlocked: "Recovery is still unavailable. Your existing data remains unchanged.",
+  extensionSettingsRecoveryRetrying: "Loading settings…",
+  extensionSettingsRecoveryStillBlocked: "Settings are still unavailable.",
   saveAfterImport: "Save after import",
   settingsImportSaveBlocked: "Settings import is running. Save unlocks when it finishes.",
   settingsImportStaleSaveDiscarded: "Settings import replaced the earlier pending Save."
   },
   ja: {
-  extensionSettingsRecoveryTitle: "設定を保護するためStudyを一時停止しました",
-  extensionSettingsRecoveryBody: "保存済み設定に再接続できませんでした。既存データは変更せず保持され、Studyが初期設定で上書きすることはありません。",
-  extensionSettingsRecoveryGuidance: "復旧を再試行するかStudyを再読み込みしてください。解決しない場合は、復旧成功後に最新の設定バックアップを一度だけインポートしてください。初期状態へのリセットやYomuのダウングレードは行わないでください。",
-  extensionSettingsRecoveryRetry: "復旧を再試行",
+  settingsImportUnsupportedFormat: "このバックアップの設定形式には対応していません。",
+  settingsImportIncomplete: "このバックアップの設定データが不完全です。",
+  extensionSettingsRecoveryTitle: "設定を読み込めませんでした",
+  extensionSettingsRecoveryBody: "保存済みの設定は変更されていません。",
+  extensionSettingsRecoveryRetry: "再試行",
   extensionSettingsRecoveryReload: "Studyを再読み込み",
-  extensionSettingsRecoveryRetrying: "設定の復旧を再試行中…",
-  extensionSettingsRecoveryStillBlocked: "まだ復旧できません。既存データは変更されていません。",
+  extensionSettingsRecoveryRetrying: "設定を読み込み中…",
+  extensionSettingsRecoveryStillBlocked: "まだ設定を読み込めません。",
   saveAfterImport: "インポート後に保存",
   settingsImportSaveBlocked: "設定をインポート中です。完了後に保存できます。",
   settingsImportStaleSaveDiscarded: "設定のインポートを優先し、先に待機していた保存は破棄しました。"
   }
 };
+const PRACTICE_SESSION_COPY = {
+  en: {
+  practiceTitle: "Practice",
+  practicePurpose: "Session type",
+  practiceRecognition: "Read words",
+  practiceCloze: "Complete sentences",
+  practiceWriting: "Write words",
+  practiceListening: "Listen",
+  practiceSpeaking: "Speak",
+  practiceStart: "Start session",
+  practiceResume: "Resume",
+  practiceSaved: "Saved sessions",
+  practiceCurrentSelection: "Use current selection",
+  practiceScheduleUnchanged: "Your scheduled reviews stay unchanged.",
+  practicePreparing: "Preparing session…",
+  practiceUnavailable: "This session could not be opened.",
+  practiceNoMaterial: "No selected words are ready for this session type.",
+  practiceSaveFailed: "Progress could not be saved. Try again.",
+  practiceConflict: "This session changed in another window. Copy any unsaved answer before reopening.",
+  practiceReopen: "Reopen saved progress",
+  practiceEmptyAnswer: "Enter an answer.",
+  practiceCheck: "Check",
+  practiceCorrect: "Matches the word",
+  practiceAccepted: "Reading matches",
+  practiceDifferent: "Try again, or compare with the answer.",
+  practiceRemembered: "I remembered",
+  practiceNotYet: "Not yet",
+  practiceNext: "Next",
+  practiceSkip: "Skip",
+  practicePause: "Pause",
+  practiceComplete: "Session complete",
+  practiceBack: "Back to Study",
+  practiceNew: "New session",
+  practiceWordsCount: "{count} words",
+  practicePosition: "{current} of {total}",
+  practiceResponse: "Your answer",
+  practiceAudio: "Play question audio"
+  },
+  ja: {
+  practiceTitle: "練習",
+  practicePurpose: "練習方法",
+  practiceRecognition: "単語を読む",
+  practiceCloze: "文の空欄を埋める",
+  practiceWriting: "単語を書く",
+  practiceListening: "聞き取り",
+  practiceSpeaking: "発話",
+  practiceStart: "練習を開始",
+  practiceResume: "再開",
+  practiceSaved: "保存した練習",
+  practiceCurrentSelection: "現在の選択を使う",
+  practiceScheduleUnchanged: "復習予定には影響しません。",
+  practicePreparing: "練習を準備中…",
+  practiceUnavailable: "この練習を開けませんでした。",
+  practiceNoMaterial: "選択した単語では、この形式の練習を開始できません。",
+  practiceSaveFailed: "進捗を保存できませんでした。もう一度お試しください。",
+  practiceConflict: "別のウィンドウで進捗が変わりました。未保存の回答をコピーしてから開き直してください。",
+  practiceReopen: "保存済みの進捗を開く",
+  practiceEmptyAnswer: "回答を入力してください。",
+  practiceCheck: "確認",
+  practiceCorrect: "表記が一致",
+  practiceAccepted: "読みが一致",
+  practiceDifferent: "もう一度試すか、答えを確認してください。",
+  practiceRemembered: "思い出せた",
+  practiceNotYet: "まだ覚えていない",
+  practiceNext: "次へ",
+  practiceSkip: "スキップ",
+  practicePause: "中断",
+  practiceComplete: "練習完了",
+  practiceBack: "学習に戻る",
+  practiceNew: "新しい練習",
+  practiceWordsCount: "{count}語",
+  practicePosition: "{total}問中{current}問",
+  practiceResponse: "回答",
+  practiceAudio: "問題の音声を再生"
+  }
+};
 const COPY = {
   en: {
+  ...PRACTICE_SESSION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
   onboardingEyebrow: "{language}, wherever it appears",
@@ -2745,7 +2828,6 @@ const COPY = {
   sources: "Sources",
   backupSync: "Backup & sync",
   backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
-  backupMovedHelp: "Backup, sync, and settings/dictionary import-export live in the Backup & sync section.",
   media: "Media",
   mining: "Mining",
   shortcuts: "Shortcuts",
@@ -2810,7 +2892,8 @@ const COPY = {
   jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
   jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
   jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
-  fivePoint: "Five point: NOTHING to EASY",
+  fivePoint: "Provider default",
+  fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
   automatic: "Automatic",
@@ -2872,7 +2955,6 @@ const COPY = {
   newTabParsingEnabled: "Enable sentence parsing on Study",
   newTabFrontSentenceEnabled: "Show sentence on word fronts",
   newTabKanjiAutogradeEnabled: "Auto-grade kanji drawing",
-  newTabKanjiAutoSubmit: "Auto-submit kanji grade",
   newTabOfflineEnabled: "Cache Study for offline use",
   newTabOfflineLimit: "Offline review cache limit",
   newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
@@ -2884,21 +2966,6 @@ const COPY = {
   newTabOfflineHelp: "Caches due cards and queued grades.",
   newTabAddressHelp: "Use as a start page or iPad shortcut.",
   newTabJpdbDeck: "Study JPDB deck",
-  newTabStudySteps: "Study steps",
-  newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
-  newTabStudyStepHeader: "Step",
-  newTabStudyStepKanji: "Kanji drawing",
-  newTabStudyStepWord: "Word meaning",
-  newTabStudyStepRecall: "Write in sentence",
-  newTabStudyStepListen: "Pitch listening",
-  newTabStudyStepSpeaking: "Speaking",
-  newTabStudyStepType: "Type the word",
-  newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
-  newTabStudyStepWordHelp: "{language} front, meaning and reading on reveal.",
-  newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
-  newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
-  newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
-  newTabStudyStepTypeHelp: "Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.",
   openNewTabPage: "Open Study",
   copyAddress: "Copy address",
   wordColors: "Word colors",
@@ -3275,7 +3342,6 @@ const COPY = {
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
   exportDictionaries: "Export dictionaries",
-  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.",
   lookupPills: "Lookup pills",
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
@@ -3363,7 +3429,6 @@ const COPY = {
   dictionaryNoSupportedBanks: "No supported banks found.",
   dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
   dictionaryZipMissingIndex: "ZIP missing index.json.",
-  yomitanSettingsInvalid: "Not a Yomitan settings export.",
   localWordSingular: "entry",
   localWordPlural: "entries",
   decksLoaded: "Decks are loaded from your JPDB account.",
@@ -3524,7 +3589,6 @@ const COPY = {
   gradeFail: "Pass/fail: FAIL",
   gradePass: "Pass/fail: PASS",
   helpLinksTitle: "Useful pages",
-  helpLinksCopy: "Open reader tools and docs from here.",
   versionAndUpdates: "Version",
   currentYomuVersion: "Yomu",
   updateStatusIdle: "Current {current}. Latest check pending.",
@@ -3607,12 +3671,10 @@ const COPY = {
   ankiLapseSingular: "lapse",
   ankiLapsePlural: "lapses",
   gradeNothingLabel: "Nothing",
+  gradeAgainLabel: "Again",
+  gradeGoodLabel: "Good",
   gradeSomethingLabel: "Something",
   gradeHardLabel: "Hard",
-  bunproGradeAgainLabel: "Again",
-  bunproGradeHardLabel: "Hard",
-  bunproGradeGoodLabel: "Good",
-  bunproGradeEasyLabel: "Easy",
   gradeOkayLabel: "Okay",
   gradeEasyLabel: "Easy",
   gradeFailLabel: "Fail",
@@ -4062,7 +4124,6 @@ importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応辞書バンクがありません。
 dictionaryUnsupportedJson	Dexie、ZIP、出力を使ってください。
 dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
@@ -4106,12 +4167,10 @@ ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
 ankiLapsePlural	回失敗
 gradeNothingLabel	全然
+gradeAgainLabel	もう一度
+gradeGoodLabel	良い
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
-bunproGradeAgainLabel	もう一度
-bunproGradeHardLabel	難しい
-bunproGradeGoodLabel	良い
-bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -4434,7 +4493,8 @@ translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
-  ...SETTINGS_RECOVERY_COPY.ja
+  ...SETTINGS_RECOVERY_COPY.ja,
+  ...PRACTICE_SESSION_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -4458,7 +4518,6 @@ reading	読解
 sources	ソース
 backupSync	バックアップと同期
 backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
-backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -4520,7 +4579,8 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-fivePoint	5段階: 全然から簡単まで
+fivePoint	サービスの標準評価
+fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 theme	テーマ
@@ -4577,7 +4637,6 @@ newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
-newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
@@ -4589,21 +4648,6 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
-newTabStudySteps	学習ステップ
-newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
-newTabStudyStepHeader	ステップ
-newTabStudyStepKanji	漢字書き取り
-newTabStudyStepWord	単語の意味
-newTabStudyStepRecall	文で書く
-newTabStudyStepListen	ピッチ聞き取り
-newTabStudyStepSpeaking	発音
-newTabStudyStepType	単語を書く
-newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
-newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
-newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
-newTabStudyStepTypeHelp	聞いて発音した単語を書き出します。入力または漢字ごとの手書きで解答できます。セッション中はスキップ可能。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -4958,7 +5002,6 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -5046,7 +5089,6 @@ ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
-helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 versionAndUpdates	バージョン
 currentYomuVersion	Yomu
 updateStatusIdle	現在 {current}。確認待ち。
@@ -5307,7 +5349,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  { owner: "settings/extension-study-settings-recovery", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
+  { owner: "settings (retired promotion marker; purge only)", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
   // Private, one-use cloud settings OAuth handoff. The old page-readable key
   // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
   { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
@@ -5396,6 +5438,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
+  { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
@@ -5490,7 +5534,7 @@ function managedStateEpochSessionForRealm(root = globalThis) {
 }
 function parseManagedStateEpoch(value) {
   if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
-  if (!isPlainRecord$1(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+  if (!isPlainRecord(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
   throw new Error("The managed-state epoch is malformed.");
   }
   return {
@@ -5539,12 +5583,12 @@ function assertManagedStateEpoch(expected, actual) {
   if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
 }
 function isManagedStateEnvelope(value) {
-  return isPlainRecord$1(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+  return isPlainRecord(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
 }
 function isManagedStateEpochSession(value) {
   return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
 }
-function isPlainRecord$1(value) {
+function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 const MISSING = { __yomuStorageValueMissing: true };
@@ -5575,10 +5619,6 @@ async function readManagedGmValue(getValue, key, epoch) {
   if (isMissingSentinel(logical)) return { kind: "deleted" };
   return { kind: "found", value: logical };
 }
-async function managedGmValue(getValue, key, fallback, epoch) {
-  const read = await readManagedGmValue(getValue, key, epoch);
-  return read.kind === "found" ? read.value : fallback;
-}
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -5598,6 +5638,83 @@ const HOSTED_LOCAL_SETTINGS_KEYS = [
   "ocrOverlayTheme",
   "preferJapaneseSiteLanguage"
 ];
+function hasOwn(value, key) {
+  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+function objectRecord$2(value) {
+  return value && typeof value === "object" ? value : null;
+}
+function parseSettingsIntentLedger(value) {
+  const record2 = objectRecord$1(value);
+  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
+  const records = objectRecord$1(record2.records);
+  if (!records) return null;
+  const parsed = {};
+  for (const [key, entry] of Object.entries(records)) {
+  const item = objectRecord$1(entry);
+  if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
+  const seq = item.seq;
+  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+  }
+  return { revision: record2.revision, records: parsed };
+}
+function objectRecord$1(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+  const marker = transactionMarker(storedSettings);
+  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
+  return matchingCommittedPair(settings, intentLedger);
+}
+function matchingCommittedPair(settings, intentLedger) {
+  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
+  const settingsId = commitId(settings);
+  const ledgerId = commitId(intentLedger);
+  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+}
+function commitId(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2) return void 0;
+  return recordCommitId(record2);
+}
+function recordCommitId(record2) {
+  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
+  const id = record2[COMMIT_FIELD];
+  return typeof id === "string" && id ? id : null;
+}
+function withoutCommit(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
+  const clean = { ...record2 };
+  delete clean[COMMIT_FIELD];
+  return clean;
+}
+function transactionMarker(value) {
+  const owner = objectRecord$2(value);
+  const marker = owner && objectRecord$2(owner[TRANSACTION_FIELD]);
+  if (!marker) return null;
+  return validatedTransactionMarker(marker);
+}
+function validatedTransactionMarker(marker) {
+  if (marker.version !== 1) return null;
+  const settings = serializedSnapshot(marker.settings);
+  const intentLedger = serializedSnapshot(marker.intentLedger);
+  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
+}
+function serializedSnapshot(value) {
+  const record2 = objectRecord$2(value);
+  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
+  existed: record2.existed,
+  previousValue: record2.previousValue,
+  localFallbackExisted: record2.localFallbackExisted,
+  localFallbackValue: record2.localFallbackValue
+  } : null;
+}
+function snapshotValue(snapshot) {
+  return snapshot.existed ? snapshot.previousValue : null;
+}
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
 const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
 const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
@@ -5637,27 +5754,36 @@ function hostedStoragePromotionValue(key, value, hostedOrigin) {
   const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
   return isRecord(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
 }
-function pendingHostedSettingsPatch(key, localValue, hostedOrigin) {
-  const localSettings = rawHostedSettingsRecord(key, localValue, hostedOrigin);
-  if (!localSettings) return void 0;
-  const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  if (!isRecord(patch)) return void 0;
-  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
-  return withoutSettingsCoordination(sanitized);
-}
-function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious) {
+function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious, readIntent) {
   const current = sanitizedHostedSettingsRecord(key, value, hostedOrigin);
   if (!current) return value;
   const previousValue = readPrevious();
-  const previous = sanitizedHostedSettingsRecord(key, previousValue, hostedOrigin);
-  if (!previous) return current;
-  return {
-  ...current,
-  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: {
-    ...earlierHostedPatch(previousValue),
-    ...changedRecordFields(previous, current)
+  if (Object.hasOwn(current, HOSTED_SETTINGS_TRANSACTION_FIELD)) return value;
+  if (Object.hasOwn(current, HOSTED_SETTINGS_COMMIT_FIELD)) {
+  const intent = readIntent();
+  const ledger = parseSettingsIntentLedger(intent);
+  if (!ledger || !commitId(current) || !committedSettingsStoragePair(current, intent)) {
+    throw new Error("Hosted settings publication requires a matching intent ledger.");
   }
-  };
+  const marker = transactionMarker(previousValue);
+  if (!marker) throw new Error("Hosted settings publication requires a valid prior transaction marker.");
+  const previousIntent = snapshotValue(marker.intentLedger);
+  const previousLedger = previousIntent == null ? { records: {} } : parseSettingsIntentLedger(previousIntent);
+  if (!previousLedger) throw new Error("Hosted settings transaction has invalid previous intent.");
+  const snapshot = snapshotValue(marker.settings);
+  const patch = earlierHostedPatch(snapshot);
+  for (const key2 of Object.keys(patch)) {
+    if (!Object.hasOwn(ledger.records, key2) || !Object.hasOwn(current, key2)) delete patch[key2];
+    else patch[key2] = current[key2];
+  }
+  for (const [key2, record2] of Object.entries(ledger.records)) {
+    if (record2.seq === previousLedger?.records[key2]?.seq || !Object.hasOwn(current, key2)) continue;
+    patch[key2] = current[key2];
+  }
+  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
+  return { ...current, [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: withoutSettingsCoordination(sanitized) };
+  }
+  return current;
 }
 function sanitizedHostedStorageValue(key, value, hostedOrigin) {
   if (!hostedOrigin || !isRecord(value)) return value;
@@ -5688,13 +5814,6 @@ function earlierHostedPatch(value) {
   if (!isRecord(value)) return {};
   const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
   return isRecord(patch) ? withoutSettingsCoordination(patch) : {};
-}
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field, value] of Object.entries(current)) {
-  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-  }
-  return withoutSettingsCoordination(changed);
 }
 function withoutSettingsCoordination(record2) {
   const clean = { ...record2 };
@@ -5741,6 +5860,26 @@ function localStorageSetOrThrow(key, value) {
 function storageWriteError(key, message, ...causes) {
   const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
   return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
+const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const RETIRED_SETTINGS_STORAGE_KEYS = [
+  "jpdb-reader-settings",
+  "yomu-reader-settings",
+  "yomu-settings",
+  "yomu:explicit-user-settings:v1"
+];
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  SETTINGS_STORAGE_KEY,
+  ...RETIRED_SETTINGS_STORAGE_KEYS,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
+]);
+function isSettingsAuthorityStorageKey(key) {
+  return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
 }
 const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
@@ -5883,7 +6022,7 @@ function asyncGmGetValue() {
 }
 function directGmGetValue() {
   if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmGetValue() ?? modernGmGetValue() ?? rawExtensionStorageGetValue();
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
 }
 function legacyGmGetValue() {
   return typeof GM_getValue === "function" ? GM_getValue : null;
@@ -6017,7 +6156,10 @@ async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue)
 }
 function managedStateEpochFromSynchronousGetter(getValue) {
   const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-  if (isPromiseLike$1(stored)) return null;
+  if (isPromiseLike$1(stored)) {
+  void Promise.resolve(stored).catch((error) => debugStorageError("Synchronous epoch probe could not read async storage", MANAGED_STATE_EPOCH_KEY, error));
+  return null;
+  }
   const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
   managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
   cacheManagedStateEpochForLocalFallback(shared2);
@@ -6025,7 +6167,7 @@ function managedStateEpochFromSynchronousGetter(getValue) {
 }
 function managedStateEpochForSynchronousLocalRead() {
   try {
-  const getValue = directGmGetValue();
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   if (getValue) {
     const synchronous = managedStateEpochFromSynchronousGetter(getValue);
     if (synchronous) return synchronous;
@@ -6061,23 +6203,13 @@ async function gmStorageGet(key, fallback) {
   }
 }
 async function sharedManagedValue(getValue, key, fallback, epoch) {
-  const pendingPatch = pendingHostedLocalPatch(key, epoch);
-  return pendingPatch ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
-}
-async function reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) {
-  const shared2 = await managedGmValue(getValue, key, void 0, epoch);
-  const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
-  const reconciled = { ...sharedRecord, ...pendingPatch };
-  await gmStorageSet(key, reconciled);
-  return reconciled;
-}
-async function sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   return promoteLocalManagedValue(key, fallback, epoch);
 }
 async function promoteLocalManagedValue(key, fallback, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return fallback;
   const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(migrated)) {
   const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
@@ -6089,6 +6221,7 @@ async function promoteLocalManagedValue(key, fallback, epoch) {
 function failedManagedReadValue(error, key, fallback, epoch) {
   if (isStaleManagedStateEpochError(error)) throw error;
   debugStorageError("GM storage read failed", key, error);
+  if (isSettingsAuthorityStorageKey(key)) return fallback;
   if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
   return localStorageGet(key, fallback);
   }
@@ -6110,6 +6243,7 @@ function gmStorageGetSync(key, fallback) {
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   }
+  if (isSettingsAuthorityStorageKey(key) && asyncGmGetValue()) return fallback;
   epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
@@ -6137,6 +6271,7 @@ function gmStorageSyncRead(key, getValue, epoch) {
   }
 }
 function migratedLocalStorageSyncValue(key, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return { kind: "fallback" };
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
@@ -6144,18 +6279,14 @@ function migratedLocalStorageSyncValue(key, epoch) {
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
 }
-function pendingHostedLocalPatch(key, epoch) {
-  if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return void 0;
-  if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
-  return pendingHostedSettingsPatch(key, localStorageGet(key, void 0), true);
-}
 function localFallbackValueForWrite(key, value) {
   if (!isHostedSettingsStorageKey(key)) return value;
   return hostedSettingsLocalFallbackValue(
   key,
   value,
   isHostedYomuOrigin(),
-  () => localStorageGet(key, void 0)
+  () => localStorageGet(key, void 0),
+  () => localStorageGet("yomu:settings-intent:v2", void 0)
   );
 }
 async function gmStorageSet(key, value, options = {}) {
@@ -6322,9 +6453,6 @@ function gmStorageDeleteSync(key) {
   } catch (error) {
   debugStorageError("localStorage sync delete failed", key, error);
   }
-}
-function isPlainRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 function mirrorManagedValueToHostedStorage(key, value, epoch) {
   if (!shouldMirrorManagedValueToHostedStorage(key)) return;
@@ -12594,15 +12722,6 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
   );
   Logger.scope("Settings");
-  const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-    "kanji-doodle",
-    "word",
-    "type-word",
-    "recall-cloze",
-    "listen-pitch",
-    "speaking"
-  ];
-  new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   ({
     languageProfiles: [createDefaultLanguageProfile()],
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
@@ -12616,6 +12735,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     commandCapabilities.prepareSerialization(element, command);
   }
   function immutableCommandSnapshot(command) {
+    if (command.kind === "subtitle-action" && command.batchPlans) {
+      return Object.freeze({ ...command, batchPlans: Object.freeze([...command.batchPlans]) });
+    }
     if (command.kind === "card-action" && command.audioUrls) {
       return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
     }
@@ -12733,6 +12855,108 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     return tags.length ? tags.join(", ").toUpperCase() : "";
   }
   Logger.scope("DictionaryArchiveCache");
+  async function reconcileManagedStateIdbEpoch(db, epoch, options) {
+    const token = managedStateEpochToken(epoch);
+    const transactionStores = [.../* @__PURE__ */ new Set([
+      options.markerStoreName,
+      ...options.clearedStoreNames,
+      ...(options.deletedRecords ?? []).map((record2) => record2.storeName)
+    ])];
+    let reconciliationError;
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(transactionStores, "readwrite");
+      const markerStore = tx.objectStore(options.markerStoreName);
+      const request = markerStore.get(options.markerKey);
+      request.onsuccess = () => {
+        const record2 = request.result;
+        const markerMissing = record2 === void 0;
+        if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
+          reconciliationError = managedStateIdbEpochError(options.label, "malformed");
+          return;
+        }
+        const storedToken = markerMissing ? void 0 : record2.token;
+        if (storedToken === token) return;
+        if (storedToken !== void 0) {
+          const relation = managedStateEpochTokenRelation(storedToken, epoch);
+          if (relation === "newer" || relation === "conflict" || relation === "malformed") {
+            reconciliationError = managedStateIdbEpochError(options.label, relation);
+            return;
+          }
+        }
+        if (storedToken !== void 0) {
+          for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
+          for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
+        }
+        markerStore.put({ [options.markerKeyPath]: options.markerKey, token });
+      };
+      request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+      tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+    });
+    if (reconciliationError) throw reconciliationError;
+    await assertManagedStateMutationAllowed();
+  }
+  async function runManagedStateIdbWrite(db, marker, storeNames, mutate, options = {}) {
+    const epoch = await assertManagedStateMutationAllowed();
+    const transactionStores = [.../* @__PURE__ */ new Set([
+      marker.storeName,
+      ...typeof storeNames === "string" ? [storeNames] : storeNames
+    ])];
+    const tx = managedStateIdbTransaction(db, transactionStores, options.durability);
+    const done = idbTransactionDone$1(tx);
+    let mutationError;
+    const markerRequest = tx.objectStore(marker.storeName).get(marker.key);
+    markerRequest.onsuccess = () => {
+      try {
+        assertManagedStateIdbMarker(markerRequest.result, epoch);
+        mutate(tx);
+      } catch (error) {
+        mutationError = error;
+        try {
+          tx.abort();
+        } catch {
+        }
+      }
+    };
+    try {
+      await done;
+    } catch (error) {
+      throw mutationError ?? error;
+    }
+    if (mutationError) throw mutationError;
+    await assertManagedStateMutationAllowed();
+  }
+  function managedStateIdbTransaction(db, storeNames, durability) {
+    if (!durability) return db.transaction(storeNames, "readwrite");
+    try {
+      return db.transaction(storeNames, "readwrite", { durability });
+    } catch {
+      return db.transaction(storeNames, "readwrite");
+    }
+  }
+  function idbTransactionDone$1(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("Managed IndexedDB write failed."));
+      tx.onabort = () => reject(tx.error ?? new Error("Managed IndexedDB write aborted."));
+    });
+  }
+  function managedStateIdbEpochError(label, relation) {
+    if (relation === "newer") return new Error(`${label} belongs to a newer managed-state epoch.`);
+    if (relation === "conflict") return new Error(`${label} has a conflicting managed-state epoch.`);
+    return new Error(`${label} has a malformed managed-state epoch.`);
+  }
+  function assertManagedStateIdbMarker(record2, epoch) {
+    if (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string") {
+      throw new Error("Managed IndexedDB epoch marker is missing or malformed.");
+    }
+    const storedToken = record2.token;
+    if (storedToken !== managedStateEpochToken(epoch)) {
+      throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
+    }
+  }
+  Logger.scope("DictionaryReplicaPurge");
   Logger.scope("Yomitan");
   const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
   function glossaryValueToText(value) {
@@ -13149,109 +13373,7 @@ function glossaryToHtml(value, dictionary = "", options = {}) {
   const html = renderStructuredGlossaryHtml(value, dictionary, options);
   return html;
 }
-async function reconcileManagedStateIdbEpoch(db, epoch, options) {
-  const token = managedStateEpochToken(epoch);
-  const transactionStores = [.../* @__PURE__ */ new Set([
-  options.markerStoreName,
-  ...options.clearedStoreNames,
-  ...(options.deletedRecords ?? []).map((record2) => record2.storeName)
-  ])];
-  let reconciliationError;
-  await new Promise((resolve, reject) => {
-  const tx = db.transaction(transactionStores, "readwrite");
-  const markerStore = tx.objectStore(options.markerStoreName);
-  const request = markerStore.get(options.markerKey);
-  request.onsuccess = () => {
-    const record2 = request.result;
-    const markerMissing = record2 === void 0;
-    if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
-      reconciliationError = managedStateIdbEpochError(options.label, "malformed");
-      return;
-    }
-    const storedToken = markerMissing ? void 0 : record2.token;
-    if (storedToken === token) return;
-    if (storedToken !== void 0) {
-      const relation = managedStateEpochTokenRelation(storedToken, epoch);
-      if (relation === "newer" || relation === "conflict" || relation === "malformed") {
-        reconciliationError = managedStateIdbEpochError(options.label, relation);
-        return;
-      }
-    }
-    if (storedToken !== void 0) {
-      for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
-      for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
-    }
-    markerStore.put({ [options.markerKeyPath]: options.markerKey, token });
-  };
-  request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
-  tx.oncomplete = () => resolve();
-  tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-  tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-  });
-  if (reconciliationError) throw reconciliationError;
-  await assertManagedStateMutationAllowed();
-}
-async function runManagedStateIdbWrite(db, marker, storeNames, mutate, options = {}) {
-  const epoch = await assertManagedStateMutationAllowed();
-  const transactionStores = [.../* @__PURE__ */ new Set([
-  marker.storeName,
-  ...typeof storeNames === "string" ? [storeNames] : storeNames
-  ])];
-  const tx = managedStateIdbTransaction(db, transactionStores, options.durability);
-  const done = idbTransactionDone$1(tx);
-  let mutationError;
-  const markerRequest = tx.objectStore(marker.storeName).get(marker.key);
-  markerRequest.onsuccess = () => {
-  try {
-    assertManagedStateIdbMarker(markerRequest.result, epoch);
-    mutate(tx);
-  } catch (error) {
-    mutationError = error;
-    try {
-      tx.abort();
-    } catch {
-    }
-  }
-  };
-  try {
-  await done;
-  } catch (error) {
-  throw mutationError ?? error;
-  }
-  if (mutationError) throw mutationError;
-  await assertManagedStateMutationAllowed();
-}
-function managedStateIdbTransaction(db, storeNames, durability) {
-  if (!durability) return db.transaction(storeNames, "readwrite");
-  try {
-  return db.transaction(storeNames, "readwrite", { durability });
-  } catch {
-  return db.transaction(storeNames, "readwrite");
-  }
-}
-function idbTransactionDone$1(tx) {
-  return new Promise((resolve, reject) => {
-  tx.oncomplete = () => resolve();
-  tx.onerror = () => reject(tx.error ?? new Error("Managed IndexedDB write failed."));
-  tx.onabort = () => reject(tx.error ?? new Error("Managed IndexedDB write aborted."));
-  });
-}
-function managedStateIdbEpochError(label, relation) {
-  if (relation === "newer") return new Error(`${label} belongs to a newer managed-state epoch.`);
-  if (relation === "conflict") return new Error(`${label} has a conflicting managed-state epoch.`);
-  return new Error(`${label} has a malformed managed-state epoch.`);
-}
-function assertManagedStateIdbMarker(record2, epoch) {
-  if (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string") {
-  throw new Error("Managed IndexedDB epoch marker is missing or malformed.");
-  }
-  const storedToken = record2.token;
-  if (storedToken !== managedStateEpochToken(epoch)) {
-  throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
-  }
-}
 new TextDecoder();
-Logger.scope("YomitanSettingsImport");
 Logger.scope("Yomitan");
 function formatMetaFrequency(value) {
   const display = metaFrequencyDisplayValue(value);
@@ -17120,6 +17242,29 @@ function canUseMobileAnkiHandoff(settings) {
 function mobileAnkiHandoffAppName() {
   return yomuAnkiCompanion()?.mobileAnkiHandoffAppName() ?? "AnkiMobile";
 }
+const five = [
+  ["nothing", "gradeNothingLabel", "gradeNothing"],
+  ["something", "gradeSomethingLabel", "gradeSomething"],
+  ["hard", "gradeHardLabel", "gradeHard"],
+  ["okay", "gradeOkayLabel", "gradeOkay"],
+  ["easy", "gradeEasyLabel", "gradeEasy"]
+];
+const four = [
+  ["nothing", "gradeAgainLabel", "gradeNothing"],
+  ["hard", "gradeHardLabel", "gradeSomething"],
+  ["okay", "gradeGoodLabel", "gradeHard"],
+  ["easy", "gradeEasyLabel", "gradeOkay"]
+];
+const two = [["fail", "gradeFailLabel", "gradeFail"], ["pass", "gradePassLabel", "gradePass"]];
+const bunproRegular = [["fail", "gradeHardLabel", "gradeFail"], ["pass", "gradeGoodLabel", "gradePass"]];
+function reviewGradeScale(settings, profile = "standard") {
+  const entries2 = profile === "bunpro-fsrs" ? four : profile === "bunpro-regular" ? bunproRegular : settings.twoButtonReviews ? two : profile === "jiten" ? four : five;
+  return {
+  grades: entries2.map(([grade, label]) => [grade, uiText(settings.interfaceLanguage, label)]),
+  shortcuts: entries2.map(([grade, , key]) => [key, grade]),
+  twoButton: entries2.length === 2
+  };
+}
 const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
 const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
 const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
@@ -17932,12 +18077,13 @@ function localizedContextSourceLabel(context, language) {
 }
 function renderReviewButtons(settings, ankiNote = null, options = {}) {
   const ankiCardId = ankiReviewCardId(ankiNote);
-  const grades = reviewButtonGrades(settings);
+  const scale = reviewGradeScale(settings, options.gradeProfile);
+  const grades = scale.grades;
   const intervals = ankiReviewIntervals(options.intervals, ankiNote);
   return `
     ${renderAnkiReviewTarget(options.targetLabel)}
     <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
-        ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage)).join("")}
+        ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join("")}
     </div>
   `;
 }
@@ -17953,12 +18099,13 @@ function renderAnkiReviewTarget(targetLabel) {
 function ankiReviewGradesClass(grades) {
   return grades.length === 5 ? " jpdb-reader-grades" : "";
 }
-function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, language) {
+function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, language, gradeShortcut) {
   const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
   const command = privateCommandAttributes({
   kind: "card-action",
   action: "grade",
   grade,
+  gradeShortcut,
   reviewTarget: ankiReviewTarget(ankiCardId),
   ankiCardId
   });
@@ -17986,10 +18133,6 @@ function reviewButtonAttrs(options, buttonLabel, language) {
   const titleAttr = options.disabled || title ? ` title="${escapeHtml$1(options.disabled ? title || uiText(language, "unavailable") : title)}"` : "";
   const aria = title ? ` aria-label="${escapeHtml$1(`${buttonLabel}: ${title}`)}"` : "";
   return `${disabled}${titleAttr}${aria}`;
-}
-function reviewButtonGrades(settings) {
-  const language = settings.interfaceLanguage;
-  return settings.twoButtonReviews ? [["fail", uiText(language, "gradeFailLabel")], ["pass", uiText(language, "gradePassLabel")]] : [["nothing", uiText(language, "gradeNothingLabel")], ["something", uiText(language, "gradeSomethingLabel")], ["hard", uiText(language, "gradeHardLabel")], ["okay", uiText(language, "gradeOkayLabel")], ["easy", uiText(language, "gradeEasyLabel")]];
 }
 function ankiAudioLabel(filename, language) {
   return filename ? formatUiText(language, "ankiAudioFilenameLabel", { filename }) : uiText(language, "audio");
@@ -18037,7 +18180,6 @@ registerYomuCompanion("anki", {
   renderAnkiNewCardPreview,
   pruneRedundantAnkiGlyphRepeats,
   renderAnkiRenderedCardStudyBody,
-  renderReviewButtons,
-  reviewButtonGrades
+  renderReviewButtons
 });
 })();

@@ -26,6 +26,34 @@ function lessonFetcher(): typeof fetch {
 }
 
 describe('complete Lesson 0 content package', () => {
+    it('retries after an integrity failure and caches only the verified result', async () => {
+        const bytes = fs.readFileSync(CONTENT_PATH);
+        const fetcher = vi.fn()
+            .mockResolvedValueOnce(new Response(`${bytes.toString('utf8')}\n`, { status: 200 }))
+            .mockResolvedValueOnce(new Response(bytes, { status: 200 }));
+        vi.stubGlobal('fetch', fetcher);
+        try {
+            await expect(loadLessonZeroContent()).rejects.toThrow(/registered bytes/);
+            await expect(loadLessonZeroContent().then(result => result.lesson.id)).resolves.toBe('lesson:foundation-00');
+            await loadLessonZeroContent();
+            expect(fetcher).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('rejects structurally valid content whose bytes differ from the registered lesson', async () => {
+        const candidate = packageJson() as { lesson: { overview: { title: { en: string } } } };
+        candidate.lesson.overview.title.en += ' (stale)';
+        expect(() => validateLessonZeroPackage(candidate)).not.toThrow();
+        const fetcher = vi.fn(async () => new Response(JSON.stringify(candidate), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+        })) as unknown as typeof fetch;
+
+        await expect(loadLessonZeroContent(fetcher)).rejects.toThrow(/registered bytes/);
+    });
+
     it('is a full 60–90 minute foundation class rather than the fourteen-item handout alone', async () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
 
@@ -115,7 +143,7 @@ describe('complete Lesson 0 content package', () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
         const exactWrittenNames = new Map([
             ['xingyu', 'シンユ'], ['mika', 'ミカ'], ['sophie', 'Sophie'],
-            ['ruparna', 'Ruparna'], ['aakash', 'Aakash'], ['sam', 'Sam'],
+            ['ruparna', 'Ruparna'], ['aakash', 'アーカッシュ'], ['sam', 'サム'],
         ]);
         const usedCharacters = new Set([
             ...lesson.inputScripts.flatMap(script => script.lines.map(line => line.speakerId)),
@@ -157,9 +185,9 @@ describe('complete Lesson 0 content package', () => {
             /エンジニア|会社員|かいしゃいん|日本人|インド人|イギリス人|アメリカ人|カナダ人|engineer|company employee|occupation|nationality|Indian|British|American|Canadian/iu,
         );
         expect(authoredDialogue).not.toContain('日本語の学生です');
-        expect(authoredDialogue).not.toMatch(/Samさんは先生ですか|先生じゃありません|are you the teacher|not the teacher/iu);
+        expect(authoredDialogue).not.toMatch(/(?:Sam|サム)さんは先生ですか|先生じゃありません|are you the teacher|not the teacher/iu);
         for (const { script, speakerId } of dialogueSpeakerEntries(lesson)
-            .filter(entry => entry.script.id !== 'input:lesson-zero-sound-hosts')) {
+            .filter(entry => entry.script.id === 'input:lesson-zero-text-hosts')) {
             expect(script.lines.some(line =>
                 line.speakerId === speakerId && line.japanese.includes('日本語を勉強しています'))).toBe(true);
         }
@@ -171,10 +199,13 @@ describe('complete Lesson 0 content package', () => {
             'こちらはミカさんです。',
         ]);
         const speaking = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts');
-        expect(speaking?.lines.find(line => line.speakerId === 'aakash')?.japanese).toContain('これは教科書ですか');
-        expect(speaking?.lines.find(line => line.speakerId === 'sam')?.japanese).toContain('教科書じゃありません。プリントです');
+        expect(speaking?.lines.map(line => [line.speakerId, line.japanese])).toEqual([
+            ['aakash', 'はじめまして。アーカッシュです。'],
+            ['sam', 'サムです。よろしくお願いします。'],
+            ['aakash', 'お名前は何ですか。'],
+        ]);
         expect(speaking?.lines.find(line => line.id === 'line:lesson-zero-speaking-aakash-cue')?.japanese)
-            .toBe('では、あなたの番です。お名前は何ですか。');
+            .toBe('お名前は何ですか。');
         expect(speaking?.learnerTurns).toEqual([
             expect.objectContaining({
                 afterLineId: 'line:lesson-zero-speaking-aakash-cue',
@@ -357,7 +388,7 @@ describe('complete Lesson 0 content package', () => {
         expect(() => validateLessonZeroPackage(candidate)).not.toThrow();
     });
 
-    it('still requires every dialogue speaker to be named canonically once', () => {
+    it.each(['japanese', 'reading', 'both'] as const)('rejects a missing canonical name in %s', field => {
         const candidate = packageJson() as {
             lesson: {
                 inputScripts: Array<{
@@ -367,9 +398,19 @@ describe('complete Lesson 0 content package', () => {
             };
         };
         const speaking = candidate.lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts')!;
-        for (const line of speaking.lines.filter(item => item.speakerId === 'aakash')) {
-            line.japanese = line.japanese.replace('Aakashです', 'わたしです');
-            line.reading = line.reading.replace('Aakashです', 'わたしです');
+        const introduction = speaking.lines.find(line =>
+            line.speakerId === 'aakash' && line.japanese.includes('アーカッシュです'))!;
+        expect(introduction).toBeDefined();
+        expect(introduction.reading).toContain('アーカッシュです');
+        const originalJapanese = introduction.japanese;
+        const originalReading = introduction.reading;
+        if (field !== 'reading') {
+            introduction.japanese = originalJapanese.replace('アーカッシュです', 'わたしです');
+            expect(introduction.japanese).not.toBe(originalJapanese);
+        }
+        if (field !== 'japanese') {
+            introduction.reading = originalReading.replace('アーカッシュです', 'わたしです');
+            expect(introduction.reading).not.toBe(originalReading);
         }
         expect(() => validateLessonZeroPackage(candidate)).toThrow(/canonical first name Aakash/i);
     });

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { newTabImmersionClient } from './fixtures';
 import {
     registerNewTabReviewCleanup,
     DEFAULT_SETTINGS,
@@ -18,6 +19,7 @@ import {
     newTabSearchResultExpression,
     newTabSearchAutocompleteText,
     stubKanjiDoodleBrowserApis,
+    stubNewTabAudioPlayback,
     cardKey,
     NewTabController,
     renderSearchWordResults,
@@ -159,12 +161,12 @@ describe('new tab review — search mode', () => {
             meanings: [{ glosses: ['today'], partOfSpeech: ['noun'] }],
             source: 'jpdb',
         });
-        const lookup = vi.fn(async () => ({
+        const lookup = vi.fn(async () => ({ info: ({
             meanings: ['today; this day'],
             compounds: [],
             usedInVocabulary: [],
             examples: [],
-        }));
+        }), status: 'complete' as const }));
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -179,7 +181,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup, search: vi.fn(async () => [card]) },
+            jpdbVocabulary: { lookup, search: vi.fn(async () => ({ cards: [card], status: 'complete' as const })) },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -236,7 +238,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => publicCards) },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: vi.fn(async () => ({ cards: publicCards, status: 'complete' as const })) },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -313,7 +315,7 @@ describe('new tab review — search mode', () => {
             pitchAccent: [],
             source: 'jpdb',
         });
-        const publicSearch = vi.fn(async () => [searchCard]);
+        const publicSearch = vi.fn(async () => ({ cards: [searchCard], status: 'complete' as const }));
         const publicPitch = vi.fn(async () => ['LHHHHHHHH']);
         const parseContent = vi.fn(async () => undefined);
         const controller = new NewTabController({
@@ -331,7 +333,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbPublicPitch: { lookup: publicPitch },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
@@ -411,7 +413,8 @@ describe('new tab review — search mode', () => {
         }
     });
 
-    it('hydrates Kanji Immersion Kit inside expanded standalone search kanji details', async () => {
+    it.each(['好', '好学'])('hydrates and navigates every expanded Search kanji panel (%s)', async query => {
+        const played = stubNewTabAudioPlayback();
         const example: ImmersionKitExample = {
             id: 'ik-like',
             sentence: '好きを集める。',
@@ -425,7 +428,15 @@ describe('new tab review — search mode', () => {
             soundUrl: '',
             imageUrl: '',
         };
-        const search = vi.fn(async () => [example]);
+        const sentences = { 好: ['好きを集める。', '好きな本です。'], 学: ['学校で学びます。', '学校で学びました。'] };
+        const audioUrl = (character: string) => `https://audio.test/search-${encodeURIComponent(character)}.mp3`;
+        const search = vi.fn(async (character: string) => {
+            const pair = sentences[character as keyof typeof sentences];
+            return pair ? [
+                { ...example, id: `${character}-one`, sentence: pair[0]! },
+                { ...example, id: `${character}-two`, sentence: pair[1]!, soundUrl: audioUrl(character) },
+            ] : [];
+        });
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -434,10 +445,10 @@ describe('new tab review — search mode', () => {
                 immersionKitEnabled: true,
                 kanjiImmersionKitEnabled: true,
                 immersionKitShowImages: false,
+                newTabSource: 'dictionary',
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                uchisenEnabled: false,
                 similarKanjiWords: false,
             }),
             anki: {} as never,
@@ -445,11 +456,11 @@ describe('new tab review — search mode', () => {
             jpdbKanji: { lookup: vi.fn(async () => null) } as never,
             kanjiVG: { lookup: vi.fn(async () => null) } as never,
             rtk: { lookup: vi.fn(async () => null) } as never,
-            immersionKit: {
-                search,
-                mediaUrls: vi.fn(() => []),
-            } as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => []) },
+            immersionKit: newTabImmersionClient({
+                query: search,
+                mediaUrls: vi.fn((value: ImmersionKitExample, kind: string) => kind === 'sound' && value.soundUrl ? [value.soundUrl] : []),
+            } as never),
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -461,30 +472,46 @@ describe('new tab review — search mode', () => {
             showSettings: vi.fn(),
             dismiss: vi.fn(),
         });
-        const root = renderPerformedNewTabSearch(controller, '好', 'dictionary');
+        const root = renderPerformedNewTabSearch(controller, query, 'dictionary');
 
         try {
-            await waitForExpect(() => expect(root.querySelector('[data-newtab-action="search-result-kanji"]')).not.toBeNull());
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-kanji"]')?.click();
-            await waitForExpect(() => expect(root.querySelector('[data-newtab-kanji-immersion-details]')).not.toBeNull());
-
-            const details = root.querySelector<HTMLDetailsElement>('[data-newtab-kanji-immersion-details]')!;
-            details.open = true;
-            details.dispatchEvent(new Event('toggle'));
-
-            await waitForExpect(() => {
-                const body = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
-                expect(body?.textContent).toContain('好きを集める。');
-                expect(body?.textContent).not.toContain('Loading examples');
-            });
-            expect(search).toHaveBeenCalledWith('好', expect.anything(), expect.objectContaining({ fastFirst: true }));
+            await controller.renderPage();
+            await waitForExpect(() => expect(root.querySelectorAll('[data-newtab-action="search-result-kanji"]')).toHaveLength(query.length));
+            root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="search-result-kanji"]').forEach(button => button.click());
+            await waitForExpect(() => expect(root.querySelectorAll('[data-newtab-kanji-immersion-details]')).toHaveLength(query.length));
+            const panels = [...root.querySelectorAll<HTMLDetailsElement>('[data-newtab-kanji-immersion-details]')];
+            await controller.renderPage();
+            expect([...root.querySelectorAll('[data-newtab-kanji-immersion-details]')]).toEqual(panels);
+            for (const [index, details] of panels.entries()) {
+                const character = query[index] as keyof typeof sentences;
+                details.open = true;
+                details.dispatchEvent(new Event('toggle'));
+                await waitForExpect(() => {
+                    const body = details.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
+                    expect(body?.textContent).toContain(sentences[character][0]);
+                    expect(body?.textContent).not.toContain('Loading examples');
+                });
+                expect(search).toHaveBeenCalledWith(character, expect.anything(), expect.objectContaining({ fastFirst: true }));
+                details.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')!.click();
+                await waitForExpect(() => expect(details.textContent).toContain(sentences[character][1]));
+                details.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')!.click();
+                await waitForExpect(() => expect(played).toContain(audioUrl(character)));
+            }
+            await controller.renderPage();
+            for (const [index, details] of panels.entries()) {
+                const character = query[index] as keyof typeof sentences;
+                expect(details.textContent).toContain(sentences[character][1]);
+                details.querySelector<HTMLButtonElement>('[data-immersion-action="previous"]')!.click();
+                await waitForExpect(() => expect(details.textContent).toContain(sentences[character][0]));
+            }
         } finally {
+            controller.destroy();
             root.remove();
         }
     });
 
     it('searches parsed words clicked inside search entry details', async () => {
-        const publicSearch = vi.fn(async () => []);
+        const publicSearch = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const lookupText = vi.fn();
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, localDictionariesEnabled: false, immersionKitEnabled: false }),
@@ -494,7 +521,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -521,9 +548,9 @@ describe('new tab review — search mode', () => {
         `;
         document.body.append(root);
         Object.assign(controller as unknown as {
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
-            state: { mode: 'search', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+            state: { route: 'search', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
         });
         try {
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
@@ -618,7 +645,7 @@ describe('new tab review — search mode', () => {
             source: 'jpdb',
             sentence: 'お母さん',
         });
-        const publicSearch = vi.fn(async () => [publicCard]);
+        const publicSearch = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, immersionKitEnabled: false }),
             anki: {} as never,
@@ -627,7 +654,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -676,7 +703,7 @@ describe('new tab review — search mode', () => {
 
     it('keeps Japanese public search and kanji summaries off while offering target handwriting for Chinese', async () => {
         setActiveLearningTargetLanguage('zh');
-        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '学', reading: 'がく', source: 'jpdb' })]);
+        const publicSearch = vi.fn(async () => ({ cards: [newTabTestCard({ spelling: '学', reading: 'がく', source: 'jpdb' })], status: 'complete' as const }));
         const jpdbKanjiLookup = vi.fn(async () => null);
         const kanjiVgLookup = vi.fn(async () => null);
         const controller = newTabBareController({
@@ -737,7 +764,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => [publicCard]) },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const })) },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -842,7 +869,7 @@ describe('new tab review — search mode', () => {
             studyGrammarEnabled: false,
             immersionKitEnabled: false,
         }, {
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => [publicCard]) } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const })) } as never,
             jiten: { lookupVocabularyInfoForCard: jitenLookup } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -930,7 +957,7 @@ describe('new tab review — search mode', () => {
             source: 'jpdb',
             sentence: '支',
         });
-        const publicSearch = vi.fn(async () => [publicCard]);
+        const publicSearch = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false, immersionKitEnabled: false }),
             anki: {} as never,
@@ -939,7 +966,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[{ card: placeholderCard, sentence: '支' }]]),
@@ -990,7 +1017,6 @@ describe('new tab review — search mode', () => {
             rtkEnabled: false,
             kanjivgEnabled: false,
             kanjiOriginsEnabled: false,
-            uchisenEnabled: false,
         }, {
             jpdbKanji: { lookup: jpdbKanjiLookup } as never,
             parser: {
@@ -1040,7 +1066,7 @@ describe('new tab review — search mode', () => {
             source: 'jpdb',
             sentence: '自動販売機',
         });
-        const publicSearch = vi.fn(async () => [publicCard]);
+        const publicSearch = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false, immersionKitEnabled: false }),
             anki: {} as never,
@@ -1049,7 +1075,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [componentCards.map(card => ({ card, sentence: '自動販売機' }))]),
@@ -1098,7 +1124,7 @@ describe('new tab review — search mode', () => {
             source: 'jpdb',
             sentence: '黒猫',
         });
-        const publicSearch = vi.fn(async (query: string) => query === '黒猫' ? [blackCatCard] : [catCard]);
+        const publicSearch = vi.fn(async (query: string) => ({ cards: query === '黒猫' ? [blackCatCard] : [catCard], status: 'complete' as const }));
         const renderData = deferred<never>();
         const loadCardRenderData = vi.fn(async () => renderData.promise);
         const searchAnkiLookup = { state: 'not-in-deck' as const, notes: [], primary: null };
@@ -1197,7 +1223,6 @@ describe('new tab review — search mode', () => {
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                uchisenEnabled: false,
                 similarKanjiWords: false,
             }),
             anki: {} as never,
@@ -1206,7 +1231,7 @@ describe('new tab review — search mode', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {
                 parse: vi.fn(async () => [[]]),
@@ -2069,7 +2094,7 @@ describe('new tab review — search mode', () => {
                 dictionaries: { lookupKanji: vi.fn(async () => []), lookup: vi.fn(async () => []) } as never,
             });
 
-            (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: false };
+            (controller as unknown as { state: { route: string; revealAnswer: boolean } }).state = { route: 'study', revealAnswer: false };
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
             lookup.resolve({ kanji: '返', keyword: 'stale keyword', meanings: ['stale keyword'], readings: [], components: [], vocabulary: [], frequencyRank: null });
             await Promise.resolve();
@@ -2117,12 +2142,12 @@ describe('new tab review — search mode', () => {
             visibleWords: JPDBCard[];
             index: number;
             sourceLabel: string;
-            state: { mode: string; revealAnswer: boolean };
+            state: { route: string; revealAnswer: boolean };
         }, {
             visibleWords: [card],
             index: 0,
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', revealAnswer: true },
+            state: { route: 'study', revealAnswer: true },
         });
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 

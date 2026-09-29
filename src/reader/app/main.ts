@@ -14,7 +14,8 @@ import { installLocalTapActivation as installControlPointerActivation } from '..
 import { dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary, isTrustedReaderInteraction, trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { CardActionController } from '../cards/action-controller';
 import { refreshAfterCardAction, reportCardActionFailure, runCardActionOperation } from '../cards/action-operation';
-import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { reviewShortcutButton } from '../dom/review-shortcuts';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { kanjiFrequencyRanks } from '../cards/frequency-ranks';
 import type { ProviderFrequencyRanks } from '../cards/frequency-ranks';
@@ -166,14 +167,12 @@ import {
 import {
     ANKI_RECOLOR_SCAN_CHUNK_SIZE,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
-    BUNPRO_FSRS_REVIEW_SHORTCUTS,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
     DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
     DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
     LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
     LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS,
-    FIVE_BUTTON_REVIEW_SHORTCUTS,
     HOVER_ANKI_HYDRATION_DELAY_MS,
     HOVER_POINTER_TEXT_LOOKUP_OPTIONS,
     NEARBY_TERM_AUDIO_PRELOAD_LIMIT,
@@ -189,7 +188,6 @@ import {
     RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
     SUBTITLE_SURFACE_SELECTOR,
     TERM_AUDIO_PRELOAD_LIMIT,
-    TWO_BUTTON_REVIEW_SHORTCUTS,
     UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
     UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS,
     PUBLIC_VOCABULARY_MISS_RETRY_LIMIT,
@@ -216,7 +214,6 @@ import {
     hasVisibleSiteScanTargets,
     isMousePointerEvent,
     isYouTubeHostname,
-    matchedReviewShortcutGrade,
     mountedHoverPointerPosition,
     nestedPitchEnrichmentOptionsForHost,
     pointerOffsetInsideLiveLookup,
@@ -1075,8 +1072,9 @@ export class ReaderApp {
                 trigger: 'modal',
                 navigation: 'push-current',
             }),
-            mineBatchMiningCandidates: candidates => this.cardActions.addBatchMiningCards(candidates),
-            gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
+            prepareBatchMiningCandidates: candidates => this.cardActions.batchMining.prepare(candidates),
+            beginBatchMiningGeneration: () => this.cardActions.batchMining.beginGeneration(),
+            executeBatchMiningCandidates: (plans, action, grade) => this.cardActions.batchMining.execute(plans, action, grade),
             toast: message => this.toast(message),
             onTranscriptPanelClosed: () => this.scheduleVisiblePageRescan(),
             onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void this.persistSettings(this.settings, {
@@ -3991,14 +3989,8 @@ export class ReaderApp {
     }
 
     private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {
-        if (!this.settings.enableReviews) return null;
-        const bunproMode = popoverBunproGradeMode(this.activePopover);
-        const shortcuts = bunproMode === 'fsrs'
-            ? BUNPRO_FSRS_REVIEW_SHORTCUTS
-            : this.settings.twoButtonReviews || bunproMode === 'regular'
-                ? TWO_BUTTON_REVIEW_SHORTCUTS
-                : FIVE_BUTTON_REVIEW_SHORTCUTS;
-        return matchedReviewShortcutGrade(event, this.settings.shortcuts, shortcuts);
+        const button = reviewShortcutButton(this.activePopover, event, this.settings);
+        return privateCommands.readCardCommandCapability(button)?.grade ?? null;
     }
 
     private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {

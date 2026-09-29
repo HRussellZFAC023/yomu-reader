@@ -1,11 +1,21 @@
 import { localBytesFromBlob } from '../platform/binary-realm';
+import { parseManagedStateEpoch, type ManagedStateEpoch } from '../app/managed-state-epoch';
 
-export const EXTENSION_DICTIONARY_RPC_CHANNEL = 'yomu.dictionary-store.v1';
+export const EXTENSION_DICTIONARY_RPC_CHANNEL = 'yomu.dictionary-store.v2';
 export const EXTENSION_DICTIONARY_RPC_PORT = `${EXTENSION_DICTIONARY_RPC_CHANNEL}.operation`;
-export const EXTENSION_DICTIONARY_RPC_VERSION = 1;
+export const EXTENSION_DICTIONARY_RPC_VERSION = 2;
 export const EXTENSION_DICTIONARY_BACKGROUND_MARKER = 'yomu-extension-dictionary-background';
 export const EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS = 250;
 export const EXTENSION_DICTIONARY_KEEPALIVE_MS = 20_000;
+
+export function dictionaryRpcEpoch(value: unknown): ManagedStateEpoch {
+    if (value === undefined) throw new Error('Dictionary RPC requires an explicit caller epoch.');
+    return parseManagedStateEpoch(value);
+}
+
+export function dictionaryRpcEpochValue(epoch: ManagedStateEpoch): ManagedStateEpoch | null {
+    return epoch.generation === 0 ? null : epoch;
+}
 
 // Base64 expands by 4/3. Keeping source chunks at 256 KiB leaves each JSON
 // message far below Chrome's runtime-message ceiling even after metadata.

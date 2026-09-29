@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { stubKanjiDoodleBrowserApis } from './new-tab-review/fixtures';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController, type NewTabControllerOptions } from '../../src/reader/newtab/controller';
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { setInnerHtml } from '../../src/reader/dom/index';
 import { bindPrivateCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
@@ -61,6 +63,8 @@ interface StudyInternals {
     index: number;
     reviewCountMode: boolean;
     state: Record<string, unknown>;
+    listenInteractionMode: 'perceive' | 'recall';
+    setStudyStepOverrideForCurrentCard(id: string | null): void;
     studyHintDepth: Map<string, number>;
     studyStepStates: Map<string, {
         pitch?: { position: number; outcome: 'correct' | 'wrong' };
@@ -109,8 +113,8 @@ function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = 
     internals.index = 0;
     internals.reviewCountMode = true;
     internals.state = {
-        mode: 'kanji',
-        listenSubMode: 'perceive',
+        ...DEFAULT_NEW_TAB_UI_STATE,
+        route: 'study',
         sort: 'random',
         filter: 'study',
         source: 'jpdb',
@@ -122,6 +126,7 @@ function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = 
     return { controller, internals, playWordAudio };
 }
 
+beforeEach(() => stubKanjiDoodleBrowserApis());
 afterEach(() => {
     resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
@@ -130,9 +135,10 @@ afterEach(() => {
 
 describe('study flow: kanji-draw prompt clarity', () => {
     it('hides the word meaning and blanks EVERY kanji in the cloze', () => {
-        const { controller, internals } = studyController([drinkCard()]);
+        const { controller, internals } = studyController([drinkCard()], {}, {}, { surface: 'academy' });
         const root = studyRoot();
         try {
+            internals.setStudyStepOverrideForCurrentCard('kanji-doodle:0');
             internals.renderWord(root, internals.visibleWords[0]);
             const context = root.querySelector('.jpdb-reader-newtab-kanji-front-context');
             // The meaning is the answer to the session's word step — it must not
@@ -152,9 +158,10 @@ describe('study flow: kanji-draw prompt clarity', () => {
 
 describe('study flow: progressive hints', () => {
     it('reveals hints one tier at a time on the kanji-draw step, never the reading', () => {
-        const { controller, internals } = studyController([drinkCard({ kanjiKeyword: 'drink (v.)' })]);
+        const { controller, internals } = studyController([drinkCard({ kanjiKeyword: 'drink (v.)' })], {}, {}, { surface: 'academy' });
         const root = studyRoot();
         try {
+            internals.setStudyStepOverrideForCurrentCard('kanji-doodle:0');
             internals.bindRootEvents(root);
             internals.renderWord(root, internals.visibleWords[0]);
             // The meaning is hidden from the prompt, so it is the FIRST hint tier;
@@ -180,9 +187,10 @@ describe('study flow: progressive hints', () => {
     });
 
     it('folds hint usage into a minimal reveal summary', () => {
-        const { controller, internals } = studyController([drinkCard({ kanjiKeyword: 'drink (v.)' })]);
+        const { controller, internals } = studyController([drinkCard({ kanjiKeyword: 'drink (v.)' })], {}, {}, { surface: 'academy' });
         const root = studyRoot();
         try {
+            internals.setStudyStepOverrideForCurrentCard('kanji-doodle:0');
             internals.bindRootEvents(root);
             internals.renderWord(root, internals.visibleWords[0]);
             root.querySelector<HTMLElement>('.jpdb-reader-newtab-study-hint-btn')?.click();
@@ -200,7 +208,7 @@ interface SwipeInternals {
     swipeStartAllowedForStepNavigation(target: HTMLElement | null): boolean;
     canSwipeCurrentStudyCard(): boolean;
     gradeCurrentCard(grade: string, target: unknown): Promise<void>;
-    navigateStudyStep(direction: 'next' | 'previous'): boolean;
+    showWordInDirection(direction: 'next' | 'previous'): void;
     studySessionForCard(card: JPDBCard, renderAsKanji?: boolean): { activeStep: { id: string; kind: string }; steps: unknown[] };
     shouldRenderCardAsKanji(card: JPDBCard): boolean;
 }
@@ -211,7 +219,7 @@ describe('study flow: swipe grading gate', () => {
         const root = studyRoot();
         const swipeable = controller as unknown as SwipeInternals;
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, internals.visibleWords[0]);
             const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
             // Isolate the grade path from step-nav: force the final-reveal step.
@@ -233,45 +241,35 @@ describe('study flow: swipe grading gate', () => {
     });
 });
 
-describe('study flow: swipe navigates study steps', () => {
+describe('study flow: swipe navigates cards', () => {
     function activeStepKind(swipeable: SwipeInternals, card: JPDBCard): string {
         return swipeable.studySessionForCard(card, swipeable.shouldRenderCardAsKanji(card)).activeStep.kind;
     }
-    function activeStepId(swipeable: SwipeInternals, card: JPDBCard): string {
-        return swipeable.studySessionForCard(card, swipeable.shouldRenderCardAsKanji(card)).activeStep.id;
-    }
-
-    it('walks steps on a non-final step instead of grading (left = next, right = previous)', () => {
+    it('moves between unrevealed cards without grading or starting another exercise', () => {
         const card = drinkCard();
-        // Drop the kanji sub-steps so the session starts on a plain Word step —
-        // the everyday mid-session case, free of the kanji-queue mode quirk.
-        const { controller, internals } = studyController([card], {
+        const second = drinkCard({ vid: 32, sid: 33, spelling: '読書', reading: 'どくしょ' });
+        const { controller, internals } = studyController([card, second], {
             newTabSwipeReviews: true,
-            newTabStudyDisabledSteps: ['kanji-doodle'],
         });
         const root = studyRoot();
         const swipeable = controller as unknown as SwipeInternals;
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, card);
-            const startId = activeStepId(swipeable, card);
             expect(activeStepKind(swipeable, card)).toBe('word');
             const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
-            const navSpy = vi.spyOn(swipeable, 'navigateStudyStep');
-
-            // Swipe LEFT advances forward through the session; never grades.
+            const navSpy = vi.spyOn(swipeable, 'showWordInDirection');
             swipeable.handleNewTabSwipe(root, 'again', 'left');
             expect(gradeSpy).not.toHaveBeenCalled();
             expect(navSpy).toHaveBeenLastCalledWith('next');
-            const forwardId = activeStepId(swipeable, card);
-            expect(forwardId).not.toBe(startId);
-            expect(activeStepKind(swipeable, card)).not.toBe('final-reveal');
+            expect(internals.index).toBe(1);
+            expect(activeStepKind(swipeable, second)).toBe('word');
 
-            // Swipe RIGHT steps back to where we started.
             swipeable.handleNewTabSwipe(root, 'good', 'right');
             expect(navSpy).toHaveBeenLastCalledWith('previous');
             expect(gradeSpy).not.toHaveBeenCalled();
-            expect(activeStepId(swipeable, card)).toBe(startId);
+            expect(internals.index).toBe(0);
+            expect(activeStepKind(swipeable, card)).toBe('word');
         } finally {
             controller.destroy();
         }
@@ -283,12 +281,12 @@ describe('study flow: swipe navigates study steps', () => {
         const root = studyRoot();
         const swipeable = controller as unknown as SwipeInternals;
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.state.revealAnswer = true;
             internals.renderWord(root, card);
             expect(activeStepKind(swipeable, card)).toBe('final-reveal');
             const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
-            const navSpy = vi.spyOn(swipeable, 'navigateStudyStep');
+            const navSpy = vi.spyOn(swipeable, 'showWordInDirection');
 
             swipeable.handleNewTabSwipe(root, 'good', 'right');
             expect(gradeSpy).toHaveBeenCalledTimes(1);
@@ -300,11 +298,11 @@ describe('study flow: swipe navigates study steps', () => {
 
     it('refuses a nav swipe that starts on the doodle canvas or a text input', () => {
         const card = drinkCard();
-        const { controller, internals } = studyController([card], { newTabSwipeReviews: true });
+        const { controller, internals } = studyController([card], { newTabSwipeReviews: true }, {}, { surface: 'academy' });
         const root = studyRoot();
         const swipeable = controller as unknown as SwipeInternals;
         try {
-            internals.state.mode = 'kanji';
+            internals.setStudyStepOverrideForCurrentCard('kanji-doodle:0');
             internals.renderWord(root, card);
 
             const canvas = document.createElement('canvas');
@@ -322,13 +320,13 @@ describe('study flow: swipe navigates study steps', () => {
         }
     });
 
-    it('gates step-nav swipes behind the same enablement flag as grade swipes', () => {
+    it('gates card-navigation swipes behind the same enablement flag as grade swipes', () => {
         const card = drinkCard();
-        const { controller, internals } = studyController([card], { newTabSwipeReviews: false });
+        const { controller, internals } = studyController([card], { newTabSwipeReviews: false }, {}, { surface: 'academy' });
         const root = studyRoot();
         const swipeable = controller as unknown as SwipeInternals;
         try {
-            internals.state.mode = 'kanji';
+            internals.setStudyStepOverrideForCurrentCard('kanji-doodle:0');
             internals.renderWord(root, card);
             expect(swipeable.swipeStartAllowedForStepNavigation(root.querySelector('h1'))).toBe(false);
         } finally {
@@ -345,7 +343,7 @@ describe('study flow: post-grade queue refresh coalescing', () => {
     function coalescingHarness(cards: JPDBCard[]) {
         const { controller, internals } = studyController(cards);
         const root = studyRoot();
-        internals.state.mode = 'word';
+        internals.setStudyStepOverrideForCurrentCard(null);
         internals.state.source = 'jpdb';
         const anyController = controller as unknown as {
             sourceLabel: string;
@@ -392,26 +390,27 @@ describe('study flow: post-grade queue refresh coalescing', () => {
 describe('study flow: pitch-selection outcome persistence', () => {
     it('keeps the pitch pick when the learner steps away and back within a card', () => {
         const card = drinkCard();
-        const { controller, internals } = studyController([card], {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'word', 'recall-cloze', 'speaking'],
-        });
+        const { controller, internals } = studyController([card], {}, {}, { surface: 'academy' });
         const root = studyRoot();
         try {
-            internals.state.mode = 'listen';
+            internals.listenInteractionMode = 'perceive';
+            internals.setStudyStepOverrideForCurrentCard('listen-pitch');
             internals.renderWord(root, card);
             // Pick a (wrong) downstep position; correctness stays hidden pre-reveal.
             internals.pickListenPosition(1);
             expect(internals.studyStepStates.get(cardKey(card))?.pitch).toMatchObject({ position: 1, outcome: 'wrong' });
 
             // Leave to a different step (word) and come back to the pitch step.
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, card);
-            internals.state.mode = 'listen';
+            internals.listenInteractionMode = 'perceive';
+            internals.setStudyStepOverrideForCurrentCard('listen-pitch');
             internals.renderWord(root, card);
             // The prior pick is restored — the picker shows the saved verdict.
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')).not.toBeNull();
-            // Grading did not happen on pick (single grade at final reveal).
+            // A pitch choice stays practice; native grade controls remain absent.
             expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
+            expect(root.querySelector('[data-newtab-action="grade"]')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -439,7 +438,7 @@ describe('study flow: composed-of chip drilldown', () => {
         const anyController = controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void };
         const pushSpy = vi.spyOn(history, 'pushState');
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.state.revealAnswer = true;
             internals.bindRootEvents(root);
             internals.renderWord(root, card);
@@ -534,10 +533,10 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
         const card = headwordCard();
         const { controller, internals } = studyController([card], {
             // Land on the Word step so the headword is the prompt.
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+
         }, { lookupText, showKanjiCard, showLookupCard });
         const root = studyRoot();
-        internals.state.mode = 'word';
+        internals.setStudyStepOverrideForCurrentCard(null);
         internals.state.revealAnswer = revealAnswer;
         internals.bindRootEvents(root);
         internals.renderWord(root, card);
@@ -595,12 +594,12 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
         });
         const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
         const { controller, internals } = studyController([source], {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+
         }, { showLookupCard });
         const root = studyRoot();
         try {
             internals.visibleWords = [visible];
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.bindRootEvents(root);
             internals.renderWord(root, visible);
 
@@ -627,12 +626,12 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
         const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
         const getCachedCard = vi.fn(() => cached);
         const { controller, internals } = studyController([visible], {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+
         }, { parser: { getCachedCard }, showLookupCard });
         const root = studyRoot();
         try {
             internals.visibleWords = [visible];
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.bindRootEvents(root);
             internals.renderWord(root, visible);
 
@@ -659,12 +658,12 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
         });
         const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
         const { controller, internals } = studyController([source], {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+
         }, { showLookupCard });
         const root = studyRoot();
         try {
             internals.visibleWords = [visible];
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.bindRootEvents(root);
             internals.renderWord(root, visible);
 
@@ -696,11 +695,11 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
         const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
         const lookupText = vi.fn(async (..._args: unknown[]) => undefined);
         const { controller, internals } = studyController([visible], {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+
         }, { showLookupCard, lookupText });
         const root = studyRoot();
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.bindRootEvents(root);
             internals.renderWord(root, visible);
 
@@ -729,11 +728,11 @@ describe('study flow: revealed answer reading stays visible', () => {
             sentence: '毎日勉強する。',
         });
         const { controller, internals } = studyController([card], {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+
             ...settings,
         });
         const root = studyRoot();
-        internals.state.mode = 'word';
+        internals.setStudyStepOverrideForCurrentCard(null);
         internals.state.revealAnswer = true;
         internals.bindRootEvents(root);
         internals.renderWord(root, card);
@@ -771,9 +770,9 @@ describe('study flow: revealed answer reading stays visible', () => {
 });
 
 describe('study flow: doodle first-attempt discipline', () => {
-    it('keeps a kanji pass on redraw and lets a different failed kanji fail the card', () => {
+    it('keeps a kanji pass on redraw and records a different failed kanji as failed practice', () => {
         const card = drinkCard();
-        const { controller, internals } = studyController([card]);
+        const { controller, internals } = studyController([card], {}, {}, { surface: 'academy' });
         try {
             const key = cardKey(card);
             // 飲 drawn correctly first, then cleared and redrawn wrong: the first
@@ -797,18 +796,18 @@ describe('study flow: doodle first-attempt discipline', () => {
 });
 
 describe('standalone Study entry step', () => {
-    it('starts every fresh card at the first configured learning step', () => {
+    it('starts each native vocabulary card with recognition', () => {
         const cards = [drinkCard(), drinkCard({ vid: 32, sid: 33, spelling: '読書', reading: 'どくしょ' })];
         const { controller, internals } = studyController(cards, {}, {}, { surface: 'standalone' });
         const root = studyRoot();
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, cards[0]);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
 
             internals.index = 1;
             internals.renderWord(root, cards[1]);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
         } finally {
             controller.destroy();
         }
@@ -846,13 +845,16 @@ async function flushMicrotasks(): Promise<void> {
 describe('study flow: Listen/Speak gated on resolved pitch', () => {
     it('hides Listen and Speak when the card truly has no resolved pitch', async () => {
         const card = kanaCard();
-        const { controller, internals } = studyController([card]);
+        const { controller, internals } = studyController([card], {}, {}, { surface: 'academy' });
         const root = studyRoot();
         const pitchInternals = controller as unknown as PitchGateInternals;
         pitchInternals.loadWordPitch = vi.fn(() => Promise.resolve([]));
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, card);
+            expect(root.querySelector('[data-study-step-kind="type-word"]')).not.toBeNull();
+            expect(root.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
+            expect(root.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
             const study = root.querySelector<HTMLElement>('[data-newtab-study]');
             expect(study?.dataset.newtabStudyFlow).not.toContain('listen-pitch');
             expect(study?.dataset.newtabStudyFlow).not.toContain('speaking');
@@ -860,6 +862,8 @@ describe('study flow: Listen/Speak gated on resolved pitch', () => {
             await flushMicrotasks();
             // Nothing resolved, so a later render of the same card stays gated.
             internals.renderWord(root, card);
+            expect(root.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
+            expect(root.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
             const settled = root.querySelector<HTMLElement>('[data-newtab-study]');
             expect(settled?.dataset.newtabStudyFlow).not.toContain('listen-pitch');
             expect(settled?.dataset.newtabStudyFlow).not.toContain('speaking');
@@ -868,14 +872,14 @@ describe('study flow: Listen/Speak gated on resolved pitch', () => {
         }
     });
 
-    it('adds Listen and Speak once pitch resolves even when inline pitch display is disabled', async () => {
+    it('does not insert exercises into a native review when pitch arrives', async () => {
         const card = kanaCard();
         const { controller, internals } = studyController([card], { showPitchAccent: false });
         const root = studyRoot();
         const pitchInternals = controller as unknown as PitchGateInternals;
         pitchInternals.loadWordPitch = vi.fn(() => Promise.resolve(['H']));
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, card);
             const beforeFlow = root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow;
             expect(beforeFlow).not.toContain('listen-pitch');
@@ -885,8 +889,7 @@ describe('study flow: Listen/Speak gated on resolved pitch', () => {
 
             expect(card.pitchAccent).toEqual(['H']);
             const afterFlow = root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow;
-            expect(afterFlow).toContain('listen-pitch');
-            expect(afterFlow).toContain('speaking');
+            expect(afterFlow).toBe('word final-reveal');
         } finally {
             controller.destroy();
         }
@@ -902,7 +905,7 @@ describe('study flow: Listen/Speak gated on resolved pitch', () => {
         const pitchInternals = controller as unknown as PitchGateInternals;
         pitchInternals.loadWordPitch = vi.fn(card => card === first ? pendingPitch : Promise.resolve([]));
         try {
-            internals.state.mode = 'word';
+            internals.setStudyStepOverrideForCurrentCard(null);
             internals.renderWord(root, first);
             internals.index = 1;
             internals.renderWord(root, second);

@@ -18,7 +18,6 @@ import {
     renderAnkiNewCardPreview,
     renderAnkiRenderedCardStudyBody,
     renderReviewButtons,
-    reviewButtonGrades,
 } from '../anki/render-impl';
 import { registerYomuCompanion } from './registry';
 
@@ -39,5 +38,4 @@ registerYomuCompanion('anki', {
     pruneRedundantAnkiGlyphRepeats,
     renderAnkiRenderedCardStudyBody,
     renderReviewButtons,
-    reviewButtonGrades,
 });

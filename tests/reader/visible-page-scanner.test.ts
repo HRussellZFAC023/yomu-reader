@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testEnSettings } from './helpers/settings-fixture';
 import { withViewport } from './helpers/browser-fixtures';
 
@@ -12,11 +12,19 @@ import { documentPortalReaderWordScopeForSource } from '../../src/reader/dom/ind
 import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 
 type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
+const fixtureScanners = new Set<VisiblePageScanner>();
+
+afterEach(() => {
+    // scanVisiblePage can finish with a coalesced pass still scheduled. Do not
+    // let that scanner annotate the next test's replacement document.
+    for (const scanner of fixtureScanners) scanner.destroy();
+    fixtureScanners.clear();
+});
 
 function createVisiblePageScanner(
     overrides: Partial<VisiblePageScannerDependencies> & Pick<VisiblePageScannerDependencies, 'parseJapanese'>,
 ): VisiblePageScanner {
-    return new VisiblePageScanner({
+    const scanner = new VisiblePageScanner({
         getSettings: () => DEFAULT_SETTINGS,
         pauseMutationObserver: callback => callback(),
         preloadParsedTokens: vi.fn(),
@@ -25,6 +33,8 @@ function createVisiblePageScanner(
         toast: vi.fn(),
         ...overrides,
     });
+    fixtureScanners.add(scanner);
+    return scanner;
 }
 
 function documentPortalWordForSource(source: Element | null, selector = '.jpdb-reader-word'): HTMLElement | null {
@@ -3196,6 +3206,43 @@ describe('lossless visible-work scheduling', () => {
             expect(parseJapanese).toHaveBeenCalledTimes(1);
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
         } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it.each([false, true])('preserves exact text across forced collection budget yields (remove tail: %s)', async removeTail => {
+        const restoreRects = mockVisibleElementRects();
+        const texts = Array.from({ length: 95 }, (_, index) => `日本語の文${index}`);
+        document.body.innerHTML = texts.map(text => `<p>${text}</p>`).join('');
+        // Advance only the budget clock; real scheduler turns still run. Each
+        // deadline check exceeds the 12ms collection slice, even on a fast host.
+        let budgetClock = Date.now();
+        const clock = vi.spyOn(Date, 'now').mockImplementation(() => budgetClock += 20);
+        const turns = vi.spyOn(window, 'setTimeout');
+        let collectionTurns = 0;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => {
+            if (parseJapanese.mock.calls.length === 1) {
+                collectionTurns = turns.mock.calls.filter(([, delay]) => delay === 0).length;
+                if (removeTail) Array.from(document.querySelectorAll('p')).slice(80).forEach(node => node.remove());
+            }
+            return paragraphs.map(() => [] as JPDBToken[]);
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            expect(parseJapanese).not.toHaveBeenCalled();
+            await scan;
+
+            expect(collectionTurns).toBeGreaterThan(1);
+            expect(parseJapanese.mock.calls.map(([batch]) => batch.length)).toEqual(removeTail ? [80] : [80, 15]);
+            expect(parseJapanese.mock.calls.flatMap(([batch]) => batch)).toEqual(removeTail ? texts.slice(0, 80) : texts);
+            expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
+        } finally {
+            scanner.destroy();
+            turns.mockRestore();
+            clock.mockRestore();
             restoreRects();
             document.body.innerHTML = '';
         }

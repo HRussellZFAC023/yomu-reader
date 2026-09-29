@@ -58,7 +58,7 @@ describe('Lesson 0 opening forks', () => {
         expect(text.querySelector('.academy-fork-board-line')?.textContent).toContain('教科書');
 
         const speaking = renderSourceActivityScreen('en', content, 'speaking', pronunciation(), vi.fn(), vi.fn());
-        expect(speaking.dataset.plate).toBe('entrance');
+        expect(speaking.dataset.plate).toBe('classroomEntrance');
         expect(speaking.dataset.locationId).toBe('location:classroom-entrance');
         expect(speaking.querySelector<HTMLElement>('.academy-activity-host')?.hidden).toBe(true);
         speaking.querySelector<HTMLButtonElement>('.academy-fork-prelude .academy-button-secondary')?.click();

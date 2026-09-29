@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import { DEFAULT_NEW_TAB_UI_STATE, type NewTabUiState } from '../../src/reader/newtab/state';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
 import { testEnSettings } from './helpers/settings-fixture';
@@ -78,13 +79,14 @@ function recallController(card: JPDBCard, settings: Partial<ReaderSettings> = {}
         dismissLookup: vi.fn(),
         toast: vi.fn(),
         ...deps,
-    } as never);
+    } as never, { surface: 'academy' });
     const internals = controller as unknown as {
         allWords: JPDBCard[];
         visibleWords: JPDBCard[];
         sourceLabel: string;
         reviewCountMode: boolean;
-        state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean; jpdbDeck: string; ankiDeck: string; keyHintsDismissed: boolean };
+        state: NewTabUiState;
+        setStudyStepOverrideForCard(card: JPDBCard, id: string | null): void;
         renderWord(root: HTMLElement, card: JPDBCard): void;
         submitRecallAnswer(root: HTMLElement): void;
         gradeCurrentCard(grade: 'okay'): Promise<boolean>;
@@ -94,7 +96,8 @@ function recallController(card: JPDBCard, settings: Partial<ReaderSettings> = {}
     internals.sourceLabel = card.source === 'anki' ? 'Anki' : card.source === 'jiten' ? 'Jiten' : 'JPDB';
     internals.reviewCountMode = true;
     internals.state = {
-        mode: 'recall',
+        ...DEFAULT_NEW_TAB_UI_STATE,
+        route: 'study',
         sort: 'random',
         filter: 'study',
         source: card.source === 'anki' ? 'anki' : 'jpdb',
@@ -103,6 +106,7 @@ function recallController(card: JPDBCard, settings: Partial<ReaderSettings> = {}
         ankiDeck: '',
         keyHintsDismissed: false,
     };
+    internals.setStudyStepOverrideForCard(card, 'recall-cloze');
     return { controller, internals, settings: mergedSettings };
 }
 
@@ -170,13 +174,11 @@ describe('new-tab recall answer matching', () => {
     });
 });
 
-describe('new-tab Recall mode', () => {
-    it('fronts the meaning, checks the typed answer, and grades JPDB through the existing adapter', async () => {
+describe('embedded Academy recall practice', () => {
+    it('checks the typed practice answer without completing a JPDB review', async () => {
         const card = recallCard();
         const jpdb = { reviewCard: vi.fn(async () => undefined) };
-        // Listen/Speak/Type now follow Recall in every session; disable them here
-        // so this test still exercises the recall-submit → final-reveal handoff.
-        const { controller, internals } = recallController(card, { newTabStudyDisabledSteps: ['listen-pitch', 'speaking', 'type-word'] }, { jpdb: jpdb as never });
+        const { controller, internals } = recallController(card, {}, { jpdb: jpdb as never });
         const root = recallRoot();
         try {
             internals.renderWord(root, card);
@@ -187,13 +189,12 @@ describe('new-tab Recall mode', () => {
             input!.value = '弁護士';
             internals.submitRecallAnswer(root);
 
-            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(true);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('final-reveal');
-            expect(root.querySelector('[data-newtab-recall-result]')).toBeNull();
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('弁護士');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabActivity).toBe('practice');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect(root.querySelector('[data-newtab-recall-result]')?.textContent).toContain('Correct');
 
             await internals.gradeCurrentCard('okay');
-            expect(jpdb.reviewCard).toHaveBeenCalledWith(card, 'okay');
+            expect(jpdb.reviewCard).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }
@@ -217,7 +218,7 @@ describe('new-tab Recall mode', () => {
         }
     });
 
-    it('grades Jiten recall cards through the Jiten API adapter', async () => {
+    it('does not submit a Jiten review from recall practice', async () => {
         const card = recallCard({
             vid: 42,
             sid: 0,
@@ -234,13 +235,13 @@ describe('new-tab Recall mode', () => {
             root.querySelector<HTMLInputElement>('[data-newtab-recall-input]')!.value = '弁護士';
             internals.submitRecallAnswer(root);
             await internals.gradeCurrentCard('okay');
-            expect(jiten.reviewCard).toHaveBeenCalledWith(card, 'okay');
+            expect(jiten.reviewCard).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }
     });
 
-    it('grades Anki recall cards through AnkiConnect when a card id is present', async () => {
+    it('does not answer an Anki card from recall practice', async () => {
         const card = recallCard({
             vid: -404,
             sid: 0,
@@ -262,7 +263,7 @@ describe('new-tab Recall mode', () => {
             root.querySelector<HTMLInputElement>('[data-newtab-recall-input]')!.value = '弁護士';
             internals.submitRecallAnswer(root);
             await internals.gradeCurrentCard('okay');
-            expect(anki.answerCard).toHaveBeenCalledWith(404, 'okay');
+            expect(anki.answerCard).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }

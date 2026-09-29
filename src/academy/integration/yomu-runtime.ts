@@ -23,7 +23,6 @@ const RUNTIME_SCRIPT_ID_PREFIX = 'yomu-hosted-academy-runtime';
 const CSS_ATTRIBUTE = 'data-yomu-hosted-academy-css';
 const JAPANESE_SURFACE_SELECTOR = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface], .academy-japanese';
 const OWNED_READING_SURFACE_SELECTOR = '[data-yomu-runtime-surface]';
-const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const RUNTIME_READY_TIMEOUT_MS = 6_000;
 const ACADEMY_ROOT_ID = 'yomu-academy';
 const ACADEMY_REVISION = /^s1-[a-f\d]{12}$/u;
@@ -131,7 +130,6 @@ async function bootWhenJapaneseAppears(): Promise<boolean> {
     const demand = await academyRuntimeDemand();
     if (demand === 'satisfied') return true;
     if (demand === 'unavailable') return false;
-    seedAcademyReaderDefaults();
     const revision = academyHostedRuntimeRevision();
     if (!revision) return false;
     return installAcademyReaderRuntime(revision);
@@ -192,20 +190,6 @@ function waitForJapaneseSurface(): Promise<boolean> {
             subtree: true,
         });
     });
-}
-
-function seedAcademyReaderDefaults(): void {
-    try {
-        if (localStorage.getItem(SETTINGS_KEY) !== null) return;
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-            learningTargetChosen: false,
-            showFurigana: true,
-            furiganaMode: 'all',
-            showPitchAccent: true,
-        }));
-    } catch {
-        // Reader defaults remain usable when storage is unavailable.
-    }
 }
 
 function academyHostedRuntimeRevision(): string | undefined {

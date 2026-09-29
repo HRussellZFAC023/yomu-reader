@@ -64,7 +64,7 @@ describe('D43 copy tiers are a property of the string', () => {
             category: 'supplementary',
             rule: 'default-supplementary-copy',
         });
-        for (const key of ['extensionSettingsRecoveryTitle', 'academyRecoveryCodeCreate']) {
+        for (const key of ['extensionSettingsRecoveryTitle', 'academyRecoveryCodeCreate', 'extensionDictionaryUnavailable', 'extensionDictionaryConnectionLost']) {
             expect(copyTierOf(legacyChromeMessageId(key))).toMatchObject({
                 tier: 'human-critical',
                 category: 'degraded-and-empty-states',
@@ -145,40 +145,26 @@ describe('D43 copy tiers are a property of the string', () => {
         expect(offenders).toEqual([]);
     });
 
-    // The check above escalates on SOURCE TEXT, so it passes even with the whole
-    // rule table deleted: a string classified human-critical by its ID, whose
-    // text contains no high-stakes phrase, would silently drop to the tier that
-    // may ship as raw machine output and nothing would fail. These pin the table
-    // itself. (The rule count is 10, not the 9 both the implementation report and
-    // its review stated — measured here rather than quoted.) If a number here moves, the tiering moved: read the diff and
-    // update it deliberately rather than to make the suite pass.
+    // Pin ID-based classification too: source-text escalation cannot catch its removal.
     it('keeps every tier rule, and the tier split, where it was measured', () => {
         expect(COPY_TIER_RULE_NAMES).toHaveLength(10);
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        // The language-neutral chooser added three human-reviewed onboarding
-        // messages, Gaming added four capture-language prompts, and credential
-        // forms added two reviewed save/remove strings, the off-page settings
-        // gate added three reviewed safety/launcher strings, and off-host
-        // onboarding added three reviewed launcher strings. Uchisen retirement
-        // deleted its 15 copy entries, and the now-orphaned generic story empty
-        // state was deleted with them. Settings-authority recovery added ten
-        // reviewed EN/JA messages, all classified from their recovery/import/Save IDs.
-        // Recognising recovery as high-stakes also promotes four existing Academy
-        // recovery-code messages that should never have used the supplementary tier.
-        expect(messages).toHaveLength(1276);
-        expect(humanCritical).toHaveLength(418);
-
-        // Split by WHAT classified each one. 412 are human-critical from their ID
-        // alone, so deleting the rule table collapses that number while the
-        // source-text check above stays green. The other 6 reach the tier only
-        // through text escalation, which is exactly the case that rule exists for
-        // (chrome.firefoxAuthenticationInfoDenied is one: nothing in the ID says
-        // it discusses credentials). Both counts are pinned because a change in
-        // either direction is a policy change.
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
-        expect(byIdAlone).toHaveLength(412);
+        expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
+            .toEqual({ total: 1293, critical: 458, byId: 452 });
+        for (const key of ['backupMovedHelp', 'helpLinksCopy', 'extensionSettingsRecoveryGuidance', 'dictionaryImportHelp', 'yomitanSettingsInvalid']) {
+            expect(chromeMessageSource()).not.toHaveProperty(key);
+        }
+        for (const key of ['gradeAgainLabel', 'gradeGoodLabel', 'settingsImportUnsupportedFormat', 'settingsImportIncomplete',
+            ...Object.keys(chromeMessageSource()).filter(key => key.startsWith('practice'))]) {
+            expect(copyTierOf(legacyChromeMessageId(key)).tier).toBe('human-critical');
+        }
+        for (const key of ['bunproGradeAgainLabel', 'bunproGradeHardLabel', 'bunproGradeGoodLabel', 'bunproGradeEasyLabel']) {
+            expect(chromeMessageSource()).not.toHaveProperty(key);
+        }
+
         expect(humanCritical.length - byIdAlone.length).toBe(6);
     });
 

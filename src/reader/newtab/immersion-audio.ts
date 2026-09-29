@@ -5,7 +5,7 @@ import type { ImmersionKitClient } from '../immersion/kit';
 
 export interface NewTabImmersionAudioPlayerDeps {
     getSettings: () => ReaderSettings;
-    immersionKit: ImmersionKitClient;
+    immersionKit: Pick<ImmersionKitClient, 'fetchBlobUrl'>;
 }
 
 // Plays one immersion-example audio source at a time, keyed by card. A monotonic

@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { localizeHtmlFragment } from '../../docs/.vitepress/locales/markdown-localization';
 import { APPS_NAV_LABEL, PRIMARY_NAV } from '../../docs/.vitepress/shared/nav';
 
 const homepage = readFileSync('docs/index.md', 'utf8');
 const publicDocsCheck = readFileSync('scripts/check-public-docs.mjs', 'utf8');
 const homepageStyles = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
 
-describe('A28 homepage contract', () => {
+describe('editorial homepage contract', () => {
     it('removes every owner-rejected phrase and stale caption', () => {
         for (const rejected of [
             'Any page becomes a Japanese lesson.',
@@ -20,29 +23,62 @@ describe('A28 homepage contract', () => {
         expect(homepage).not.toContain('<figcaption');
     });
 
-    it('ships a language-neutral SSR headline before the client rotator starts', () => {
-        // Crawlers, social unfurls and the no-JS page all read this static
-        // markup, so it must state the same any-language reading contract as
-        // the booted rotator without preselecting Japanese learner intent.
-        expect(homepage).toContain(">Read the language you're learning with Yomu.</h1>");
-        expect(homepage).not.toContain('A complete system for learning 日本語.</h1>');
-        expect(homepage).not.toContain('YomuLanguageRotator');
-        expect(homepageStyles).not.toContain('.yomu-language-cycle');
+    it.each([
+        ['en', 'Read Japanese. Stay with the story.'],
+        ['ja', '日本語を読む。物語の続きを楽しむ。'],
+    ] as const)('server-localizes a single stable heading and preserves the live sample in %s', (locale, title) => {
+        const html = localizeHtmlFragment(homepage.replace(/^---[\s\S]*?---/, ''), locale);
+        const page = new DOMParser().parseFromString(html, 'text/html');
+        const heading = page.querySelector('#yomu-home-title')!;
+        expect(page.querySelectorAll('h1')).toHaveLength(1);
+        expect(heading.textContent).toBe(title);
+        expect(heading.childElementCount).toBe(0);
+        expect(heading.hasAttribute('aria-label')).toBe(false);
+        expect(heading.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
+        const sample = page.querySelector('.yomu-try-me-sample')!;
+        expect(sample.getAttribute('lang')).toBe('ja');
+        expect(sample.getAttribute('aria-label')).toBe('今日は静かな喫茶店で新しい本を読みました。');
+        expect(sample.querySelectorAll('[data-token-start]')).toHaveLength(6);
+        expect(page.querySelectorAll('.yomu-install-routes')).toHaveLength(2);
+        for (const routes of page.querySelectorAll('.yomu-install-routes')) {
+            expect([...routes.querySelectorAll('[data-yomu-route]')].map(link => link.getAttribute('data-yomu-route'))).toEqual(['chrome', 'firefox', 'userscript']);
+        }
+        expect(page.querySelectorAll('main')).toHaveLength(1);
+        expect(page.querySelector('main > .yomu-fold')).not.toBeNull();
+        expect(page.querySelector('main > .yomu-next')).not.toBeNull();
+        expect([...page.querySelectorAll('.yomu-home-more > section')].map(section => section.id)).toEqual(['gaming', 'academy']);
     });
 
-    it('keeps the multilingual headline rotator at reading strength', () => {
-        // The demoted "same loop works in N other languages" line is gone
-        // (owner decision 2026-08-04); the claim now lives in the rotator,
-        // which reads the same asserted roster (__YOMU_HERO_LANGUAGES__), so a
-        // roster change still cannot leave a stale language in the copy.
-        expect(homepage).not.toContain('<YomuStudyTargetCount />');
-        expect(homepage).not.toContain('yomu-fold-also');
+    it('passes the real VitePress Markdown and Vue SSR parser for both locales', () => {
+        // VitePress/esbuild must run in Node, not jsdom's mixed typed-array realm.
+        const output = execFileSync(path.resolve('node_modules/.bin/vite-node'), [
+            'scripts/check-homepage-ssr.mts',
+        ], { encoding: 'utf8', timeout: 30_000 });
+        expect(output).toContain('Homepage SSR passed: EN and JA.');
+    }, 35_000);
+
+    it('keeps language support explicit without client heading replacement or hidden content', () => {
+        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
         const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        expect(theme).toContain('installHostedHeroLanguageRotator');
-        expect(theme).toContain('__YOMU_HERO_LANGUAGES__');
-        expect(theme).toContain("en: ['Read ', ' with Yomu.']");
-        expect(theme).toContain("ja: ['よむで', 'を読む。']");
-        expect(theme).not.toContain("en: ['A complete system for learning ', '.']");
+        const config = readFileSync('docs/.vitepress/config.mts', 'utf8');
+        expect(theme).not.toContain('installHostedHeroLanguageRotator');
+        expect(theme).not.toContain('buildHostedHeroSizingLayer');
+        expect(config).not.toContain('__YOMU_HERO_LANGUAGES__');
+        expect(theme).not.toContain('armHostedRevealElements');
+        expect(homepageStyles).not.toContain('.yomu-fold-h1-reserve');
+        expect(homepage).not.toContain('yomu-reveal');
+        expect(homepage).not.toContain('yomu-band-ground');
+        const homeCss = homepageStyles.split('/* Homepage:')[1]!.split('/* --- Membership:')[0]!;
+        expect(homeCss).not.toMatch(/rotate\(|clip-path|@keyframes/);
+    });
+
+    it('preserves the corrected learning advice and the existing captures', () => {
+        expect(homepage).toContain('You decide what to add to your deck.');
+        expect(homepage).toContain('Use definitions and grammar explanations when you need them.');
+        expect(homepage).toContain('Connect a review service you already use, or keep a local Yomu deck.');
+        for (const image of ['popover', 'wikipedia', 'youtube', 'keep-press', 'study', 'phone', 'ipad']) {
+            expect(homepage).toContain(`/home/${image}.webp`);
+        }
     });
 
     it('drops the "nothing installed" duplicate CTA section', () => {

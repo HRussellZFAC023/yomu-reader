@@ -1,6 +1,5 @@
 import type { DeinflectedTerm } from '../../lookup/deinflect';
 import type { LanguageLookupCandidate } from '../../languages/types';
-import type { ReaderSettings } from '../../app/types';
 import type { uiText } from '../../app/i18n';
 
 export type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo' | 'termSearch';
@@ -106,11 +105,6 @@ export interface ImportSummary {
     kanji: number;
     termMeta: number;
     kanjiMeta: number;
-}
-
-export interface YomitanSettingsImport {
-    settings: Partial<Omit<ReaderSettings, 'shortcuts'>> & { shortcuts?: Partial<ReaderSettings['shortcuts']> };
-    dictionaryNames: string[];
 }
 
 export interface YomitanTermMatch {

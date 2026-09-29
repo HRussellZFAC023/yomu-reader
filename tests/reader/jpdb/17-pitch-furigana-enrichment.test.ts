@@ -78,7 +78,7 @@ describe('reader helpers', () => {
         word.dataset.surface = '読む';
         document.body.append(line);
 
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { furiganaMode: 'all', showFurigana: true },
@@ -129,7 +129,7 @@ describe('reader helpers', () => {
         word.dataset.surface = '読む';
         document.body.append(line);
 
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { furiganaMode: 'all', showFurigana: true },
@@ -168,7 +168,7 @@ describe('reader helpers', () => {
         });
         const word = appendRenderedReaderWord(fallbackCard);
 
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const { internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { furiganaMode: 'all', showFurigana: true },
@@ -331,7 +331,7 @@ describe('reader helpers', () => {
             jitenReadingIndex: 0,
         };
         const word = appendRenderedReaderWord(fallbackCard);
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const publicPitch = vi.fn(async () => ['LHHLL']);
         const jitenLookup = vi.fn(async () => jitenCard);
         const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
@@ -1340,7 +1340,7 @@ describe('reader helpers', () => {
         });
         const token = testTokenForCard(complete, '漫画を読む。', { rubies: [] });
         const word = appendRenderedReaderWord(complete);
-        const search = vi.fn(async () => [] as JPDBCard[]);
+        const search = vi.fn(async () => ({ cards: [] as JPDBCard[], status: 'complete' as const }));
         const { internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: {
@@ -1377,7 +1377,7 @@ describe('reader helpers', () => {
         const surface = '使える';
         const token = testTokenForCard(complete, surface, { end: surface.length, rubies: [] });
         const word = appendRenderedReaderWord(complete, { text: surface });
-        const search = vi.fn(async () => [] as JPDBCard[]);
+        const search = vi.fn(async () => ({ cards: [] as JPDBCard[], status: 'complete' as const }));
         const { internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: {
@@ -1807,7 +1807,7 @@ describe('reader helpers', () => {
             },
         ];
 
-        const search = vi.fn(async (term: string) => term === '青空' ? [publicCard] : []);
+        const search = vi.fn(async (term: string) => ({ cards: term === '青空' ? [publicCard] : [], status: 'complete' as const }));
         const jitenLookup = vi.fn(async (term: string) => term === '青空' ? publicCard : null);
         const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
             terms.includes('青空') ? [['青空', publicCard]] : [],
@@ -2557,7 +2557,7 @@ describe('reader helpers', () => {
             spelling: '未解析語',
             reading: '',
         });
-        const publicSearch = vi.fn(async () => []);
+        const publicSearch = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const publicPitch = vi.fn(async () => ['LHHH']);
         const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
         const internals = app as unknown as {

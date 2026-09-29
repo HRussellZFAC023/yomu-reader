@@ -180,20 +180,26 @@ export function popoverMaxHeightSetting(settings: ReaderSettings): number | unde
 // click at the window-capture layer, which runs ahead of both the userscript's
 // document-capture lookup handler and the hosted reader's root-bubble handler,
 // so it can never pierce through.
+let releaseTrailingSheetClick: (() => void) | undefined;
+
 function suppressTrailingClickAfterSheetGestureDismiss(): void {
     if (typeof window === 'undefined') return;
+    releaseTrailingSheetClick?.();
+    const owner = window;
     let timer = 0;
     const cleanup = (): void => {
-        if (timer) window.clearTimeout(timer);
-        window.removeEventListener('click', consume, true);
+        if (timer) owner.clearTimeout(timer);
+        owner.removeEventListener('click', consume, true);
+        if (releaseTrailingSheetClick === cleanup) releaseTrailingSheetClick = undefined;
     };
     const consume = (event: MouseEvent): void => {
         cleanup();
         event.preventDefault();
         event.stopImmediatePropagation();
     };
-    window.addEventListener('click', consume, { capture: true });
-    timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+    releaseTrailingSheetClick = cleanup;
+    owner.addEventListener('click', consume, { capture: true });
+    timer = owner.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
 }
 
 export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, label = 'Drag to resize lookup sheet, or tap to close'): void {

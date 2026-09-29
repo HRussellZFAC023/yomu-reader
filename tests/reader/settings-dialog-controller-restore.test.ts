@@ -44,7 +44,7 @@ const SETTINGS_ACTION_OPERATION_POLICY = [
     ['export-yomitan-dictionary', 'durable'],
     ['factory-reset', 'durable'],
     ['import-yomitan-dictionary', 'durable'],
-    ['import-yomitan-settings', 'restore'],
+    ['import-reader-settings', 'restore'],
     ['lookup-link-add', 'local'],
     ['lookup-link-down', 'local'],
     ['lookup-link-remove', 'local'],
@@ -78,7 +78,7 @@ async function beginSettingsFileImport(
         })),
     });
     Object.defineProperty(input, 'files', { configurable: true, value: [file] });
-    const importButton = form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!;
+    const importButton = form.querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')!;
     const saveButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     importButton.click();
     await waitForCondition(() => typeof input.onchange === 'function');
@@ -264,7 +264,7 @@ describe('settings dialog restore and save interlocks', () => {
         const reopened = Array.from(document.querySelectorAll<HTMLFormElement>('.jpdb-reader-settings')).at(-1)!;
         expect(settingsElement<HTMLInputElement>(reopened, 'input[name="accentColor"]').value).toBe(importedAccent);
         expect(settingsElement<HTMLButtonElement>(reopened, 'button[type="submit"]').disabled).toBe(false);
-        expect(settingsElement<HTMLButtonElement>(reopened, '[data-action="import-yomitan-settings"]').disabled).toBe(false);
+        expect(settingsElement<HTMLButtonElement>(reopened, '[data-action="import-reader-settings"]').disabled).toBe(false);
         expect(factoryReset.disabled).toBe(true);
     });
 
@@ -308,7 +308,7 @@ describe('settings dialog restore and save interlocks', () => {
         }, 'backup');
         await submitCredentialSaveAndWaitForPermission(form, requestPermission);
 
-        const importButton = settingsElement<HTMLButtonElement>(form, '[data-action="import-yomitan-settings"]');
+        const importButton = settingsElement<HTMLButtonElement>(form, '[data-action="import-reader-settings"]');
         expect(importButton.disabled).toBe(true);
         importButton.click();
         await flushPromises();
@@ -602,7 +602,6 @@ describe('settings dialog restore and save interlocks', () => {
                         records: { accentColor: { seq: 3, value: importedAccent } },
                         __yomuSettingsPersistenceCommitV1: commit,
                     },
-                    'yomu:explicit-user-settings:v1': {},
                     'yomu:prefer-japanese-site-language:v1': true,
                 },
             },
@@ -654,11 +653,12 @@ describe('settings dialog restore and save interlocks', () => {
         expect(fixture.state.settings.accentColor).toBe(witnessedAccent);
     });
 
-    it('falls back to the valid top-level settings when an older export captured a torn persistence pair', async () => {
+    it('rejects a torn persistence pair without falling back or leaving the dialog locked', async () => {
         const importedAccent = '#123456';
         const fixture = createSettingsRestoreFixture({ ...DEFAULT_SETTINGS, accentColor: '#654321' });
+        localStorage.setItem('jpdb-reader-transcript-panel-size', JSON.stringify({ width: 240 }));
 
-        await beginSettingsFileImport(
+        const { importButton, saveButton } = await beginSettingsFileImport(
             fixture.form,
             { ...DEFAULT_SETTINGS, accentColor: importedAccent },
             { storage: {
@@ -674,15 +674,19 @@ describe('settings dialog restore and save interlocks', () => {
                 'jpdb-reader-transcript-panel-size': { width: 420 },
             } },
         );
-        await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
+        await waitForCondition(() => fixture.dependencies.toast.mock.calls.length > 0);
 
-        expect(fixture.saveSettings.mock.calls[0]?.[0]).toMatchObject({ accentColor: importedAccent });
-        expect(fixture.state.settings.accentColor).toBe(importedAccent);
+        expect(fixture.dependencies.toast).toHaveBeenCalledWith('The settings data in this backup is incomplete.');
+        expect(fixture.saveSettings).not.toHaveBeenCalled();
+        expect(fixture.state.settings.accentColor).toBe('#654321');
         expect(JSON.parse(localStorage.getItem('jpdb-reader-transcript-panel-size') ?? 'null'))
-            .toEqual({ width: 420 });
+            .toEqual({ width: 240 });
+        expect(importButton.disabled).toBe(false);
+        expect(saveButton.disabled).toBe(false);
+        await submitSettingsSaveAndExpect(fixture.form, fixture.saveSettings, 1, { accentColor: '#654321' });
     });
 
-    it('preserves current intent and derives changed keys for a 1.8.85-1.8.89 backup with no stored ledger', async () => {
+    it('derives changed keys from a current settings-only backup without inventing an intent ledger', async () => {
         const previousAccent = '#654321';
         const importedAccent = '#123456';
         const { form, saveSettings } = createSettingsRestoreFixture({
@@ -692,14 +696,6 @@ describe('settings dialog restore and save interlocks', () => {
         await beginSettingsFileImport(
             form,
             { ...DEFAULT_SETTINGS, accentColor: importedAccent },
-            {
-                storage: {
-                    // v1.8.85/86/89 exported this canonical value, but only
-                    // created yomu:settings-intent:v2 after a declared choice.
-                    'jpdb-popup-reader-settings': { accentColor: importedAccent },
-                    'yomu:prefer-japanese-site-language:v1': false,
-                },
-            },
         );
         await waitForCondition(() => saveSettings.mock.calls.length === 1);
 
@@ -708,14 +704,14 @@ describe('settings dialog restore and save interlocks', () => {
         expect(options.clearExplicitUserChoiceKeys).toBeUndefined();
     });
 
-    it('restores a same-valued legacy flat pin from a 1.8.85-1.8.89 backup with no v2 ledger', async () => {
-        const { form, saveSettings } = createSettingsRestoreFixture({
+    it('rejects retired flat pins without changing settings or leaving import and Save locked', async () => {
+        const fixture = createSettingsRestoreFixture({
             ...DEFAULT_SETTINGS,
             annotationsPaused: false,
         });
-        await beginSettingsFileImport(
-            form,
-            { ...DEFAULT_SETTINGS, annotationsPaused: false },
+        const { importButton, saveButton } = await beginSettingsFileImport(
+            fixture.form,
+            { ...DEFAULT_SETTINGS, annotationsPaused: true },
             {
                 storage: {
                     'jpdb-popup-reader-settings': { annotationsPaused: false },
@@ -723,11 +719,13 @@ describe('settings dialog restore and save interlocks', () => {
                 },
             },
         );
-        await waitForCondition(() => saveSettings.mock.calls.length === 1);
+        await waitForCondition(() => fixture.dependencies.toast.mock.calls.length > 0);
 
-        const options = restoreSaveOptions(saveSettings);
-        expect(options.explicitUserChoiceKeys).toContain('annotationsPaused');
-        expect(options.clearExplicitUserChoiceKeys).toBeDefined();
+        expect(fixture.dependencies.toast).toHaveBeenCalledWith('This settings backup format is not supported.');
+        expect(fixture.saveSettings).not.toHaveBeenCalled();
+        expect(fixture.state.settings.annotationsPaused).toBe(false);
+        expect(importButton.disabled).toBe(false);
+        expect(saveButton.disabled).toBe(false);
     });
 
     it('does not roll back durable restore stages when the post-persistence host notification throws', async () => {
@@ -1013,7 +1011,7 @@ describe('settings dialog restore and save interlocks', () => {
         controller.open('backup');
         const reopened = Array.from(document.querySelectorAll<HTMLFormElement>('.jpdb-reader-settings')).at(-1)!;
         const reopenedSave = reopened.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-        const reopenedImport = reopened.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!;
+        const reopenedImport = reopened.querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')!;
         expect(reopenedSave.disabled).toBe(true);
         expect(reopenedImport.matches(':disabled')).toBe(true);
 

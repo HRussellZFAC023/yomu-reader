@@ -3,28 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { normalizeReaderSettings } from '../../src/reader/settings/index';
 import { shortcutIsPressed } from '../../src/reader/settings/shortcuts';
 
-// popupActivationMode 'modifier' promises "hover lookup only while a modifier is
-// held". An empty hoverLookup shortcut makes shortcutIsPressed() match every
-// event, silently turning modifier mode into plain hover mode, so the
-// normalizer must never let 'modifier' resolve with a blank shortcut.
-describe('modifier-mode hover shortcut backfill', () => {
-    it('backfills Shift for a bare modifier-mode payload with no shortcuts object', () => {
+describe('current hover shortcut normalization', () => {
+    it('uses the current default when no shortcuts object exists', () => {
         const settings = normalizeReaderSettings({ popupActivationMode: 'modifier' });
 
-        expect(settings.shortcuts.hoverLookup).toBe('Shift');
+        expect(settings.shortcuts.hoverLookup).toBe('');
         expect(settings.lookupOnHover).toBe(true);
     });
 
-    it('derives the modifier from the legacy scanModifierKey when present', () => {
+    it('ignores scanModifierKey when normalizing current shortcuts', () => {
         const settings = normalizeReaderSettings({ popupActivationMode: 'modifier', scanModifierKey: 'alt' });
 
-        expect(settings.shortcuts.hoverLookup).toBe('Alt');
+        expect(settings.shortcuts.hoverLookup).toBe('');
     });
 
-    it('backfills when a shortcuts object exists without hoverLookup and no legacy modifier', () => {
+    it('uses the current default when hoverLookup is absent', () => {
         const settings = normalizeReaderSettings({ popupActivationMode: 'modifier', shortcuts: {} as never });
 
-        expect(settings.shortcuts.hoverLookup).toBe('Shift');
+        expect(settings.shortcuts.hoverLookup).toBe('');
     });
 
     it('keeps an explicitly configured hoverLookup shortcut', () => {
@@ -42,16 +38,6 @@ describe('modifier-mode hover shortcut backfill', () => {
         expect(settings.shortcuts.hoverLookup).toBe('');
     });
 
-    // GitHub #36 (mirrormc): "After saving the change the userscript would apply the
-    // change for a very short amount of time (seconds) before reverting back to the
-    // Shift popover functionality... After updating to v1.8.57 it once again set my
-    // popover hotkey to Shift."
-    //
-    // Clearing the shortcut is a real choice and it is INDISTINGUISHABLE from never
-    // setting one if you only look at the value: both are ''. The backfill tested the
-    // emptiness of its own RESULT, so it re-minted Shift inside every save and every
-    // load for anyone who deliberately cleared it. An explicitly stored '' has to
-    // survive, while a legacy payload that never stored one still resolves to a key.
     it('keeps a deliberately CLEARED hoverLookup shortcut cleared', () => {
         const settings = normalizeReaderSettings({
             popupActivationMode: 'modifier',

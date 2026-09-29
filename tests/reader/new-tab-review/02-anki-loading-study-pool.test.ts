@@ -22,7 +22,8 @@ import {
     newTabLiveVocabularyStatus,
     newTabLiveReviewController,
     renderLoadedLiveReviewFixture,
-    renderNewTabKanjiFront,
+    renderNewTabCardFront,
+    waitForExpect,
     stubKanjiDoodleBrowserApis,
     AnkiConnectClient,
     AnkiNewTabUnavailableError,
@@ -30,7 +31,6 @@ import {
     cardKey,
     NewTabController,
     selectNewTabStudyPool,
-    BASE_DEFAULT_SETTINGS,
 } from './fixtures';
 import type {
     JPDBCard,
@@ -849,13 +849,13 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         const visible = applySeededNewTabWords(controller, root, {
             allWords: cards,
             sourceLabel: 'JPDB + Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
         });
 
         expect(visible.map(card => card.spelling)).toEqual(['一番', '二番', '三番']);
     });
 
-    it('keeps Anki words in one queue while the stepper owns kanji practice', () => {
+    it('keeps native Anki words in one queue with a direct review reveal', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, jpdbMiningEnabled: false, immersionKitEnabled: false }));
         try {
@@ -865,16 +865,19 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 allWords: [ankiWord],
                 sourceLabel: 'Anki',
                 reviewCountMode: true,
-                state: { mode: 'kanji', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
+                state: { route: 'study', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
             });
 
             expect(visible.map(card => card.spelling)).toEqual(['暗記']);
             expect(visible.every(card => card.source === 'anki')).toBe(true);
             expect(visible.every(card => card.reviewSource === 'anki')).toBe(true);
             expectOpaqueStudyCardToken(root, '暗記');
+            expect(newTabPromptText(root)).toBe('暗記');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
             expect(root.querySelector('[data-grade]')).toBeNull();
             expect(Array.from(root.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
-                .map(element => element.dataset.newtabAction)).toEqual(['previous', 'next']);
+                .map(element => element.dataset.newtabAction)).toEqual(['previous', 'reveal', 'next']);
         } finally {
             restoreCanvas();
         }
@@ -891,7 +894,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 allWords: [locked, due],
                 sourceLabel: 'JPDB',
                 reviewCountMode: true,
-                state: { mode: 'kanji', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+                state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
             });
 
             expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復習']);
@@ -908,7 +911,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         document.body.replaceChildren();
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
-            mode: 'kanji',
+            route: 'study',
             sort: 'random',
             filter: 'study',
             source: 'jpdb',
@@ -917,13 +920,12 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         const locked = newTabTestCard({ vid: 10, sid: 10, spelling: '語彙', reading: 'ごい', source: 'jpdb', cardState: ['locked'] });
         const due = newTabTestCard({ vid: 20, sid: 20, spelling: '復習', reading: 'ふくしゅう', source: 'jpdb', cardState: ['due'] });
         sessionStorage.setItem('jpdb-reader-newtab-current-word', JSON.stringify({
-            signature: 'jpdb|kanji|JPDB',
+            signature: 'jpdb|study|JPDB',
             key: cardKey(due),
         }));
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
-                newTabEnabled: true,
                 newTabSource: 'jpdb',
                 newTabJpdbReviewMode: 'api-vocabulary',
                 apiKey: 'jpdb-key',
@@ -962,8 +964,8 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         }
     });
 
-    it('keeps live JPDB kanji review cards gradeable in kanji mode', async () => {
-        const { controller, root, visible, grade, requestCurrent, restoreCanvas } = await renderLoadedLiveReviewFixture('kanji');
+    it('grades native JPDB kanji reviews after reveal', async () => {
+        const { controller, root, visible, grade, requestCurrent, restoreCanvas } = await renderLoadedLiveReviewFixture();
         try {
             expect(visible[0]).toMatchObject({
                 spelling: '記',
@@ -984,8 +986,8 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         }
     });
 
-    it('renders live JPDB kanji review cards as kanji prompts in word mode', async () => {
-        const { controller, root, visible, grade, requestCurrent, restoreCanvas } = await renderLoadedLiveReviewFixture('word');
+    it('uses the native JPDB kanji identity for a concealed writing prompt', async () => {
+        const { controller, root, visible, grade, requestCurrent, restoreCanvas } = await renderLoadedLiveReviewFixture();
         try {
             expect(visible[0]).toMatchObject({
                 spelling: '記',
@@ -1020,13 +1022,13 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
             status: vocabularyStatus,
             jpdb: { reviewCard },
             settings: {
-                newTabStudyStepOrder: BASE_DEFAULT_SETTINGS.newTabStudyStepOrder,
-                newTabStudyDisabledSteps: [],
+
+
             },
         });
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         try {
-            const state = { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false };
+            const state = { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false };
             seedNewTabState(controller, state);
             const result = await (controller as unknown as { loadJpdbWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadJpdbWords();
             const visible = applySeededNewTabWords(controller, root, {
@@ -1071,8 +1073,8 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 newTabSource: 'auto',
                 ankiEnabled: true,
                 newTabAnkiEnabled: true,
-                newTabStudyStepOrder: BASE_DEFAULT_SETTINGS.newTabStudyStepOrder,
-                newTabStudyDisabledSteps: [],
+
+
             },
             anki: {
                 listNewTabCards: vi.fn(async () => [ankiCard]),
@@ -1082,7 +1084,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         });
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         try {
-            const state = { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false };
+            const state = { route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false };
             seedNewTabState(controller, state);
 
             const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
@@ -1155,12 +1157,12 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 allWords: JPDBCard[];
                 sourceLabel: string;
                 reviewCountMode: boolean;
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             }, {
                 allWords: [liveCard],
                 sourceLabel: 'JPDB ライブレビュー',
                 reviewCountMode: true,
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+                state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
             });
             (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, false);
 
@@ -1192,10 +1194,10 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         Object.assign(controller as unknown as {
             loadGeneration: number;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             loadGeneration: 1,
-            state: { mode: 'kanji', sort: 'frequency', filter: 'study', source: 'auto', revealAnswer: false },
+            state: { route: 'study', sort: 'frequency', filter: 'study', source: 'auto', revealAnswer: false },
         });
 
         const usedCache = await (controller as unknown as {
@@ -1251,9 +1253,9 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         const root = renderEnabledNewTabRoot(controller);
         try {
             Object.assign(controller as unknown as {
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             }, {
-                state: { mode: 'kanji', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+                state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
             });
 
             const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
@@ -1277,7 +1279,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         }
     });
 
-    it('settles kanji fronts when no keyword source returns a keyword', async () => {
+    it('settles an empty native kanji question without revealing the answer', async () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         try {
             const controller = newTabPromptController({
@@ -1292,23 +1294,32 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 newTabParsingEnabled: false,
                 newTabFrontSentenceEnabled: false,
             });
-            const root = renderNewTabKanjiFront(controller, newTabTestCard({
+            const root = renderNewTabCardFront(controller, newTabTestCard({
                 spelling: '日',
                 reading: '日',
                 source: 'jpdb',
+                reviewSource: 'jpdb-live',
+                jpdbReviewId: 'kb,日',
                 kanjiKeyword: '',
                 meanings: [],
             }));
             const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]')!;
 
-            expect(prompt.textContent).toContain('日');
-            expect(prompt.textContent).not.toContain('Loading');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
+            expect(prompt.textContent).not.toContain('日');
+            await waitForExpect(() => {
+                expect(prompt.textContent).toBe('Write by hand');
+                expect(prompt.textContent).not.toContain('Loading');
+            });
+            expect(prompt.innerHTML).not.toContain('日');
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
         } finally {
             restoreCanvas();
         }
     });
 
-    it('keeps Anki-derived words intact when migrating legacy kanji state', () => {
+    it('keeps native Anki word identity and prompt intact', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const sourceCard = newTabTestCard({
             vid: 38800,
@@ -1340,12 +1351,12 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 allWords: JPDBCard[];
                 sourceLabel: string;
                 reviewCountMode: boolean;
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             }, {
                 allWords: [sourceCard],
                 sourceLabel: 'Anki',
                 reviewCountMode: true,
-                state: { mode: 'kanji', sort: 'frequency', filter: 'study', source: 'anki', revealAnswer: false },
+                state: { route: 'study', sort: 'frequency', filter: 'study', source: 'anki', revealAnswer: false },
             });
             (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, false);
 

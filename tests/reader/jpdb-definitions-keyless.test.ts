@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
-import type { JpdbVocabularyInfo } from '../../src/reader/jpdb/jpdb-vocabulary';
+import type { JpdbVocabularyInfo, JpdbVocabularyLookupResult } from '../../src/reader/jpdb/jpdb-vocabulary';
 
 type LoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
 
@@ -25,8 +25,9 @@ function card(): JPDBCard {
 }
 
 const JPDB_INFO: JpdbVocabularyInfo = { meanings: ['today'], compounds: [], usedInVocabulary: [], examples: [] };
+afterEach(() => { vi.restoreAllMocks(); });
 
-function loader(settings: Partial<ReaderSettings>, lookup: () => Promise<JpdbVocabularyInfo | null>): CardRenderDataLoader {
+function loader(settings: Partial<ReaderSettings>, lookup: () => Promise<JpdbVocabularyLookupResult>): CardRenderDataLoader {
     return new CardRenderDataLoader({
         getSettings: () => ({
             ...DEFAULT_SETTINGS,
@@ -42,7 +43,7 @@ function loader(settings: Partial<ReaderSettings>, lookup: () => Promise<JpdbVoc
         }),
         dictionaries: { lookup: vi.fn(async () => []), lookupKanji: vi.fn(async () => []), lookupTermMeta: vi.fn(async () => []) },
         jpdbPublicPitch: { lookup: vi.fn(async () => []) },
-        jpdbVocabulary: { lookup, search: vi.fn(async () => []) },
+        jpdbVocabulary: { lookup, search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) },
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() },
         jpdb: { listDecks: vi.fn() },
         isJpdbBackedCard: () => false,
@@ -50,11 +51,33 @@ function loader(settings: Partial<ReaderSettings>, lookup: () => Promise<JpdbVoc
 }
 
 describe('keyless JPDB definitions', () => {
+    it.each(['card', 'sources'] as const)('retries partial JPDB data through the %s render cache', async mode => {
+        let now = 100_000;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const lookup = vi.fn(async (): Promise<JpdbVocabularyLookupResult> => ({ info: JPDB_INFO, status: 'partial' }));
+        const instance = loader({ jpdbDefinitionsEnabled: true }, lookup);
+        const target = card();
+        const load = () => mode === 'card' ? instance.load(target) : instance.loadDefinitionSources(target);
+        const first = load();
+        expect(await first.jpdbVocabularyInfo).toEqual(JPDB_INFO);
+        now += 999;
+        expect(load()).toBe(first);
+        expect(lookup).toHaveBeenCalledTimes(1);
+        const completeInfo = { ...JPDB_INFO, examples: [{ sentence: '今日は晴れです。', translation: 'It is sunny today.' }] };
+        lookup.mockResolvedValue({ info: completeInfo, status: 'complete' });
+        now += 2;
+        const next = load();
+        expect(await next.jpdbVocabularyInfo).toEqual(completeInfo);
+        expect(lookup).toHaveBeenCalledTimes(2);
+        now += 1_001;
+        expect(load()).toBe(next);
+    });
+
     it('loads JPDB vocabulary details without a JPDB API credential', async () => {
         // The lookup scrapes public jpdb.io pages; gating it on an API key left
         // "JPDB definitions" enabled-but-dead for no-key users, so the popover
         // showed only the Jiten source with both providers turned on.
-        const lookup = vi.fn(async () => JPDB_INFO);
+        const lookup = vi.fn(async () => ({ info: JPDB_INFO, status: 'complete' as const }));
         const data = await loader({ jpdbDefinitionsEnabled: true }, lookup).load(card()).all;
 
         // The source card is Jiten-backed, so its id must not be mistaken for a
@@ -64,7 +87,7 @@ describe('keyless JPDB definitions', () => {
     });
 
     it('stays off when JPDB definitions are disabled', async () => {
-        const lookup = vi.fn(async () => JPDB_INFO);
+        const lookup = vi.fn(async () => ({ info: JPDB_INFO, status: 'complete' as const }));
         const data = await loader({ jpdbDefinitionsEnabled: false }, lookup).load(card()).all;
 
         expect(lookup).not.toHaveBeenCalled();

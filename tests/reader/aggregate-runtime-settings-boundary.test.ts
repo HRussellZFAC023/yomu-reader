@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { aggregateOfflineStarterReplacement } from '../../config/vite/offline-starter-provider';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const sourceRoot = path.join(repoRoot, 'src');
@@ -9,17 +10,17 @@ const sourceRoot = path.join(repoRoot, 'src');
 function productionImportGraph(entry: string): Set<string> {
     const pending = [path.join(repoRoot, entry)];
     const visited = new Set<string>();
-    while (pending.length) visitImportedSource(pending, visited);
+    while (pending.length) visitImportedSource(pending, visited, entry === 'src/reader/companions/runtime.ts');
     return visited;
 }
 
-function visitImportedSource(pending: string[], visited: Set<string>): void {
+function visitImportedSource(pending: string[], visited: Set<string>, aggregate: boolean): void {
     const file = pending.pop()!;
     const relative = path.relative(repoRoot, file);
     if (visited.has(relative)) return;
     visited.add(relative);
     for (const specifier of transpiledRelativeImports(file)) {
-        const resolved = resolveSourceImport(file, specifier);
+        const resolved = (aggregate && aggregateOfflineStarterReplacement(specifier, file)) || resolveSourceImport(file, specifier);
         if (resolved?.startsWith(sourceRoot)) pending.push(resolved);
     }
 }
@@ -55,6 +56,7 @@ describe('aggregate runtime Settings launcher boundary', () => {
             'src/reader/companions/settings-services.ts',
             'src/reader/app/onboarding.ts',
             'src/reader/dictionaries/offline-setup.ts',
+            'src/reader/dictionaries/offline-starters-projection.ts',
             'src/reader/dictionaries/yomitan/index.ts',
             'src/reader/lookup/nested-text-parse.ts',
             'src/reader/lookup/settings-parse-render.ts',
@@ -64,6 +66,10 @@ describe('aggregate runtime Settings launcher boundary', () => {
         ]) expect(graph, `${required} must remain in yomu-runtime`).toContain(required);
 
         for (const forbidden of [
+            'src/reader/dictionaries/recommended.ts',
+            'src/reader/dictionaries/offline-starters-catalog.ts',
+            'src/reader/dictionaries/catalog-browse.ts',
+            'src/reader/dictionaries/catalog/runtime.ts',
             'src/reader/settings/dialog-controller.ts',
             'src/reader/settings/reader-settings-restore-adapter.ts',
             'src/reader/settings/settings-action-router.ts',

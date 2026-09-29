@@ -17,14 +17,16 @@ import {
     type TermMatchCandidates,
 } from './term-match';
 import { uiText } from '../../app/i18n';
+import { assertYomitanStorageOwner, yomitanDatabaseName } from './database-owner';
 import { Logger } from '../../app/logger';
 import { assertManagedStateMutationAllowed } from '../../app/storage';
 import type { ManagedStateEpoch } from '../../app/managed-state-epoch';
 import { normalizeDictionaryPreferences } from '../../settings/index';
 import type { DictionaryPreference, InterfaceLanguage } from '../../app/types';
 import { deleteDictionaryArchive, persistDictionaryArchive } from '../archive-cache';
+import { beginDictionaryImport, requestPersistentDictionaryStorage, runDictionaryImportWrite, validateDexieJson, validateZipDictionaryBanks, type DictionaryImportMutation } from './import-lifecycle';
 import { assertDictionaryObjectIntegrity } from '../catalog/integrity';
-import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexie-stream';
+import { readBlobText, streamDexieTables } from './dexie-stream';
 import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './file-utils';
 import { renderDictionaryScopedStyles } from './glossary';
 import { glossaryValueToSearchText, normalizeGlossarySearchText } from './glossary-text';
@@ -119,7 +121,6 @@ import {
     termSearchPostings,
 } from './term-postings';
 
-const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 7;
 const DB_OPEN_TIMEOUT_MS = 10_000;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
@@ -196,7 +197,6 @@ export type {
     YomitanTermMatch,
 } from './types';
 export { glossaryToHtml, glossaryToText, renderDictionaryScopedStyles } from './glossary';
-export { parseYomitanSettingsExport } from './settings-import';
 
 interface RandomTopTermOptions {
     fallbackToRandom?: boolean;
@@ -206,23 +206,8 @@ interface RandomTopTermOptions {
     fallbackMaxMs?: number;
 }
 
-// Best-effort: browsers may prompt or silently deny; either way the request
-// marks the origin as a persistence candidate (Safari honors it for
-// frequently-used and Home-Screen sites).
-let persistentStorageRequested = false;
-function requestPersistentDictionaryStorage(): void {
-    if (persistentStorageRequested) return;
-    persistentStorageRequested = true;
-    try {
-        void navigator.storage?.persist?.().then(granted => {
-            log.info('Persistent storage request', { granted });
-        }).catch(() => undefined);
-    } catch {
-        // navigator.storage unavailable (older WebKit) — nothing to do.
-    }
-}
-
 export class YomitanDictionaryStore {
+    private readonly databaseName = yomitanDatabaseName();
     private dbPromise?: Promise<IDBDatabase>;
     private dictionaryInfoPromise?: Promise<YomitanDictionaryInfo[]>;
     private summaryPromise?: Promise<DictionarySummary>;
@@ -842,11 +827,13 @@ export class YomitanDictionaryStore {
             count: bankCount.toLocaleString(),
             plural: bankCount === 1 ? '' : 's',
         })}`);
+        if (!await validateZipDictionaryBanks(zip, dictionary, version)) throw new Error(this.text('dictionaryNoSupportedBanks'));
+        const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
+        const importing = await beginDictionaryImport();
         onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryRemovingExisting')}...`);
-        const replacedDictionaries = await this.deleteDictionariesWithSameIdentity(dictionary);
+        const replacedDictionaries = await this.deleteDictionariesWithSameIdentity(dictionary, importing);
         onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: preparing storage...`);
         const db = await this.db();
-        const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
 
         const summary: ImportSummary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
         let ipaRows = 0;
@@ -859,7 +846,7 @@ export class YomitanDictionaryStore {
             const flush = async () => {
                 if (!pending.length) return;
                 if (store === 'terms' && !clearedTermIndexesForImport) {
-                    await this.clearDerivedTermIndexes(db);
+                    await this.clearDerivedTermIndexes(db, importing);
                     clearedTermIndexesForImport = true;
                 }
                 const entries = pending;
@@ -868,7 +855,7 @@ export class YomitanDictionaryStore {
                 onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionarySavingBank')} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text('dictionaryEntries')}...`);
                 await this.addToStore(store, entries, false, store !== 'terms', written => {
                     onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionarySavingBank')} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text('dictionaryEntries')}...`);
-                });
+                }, importing);
                 saved += entries.length;
                 if (store === 'terms') importedTerms = true;
             };
@@ -904,11 +891,11 @@ export class YomitanDictionaryStore {
         await importBank(/^kanji_meta_bank_\d+\.json$/i, 'kanjiMeta', 'kanjiMeta', row => normalizeZipKanjiMetaRow(row, dictionary));
 
         if (summary.entries === 0) throw new Error(this.text('dictionaryNoSupportedBanks'));
-        if (importedTerms) await this.clearDerivedTermIndexes(db);
+        if (importedTerms) await this.clearDerivedTermIndexes(db, importing);
         info.counts = dictionaryCountsFromSummary(summary, ipaRows);
         info.type = dictionaryTypeFromCounts(info.counts);
         summary.dictionaryTypes = { [dictionary]: info.type };
-        await this.putDictionaryInfo(info);
+        await this.putDictionaryInfo(info, importing);
         // Keep the archive in cross-origin GM storage so other origins (whose
         // page IndexedDB never saw this import) can replicate it on demand.
         // Replication itself imports with persistArchive:false to avoid
@@ -942,17 +929,18 @@ export class YomitanDictionaryStore {
     }
 
     private async importReaderJson(json: ReaderDictionaryExport): Promise<ImportSummary> {
-        await this.clear();
-        const terms = readerExportTerms(json);
+        const terms = readerExportTerms(json).map(normalizeImportedLookupTerm);
         const dictionaryTypes = dictionaryTypesFromReaderExport(json);
         const dictionaryNames = readerExportDictionaryNames(json, terms);
         const dictionaries = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
+        const importing = await beginDictionaryImport();
+        await this.clear(importing);
         await Promise.all([
-            this.addToStore('dictionaryInfo', dictionaries, true),
-            this.addToStore('terms', terms, false, false),
-            this.addToStore('kanji', json.kanji ?? []),
-            this.addToStore('termMeta', json.termMeta ?? []),
-            this.addToStore('kanjiMeta', json.kanjiMeta ?? []),
+            this.addToStore('dictionaryInfo', dictionaries, true, true, undefined, importing),
+            this.addToStore('terms', terms, false, false, undefined, importing),
+            this.addToStore('kanji', json.kanji ?? [], false, true, undefined, importing),
+            this.addToStore('termMeta', json.termMeta ?? [], false, true, undefined, importing),
+            this.addToStore('kanjiMeta', json.kanjiMeta ?? [], false, true, undefined, importing),
         ]);
         const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
         log.info('JSON dictionary import parsed', summary);
@@ -961,9 +949,10 @@ export class YomitanDictionaryStore {
 
     async importDexieJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
         await assertManagedStateMutationAllowed();
+        const rowCounts = await validateDexieJson(file);
+        const importing = await beginDictionaryImport();
         onProgress?.('Streaming Yomitan dictionary export...');
-        await this.clear();
-        const rowCounts: Partial<Record<string, number>> = await readDexieTableRowCounts(file).catch(() => ({}));
+        await this.clear(importing);
         const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
         if (totalRows > 0) onProgress?.(`${this.text('dictionaryPreparingImport')} ${totalRows.toLocaleString()} ${this.text('dictionaryRecords')}...`);
         const dictionaries = new Set<string>();
@@ -992,7 +981,7 @@ export class YomitanDictionaryStore {
         const flush = async (store: EntryStoreName, forceProgress = false) => {
             const batch = batches[store];
             if (!batch.length) return;
-            await this.addToStore(store, batch, false, store !== 'terms');
+            await this.addToStore(store, batch, false, store !== 'terms', undefined, importing);
             batches[store] = [];
             reportProgress(store, forceProgress);
         };
@@ -1062,7 +1051,7 @@ export class YomitanDictionaryStore {
             info.counts = { ...(info.counts ?? {}), ...counts };
             info.type = dictionaryTypeFromCounts(info.counts);
             summary.dictionaryTypes![dictionary] = info.type;
-            return this.putDictionaryInfo(info);
+            return this.putDictionaryInfo(info, importing);
         }));
         log.info('Dexie dictionary import parsed', summary);
         return summary;
@@ -1124,11 +1113,11 @@ export class YomitanDictionaryStore {
         }
     }
 
-    async clear(): Promise<void> {
+    async clear(importing?: DictionaryImportMutation): Promise<void> {
         const done = log.time('Dictionary store clear');
         try {
             const db = await this.db();
-            await this.clearDictionaryStores(db);
+            await this.clearDictionaryStores(db, importing);
             this.invalidateCaches();
             log.info('Dictionary store cleared');
         } catch (error) {
@@ -1147,16 +1136,18 @@ export class YomitanDictionaryStore {
         try {
             const db = await dbPromise;
             db.close();
-            log.info('Dictionary DB closed for reset', { name: DB_NAME });
+            log.info('Dictionary DB closed for reset', { name: this.databaseName });
         } catch {
         }
     }
 
-    async deleteDatabase(options: { timeoutMs?: number } = {}): Promise<void> {
+    async deleteDatabase(options: { timeoutMs?: number; completedResetId?: string } = {}): Promise<void> {
+        assertYomitanStorageOwner(this.databaseName);
         const done = log.time('Dictionary database delete');
         try {
             const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
             const db = this.dbPromise ? await this.dbPromise.catch(() => undefined) : undefined;
+            assertYomitanStorageOwner(this.databaseName);
             db?.close();
             this.dbPromise = undefined;
             this.invalidateCaches();
@@ -1176,15 +1167,15 @@ export class YomitanDictionaryStore {
                     globalThis.clearTimeout(timeout);
                     callback();
                 };
-                const request = indexedDB.deleteDatabase(DB_NAME);
+                const request = indexedDB.deleteDatabase(this.databaseName);
                 request.onsuccess = () => settle(resolve);
                 request.onerror = () => settle(() => reject(request.error ?? new Error('Dictionary database reset failed.')));
                 request.onblocked = () => {
                     blocked = true;
-                    log.warn('Dictionary delete blocked by another tab', { name: DB_NAME });
+                    log.warn('Dictionary delete blocked by another tab', { name: this.databaseName });
                 };
             });
-            log.info('Dictionary database deleted', { name: DB_NAME });
+            log.info('Dictionary database deleted', { name: this.databaseName });
         } catch (error) {
             log.warn('Dictionary database delete failed', { error });
             throw error;
@@ -1198,7 +1189,7 @@ export class YomitanDictionaryStore {
     // Re-importing "Jitendex.org [2026-06-06]" must replace the installed
     // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
     // duplicate term rows double every lookup's index scans.
-    private async deleteDictionariesWithSameIdentity(dictionary: string): Promise<string[]> {
+    private async deleteDictionariesWithSameIdentity(dictionary: string, importing?: DictionaryImportMutation): Promise<string[]> {
         const identity = yomitanDictionaryIdentity(dictionary);
         let stale: string[] = [];
         try {
@@ -1211,11 +1202,11 @@ export class YomitanDictionaryStore {
             stale = [dictionary];
         }
         if (!stale.includes(dictionary)) stale.push(dictionary);
-        for (const title of stale) await this.deleteDictionary(title);
+        for (const title of stale) await this.deleteDictionary(title, importing);
         return stale.filter(title => title !== dictionary);
     }
 
-    async deleteDictionary(dictionary: string): Promise<void> {
+    async deleteDictionary(dictionary: string, importing?: DictionaryImportMutation): Promise<void> {
         const done = log.time('Dictionary delete', { dictionary });
         try {
             const db = await this.db();
@@ -1225,7 +1216,7 @@ export class YomitanDictionaryStore {
                 return;
             }
             if (dictionaries.length === 1) {
-                await this.clearDictionaryStores(db);
+                await this.clearDictionaryStores(db, importing);
                 this.invalidateCaches();
                 await deleteDictionaryArchive(dictionary).catch(() => undefined);
                 log.info('Only installed dictionary cleared', { dictionary });
@@ -1233,12 +1224,12 @@ export class YomitanDictionaryStore {
             }
             const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta']);
             for (const store of stores) {
-                await deleteByDictionary(db, store, dictionary);
+                await deleteByDictionary(db, store, dictionary, importing);
             }
-            await runYomitanManagedStateWrite(db, 'dictionaryInfo', tx => {
+            await runDictionaryImportWrite(db, 'dictionaryInfo', tx => {
                 tx.objectStore('dictionaryInfo').delete(dictionary);
-            });
-            await this.clearDerivedTermIndexes(db);
+            }, undefined, importing);
+            await this.clearDerivedTermIndexes(db, importing);
             this.invalidateCaches();
             // Drop the cross-origin archive too, or replication would
             // resurrect the dictionary on the next origin visited. Revision
@@ -1253,16 +1244,16 @@ export class YomitanDictionaryStore {
         }
     }
 
-    private async putDictionaryInfo(info: YomitanDictionaryInfo): Promise<void> {
-        await this.addToStore('dictionaryInfo', [info], true);
+    private async putDictionaryInfo(info: YomitanDictionaryInfo, importing?: DictionaryImportMutation): Promise<void> {
+        await this.addToStore('dictionaryInfo', [info], true, true, undefined, importing);
     }
 
-    private async clearDictionaryStores(db: IDBDatabase): Promise<void> {
+    private async clearDictionaryStores(db: IDBDatabase, importing?: DictionaryImportMutation): Promise<void> {
         this.termIndexGeneration++;
         const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo', 'termSearch', 'termKanji']);
-        await runYomitanManagedStateWrite(db, stores, tx => {
+        await runDictionaryImportWrite(db, stores, tx => {
             for (const storeName of stores) tx.objectStore(storeName).clear();
-        }, { durability: 'relaxed' });
+        }, { durability: 'relaxed' }, importing);
         this.termKanjiIndexReady = false;
     }
 
@@ -1272,6 +1263,7 @@ export class YomitanDictionaryStore {
         put = false,
         clearTermIndexes = true,
         onChunk?: (written: number, total: number) => void,
+        importing?: DictionaryImportMutation,
     ): Promise<void> {
         if (!entries.length) return;
         const normalizedEntries = storeName === 'terms'
@@ -1287,24 +1279,24 @@ export class YomitanDictionaryStore {
         // refusing. Checked once before the first write instead.
         await assertManagedStateMutationAllowed();
         const db = await this.db();
-        if (storeName === 'terms' && clearTermIndexes) await this.clearDerivedTermIndexes(db);
+        if (storeName === 'terms' && clearTermIndexes) await this.clearDerivedTermIndexes(db, importing);
         let written = 0;
         for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
             const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
-            await this.addStoreChunk(db, storeName, chunk, put);
+            await this.addStoreChunk(db, storeName, chunk, put, importing);
             written += chunk.length;
             onChunk?.(written, normalizedEntries.length);
             await nextTask();
         }
     }
 
-    private addStoreChunk<T>(db: IDBDatabase, storeName: StoreName, entries: T[], put: boolean): Promise<void> {
-        return runYomitanManagedStateWrite(db, storeName, tx => {
+    private addStoreChunk<T>(db: IDBDatabase, storeName: StoreName, entries: T[], put: boolean, importing?: DictionaryImportMutation): Promise<void> {
+        return runDictionaryImportWrite(db, storeName, tx => {
             const store = tx.objectStore(storeName);
             for (const entry of entries) {
                 put ? store.put(entry) : store.add(entry);
             }
-        }, { durability: 'relaxed' }).then(() => this.invalidateCaches());
+        }, { durability: 'relaxed' }, importing).then(() => this.invalidateCaches());
     }
 
     private async getByIndex<T>(db: IDBDatabase, storeName: StoreName, indexName: string, value: string, limit: number): Promise<T[]> {
@@ -1787,13 +1779,13 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private async clearDerivedTermIndexes(db: IDBDatabase): Promise<void> {
+    private async clearDerivedTermIndexes(db: IDBDatabase, importing?: DictionaryImportMutation): Promise<void> {
         this.termIndexGeneration++;
         const stores = existingStores(db, ['termSearch', 'termKanji']);
         if (!stores.length) return;
-        await runYomitanManagedStateWrite(db, stores, tx => {
+        await runDictionaryImportWrite(db, stores, tx => {
             for (const store of stores) tx.objectStore(store).clear();
-        }, { durability: 'relaxed' });
+        }, { durability: 'relaxed' }, importing);
         this.termKanjiIndexReady = false;
     }
 
@@ -1824,7 +1816,7 @@ export class YomitanDictionaryStore {
     }
 
     private db(): Promise<IDBDatabase> {
-        return fencedYomitanDbHandle(() => this.dbPromise, epoch => (this.dbPromise ??= this.openDb(epoch)));
+        return fencedYomitanDbHandle(this.databaseName, () => this.dbPromise, epoch => (this.dbPromise ??= this.openDb(epoch)));
     }
 
     // A blocked or wedged upgrade (an older runtime still holding the
@@ -1834,7 +1826,7 @@ export class YomitanDictionaryStore {
     // (the delete path at clearAll already does both).
     private openDb(epoch: ManagedStateEpoch): Promise<IDBDatabase> {
         const promise: Promise<IDBDatabase> = new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            const request = indexedDB.open(this.databaseName, DB_VERSION);
             let settled = false;
             const failOpen = (reason: string, error?: unknown) => {
                 if (settled) return;
@@ -1846,6 +1838,13 @@ export class YomitanDictionaryStore {
             const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
             request.onblocked = () => failOpen('Dictionary database upgrade blocked by another open connection');
             request.onupgradeneeded = event => {
+                try { assertYomitanStorageOwner(this.databaseName); }
+                catch (error) {
+                    request.transaction?.abort();
+                    clearTimeout(openTimeout);
+                    failOpen('Dictionary storage owner changed', error);
+                    return;
+                }
                 const db = request.result;
                 const tx = request.transaction!;
                 log.info('Upgrading dictionary database', { oldVersion: event.oldVersion, newVersion: DB_VERSION });
@@ -1936,7 +1935,7 @@ export class YomitanDictionaryStore {
     private installVersionChangeHandler(db: IDBDatabase): void {
         db.onversionchange = event => {
             log.info('Dictionary DB version change; closing', {
-                name: DB_NAME,
+                name: this.databaseName,
                 oldVersion: event.oldVersion,
                 newVersion: event.newVersion,
             });
@@ -2324,15 +2323,15 @@ function normalizeMediaPath(path: string): string {
     return path.trim().replace(/^\.?\//, '').replace(/\\/g, '/');
 }
 
-async function deleteByDictionary(db: IDBDatabase, storeName: InternalStoreName, dictionary: string): Promise<void> {
-    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
+async function deleteByDictionary(db: IDBDatabase, storeName: InternalStoreName, dictionary: string, importing?: DictionaryImportMutation): Promise<void> {
+    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE, importing) >= DICTIONARY_DELETE_BATCH_SIZE) {
         await nextTask();
     }
 }
 
-async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreName, dictionary: string, limit: number): Promise<number> {
+async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreName, dictionary: string, limit: number, importing?: DictionaryImportMutation): Promise<number> {
     let deleted = 0;
-    await runYomitanManagedStateWrite(db, storeName, tx => {
+    await runDictionaryImportWrite(db, storeName, tx => {
         const index = tx.objectStore(storeName).index('dictionary');
         const request = index.openCursor(IDBKeyRange.only(dictionary));
         request.onsuccess = () => {
@@ -2343,7 +2342,7 @@ async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreNa
             if (deleted >= limit) return;
             cursor.continue();
         };
-    }, { durability: 'relaxed' });
+    }, { durability: 'relaxed' }, importing);
     return deleted;
 }
 

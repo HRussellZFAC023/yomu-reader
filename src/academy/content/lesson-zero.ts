@@ -3,6 +3,8 @@ import type { GroundedLessonContract } from '../domain/grounded-lesson';
 import { LESSON_ZERO_CONTENT_URL, type LessonZeroDefinition } from './lesson-zero-schema';
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { validateLessonZeroPackage } from './lesson-zero-validator';
+import { LESSON_ZERO_CONTENT_SHA256 } from './lesson-zero-pedagogy-definitions';
+import { sha256Hex } from '../web-crypto';
 
 export {
     LESSON_ZERO_CANONICAL_CHARACTER_IDS,
@@ -47,7 +49,11 @@ async function load(fetcher: typeof fetch): Promise<LessonZeroContent> {
     if (!response.ok) {
         throw new Error(`Could not load complete Lesson 0: ${LESSON_ZERO_CONTENT_URL} (${response.status})`);
     }
-    const data = validateLessonZeroPackage(await response.json());
+    const bytes = await response.arrayBuffer();
+    if (await sha256Hex(bytes) !== LESSON_ZERO_CONTENT_SHA256) {
+        throw new TypeError('Lesson 0 does not match its registered bytes.');
+    }
+    const data = validateLessonZeroPackage(JSON.parse(new TextDecoder().decode(bytes)));
     return {
         sourceLibrary: createSourceLibrary(data.sourceLibrary),
         lesson: structuredClone(data.lesson),

@@ -2,7 +2,9 @@ import { isRecord } from '../core/object-utils';
 import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthRedirectResult, CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
 import { requestJson, requestText } from '../network/http';
-import { exportSettingsBackupSnapshot } from './settings-persistence-transaction';
+import { exportSettingsBackupSnapshot } from './settings-backup';
+import { validateCloudSettingsEnvelope } from './cloud-settings-envelope';
+import { userFacingError } from '../app/user-facing-errors';
 import {
     cloudSettingsRedirectHandoffRequired,
     isCloudSettingsAuthorizationState,
@@ -503,16 +505,14 @@ function googleIdentityServices(): GoogleIdentityServices | null {
     return candidate?.accounts?.oauth2 ? candidate : null;
 }
 
-function parseSettingsSnapshot(body: string): CloudSettingsSyncSnapshot | null {
+function parseSettingsSnapshot(body: string): CloudSettingsSyncSnapshot {
     let parsed: unknown;
     try {
         parsed = JSON.parse(body);
     } catch {
-        return null;
+        throw userFacingError('settingsImportUnsupportedFormat');
     }
-    if (!isRecord(parsed) || parsed.formatName !== 'yomu-google-drive-settings-sync') return null;
-    if (!isRecord(parsed.settings)) return null;
-    return parsed as unknown as CloudSettingsSyncSnapshot;
+    return validateCloudSettingsEnvelope(parsed);
 }
 
 function driveFileFromResponse(value: unknown): DriveFile {

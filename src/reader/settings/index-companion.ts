@@ -8,7 +8,6 @@ const settings = aggregateRuntimeModules().settings;
 
 export const {
     DEFAULT_AUDIO_SOURCES,
-    DEFAULT_NEW_TAB_STUDY_STEP_ORDER,
     DEFAULT_OVERLAY_BACKGROUND_COLOR,
     DEFAULT_POPUP_FONT_FAMILY,
     DEFAULT_READER_FONT_FAMILY,
@@ -37,7 +36,6 @@ export const {
     formatShortcutEvent,
     isPopupLookupEnabled,
     loadSettings,
-    loadSettingsWithWitnessedAuthority,
     matchesShortcut,
     normalizeAudioSource,
     normalizeAudioSubSources,
@@ -46,7 +44,6 @@ export const {
     normalizeInterfaceLanguage,
     normalizeOcrProvider,
     normalizeReaderSettings,
-    promoteStrandedHostedSettingsToGmStorage,
     sanitizeAccentColor,
     saveSettings,
     shortcutIsPressed,

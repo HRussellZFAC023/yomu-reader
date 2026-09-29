@@ -20,7 +20,7 @@ export interface WebsiteRoutePublication {
  */
 export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.freeze([
     route('', 'index.md',
-        ['よむ — Read your learning language', 'よむ — 学習している言語を読む'],
+        ['よむ | Read Japanese. Stay with the story.', 'よむ | 日本語を読む。物語の続きを楽しむ。'],
         ['Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.', '33の学習言語のどれでも、ウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習も使えます。']),
     englishOnlyRoute('api/', 'api/index.md',
         'Yomu API reference',
@@ -69,6 +69,10 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         'Local Audio',
         'Hear Japanese words read aloud in Yomu. Hosted audio is on by default; add your own source or play pronunciation files from your own computer if you want more.',
         'local-audio-native-review-pending'),
+    englishOnlyRoute('library/', 'library/index.md',
+        'Read',
+        'Browse free Japanese books by level and interest, or open your own PDF.',
+        'library-native-review-pending'),
     route('membership', 'membership.md',
         ['Membership', 'メンバーシップ'],
         ['Yomu is free and stays free. Chip in toward its small monthly bill through a verified support provider.', 'よむは無料で、これからも無料です。確認済みの支援サービスから、少額の月間運営費を支援できます。']),

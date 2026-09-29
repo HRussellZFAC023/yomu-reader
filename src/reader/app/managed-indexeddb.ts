@@ -16,6 +16,7 @@ export interface ManagedStateIdbMarker {
 }
 
 interface ManagedStateIdbEpochOptions {
+    readonly beforeMutate?: () => void;
     readonly label: string;
     readonly markerStoreName: string;
     readonly markerKey: IDBValidKey;
@@ -45,6 +46,12 @@ export async function reconcileManagedStateIdbEpoch(
         const markerStore = tx.objectStore(options.markerStoreName);
         const request = markerStore.get(options.markerKey);
         request.onsuccess = () => {
+            try { options.beforeMutate?.(); }
+            catch (error) {
+                reconciliationError = error instanceof Error ? error : new Error('IndexedDB ownership changed.');
+                tx.abort();
+                return;
+            }
             const record = request.result as unknown;
             const markerMissing = record === undefined;
             if (!markerMissing && (!record || typeof record !== 'object' || Array.isArray(record)
@@ -78,7 +85,7 @@ export async function reconcileManagedStateIdbEpoch(
         request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-        tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+        tx.onabort = () => reject(reconciliationError ?? tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
     });
     if (reconciliationError) throw reconciliationError;
     await assertManagedStateMutationAllowed();

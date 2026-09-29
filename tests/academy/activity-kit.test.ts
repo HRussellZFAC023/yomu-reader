@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import { parseKanjiVGSvg } from '../../src/reader/kanji/vg';
 import type { KanjiWritingModel, KanjiWritingService } from '../../src/academy/integration/yomu-bridge';
 import {
@@ -37,7 +39,9 @@ afterEach(() => document.body.replaceChildren());
 describe('Academy reusable activity kit', () => {
     it('validates every canonical lesson binding through the shared runtime', async () => {
         const runtime = createAcademyActivityRuntime();
-        const chapters = await Promise.all(LESSON_ACTIVITY_CHAPTER_PACKAGES.map(id => loadLessonActivityChapter(id, kanjiWriting)));
+        const loaded = new Map(await Promise.all(['l1-l09', 'l1-l19', 'l1-l20'].map(async id =>
+            [id, await validateCommittedAuthoredWeek(getAuthoredWeekRegistration(id))] as const)));
+        const chapters = await Promise.all(LESSON_ACTIVITY_CHAPTER_PACKAGES.map(id => loadLessonActivityChapter(id, kanjiWriting, loaded.get(id))));
 
         expect(chapters.every(Boolean)).toBe(true);
         expect(chapters.map(chapter => chapter?.lessonPackageId)).toEqual([...LESSON_ACTIVITY_CHAPTER_PACKAGES]);

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { newTabImmersionClient } from './fixtures';
 import {
     registerNewTabReviewCleanup,
     DEFAULT_SETTINGS,
@@ -18,7 +19,6 @@ import {
     stubKanjiDoodleBrowserApis,
     NewTabController,
     assessKanjiStrokes,
-    BASE_DEFAULT_SETTINGS,
     waitForExpect,
 } from './fixtures';
 import type {
@@ -97,14 +97,16 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             pitchAccent: [],
             wordWithReading: null,
             source: 'jpdb',
+            reviewSource: 'jpdb-live',
+            jpdbReviewId: 'kb,返',
             kanjiKeyword: 'return',
         };
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 newTabKanjiAutogradeEnabled: true,
-                newTabStudyStepOrder: BASE_DEFAULT_SETTINGS.newTabStudyStepOrder,
-                newTabStudyDisabledSteps: [],
+
+
             }),
             anki: {} as never,
             jpdb: {} as never,
@@ -121,10 +123,10 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             dismiss: vi.fn(),
         });
         const root = renderEnabledNewTabRoot(controller);
-        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { mode: string; revealAnswer: boolean } }, {
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { route: string; revealAnswer: boolean } }, {
             visibleWords: [card],
             sourceLabel: 'JPDB',
-            state: { mode: 'kanji', revealAnswer: false },
+            state: { route: 'study', revealAnswer: false },
         });
 
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
@@ -147,7 +149,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('');
 
         (controller as unknown as { doodlePreviewCache: Map<string, string> }).doodlePreviewCache.set('1:1:返:へんじ', 'data:image/png;base64,doodle');
-        (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'kanji', revealAnswer: true };
+        (controller as unknown as { state: { route: string; revealAnswer: boolean } }).state = { route: 'study', revealAnswer: true };
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
         await Promise.resolve();
 
@@ -202,10 +204,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
                 jpdbKanji: { lookup: vi.fn(() => lookup.promise) } as never,
             });
 
-            // The blanked cloze fronts immediately, but the word meaning must
-            // NOT: it is the answer to the session's word step (owner: "showing
-            // 'time ＿＿' gives away the answer for the next part"). The meaning
-            // stays reachable behind the Hint button.
+            // Writing practice conceals the answer; the word meaning remains behind Hint.
             const promptText = root.querySelector('[data-newtab-prompt]')?.textContent ?? '';
             expect(promptText).not.toContain('to sow');
             expect(promptText).toContain('＿く');
@@ -243,8 +242,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             });
             const prompt = root.querySelector('[data-newtab-prompt]');
             expect(prompt?.textContent).toContain('＿み＿');
-            // The context row already fronts "drink" — a "JPDB drink" pill below
-            // would be pure repetition.
+            // A keyword matching the word meaning must not expose that answer.
             expect(prompt?.querySelectorAll('.jpdb-reader-newtab-kanji-front-keyword:not(.jpdb-reader-newtab-kanji-front-context)').length).toBe(0);
         } finally {
             restoreCanvas();
@@ -338,7 +336,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         }
     });
 
-    it('keeps the current card selected when switching between word and kanji mode', () => {
+    it('keeps the current card selected when choosing Academy writing practice', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const current = newTabTestCard({ vid: 10, sid: 10, spelling: '月', reading: 'つき', kanjiKeyword: 'moon' });
         const other = newTabTestCard({ vid: 11, sid: 11, spelling: '胸', reading: 'むね', kanjiKeyword: 'chest' });
@@ -346,10 +344,10 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             ...DEFAULT_SETTINGS,
             immersionKitEnabled: false,
             newTabKanjiAutogradeEnabled: false,
-            newTabStudyDisabledSteps: [],
+
         }, {
             dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
-        });
+        }, { surface: 'academy' });
         try {
             const root = renderEnabledNewTabRoot(controller);
             Object.assign(controller as unknown as {
@@ -357,18 +355,18 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
                 visibleWords: JPDBCard[];
                 index: number;
                 sourceLabel: string;
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             }, {
                 allWords: [other, current],
                 visibleWords: [other, current],
                 index: 1,
                 sourceLabel: 'JPDB',
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'dictionary', revealAnswer: false },
+                state: { route: 'study', sort: 'random', filter: 'study', source: 'dictionary', revealAnswer: false },
             });
             (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderWord(root: HTMLElement, card: JPDBCard): void }).bindRootEvents(root);
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, current);
 
-            root.querySelector<HTMLButtonElement>('[data-study-step-kind="kanji-doodle"]')?.click();
+            root.querySelector<HTMLButtonElement>('[data-study-step-kind="kanji-doodle"]')!.click();
 
             expect((controller as unknown as { currentVisibleWordKey(): string }).currentVisibleWordKey()).toBe('10:10:月:つき');
             expectOpaqueStudyCardToken(root, '月', 'つき');
@@ -394,8 +392,8 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             ...DEFAULT_SETTINGS,
             immersionKitEnabled: false,
             newTabKanjiAutogradeEnabled: false,
-            newTabStudyDisabledSteps: [],
-        }, { playWordAudio });
+
+        }, { playWordAudio }, { surface: 'academy' });
         const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'Dictionaries',
             state: { source: 'dictionary', revealAnswer: false },
@@ -418,7 +416,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             expect(preRevealMarkup).not.toContain('買い物');
             expect(preRevealMarkup).toContain('＿い＿');
 
-            root.querySelector<HTMLButtonElement>('[data-study-step-kind="word"]')!.click();
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="return-to-review"]')!.click();
             const preRevealCardIds = Array.from(study.querySelectorAll<HTMLElement>('[data-newtab-card]'))
                 .map(element => element.dataset.newtabCard);
             expect(new Set(preRevealCardIds)).toEqual(new Set([study.dataset.newtabCard]));
@@ -426,7 +424,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             study.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')!.click();
             expect(playWordAudio).toHaveBeenCalledWith(card);
 
-            root.querySelector<HTMLButtonElement>('[data-study-step-kind="final-reveal"]')!.click();
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')!.click();
 
             expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(true);
             expect(study.dataset.newtabCard).toBe('41:42:買い物:かいもの');
@@ -1096,12 +1094,11 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             imageUrl: '',
         }]);
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
-            immersionKit: {
-                search,
+            immersionKit: newTabImmersionClient({
+                query: search,
                 mediaUrls: vi.fn(() => []),
-            } as never,
+            } as never),
         });
-        void (controller as unknown as { loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> }).loadImmersionExamples(card);
         const root = renderNewTabWordFront(controller, card);
         document.body.append(root);
 
@@ -1124,10 +1121,10 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             sentence: 'お母ちゃん中学生？',
         }]);
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
-            immersionKit: {
-                search,
+            immersionKit: newTabImmersionClient({
+                query: search,
                 mediaUrls: vi.fn(() => []),
-            } as never,
+            } as never),
         });
         const root = renderNewTabWordFront(controller, card);
         document.body.append(root);
@@ -1148,12 +1145,11 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         const parseContent = vi.fn(async () => undefined);
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,
-            immersionKit: {
-                search: vi.fn(() => examples.promise),
+            immersionKit: newTabImmersionClient({
+                query: vi.fn(() => examples.promise),
                 mediaUrls: vi.fn(() => []),
-            } as never,
+            } as never),
         });
-        void (controller as unknown as { loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> }).loadImmersionExamples(card);
         const root = renderNewTabWordFront(controller, card);
         document.body.append(root);
         const term = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')!;
@@ -1184,13 +1180,13 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/media');
         const parse = vi.fn(async (_paragraphs: string[], _options?: unknown) => [[]]);
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: true }, {
-            immersionKit: {
-                search,
+            immersionKit: newTabImmersionClient({
+                query: search,
                 mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
                     kind === 'image' ? [`https://media.test/${example.id}.jpg`] : [`https://media.test/${example.id}.mp3`]
                 )),
                 fetchBlobUrl,
-            } as never,
+            } as never),
             parser: {
                 canParse: () => true,
                 parse,
@@ -1228,13 +1224,13 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         const fetchBlobUrl = vi.fn(async (urls: string | string[]) => `blob:http://localhost/${Array.isArray(urls) ? urls[0] : urls}`);
         const parse = vi.fn(async (_paragraphs: string[], _options?: unknown) => [[]]);
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: true }, {
-            immersionKit: {
-                search,
+            immersionKit: newTabImmersionClient({
+                query: search,
                 mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
                     kind === 'image' ? [`https://media.test/${example.id}.jpg`] : [`https://media.test/${example.id}.mp3`]
                 )),
                 fetchBlobUrl,
-            } as never,
+            } as never),
             parser: {
                 canParse: () => true,
                 parse,
@@ -1269,40 +1265,14 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         }
     });
 
-    it('tries cheap new-tab Immersion Kit fallbacks before parser fallback work', async () => {
-        const card = newTabTestCard({ spelling: '食べ物', reading: 'たべもの' });
-        const search = vi.fn(async (query: string): Promise<ImmersionKitExample[]> => (
-            query === 'たべもの' ? [newTabImmersionExample(query)] : []
-        ));
-        const parse = vi.fn(async () => {
-            throw new Error('parser fallback should not run before cheap fallback hits');
-        });
-        const controller = newTabPromptController(DEFAULT_SETTINGS, {
-            immersionKit: {
-                search,
-                mediaUrls: vi.fn(() => []),
-            } as never,
-            parser: {
-                canParse: () => true,
-                parse,
-            } as never,
-        });
-
-        await expect((controller as unknown as {
-            loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]>;
-        }).loadImmersionExamples(card)).resolves.toHaveLength(1);
-
-        expect(search.mock.calls.map(([query]) => query)).toEqual(['食べ物', 'たべもの']);
-        expect(parse).not.toHaveBeenCalled();
-    });
 
     it('falls back to a JPDB example sentence on the front when Immersion Kit is off', async () => {
         const card = newTabTestCard({ vid: 120, spelling: '辞書', reading: 'じしょ' });
-        const lookup = vi.fn(async () => ({
+        const lookup = vi.fn(async () => ({ info: ({
             meanings: [],
             compounds: [],
             examples: [{ sentence: '辞書を引く。', translation: '' }],
-        }));
+        }), status: 'complete' as const }));
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: false }, {
             jpdbVocabulary: { lookup },
         });

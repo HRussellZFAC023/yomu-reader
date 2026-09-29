@@ -11,6 +11,8 @@ import {
 } from '../../src/reader/dom/rendered-word-private-state';
 import { renderedWordElementKey } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
+import { reviewShortcutButton } from '../../src/reader/dom/review-shortcuts';
 import { testCardActionController } from './jpdb/fixtures';
 
 const PRIVATE_DECK = 'Private::Deck Ω';
@@ -83,6 +85,89 @@ beforeEach(() => {
 });
 
 describe('offhost account-data privacy', () => {
+    it.each(['removed', 'cloned', 'other-group'])('rejects click and keyboard review with a %s selector and an unhidden alternate row', async replacement => {
+        const jitenSettings = { ...settings, apiKey: '', jitenApiKey: 'private-jiten-key' };
+        const jitenCard: JPDBCard = { ...card, source: 'jiten', reviewSource: 'jiten-api' };
+        const root = document.createElement('div');
+        setInnerHtml(root, popupRenderer(true, jitenSettings).render(jitenCard, '', 'modal', richRenderData()));
+        const button = root.querySelector<HTMLButtonElement>('[data-review-grade-profile="anki"] [data-grade="hard"]')!;
+        const selector = root.querySelector<HTMLSelectElement>('[data-review-target-select]')!;
+        if (replacement === 'removed') selector.remove();
+        else if (replacement === 'cloned') {
+            const clone = selector.cloneNode(false) as HTMLSelectElement;
+            clone.append(...selector.options);
+            selector.replaceWith(clone);
+        } else {
+            const other = document.createElement('div');
+            setInnerHtml(other, popupRenderer(true, jitenSettings).render(jitenCard, '', 'modal', richRenderData()));
+            selector.replaceWith(other.querySelector('[data-review-target-select]')!);
+        }
+        button.closest<HTMLElement>('[data-review-target-row]')!.hidden = false;
+        const reviewCard = vi.fn(async () => undefined);
+        const answerCard = vi.fn(async () => undefined);
+        const controller = testCardActionController({ getSettings: () => jitenSettings, jiten: { reviewCard } as never, anki: { answerCard } as never });
+        const click = controller.perform(readCardCommandCapability(button), button, jitenCard).catch(() => false);
+        const keyboard = reviewShortcutButton(root, new KeyboardEvent('keydown', { key: '2' }), jitenSettings);
+        if (keyboard) await controller.perform(readCardCommandCapability(keyboard), keyboard, jitenCard).catch(() => false);
+        await click;
+        expect(reviewCard).not.toHaveBeenCalled();
+        expect(answerCard).not.toHaveBeenCalled();
+        expect(keyboard).toBeUndefined();
+    });
+
+    it('renders only the initial profile when switching is disabled, and still reviews without a selector', async () => {
+        const jitenSettings = { ...settings, apiKey: '', jitenApiKey: 'private-jiten-key' };
+        const renderer = popupRenderer(true, jitenSettings) as unknown as {
+            renderTargetedReviewButtons(targets: unknown[], language: string, canSwitch: boolean, provider: null): string;
+        };
+        const root = document.createElement('div');
+        root.className = 'jpdb-reader-actions';
+        setInnerHtml(root, renderer.renderTargetedReviewButtons([
+            { id: 'jiten', kind: 'jiten', gradeProfile: 'jiten', label: 'Grades Jiten', shortLabel: 'Jiten' },
+            { id: 'anki', kind: 'anki', gradeProfile: 'anki', label: 'Grades Anki', shortLabel: 'Anki', ankiCardId: 404 },
+        ], 'en', false, null));
+        expect(root.querySelector('select')).toBeNull();
+        expect(root.querySelectorAll('[data-review-target-row]')).toHaveLength(1);
+        expect(root.querySelector('[data-grade="something"]')).toBeNull();
+        const button = reviewShortcutButton(root, new KeyboardEvent('keydown', { key: '2' }), jitenSettings)!;
+        const reviewCard = vi.fn(async () => undefined);
+        const controller = testCardActionController({ getSettings: () => jitenSettings, jiten: { reviewCard } as never });
+        const jitenCard: JPDBCard = { ...card, source: 'jiten', reviewSource: 'jiten-api' };
+        await controller.perform(readCardCommandCapability(button), button, jitenCard);
+        expect(reviewCard).toHaveBeenCalledTimes(1);
+        expect(reviewCard).toHaveBeenCalledWith(jitenCard, 'hard');
+    });
+    it('rejects a privately bound off-target row even when the host unhides and relabels it', async () => {
+        const jitenSettings = { ...settings, apiKey: '', jitenApiKey: 'private-jiten-key' };
+        const jitenCard: JPDBCard = { ...card, source: 'jiten', reviewSource: 'jiten-api' };
+        const root = document.createElement('div');
+        setInnerHtml(root, popupRenderer(true, jitenSettings).render(jitenCard, '', 'modal', richRenderData()));
+        const button = root.querySelector<HTMLButtonElement>('[data-review-grade-profile="anki"] [data-grade="hard"]')!;
+        const row = button.closest<HTMLElement>('[data-review-target-row]')!;
+        row.hidden = false;
+        row.dataset.reviewGradeProfile = 'jiten';
+        button.dataset.grade = 'easy';
+        const reviewCard = vi.fn();
+        const answerCard = vi.fn();
+        const controller = testCardActionController({ getSettings: () => jitenSettings, jiten: { reviewCard } as never, anki: { answerCard } as never });
+        await expect(controller.perform(readCardCommandCapability(button), button, jitenCard)).rejects.toThrow();
+        expect(reviewCard).not.toHaveBeenCalled();
+        expect(answerCard).not.toHaveBeenCalled();
+    });
+    it.each([false, true])('renders the Jiten scale with private commands on trusted=%s surfaces', trusted => {
+        const jitenSettings = { ...settings, apiKey: '', jitenApiKey: 'private-jiten-key', ankiEnabled: false };
+        const root = document.createElement('div');
+        setInnerHtml(root, popupRenderer(trusted, jitenSettings).render({ ...card, source: 'jiten', reviewSource: 'jiten-api' }, '', 'modal', richRenderData()));
+        const buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
+        expect(buttons.map(button => button.textContent)).toEqual(['Again', 'Hard', 'Good', 'Easy']);
+        expect(['1', '2', '3', '4', '5'].map(key => readCardCommandCapability(reviewShortcutButton(root, new KeyboardEvent('keydown', { key }), jitenSettings))?.grade))
+            .toEqual(['nothing', 'hard', 'okay', 'easy', undefined]);
+        if (!trusted) {
+            expectAccountSecretsAbsent(root);
+            expect(root.querySelector('[data-review-target], [data-review-target-select], [data-review-grade-profile], [data-anki-card-id], .jpdb-reader-grade-interval')).toBeNull();
+            expect(root.textContent).not.toContain('Grades Jiten');
+        }
+    });
     it('replaces full Anki account detail with one provider-neutral owned-surface launcher', () => {
         const offhost = renderAnkiExistingSection(lookup, null, settings, { trustedAccountDataSurface: false });
         const root = document.createElement('div');
@@ -202,9 +287,9 @@ describe('offhost account-data privacy', () => {
     });
 });
 
-function popupRenderer(trusted: boolean): CardPopoverRenderer {
+function popupRenderer(trusted: boolean, selectedSettings = settings): CardPopoverRenderer {
     return new CardPopoverRenderer({
-        getSettings: () => settings,
+        getSettings: () => selectedSettings,
         isJpdbBackedCard: () => true,
         renderWordHistory: () => '',
         renderWordPills: () => '',

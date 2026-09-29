@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { expectAcademyCodeInstalled } from '../helpers/academy-offline';
 import {
     createN1ContrastInferencePackage,
     N1_CONTRAST_INFERENCE_PROVENANCE,
@@ -75,7 +76,7 @@ describe('N2 event-information plugin', () => {
             .filter(conceptId => existingConcepts.has(conceptId))).toEqual([]);
     });
 
-    it('resolves from its package registry and the Academy runtime registry without a network dependency', () => {
+    it('resolves from its package registry and the Academy runtime registry without a network dependency', async () => {
         const lesson = createN2EventInformationPackage();
         expect(lesson.band).toBe('N2');
         expect(lesson.prerequisites.map(item => item.conceptId)).toEqual([
@@ -91,8 +92,7 @@ describe('N2 event-information plugin', () => {
         expect(createAcademyActivityRuntime().validate(lesson.activity)).toEqual([]);
         expect(lesson.readerSrs.networkDependencies).toEqual([]);
 
-        const serviceWorker = readFileSync(path.resolve('public/academy/sw.js'), 'utf8');
-        expect(serviceWorker).toContain("'/academy/app.js?v=__ACADEMY_REVISION__'");
+        await expectAcademyCodeInstalled('academy-n2-event-information');
     });
 
     it('grades choices and action order deterministically with narrow repair SRS', () => {

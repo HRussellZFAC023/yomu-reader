@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { renderWordPills } from '../../src/reader/sources/word-pills';
 import { kanjiFrequencyRanks } from '../../src/reader/cards/frequency-ranks';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import type { JpdbVocabularySearchResult } from '../../src/reader/jpdb/jpdb-vocabulary';
 import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
@@ -51,7 +52,7 @@ function jpdbSearchCard(reading: string, frequencyRank: number): JPDBCard {
 
 function loader(
     settings: Partial<ReaderSettings>,
-    jpdbSearch: (query: string) => Promise<JPDBCard[]>,
+    jpdbSearch: (query: string) => Promise<JpdbVocabularySearchResult>,
     jiten?: Partial<LoaderDependencies['jiten']>,
 ): CardRenderDataLoader {
     return new CardRenderDataLoader({
@@ -72,7 +73,7 @@ function loader(
             lookupTermMeta: vi.fn(async () => []),
         },
         jpdbPublicPitch: { lookup: vi.fn(async () => []) },
-        jpdbVocabulary: { lookup: vi.fn(async () => null), search: jpdbSearch },
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: jpdbSearch },
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() },
         jpdb: { listDecks: vi.fn() },
         jiten,
@@ -82,10 +83,10 @@ function loader(
 
 describe('provider-specific frequency evidence', () => {
     it('keeps Jiten and JPDB ranks independent on a Jiten-owned card', async () => {
-        const search = vi.fn(async () => [
+        const search = vi.fn(async () => ({ cards: [
             jpdbSearchCard('にっぽん', 77),
             jpdbSearchCard('にほん', 2456),
-        ]);
+        ], status: 'complete' as const }));
         const data = await loader({}, search).load(jitenCard()).all;
         const frequencyRanks = (data as typeof data & {
             frequencyRanks: {
@@ -116,7 +117,7 @@ describe('provider-specific frequency evidence', () => {
     });
 
     it('does not borrow a rank from a differently-read JPDB homograph', async () => {
-        const data = await loader({}, async () => [jpdbSearchCard('にっぽん', 77)]).load(jitenCard()).all;
+        const data = await loader({}, async () => ({ cards: [jpdbSearchCard('にっぽん', 77)], status: 'complete' as const })).load(jitenCard()).all;
         const frequencyRanks = (data as typeof data & { frequencyRanks: { jpdb?: unknown } }).frequencyRanks;
 
         expect(frequencyRanks.jpdb).toBeUndefined();
@@ -153,10 +154,10 @@ describe('provider-specific frequency evidence', () => {
             usedInTotal: 0,
             examples: [],
         }));
-        const search = vi.fn(async () => [
+        const search = vi.fn(async () => ({ cards: [
             { ...jpdb, reading: 'ひとけ', frequencyRank: 90 },
             jpdb,
-        ]);
+        ], status: 'complete' as const }));
 
         const data = await loader({
             jitenDefinitionsEnabled: true,
@@ -175,7 +176,7 @@ describe('provider-specific frequency evidence', () => {
     it('does not let a late Jiten result mutate a card after an away-and-back target switch', async () => {
         const pending = deferred<Awaited<ReturnType<NonNullable<LoaderDependencies['jiten']>['lookupVocabularyInfoForCard']>>>();
         const card = { ...jitenCard(), reading: '日本', wordWithReading: null, source: 'local' as const };
-        const load = loader({ jitenDefinitionsEnabled: true }, async () => [], {
+        const load = loader({ jitenDefinitionsEnabled: true }, async () => ({ cards: [], status: 'complete' as const }), {
             lookupVocabularyInfoForCard: vi.fn(() => pending.promise),
         }).load(card);
         setActiveLearningTargetLanguage('ko');
@@ -215,7 +216,7 @@ describe('provider-specific frequency evidence', () => {
             examples: [],
         }));
 
-        await loader({ jitenDefinitionsEnabled: true }, async () => [], { lookupVocabularyInfoForCard }).load(original).all;
+        await loader({ jitenDefinitionsEnabled: true }, async () => ({ cards: [], status: 'complete' as const }), { lookupVocabularyInfoForCard }).load(original).all;
 
         expect(original.reading).toBe('にほん');
         expect(original.wordWithReading).toBeNull();
@@ -233,7 +234,7 @@ describe('provider-specific frequency evidence', () => {
             jitenWordId: undefined,
             jitenReadingIndex: undefined,
         };
-        const data = await loader({}, async () => [], {
+        const data = await loader({}, async () => ({ cards: [], status: 'complete' as const }), {
             searchVocabulary,
             lookupVocabularyInfoForCard,
         }).load(localCard).all;
@@ -265,27 +266,27 @@ describe('provider-specific frequency evidence', () => {
     it('takes the provider-ordered first rank when the same identity is listed more than once', async () => {
         // jpdb duplicates identities (e.g. two 今日/きょう entries, only one ranked);
         // requiring a UNIQUE match silently dropped the rank for every such word.
-        const data = await loader({}, async () => [
+        const data = await loader({}, async () => ({ cards: [
             jpdbSearchCard('にほん', 2456),
             { ...jpdbSearchCard('にほん', 3000), vid: 303 },
-        ]).load(jitenCard()).all;
+        ], status: 'complete' as const })).load(jitenCard()).all;
         const frequencyRanks = (data as typeof data & { frequencyRanks: { jpdb?: { rank: number } } }).frequencyRanks;
 
         expect(frequencyRanks.jpdb).toMatchObject({ rank: 2456 });
     });
 
     it('skips rank-less duplicates of the same identity', async () => {
-        const data = await loader({}, async () => [
+        const data = await loader({}, async () => ({ cards: [
             { ...jpdbSearchCard('にほん', 0), vid: 303, frequencyRank: null },
             jpdbSearchCard('にほん', 2456),
-        ]).load(jitenCard()).all;
+        ], status: 'complete' as const })).load(jitenCard()).all;
         const frequencyRanks = (data as typeof data & { frequencyRanks: { jpdb?: { rank: number } } }).frequencyRanks;
 
         expect(frequencyRanks.jpdb).toMatchObject({ rank: 2456 });
     });
 
     it('does not request an independently disabled provider', async () => {
-        const search = vi.fn(async () => [jpdbSearchCard('にほん', 2456)]);
+        const search = vi.fn(async () => ({ cards: [jpdbSearchCard('にほん', 2456)], status: 'complete' as const }));
         const settings = {
             dictionaryLookupLinks: DEFAULT_SETTINGS.dictionaryLookupLinks.map(link =>
                 link.id === 'jpdb-frequency' ? { ...link, enabled: false } : link,
@@ -300,7 +301,7 @@ describe('provider-specific frequency evidence', () => {
     });
 
     it('does not request a rank when the provider lookup pill is disabled', async () => {
-        const search = vi.fn(async () => [jpdbSearchCard('にほん', 2456)]);
+        const search = vi.fn(async () => ({ cards: [jpdbSearchCard('にほん', 2456)], status: 'complete' as const }));
         const settings = {
             dictionaryLookupLinks: DEFAULT_SETTINGS.dictionaryLookupLinks.map(link =>
                 link.id === 'jpdb' ? { ...link, enabled: false } : link,
@@ -316,7 +317,7 @@ describe('provider-specific frequency evidence', () => {
     it('keeps a timed-out JPDB search for one late current-card hydration without a duplicate request', async () => {
         vi.useFakeTimers();
         try {
-            const result = deferred<JPDBCard[]>();
+            const result = deferred<JpdbVocabularySearchResult>();
             const search = vi.fn(() => result.promise);
             const load = loader({}, search).load(jitenCard());
 
@@ -325,7 +326,7 @@ describe('provider-specific frequency evidence', () => {
                 frequencyRanks: { jiten: { rank: 891 } },
             });
 
-            result.resolve([jpdbSearchCard('にほん', 2456)]);
+            result.resolve({ cards: [jpdbSearchCard('にほん', 2456)], status: 'complete' });
             await expect(load.hydrateFrequencyRanks?.()).resolves.toMatchObject({
                 jiten: { rank: 891 },
                 jpdb: { rank: 2456 },

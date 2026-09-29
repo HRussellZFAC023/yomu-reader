@@ -36,6 +36,7 @@ export const GENERATED_ARTIFACT_PATHS = [
     'docs/public/og-image.png',
     'docs/public/og-image.generated.json',
     'docs/public/hosted-runtime-graph.js',
+    'docs/public/hosted-appearance-settings.js',
     // The Reader sync stamps the immutable runtime graph into these hosted
     // shells. hosted-reader-worker.js is authored source, not generated output.
     'docs/public/pdf-reader/index.html',
@@ -49,13 +50,13 @@ export const GENERATED_ARTIFACT_PATHS = [
     // Academy is the one generated route that is NOT committed wholesale. Its
     // mirror is rebuilt from public/academy on every build:academy, so the tracked
     // duplicate bought nothing and cost 239 MB; .gitignore now keeps it out. Only
-    // these four are still committed, so only these four belong here -- naming the
-    // directory would make the Build Userscript workflow's `git add -f` re-commit
-    // all 859 ignored mirror files. The workflow rebuilds that mirror so these
-    // four published shell files stay coherent, but only these four are release
-    // artifacts Git needs to own.
+    // the manifest, emitted code/CSS directories and shell are committed.
+    // Never name the Academy directory itself: that would re-commit the entire
+    // source-content mirror. chunks/ and assets/ are Vite output namespaces.
     'docs/public/academy/app.js',
-    'docs/public/academy/style.css',
+    'docs/public/academy/manifest.json',
+    'docs/public/academy/chunks',
+    'docs/public/academy/assets',
     'docs/public/academy/index.html',
     'docs/public/academy/sw.js',
 ];

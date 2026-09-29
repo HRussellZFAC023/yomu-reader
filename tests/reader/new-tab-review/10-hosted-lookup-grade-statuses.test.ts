@@ -49,7 +49,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         const runtime = new NewTabRuntime();
         const lookupKanji = vi.fn(async () => null);
         const performKanjiAction = vi.fn(async () => undefined);
-        const publicSearch = vi.fn(async () => []);
+        const publicSearch = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const jitenParse = vi.fn(async () => []);
         const jitenLookupMany = vi.fn(async () => new Map());
         const card = newTabTestCard({ spelling: '学习', reading: 'xuéxí', language: 'zh', source: 'fallback' });
@@ -157,7 +157,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             pitchClass: '',
             sentence: '会話',
         }]]);
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const pitch = vi.fn(async () => ['LHH']);
         const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>([['会話', publicCard]]));
         const cacheCards = vi.fn();
@@ -215,7 +215,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         const runtime = new NewTabRuntime();
         const fallbackCard = newTabTestCard({ vid: -1, sid: -1, spelling: 'した', reading: 'した', source: 'fallback', meanings: [] });
         const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const parse = vi.fn(async (): Promise<JPDBToken[][]> => [[{
             card: fallbackCard,
             start: 0,
@@ -232,7 +232,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             settings: typeof DEFAULT_SETTINGS;
             parser: { canParse(): boolean; parse: typeof parse; cacheCards(cards: JPDBCard[]): void };
             jitenPublicVocabulary: { lookup(term: string): Promise<JPDBCard | null>; lookupMany(terms: string[]): Promise<Map<string, JPDBCard>> };
-            jpdbVocabulary: { search(query: string, limit?: number): Promise<JPDBCard[]> };
+            jpdbVocabulary: { search(query: string, limit?: number): Promise<{ cards: JPDBCard[]; status: 'complete' | 'partial' }> };
             parseNewTabContent(root: HTMLElement): Promise<void>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false };
@@ -283,7 +283,6 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                uchisenEnabled: false,
             };
 
             const trigger = document.createElement('button');
@@ -343,7 +342,6 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                uchisenEnabled: false,
             };
 
             await internals.showKanjiLookupCard(card, '波', '難波です。');
@@ -849,7 +847,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 expect(document.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
                 expect(pass?.dataset.newtabReviewTarget).toBe('anki');
                 expect(pass?.dataset.ankiCardId).toBe('404');
-                expect(pass?.getAttribute('aria-label')).toBe('Pass: Grades Anki card: Core #404');
+                expect(pass?.getAttribute('aria-label')).toBe('Good: Grades Anki card: Core #404');
                 expect(pass?.title).toBe('Grades Anki card: Core #404');
             });
         } finally {
@@ -918,6 +916,119 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         }
     });
 
+    it.each([['1', 'nothing'], ['2', 'hard'], ['3', 'okay'], ['4', 'easy']] as const)('grades hosted Jiten lookup with key %s once', async (key, grade) => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api' });
+        const data = newTabLookupRenderData();
+        const gradeFromLookup = vi.fn(async () => ({ preserveLookup: false }));
+        const internals = setupNewTabLookupRuntime(runtime, data, {
+            settings: { enableReviews: true, twoButtonReviews: false, jitenApiKey: 'jiten-key', apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false },
+            isJpdbBackedCard: () => false,
+        });
+        Object.assign(internals, { newTab: {
+            lookupGradeOptions: () => [['nothing', 'Again'], ['hard', 'Hard'], ['okay', 'Good'], ['easy', 'Easy']],
+            lookupReviewTargets: () => [{ id: 'jiten', kind: 'jiten', label: 'Grades Jiten', shortLabel: 'Jiten' }],
+            gradeFromLookup, destroy: vi.fn(),
+        } });
+        try {
+            await internals.showLookupCard(card, '復習します。');
+            const input = document.createElement('input');
+            document.body.append(input);
+            input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+            expect(gradeFromLookup).not.toHaveBeenCalled();
+            const fifth = new KeyboardEvent('keydown', { key: '5', bubbles: true, cancelable: true });
+            document.dispatchEvent(fifth);
+            expect(fifth.defaultPrevented).toBe(true);
+            expect(gradeFromLookup).not.toHaveBeenCalled();
+            document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+            await waitForExpect(() => {
+                expect(gradeFromLookup).toHaveBeenCalledTimes(1);
+                expect(gradeFromLookup).toHaveBeenCalledWith(grade, { kind: 'jiten' }, card);
+            });
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it.each([
+        ['jpdb', 'click'], ['jpdb', 'key'], ['anki', 'click'], ['anki', 'key'],
+    ] as const)('routes hosted JPDB/Anki switching to %s using a %s', async (selectedTarget, activation) => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({ source: 'jpdb', reviewSource: 'jpdb-api', ankiCardId: 404 });
+        const data = newTabLookupRenderData({ ankiLookup: ankiLookupResult('due', [ankiLookupNote({ cardIds: [404], primaryCardId: 404, state: 'due' })]) });
+        const gradeFromLookup = vi.fn(async () => ({ preserveLookup: false }));
+        const internals = setupNewTabLookupRuntime(runtime, data, {
+            settings: { enableReviews: true, twoButtonReviews: false, apiKey: 'jpdb-key', jitenApiKey: '', ankiEnabled: true, ankiSectionEnabled: true, newTabAnkiEnabled: true, yomuLocalSrsEnabled: false },
+            isJpdbBackedCard: () => true,
+        });
+        Object.assign(internals, { newTab: {
+            lookupGradeOptions: () => [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']],
+            lookupReviewTargets: () => [
+                { id: 'jpdb', kind: 'jpdb', label: 'Grades JPDB', shortLabel: 'JPDB' },
+                { id: 'anki:404', kind: 'anki', label: 'Grades Anki', shortLabel: 'Anki', ankiCardId: 404 },
+            ], gradeFromLookup, destroy: vi.fn(),
+        } });
+        try {
+            await internals.showLookupCard(card, '復習します。');
+            const select = document.querySelector<HTMLSelectElement>('[data-review-target-select]')!;
+            const visibleButtons = () => [...document.querySelectorAll<HTMLButtonElement>('[data-review-target-row]:not([hidden]) [data-action="grade"]')];
+            for (const target of ['jpdb', 'anki', 'jpdb', selectedTarget]) {
+                select.value = target === 'anki' ? 'anki:404' : 'jpdb';
+                expect(select.selectedIndex).toBeGreaterThanOrEqual(0);
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                expect(visibleButtons().map(button => button.textContent)).toEqual(target === 'anki'
+                    ? ['Again', 'Hard', 'Good', 'Easy'] : ['Nothing', 'Something', 'Hard', 'Okay', 'Easy']);
+                if (target === 'anki') {
+                    const fifth = new KeyboardEvent('keydown', { key: '5', bubbles: true, cancelable: true });
+                    document.dispatchEvent(fifth);
+                    expect(fifth.defaultPrevented).toBe(true);
+                    expect(gradeFromLookup).not.toHaveBeenCalled();
+                }
+            }
+            if (activation === 'click') visibleButtons()[1]!.click();
+            else document.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true }));
+            await waitForExpect(() => {
+                expect(gradeFromLookup).toHaveBeenCalledTimes(1);
+                expect(gradeFromLookup).toHaveBeenCalledWith(selectedTarget === 'anki' ? 'hard' : 'something',
+                    selectedTarget === 'anki' ? { kind: 'anki', ankiCardId: 404 } : { kind: 'jpdb' }, card);
+            });
+        } finally { runtime.destroy(); document.body.replaceChildren(); }
+    });
+
+    it.each([false, true])('rejects a tampered hidden Anki row at hosted lookup dispatch (selector removed=%s)', async removeSelector => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({ source: 'jiten', reviewSource: 'jiten-api', ankiCardId: 404 });
+        const data = newTabLookupRenderData({ ankiLookup: ankiLookupResult('due', [ankiLookupNote({ cardIds: [404], primaryCardId: 404, state: 'due' })]) });
+        const gradeFromLookup = vi.fn(async () => ({ preserveLookup: false }));
+        const internals = setupNewTabLookupRuntime(runtime, data, {
+            settings: { enableReviews: true, twoButtonReviews: false, jitenApiKey: 'jiten-key', apiKey: '', ankiEnabled: true, ankiSectionEnabled: true, newTabAnkiEnabled: true, yomuLocalSrsEnabled: false },
+            isJpdbBackedCard: () => false,
+        });
+        Object.assign(internals, { newTab: {
+            lookupGradeOptions: () => [['nothing', 'Again'], ['hard', 'Hard'], ['okay', 'Good'], ['easy', 'Easy']],
+            lookupReviewTargets: () => [
+                { id: 'jiten', kind: 'jiten', label: 'Grades Jiten', shortLabel: 'Jiten' },
+                { id: 'anki:404', kind: 'anki', label: 'Grades Anki', shortLabel: 'Anki', ankiCardId: 404 },
+            ], gradeFromLookup, destroy: vi.fn(),
+        } });
+        try {
+            await internals.showLookupCard(card, '復習します。');
+            const hard = document.querySelector<HTMLButtonElement>('[data-review-grade-profile="anki"] [data-grade="hard"]')!;
+            expect(hard).not.toBeNull();
+            const row = hard.closest<HTMLElement>('[data-review-target-row]')!;
+            expect(row.hidden).toBe(true);
+            row.hidden = false;
+            row.dataset.reviewGradeProfile = 'jiten';
+            hard.dataset.grade = 'easy';
+            if (removeSelector) document.querySelector('[data-review-target-select]')!.remove();
+            hard.click();
+            if (removeSelector) document.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true }));
+            await Promise.resolve();
+            expect(gradeFromLookup).not.toHaveBeenCalled();
+        } finally { runtime.destroy(); document.body.replaceChildren(); }
+    });
+
     it('renders separate lookup grade targets for JPDB and multiple Anki cards', async () => {
         const runtime = new NewTabRuntime();
         const card = newTabTestCard({
@@ -979,24 +1090,24 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
                 expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('Both');
                 expect(document.querySelector<HTMLSelectElement>('[data-review-target-select]')?.selectedOptions[0]?.textContent).toBe('Both');
-                expect(Array.from(popover.querySelectorAll('[data-newtab-grade-target-text]'), element => element.textContent)).toEqual(['Grades JPDB + Anki card: Core #404']);
+                expect(Array.from(popover.querySelectorAll('[data-review-target-row]:not([hidden]) [data-newtab-grade-target-text]'), element => element.textContent)).toEqual(['Grades JPDB + Anki card: Core #404']);
                 expect(document.querySelectorAll('[data-newtab-grade-target-chip]')).toHaveLength(0);
             });
 
             const select = document.querySelector<HTMLSelectElement>('[data-review-target-select]')!;
             expect(Array.from(select.options, option => option.textContent)).toEqual(['Both', 'JPDB', 'Core #404', 'Core #405']);
-            expect(document.querySelectorAll<HTMLButtonElement>('[data-action="grade"][data-grade]')).toHaveLength(2);
-            expect(Array.from(document.querySelectorAll<HTMLButtonElement>('[data-newtab-review-target="both"][data-grade]')).map(button => button.textContent)).toEqual(['Fail', 'Pass']);
+            expect(document.querySelectorAll<HTMLButtonElement>('[data-review-target-row]:not([hidden]) [data-action="grade"][data-grade]')).toHaveLength(2);
+            expect(Array.from(document.querySelectorAll<HTMLButtonElement>('[data-review-target-row]:not([hidden]) [data-newtab-review-target="both"][data-grade]')).map(button => button.textContent)).toEqual(['Fail', 'Pass']);
 
             select.value = 'anki:405';
             select.dispatchEvent(new Event('change', { bubbles: true }));
 
-            const pass = document.querySelector<HTMLButtonElement>('[data-grade="pass"]')!;
+            const pass = document.querySelector<HTMLButtonElement>('[data-review-target-row]:not([hidden]) [data-grade="pass"]')!;
             expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('Core #405');
             expect(document.querySelector('.jpdb-reader-popover [data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Core #405');
             expect(pass.dataset.newtabReviewTarget).toBe('anki');
             expect(pass.dataset.ankiCardId).toBe('405');
-            expect(pass.getAttribute('aria-label')).toBe('Pass: Grades Anki card: Core #405');
+            expect(pass.getAttribute('aria-label')).toBe('Good: Grades Anki card: Core #405');
             expect(pass.title).toBe('Grades Anki card: Core #405');
         } finally {
             runtime.destroy();

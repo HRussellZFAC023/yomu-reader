@@ -215,9 +215,9 @@ describe('stats aggregation', () => {
         const source = applyJitenReviewHistory(
             statsFromJitenCards([statsCard({ source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] })]),
             [
-                { rating: 4, reviewDateTime: '2026-06-24T17:04:00Z', reviewDuration: 12_000 },
-                { rating: 1, reviewDateTime: '2026-06-24T17:03:00Z', reviewDuration: 18_000 },
-                { rating: 3, reviewDateTime: '2026-06-23T09:00:00Z', reviewDuration: 30_000 },
+                { rating: 4, reviewDateTime: new Date(2026, 5, 24, 17, 4).toISOString(), reviewDuration: 12_000 },
+                { rating: 1, reviewDateTime: new Date(2026, 5, 24, 17, 3).toISOString(), reviewDuration: 18_000 },
+                { rating: 3, reviewDateTime: new Date(2026, 5, 23, 9).toISOString(), reviewDuration: 30_000 },
             ],
         );
 

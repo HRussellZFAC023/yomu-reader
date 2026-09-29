@@ -1,11 +1,16 @@
 import path from 'node:path';
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import { createLessonTwentyFrequencyLensBeat } from '../../src/academy/content/lesson-twenty-frequency-lens';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type FrequencyLensModel } from '../../src/academy/minigames';
 import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
+let loaded: LoadedAuthoredWeekPackage;
+beforeAll(async () => { loaded = await validateCommittedAuthoredWeek(getAuthoredWeekRegistration('l1-l20')); });
+
 function model(): FrequencyLensModel {
-    return createLessonTwentyFrequencyLensBeat().activity as FrequencyLensModel;
+    return createLessonTwentyFrequencyLensBeat(loaded).activity as FrequencyLensModel;
 }
 
 describe('Lesson 20 Sensei frequency lens', () => {
@@ -72,7 +77,7 @@ describe('Lesson 20 Sensei frequency lens', () => {
     });
 
     it('places the new mechanic in the Jodi/Peter source-card story', async () => {
-        const chapter = await loadLessonActivityChapter('l1-l20', { lookup: async () => null });
+        const chapter = await loadLessonActivityChapter('l1-l20', { lookup: async () => null }, loaded);
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l20',
             canonicalEpisodeId: 's1e09-the-story-in-two-tenses',

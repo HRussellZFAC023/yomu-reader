@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import academyBuildAssets from './lib/academy-build-manifest.cjs';
+const { academyBuildFile, academyProofTemplate } = academyBuildAssets;
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -403,11 +405,13 @@ function serveAcademy(request, response) {
         response.end();
         return;
     }
-    const override = url.pathname === '/academy/app.js'
-        ? path.join(BUILD_ROOT, 'app.js')
-        : url.pathname === '/academy/style.css'
-            ? path.join(BUILD_ROOT, 'style.css')
-            : null;
+    const template = academyProofTemplate(BUILD_ROOT, path.join(PUBLIC_ROOT, 'academy'), url.pathname);
+    if (template) {
+        response.writeHead(200, { 'content-type': template.contentType, 'cache-control': 'no-store' });
+        response.end(request.method === 'HEAD' ? undefined : template.body);
+        return;
+    }
+    const override = academyBuildFile(BUILD_ROOT, url.pathname);
     const relative = url.pathname === '/academy/' || url.pathname === '/academy'
         ? 'academy/index.html'
         : url.pathname.replace(/^\/+/, '');

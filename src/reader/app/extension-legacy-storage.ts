@@ -28,11 +28,12 @@ export async function legacyExtensionManagedStorageKeys(
 /** Explicit Factory Reset is the only automatic destructive path for legacy bytes. */
 export async function clearLegacyExtensionManagedStorage(
     root: typeof globalThis = globalThis,
+    assertActive: () => void = () => undefined,
 ): Promise<number> {
     const storage = extensionStorageArea(root);
     if (!storage) return 0;
     const keys = await legacyExtensionManagedStorageKeys(root);
-    await removeStorageKeys(storage, keys);
+    await removeStorageKeys(storage, keys, assertActive);
     assertAllStorageKeysRemoved(await retainedStorageKeys(storage, keys));
     return keys.length;
 }
@@ -69,8 +70,11 @@ function localStorageArea(api: ExtensionStorageApi): ExtensionStorageArea | null
     return api.storage.local ?? null;
 }
 
-async function removeStorageKeys(storage: ExtensionStorageArea, keys: readonly string[]): Promise<void> {
-    for (const key of keys) await storage.remove(key);
+async function removeStorageKeys(storage: ExtensionStorageArea, keys: readonly string[], assertActive: () => void): Promise<void> {
+    for (const key of keys) {
+        assertActive();
+        await storage.remove(key);
+    }
 }
 
 async function retainedStorageKeys(

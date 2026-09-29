@@ -2,6 +2,7 @@ import {
     MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX,
     isManagedStorageKey,
     isManagedStorageSlotKey,
+    logicalManagedStorageKey,
 } from './managed-storage-keys';
 import {
     MANAGED_STATE_EPOCH_KEY,
@@ -13,6 +14,24 @@ import {
 } from './managed-state-epoch';
 
 export type ManagedWebStorageArea = 'local' | 'session';
+export type ManagedWebStorageOwner = 'standalone' | 'userscript' | 'extension';
+const OWNER_PREFIX = 'yomu:web-owner:v2:';
+let selectedOwner: ManagedWebStorageOwner | undefined;
+
+function selectOwner(owner: ManagedWebStorageOwner): void {
+    if (selectedOwner && selectedOwner !== owner) throw new Error('Managed web storage owner changed; reload to reconnect.');
+    selectedOwner = owner;
+}
+
+function ownedKey(key: string): string {
+    return selectedOwner && selectedOwner !== 'standalone' ? `${OWNER_PREFIX}${selectedOwner}:${key}` : key;
+}
+
+function belongsToOwner(key: string): boolean {
+    return selectedOwner && selectedOwner !== 'standalone'
+        ? key.startsWith(`${OWNER_PREFIX}${selectedOwner}:`)
+        : !key.startsWith(OWNER_PREFIX) && isManagedStorageKey(key);
+}
 
 const AREA_MARKER_KEYS: Readonly<Record<ManagedWebStorageArea, string>> = {
     local: 'yomu:web-storage-epoch:v1:local',
@@ -34,7 +53,8 @@ let reconciliationToken: string | undefined;
  * keys have been completely removed. Calls coalesce because boot surfaces often
  * share this gate through settings, OCR, and new-tab startup.
  */
-export function ensureManagedWebStorageEpochCurrent(epoch: ManagedStateEpoch): Promise<ManagedStateEpoch> {
+export function ensureManagedWebStorageEpochCurrent(epoch: ManagedStateEpoch, owner: ManagedWebStorageOwner = 'standalone'): Promise<ManagedStateEpoch> {
+    selectOwner(owner);
     if (certifiedEpoch) {
         if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
             return Promise.reject(new Error('Managed web storage is already certified for another epoch.'));
@@ -54,14 +74,15 @@ export function ensureManagedWebStorageEpochCurrent(epoch: ManagedStateEpoch): P
             : Promise.reject(new Error('Managed web storage is reconciling another epoch.'));
     }
     reconciliationToken = expectedToken;
-    reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch)).finally(() => {
+    reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch, owner)).finally(() => {
         reconciliation = undefined;
         reconciliationToken = undefined;
     });
     return reconciliation;
 }
 
-export function ensureManagedWebStorageEpochCurrentSync(epoch: ManagedStateEpoch): ManagedStateEpoch {
+export function ensureManagedWebStorageEpochCurrentSync(epoch: ManagedStateEpoch, owner: ManagedWebStorageOwner = 'standalone'): ManagedStateEpoch {
+    selectOwner(owner);
     if (certifiedEpoch) {
         if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
             throw new Error('Managed web storage is already certified for another epoch.');
@@ -82,7 +103,7 @@ export function ensureManagedWebStorageEpochCurrentSync(epoch: ManagedStateEpoch
 
 function reconcileArea(area: ManagedWebStorageArea, epoch: ManagedStateEpoch): void {
     const storage = storageArea(area);
-    const markerKey = AREA_MARKER_KEYS[area];
+    const markerKey = ownedKey(AREA_MARKER_KEYS[area]);
     const expectedToken = managedStateEpochToken(epoch);
     const marker = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
     if (marker === expectedToken) return;
@@ -101,11 +122,12 @@ function reconcileArea(area: ManagedWebStorageArea, epoch: ManagedStateEpoch): v
 }
 
 function purgeManagedArea(storage: Storage, area: ManagedWebStorageArea): void {
-    const preserved = area === 'local'
+    const logicalPreserved = area === 'local'
         ? PRESERVED_LOCAL_CONTROL_KEYS
         : new Set([AREA_MARKER_KEYS.session]);
+    const preserved = new Set([...logicalPreserved].map(ownedKey));
     const keys = enumerateStorageKeys(storage, `${area}Storage`);
-    const managedKeys = keys.filter(key => isManagedStorageKey(key) && !preserved.has(key));
+    const managedKeys = keys.filter(key => belongsToOwner(key) && !preserved.has(key));
     for (const key of managedKeys) {
         removeStorageValue(storage, key, `${area}Storage key "${key}"`);
         if (readStorageValue(storage, key, `${area}Storage key "${key}"`) !== null) {
@@ -113,7 +135,7 @@ function purgeManagedArea(storage: Storage, area: ManagedWebStorageArea): void {
         }
     }
     const remaining = enumerateStorageKeys(storage, `${area}Storage`)
-        .filter(key => isManagedStorageKey(key) && !preserved.has(key));
+        .filter(key => belongsToOwner(key) && !preserved.has(key));
     if (remaining.length) throw new Error(`${area}Storage retained managed keys: ${remaining.join(', ')}.`);
 }
 
@@ -149,6 +171,23 @@ function enumerateStorageKeys(storage: Storage, label: string): string[] {
 
 export const managedLocalStorage = managedStorageFacade('local');
 export const managedSessionStorage = managedStorageFacade('session');
+
+export function managedLocalStorageKeys(): string[] {
+    const { storage } = certifiedArea('local');
+    const prefix = ownedKey('');
+    return enumerateStorageKeys(storage, 'localStorage')
+        .filter(belongsToOwner)
+        .map(key => logicalManagedStorageKey(key.slice(prefix.length)))
+        .filter((key): key is string => key !== null && managedLocalStorage.getItem(key) !== null);
+}
+
+export function managedWebStorageResetKeys(owner: ManagedWebStorageOwner): string[] {
+    selectOwner(owner);
+    return [...new Set([
+        ...enumerateStorageKeys(storageArea('local'), 'localStorage'),
+        ...enumerateStorageKeys(storageArea('session'), 'sessionStorage'),
+    ])].filter(belongsToOwner);
+}
 
 function managedStorageFacade(area: ManagedWebStorageArea): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
     return {
@@ -192,7 +231,7 @@ function certifiedArea(area: ManagedWebStorageArea): { storage: Storage; epoch: 
 }
 
 function assertAreaCertificate(area: ManagedWebStorageArea, epoch: ManagedStateEpoch): void {
-    const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+    const marker = readStorageValue(storageArea(area), ownedKey(AREA_MARKER_KEYS[area]), `${area}Storage epoch marker`);
     if (marker !== managedStateEpochToken(epoch)) {
         throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
     }
@@ -200,8 +239,8 @@ function assertAreaCertificate(area: ManagedWebStorageArea, epoch: ManagedStateE
 
 function physicalStorageKey(key: string, epoch: ManagedStateEpoch): string {
     assertManagedLogicalKey(key);
-    if (epoch.generation === 0) return key;
-    return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+    if (epoch.generation === 0) return ownedKey(key);
+    return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`);
 }
 
 function assertManagedLogicalKey(key: string): void {
@@ -247,6 +286,7 @@ function removeStorageValue(storage: Storage, key: string, label: string): void 
 
 /** Test-only: Vitest reuses workers across fresh JSDOM realms. */
 export function resetManagedWebStorageForTests(): void {
+    selectedOwner = undefined;
     certifiedEpoch = undefined;
     reconciliation = undefined;
     reconciliationToken = undefined;

@@ -62,7 +62,7 @@ describe('docs localization browser smoke readiness', () => {
         expect(privateActivation).toContain('installUserscriptHttpBridgeWhenReady()');
         expect(USERSCRIPT_ENTRY_SOURCE.match(/installUserscriptHttpBridgeWhenReady\(\)/g)).toHaveLength(1);
         expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady()');
-        expect(guardedBoot).toContain('promoteStrandedHostedSettingsToGmStorage()');
+        expect(guardedBoot).not.toContain('promoteStrandedHostedSettingsToGmStorage');
         expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('installPageOpenShadowRootDiscoveryBridge');
         expect(guardedBoot).toContain('bootWhenDocumentIsReady()');
         expect(USERSCRIPT_ENTRY_SOURCE).toContain(
@@ -104,13 +104,13 @@ describe('docs localization browser smoke readiness', () => {
         expect(TRUSTED_HOSTED_URL_SOURCE).not.toContain("endsWith('.localhost')");
         expect(SMOKE_SOURCE).toContain("locale: 'en-GB'");
         expect(SMOKE_SOURCE).toContain(
-            'const EN_STATIC_HEADING = "Read the language you\'re learning with Yomu."',
+            'const EN_STATIC_HEADING = "Read Japanese. Stay with the story."',
         );
         expect(SMOKE_SOURCE).toContain(
-            "const JA_STATIC_HEADING = '学んでいる言語を、よむで読む。'",
+            "const JA_STATIC_HEADING = '日本語を読む。物語の続きを楽しむ。'",
         );
         expect(HOME_SOURCE).toContain(
-            ">Read the language you're learning with Yomu.</h1>",
+            ">Read Japanese. Stay with the story.</h1>",
         );
         expect(SMOKE_SOURCE).toContain("assertServerRenderedLocale('/', EN_STATIC_HEADING, JA_STATIC_HEADING, 'English')");
         expect(SMOKE_SOURCE).toContain("assertServerRenderedLocale('/ja/', JA_STATIC_HEADING, EN_STATIC_HEADING, 'Japanese')");
@@ -219,30 +219,27 @@ describe('docs localization browser smoke readiness', () => {
         expect(lookupAssertion).toContain('requestAnimationFrame(sample)');
         expect(lookupAssertion).toContain('if (ownsPointer) return');
         expect(lookupAssertion).toContain('probe.lost = true');
-        expect(lookupAssertion).toContain('probe.rotated');
+        expect(lookupAssertion).toContain('!probe.headingChanged');
+        expect(lookupAssertion).toContain('probe.elapsedMs >= 3000');
         expect(lookupAssertion).toContain('!probe.lost');
         expect(lookupAssertion).toContain('await page.mouse.move(center.x, center.y)');
         expect(lookupAssertion).toContain('{ timeout: 8_000 }');
         expect(lookupAssertion).not.toContain('.click(');
     });
 
-    it('reserves the tallest roster headline at every responsive boundary', () => {
-        const geometryAssertion = functionBody('assertHeroHeadlineReservation');
-
-        expect(THEME_SOURCE).toContain('buildHostedHeroSizingLayer(languages)');
-        expect(THEME_SOURCE).toContain("layer.setAttribute('aria-hidden', 'true')");
-        expect(THEME_SOURCE).toContain("layer.setAttribute('data-jpdb-reader-surface-ignore', 'true')");
-        expect(THEME_SOURCE).toContain("heading.setAttribute('aria-label', (liveFrame.textContent || '').trim())");
-        expect(THEME_SOURCE).toContain('for (const language of languages)');
-        expect(THEME_CSS).toContain(".yomu-fold-h1[data-yomu-hero-rotator='on']");
-        expect(THEME_CSS).toContain('.yomu-home .yomu-fold-h1-reserve-candidate');
-        expect(THEME_CSS).toContain('grid-area: 1 / 1');
+    it('checks the static heading and live sample at every responsive boundary', () => {
+        const geometryAssertion = functionBody('assertStableHeroGeometry');
+        expect(THEME_SOURCE).not.toContain('buildHostedHeroSizingLayer');
+        expect(THEME_CSS).not.toContain('.yomu-fold-h1-reserve');
         expect(geometryAssertion).toContain('HERO_GEOMETRY_WIDTHS');
-        expect(geometryAssertion).toContain('geometry.candidateCount, geometry.declaredCount');
-        expect(geometryAssertion).toContain('geometry.reserveHeight - geometry.maxCandidateHeight');
-        expect(geometryAssertion).toContain('geometry.headingHeight - geometry.reserveHeight');
-        expect(geometryAssertion).toContain('geometry.accessibleName, geometry.liveText');
-        expect(geometryAssertion).toContain("geometry.reservePointerEvents, 'none'");
+        expect(geometryAssertion).toContain('geometry.text, expectedHeading');
+        expect(geometryAssertion).toContain('geometry.childCount, 0');
+        expect(geometryAssertion).toContain('geometry.accessibleName, null');
+        expect(geometryAssertion).toContain('!geometry.headingOverflow && !geometry.pageOverflow');
+        expect(geometryAssertion).toContain('geometry.bottom <= geometry.sampleTop');
+        expect(geometryAssertion).toContain('getComputedStyle(sample.querySelector');
+        expect(geometryAssertion).toContain('geometry.sampleFontSize - expectedSampleSize');
+        expect(geometryAssertion).toContain('geometry.sampleLineHeight - geometry.sampleFontSize * 2.2');
         const promptAssertion = functionBody('assertFoldPromptChrome');
         expect(promptAssertion).toContain("state.ariaHidden, null");
         expect(promptAssertion).toContain("state.fallbackTag, 'A'");

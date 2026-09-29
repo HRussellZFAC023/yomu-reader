@@ -73,7 +73,7 @@ describe('reader helpers', () => {
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: false });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: false });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: false });
-        expect(normalizeAudioSources(LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS)).toEqual(DEFAULT_AUDIO_SOURCES);
+        expect(normalizeAudioSources(LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS)).toEqual(LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS);
         expect(normalizeAudioSources([
             ...LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS,
             { type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}', voice: '', enabled: true },
@@ -84,7 +84,6 @@ describe('reader helpers', () => {
             { type: 'jisho', url: '', voice: '', enabled: true },
             { type: 'text-to-speech', url: '', voice: '', enabled: true },
             { type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}', voice: '', enabled: true },
-            { type: 'bunpro', url: '', voice: '', enabled: false },
         ]);
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'bunpro', url: '', voice: '', enabled: false });

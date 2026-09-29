@@ -1,5 +1,6 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiNoteFieldTargetPlan, type AnkiRenderedCard } from './index';
 import { ANKI_SOURCE_ID } from '../app/constants';
+import { reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import { escapeHtml, parseHtmlDocument, setInnerHtml } from '../dom';
 import { definitionSourceLabel } from '../sources/sections';
 import { speakerIcon } from '../ui/icons';
@@ -870,17 +871,18 @@ function localizedContextSourceLabel(context: StoredMiningContext, language: Int
 export function renderReviewButtons(
     settings: ReaderSettings,
     ankiNote: AnkiExistingNote | null = null,
-    options: { disabled?: boolean; title?: string; targetLabel?: string; intervals?: ReviewGradeIntervals } = {},
+    options: { disabled?: boolean; title?: string; targetLabel?: string; intervals?: ReviewGradeIntervals; gradeProfile?: ReviewGradeProfile } = {},
 ): string {
     const ankiCardId = ankiReviewCardId(ankiNote);
-    const grades = reviewButtonGrades(settings);
+    const scale = reviewGradeScale(settings, options.gradeProfile ?? (ankiCardId ? 'anki' : 'standard'));
+    const grades = scale.grades;
     // Jiten/Anki parity: due-in previews on the popover grade row, same data
     // the study page's grade bar shows.
     const intervals = ankiReviewIntervals(options.intervals, ankiNote);
     return `
         ${renderAnkiReviewTarget(options.targetLabel)}
         <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage)).join('')}
+            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join('')}
         </div>
     `;
 }
@@ -908,12 +910,14 @@ function renderAnkiReviewButton(
     intervals: ReviewGradeIntervals | undefined,
     options: { disabled?: boolean; title?: string; targetLabel?: string },
     language: InterfaceLanguage,
+    gradeShortcut?: keyof ReaderSettings['shortcuts'],
 ): string {
     const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
     const command = privateCommandAttributes({
         kind: 'card-action',
         action: 'grade',
         grade: grade as JPDBGrade,
+        gradeShortcut,
         reviewTarget: ankiReviewTarget(ankiCardId),
         ankiCardId,
     });
@@ -950,13 +954,6 @@ function reviewButtonAttrs(options: { disabled?: boolean; title?: string; target
         ? ` aria-label="${escapeHtml(`${buttonLabel}: ${title}`)}"`
         : '';
     return `${disabled}${titleAttr}${aria}`;
-}
-
-export function reviewButtonGrades(settings: ReaderSettings): Array<[string, string]> {
-    const language = settings.interfaceLanguage;
-    return settings.twoButtonReviews
-        ? [['fail', uiText(language, 'gradeFailLabel')], ['pass', uiText(language, 'gradePassLabel')]]
-        : [['nothing', uiText(language, 'gradeNothingLabel')], ['something', uiText(language, 'gradeSomethingLabel')], ['hard', uiText(language, 'gradeHardLabel')], ['okay', uiText(language, 'gradeOkayLabel')], ['easy', uiText(language, 'gradeEasyLabel')]];
 }
 
 function ankiAudioLabel(filename: string, language: InterfaceLanguage): string {

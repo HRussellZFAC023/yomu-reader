@@ -140,7 +140,7 @@
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
     "contentVersion": "2026-07-27.lesson-zero.v4-name-listening",
-    "contentSha256": "4608a1ebd2d9f8427fb528c7ade109026c6f5f8235cece0d266da17702c9507e",
+    "contentSha256": "504534364d2b92229af1a465a8f46267c2bd2f3c3cf89736c3b032d76435bb86",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [

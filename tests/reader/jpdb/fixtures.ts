@@ -29,6 +29,7 @@ import { jpdbParseResultToTokens, jpdbVocabularyToCards } from '../../../src/rea
 import { currentLocalDictionaryTargets, isKanjiReviewBack, isKanjiReviewFront, localDictionaryLookupVariants, parseJpdbReviewCardValue, type LocalDictionaryTarget } from '../../../src/reader/jpdb/jpdb-page-targets';
 import { JpdbKanjiClient, parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../../src/reader/jpdb/jpdb-kanji';
 import { JpdbVocabularyClient, parseJpdbAudioData, parseJpdbSearchHtml, parseJpdbVocabularyHtml } from '../../../src/reader/jpdb/jpdb-vocabulary';
+import type { JpdbVocabularyLookupResult, JpdbVocabularySearchResult } from '../../../src/reader/jpdb/jpdb-vocabulary-types';
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../../src/reader/jpdb/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../../src/reader/kanji/origin';
 import { parseKanjiVGSvg } from '../../../src/reader/kanji/vg';
@@ -107,7 +108,7 @@ import { renderControllerPrimarySubtitle } from '../../../src/reader/subtitles/s
 import { planTranscriptHydrationIndexes } from '../../../src/reader/subtitles/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../../src/reader/userscript/index';
 import { renderWordPills } from '../../../src/reader/sources/word-pills';
-import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../../src/reader/dictionaries/yomitan';
+import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../../src/reader/dictionaries/yomitan';
 import { glossaryValueToSearchText } from '../../../src/reader/dictionaries/yomitan/glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken, ReaderSettings } from '../../../src/reader/app/types';
 import { createPointerEvent, createVisualViewportFixture, dispatchPointerEvent as dispatchBrowserPointerEvent, restoreWindowDescriptor, withViewport as withBrowserViewport } from '../helpers/browser-fixtures';
@@ -875,7 +876,7 @@ export function testCardRenderDataLoader(options: TestCardRenderDataLoaderOption
             ...options.jpdbPublicPitch,
         } as unknown as JpdbPublicPitchClient,
         jpdbVocabulary: {
-            lookup: vi.fn(async () => null),
+            lookup: vi.fn(async (): Promise<JpdbVocabularyLookupResult> => ({ info: null, status: 'complete' })),
             ...options.jpdbVocabulary,
         } as unknown as JpdbVocabularyClient,
         anki: {
@@ -1229,7 +1230,6 @@ export function kanjiRelatedWordNavigationFixture(lookupCard: JPDBCard) {
         localDictionaryShowKanji: false,
         jpdbDefinitionsEnabled: false,
         jpdbKanjiEnabled: false,
-        uchisenEnabled: false,
         rtkEnabled: false,
         kanjivgEnabled: false,
         kanjiOriginsEnabled: false,
@@ -2456,7 +2456,7 @@ export function configureJitenRenderedWordTest(app: ReaderApp, options: {
 }
 
 export function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
-    search: (term: string, limit?: number) => Promise<JPDBCard[]>;
+    search: (term: string, limit?: number) => Promise<JpdbVocabularySearchResult>;
     settings?: Partial<ReaderSettings>;
     pitch?: (term: string, reading?: string) => Promise<unknown>;
     jitenLookup?: (term: string) => Promise<JPDBCard | null>;
@@ -2508,7 +2508,7 @@ export async function expectPublicVocabularyFurigana(settings: Partial<ReaderSet
         pitchAccent: ['LHHL'],
     });
     const word = appendRenderedReaderWord(fallbackCard);
-    const search = vi.fn(async () => [publicCard]);
+    const search = vi.fn(async (): Promise<JpdbVocabularySearchResult> => ({ cards: [publicCard], status: 'complete' }));
     const { internals } = configurePublicVocabularyEnrichment(app, { search, settings });
     const token = testTokenForCard(fallbackCard, '青空を見る。');
 
@@ -3140,13 +3140,17 @@ export function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => voi
     return { promise, resolve, reject };
 }
 
-export function deleteAnkiStatusIndexDatabase(): Promise<void> {
-    return new Promise(resolve => {
-        const request = indexedDB.deleteDatabase('yomu-anki-status-index');
-        request.onsuccess = () => resolve();
-        request.onerror = () => resolve();
-        request.onblocked = () => resolve();
-    });
+export async function deleteAnkiStatusIndexDatabase(): Promise<void> {
+    // Tests install a GM transport after setup, selecting the userscript DB.
+    // Clean both fixture owners regardless of whether globals were restored.
+    for (const name of ['yomu-anki-status-index', 'yomu-anki-status-index-userscript-v2']) {
+        await new Promise<void>((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(name);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => reject(new Error(`Test Anki database cleanup blocked: ${name}`));
+        });
+    }
 }
 
 export function registerReaderHelpersCleanup(): void {
@@ -3340,7 +3344,6 @@ export {
     parseKanjiVGSvg,
     parseRtkSearchIndex,
     parseSubtitleText,
-    parseYomitanSettingsExport,
     planTranscriptHydrationIndexes,
     pointerTextLookupFromTextNode,
     positionPopover,

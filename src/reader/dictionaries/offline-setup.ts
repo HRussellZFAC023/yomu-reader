@@ -4,12 +4,9 @@ import {
     mergeDictionaryPreferences,
 } from '../settings/dictionary';
 import {
-    findRecommendedDictionary,
-    recommendedDictionariesForLanguageProfile,
-    recommendedDictionaryImportOptions,
-    recommendedDictionaryInstalledIdentity,
-    type RecommendedDictionary,
-} from './recommended';
+    offlineStartersForProfile,
+    type OfflineStarterDictionary,
+} from './offline-starters';
 import type {
     DictionaryImportOptions,
     DictionarySummary,
@@ -34,7 +31,6 @@ const log = Logger.scope('OfflineDictionarySetup');
 // deliberate opt-in from Settings, not a silent multi-hundred-megabyte download
 // behind a "set up offline dictionaries" button. Kanjium stays as a shared
 // pitch supplement whose metadata merges with the seeded pitch dictionary.
-const OFFLINE_PITCH_DICTIONARY_ID = 'kanjium-pitch';
 
 export interface OfflineDictionarySetupStore {
     importFromUrl(
@@ -60,7 +56,7 @@ export interface OfflineDictionarySetupResult {
 }
 
 interface OfflineDictionarySetupPlan {
-    missing: RecommendedDictionary[];
+    missing: OfflineStarterDictionary[];
     installed: YomitanDictionaryInfo[];
 }
 
@@ -79,7 +75,7 @@ export async function installOfflineParsingDictionaries(options: OfflineDictiona
     }
     for (const target of plan.missing) {
         try {
-            const importOptions = recommendedDictionaryImportOptions(target);
+            const importOptions = target.integrity ? { integrity: target.integrity } : undefined;
             const summary = importOptions
                 ? await options.dictionaries.importFromUrl(target.downloadUrl!, undefined, options.onProgress, importOptions)
                 : await options.dictionaries.importFromUrl(target.downloadUrl!, undefined, options.onProgress);
@@ -109,21 +105,16 @@ async function offlineDictionarySetupPlan(
     targetLanguage: LearningTargetRosterId,
     result: OfflineDictionarySetupResult,
 ): Promise<OfflineDictionarySetupPlan> {
-    const targets = recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
-        .filter(dictionary => dictionary.selectedByDefault !== false && Boolean(dictionary.downloadUrl));
-    const pitch = targetLanguage === 'ja'
-        ? findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID)
-        : undefined;
-    if (pitch?.downloadUrl) targets.push(pitch);
+    const targets = offlineStartersForProfile(learnerLanguage, targetLanguage);
     const installedDictionaries = await store.summary()
         .then(summary => summary.dictionaries)
         .catch(() => []);
-    const missing: RecommendedDictionary[] = [];
+    const missing: OfflineStarterDictionary[] = [];
     const installed: YomitanDictionaryInfo[] = [];
     for (const target of targets) {
         const match = installedDictionaries.find(info =>
             canonicalDownloadUrl(info.downloadUrl ?? '') === canonicalDownloadUrl(target.downloadUrl!)
-            || yomitanDictionaryIdentity(info.title) === recommendedDictionaryInstalledIdentity(target));
+            || yomitanDictionaryIdentity(info.title) === target.installedIdentity);
         if (!match) {
             missing.push(target);
             continue;

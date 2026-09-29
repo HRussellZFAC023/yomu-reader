@@ -1,4 +1,4 @@
-import lessonPackage from '../../../public/academy/content/lessons/020-l1-l19.json';
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from './lesson-content-registry';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import { resolvePackagedListeningTask } from './listening/listening-task-bindings';
 import type { MoodleListeningGridModel, MoodleListeningGridTask, MoodleListeningGridTrack } from '../minigames/moodle-listening-grid';
@@ -13,8 +13,8 @@ const TRACK_44_SHA256 = 'b076fb0e90d9e1b2cdfe7caab6687b22b0eb354c3ee1b0b2b498154
 const A43_LOCATOR = 'academy/content/moodle/audio/l1-l19-a43.mp3';
 const A44_LOCATOR = 'academy/content/moodle/audio/l1-l19-a44.mp3';
 
-export function createLessonNineteenListeningGridBeat(): LessonActivityBeat {
-    assertExactPackageSources();
+export function createLessonNineteenListeningGridBeat(loaded: LoadedAuthoredWeekPackage): LessonActivityBeat {
+    assertExactPackageSources(loaded);
     const activity: MoodleListeningGridModel = {
         id: 'activity:l1-l19-moodle-listening-grid',
         kind: 'academy-moodle-listening-grid',
@@ -185,8 +185,12 @@ function line(speaker: string, text: string) {
     return Object.freeze({ speaker, text });
 }
 
-function assertExactPackageSources(): void {
-    const root = record(lessonPackage, 'l1-l19 package');
+function assertExactPackageSources(loaded: LoadedAuthoredWeekPackage): void {
+    if (loaded.week.id !== PACKAGE_ID
+        || loaded.week.provenance.source.sha256 !== getAuthoredWeekRegistration(PACKAGE_ID).expectedSha256) {
+        throw new TypeError('The activity requires its validated l1-l19 package.');
+    }
+    const root = record(loaded.value, 'l1-l19 package');
     if (root.id !== PACKAGE_ID || record(root.identity, 'l1-l19 identity').moduleId !== MODULE_ID) {
         throw new TypeError('Unexpected l1-l19 package identity.');
     }

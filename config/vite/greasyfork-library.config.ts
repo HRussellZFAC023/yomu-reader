@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import { aggregateOfflineStarterProvider } from './offline-starter-provider';
 
 const configRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(import.meta.url);
@@ -23,10 +24,9 @@ if (!library) {
 }
 
 export default defineConfig({
-    // The aggregate runtime carries the 1,637-entry public dictionary catalogue.
-    // Emit that data as native JSON text instead of repeating object-literal
-    // syntax; source stays in the reviewed JSON file and JSON.parse is faster for
-    // a payload this large. Focused companions keep their existing representation.
+    plugins: library.id === 'runtime' ? [aggregateOfflineStarterProvider()] : [],
+    // The aggregate carries the starter projection. Full surfaces derive their
+    // plans from the catalogue they already retain, without a second JSON payload.
     json: { stringify: library.id === 'runtime' },
     define: {
         __YOMU_VERSION__: JSON.stringify(pkg.version),

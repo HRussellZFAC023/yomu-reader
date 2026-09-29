@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
-    WORD_ONLY_STUDY_DISABLED_STEPS,
     DEFAULT_SETTINGS,
     newTabTestCard,
     deferred,
@@ -258,7 +257,7 @@ describe('new tab review — cache reuse & source switching', () => {
             expect(newTabSourceSelectValues()).toContain('jpdb');
 
             const internals = controller as unknown as {
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             };
             internals.state = { ...internals.state, source: 'jpdb' };
             switchNewTabSource('jpdb');
@@ -288,7 +287,7 @@ describe('new tab review — cache reuse & source switching', () => {
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             renderWord(root: HTMLElement, card: JPDBCard): void;
         };
         Object.assign(internals, {
@@ -296,7 +295,7 @@ describe('new tab review — cache reuse & source switching', () => {
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'JPDB + Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
         });
 
         internals.renderWord(root, card);
@@ -326,14 +325,14 @@ describe('new tab review — cache reuse & source switching', () => {
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'JPDB + Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
             appendToDocument: true,
         });
         const switched: string[] = [];
         const internals = controller as unknown as {
             bindRootEvents(root: HTMLElement): void;
             renderWord(root: HTMLElement, card: JPDBCard): void;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             sourceLabel: string;
             switchReviewSource(root: HTMLElement, source: 'jpdb' | 'anki' | 'dictionary'): Promise<void>;
         };
@@ -385,14 +384,14 @@ describe('new tab review — cache reuse & source switching', () => {
             visibleWords: JPDBCard[];
             index: number;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             renderWord(root: HTMLElement, card: JPDBCard): void;
         };
         Object.assign(internals, {
             visibleWords: [card],
             index: 0,
             sourceLabel: 'JPDB',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
         });
 
         internals.renderWord(root, card);
@@ -579,11 +578,11 @@ describe('new tab review — cache reuse & source switching', () => {
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         const loadedSources: string[] = [];
         const internals = controller as unknown as {
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             loadWordsInto(root: HTMLElement, preferStoredWord: boolean, options: { useOfflineCache: boolean }): Promise<void>;
             switchReviewSource(root: HTMLElement, source: 'anki' | 'jpdb'): Promise<void>;
         };
-        internals.state = { mode: 'word', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false };
+        internals.state = { route: 'study', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false };
         internals.loadWordsInto = vi.fn(async () => {
             loadedSources.push(internals.state.source);
         });
@@ -620,7 +619,7 @@ describe('new tab review — cache reuse & source switching', () => {
             index: number;
             sourceLabel: string;
             reviewCountMode: boolean;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             renderWord(root: HTMLElement, card: JPDBCard): void;
             loadNavigationSupplementCards(source: 'dictionary'): Promise<JPDBCard[]>;
             loadMoreForNavigation(root: HTMLElement, direction: 1, source: 'dictionary'): Promise<void>;
@@ -631,7 +630,7 @@ describe('new tab review — cache reuse & source switching', () => {
             index: 0,
             sourceLabel: 'Dictionary',
             reviewCountMode: false,
-            state: { mode: 'word', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
+            state: { route: 'study', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
         });
         internals.loadNavigationSupplementCards = vi.fn(async () => {
             throw new Error('dictionary unavailable');
@@ -663,7 +662,7 @@ describe('new tab review — cache reuse & source switching', () => {
             visibleWords: [card],
             index: 0,
             sourceLabel: 'Dictionary',
-            state: { mode: 'word', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
+            state: { route: 'study', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
             appendToDocument: true,
         });
         const internals = controller as unknown as {
@@ -709,7 +708,7 @@ describe('new tab review — cache reuse & source switching', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { search: vi.fn() } as never,
+            jpdbVocabulary: { search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) } as never,
             jpdbReviewBridge: {
                 onUpdate: () => () => {},
                 latestStatus: () => ({ connected: false }),
@@ -726,11 +725,11 @@ describe('new tab review — cache reuse & source switching', () => {
         Object.assign(controller as unknown as {
             visibleWords: JPDBCard[];
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             visibleWords: [ankiCard],
             sourceLabel: 'Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
         });
 
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, ankiCard);
@@ -762,11 +761,11 @@ describe('new tab review — cache reuse & source switching', () => {
         Object.assign(controller as unknown as {
             visibleWords: JPDBCard[];
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             visibleWords: [bunproCard],
             sourceLabel: 'Bunpro',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'bunpro', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'bunpro', revealAnswer: false },
         });
 
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, bunproCard);
@@ -900,12 +899,12 @@ describe('new tab review — cache reuse & source switching', () => {
         const ankiCard = newTabTestCard({ spelling: '暗記', reading: 'あんき', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
         const listNewTabCards = vi.fn(async () => [ankiCard]);
         const listDeckCards = vi.fn(async () => [newTabTestCard({ spelling: '日本語', reading: 'にほんご', source: 'jpdb' })]);
-        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
+        const publicSearch = vi.fn(async () => ({ cards: [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })], status: 'complete' as const }));
         const listRandomTopTerms = vi.fn(async () => [newTabLocalDictionaryEntry('書く', 'かく', 'to write')]);
         const controller = newTabBareController(settings, {
             anki: { listNewTabCards } as never,
             jpdb: { listDeckCards } as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: disconnectedJpdbReviewBridge(),
             parser: {
                 cacheCards: vi.fn(),
@@ -1072,7 +1071,7 @@ describe('new tab review — cache reuse & source switching', () => {
                 newTabSource: 'jpdb',
                 newTabJpdbDeck: 'deck',
                 newTabJpdbReviewMode: 'api-vocabulary',
-                newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
                 immersionKitEnabled: false,
             }), {
             anki: {
@@ -1112,7 +1111,7 @@ describe('new tab review — cache reuse & source switching', () => {
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
                 newTabSource: 'dictionary',
-                newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
                 immersionKitEnabled: false,
             }), dictionaryBatchOverrides(listRandomTopTerms));
 
@@ -1130,10 +1129,10 @@ describe('new tab review — cache reuse & source switching', () => {
         resetNewTabReviewStorage();
     });
 
-    it('migrates legacy kanji state into the shared queue and loads the next dictionary word', async () => {
+    it('loads the next dictionary word in the shared study queue', async () => {
         document.body.replaceChildren();
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
-            mode: 'kanji',
+            route: 'study',
             sort: 'random',
             filter: 'study',
             source: 'dictionary',
@@ -1226,7 +1225,7 @@ describe('new tab review — cache reuse & source switching', () => {
     it('loads Anki new-tab reviews when Anki is enabled', async () => {
         document.body.replaceChildren();
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
-            mode: 'word',
+            route: 'study',
             sort: 'random',
             filter: 'study',
             source: 'anki',

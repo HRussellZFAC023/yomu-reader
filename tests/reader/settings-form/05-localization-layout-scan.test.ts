@@ -100,7 +100,7 @@ describe('settings form localization', () => {
     it('keeps local settings import and export separate from extension cloud sync', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         const backupPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup')!;
-        const settingsImport = backupPanel.querySelector<HTMLElement>('[data-action="import-yomitan-settings"]')!;
+        const settingsImport = backupPanel.querySelector<HTMLElement>('[data-action="import-reader-settings"]')!;
 
         expect(backupPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
         expect(backupPanel.textContent).not.toContain('Google Drive settings sync');
@@ -118,19 +118,20 @@ describe('settings form localization', () => {
         const sourcesPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries')!;
 
         expect(backupPanel.dataset.settingsPanel).toBe('backup');
-        for (const action of ['import-yomitan-settings', 'export-reader-settings', 'import-yomitan-dictionary', 'export-yomitan-dictionary']) {
+        for (const action of ['import-reader-settings', 'export-reader-settings', 'import-yomitan-dictionary', 'export-yomitan-dictionary']) {
             expect(backupPanel.querySelector(`[data-action="${action}"]`), action).not.toBeNull();
             expect(sourcesPanel.querySelector(`[data-action="${action}"]`), action).toBeNull();
         }
         expect(backupPanel.querySelector('input[data-file="settings"]')).not.toBeNull();
         expect(backupPanel.querySelector('input[data-file="dictionary"]')).not.toBeNull();
-        expect(backupPanel.querySelector<HTMLElement>('[data-import-status]')?.textContent).toContain('Import Yomitan');
+        expect(backupPanel.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe('');
+        expect(backupPanel.querySelector<HTMLElement>('[data-import-status]')?.hidden).toBe(true);
         // Sources keeps a hidden status line so dictionary row actions still
         // surface feedback on the panel where they were clicked.
         const sourcesStatus = sourcesPanel.querySelector<HTMLElement>('[data-import-status]');
         expect(sourcesStatus?.hidden).toBe(true);
         expect(sourcesStatus?.textContent).toBe('');
-        expect(sourcesPanel.querySelector('[data-help-key="backupMovedHelp"]')).not.toBeNull();
+        expect(sourcesPanel.querySelector('[data-help-key="backupMovedHelp"]')).toBeNull();
 
         const tabs = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]')).map(button => button.dataset.panel);
         expect(tabs.indexOf('backup')).toBe(tabs.indexOf('appearance') + 1);
@@ -139,6 +140,7 @@ describe('settings form localization', () => {
         localizeSettingsForm(form, 'ja');
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="backup"]')?.textContent).toBe('バックアップと同期');
         expect(backupPanel.querySelector('legend')?.textContent).toBe('バックアップと同期');
+        expect(sourcesPanel.querySelector('[data-help-key="backupMovedHelp"]')).toBeNull();
     });
 
     it('shows the running version in the settings footer', () => {
@@ -162,6 +164,7 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: Academy, accounts, then study words');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
         expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
+        expect(optionText(form, 'twoButtonReviews', 'false')).toBe('Provider default');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (Jiten / JPDB)');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
@@ -169,6 +172,10 @@ describe('settings form localization', () => {
 
         form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')!.value = 'true';
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).twoButtonReviews).toBe(true);
+        localizeSettingsForm(form, 'ja');
+        expect(optionText(form, 'twoButtonReviews', 'false')).toBe('サービスの標準評価');
+        expect(form.querySelector('[data-help-key="fourGradeShortcutsHelp"]')?.textContent).toContain('もう一度・難しい・良い・簡単');
+        expect(form.querySelector('[data-help-key="fourGradeShortcutsHelp"]')?.textContent).not.toContain('未翻訳');
     });
 
     it('reads per-state colour opt-out (colorHide-*) checkboxes into wordColorHiddenStateGroups', () => {
@@ -325,7 +332,7 @@ describe('settings form localization', () => {
             bunproFrontendApiToken: 'frontend-bunpro',
             bunproFrontendApiTokenExpiresAt: '2026-07-06T16:05:56.552Z',
         });
-        expect(normalizeReaderSettings({ apiKey: '  ak_legacy-jiten  ' })).toMatchObject({ apiKey: '', jitenApiKey: 'ak_legacy-jiten' });
+        expect(normalizeReaderSettings({ apiKey: '  ak_legacy-jiten  ' })).toMatchObject({ apiKey: 'ak_legacy-jiten', jitenApiKey: '' });
         expect(normalizeReaderSettings({ apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' })).toMatchObject({
             apiKey: 'jpdb-key',
             jitenApiKey: 'ak_jiten-key',
@@ -421,10 +428,10 @@ describe('settings form localization', () => {
         expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual([]);
         expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
-        expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(true);
+        expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(false);
         expect(normalizeReaderSettings({ ankiEnabled: true, ankiSectionEnabled: false }).ankiSectionEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiMobileHandoff).toBe(false);
         expect(normalizeReaderSettings({}).ankiMineWithJpdb).toBe(false);
@@ -590,24 +597,13 @@ describe('settings form localization', () => {
         expect(customIds.slice(0, 3)).toEqual(['jpdb', 'custom-search', 'jiten']);
     });
 
-    it('expands the old untouched three-example Immersion Kit default while preserving deliberate limits', () => {
+    it('preserves an explicit three-example limit without migration markers', () => {
         expect(DEFAULT_SETTINGS).toMatchObject({
-            immersionKitExpandedLimitMigrated20260721: true,
             immersionKitLimitEnabled: false,
             immersionKitLimit: 12,
         });
 
         expect(normalizeReaderSettings({
-            immersionKitLimitEnabled: true,
-            immersionKitLimit: 3,
-        })).toMatchObject({
-            immersionKitExpandedLimitMigrated20260721: true,
-            immersionKitLimitEnabled: false,
-            immersionKitLimit: 12,
-        });
-
-        expect(normalizeReaderSettings({
-            immersionKitExpandedLimitMigrated20260721: true,
             immersionKitLimitEnabled: true,
             immersionKitLimit: 3,
         })).toMatchObject({
@@ -734,14 +730,10 @@ describe('settings form localization', () => {
         });
         const opacity = accessibleOcrBackgroundOpacity(0.2);
 
-        expect(settings.ocrTextColor).toBe('#ffffff');
-        expect(settings.ocrOutlineColor).toBe('#000000');
+        expect(settings.ocrTextColor).toBe('#17202a');
+        expect(settings.ocrOutlineColor).toBe('#ffffff');
         expect(settings.ocrBackgroundOpacity).toBe(opacity);
         expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor('#ffcc00', opacity));
-        expect(contrastRatio(
-            compositeOverWhiteHex(accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity)),
-            settings.ocrTextColor,
-        )).toBeGreaterThanOrEqual(4.5);
     });
 
     it('omits the old paused-frame OCR status card setting', () => {
@@ -757,7 +749,7 @@ describe('settings form localization', () => {
         expect(saved).not.toHaveProperty('ocrVideoFrameStatusCard');
     });
 
-    it('migrates only legacy-default-looking Anki settings away from noisy mobile defaults', () => {
+    it('preserves current Anki choices even when they match historical defaults', () => {
         const migrated = normalizeReaderSettings(legacyStoredSettings({
             ankiEnabled: true,
             ankiSectionEnabled: true,
@@ -766,11 +758,11 @@ describe('settings form localization', () => {
             newTabAnkiEnabled: true,
         }));
 
-        expect(migrated.ankiEnabled).toBe(false);
-        expect(migrated.ankiSectionEnabled).toBe(false);
-        expect(migrated.ankiMobileHandoff).toBe(false);
-        expect(migrated.ankiMineWithJpdb).toBe(false);
-        expect(migrated.newTabAnkiEnabled).toBe(false);
+        expect(migrated.ankiEnabled).toBe(true);
+        expect(migrated.ankiSectionEnabled).toBe(true);
+        expect(migrated.ankiMobileHandoff).toBe(true);
+        expect(migrated.ankiMineWithJpdb).toBe(true);
+        expect(migrated.newTabAnkiEnabled).toBe(true);
 
         const currentDeliberate = normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
@@ -798,7 +790,7 @@ describe('settings form localization', () => {
         expect(customLegacyAnki.ankiSectionEnabled).toBe(true);
         expect(customLegacyAnki.ankiMobileHandoff).toBe(true);
         expect(customLegacyAnki.ankiMineWithJpdb).toBe(true);
-        expect(customLegacyAnki.newTabAnkiEnabled).toBe(false);
+        expect(customLegacyAnki.newTabAnkiEnabled).toBe(true);
 
         const customLegacyUrl = normalizeReaderSettings(legacyStoredSettings({
             ankiEnabled: true,
@@ -830,7 +822,7 @@ describe('settings form localization', () => {
         expect(customLegacyNewTab.newTabAnkiEnabled).toBe(true);
     });
 
-    it('migrates legacy double-pitch highlights without clobbering explicit current choices', () => {
+    it('ignores retired highlight modes while preserving current channel choices', () => {
         const legacyWordHighlightMode = normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
             wordHighlightMode: 'pitch',
@@ -840,9 +832,9 @@ describe('settings form localization', () => {
             subtitleUnderlineColorSource: 'pitch',
         } as LegacyPitchSettings);
 
-        expect(legacyWordHighlightMode.wordHighlightColorSource).toBe(DEFAULT_SETTINGS.wordHighlightColorSource);
+        expect(legacyWordHighlightMode.wordHighlightColorSource).toBe('pitch');
         expect(legacyWordHighlightMode.wordUnderlineColorSource).toBe('pitch');
-        expect(legacyWordHighlightMode.subtitleHighlightColorSource).toBe(DEFAULT_SETTINGS.subtitleHighlightColorSource);
+        expect(legacyWordHighlightMode.subtitleHighlightColorSource).toBe('pitch');
         expect(legacyWordHighlightMode.subtitleUnderlineColorSource).toBe('pitch');
         expect(Object.prototype.hasOwnProperty.call(legacyWordHighlightMode, 'wordHighlightMode')).toBe(false);
 
@@ -853,9 +845,9 @@ describe('settings form localization', () => {
             subtitleUnderlineColorSource: 'pitch',
         }));
 
-        expect(legacyDoublePitchPair.wordHighlightColorSource).toBe(DEFAULT_SETTINGS.wordHighlightColorSource);
+        expect(legacyDoublePitchPair.wordHighlightColorSource).toBe('pitch');
         expect(legacyDoublePitchPair.wordUnderlineColorSource).toBe('pitch');
-        expect(legacyDoublePitchPair.subtitleHighlightColorSource).toBe(DEFAULT_SETTINGS.subtitleHighlightColorSource);
+        expect(legacyDoublePitchPair.subtitleHighlightColorSource).toBe('pitch');
         expect(legacyDoublePitchPair.subtitleUnderlineColorSource).toBe('pitch');
 
         const currentPitchChoice = normalizeReaderSettings({

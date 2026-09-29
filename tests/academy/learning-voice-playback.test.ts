@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
+// @ts-expect-error Production build-manifest helper is plain Node JavaScript.
+import { readAcademyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AudioDirector } from '../../src/academy/audio/director';
 import {
@@ -643,7 +645,7 @@ describe('Academy static learning voices', () => {
     });
 
     it('ships the accepted-only v3 parser and academy-character role in the built Academy runtime', () => {
-        const builtRuntime = readFileSync(resolve(root, 'docs/public/academy/app.js'), 'utf8');
+        const builtRuntime = readAcademyBuildCode(resolve(root, process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy'));
         expect(builtRuntime).toContain('yomu-academy.learning-voice-playback.v3');
         expect(builtRuntime).toContain('value.role === "academy-character"');
         expect(builtRuntime).toContain('options.invalidEntry === "skip"');

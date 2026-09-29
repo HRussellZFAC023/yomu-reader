@@ -179,7 +179,7 @@ function authenticationInfoPermissionForAction(
 
 function actionNeedsCredentialPermission(action: string): boolean {
     return action === 'restore-cloud-settings'
-        || action === 'import-yomitan-settings'
+        || action === 'import-reader-settings'
         || action === 'connect-academy-account';
 }
 

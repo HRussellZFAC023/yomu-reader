@@ -6,6 +6,7 @@ import {
     readCardCommandCapability,
     readDeckChoiceCapability,
     readPrivateCommandCapability,
+    readSubtitleCommandCapability,
 } from '../../src/reader/dom/private-command-capabilities';
 import { card, testCardActionController } from './jpdb/fixtures';
 import {
@@ -124,6 +125,21 @@ describe('private command capabilities', () => {
         expect(command?.audioUrls).toEqual(['https://audio.example/one.mp3']);
         expect(Object.isFrozen(command)).toBe(true);
         expect(Object.isFrozen(command?.audioUrls)).toBe(true);
+    });
+
+    it('keeps prepared batch tokens private and snapshots the selected token array', () => {
+        const root = document.createElement('div');
+        const token = Symbol('private-plan');
+        const plans = [token];
+        const html = `<button${privateCommandAttributes({ kind: 'subtitle-action', action: 'bm-grade-selected', grade: 'hard', batchGroup: Symbol(), batchPlans: plans })}>Hard</button>`;
+        plans.push(Symbol('foreign-plan'));
+        setInnerHtml(root, html);
+        const button = root.querySelector('button')!;
+        const command = readSubtitleCommandCapability(button)!;
+        expect(command.batchPlans).toEqual([token]);
+        expect(Object.isFrozen(command.batchPlans)).toBe(true);
+        expect(root.innerHTML).not.toMatch(/private-plan|batchPlans|batchGroup/);
+        expect(readSubtitleCommandCapability(button.cloneNode(true) as Element)).toBeUndefined();
     });
 
     it('keeps select option identity in the option WeakMap when values and attributes change', () => {

@@ -1,4 +1,5 @@
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
+import { canDirectFetchAnkiConnectFrom } from './connection-origin';
 
 // "request bridge" keeps isAnkiConnectAvailabilityError() matching this, so a
 // bridge-less cross-origin endpoint is treated as a normal unavailable state
@@ -9,12 +10,8 @@ export async function postAnkiJson<T>(url: string, body: string, timeoutMs: numb
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript<T>(userscriptRequest, url, body, timeoutMs);
 
-    // Without the userscript/extension request bridge, only a same-origin
-    // AnkiConnect endpoint is reachable. The usual http://127.0.0.1:8765 from a
-    // hosted page (the yomu site, a content page, …) is cross-origin, so the
-    // browser blocks it and logs "Cross-Origin Request Blocked" for every
-    // attempt even though we catch the rejection. Skip the doomed fetch and
-    // surface a caught availability error instead of spamming the console.
+    // Packaged pages use their existing host permissions. Hosted/content pages
+    // still need a bridge for cross-origin requests; do not weaken their gate.
     if (!canDirectFetchAnkiConnect(url)) {
         return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
     }
@@ -94,30 +91,6 @@ function postAnkiJsonWithUserscript<T>(
 
 function canDirectFetchAnkiConnect(url: string): boolean {
     return canDirectFetchAnkiConnectFrom(url, safeLocationHref());
-}
-
-// A bridge-less AnkiConnect request only escapes the browser's cross-origin
-// block when the endpoint is same-origin with the current page. Everything else
-// (the usual loopback endpoint reached from a hosted/content page) needs the
-// userscript/extension request bridge.
-function canDirectFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
-    const current = readAnkiUrl(currentHref);
-    if (!current) return false;
-    const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    return target.origin === current.origin;
-}
-
-function readAnkiUrl(value: string, base?: string): URL | null {
-    try {
-        return new URL(value, base);
-    } catch {
-        return null;
-    }
-}
-
-function isHttpUrl(url: URL): boolean {
-    return url.protocol === 'http:' || url.protocol === 'https:';
 }
 
 export function safeLocationHref(): string {

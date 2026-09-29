@@ -7,7 +7,9 @@ import {
 } from '../../src/reader/app/storage';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings';
 import { subscribeToSettingsChanges } from '../../src/reader/settings/settings-change-bus';
-import { exportSettingsBackupSnapshot } from '../../src/reader/settings/settings-persistence-transaction';
+import { exportSettingsBackupSnapshot } from '../../src/reader/settings/settings-backup';
+import { readBackupSettingsPersistenceView } from '../../src/reader/settings/settings-persistence-transaction';
+import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { runSettingsRestoreTransaction } from '../../src/reader/settings/settings-restore-transaction';
 import {
     HOSTED_STUDY_LOCATION,
@@ -188,6 +190,38 @@ describe('settings restore durability transaction', () => {
         expect(intent[COMMIT_FIELD]).not.toBe('newer-intent-commit');
     });
 
+    it('round-trips a current file through export, restore, durable intent and reload', async () => {
+        const storage = stubManagedStorage();
+        await saveSettings({ ...DEFAULT_SETTINGS, theme: 'dark', accentColor: '#123456' }, {
+            explicitUserChoiceKeys: ['theme', 'accentColor'],
+        });
+        const backup = await exportSettingsBackupSnapshot(await loadSettings());
+        const text = JSON.stringify({ formatName: 'yomu-reader-settings', formatVersion: 3, ...backup });
+        const file = new File([text], 'current-settings.json', { type: 'application/json' });
+        Object.defineProperty(file, 'text', { value: async () => text });
+        await saveSettings({ ...DEFAULT_SETTINGS, theme: 'light', accentColor: '#654321' }, {
+            explicitUserChoiceKeys: ['theme', 'accentColor'],
+        });
+        const adoptSettings = vi.fn();
+        await restoreReaderSettingsBackup(file, await loadSettings(), {
+            persistSettings: saveSettings,
+            adoptSettings,
+            setStatus: vi.fn(),
+            dictionaryStateChanged: vi.fn(),
+            dictionaries: {
+                exportJson: vi.fn(), importFile: vi.fn(),
+                summary: vi.fn().mockResolvedValue({ dictionaries: [] }),
+            },
+        });
+
+        expect(adoptSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark', accentColor: '#123456' }));
+        expect(await loadSettings()).toMatchObject({ theme: 'dark', accentColor: '#123456' });
+        const persisted = await readBackupSettingsPersistenceView(Object.fromEntries(storage.values));
+        expect(persisted?.intentLedger.records).toMatchObject({
+            theme: { value: 'dark' }, accentColor: { value: '#123456' },
+        });
+    });
+
     it('rejects backup export when settings authority rejects instead of serializing fallback settings', async () => {
         const commit = 'live-settings-commit';
         const readFailure = new Error('settings authority unavailable');
@@ -204,24 +238,90 @@ describe('settings restore durability transaction', () => {
             .rejects.toBe(readFailure);
     });
 
-    it.each([
-        {
-            name: 'a pre-transaction canonical settings value with no ledger',
-            storage: { [SETTINGS_KEY]: { theme: 'dark' } },
-        },
-        {
-            name: 'legacy settings and the preferred-site scalar only',
-            storage: {
-                'jpdb-reader-settings': { theme: 'dark' },
-                'yomu:prefer-japanese-site-language:v1': true,
+    it('exports the current settings model without resurrecting retired fields or their intent', async () => {
+        const retired = { newTabEnabled: false, uchisenEnabled: true, uchisenAlias: 'Old source', uchisenPriority: 17 };
+        const commit = 'old-but-witnessed';
+        const originalSettings = { ...DEFAULT_SETTINGS, ...retired, theme: 'dark', newTabSource: 'dictionary', [COMMIT_FIELD]: commit };
+        const originalIntent = {
+            revision: 12,
+            records: {
+                theme: { seq: 12, value: 'dark' },
+                ...Object.fromEntries(Object.entries(retired).map(([key, value]) => [key, { seq: 5, value }])),
             },
-        },
-    ])('preserves current intent for $name', async ({ storage }) => {
+            [COMMIT_FIELD]: commit,
+        };
+        const oldPins = { ...retired, accentColor: '#123456' };
+        const storage = stubManagedStorage({
+            [SETTINGS_KEY]: originalSettings,
+            [INTENT_KEY]: originalIntent,
+            'yomu:explicit-user-settings:v1': oldPins,
+            [GENERIC_KEY]: { width: 420 },
+        });
+
+        const backup = await exportSettingsBackupSnapshot(DEFAULT_SETTINGS);
+        const settings = backup.storage[SETTINGS_KEY] as Record<string, unknown>;
+        const intent = backup.storage[INTENT_KEY] as { records: Record<string, unknown>; revision: number; [COMMIT_FIELD]: string };
+        for (const key of Object.keys(retired)) {
+            expect(backup.settings).not.toHaveProperty(key);
+            expect(settings).not.toHaveProperty(key);
+            expect(intent.records).not.toHaveProperty(key);
+        }
+        expect(backup.settings).toMatchObject({ theme: 'dark', newTabSource: 'dictionary', accentColor: DEFAULT_SETTINGS.accentColor });
+        expect(settings).toEqual({ ...backup.settings, [COMMIT_FIELD]: intent[COMMIT_FIELD] });
+        expect(intent).toMatchObject({ revision: 12, records: { theme: { seq: 12, value: 'dark' } } });
+        expect(intent[COMMIT_FIELD]).toEqual(expect.any(String));
+        expect(intent[COMMIT_FIELD]).not.toBe(commit);
+        expect(backup.storage[GENERIC_KEY]).toEqual({ width: 420 });
+        const roundTrip = await readBackupSettingsPersistenceView(backup.storage);
+        expect(roundTrip?.settings).toEqual(backup.settings);
+        expect(roundTrip?.intentLedger.records).toEqual({ theme: { seq: 12, value: 'dark' } });
+        expect(backup.storage).not.toHaveProperty('yomu:explicit-user-settings:v1');
+        expect(storage.values.get(SETTINGS_KEY)).toEqual(originalSettings);
+        expect(storage.values.get(INTENT_KEY)).toEqual(originalIntent);
+        expect(storage.values.get('yomu:explicit-user-settings:v1')).toEqual(oldPins);
+        expect(storage.setValue).not.toHaveBeenCalled();
+    });
+
+    it('exports the witnessed declared choice rather than a carried-along scalar', async () => {
+        const commit = 'declared-choice';
+        const originalSettings = { ...DEFAULT_SETTINGS, theme: 'light', [COMMIT_FIELD]: commit };
+        const originalIntent = { revision: 4, records: { theme: { seq: 4, value: 'dark' } }, [COMMIT_FIELD]: commit };
+        const storage = stubManagedStorage({ [SETTINGS_KEY]: originalSettings, [INTENT_KEY]: originalIntent });
+
+        const backup = await exportSettingsBackupSnapshot(DEFAULT_SETTINGS);
+
+        expect(backup.settings.theme).toBe('dark');
+        expect(backup.storage[SETTINGS_KEY]).toMatchObject({ theme: 'dark' });
+        expect(backup.storage[INTENT_KEY]).toMatchObject({ revision: 4, records: { theme: { seq: 4, value: 'dark' } } });
+        expect(storage.values.get(SETTINGS_KEY)).toEqual(originalSettings);
+        expect(storage.values.get(INTENT_KEY)).toEqual(originalIntent);
+        expect(storage.setValue).not.toHaveBeenCalled();
+    });
+
+    it('normalizes and detaches the standalone fallback without inventing a storage witness', async () => {
+        const recoveryPins = { theme: 'dark', newTabEnabled: true };
+        const storage = stubManagedStorage({ 'yomu:explicit-user-settings:v1': recoveryPins });
+        const fallback = structuredClone({ ...DEFAULT_SETTINGS, newTabEnabled: true, uchisenEnabled: true });
+        const backup = await exportSettingsBackupSnapshot(fallback);
+
+        expect(backup.settings).not.toHaveProperty('newTabEnabled');
+        expect(backup.settings).not.toHaveProperty('uchisenEnabled');
+        expect(backup.storage).not.toHaveProperty(SETTINGS_KEY);
+        expect(backup.storage).not.toHaveProperty(INTENT_KEY);
+        expect(backup.storage).not.toHaveProperty('yomu:explicit-user-settings:v1');
+        expect(backup.settings.shortcuts).not.toBe(fallback.shortcuts);
+        expect(backup.settings.dictionaryPreferences).not.toBe(fallback.dictionaryPreferences);
+        expect(fallback.newTabEnabled).toBe(true);
+        expect(storage.values.get('yomu:explicit-user-settings:v1')).toEqual(recoveryPins);
+        expect(storage.setValue).not.toHaveBeenCalled();
+    });
+
+    it('does not invent imported intent when a backup contains no authority keys', async () => {
         const { setValue } = stubManagedStorage();
         const publishSettings = vi.fn().mockResolvedValue(undefined);
 
         await expect(runSettingsRestoreTransaction({
-            storage,
+            storage: {},
             publishSettings,
         })).resolves.toEqual({ restoredValues: 0 });
 
@@ -230,6 +330,10 @@ describe('settings restore durability transaction', () => {
     });
 
     it.each([
+        {
+            name: 'a canonical settings value with no ledger',
+            storage: { [SETTINGS_KEY]: { theme: 'dark' } },
+        },
         {
             name: 'null canonical settings and intent values',
             storage: { [SETTINGS_KEY]: null, [INTENT_KEY]: null },
@@ -268,8 +372,31 @@ describe('settings restore durability transaction', () => {
                 [GENERIC_KEY]: { width: 420 },
             },
             publishSettings,
-        })).rejects.toThrow('incomplete settings persistence transaction');
+        })).rejects.toThrow('malformed settings intent ledger');
 
+        expect(setValue).not.toHaveBeenCalled();
+        expect(publishSettings).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { records: {} },
+        { revision: -1, records: {} },
+        { revision: 0.5, records: {} },
+        { revision: Number.MAX_SAFE_INTEGER + 1, records: {} },
+        { revision: 1, records: { theme: { value: 'dark' } } },
+        { revision: 1, records: { theme: { seq: 0, value: 'dark' } } },
+        { revision: 1, records: { theme: { seq: 2, value: 'dark' } } },
+    ])('rejects malformed sequenced intent before any restore writes: %j', async ledger => {
+        const { setValue } = stubManagedStorage({ [GENERIC_KEY]: { width: 240 } });
+        const publishSettings = vi.fn();
+        await expect(runSettingsRestoreTransaction({
+            storage: {
+                [SETTINGS_KEY]: { theme: 'dark', [COMMIT_FIELD]: 'backup' },
+                [INTENT_KEY]: { ...ledger, [COMMIT_FIELD]: 'backup' },
+                [GENERIC_KEY]: { width: 420 },
+            },
+            publishSettings,
+        })).rejects.toMatchObject({ yomuUiCopyKey: 'settingsImportIncomplete' });
         expect(setValue).not.toHaveBeenCalled();
         expect(publishSettings).not.toHaveBeenCalled();
     });

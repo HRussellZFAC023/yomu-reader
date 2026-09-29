@@ -56,7 +56,7 @@ If you do not want to run desktop Anki, Yomu can hand a new card to AnkiMobile o
 
 A free Yomu account can pair devices so local cards follow you. Cards are encrypted before they leave the device. Profile and sync can list paired devices, revoke one, export your data or delete the account.
 
-Settings can also be exported as JSON from the Dictionaries screen. Keep that file with your other backups.
+Export or import settings from Study → Settings → Backup & sync. Only the current Yomu settings backup format is supported; older Yomu and Yomitan settings files are not converted. Unsupported files are rejected before restoring data. Backups can contain API keys. Store them privately.
 
 ## Know what is still being built
 

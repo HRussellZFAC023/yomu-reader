@@ -57,7 +57,7 @@ export class NewTabTargetLookupResolver {
 
     async publicCard(term: string, exact = false): Promise<JPDBCard | undefined> {
         if (!usesJapaneseProviders() || !this.dependencies.getSettings().jpdbDefinitionsEnabled) return undefined;
-        const cards = await this.dependencies.getJpdbVocabulary().search(term, 1).catch(() => []);
+        const cards = await this.dependencies.getJpdbVocabulary().search(term, 1).then(result => result.cards).catch(() => []);
         if (!usesJapaneseProviders()) return undefined;
         return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
     }
@@ -76,7 +76,7 @@ export class NewTabTargetLookupResolver {
             lookupMany: terms => current() ? this.dependencies.getJitenPublicVocabulary().lookupMany(terms) : Promise.resolve(new Map()),
             publicSpellingCard: async term => {
                 if (!current()) return undefined;
-                const found = await this.dependencies.getJpdbVocabulary().search(term, 1).catch(error => {
+                const found = await this.dependencies.getJpdbVocabulary().search(term, 1).then(result => result.cards).catch(error => {
                     this.dependencies.warnPublicSearch(term, error);
                     return [];
                 });

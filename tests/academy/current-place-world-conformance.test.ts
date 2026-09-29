@@ -100,8 +100,8 @@ describe('current-place world conformance gate', () => {
             returning.querySelectorAll<HTMLElement>('[data-world-character]').forEach(character => {
                 const id = character.dataset.worldCharacter!;
                 const portraitAllowed = canRenderAcademyCastPortrait(id, 'story-runtime');
-                expect(Boolean(character.querySelector('.academy-sprite'))).toBe(portraitAllowed);
-                expect(Boolean(character.querySelector('.academy-world-character-silhouette'))).toBe(!portraitAllowed);
+                expect(Boolean(character.querySelector('.academy-sprite')), `${place}: ${id} portrait`).toBe(portraitAllowed);
+                expect(Boolean(character.querySelector('.academy-world-character-silhouette')), `${place}: ${id} silhouette`).toBe(!portraitAllowed);
             });
         }
     });

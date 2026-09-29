@@ -1258,7 +1258,7 @@ describe('reader helpers', () => {
         try {
             const client = new JpdbVocabularyClient();
 
-            await expect(client.lookup(123, '読む', 'よむ')).resolves.toBeNull();
+            await expect(client.lookup(123, '読む', 'よむ')).rejects.toThrow();
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls.length).toBeGreaterThan(0);
             expect(urls.every(url => url.startsWith('https://edge.yomureader.com/') || url.startsWith('https://yomu-jpdb-public-proxy.'))).toBe(true);
@@ -1291,8 +1291,10 @@ describe('reader helpers', () => {
         const second = await new JpdbVocabularyClient().search('読む', 1);
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(first[0]).toMatchObject({ spelling: '読む', reading: 'よむ', meanings: [{ glosses: ['to read'] }] });
-        expect(second[0]).toMatchObject({ spelling: '読む', reading: 'よむ', meanings: [{ glosses: ['to read'] }] });
+        expect(first.status).toBe('complete');
+        expect(second.status).toBe('complete');
+        expect(first.cards[0]).toMatchObject({ spelling: '読む', reading: 'よむ', meanings: [{ glosses: ['to read'] }] });
+        expect(second.cards[0]).toMatchObject({ spelling: '読む', reading: 'よむ', meanings: [{ glosses: ['to read'] }] });
         expect(localStorage.getItem('yomu:jpdb-cache:v1')).toContain('search');
     });
 

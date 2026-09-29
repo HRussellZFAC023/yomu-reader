@@ -166,6 +166,7 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
                 'pending',
                 'expired',
                 'timeout',
+                'connectionlost',
             ]),
     },
     {
@@ -191,7 +192,7 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
         category: 'study-loop',
         tier: 'human-critical',
         matches: (_id, path) =>
-            startsWithAny(path, ['grade', 'study', 'review', 'due', 'session', 'reveal'])
+            startsWithAny(path, ['grade', 'study', 'practice', 'review', 'due', 'session', 'reveal'])
             || containsAny(path, ['duetoday', 'sessioncomplete', 'nothingdue']),
     },
     {

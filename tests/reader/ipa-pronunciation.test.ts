@@ -295,7 +295,6 @@ describe('international IPA metadata', () => {
     it('provides distinct English and Japanese pronunciation dictionary copy', () => {
         expect(uiText('en', 'pronunciationDictionaries')).toBe('Pronunciation dictionaries');
         expect(uiText('ja', 'pronunciationDictionaries')).toBe('発音辞書');
-        expect(uiText('en', 'dictionaryImportHelp')).toContain('pronunciation (IPA), Japanese pitch');
         expect(uiText('ja', 'dictionaryInstallQueueHelp')).toContain('発音（IPA）/日本語ピッチ');
         expect(uiText('en', 'mirroredDictionaryLanguageNote')).toBe('Dictionaries for reading {language}.');
         expect(uiText('ja', 'mirroredDictionaryLanguageNote')).toBe('{language}を読むための辞書です。');

@@ -74,7 +74,6 @@ const BASE_SETTINGS = {
     localDictionariesEnabled: true,
     ankiEnabled: false,
     ankiSectionEnabled: false,
-    newTabEnabled: true,
     newTabAnkiEnabled: false,
     audioEnabled: true,
     autoPlayAudio: false,

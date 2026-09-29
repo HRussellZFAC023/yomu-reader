@@ -12,18 +12,14 @@ import {
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
-import { gmStorageGetShared, gmStorageSet, withGmStorageLease } from '../../../src/reader/app/storage';
-import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from './hosted-demo-settings';
 import {
     loadHostedReaderRuntime,
     type HostedRuntimeLoadResult,
     type HostedRuntimeScript,
 } from '../../../src/reader/app/hosted-runtime-graph';
 import {
-    mergeHostedSharedSettingsPatch,
-    mergeHostedSettingsPatch,
+    persistHostedSharedSettingsPatch,
 } from '../../../src/reader/settings/hosted-settings-provenance';
-import { SETTINGS_PERSISTENCE_STORAGE_LEASE } from '../../../src/reader/settings/settings-persistence-transaction';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
 import { hostedOverflowLinks } from '../shared/nav';
@@ -40,14 +36,6 @@ import './custom.css';
 type InterfaceLanguage = 'en' | 'ja';
 type HostedThemePreference = 'auto' | 'dark' | 'light';
 type HostedInterfaceLanguagePreference = InterfaceLanguage | 'auto';
-interface HostedHeroStudyLanguage {
-    id: string;
-    locale: string;
-    englishName: string;
-    nativeName: string;
-    direction: 'ltr' | 'rtl';
-}
-declare const __YOMU_HERO_LANGUAGES__: readonly HostedHeroStudyLanguage[];
 type HostedSettingsChangeDetail = { preview?: unknown; settings?: Record<string, unknown> };
 type HostedYomuRuntimeWindow = typeof window & {
     __yomuDevRuntime?: boolean;
@@ -361,8 +349,8 @@ function setHostedThemePreference(theme: HostedThemePreference): void {
     window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme } } }));
 }
 
-function writeStoredThemePreference(theme: HostedThemePreference): Record<string, any> {
-    return writeStoredSettingsPatch({ theme });
+function writeStoredThemePreference(theme: HostedThemePreference): void {
+    writeStoredSettingsPatch({ theme }, { userChoice: true });
 }
 
 function syncHostedThemeFromSettings(theme: unknown = readStoredThemePreference()): void {
@@ -412,32 +400,20 @@ function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, 
     return patch;
 }
 
-function writeStoredSettingsPatch(patch: Record<string, any>, options: { shared?: boolean } = {}): Record<string, any> {
-    const settings = mergeHostedSettingsPatch(readStoredSettings(), patch);
+function writeStoredSettingsPatch(patch: Record<string, any>, options: { userChoice?: boolean } = {}): void {
     hostedSettingsEventPatch = { ...hostedSettingsEventPatch, ...patch };
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    if (options.shared !== false) propagateSettingsPatchToSharedStorage(patch);
-    return settings;
+    propagateSettingsPatchToSharedStorage(patch, options.userChoice === true);
 }
 
-// The localStorage write above only reaches this origin. When the userscript's
-// storage bridge is active, patch the shared GM settings as well so docs-chrome
-// edits (theme toggle, HUD language) follow the user to every other site.
-// Read-modify-write against the shared copy so a stale hosted blob never
-// clobbers settings saved elsewhere.
 function propagateSettingsPatchToSharedStorage(
     patch: Record<string, any>,
+    userChoice = false,
 ): void {
     hostedSharedSettingsWrite = hostedSharedSettingsWrite.then(async () => {
         try {
-            await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-                const shared = await gmStorageGetShared<Record<string, any> | null>(SETTINGS_STORAGE_KEY, null);
-                const sharedRecord = isHostedSettingsRecord(shared) ? shared : {};
-                const merged = mergeHostedSharedSettingsPatch(sharedRecord, patch);
-                if (merged) await gmStorageSet(SETTINGS_STORAGE_KEY, merged);
-            });
+            await persistHostedSharedSettingsPatch(patch, userChoice);
         } catch {
-            // Bridge unavailable: the localStorage copy stays authoritative here.
+            // Keep the visual preference here; unavailable shared storage is not a committed save.
         }
     });
 }
@@ -887,85 +863,11 @@ function syncHostedAnnotationSettingsFromEvent(event: Event): void {
     prepareHostedYomuRuntime();
 }
 
-// Homepage-only progressive enhancements: scroll reveals and the click-to-play
-// homepage reveal sections.
-// All are idempotent (guarded by data flags) so they survive route re-runs.
+// Bind the live homepage demonstrations. The heading is server-rendered copy.
 function installHostedHomepageInteractions(): void {
-    armHostedRevealElements();
     bindHostedYouTubeLiteEmbeds();
     bindHostedDemoVideos();
     watchHostedFoldRuntime();
-    installHostedHeroLanguageRotator();
-}
-
-// The headline rotator names all reading-ready targets. Both its frames and the
-// static/no-JS headline stay at the reading strength all 33 targets execute;
-// target-specific depth belongs in the feature copy, never in an implicit
-// Japanese default for the product identity.
-const HOSTED_HERO_HEADLINES: Record<InterfaceLanguage, readonly [string, string]> = {
-    en: ['Read ', ' with Yomu.'],
-    ja: ['よむで', 'を読む。'],
-};
-const HOSTED_HERO_ROTATION_MS = 2800;
-
-function installHostedHeroLanguageRotator(): void {
-    const heading = document.querySelector<HTMLElement>('#yomu-home-title:not([data-yomu-hero-rotator])');
-    if (!heading) return;
-    const languages = __YOMU_HERO_LANGUAGES__;
-    if (languages.length < 2) return;
-    heading.dataset.yomuHeroRotator = 'on';
-    // The rotator owns the headline from here on. Static route localisation has
-    // already supplied the correct language before hydration.
-    heading.dataset.yomuLocalize = 'off';
-    heading.dataset.yomuHeroCandidateCount = String(languages.length);
-    const sizingLayer = buildHostedHeroSizingLayer(languages);
-    const liveFrame = document.createElement('span');
-    liveFrame.className = 'yomu-fold-h1-live';
-    liveFrame.dataset.yomuHeroLive = '';
-    heading.replaceChildren(sizingLayer, liveFrame);
-    let index = 0;
-    const render = () => {
-        if (!heading.isConnected) return;
-        const language = languages[index];
-        renderHostedHeroFrame(liveFrame, language, true);
-        heading.setAttribute('aria-label', (liveFrame.textContent || '').trim());
-    };
-    render();
-    window.setInterval(() => {
-        if (document.hidden || !heading.isConnected) return;
-        index = (index + 1) % languages.length;
-        render();
-    }, HOSTED_HERO_ROTATION_MS);
-}
-
-function buildHostedHeroSizingLayer(languages: readonly HostedHeroStudyLanguage[]): HTMLElement {
-    const layer = document.createElement('span');
-    layer.className = 'yomu-fold-h1-reserve';
-    layer.dataset.yomuHeroReserve = '';
-    layer.setAttribute('aria-hidden', 'true');
-    layer.setAttribute('data-jpdb-reader-surface-ignore', 'true');
-    for (const language of languages) {
-        const candidate = document.createElement('span');
-        candidate.className = 'yomu-fold-h1-reserve-candidate';
-        candidate.dataset.yomuHeroCandidate = language.id;
-        renderHostedHeroFrame(candidate, language, false);
-        layer.append(candidate);
-    }
-    return layer;
-}
-
-function renderHostedHeroFrame(
-    frame: HTMLElement,
-    language: HostedHeroStudyLanguage,
-    animated: boolean,
-): void {
-    const [before, after] = HOSTED_HERO_HEADLINES[activeWebsiteLocale()];
-    const word = document.createElement('span');
-    word.className = animated ? 'yomu-fold-h1-lang' : 'yomu-fold-h1-reserve-lang';
-    word.lang = language.locale;
-    word.dir = language.direction;
-    word.textContent = language.nativeName;
-    frame.replaceChildren(document.createTextNode(before), word, document.createTextNode(after));
 }
 
 // The fold's live line is pre-annotated static markup, so it still looks
@@ -1115,35 +1017,6 @@ function readHostedYouTubeTitle(button: HTMLButtonElement): string {
     const label = button.getAttribute('aria-label');
     if (label) return label;
     return websiteMessage('docs.media.youtubeVideo', activeWebsiteLocale());
-}
-
-function armHostedRevealElements(): void {
-    const elements = Array.from(document.querySelectorAll<HTMLElement>('.yomu-reveal:not([data-yomu-revealed])'));
-    if (!elements.length) return;
-    const reveal = (element: HTMLElement): void => {
-        element.dataset.yomuRevealed = 'true';
-        delete element.dataset.yomuRevealReady;
-        element.classList.add('is-in');
-    };
-    if (typeof IntersectionObserver !== 'function') {
-        elements.forEach(reveal);
-        return;
-    }
-    const observer = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            reveal(entry.target as HTMLElement);
-            obs.unobserve(entry.target);
-        });
-    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
-    elements.forEach(element => {
-        element.dataset.yomuRevealReady = 'true';
-        observer.observe(element);
-    });
-    // Failsafe: never leave a section permanently hidden if the observer never fires.
-    window.setTimeout(() => elements.forEach(element => {
-        if (!element.dataset.yomuRevealed) reveal(element);
-    }), 2200);
 }
 
 function prepareHostedYomuRuntime(): void {
@@ -1298,7 +1171,6 @@ function installHostedYomuRuntime(): Promise<HostedRuntimeLoadResult> | undefine
     prepareLocalHostedRuntime(forceLocalRuntime);
     if (shouldSkipHostedRuntimeInstall(runtime, forceLocalRuntime, currentScript)) return undefined;
     if (hostedRuntimeLoadPromise) return hostedRuntimeLoadPromise;
-    prepareHostedDemoVideoSettings();
     enableLocalHostedRuntime(runtime, forceLocalRuntime);
     let load: Promise<HostedRuntimeLoadResult>;
     try {
@@ -1378,12 +1250,6 @@ function replayHostedRuntimeHoverHandoff(): void {
 function hostedPointerEvent(type: string, init: PointerEventInit): Event {
     if (typeof PointerEvent === 'function') return new PointerEvent(type, init);
     return new MouseEvent(type, init);
-}
-
-function prepareHostedDemoVideoSettings(): void {
-    if (!document.querySelector('[data-yomu-demo-player]')) return;
-    // Demo-player staging only: never replicate these into the shared GM store.
-    writeStoredSettingsPatch(HOSTED_DEMO_VIDEO_SETTINGS_PATCH, { shared: false });
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {

@@ -4520,19 +4520,12 @@ const BRAND_COLOR_TOKENS = {
 const READER_THEME_COLOR_TOKENS = {
   dark: {
   bg: "#181b20"
-  },
-  light: {
-  text: "#17202a"
   }
 };
 const OVERLAY_COLOR_TOKENS = {
   text: CORE_COLOR_TOKENS.white,
   outline: CORE_COLOR_TOKENS.black,
   background: READER_THEME_COLOR_TOKENS.dark.bg
-};
-const OCR_OVERLAY_COLOR_TOKENS = {
-  text: READER_THEME_COLOR_TOKENS.light.text,
-  outline: CORE_COLOR_TOKENS.white
 };
 const DEFAULT_WORD_COLOR_TOKENS = {
   new: "#ffffff",
@@ -6655,7 +6648,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  { owner: "settings/extension-study-settings-recovery", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
+  { owner: "settings (retired promotion marker; purge only)", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
   // Private, one-use cloud settings OAuth handoff. The old page-readable key
   // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
   { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
@@ -6744,6 +6737,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
+  { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
@@ -7136,15 +7131,16 @@ function removeStorageValue(storage, key, label) {
 const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
 async function withGmStorageLeaseCore(name, operation, options, environment) {
+  return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
+}
+async function withSharedStorageLease(name, operation, options, environment) {
   const { getValue, setValue, deleteValue, listValues } = environment.backend;
   if (!getValue || !setValue || !deleteValue || !listValues) {
-  return withWebStorageLock(name, async () => {
-    const epoch2 = await environment.captureEpoch(getValue);
-    await environment.assertMutationFence(getValue, epoch2);
-    const result = await operation();
-    await environment.assertMutationFence(getValue, epoch2);
-    return result;
-  });
+  const epoch2 = await environment.captureEpoch(getValue);
+  await environment.assertMutationFence(getValue, epoch2);
+  const result = await operation();
+  await environment.assertMutationFence(getValue, epoch2);
+  return result;
   }
   const epoch = await environment.captureEpoch(getValue);
   await environment.assertMutationFence(getValue, epoch);
@@ -7342,22 +7338,151 @@ const HOSTED_LOCAL_SETTINGS_KEYS = [
   "ocrOverlayTheme",
   "preferJapaneseSiteLanguage"
 ];
-const HOSTED_DEMO_READER_SETTINGS = {
-  showFurigana: true,
-  furiganaMode: "all",
-  showPitchAccent: true,
-  wordUnderlineColorSource: "pitch",
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: true,
-  subtitleControlsMode: "always",
-  subtitleTranscriptVisible: false,
-  ocrEnabled: true,
-  ocrVideoPauseFrames: true,
-  ocrProvider: "google-lens",
-  ocrOverlayTheme: "auto",
-  preferJapaneseSiteLanguage: false
-};
+function hasOwn(value, key) {
+  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+function objectRecord$2(value) {
+  return value && typeof value === "object" ? value : null;
+}
+function trimmedText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function stringValue(value) {
+  return typeof value === "string" ? value : "";
+}
+function finiteNumber$1(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+function booleanValue(value, fallback) {
+  return typeof value === "boolean" ? value : fallback;
+}
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY$1 = "yomu:settings-intent:v2";
+const NO_EXPLICIT_USER_CHOICE = [];
+const CHOSEN_SUFFIX = "Chosen";
+function coupledIntentKeys(keys, known) {
+  const expanded = new Set(keys);
+  for (const key of keys) {
+  const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+  if (known(sibling)) expanded.add(sibling);
+  }
+  return [...expanded];
+}
+function parseSettingsIntentLedger(value) {
+  const record2 = objectRecord$1(value);
+  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
+  const records = objectRecord$1(record2.records);
+  if (!records) return null;
+  const parsed = {};
+  for (const [key, entry] of Object.entries(records)) {
+  const item = objectRecord$1(entry);
+  if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
+  const seq = item.seq;
+  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+  }
+  return { revision: record2.revision, records: parsed };
+}
+function objectRecord$1(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function recordSettingsIntent(ledger, keys, settings) {
+  if (!keys.length) return ledger;
+  const records = { ...ledger.records };
+  let revision2 = ledger.revision;
+  for (const key of keys) {
+  if (!hasOwn(settings, key)) continue;
+  const value = settings[key];
+  records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
+  }
+  return revision2 === ledger.revision ? ledger : { revision: revision2, records };
+}
+function clearSettingsIntent(ledger, keys) {
+  const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+  if (!cleared.length) return ledger;
+  const records = { ...ledger.records };
+  for (const key of cleared) delete records[key];
+  return { revision: ledger.revision + 1, records };
+}
+function applySettingsIntent(settings, ledger) {
+  const keys = Object.keys(ledger.records);
+  if (!keys.length) return settings;
+  const next = { ...settings };
+  let changed = false;
+  for (const key of keys) {
+  const record2 = ledger.records[key];
+  if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+  if (sameSettingsValue(next[key], record2.value)) continue;
+  next[key] = record2.value;
+  changed = true;
+  }
+  return changed ? next : settings;
+}
+function isSubstitutableSettingValue(value) {
+  return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+function settingsIntentKeys(ledger) {
+  return Object.keys(ledger.records);
+}
+function sameSettingsValue(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+const TRANSACTION_FIELD$1 = "__yomuSettingsPersistenceTransactionV1";
+const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+  const marker = transactionMarker(storedSettings);
+  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
+  return matchingCommittedPair(settings, intentLedger);
+}
+function matchingCommittedPair(settings, intentLedger) {
+  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
+  const settingsId = commitId(settings);
+  const ledgerId = commitId(intentLedger);
+  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+}
+function commitId(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2) return void 0;
+  return recordCommitId(record2);
+}
+function recordCommitId(record2) {
+  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
+  const id = record2[COMMIT_FIELD];
+  return typeof id === "string" && id ? id : null;
+}
+function withCommit(value, id) {
+  return { ...value, [COMMIT_FIELD]: id };
+}
+function withoutCommit(value) {
+  const record2 = objectRecord$2(value);
+  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
+  const clean = { ...record2 };
+  delete clean[COMMIT_FIELD];
+  return clean;
+}
+function transactionMarker(value) {
+  const owner = objectRecord$2(value);
+  const marker = owner && objectRecord$2(owner[TRANSACTION_FIELD$1]);
+  if (!marker) return null;
+  return validatedTransactionMarker(marker);
+}
+function validatedTransactionMarker(marker) {
+  if (marker.version !== 1) return null;
+  const settings = serializedSnapshot(marker.settings);
+  const intentLedger = serializedSnapshot(marker.intentLedger);
+  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
+}
+function serializedSnapshot(value) {
+  const record2 = objectRecord$2(value);
+  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
+  existed: record2.existed,
+  previousValue: record2.previousValue,
+  localFallbackExisted: record2.localFallbackExisted,
+  localFallbackValue: record2.localFallbackValue
+  } : null;
+}
+function snapshotValue(snapshot) {
+  return snapshot.existed ? snapshot.previousValue : null;
+}
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
 const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
 const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
@@ -7403,21 +7528,39 @@ function pendingHostedSettingsPatch(key, localValue, hostedOrigin) {
   const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
   if (!isRecord$3(patch)) return void 0;
   const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
-  return withoutSettingsCoordination(sanitized);
+  const pending2 = withoutSettingsCoordination(sanitized);
+  return Object.keys(pending2).length ? pending2 : void 0;
 }
-function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious) {
+function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious, readIntent) {
   const current = sanitizedHostedSettingsRecord(key, value, hostedOrigin);
   if (!current) return value;
   const previousValue = readPrevious();
-  const previous = sanitizedHostedSettingsRecord(key, previousValue, hostedOrigin);
-  if (!previous) return current;
-  return {
-  ...current,
-  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: {
-    ...earlierHostedPatch(previousValue),
-    ...changedRecordFields(previous, current)
+  if (Object.hasOwn(current, HOSTED_SETTINGS_TRANSACTION_FIELD)) return value;
+  if (Object.hasOwn(current, HOSTED_SETTINGS_COMMIT_FIELD)) {
+  const intent = readIntent();
+  const ledger = parseSettingsIntentLedger(intent);
+  if (!ledger || !commitId(current) || !committedSettingsStoragePair(current, intent)) {
+    throw new Error("Hosted settings publication requires a matching intent ledger.");
   }
-  };
+  const marker = transactionMarker(previousValue);
+  if (!marker) throw new Error("Hosted settings publication requires a valid prior transaction marker.");
+  const previousIntent = snapshotValue(marker.intentLedger);
+  const previousLedger = previousIntent == null ? { records: {} } : parseSettingsIntentLedger(previousIntent);
+  if (!previousLedger) throw new Error("Hosted settings transaction has invalid previous intent.");
+  const snapshot = snapshotValue(marker.settings);
+  const patch = earlierHostedPatch(snapshot);
+  for (const key2 of Object.keys(patch)) {
+    if (!Object.hasOwn(ledger.records, key2) || !Object.hasOwn(current, key2)) delete patch[key2];
+    else patch[key2] = current[key2];
+  }
+  for (const [key2, record2] of Object.entries(ledger.records)) {
+    if (record2.seq === previousLedger?.records[key2]?.seq || !Object.hasOwn(current, key2)) continue;
+    patch[key2] = current[key2];
+  }
+  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
+  return { ...current, [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: withoutSettingsCoordination(sanitized) };
+  }
+  return current;
 }
 function sanitizedHostedStorageValue(key, value, hostedOrigin) {
   if (!hostedOrigin || !isRecord$3(value)) return value;
@@ -7448,13 +7591,6 @@ function earlierHostedPatch(value) {
   if (!isRecord$3(value)) return {};
   const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
   return isRecord$3(patch) ? withoutSettingsCoordination(patch) : {};
-}
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field, value] of Object.entries(current)) {
-  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-  }
-  return withoutSettingsCoordination(changed);
 }
 function withoutSettingsCoordination(record2) {
   const clean = { ...record2 };
@@ -7510,20 +7646,19 @@ function storageWriteError(key, message, ...causes) {
   return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const LEGACY_SETTINGS_STORAGE_KEYS = [
+const RETIRED_SETTINGS_STORAGE_KEYS = [
   "jpdb-reader-settings",
   "yomu-reader-settings",
-  "yomu-settings"
+  "yomu-settings",
+  "yomu:explicit-user-settings:v1"
 ];
-const SETTINGS_INTENT_LEDGER_STORAGE_KEY$1 = "yomu:settings-intent:v2";
-const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1 = "yomu:prefer-japanese-site-language:v1";
 const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
 const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
   SETTINGS_STORAGE_KEY,
-  ...LEGACY_SETTINGS_STORAGE_KEYS,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY$1,
-  EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+  ...RETIRED_SETTINGS_STORAGE_KEYS,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1,
   PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
 ]);
@@ -7695,6 +7830,7 @@ class ConcreteManagedWriteJournal {
     stagedAuthority: [],
     stagedLocal: [],
     interrupted: false,
+    restoreCapturedLocal: true,
     active: false
   };
   this.receipts.set(key, receipt);
@@ -7705,6 +7841,7 @@ class ConcreteManagedWriteJournal {
   record2.authorityTarget = previous;
   record2.localTarget = localPrevious;
   record2.interrupted = true;
+  record2.restoreCapturedLocal = Boolean(record2.localBefore && record2.localBefore.serializedValue !== (record2.previous.existed ? JSON.stringify(record2.previous.value) : null));
   if (record2.localBefore) rememberLocalStage(record2, record2.localBefore, record2.previous);
   this.activate(record2);
   }
@@ -7776,17 +7913,26 @@ function createConcreteManagedWriteJournal(storage, preserveLocalFallbackOnWrite
 }
 async function rollbackManagedWrites(storage, receipts, stopOnError, forceAuthorityRestore) {
   const errors = [];
+  let authorityStopped = false;
   for (let index = receipts.length - 1; index >= 0; index--) {
+  if (authorityStopped) {
+    const receipt = receipts[index];
+    if (receipt.restoreCapturedLocal) {
+      const local = captureManagedWriteLocal(receipt, errors);
+      rollbackManagedWriteLocal(storage, receipt, local, errors);
+    }
+    continue;
+  }
   const current = await rollbackManagedWrite(storage, receipts[index], forceAuthorityRestore);
   errors.push(...current);
-  if (stopOnError && current.length) break;
+  if (stopOnError && current.length) authorityStopped = true;
   }
   return errors;
 }
 async function rollbackManagedWrite(storage, receipt, forceAuthorityRestore) {
   const errors = [];
-  const currentLocal = captureManagedWriteLocal(receipt, errors);
   await rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors);
+  const currentLocal = captureManagedWriteLocal(receipt, errors);
   rollbackManagedWriteLocal(storage, receipt, currentLocal, errors);
   return errors;
 }
@@ -7841,7 +7987,7 @@ function restoreManagedWriteLocal(storage, receipt, current) {
   if (!receipt.localBefore) return restoreUntrackedWriteLocal(storage, receipt);
   if (!current) return;
   assertLocalStateCanRollback(storage, receipt, current);
-  if (!receipt.interrupted) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
+  if (receipt.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
   storage.restoreLocalTarget(receipt.key, receipt.localTarget);
 }
 function restoreUntrackedWriteLocal(storage, receipt) {
@@ -7903,7 +8049,7 @@ function asyncGmGetValue() {
 }
 function directGmGetValue() {
   if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmGetValue() ?? modernGmGetValue() ?? rawExtensionStorageGetValue();
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
 }
 function legacyGmGetValue() {
   return typeof GM_getValue === "function" ? GM_getValue : null;
@@ -7972,7 +8118,7 @@ function asyncGmListValues() {
   return bridgeGmListValues();
 }
 function directGmListValues() {
-  return legacyGmListValues() ?? modernGmListValues() ?? extensionGmListValues();
+  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
 }
 function legacyGmListValues() {
   if (typeof GM_listValues === "function") return GM_listValues;
@@ -8081,7 +8227,10 @@ async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue)
 }
 function managedStateEpochFromSynchronousGetter(getValue) {
   const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-  if (isPromiseLike$1(stored)) return null;
+  if (isPromiseLike$1(stored)) {
+  void Promise.resolve(stored).catch((error) => debugStorageError("Synchronous epoch probe could not read async storage", MANAGED_STATE_EPOCH_KEY, error));
+  return null;
+  }
   const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
   managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
   cacheManagedStateEpochForLocalFallback(shared2);
@@ -8089,7 +8238,7 @@ function managedStateEpochFromSynchronousGetter(getValue) {
 }
 function managedStateEpochForSynchronousLocalRead() {
   try {
-  const getValue = directGmGetValue();
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   if (getValue) {
     const synchronous = managedStateEpochFromSynchronousGetter(getValue);
     if (synchronous) return synchronous;
@@ -8146,11 +8295,6 @@ async function gmStorageGetStrict(key, fallback) {
   const epoch = await assertRealmManagedStateEpoch(getValue);
   return sharedManagedValue(getValue, key, fallback, epoch);
 }
-async function gmStorageGetShared(key, fallback) {
-  const getValue = asyncGmGetValue();
-  if (!getValue) return fallback;
-  return sharedOwnedManagedValue(getValue, key, fallback, "Shared GM storage read failed");
-}
 async function gmStorageGetSharedStrict(key, fallback) {
   const getValue = asyncGmGetValue();
   if (!getValue) return fallback;
@@ -8191,23 +8335,13 @@ async function localManagedValuesWithoutBackend(keys, fallback) {
   return keys.map((key) => localOnlyManagedValue(key, fallback, epoch));
 }
 async function sharedManagedValue(getValue, key, fallback, epoch) {
-  const pendingPatch = pendingHostedLocalPatch(key, epoch);
-  return pendingPatch ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
-}
-async function reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) {
-  const shared2 = await managedGmValue(getValue, key, void 0, epoch);
-  const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
-  const reconciled = { ...sharedRecord, ...pendingPatch };
-  await gmStorageSet(key, reconciled);
-  return reconciled;
-}
-async function sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   return promoteLocalManagedValue(key, fallback, epoch);
 }
 async function promoteLocalManagedValue(key, fallback, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return fallback;
   const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(migrated)) {
   const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
@@ -8219,6 +8353,7 @@ async function promoteLocalManagedValue(key, fallback, epoch) {
 function failedManagedReadValue(error, key, fallback, epoch) {
   if (isStaleManagedStateEpochError(error)) throw error;
   debugStorageError("GM storage read failed", key, error);
+  if (isSettingsAuthorityStorageKey(key)) return fallback;
   if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
   return localStorageGet(key, fallback);
   }
@@ -8297,6 +8432,7 @@ function gmStorageGetSync(key, fallback) {
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   }
+  if (isSettingsAuthorityStorageKey(key) && asyncGmGetValue()) return fallback;
   epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
@@ -8324,6 +8460,7 @@ function gmStorageSyncRead(key, getValue, epoch) {
   }
 }
 function migratedLocalStorageSyncValue(key, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return { kind: "fallback" };
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
@@ -8331,18 +8468,14 @@ function migratedLocalStorageSyncValue(key, epoch) {
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
 }
-function pendingHostedLocalPatch(key, epoch) {
-  if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return void 0;
-  if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
-  return pendingHostedSettingsPatch(key, localStorageGet(key, void 0), true);
-}
 function localFallbackValueForWrite(key, value) {
   if (!isHostedSettingsStorageKey(key)) return value;
   return hostedSettingsLocalFallbackValue(
   key,
   value,
   isHostedYomuOrigin(),
-  () => localStorageGet(key, void 0)
+  () => localStorageGet(key, void 0),
+  () => localStorageGet("yomu:settings-intent:v2", void 0)
   );
 }
 async function gmStorageSet(key, value, options = {}) {
@@ -8890,14 +9023,6 @@ function mirrorManagedValueToHostedStorage(key, value, epoch) {
   mirrorLocalManagedValue(key, value, epoch, (error) => {
   debugStorageError("Hosted localStorage mirror failed", key, error);
   });
-}
-function cacheManagedValueForHostedStartup(key, value) {
-  const epoch = managedStateEpochForSynchronousLocalRead();
-  if (epoch) mirrorManagedValueToHostedStorage(key, value, epoch);
-}
-function cacheManagedValueForHostedStartupIfAbsent(key, value) {
-  if (webStorageHasKey(localStorage, key)) return;
-  cacheManagedValueForHostedStartup(key, value);
 }
 function restoreLocalFallbackStoredValue(key, value, existed) {
   restoreLocalFallbackStoredValueAtEpoch(key, value, existed, managedStateEpochForSynchronousLocalRead());
@@ -9731,7 +9856,7 @@ if (typeof window !== "undefined") {
   window.YomuLogger = Logger;
 }
 const SETTINGS_CHANGE_BUS_SLOT = Symbol.for("yomu.private-settings-change-bus.v1");
-const log$e = Logger.scope("SettingsChangeBus");
+const log$d = Logger.scope("SettingsChangeBus");
 const HOSTED_PUBLIC_SETTINGS_KEYS = [
   "theme",
   "accentColor",
@@ -9748,17 +9873,19 @@ function publishSettingsChange$1(detail) {
   try {
     listener(detail);
   } catch (error) {
-    log$e.warn("Private settings change listener failed", error);
+    log$d.warn("Private settings change listener failed", error);
   }
   }
   publishPublicSettingsProjection(detail);
 }
 function subscribeToSettingsChanges(listener, signal) {
+  if (signal?.aborted) return () => void 0;
   const listeners = privateSettingsChangeBus().listeners;
   listeners.add(listener);
   const unsubscribe = () => {
   listeners.delete(listener);
   };
+  signal?.addEventListener("abort", unsubscribe, { once: true });
   return unsubscribe;
 }
 function privateSettingsChangeBus() {
@@ -9907,10 +10034,7 @@ ankiFieldNames(
 function normalizeAnkiFieldName(value) {
   return value.replace(/[_\s-]+/g, "").toLowerCase();
 }
-const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
-function isSentenceAudioFieldName(fieldName) {
-  return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
-}
+new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
 const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
 function normalizeAnkiFieldMappings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -9928,21 +10052,6 @@ function normalizeAnkiFieldMappings(value) {
   if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
   });
   return out;
-}
-function migrateAnkiSentenceAudioMappings(mappings) {
-  const out = {};
-  const movedModels = [];
-  for (const [modelName, mapping] of Object.entries(mappings)) {
-  const audioField = mapping.audio?.trim() ?? "";
-  if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
-    out[modelName] = mapping;
-    continue;
-  }
-  const { audio: _audio, ...rest } = mapping;
-  out[modelName] = { ...rest, sentenceAudio: audioField };
-  movedModels.push(modelName);
-  }
-  return { mappings: out, movedModels };
 }
 const FALLBACK_HEX_COLOR = "#000000";
 function normalizeHexColor(color) {
@@ -10023,25 +10132,6 @@ const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
   DEFAULT_ACCENT_COLOR,
   DEFAULT_OCR_BACKGROUND_OPACITY
 );
-function hasOwn(value, key) {
-  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
-}
-function objectRecord$2(value) {
-  return value && typeof value === "object" ? value : null;
-}
-function trimmedText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-function stringValue(value) {
-  return typeof value === "string" ? value : "";
-}
-function finiteNumber$1(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-function booleanValue(value, fallback) {
-  return typeof value === "boolean" ? value : fallback;
-}
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
@@ -10231,12 +10321,6 @@ function isRecord$2(value) {
 function targetLanguageOf(value) {
   return resolveLanguageProfile(value).targetLanguage;
 }
-function isTargetDefaultOcrLanguageTag(value) {
-  const tag = value?.trim().toLowerCase();
-  if (!tag) return false;
-  return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
-}
-const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = /* @__PURE__ */ new Set(["ja-jp", "ko-kr"]);
 function targetAudioTemplateLanguageToken() {
   return activeLearningTarget().audio.templateLanguageToken;
 }
@@ -11018,6 +11102,8 @@ const SUBTITLE_SETTINGS_COPY = {
 };
 const LOCAL_DICTIONARY_STORAGE_COPY = {
   enSettings: {
+  extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
+  extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
   localDictionariesEnabled: "Show imported dictionary definitions",
   localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
   clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
@@ -11034,6 +11120,8 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
   },
   jaSettings: {
+  extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
+  extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
   localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
   clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
@@ -11070,32 +11158,111 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
 });
 const SETTINGS_RECOVERY_COPY = {
   en: {
-  extensionSettingsRecoveryTitle: "Study paused to protect your settings",
-  extensionSettingsRecoveryBody: "Yomu could not reconnect your saved settings. The existing data was retained unchanged, and Study will not replace it with setup defaults.",
-  extensionSettingsRecoveryGuidance: "Retry recovery or reload Study. If this continues, import your latest settings backup once after recovery succeeds. Do not use Factory Reset or downgrade Yomu.",
-  extensionSettingsRecoveryRetry: "Retry recovery",
+  settingsImportUnsupportedFormat: "This settings backup format is not supported.",
+  settingsImportIncomplete: "The settings data in this backup is incomplete.",
+  extensionSettingsRecoveryTitle: "Could not load settings",
+  extensionSettingsRecoveryBody: "Your saved settings have not been changed.",
+  extensionSettingsRecoveryRetry: "Try again",
   extensionSettingsRecoveryReload: "Reload Study",
-  extensionSettingsRecoveryRetrying: "Retrying settings recovery…",
-  extensionSettingsRecoveryStillBlocked: "Recovery is still unavailable. Your existing data remains unchanged.",
+  extensionSettingsRecoveryRetrying: "Loading settings…",
+  extensionSettingsRecoveryStillBlocked: "Settings are still unavailable.",
   saveAfterImport: "Save after import",
   settingsImportSaveBlocked: "Settings import is running. Save unlocks when it finishes.",
   settingsImportStaleSaveDiscarded: "Settings import replaced the earlier pending Save."
   },
   ja: {
-  extensionSettingsRecoveryTitle: "設定を保護するためStudyを一時停止しました",
-  extensionSettingsRecoveryBody: "保存済み設定に再接続できませんでした。既存データは変更せず保持され、Studyが初期設定で上書きすることはありません。",
-  extensionSettingsRecoveryGuidance: "復旧を再試行するかStudyを再読み込みしてください。解決しない場合は、復旧成功後に最新の設定バックアップを一度だけインポートしてください。初期状態へのリセットやYomuのダウングレードは行わないでください。",
-  extensionSettingsRecoveryRetry: "復旧を再試行",
+  settingsImportUnsupportedFormat: "このバックアップの設定形式には対応していません。",
+  settingsImportIncomplete: "このバックアップの設定データが不完全です。",
+  extensionSettingsRecoveryTitle: "設定を読み込めませんでした",
+  extensionSettingsRecoveryBody: "保存済みの設定は変更されていません。",
+  extensionSettingsRecoveryRetry: "再試行",
   extensionSettingsRecoveryReload: "Studyを再読み込み",
-  extensionSettingsRecoveryRetrying: "設定の復旧を再試行中…",
-  extensionSettingsRecoveryStillBlocked: "まだ復旧できません。既存データは変更されていません。",
+  extensionSettingsRecoveryRetrying: "設定を読み込み中…",
+  extensionSettingsRecoveryStillBlocked: "まだ設定を読み込めません。",
   saveAfterImport: "インポート後に保存",
   settingsImportSaveBlocked: "設定をインポート中です。完了後に保存できます。",
   settingsImportStaleSaveDiscarded: "設定のインポートを優先し、先に待機していた保存は破棄しました。"
   }
 };
+const PRACTICE_SESSION_COPY = {
+  en: {
+  practiceTitle: "Practice",
+  practicePurpose: "Session type",
+  practiceRecognition: "Read words",
+  practiceCloze: "Complete sentences",
+  practiceWriting: "Write words",
+  practiceListening: "Listen",
+  practiceSpeaking: "Speak",
+  practiceStart: "Start session",
+  practiceResume: "Resume",
+  practiceSaved: "Saved sessions",
+  practiceCurrentSelection: "Use current selection",
+  practiceScheduleUnchanged: "Your scheduled reviews stay unchanged.",
+  practicePreparing: "Preparing session…",
+  practiceUnavailable: "This session could not be opened.",
+  practiceNoMaterial: "No selected words are ready for this session type.",
+  practiceSaveFailed: "Progress could not be saved. Try again.",
+  practiceConflict: "This session changed in another window. Copy any unsaved answer before reopening.",
+  practiceReopen: "Reopen saved progress",
+  practiceEmptyAnswer: "Enter an answer.",
+  practiceCheck: "Check",
+  practiceCorrect: "Matches the word",
+  practiceAccepted: "Reading matches",
+  practiceDifferent: "Try again, or compare with the answer.",
+  practiceRemembered: "I remembered",
+  practiceNotYet: "Not yet",
+  practiceNext: "Next",
+  practiceSkip: "Skip",
+  practicePause: "Pause",
+  practiceComplete: "Session complete",
+  practiceBack: "Back to Study",
+  practiceNew: "New session",
+  practiceWordsCount: "{count} words",
+  practicePosition: "{current} of {total}",
+  practiceResponse: "Your answer",
+  practiceAudio: "Play question audio"
+  },
+  ja: {
+  practiceTitle: "練習",
+  practicePurpose: "練習方法",
+  practiceRecognition: "単語を読む",
+  practiceCloze: "文の空欄を埋める",
+  practiceWriting: "単語を書く",
+  practiceListening: "聞き取り",
+  practiceSpeaking: "発話",
+  practiceStart: "練習を開始",
+  practiceResume: "再開",
+  practiceSaved: "保存した練習",
+  practiceCurrentSelection: "現在の選択を使う",
+  practiceScheduleUnchanged: "復習予定には影響しません。",
+  practicePreparing: "練習を準備中…",
+  practiceUnavailable: "この練習を開けませんでした。",
+  practiceNoMaterial: "選択した単語では、この形式の練習を開始できません。",
+  practiceSaveFailed: "進捗を保存できませんでした。もう一度お試しください。",
+  practiceConflict: "別のウィンドウで進捗が変わりました。未保存の回答をコピーしてから開き直してください。",
+  practiceReopen: "保存済みの進捗を開く",
+  practiceEmptyAnswer: "回答を入力してください。",
+  practiceCheck: "確認",
+  practiceCorrect: "表記が一致",
+  practiceAccepted: "読みが一致",
+  practiceDifferent: "もう一度試すか、答えを確認してください。",
+  practiceRemembered: "思い出せた",
+  practiceNotYet: "まだ覚えていない",
+  practiceNext: "次へ",
+  practiceSkip: "スキップ",
+  practicePause: "中断",
+  practiceComplete: "練習完了",
+  practiceBack: "学習に戻る",
+  practiceNew: "新しい練習",
+  practiceWordsCount: "{count}語",
+  practicePosition: "{total}問中{current}問",
+  practiceResponse: "回答",
+  practiceAudio: "問題の音声を再生"
+  }
+};
 const COPY = {
   en: {
+  ...PRACTICE_SESSION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
   onboardingEyebrow: "{language}, wherever it appears",
@@ -11170,7 +11337,6 @@ const COPY = {
   sources: "Sources",
   backupSync: "Backup & sync",
   backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
-  backupMovedHelp: "Backup, sync, and settings/dictionary import-export live in the Backup & sync section.",
   media: "Media",
   mining: "Mining",
   shortcuts: "Shortcuts",
@@ -11235,7 +11401,8 @@ const COPY = {
   jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
   jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
   jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
-  fivePoint: "Five point: NOTHING to EASY",
+  fivePoint: "Provider default",
+  fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
   automatic: "Automatic",
@@ -11297,7 +11464,6 @@ const COPY = {
   newTabParsingEnabled: "Enable sentence parsing on Study",
   newTabFrontSentenceEnabled: "Show sentence on word fronts",
   newTabKanjiAutogradeEnabled: "Auto-grade kanji drawing",
-  newTabKanjiAutoSubmit: "Auto-submit kanji grade",
   newTabOfflineEnabled: "Cache Study for offline use",
   newTabOfflineLimit: "Offline review cache limit",
   newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
@@ -11309,21 +11475,6 @@ const COPY = {
   newTabOfflineHelp: "Caches due cards and queued grades.",
   newTabAddressHelp: "Use as a start page or iPad shortcut.",
   newTabJpdbDeck: "Study JPDB deck",
-  newTabStudySteps: "Study steps",
-  newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
-  newTabStudyStepHeader: "Step",
-  newTabStudyStepKanji: "Kanji drawing",
-  newTabStudyStepWord: "Word meaning",
-  newTabStudyStepRecall: "Write in sentence",
-  newTabStudyStepListen: "Pitch listening",
-  newTabStudyStepSpeaking: "Speaking",
-  newTabStudyStepType: "Type the word",
-  newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
-  newTabStudyStepWordHelp: "{language} front, meaning and reading on reveal.",
-  newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
-  newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
-  newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
-  newTabStudyStepTypeHelp: "Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.",
   openNewTabPage: "Open Study",
   copyAddress: "Copy address",
   wordColors: "Word colors",
@@ -11700,7 +11851,6 @@ const COPY = {
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
   exportDictionaries: "Export dictionaries",
-  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.",
   lookupPills: "Lookup pills",
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
@@ -11788,7 +11938,6 @@ const COPY = {
   dictionaryNoSupportedBanks: "No supported banks found.",
   dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
   dictionaryZipMissingIndex: "ZIP missing index.json.",
-  yomitanSettingsInvalid: "Not a Yomitan settings export.",
   localWordSingular: "entry",
   localWordPlural: "entries",
   decksLoaded: "Decks are loaded from your JPDB account.",
@@ -11949,7 +12098,6 @@ const COPY = {
   gradeFail: "Pass/fail: FAIL",
   gradePass: "Pass/fail: PASS",
   helpLinksTitle: "Useful pages",
-  helpLinksCopy: "Open reader tools and docs from here.",
   versionAndUpdates: "Version",
   currentYomuVersion: "Yomu",
   updateStatusIdle: "Current {current}. Latest check pending.",
@@ -12032,12 +12180,10 @@ const COPY = {
   ankiLapseSingular: "lapse",
   ankiLapsePlural: "lapses",
   gradeNothingLabel: "Nothing",
+  gradeAgainLabel: "Again",
+  gradeGoodLabel: "Good",
   gradeSomethingLabel: "Something",
   gradeHardLabel: "Hard",
-  bunproGradeAgainLabel: "Again",
-  bunproGradeHardLabel: "Hard",
-  bunproGradeGoodLabel: "Good",
-  bunproGradeEasyLabel: "Easy",
   gradeOkayLabel: "Okay",
   gradeEasyLabel: "Easy",
   gradeFailLabel: "Fail",
@@ -12487,7 +12633,6 @@ importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応辞書バンクがありません。
 dictionaryUnsupportedJson	Dexie、ZIP、出力を使ってください。
 dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
@@ -12531,12 +12676,10 @@ ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
 ankiLapsePlural	回失敗
 gradeNothingLabel	全然
+gradeAgainLabel	もう一度
+gradeGoodLabel	良い
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
-bunproGradeAgainLabel	もう一度
-bunproGradeHardLabel	難しい
-bunproGradeGoodLabel	良い
-bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -12859,7 +13002,8 @@ translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
-  ...SETTINGS_RECOVERY_COPY.ja
+  ...SETTINGS_RECOVERY_COPY.ja,
+  ...PRACTICE_SESSION_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -12883,7 +13027,6 @@ reading	読解
 sources	ソース
 backupSync	バックアップと同期
 backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
-backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -12945,7 +13088,8 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-fivePoint	5段階: 全然から簡単まで
+fivePoint	サービスの標準評価
+fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 theme	テーマ
@@ -13002,7 +13146,6 @@ newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
-newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
@@ -13014,21 +13157,6 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
-newTabStudySteps	学習ステップ
-newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
-newTabStudyStepHeader	ステップ
-newTabStudyStepKanji	漢字書き取り
-newTabStudyStepWord	単語の意味
-newTabStudyStepRecall	文で書く
-newTabStudyStepListen	ピッチ聞き取り
-newTabStudyStepSpeaking	発音
-newTabStudyStepType	単語を書く
-newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
-newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
-newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
-newTabStudyStepTypeHelp	聞いて発音した単語を書き出します。入力または漢字ごとの手書きで解答できます。セッション中はスキップ可能。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -13383,7 +13511,6 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -13471,7 +13598,6 @@ ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
-helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 versionAndUpdates	バージョン
 currentYomuVersion	Yomu
 updateStatusIdle	現在 {current}。確認待ち。
@@ -15225,95 +15351,6 @@ function inferDictionaryTypeFromName(name) {
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
 }
-const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
-const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
-const NO_EXPLICIT_USER_CHOICE = [];
-const CHOSEN_SUFFIX = "Chosen";
-function coupledIntentKeys(keys, known) {
-  const expanded = new Set(keys);
-  for (const key of keys) {
-  const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
-  if (known(sibling)) expanded.add(sibling);
-  }
-  return [...expanded];
-}
-function settingsIntentLedgerFromStorage(stored, legacyPins) {
-  const fromLegacy = ledgerFromLegacyPins(legacyPins);
-  const fromStored = parseSettingsIntentLedger(stored);
-  if (!fromStored) return fromLegacy;
-  return {
-  revision: Math.max(fromStored.revision, fromLegacy.revision),
-  records: { ...fromLegacy.records, ...fromStored.records }
-  };
-}
-function parseSettingsIntentLedger(value) {
-  const record2 = objectRecord$1(value);
-  if (!record2) return null;
-  const records = objectRecord$1(record2.records);
-  if (!records) return null;
-  const parsed = {};
-  let highest = 0;
-  for (const [key, entry] of Object.entries(records)) {
-  const item = objectRecord$1(entry);
-  if (!item) continue;
-  const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
-  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
-  highest = Math.max(highest, seq);
-  }
-  const revision2 = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
-  return { revision: Math.max(revision2, highest), records: parsed };
-}
-function ledgerFromLegacyPins(value) {
-  const record2 = objectRecord$1(value);
-  if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
-  const records = {};
-  for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
-  return { revision: 0, records };
-}
-function objectRecord$1(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function recordSettingsIntent(ledger, keys, settings) {
-  if (!keys.length) return ledger;
-  const records = { ...ledger.records };
-  let revision2 = ledger.revision;
-  for (const key of keys) {
-  if (!hasOwn(settings, key)) continue;
-  const value = settings[key];
-  records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
-  }
-  return revision2 === ledger.revision ? ledger : { revision: revision2, records };
-}
-function clearSettingsIntent(ledger, keys) {
-  const cleared = keys.filter((key) => hasOwn(ledger.records, key));
-  if (!cleared.length) return ledger;
-  const records = { ...ledger.records };
-  for (const key of cleared) delete records[key];
-  return { revision: ledger.revision + 1, records };
-}
-function applySettingsIntent(settings, ledger) {
-  const keys = Object.keys(ledger.records);
-  if (!keys.length) return settings;
-  const next = { ...settings };
-  let changed = false;
-  for (const key of keys) {
-  const record2 = ledger.records[key];
-  if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
-  if (sameSettingsValue(next[key], record2.value)) continue;
-  next[key] = record2.value;
-  changed = true;
-  }
-  return changed ? next : settings;
-}
-function isSubstitutableSettingValue(value) {
-  return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
-}
-function settingsIntentKeys(ledger) {
-  return Object.keys(ledger.records);
-}
-function sameSettingsValue(left, right) {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
 function createDefaultSubtitleSettings(fontFamily) {
   return {
   subtitlePlayerEnabled: true,
@@ -15346,82 +15383,6 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleHoverPause: true,
   subtitleSeekPadding: 0.08
   };
-}
-const DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS = {
-  interfaceLanguage: "en",
-  parserProvider: "local"
-};
-const LEGACY_READER_TARGET_EVIDENCE_KEYS = [
-  "apiKey",
-  "jitenApiKey",
-  "parserProvider",
-  "lookupOnClick",
-  "lookupOnHover",
-  "manualScanEnabled",
-  "annotationsPaused",
-  "popupMode",
-  "subtitlePlayerEnabled",
-  "subtitleAutoDetect",
-  "subtitleFontSize",
-  "subtitleBottomOffset"
-];
-const ACADEMY_READER_DEFAULTS = {
-  showFurigana: true,
-  furiganaMode: "all",
-  showPitchAccent: true
-};
-const HOSTED_APPEARANCE_CHOICES = {
-  interfaceLanguage: /* @__PURE__ */ new Set(["auto", "en", "ja"]),
-  theme: /* @__PURE__ */ new Set(["auto", "dark", "light"])
-};
-const HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
-function normalizeLearningTargetChosen(value, defaults = DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS) {
-  if (!value) return false;
-  const explicit = explicitLearningTargetChoice(value);
-  if (explicit !== void 0) return explicit;
-  return unmarkedLegacySettingsChooseTarget(value, defaults);
-}
-function explicitLearningTargetChoice(value) {
-  return hasOwn(value, "learningTargetChosen") && typeof value.learningTargetChosen === "boolean" ? value.learningTargetChosen : void 0;
-}
-function unmarkedLegacySettingsChooseTarget(value, defaults) {
-  if (isPassiveHostedSettingsRecord(value)) return false;
-  if (persistedProfilesChooseLearningTarget(value, defaults)) return true;
-  return legacyReaderTargetEvidenceExists(value);
-}
-function legacyReaderTargetEvidenceExists(value) {
-  return LEGACY_READER_TARGET_EVIDENCE_KEYS.some((key) => hasOwn(value, key));
-}
-function isPassiveHostedSettingsRecord(record2) {
-  return Object.entries(record2).every(isHostedAppearanceEntry) || extendsHostedPolicy(record2, ACADEMY_READER_DEFAULTS) || extendsHostedPolicy(record2, HOSTED_DEMO_READER_SETTINGS);
-}
-function extendsHostedPolicy(record2, policy) {
-  return Object.entries(policy).every(([key, value]) => record2[key] === value) && Object.entries(record2).every((entry) => hasOwn(policy, entry[0]) || isHostedAppearanceEntry(entry));
-}
-function isHostedAppearanceEntry([key, value]) {
-  return isHostedAppearanceChoice(key, value) || isHostedAccentColor(key, value);
-}
-function isHostedAppearanceChoice(key, value) {
-  return HOSTED_APPEARANCE_CHOICES[key]?.has(value) === true;
-}
-function isHostedAccentColor(key, value) {
-  if (key !== "accentColor") return false;
-  return typeof value === "string" ? HOSTED_ACCENT_COLOR_RE.test(value) : false;
-}
-function persistedProfilesChooseLearningTarget(value, defaults) {
-  const profiles = value.languageProfiles;
-  if (!Array.isArray(profiles)) return false;
-  if (!profiles.some(isPersistedLanguageProfile)) return false;
-  const normalized = normalizeLanguageProfiles(
-  profiles,
-  value.activeLanguageProfileId,
-  {
-    outputLanguage: "en",
-    uiLocale: defaults.interfaceLanguage,
-    parserProvider: defaults.parserProvider
-  }
-  );
-  return normalized.profiles.some((profile) => languageProfileHasIndependentState(profile, defaults));
 }
 function isPersistedLanguageProfile(profile) {
   return Boolean(
@@ -15527,49 +15488,42 @@ function isInterfaceLanguage(value) {
 }
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
-const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
 class InvalidSettingsBackupAuthorityError extends Error {
   name = "InvalidSettingsBackupAuthorityError";
+  yomuUiCopyKey = "settingsImportIncomplete";
 }
-function readSettingsPersistenceView() {
-  return readSettingsPersistenceViewFrom(readSettingsStorageValue);
-}
-async function exportSettingsBackupSnapshot(fallbackSettings) {
-  const storage = await exportManagedStoredValues();
-  const view = await readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
-  const witnessed = objectRecord(view.settings);
-  if (!witnessed) {
-  if (backupContainsSettingsAuthority(storage)) {
-    throw new Error("Could not capture canonical settings for backup.");
-  }
-  return { settings: detachedSettings(fallbackSettings), storage };
-  }
-  const settings = detachedSettings({
-  ...fallbackSettings,
-  ...witnessed,
-  shortcuts: {
-    ...fallbackSettings.shortcuts,
-    ...objectRecord(witnessed.shortcuts)
-  }
+async function reconcileHostedSettingsChoices() {
+  if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return;
+  await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+  const settings = localFallbackStoredValue(SETTINGS_STORAGE_KEY, null);
+  const patch = pendingHostedSettingsPatch(SETTINGS_STORAGE_KEY, settings, true);
+  if (!patch) return;
+  const ledger = localFallbackStoredValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, null);
+  const local = await readBackupSettingsPersistenceView({
+    [SETTINGS_STORAGE_KEY]: settings,
+    [SETTINGS_INTENT_LEDGER_STORAGE_KEY$1]: ledger
   });
+  if (!local || !objectRecord(local.settings)) throw new Error("Pending settings have no witnessed authority.");
+  for (const key of Object.keys(patch)) {
+    if (!Object.hasOwn(local.intentLedger.records, key) || !valuesMatch(patch[key], local.settings[key])) {
+      throw new Error("Pending settings do not match declared local choices.");
+    }
+  }
+  const shared2 = await readSettingsPersistenceViewStrictFrom(gmStorageGetSharedStrict);
+  const merged = { ...objectRecord(shared2.settings) ?? {}, ...patch };
+  const next = recordSettingsIntent(shared2.intentLedger, Object.keys(patch), merged);
+  await persistSettingsStorageTransaction(next, applySettingsIntent(merged, next));
+  });
+}
+function readSettingsPersistenceViewStrict() {
+  return readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
+}
+function serializeSettingsPersistencePair(settings, intentLedger) {
   const commit = createStorageCoordinationId();
   return {
-  settings,
-  storage: {
-    ...storage,
-    [SETTINGS_STORAGE_KEY]: withCommit(settings, commit),
-    [SETTINGS_INTENT_LEDGER_STORAGE_KEY]: withCommit(view.intentLedger, commit)
-  }
+  [SETTINGS_STORAGE_KEY]: withCommit(settings, commit),
+  [SETTINGS_INTENT_LEDGER_STORAGE_KEY$1]: withCommit(intentLedger, commit)
   };
-}
-function backupContainsSettingsAuthority(storage) {
-  return Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
-}
-function detachedSettings(settings) {
-  return structuredClone(settings);
-}
-async function readSettingsPersistenceViewFrom(read) {
-  return await stableSettingsPersistenceView(read) ?? { settings: null, intentLedger: settingsIntentLedgerFromStorage(null, null) };
 }
 async function readSettingsPersistenceViewStrictFrom(read) {
   const view = await stableSettingsPersistenceView(read);
@@ -15585,18 +15539,17 @@ async function stableSettingsPersistenceView(read) {
 }
 async function sampledSettingsView(read) {
   const beforeSettings = await read(SETTINGS_STORAGE_KEY, null);
-  const beforeLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
-  const afterLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null);
+  const beforeLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, null);
+  const afterLedger = await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, null);
   const afterSettings = await read(SETTINGS_STORAGE_KEY, null);
   if (!sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger)) return null;
   const committed = committedSettingsStoragePair(afterSettings, afterLedger);
   if (!committed) return null;
+  const intentLedger = committed.intentLedger == null ? { revision: 0, records: {} } : parseSettingsIntentLedger(committed.intentLedger);
+  if (!intentLedger) return null;
   return {
   settings: committed.settings,
-  intentLedger: settingsIntentLedgerFromStorage(
-    committed.intentLedger,
-    await read(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
-  )
+  intentLedger
   };
 }
 function sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger) {
@@ -15604,125 +15557,49 @@ function sampleIsStable(beforeSettings, beforeLedger, afterSettings, afterLedger
 }
 async function readBackupSettingsPersistenceView(values) {
   const authority = backupAuthority(values);
-  if (!authority || !backupReplacesIntent(authority)) return null;
-  return readSettingsPersistenceViewFrom(async (key, fallback) => Object.hasOwn(authority.record, key) ? authority.record[key] : fallback);
+  if (!authority) return null;
+  return readSettingsPersistenceViewStrictFrom(async (key, fallback) => Object.hasOwn(authority, key) ? authority[key] : fallback);
 }
 function backupAuthority(values) {
   const record2 = objectRecord(values);
   if (!record2) return null;
   const hasSettings = Object.hasOwn(record2, SETTINGS_STORAGE_KEY);
-  const hasIntentLedger = Object.hasOwn(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+  const hasIntentLedger = Object.hasOwn(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY$1);
   if (!hasSettings && !hasIntentLedger) return null;
-  return validatedBackupAuthority(record2, hasSettings, hasIntentLedger);
+  validateBackupAuthority(record2);
+  return record2;
 }
-function validatedBackupAuthority(record2, hasSettings, hasIntentLedger) {
-  const committed = backupCommittedPair(record2);
-  if (!committed) {
-  throw new InvalidSettingsBackupAuthorityError(
-    "Settings backup contains an incomplete settings persistence transaction."
-  );
-  }
-  const settings = objectRecord(committed.settings);
+function validateBackupAuthority(record2) {
+  const settings = objectRecord(record2[SETTINGS_STORAGE_KEY]);
   if (!settings) {
   throw new InvalidSettingsBackupAuthorityError(
     "Settings backup contains a malformed canonical settings value."
   );
   }
-  validateBackupLedger(hasIntentLedger, committed.intentLedger);
-  return { record: record2, hasSettings, hasIntentLedger, settings };
-}
-function backupCommittedPair(record2) {
-  return committedSettingsStoragePair(
-  nullableBackupValue(record2, SETTINGS_STORAGE_KEY),
-  nullableBackupValue(record2, SETTINGS_INTENT_LEDGER_STORAGE_KEY)
-  );
-}
-function nullableBackupValue(record2, key) {
-  return record2[key] ?? null;
-}
-function validateBackupLedger(present, value) {
-  if (present && !validIntentLedger(value)) {
+  const ledger = record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY$1];
+  if (!parseSettingsIntentLedger(ledger)) {
   throw new InvalidSettingsBackupAuthorityError(
     "Settings backup contains a malformed settings intent ledger."
   );
   }
-}
-function backupReplacesIntent(authority) {
-  if (!authority.hasSettings) return false;
-  if (authority.hasIntentLedger) return true;
-  const legacy = settingsIntentLedgerFromStorage(
-  null,
-  authority.record[EXPLICIT_USER_SETTINGS_STORAGE_KEY] ?? null
+  if (!commitId(settings) || !commitId(ledger) || Object.hasOwn(settings, TRANSACTION_FIELD) || !committedSettingsStoragePair(settings, ledger)) {
+  throw new InvalidSettingsBackupAuthorityError(
+    "Settings backup contains an incomplete settings persistence transaction."
   );
-  return settingsIntentKeys(legacy).some((key) => Object.hasOwn(authority.settings, key));
-}
-function validIntentLedger(value) {
-  const ledger = objectRecord(value);
-  const records = ledger && objectRecord(ledger.records);
-  return Boolean(records && optionalFiniteNumber(ledger, "revision") && Object.values(records).every((item) => {
-  const record2 = objectRecord(item);
-  return Boolean(record2 && optionalFiniteNumber(record2, "seq"));
-  }));
-}
-function optionalFiniteNumber(record2, key) {
-  const value = record2[key];
-  return !Object.hasOwn(record2, key) || typeof value === "number" && Number.isFinite(value);
-}
-function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
-  const marker = transactionMarker(storedSettings);
-  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
-  return matchingCommittedPair(settings, intentLedger);
-}
-function matchingCommittedPair(settings, intentLedger) {
-  const settingsId = commitId(settings);
-  const ledgerId = commitId(intentLedger);
-  return settingsId !== null && ledgerId !== null && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
-}
-function commitId(value) {
-  const record2 = objectRecord(value);
-  if (!record2) return void 0;
-  return recordCommitId(record2);
-}
-function recordCommitId(record2) {
-  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
-  const id = record2[COMMIT_FIELD];
-  return typeof id === "string" && id ? id : null;
-}
-function withCommit(value, id) {
-  return id ? { ...value, [COMMIT_FIELD]: id } : value;
-}
-function withoutCommit(value) {
-  const record2 = objectRecord(value);
-  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
-  const clean = { ...record2 };
-  delete clean[COMMIT_FIELD];
-  return clean;
+  }
 }
 async function persistSettingsStorageTransaction(nextIntentLedger, settings) {
   const journal = createManagedWriteJournal(true);
   const snapshots = await storageSnapshots(journal);
   try {
-  const id = nextIntentLedger === void 0 ? commitId(snapshots.intentLedger.previousValue) : createStorageCoordinationId();
-  await stageIntent(nextIntentLedger, snapshots, id, journal);
+  const id = createStorageCoordinationId();
+  await journal.write(snapshots.settings.receipt, transactionRecord(snapshots.settings, snapshots.intentLedger));
+  await journal.write(snapshots.intentLedger.receipt, withCommit(nextIntentLedger, id));
   await journal.write(snapshots.settings.receipt, withCommit(settings, id));
   journal.commit();
   } catch (error) {
   await journal.reject(error, "Settings persistence failed", true);
   }
-}
-async function stageIntent(next, snapshots, id, journal) {
-  if (next === void 0) {
-  if (!snapshots.interrupted) return;
-  await journal.restore(
-    snapshots.intentLedger.receipt,
-    "Interrupted settings intent cleanup failed."
-  );
-  return;
-  }
-  const marker = transactionRecord(snapshots.settings, snapshots.intentLedger);
-  await journal.write(snapshots.settings.receipt, marker);
-  const ledger = withCommit(next, id);
-  await journal.write(snapshots.intentLedger.receipt, ledger);
 }
 async function storageSnapshots(journal) {
   const settingsReceipt = await journal.capture(SETTINGS_STORAGE_KEY);
@@ -15731,11 +15608,10 @@ async function storageSnapshots(journal) {
   if (!marker) {
   return {
     settings: rawSettings,
-    intentLedger: storageSnapshot(await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY)),
-    interrupted: false
+    intentLedger: storageSnapshot(await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1))
   };
   }
-  const intentReceipt = await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+  const intentReceipt = await journal.capture(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1);
   const settings = markerSnapshot(settingsReceipt, marker.settings);
   const intentLedger = markerSnapshot(intentReceipt, marker.intentLedger);
   journal.adoptInterrupted(
@@ -15748,7 +15624,7 @@ async function storageSnapshots(journal) {
   authorityState(intentLedger),
   localState(intentLedger)
   );
-  return { settings, intentLedger, interrupted: true };
+  return { settings, intentLedger };
 }
 function storageSnapshot(receipt) {
   const { existed, value } = receipt.previous;
@@ -15771,7 +15647,7 @@ function transactionRecord(settings, intentLedger) {
   const previous = objectRecord(settings.previousValue) ?? {};
   return {
   ...previous,
-  learningTargetChosen: normalizeLearningTargetChosen(settings.existed ? previous : null),
+  learningTargetChosen: previous.learningTargetChosen === true,
   onboardingSeen: typeof previous.onboardingSeen === "boolean" ? previous.onboardingSeen : false,
   [TRANSACTION_FIELD]: {
     version: 1,
@@ -15779,18 +15655,6 @@ function transactionRecord(settings, intentLedger) {
     intentLedger: serializeSnapshot(intentLedger)
   }
   };
-}
-function transactionMarker(value) {
-  const owner = objectRecord(value);
-  const marker = owner && objectRecord(owner[TRANSACTION_FIELD]);
-  if (!marker) return null;
-  return validatedTransactionMarker(marker);
-}
-function validatedTransactionMarker(marker) {
-  if (marker.version !== 1) return null;
-  const settings = serializedSnapshot(marker.settings);
-  const intentLedger = serializedSnapshot(marker.intentLedger);
-  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
 }
 function serializeSnapshot(snapshot) {
   return {
@@ -15800,23 +15664,8 @@ function serializeSnapshot(snapshot) {
   localFallbackValue: snapshot.previousValue
   };
 }
-function serializedSnapshot(value) {
-  const record2 = objectRecord(value);
-  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
-  existed: record2.existed,
-  previousValue: record2.previousValue,
-  localFallbackExisted: record2.localFallbackExisted,
-  localFallbackValue: record2.localFallbackValue
-  } : null;
-}
 function markerSnapshot(receipt, snapshot) {
   return { receipt, ...snapshot };
-}
-function snapshotValue(snapshot) {
-  return snapshot.existed ? snapshot.previousValue : null;
-}
-function readSettingsStorageValue(key, fallback) {
-  return isHostedYomuOrigin() ? gmStorageGet(key, fallback) : gmStorageGetShared(key, fallback);
 }
 function readSettingsStorageValueStrict(key, fallback) {
   return isHostedYomuOrigin() ? gmStorageGetStrict(key, fallback) : gmStorageGetSharedStrict(key, fallback);
@@ -15856,11 +15705,8 @@ async function persistPreferredJapaneseSiteLanguageWithSettings(value, persistSe
   }
   });
 }
-function settingsValueEquals(left, right) {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
 function changedSettingsKeys(previous, next) {
-  return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
+  return Object.keys(previous).filter((key) => previous[key] !== next[key] && JSON.stringify(previous[key]) !== JSON.stringify(next[key]));
 }
 function audioSubSourceProviderName(name) {
   const trimmed = name.trim().normalize("NFC");
@@ -15896,23 +15742,7 @@ const DEFAULT_AUDIO_SOURCES = [
   { type: "text-to-speech", url: "", voice: "", enabled: false }
 ];
 const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: true },
-  { type: "language-pod-101", url: "", voice: "", enabled: true },
-  { type: "jisho", url: "", voice: "", enabled: true },
-  { type: "text-to-speech", url: "", voice: "", enabled: true }
-];
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: true },
-  { type: "language-pod-101", url: "", voice: "", enabled: true },
-  { type: "jisho", url: "", voice: "", enabled: true },
-  { type: "jiten-tts", url: "", voice: "", enabled: true },
-  { type: "jpdb-tts", url: "", voice: "", enabled: true },
-  { type: "text-to-speech", url: "", voice: "", enabled: true }
-];
-const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
+new Set(
   DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
 );
 function isAudioSourceType(value) {
@@ -15966,12 +15796,10 @@ function isModifierKey(key) {
 function dedupeShortcutParts(parts) {
   return parts.filter((part, index) => parts.indexOf(part) === index);
 }
-const log$d = Logger.scope("Settings");
+const log$c = Logger.scope("Settings");
 const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
-const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
 const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
@@ -15982,11 +15810,6 @@ function isPopupLookupEnabled(settings) {
 }
 const READER_COLOR_SOURCES = /* @__PURE__ */ new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
 const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
-const OCR_ENGINE_ALIASES = /* @__PURE__ */ new Map([
-  ["MangaOcrAdapter", "MangaOCR"],
-  ["PpOcrAdapter", "PaddleOCR"],
-  ["AppleVisionAdapter", "AppleVision"]
-]);
 const DEFAULT_COLOR_CHANNELS = {
   wordHighlightColorSource: "jpdb",
   wordUnderlineColorSource: "pitch",
@@ -15998,7 +15821,6 @@ const DEFAULT_COLOR_CHANNELS = {
 const KANJI_BOOLEAN_SETTING_KEYS = [
   "jpdbKanjiEnabled",
   "kanjiImmersionKitEnabled",
-  "uchisenEnabled",
   "wanikaniKanjiEnabled"
 ];
 const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
@@ -16025,7 +15847,6 @@ const SOURCE_ALIAS_SETTING_KEYS = [
   "wanikaniDefinitionsAlias",
   "jpdbKanjiAlias",
   "kanjiImmersionKitAlias",
-  "uchisenAlias",
   "wanikaniKanjiAlias",
   "rtkAlias",
   "kanjivgAlias",
@@ -16072,7 +15893,6 @@ const ANKI_STUDY_NUMBER_SETTING_RANGES = {
 const KANJI_NUMBER_SETTING_RANGES = {
   jpdbKanjiPriority: { min: 0, max: 999 },
   kanjiImmersionKitPriority: { min: 0, max: 999 },
-  uchisenPriority: { min: 0, max: 999 },
   wanikaniKanjiPriority: { min: 0, max: 999 },
   rtkPriority: { min: 0, max: 999 },
   kanjivgPriority: { min: 0, max: 999 },
@@ -16111,28 +15931,7 @@ const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
 const NEW_TAB_SOURCES = ["jpdb", "bunpro", "wanikani", "yomu-local", "anki", "auto", "dictionary"];
 const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
 const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
-const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-  "kanji-doodle",
-  "word",
-  "type-word",
-  "recall-cloze",
-  "listen-pitch",
-  "speaking"
-];
-const NEW_TAB_STUDY_CHALLENGE_STEPS$1 = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 const NEW_TAB_TYPE_WORD_INPUT_MODES = ["keyboard", "handwriting"];
-const LEGACY_COLOR_CHANNEL_DEFAULTS = {
-  wordHighlightColorSource: "auto",
-  wordUnderlineColorSource: "auto",
-  wordTextColorSource: "off",
-  subtitleHighlightColorSource: "off",
-  subtitleUnderlineColorSource: "pitch",
-  subtitleTextColorSource: "auto"
-};
-const LEGACY_DEFAULT_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "Yomu", "yomu"]);
-const LEGACY_DEFAULT_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["よむ Japanese", "Yomu Japanese"]);
-const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = "Alt+ArrowLeft";
-const LEGACY_NEXT_SUBTITLE_SHORTCUT = "Alt+ArrowRight";
 const DEFAULT_SETTINGS = {
   apiKey: "",
   jitenApiKey: "",
@@ -16179,10 +15978,6 @@ const DEFAULT_SETTINGS = {
   kanjiImmersionKitEnabled: true,
   kanjiImmersionKitAlias: "",
   kanjiImmersionKitPriority: 60,
-  uchisenEnabled: false,
-  // Ignored legacy field; only the outbound link remains.
-  uchisenAlias: "",
-  uchisenPriority: 50,
   wanikaniKanjiEnabled: true,
   wanikaniKanjiAlias: "",
   wanikaniKanjiPriority: 55,
@@ -16218,7 +16013,6 @@ const DEFAULT_SETTINGS = {
   immersionKitExampleSource: "immersion-kit",
   nadeshikoApiKey: "",
   immersionKitPriority: 80,
-  immersionKitExpandedLimitMigrated20260721: true,
   immersionKitLimitEnabled: false,
   immersionKitLimit: 12,
   immersionKitMinLength: 8,
@@ -16241,9 +16035,6 @@ const DEFAULT_SETTINGS = {
   popupActivationMode: "hover",
   scanModifierKey: "shift",
   showFloatingButton: true,
-  // Historical browser-extension preference retained for settings migration. The
-  // main extension no longer overrides the browser new-tab page.
-  newTabEnabled: false,
   newTabAnkiEnabled: false,
   newTabAnkiDisabledDecks: [],
   newTabSource: "auto",
@@ -16261,11 +16052,7 @@ const DEFAULT_SETTINGS = {
   newTabSwipeReviews: true,
   newTabShortcutHintsEnabled: true,
   newTabKanjiAutogradeEnabled: true,
-  newTabKanjiAutoSubmit: false,
-  newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
-  newTabStudyDisabledSteps: [],
   newTabTypeWordInputMode: "keyboard",
-  newTabStudyTourSeen: false,
   puckPositionX: void 0,
   puckPositionY: void 0,
   manualScanEnabled: false,
@@ -16325,12 +16112,6 @@ const DEFAULT_SETTINGS = {
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
-  // Default TRUE: only stored records that PREDATE this key (the era when
-  // the notice's hide button persisted the setting off) migrate below.
-  youtubeFilterNoticeRestored20260711: true,
-  // TRUE by default so a fresh install never runs the theme migration below;
-  // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
-  themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
   youtubeShowChannelRecommendationsChosen: false,
   preferJapaneseSiteLanguage: false,
@@ -16358,7 +16139,6 @@ const DEFAULT_SETTINGS = {
   ankiFieldMappings: {},
   // Default TRUE: only stored records that PREDATE this key had a single
   // audio role and can hold a sentence-audio field in the word-audio slot.
-  ankiSentenceAudioMappingMigrated: true,
   // 'auto' so the operating system's own light/dark choice wins until the
   // learner picks one. It was 'light', and because the hosted appearance boot
   // reads settings.theme BEFORE falling back to 'auto', that default made the
@@ -16425,28 +16205,8 @@ const DEFAULT_SETTINGS = {
   gradePass: "2"
   }
 };
-const LEGACY_DEFAULT_TRUE_ANKI_SETTINGS = [
-  "ankiMobileHandoff",
-  "ankiMineWithJpdb",
-  "ankiSectionEnabled",
-  "ankiFrontReading",
-  "ankiFrontSentence",
-  "ankiFrontImage",
-  "ankiCaptureScreenshot"
-];
-const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
-  ["ankiConnectUrl", DEFAULT_SETTINGS.ankiConnectUrl],
-  ["ankiTemplateMode", DEFAULT_SETTINGS.ankiTemplateMode],
-  ["ankiTags", DEFAULT_SETTINGS.ankiTags]
-];
 function mergeSettings(value) {
-  const settingsValue = migrateSentenceAudioFieldMappings(
-  migrateDefaultLightTheme(
-    migratePinnedOcrLanguage(
-      migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
-    )
-  )
-  );
+  const settingsValue = value;
   const audio = normalizeAudioSettings(settingsValue);
   const supportedSettings = stripUnsupportedSettings(settingsValue);
   const apiCredentials2 = normalizeApiCredentialSettings(settingsValue);
@@ -16485,9 +16245,7 @@ function mergeSettings(value) {
     activeTargetRosterId(languageProfileSettings)
   ),
   ...languageProfileSettings,
-  // Choice migration is based on the raw stored record. The migrations
-  // above add marker fields even to `{}`, which is still no prior choice.
-  learningTargetChosen: normalizeLearningTargetChosen(value),
+  learningTargetChosen: booleanSetting(value, "learningTargetChosen"),
   preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
   shortcuts: normalizeShortcutSettings(settingsValue)
   };
@@ -16501,7 +16259,7 @@ function normalizePreferredJapaneseSiteLanguage(value) {
 function normalizeParserProvider(value) {
   const provider = value?.parserProvider;
   if (provider === "local" || provider === "jiten" || provider === "jpdb" || provider === "auto") return provider;
-  return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
+  return DEFAULT_SETTINGS.parserProvider;
 }
 function normalizeReaderSettings(value) {
   return mergeSettings(value);
@@ -16517,7 +16275,6 @@ function normalizeApiCredentialSettings(value) {
   const bunproFrontendApiToken = trimmedStringSetting(value, "bunproFrontendApiToken", DEFAULT_SETTINGS.bunproFrontendApiToken);
   const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
   const wanikaniApiToken = trimmedStringSetting(value, "wanikaniApiToken", DEFAULT_SETTINGS.wanikaniApiToken);
-  if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
   return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
 }
 function stripUnsupportedSettings(value) {
@@ -16527,124 +16284,30 @@ function stripUnsupportedSettings(value) {
   Object.entries(value).filter(([key]) => supportedKeys.has(key))
   );
 }
-function migrateHiddenFilterNotice(value) {
-  if (!value) return value;
-  if (value.youtubeFilterNoticeRestored20260711) return value;
-  const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
-  if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
-  return migrated;
-}
-function migrateDefaultLightTheme(value) {
-  if (!value) return value;
-  if (value.themeAutoRestored20260730) return value;
-  const migrated = { ...value, themeAutoRestored20260730: true };
-  if (migrated.theme === "light") migrated.theme = "auto";
-  return migrated;
-}
-function migratePinnedOcrLanguage(value) {
-  if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
-  return { ...value, ocrLanguage: "" };
-}
-function migrateSentenceAudioFieldMappings(value) {
-  if (!value) return value;
-  if (value.ankiSentenceAudioMappingMigrated) return value;
-  const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
-  if (!value.ankiFieldMappings) return migrated;
-  const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
-  if (!movedModels.length) return migrated;
-  log$d.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
-  return { ...migrated, ankiFieldMappings: mappings };
-}
-function migrateLegacyDefaultMobileSettings(value) {
-  if (!value) return value;
-  const migrateAnki = isLegacyDefaultAnkiSettings(value);
-  const migrateNewTabAnki = isLegacyDefaultNewTabAnkiSettings(value);
-  if (!migrateAnki && !migrateNewTabAnki) return value;
-  const migrated = { ...value };
-  if (migrateAnki) {
-  migrated.ankiEnabled = false;
-  migrated.ankiSectionEnabled = false;
-  migrated.ankiMobileHandoff = false;
-  migrated.ankiMineWithJpdb = false;
-  }
-  if (migrateNewTabAnki) migrated.newTabAnkiEnabled = false;
-  return migrated;
-}
-function isLegacyDefaultAnkiSettings(value) {
-  if (!isPreCurrentSavedSettingsPayload(value)) return false;
-  return legacyAnkiBooleanSettingsAreDefault(value) && legacyAnkiStringSettingsAreDefault(value) && legacyStringSettingIn(value, "ankiDeck", LEGACY_DEFAULT_ANKI_DECK_NAMES) && legacyStringSettingIn(value, "ankiModel", LEGACY_DEFAULT_ANKI_MODEL_NAMES) && legacyAnkiFieldMappingsAreDefault(value);
-}
-function legacyAnkiBooleanSettingsAreDefault(value) {
-  return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key) => legacyBooleanSettingMatches(value, key, true));
-}
-function legacyAnkiStringSettingsAreDefault(value) {
-  return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key, expected]) => legacyStringSettingMatches(value, key, expected));
-}
-function isLegacyDefaultNewTabAnkiSettings(value) {
-  if (!isPreCurrentSavedSettingsPayload(value)) return false;
-  return legacyBooleanSettingMatches(value, "newTabAnkiEnabled", true) && legacyBooleanSettingMatches(value, "newTabEnabled", false) && legacyStringListSettingIsEmpty(value, "newTabAnkiDisabledDecks") && legacyStringSettingMatches(value, "newTabSource", DEFAULT_SETTINGS.newTabSource) && legacyStringSettingMatches(value, "newTabJpdbDeck", DEFAULT_SETTINGS.newTabJpdbDeck) && legacyStringSettingMatches(value, "newTabJpdbReviewMode", DEFAULT_SETTINGS.newTabJpdbReviewMode);
-}
-function isPreCurrentSavedSettingsPayload(value) {
-  return !hasOwn(value, "jitenApiKey");
-}
-function legacyBooleanSettingMatches(value, key, expected) {
-  return hasOwn(value, key) && value[key] === expected;
-}
-function legacyStringSettingMatches(value, key, expected) {
-  const raw = value[key];
-  return hasOwn(value, key) && typeof raw === "string" && raw.trim() === expected;
-}
-function legacyStringSettingIn(value, key, expected) {
-  const raw = value[key];
-  return hasOwn(value, key) && typeof raw === "string" && expected.has(raw.trim());
-}
-function legacyStringListSettingIsEmpty(value, key) {
-  const raw = value[key];
-  return hasOwn(value, key) && Array.isArray(raw) && raw.length === 0;
-}
-function legacyAnkiFieldMappingsAreDefault(value) {
-  const raw = value.ankiFieldMappings;
-  return hasOwn(value, "ankiFieldMappings") && Boolean(raw) && typeof raw === "object" && !Array.isArray(raw) && Object.keys(raw).length === 0;
-}
 function normalizeAudioSettings(value) {
   const settings = value ?? {};
-  const hasSavedAudioSources = hasOwn(settings, "audioSources") || Boolean(settings.audioSourceUrl);
-  const audioSources = hasSavedAudioSources ? normalizeAudioSources(settings.audioSources, settings.audioSourceUrl) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+  const hasSavedAudioSources = hasOwn(settings, "audioSources");
+  const audioSources = hasSavedAudioSources ? normalizeAudioSources(settings.audioSources) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
   const audioAutoPlayMode = normalizeAudioAutoPlayMode(settings.audioAutoPlayMode);
   return {
   autoPlayAudio: audioAutoPlayMode === "off" ? false : booleanSetting(value, "autoPlayAudio"),
   suppressAutoAudioOnVideo: booleanSetting(value, "suppressAutoAudioOnVideo"),
   audioAutoPlayMode,
   audioSources,
-  audioSourceUrl: preferredAudioSourceUrl(audioSources, settings.audioSourceUrl),
+  audioSourceUrl: preferredAudioSourceUrl(audioSources),
   audioTtsMode: normalizeAudioTtsMode(settings.audioTtsMode)
   };
 }
-function preferredAudioSourceUrl(audioSources, fallback) {
-  return audioSources.find((source) => source.url)?.url ?? fallback ?? DEFAULT_AUDIO_URL;
+function preferredAudioSourceUrl(audioSources) {
+  return audioSources.find((source) => source.url)?.url ?? DEFAULT_AUDIO_URL;
 }
 function normalizeShortcutSettings(value) {
-  const shortcuts = {
-  ...DEFAULT_SETTINGS.shortcuts,
-  ...value?.shortcuts ?? {}
-  };
-  if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
-  shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
+  const shortcuts = { ...DEFAULT_SETTINGS.shortcuts };
+  for (const key of Object.keys(shortcuts)) {
+  const saved = value?.shortcuts?.[key];
+  if (typeof saved === "string") shortcuts[key] = saved;
   }
-  if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
-  shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
-  }
-  migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
   return shortcuts;
-}
-function migrateLegacySubtitleLineShortcuts(shortcuts, savedShortcuts) {
-  if (!savedShortcuts) return;
-  if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
-  shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
-  }
-  if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
-  shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
-  }
 }
 function normalizeLookupSettings(value) {
   return {
@@ -16655,21 +16318,12 @@ function normalizeLookupSettings(value) {
   lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
   lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
   lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
-  hoverOpenDelayMs: clampNumber$1(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-  hoverCloseDelayMs: clampNumber$1(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+  hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+  hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
   };
 }
 function normalizeDefinitionSourcePrioritySettings(value) {
-  const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
-  const ordered = isLegacyDefaultDefinitionSourceOrder(value) ? {
-  ...normalized,
-  jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
-  jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
-  } : normalized;
-  if (!hasOwn(value, "bunproDefinitionsPriority")) {
-  ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
-  }
-  return ordered;
+  return normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
 }
 function normalizeSourceAliasSettings(value) {
   const aliases = {};
@@ -16677,9 +16331,6 @@ function normalizeSourceAliasSettings(value) {
   aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
   }
   return aliases;
-}
-function isLegacyDefaultDefinitionSourceOrder(value) {
-  return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
 }
 function normalizeRemovedDictionarySettings(value) {
   return {
@@ -16692,7 +16343,6 @@ function normalizeRemovedDictionarySettings(value) {
 }
 function normalizeNewTabSettings(value) {
   return {
-  newTabEnabled: booleanSetting(value, "newTabEnabled"),
   newTabAnkiEnabled: booleanSetting(value, "newTabAnkiEnabled"),
   newTabAnkiDisabledDecks: normalizeStringList(value?.newTabAnkiDisabledDecks),
   newTabSource: normalizeNewTabSource(value?.newTabSource),
@@ -16703,43 +16353,15 @@ function normalizeNewTabSettings(value) {
   newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
   newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
   newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
-  newTabOfflineLimit: clampNumber$1(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
-  newTabDailyGoalMinutes: clampNumber$1(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
+  newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+  newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
   newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
   newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
   newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
   newTabShortcutHintsEnabled: booleanSetting(value, "newTabShortcutHintsEnabled"),
   newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
-  newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
-  newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
-  newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
-  newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode),
-  newTabStudyTourSeen: booleanSetting(value, "newTabStudyTourSeen")
+  newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode)
   };
-}
-function normalizeNewTabStudyStepOrder(value) {
-  const ordered = normalizeStudyStepList(value);
-  const legacyDefault = ["kanji-doodle", "word", "recall-cloze", "listen-pitch", "speaking", "type-word"];
-  if (ordered.join(",") === legacyDefault.join(",")) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
-  return [
-  ...ordered,
-  ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
-  ];
-}
-function normalizeNewTabStudyDisabledSteps(value) {
-  return normalizeStudyStepList(value);
-}
-function normalizeStudyStepList(value) {
-  if (!Array.isArray(value)) return [];
-  const out = [];
-  for (const item of value) {
-  if (!isNewTabStudyChallengeStep$1(item) || out.includes(item)) continue;
-  out.push(item);
-  }
-  return out;
-}
-function isNewTabStudyChallengeStep$1(value) {
-  return typeof value === "string" && NEW_TAB_STUDY_CHALLENGE_STEPS$1.has(value);
 }
 function normalizeReaderDisplaySettings(value) {
   const settings = value ?? {};
@@ -16750,7 +16372,7 @@ function normalizeReaderDisplaySettings(value) {
   puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
   puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
   showFurigana: booleanSetting(value, "showFurigana"),
-  furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+  furiganaMode: normalizeFuriganaMode(settings.furiganaMode),
   clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
   puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
   furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
@@ -16778,16 +16400,15 @@ function normalizeAnkiAndStudySettings(value) {
   ankiSectionEnabled: normalizeAnkiSectionEnabled(value),
   ...normalizeNumberSettingGroup(value, ANKI_STUDY_NUMBER_SETTING_RANGES),
   ankiConnectUrl: normalizeUrl(settings.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
-  ankiDeck: normalizeAnkiName(settings.ankiDeck, DEFAULT_SETTINGS.ankiDeck, "Yomu"),
-  ankiModel: normalizeAnkiName(settings.ankiModel, DEFAULT_SETTINGS.ankiModel, "Yomu Japanese"),
+  ankiDeck: normalizeAnkiName(settings.ankiDeck, DEFAULT_SETTINGS.ankiDeck),
+  ankiModel: normalizeAnkiName(settings.ankiModel, DEFAULT_SETTINGS.ankiModel),
   ankiTemplateMode: normalizeAnkiTemplateMode(settings.ankiTemplateMode),
   ankiFieldMappings: normalizeAnkiFieldMappings(settings.ankiFieldMappings),
   ...normalizeBooleanSettingGroup(value, ANKI_STUDY_BOOLEAN_SETTING_KEYS)
   };
 }
 function normalizeAnkiSectionEnabled(value) {
-  const ankiEnabled = booleanSetting(value, "ankiEnabled");
-  return hasOwn(value, "ankiSectionEnabled") ? booleanSetting(value, "ankiSectionEnabled") : ankiEnabled;
+  return booleanSetting(value, "ankiSectionEnabled");
 }
 function normalizePresentationSettings(value) {
   return {
@@ -16796,12 +16417,12 @@ function normalizePresentationSettings(value) {
   hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
   stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
   popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
-  popoverWidth: clampNumber$1(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-  popoverHeight: clampNumber$1(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+  popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+  popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
   popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
   readerFontFamily: normalizeFontFamily(value?.readerFontFamily, DEFAULT_SETTINGS.readerFontFamily),
   popupFontFamily: normalizeFontFamily(value?.popupFontFamily, DEFAULT_SETTINGS.popupFontFamily),
-  popupFontWeight: clampNumber$1(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight)
+  popupFontWeight: clampNumber(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight)
   };
 }
 function normalizeMiningSettings(value) {
@@ -16840,17 +16461,17 @@ function normalizeMediaSettings(value) {
   youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
   immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
   nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
-  immersionKitPriority: clampNumber$1(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+  immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
   ...immersionExampleLimit,
-  immersionKitMinLength: clampNumber$1(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-  immersionKitMaxLength: clampNumber$1(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+  immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+  immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
   immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
   immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
-  immersionKitPlaybackRate: clampNumber$1(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+  immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
   immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
   immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
   immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
-  ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+  ocrProvider: normalizeOcrProvider(settings.ocrProvider),
   ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
   ocrEngine: normalizeOcrEngine(settings.ocrEngine),
   ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
@@ -16858,24 +16479,22 @@ function normalizeMediaSettings(value) {
   ocrOutlineColor: normalizeOcrOutlineColor(settings),
   ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
   ocrBackgroundOpacity,
-  ocrFontScale: clampNumber$1(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+  ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
   };
 }
 function normalizeImmersionExampleLimitSettings(value) {
-  const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true && value?.immersionKitLimitEnabled === true && value?.immersionKitLimit === 3;
   return {
-  immersionKitExpandedLimitMigrated20260721: true,
-  immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, "immersionKitLimitEnabled"),
-  immersionKitLimit: legacyDefault ? DEFAULT_SETTINGS.immersionKitLimit : clampNumber$1(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
+  immersionKitLimitEnabled: booleanSetting(value, "immersionKitLimitEnabled"),
+  immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
   };
 }
 function normalizeOcrTextColor(settings) {
   const color = sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor);
-  return color === LEGACY_DEFAULT_OCR_TEXT_COLOR ? DEFAULT_SETTINGS.ocrTextColor : color;
+  return color;
 }
 function normalizeOcrOutlineColor(settings) {
   const color = sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor);
-  return color === LEGACY_DEFAULT_OCR_OUTLINE_COLOR ? DEFAULT_SETTINGS.ocrOutlineColor : color;
+  return color;
 }
 function normalizeSubtitleSettings(value) {
   return {
@@ -16885,10 +16504,10 @@ function normalizeSubtitleSettings(value) {
   subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
   subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
   subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-  subtitleBackgroundOpacity: clampNumber$1(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
-  subtitleNativeBlurStrength: clampNumber$1(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
+  subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+  subtitleNativeBlurStrength: clampNumber(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
   subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
-  subtitleFontWeight: clampNumber$1(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
+  subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
   };
 }
 function normalizeFontFamily(value, fallback) {
@@ -16902,10 +16521,10 @@ function normalizeStringList(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))];
 }
-function normalizeAnkiName(value, fallback, oldDefault) {
+function normalizeAnkiName(value, fallback) {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
-  if (!trimmed || trimmed === oldDefault) return fallback;
+  if (!trimmed) return fallback;
   return trimmed;
 }
 function normalizeAnkiTemplateMode(value) {
@@ -16952,13 +16571,7 @@ function normalizeUrl(value, fallback) {
   return fallback;
   }
 }
-function shortcutFromLegacyModifier(value) {
-  if (value === "alt") return "Alt";
-  if (value === "ctrl") return "Ctrl";
-  if (value === "meta") return "Meta";
-  return value === "shift" ? "Shift" : "";
-}
-function clampNumber$1(value, min, max2, fallback) {
+function clampNumber(value, min, max2, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : fallback;
 }
@@ -16974,7 +16587,7 @@ function normalizeNumberSettingGroup(value, ranges) {
   for (const key of Object.keys(ranges)) {
   const { min, max: max2 } = ranges[key];
   const fallback = DEFAULT_SETTINGS[key];
-  normalized[key] = clampNumber$1(value?.[key], min, max2, typeof fallback === "number" ? fallback : 0);
+  normalized[key] = clampNumber(value?.[key], min, max2, typeof fallback === "number" ? fallback : 0);
   }
   return normalized;
 }
@@ -17022,87 +16635,16 @@ function normalizeNewTabKanjiKeywordSource(value) {
   return normalizeOption(value, NEW_TAB_KANJI_KEYWORD_SOURCES, DEFAULT_SETTINGS.newTabKanjiKeywordSource);
 }
 function normalizeReaderColorChannelSettings(value) {
-  if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
-  const channels = {
-  wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
-  wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
-  wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
-  subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
-  subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
-  subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))
-  };
-  return normalizeStaleDoublePitchHighlightChannels(value, channels);
+  return Object.fromEntries(Object.entries(DEFAULT_COLOR_CHANNELS).map(([key, fallback]) => [
+  key,
+  normalizeReaderColorSource(value?.[key], fallback)
+  ]));
 }
-function isLegacyDefaultColorChannelSettings(value) {
-  if (!value) return false;
-  return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key) => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
+function normalizeReaderColorSource(value, fallback) {
+  return READER_COLOR_SOURCES.has(value) ? value : fallback;
 }
-function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
-  const source = value === "auto" ? autoFallback : value;
-  return READER_COLOR_SOURCES.has(source) ? source : fallback;
-}
-function normalizeStaleDoublePitchHighlightChannels(settings, channels) {
-  const staleWordHighlight = hasStaleWordPitchHighlight(settings, channels);
-  const staleSubtitleHighlight = hasStaleSubtitlePitchHighlight(settings, channels);
-  if (!staleWordHighlight && !staleSubtitleHighlight) return channels;
-  return {
-  ...channels,
-  wordHighlightColorSource: staleWordHighlight ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource : channels.wordHighlightColorSource,
-  subtitleHighlightColorSource: staleSubtitleHighlight ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource : channels.subtitleHighlightColorSource
-  };
-}
-function hasStaleWordPitchHighlight(settings, channels) {
-  if (!settings) return false;
-  if (settings.wordHighlightMode === "pitch") return true;
-  return hasStalePitchHighlightPair(settings, channels, "wordHighlightColorSource", "wordUnderlineColorSource");
-}
-function hasStaleSubtitlePitchHighlight(settings, channels) {
-  if (!settings) return false;
-  if (settings.wordHighlightMode === "pitch") return true;
-  return hasStalePitchHighlightPair(settings, channels, "subtitleHighlightColorSource", "subtitleUnderlineColorSource");
-}
-function hasStalePitchHighlightPair(settings, channels, highlight, underline) {
-  return (isPreCurrentSavedSettingsPayload(settings) || hasOwn(settings, "wordHighlightMode")) && isRawPitchPair(settings, highlight, underline) && channels[highlight] === "pitch" && channels[underline] === "pitch";
-}
-function isRawPitchPair(settings, highlight, underline) {
-  return settings[highlight] === "pitch" && settings[underline] === "pitch";
-}
-function legacyHighlightColorSourceForAuto(settings, fallback) {
-  const mode = legacyEffectiveWordHighlightMode(settings);
-  if (mode === "pitch") return fallback;
-  return legacyReaderColorSourceForAuto(settings, fallback);
-}
-function legacyReaderColorSourceForAuto(settings, fallback) {
-  const mode = legacyEffectiveWordHighlightMode(settings);
-  return mode === "status" ? fallback : mode ?? fallback;
-}
-function legacySubtitleHighlightColorSourceForAuto(settings, fallback) {
-  const mode = legacyEffectiveWordHighlightMode(settings);
-  if (mode === "pitch") return fallback;
-  return legacySubtitleColorSourceForAuto(settings, fallback);
-}
-function legacySubtitleColorSourceForAuto(settings, fallback) {
-  const mode = legacyEffectiveWordHighlightMode(settings);
-  if (!mode) return fallback;
-  return mode === "status" ? "jpdb" : mode;
-}
-function legacyEffectiveWordHighlightMode(settings) {
-  if (!settings || !hasOwn(settings, "wordHighlightMode")) return null;
-  if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch" || settings.wordHighlightMode === "off") return settings.wordHighlightMode;
-  return hasLegacyMiningStatusSource(settings) ? "status" : "pitch";
-}
-function hasLegacyMiningStatusSource(settings) {
-  return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
-}
-function normalizeFuriganaMode(value, settings) {
-  if (value === "auto") return effectiveLegacyAutoFuriganaMode();
-  if (isFuriganaMode(value)) return value;
-  if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
-  if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
-  return DEFAULT_SETTINGS.furiganaMode;
-}
-function effectiveLegacyAutoFuriganaMode() {
-  return "all";
+function normalizeFuriganaMode(value) {
+  return isFuriganaMode(value) ? value : DEFAULT_SETTINGS.furiganaMode;
 }
 function isFuriganaMode(value) {
   return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
@@ -17117,9 +16659,6 @@ function normalizeWordColorHiddenStateGroups(value) {
   if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
   const groups = value.filter((item) => typeof item === "string" && WORD_COLOR_HIDE_STATE_GROUPS.includes(item));
   return [...new Set(groups)];
-}
-function legacyBooleanSettingIs(settings, key, expected) {
-  return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
 }
 function normalizeDeckIdSetting(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -17168,7 +16707,7 @@ const COLOR_STATUS_CHANNEL_KEYS = [
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-  return effectiveLegacyAutoFuriganaMode();
+  return "all";
 }
 function furiganaModeNeedsDifficultyExplanation(settings) {
   return effectiveFuriganaMode(settings) === "difficult-kanji";
@@ -17176,29 +16715,16 @@ function furiganaModeNeedsDifficultyExplanation(settings) {
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
-function normalizeOcrProvider(value, settings) {
-  if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
-  if (typeof value !== "string") return DEFAULT_SETTINGS.ocrProvider;
-  return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value) ? value : DEFAULT_SETTINGS.ocrProvider);
+function normalizeOcrProvider(value) {
+  return OCR_PROVIDERS.has(value) ? value : DEFAULT_SETTINGS.ocrProvider;
 }
-const OCR_PROVIDER_ALIASES = {
-  auto: "google-lens",
-  fast: "google-lens",
-  "page-text": "google-lens",
-  "custom-json": "local-service"
-};
 const OCR_PROVIDERS = /* @__PURE__ */ new Set(["google-lens", "cloud-vision", "local-service", "off"]);
 function normalizeCloudVisionApiKey(value) {
   return typeof value === "string" ? value.trim() : DEFAULT_SETTINGS.ocrCloudVisionApiKey;
 }
-function isBlankLegacyLocalOcrSetting(value, settings) {
-  if (value !== "local-service" || !settings) return false;
-  if (hasOwn(settings, "ocrCloudVisionApiKey")) return false;
-  return !(typeof settings.ocrEndpointUrl === "string" && settings.ocrEndpointUrl.trim());
-}
 function normalizeOcrEngine(value) {
   const normalized = normalizedOcrEngineInput(value);
-  return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_SETTINGS.ocrEngine;
+  return normalized || DEFAULT_SETTINGS.ocrEngine;
 }
 function normalizedOcrEngineInput(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -17207,9 +16733,10 @@ async function saveSettings(settings, options) {
   const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
   try {
   const normalizedSettings = mergeSettings(settings);
+  await reconcileHostedSettingsChoices();
   await persistSettingsWithIntent(normalizedSettings, intent);
   } catch (error) {
-  log$d.warn("Settings save failed", { error });
+  log$c.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -17229,11 +16756,10 @@ function coupledSettingsIntentKeys(keys) {
   return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
 }
 async function readSettingsIntentLedger() {
-  return (await readSettingsPersistenceView()).intentLedger;
+  return (await readSettingsPersistenceViewStrict()).intentLedger;
 }
 async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
   const normalizedSettings = mergeSettings(settings);
-  primeStandaloneHostedSettingsBaseline();
   let storedSettings = normalizedSettings;
   await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
   const ledger = await readSettingsIntentLedger();
@@ -17247,18 +16773,10 @@ async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUs
     applySettingsIntent(normalizedSettings, nextLedger)
   );
   const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
-  await persistSettingsStorageTransaction(nextLedger === ledger ? void 0 : nextLedger, supportedSettings);
+  await persistSettingsStorageTransaction(nextLedger, supportedSettings);
   storedSettings = supportedSettings;
   });
   dispatchSettingsChange(storedSettings);
-}
-function primeStandaloneHostedSettingsBaseline() {
-  if (!isHostedYomuOrigin() || hasAsyncGmStorageBackend()) return;
-  const baseline = mergeSettings(null);
-  cacheManagedValueForHostedStartupIfAbsent(
-  SETTINGS_STORAGE_KEY,
-  stripUnsupportedSettings(baseline) ?? baseline
-  );
 }
 function dispatchSettingsChange(settings) {
   publishSettingsChange$1({ settings });
@@ -17298,62 +16816,17 @@ function audioSourceRecord(value) {
 function audioSourceEnabled(value) {
   return typeof value === "boolean" ? value : true;
 }
-function normalizeAudioSources(value, legacyUrl) {
-  const sources = Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : [];
-  if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(withBunproAudioSource(migrateLegacyDefaultAudioSources(sources))) : sources;
-  if (typeof legacyUrl === "string" && legacyUrl.trim()) {
-  return ensureHostedAudioSourceFirst([{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }]);
-  }
-  return DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
-}
-function ensureHostedAudioSourceFirst(sources) {
-  const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0];
-  return [
-  { ...hosted },
-  ...sources.filter((source) => !isHostedAudioSource(source)).map((source) => ({ ...source }))
-  ];
-}
-function isHostedAudioSource(source) {
-  return source.type === "custom-json" && source.url.trim() === DEFAULT_AUDIO_URL;
-}
-function migrateLegacyDefaultAudioSources(sources) {
-  if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
-  const migrated = sources.map((source) => ({ ...source }));
-  ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: false }, "text-to-speech");
-  ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: false }, "jpdb-tts");
-  for (const source of migrated) {
-  if (isDefaultOffAudioSource(source)) source.enabled = false;
-  }
-  return migrated;
-}
-function isUntouchedLegacyDefaultAudioSources(sources) {
-  return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS) || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
-}
-function audioSourceListMatches(sources, expected) {
-  return sources.length === expected.length && expected.every((source, index) => audioSourceMatches(sources[index], source));
-}
-function audioSourceMatches(source, expected) {
-  return Boolean(source && source.type === expected.type && source.url === expected.url && source.voice === expected.voice && source.enabled === expected.enabled);
-}
-function isDefaultOffAudioSource(source) {
-  return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
-}
-function withBunproAudioSource(sources) {
-  const result = sources.map((source) => ({ ...source }));
-  ensureBuiltInAudioSource(result, { type: "bunpro", url: "", voice: "", enabled: false }, "jiten-tts");
-  return result;
-}
-function ensureBuiltInAudioSource(sources, source, beforeType) {
-  if (sources.some((candidate) => candidate.type === source.type)) return;
-  const insertIndex = sources.findIndex((candidate) => candidate.type === beforeType);
-  if (insertIndex < 0) sources.push(source);
-  else sources.splice(insertIndex, 0, source);
+function normalizeAudioSources(value) {
+  return Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
 }
 const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
 function privateCommandAttributes(command) {
   return commandCapabilities.attributes(command);
 }
 function immutableCommandSnapshot(command) {
+  if (command.kind === "subtitle-action" && command.batchPlans) {
+  return Object.freeze({ ...command, batchPlans: Object.freeze([...command.batchPlans]) });
+  }
   if (command.kind === "card-action" && command.audioUrls) {
   return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
   }
@@ -52870,7 +52343,7 @@ const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
   "vi",
   "ja"
 ]);
-const log$c = Logger.scope("GoogleTranslation");
+const log$b = Logger.scope("GoogleTranslation");
 const translationCache = /* @__PURE__ */ new Map();
 const translationInFlight = /* @__PURE__ */ new Map();
 function normalizeTranslationLanguage(language2, options = {}) {
@@ -52979,7 +52452,7 @@ function requiredGoogleTranslationLanguage(language2) {
 }
 async function performTranslation(text2, options) {
   const url = googleTranslationUrl(text2, options);
-  const done = log$c.time("Translate text", {
+  const done = log$b.time("Translate text", {
   sourceLanguage: options.sourceLanguage,
   outputLanguage: options.outputLanguage,
   textLength: text2.length
@@ -54229,14 +53702,6 @@ const KANJI_ADDON_SOURCE_ROWS = [
   ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
   ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority", "kanjiOriginsAlias"]
 ];
-const NEW_TAB_STUDY_CHALLENGE_STEPS = [
-  "kanji-doodle",
-  "word",
-  "recall-cloze",
-  "listen-pitch",
-  "speaking",
-  "type-word"
-];
 function settingsColorSourceValue(settings, name) {
   const source = settings[name];
   return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
@@ -54255,7 +53720,7 @@ function readFormSettings(data, current) {
   };
   const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
   const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
-  readDictionaryPreferences$1(data, current.dictionaryPreferences, reader),
+  readDictionaryPreferences(data, current.dictionaryPreferences, reader),
   dictionaryLookupLinks
   );
   const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
@@ -54526,10 +53991,6 @@ function pageScanModeFromSettings$2(settings) {
 function readNewTabFormSettings(reader, current) {
   const { get, has, clamped } = reader;
   return {
-  // Kept in storage for backwards compatibility with older extension
-  // builds. The main extension no longer declares a new-tab override, so
-  // Settings must preserve rather than expose or mutate this legacy flag.
-  newTabEnabled: current.newTabEnabled,
   newTabAnkiEnabled: has("newTabAnkiEnabled"),
   newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
   newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "bunpro", "wanikani", "yomu-local", "anki", "dictionary"], current.newTabSource),
@@ -54546,24 +54007,8 @@ function readNewTabFormSettings(reader, current) {
   newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
   newTabSwipeReviews: has("newTabSwipeReviews"),
   newTabShortcutHintsEnabled: has("newTabShortcutHintsEnabled"),
-  newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
-  newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit"),
-  newTabStudyStepOrder: readNewTabStudyStepOrder(reader, current),
-  newTabStudyDisabledSteps: readNewTabStudyDisabledSteps(reader, current),
-  newTabStudyTourSeen: get("newTabStudyTourSeen") === "true"
+  newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled")
   };
-}
-function readNewTabStudyStepOrder(reader, current) {
-  const ordered = reader.getAll("newTabStudyStepOrder").filter(isNewTabStudyChallengeStep);
-  return ordered.length ? ordered : current.newTabStudyStepOrder;
-}
-function readNewTabStudyDisabledSteps(reader, current) {
-  const ordered = readNewTabStudyStepOrder(reader, current);
-  const enabled = new Set(reader.getAll("newTabStudyEnabledStep").filter(isNewTabStudyChallengeStep));
-  return ordered.filter((step) => !enabled.has(step));
-}
-function isNewTabStudyChallengeStep(value) {
-  return NEW_TAB_STUDY_CHALLENGE_STEPS.includes(value);
 }
 function readReadingDisplayFormSettings(reader, furiganaMode) {
   const { has } = reader;
@@ -54847,7 +54292,7 @@ function readShortcutFormValue(reader, key, currentValue) {
 function readOption(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
 }
-function readDictionaryPreferences$1(data, current, reader) {
+function readDictionaryPreferences(data, current, reader) {
   const get = (key) => String(data.get(key) ?? "");
   const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
   if (!count) return current;
@@ -55466,6 +54911,31 @@ function trimBaseUrl(value) {
 }
 function isRecord$1(value) {
   return typeof value === "object" && value !== null;
+}
+async function exportSettingsBackupSnapshot(fallbackSettings) {
+  const storage = await exportManagedStoredValues();
+  for (const key of RETIRED_SETTINGS_STORAGE_KEYS) delete storage[key];
+  const view = await readSettingsPersistenceViewStrict();
+  if (!isRecord$3(view.settings)) {
+  if (Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY$1)) {
+    throw new Error("Could not capture canonical settings for backup.");
+  }
+  return structuredClone({ settings: normalizeReaderSettings(fallbackSettings), storage });
+  }
+  const current = normalizeReaderSettings({
+  ...fallbackSettings,
+  ...view.settings,
+  shortcuts: {
+    ...fallbackSettings.shortcuts,
+    ...isRecord$3(view.settings.shortcuts) ? view.settings.shortcuts : {}
+  }
+  });
+  const intentLedger = {
+  revision: view.intentLedger.revision,
+  records: Object.fromEntries(Object.entries(view.intentLedger.records).filter(([key]) => Object.hasOwn(current, key)))
+  };
+  const settings = normalizeReaderSettings(applySettingsIntent(current, intentLedger));
+  return structuredClone({ settings, storage: { ...storage, ...serializeSettingsPersistencePair(settings, intentLedger) } });
 }
 const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
 function input(name, label, value, type = "text", attributes = {}) {
@@ -56284,6 +55754,40 @@ const FONT_FAMILY_PRESETS = [
   { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
   { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
 ];
+function userFacingError(copyKey, options = {}) {
+  return Object.assign(
+  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+  { name: "UserFacingError", yomuUiCopyKey: copyKey }
+  );
+}
+function userFacingErrorText(language2, fallbackKey, error) {
+  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
+  const message = uiText(language2, copyKey);
+  return typeof message === "string" ? message : uiText(language2, fallbackKey);
+}
+function userFacingCopyKeyOf(error) {
+  if (!error || typeof error !== "object") return void 0;
+  const copyKey = error.yomuUiCopyKey;
+  return typeof copyKey === "string" ? copyKey : void 0;
+}
+function isUserFacingError(error) {
+  return userFacingCopyKeyOf(error) !== void 0;
+}
+function userFacingCopyKey(error) {
+  return userFacingCopyKeyOf(error);
+}
+function validateCloudSettingsEnvelope(value) {
+  if (!isRecord$3(value) || value.formatName !== "yomu-google-drive-settings-sync" || value.formatVersion !== 1) {
+  throw userFacingError("settingsImportUnsupportedFormat");
+  }
+  if (!isRecord$3(value.settings) || typeof value.syncedAt !== "string" || !Number.isFinite(Date.parse(value.syncedAt)) || value.storage !== void 0 && !isRecord$3(value.storage)) {
+  throw userFacingError("settingsImportIncomplete");
+  }
+  if (value.storage && RETIRED_SETTINGS_STORAGE_KEYS.some((key) => Object.hasOwn(value.storage, key))) {
+  throw userFacingError("settingsImportUnsupportedFormat");
+  }
+  return value;
+}
 const AUTHORIZATION_STATE_BYTES = 24;
 const AUTHORIZATION_STATE_PATTERN = /^[0-9a-f]{48}$/u;
 function createCloudSettingsAuthorization() {
@@ -56675,11 +56179,9 @@ function parseSettingsSnapshot(body) {
   try {
   parsed = JSON.parse(body);
   } catch {
-  return null;
+  throw userFacingError("settingsImportUnsupportedFormat");
   }
-  if (!isRecord$3(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-  if (!isRecord$3(parsed.settings)) return null;
-  return parsed;
+  return validateCloudSettingsEnvelope(parsed);
 }
 function driveFileFromResponse(value) {
   if (isRecord$3(value) && typeof value.id === "string") return value;
@@ -57947,6 +57449,80 @@ function numericData(value = "0") {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
 }
+const searchOpenStates = /* @__PURE__ */ new WeakMap();
+function renderAppearanceTuning(language2, controls) {
+  return `<details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-settings-tuning>
+        <summary class="jpdb-reader-local-title">${escapeHtml$1(tuningTitle(language2))}</summary>${controls}
+    </details>`;
+}
+function localizeSettingsDisclosures(form, language2) {
+  form.querySelector("[data-settings-tuning] > summary")?.replaceChildren(tuningTitle(language2));
+}
+function syncSettingsDisclosureSearch(form, searching) {
+  form.querySelectorAll("[data-settings-tuning]").forEach((details) => {
+  if (searching) {
+    if (!searchOpenStates.has(details)) searchOpenStates.set(details, details.open);
+    details.open = true;
+  } else if (searchOpenStates.has(details)) {
+    details.open = searchOpenStates.get(details);
+    searchOpenStates.delete(details);
+  }
+  });
+}
+function tuningTitle(language2) {
+  return formatUiText(language2, "customAdvanced", { label: uiText(language2, "appearance") });
+}
+function activateSettingsPanel(form, panel) {
+  const search = form.querySelector("[data-settings-search]");
+  if (search?.value.trim()) applySettingsSearch(form, "");
+  applyPanel(form, panel);
+}
+function applySettingsSearch(form, query) {
+  const normalized = normalizeSearchQuery(query);
+  const input2 = form.querySelector("[data-settings-search]");
+  if (input2 && input2.value !== query) input2.value = query;
+  form.dataset.settingsSearching = String(Boolean(normalized));
+  syncSettingsDisclosureSearch(form, Boolean(normalized));
+  let hasMatches = !normalized;
+  if (normalized) {
+  form.querySelectorAll("fieldset[data-settings-panel]").forEach((fieldset) => {
+    fieldset.hidden = !matchesQuery(fieldset, normalized);
+    hasMatches ||= !fieldset.hidden;
+  });
+  } else {
+  const active = form.querySelector('[data-action="settings-panel"][aria-selected="true"]');
+  applyPanel(form, active?.dataset.panel ?? "appearance");
+  }
+  const empty = form.querySelector("[data-settings-search-empty]");
+  if (empty) empty.hidden = hasMatches;
+}
+function matchesQuery(fieldset, query) {
+  const indexed = Array.from(
+  fieldset.querySelectorAll("[data-settings-search-index]"),
+  (element2) => element2.dataset.settingsSearchIndex ?? ""
+  ).join(" ");
+  if (normalizeSearchQuery(`${fieldset.textContent ?? ""} ${indexed}`).includes(query)) return true;
+  const catalogue2 = fieldset.querySelector("[data-catalog-browse]");
+  return catalogue2 !== null && catalogBrowseMatchesQuery(catalogue2, query);
+}
+function applyPanel(form, panel) {
+  const aliases = {
+  basics: "api",
+  jpdb: "api",
+  reading: "appearance",
+  reader: "appearance",
+  kanji: "dictionaries"
+  };
+  const selected = aliases[panel] ?? panel;
+  form.querySelectorAll("[data-settings-panel]").forEach((section) => {
+  section.hidden = section.dataset.settingsPanel !== selected;
+  });
+  form.querySelectorAll('[data-action="settings-panel"]').forEach((button2) => {
+  const active = button2.dataset.panel === selected;
+  button2.setAttribute("aria-selected", String(active));
+  button2.tabIndex = active ? 0 : -1;
+  });
+}
 const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
 const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
 const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
@@ -58782,23 +58358,6 @@ function protectedCredentialInput(name, label, storedValue, language2, emptyPlac
   if (!configured) return field;
   return `<div class="jpdb-reader-protected-credential" data-stored-credential="true">${field}<label class="inline"><input name="${escapeHtml$1(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language2, "clearStoredCredential")}</span></label></div>`;
 }
-const NEW_TAB_STUDY_STEP_LABEL_KEYS = {
-  "kanji-doodle": "newTabStudyStepKanji",
-  word: "newTabStudyStepWord",
-  "recall-cloze": "newTabStudyStepRecall",
-  "listen-pitch": "newTabStudyStepListen",
-  speaking: "newTabStudyStepSpeaking",
-  "type-word": "newTabStudyStepType"
-};
-const NEW_TAB_STUDY_STEP_HELP_KEYS = {
-  "kanji-doodle": "newTabStudyStepKanjiHelp",
-  word: "newTabStudyStepWordHelp",
-  "recall-cloze": "newTabStudyStepRecallHelp",
-  "listen-pitch": "newTabStudyStepListenHelp",
-  speaking: "newTabStudyStepSpeakingHelp",
-  "type-word": "newTabStudyStepTypeHelp"
-};
-const DEFAULT_SETTINGS_PANEL = "appearance";
 const SETTINGS_TABS = [{ panel: "appearance", active: true }, { panel: "backup", labelKey: "backupSync" }, { panel: "api" }, { panel: "dictionaries", labelKey: "sources" }, { panel: "media" }, { panel: "mining" }, { panel: "newTab" }, { panel: "shortcuts" }, { panel: "help" }];
 const WORD_COLOR_FIELDS = [
   ["wordColorNew", "wordColorNew"],
@@ -58872,7 +58431,6 @@ function renderHelpLinksPanel(language2 = "en") {
             </details>
             <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-links-title>Useful pages</div>
-                <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel("Video Player")}</a>
                     <a class="jpdb-reader-btn" href="${PDF_READER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="pdf-reader">${externalButtonLabel("PDF Reader")}</a>
@@ -59016,16 +58574,18 @@ function renderInterfaceSettingsPanel(settings) {
                     ${select("hoverPopupMode", text2("hoverPopupMode"), settings.hoverPopupMode, localizedOptions(text2, POPUP_MODE_OPTIONS))}
                     ${renderStickyBottomSheetControl(settings)}
                     ${checkbox("popoverBackdropEnabled", text2("popoverBackdropEnabled"), settings.popoverBackdropEnabled)}
-                    ${input("popoverWidth", text2("popoverWidth"), String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
-                    ${input("popoverHeight", text2("popoverHeight"), String(settings.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
-                    ${select("popoverHeightMode", text2("popoverHeightMode"), settings.popoverHeightMode, localizedOptions(text2, POPOVER_HEIGHT_MODE_OPTIONS))}
                     ${fontFamilyControl("readerFontFamily", text2("readerFontFamily"), settings.readerFontFamily, text2)}
                     ${fontFamilyControl("popupFontFamily", text2("popupFontFamily"), settings.popupFontFamily, text2)}
-                    ${input("popupFontWeight", text2("popupFontWeight"), String(settings.popupFontWeight), "number", { min: 300, max: 900, step: 10 })}
                     ${input("accentColor", text2("accentColor"), sanitizeAccentColor(settings.accentColor), "color")}
                 </div>
-                ${renderWordColorSettingsSubsection(settings)}
-                ${renderColorChannelSettingsSubsection(settings)}
+                ${renderAppearanceTuning(settings.interfaceLanguage, `<div class="grid">
+                ${input("popoverWidth", text2("popoverWidth"), String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
+                ${input("popoverHeight", text2("popoverHeight"), String(settings.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
+                ${select("popoverHeightMode", text2("popoverHeightMode"), settings.popoverHeightMode, localizedOptions(text2, POPOVER_HEIGHT_MODE_OPTIONS))}
+                ${input("popupFontWeight", text2("popupFontWeight"), String(settings.popupFontWeight), "number", { min: 300, max: 900, step: 10 })}
+            </div>
+            ${renderWordColorSettingsSubsection(settings)}
+            ${renderColorChannelSettingsSubsection(settings)}`)}
                 ${renderAppearancePreview(settings.interfaceLanguage)}
             </fieldset>
     `;
@@ -59062,7 +58622,6 @@ function renderNewTabSettingsSubsection(settings) {
                         </div>
                         ${select("newTabKanjiKeywordSource", text2("newTabKanjiKeywordSource"), settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings, text2))}
                     </div>
-                    ${renderNewTabStudyStepOrderEditor(settings)}
                     <div class="grid jpdb-reader-settings-tgrid jpdb-reader-settings-study-options">
                         ${checkbox("newTabParsingEnabled", text2("newTabParsingEnabled"), settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", text2("newTabKanjiUnlockEnabled"), settings.newTabKanjiUnlockEnabled)}
@@ -59071,7 +58630,6 @@ function renderNewTabSettingsSubsection(settings) {
                         ${checkbox("newTabShortcutHintsEnabled", text2("newTabShortcutHintsEnabled"), settings.newTabShortcutHintsEnabled)}
                         ${checkbox("newTabFrontSentenceEnabled", text2("newTabFrontSentenceEnabled"), settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", text2("newTabKanjiAutogradeEnabled"), settings.newTabKanjiAutogradeEnabled)}
-                        ${checkbox("newTabKanjiAutoSubmit", text2("newTabKanjiAutoSubmit"), settings.newTabKanjiAutoSubmit)}
                         ${checkbox("newTabOfflineEnabled", text2("newTabOfflineEnabled"), settings.newTabOfflineEnabled)}
                     </div>
                     <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
@@ -59086,46 +58644,6 @@ function renderNewTabSettingsSubsection(settings) {
                     <div class="jpdb-reader-help" data-newtab-address-help>${escapedUiText(language2, "newTabAddressHelp")}</div>
                     <div class="jpdb-reader-help" data-newtab-offline-help>${escapedUiText(language2, "newTabOfflineHelp")}</div>
                 </div>
-    `;
-}
-function renderNewTabStudyStepOrderEditor(settings) {
-  const disabled = new Set(settings.newTabStudyDisabledSteps);
-  const language2 = settings.interfaceLanguage;
-  return `
-                        <div class="jpdb-reader-settings-study-steps" data-source-editor data-study-step-editor>
-                            <div class="jpdb-reader-settings-label-text" data-study-step-editor-title>${escapedUiText(language2, "newTabStudySteps")}</div>
-                            <div class="jpdb-reader-help" data-study-step-editor-help>${escapedUiText(language2, "newTabStudyStepsHelp")}</div>
-                            <div class="jpdb-reader-order-head jpdb-reader-study-step-head">
-                                <span data-study-step-head="enabled">${escapedUiText(language2, "enabledHeader")}</span>
-                                <span data-study-step-head="step">${escapedUiText(language2, "newTabStudyStepHeader")}</span>
-                                <span data-study-step-head="details">${escapedUiText(language2, "detailsHeader")}</span>
-                                <span data-study-step-head="order">${escapedUiText(language2, "orderHeader")}</span>
-                            </div>
-                            ${settings.newTabStudyStepOrder.map((step, index) => renderNewTabStudyStepRow(step, index, !disabled.has(step), language2)).join("")}
-                            <input name="newTabStudyTourSeen" type="hidden" value="${settings.newTabStudyTourSeen ? "true" : "false"}">
-                        </div>
-    `;
-}
-function renderNewTabStudyStepRow(step, index, enabled, language2) {
-  return `
-                            <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml$1(step)}">
-                                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml$1(step)}" ${enabled ? "checked" : ""}>
-                                    <span>${index + 1}</span>
-                                </label>
-                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml$1(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language2, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
-                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml$1(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml$1(settingsText(language2)(NEW_TAB_STUDY_STEP_HELP_KEYS[step]))}</div>
-                                ${renderRowOrderTools({
-      upAction: "dictionary-source-up",
-      downAction: "dictionary-source-down",
-      labels: {
-        drag: uiText(language2, "dragToReorder"),
-        up: uiText(language2, "moveUp"),
-        down: uiText(language2, "moveDown")
-      },
-      leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml$1(step)}">`
-    })}
-                            </div>
     `;
 }
 function kanjiKeywordSourceOptions(settings, text2) {
@@ -59654,7 +59172,6 @@ function renderDictionariesSettingsPanel(settings, includeCatalogBrowse, expandC
     )}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
-                <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language2, "backupMovedHelp")}</div>
                 </div>
             </fieldset>
     `;
@@ -59668,14 +59185,14 @@ function renderBackupSettingsPanel(settings) {
                 ${renderAcademyAccountSyncSection(settings)}
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ""}
                 <div class="jpdb-reader-settings-actions">
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">${escapedUiText(language2, "importSettings")}</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="import-reader-settings">${escapedUiText(language2, "importSettings")}</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">${escapedUiText(language2, "exportSettings")}</button>
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">${escapedUiText(language2, "importDictionaries")}</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">${escapedUiText(language2, "exportDictionaries")}</button>
                 </div>
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip" multiple>
-                <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
+                <div class="jpdb-reader-help" data-import-status role="status" aria-live="polite" hidden></div>
             </fieldset>
     `;
 }
@@ -59844,6 +59361,7 @@ function localizeSettingsForm(form, language2) {
   form.querySelectorAll("[data-clear-stored-credential]").forEach((label) => label.replaceChildren(text2("clearStoredCredential")));
   withNamedControlIndex(form, () => {
   localizeSettingsShell(form, language2, text2);
+  localizeSettingsDisclosures(form, language2);
   localizeSettingsLabels(form, text2);
   localizeSettingsSectionTitles(form, text2);
   localizeSettingsSelects(form, language2, text2);
@@ -59986,7 +59504,7 @@ const SETTINGS_ACTION_TEXT_KEYS = [
   ['[data-action="update-anki-model"]', "updateAnkiModel"],
   ['[data-action="copy-newtab-url"]', "copyAddress"],
   ["[data-newtab-url-link]", "openNewTabPage"],
-  ['[data-action="import-yomitan-settings"]', "importSettings"],
+  ['[data-action="import-reader-settings"]', "importSettings"],
   ['[data-action="export-reader-settings"]', "exportSettings"],
   ['[data-action="import-yomitan-dictionary"]', "importDictionaries"],
   ['[data-action="export-yomitan-dictionary"]', "exportDictionaries"],
@@ -60007,7 +59525,6 @@ const HELP_LINK_PANEL_TEXT_KEYS = [
   ["[data-help-anki-mobile]", "ankiConnectSetupMobile"],
   ["[data-help-anki-brave]", "ankiConnectSetupBrave"],
   ["[data-help-links-title]", "helpLinksTitle"],
-  ["[data-help-links-copy]", "helpLinksCopy"],
   ["[data-help-support-title]", "helpSupportTitle"],
   ["[data-help-support-copy]", "helpSupportCopy"],
   ["[data-help-support-copy-extra]", "helpSupportCopyExtra"],
@@ -60234,7 +59751,6 @@ function localizeSettingsHelpText(form, text2) {
   localizeKeyedHelpText(form, text2);
   form.querySelector("[data-youtube-help]")?.replaceChildren(text2("youtubeHelp"));
   localizeNewTabHelp(form, text2);
-  localizeDictionaryImportHelp(form, text2);
   localizeLookupPillsHelp(form, text2);
   const ankiHelp = form.querySelector("[data-anki-setup-help]");
   if (ankiHelp) setInnerHtml(ankiHelp, ankiSetupHelpHtml(resolveUiLanguageFromText(text2)));
@@ -60267,11 +59783,6 @@ function isSettingsTextKey(value) {
 function localizeLookupPillsHelp(form, text2) {
   const lookupLinks = form.querySelector(".jpdb-reader-lookup-links");
   lookupLinks?.closest(".jpdb-reader-settings-subsection")?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text2("lookupPillsHelp"));
-}
-function localizeDictionaryImportHelp(form, text2) {
-  form.querySelectorAll("[data-import-status]").forEach((importStatus) => {
-  if (/Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text2("dictionaryImportHelp");
-  });
 }
 function localizeSettingsActions(form, text2) {
   SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key]) => {
@@ -60307,7 +59818,6 @@ function localizeSettingsEditorChrome(form, text2) {
   localizeBunproStatus(form, statusLanguage2);
   localizeInitialAnkiStatus(form, statusLanguage2);
   localizeSourceRows(form, text2);
-  localizeStudyStepEditor(form, text2);
   localizeRecommendedDictionaryGroups(form, text2);
   localizeRecommendedDictionaryDescriptions(form, text2);
   localizeCatalogBrowseSection(form, text2);
@@ -60403,22 +59913,6 @@ function localizeSourceRows(form, text2) {
   const row = input2.closest("[data-dictionary-source-row]");
   const name = row?.querySelector('input[name$=".alias"]')?.value.trim() || row?.querySelector(".jpdb-reader-field-display")?.textContent?.trim() || input2.closest("label")?.textContent?.trim() || "";
   input2.setAttribute("aria-label", text2("enableSourceName").replace("{name}", name));
-  });
-}
-function localizeStudyStepEditor(form, text2) {
-  form.querySelector("[data-study-step-editor-title]")?.replaceChildren(text2("newTabStudySteps"));
-  form.querySelector("[data-study-step-editor-help]")?.replaceChildren(text2("newTabStudyStepsHelp"));
-  form.querySelector('[data-study-step-head="enabled"]')?.replaceChildren(text2("enabledHeader"));
-  form.querySelector('[data-study-step-head="step"]')?.replaceChildren(text2("newTabStudyStepHeader"));
-  form.querySelector('[data-study-step-head="details"]')?.replaceChildren(text2("detailsHeader"));
-  form.querySelector('[data-study-step-head="order"]')?.replaceChildren(text2("orderHeader"));
-  form.querySelectorAll("[data-study-step-label-key]").forEach((element2) => {
-  const key = element2.dataset.studyStepLabelKey;
-  if (isSettingsTextKey(key)) element2.replaceChildren(text2(key));
-  });
-  form.querySelectorAll("[data-study-step-help-key]").forEach((element2) => {
-  const key = element2.dataset.studyStepHelpKey;
-  if (isSettingsTextKey(key)) element2.replaceChildren(text2(key));
   });
 }
 function localizeSourceHead(head, text2) {
@@ -60577,7 +60071,6 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
   "newTabParsingEnabled",
   "newTabFrontSentenceEnabled",
   "newTabKanjiAutogradeEnabled",
-  "newTabKanjiAutoSubmit",
   "newTabOfflineEnabled",
   "newTabOfflineLimit",
   "newTabDailyGoalMinutes",
@@ -60937,11 +60430,11 @@ function setExternalButtonLabel(element2, label) {
 function renderReviewShortcutInputs(settings) {
   const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
   const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
-  const language2 = settings.interfaceLanguage;
-  const text2 = settingsText(language2);
-  const pressKeys = uiText(language2, "pressKeys");
+  const text2 = settingsText(settings.interfaceLanguage);
+  const pressKeys = text2("pressKeys");
   return `
         <div class="jpdb-reader-shortcut-group" data-review-scale="five" ${fivePointHidden ? "hidden" : ""}>
+            <p class="jpdb-reader-help" data-help-key="fourGradeShortcutsHelp">${text2("fourGradeShortcutsHelp")}</p>
             ${shortcutInput("shortcuts.gradeNothing", text2("gradeNothing"), settings.shortcuts.gradeNothing, pressKeys)}
             ${shortcutInput("shortcuts.gradeSomething", text2("gradeSomething"), settings.shortcuts.gradeSomething, pressKeys)}
             ${shortcutInput("shortcuts.gradeHard", text2("gradeHard"), settings.shortcuts.gradeHard, pressKeys)}
@@ -60953,81 +60446,6 @@ function renderReviewShortcutInputs(settings) {
             ${shortcutInput("shortcuts.gradePass", text2("gradePass"), settings.shortcuts.gradePass, pressKeys)}
         </div>
     `;
-}
-function activateSettingsPanel(form, panel) {
-  const normalizedPanel = normalizeSettingsPanel(panel);
-  const search = form.querySelector("[data-settings-search]");
-  if (search?.value.trim()) {
-  search.value = "";
-  applySettingsSearch(form, "");
-  }
-  applySettingsPanelState(form, normalizedPanel);
-}
-function applySettingsSearch(form, query) {
-  const normalizedQuery = normalizeSearchQuery(query);
-  syncSettingsSearchInput(form, query);
-  form.dataset.settingsSearching = String(Boolean(normalizedQuery));
-  if (!normalizedQuery) {
-  setSettingsSearchEmptyVisibility(form, true);
-  activateSettingsPanelWithoutClearingSearch(form, activeSettingsPanel(form));
-  return;
-  }
-  const visibleCount = filterSettingsSearchFieldsets(form, normalizedQuery);
-  setSettingsSearchEmptyVisibility(form, visibleCount > 0);
-}
-function syncSettingsSearchInput(form, query) {
-  const input2 = form.querySelector("[data-settings-search]");
-  if (input2 && input2.value !== query) input2.value = query;
-}
-function filterSettingsSearchFieldsets(form, normalizedQuery) {
-  let visibleCount = 0;
-  getSettingsPanelFieldsets(form).forEach((fieldset) => {
-  const matches = settingsFieldsetMatchesQuery(fieldset, normalizedQuery);
-  fieldset.hidden = !matches;
-  if (matches) visibleCount += 1;
-  });
-  return visibleCount;
-}
-function settingsFieldsetMatchesQuery(fieldset, normalizedQuery) {
-  if (settingsFieldsetSearchText(fieldset).includes(normalizedQuery)) return true;
-  return settingsFieldsetCatalogMatchesQuery(fieldset, normalizedQuery);
-}
-function settingsFieldsetSearchText(fieldset) {
-  const indexedText = Array.from(
-  fieldset.querySelectorAll("[data-settings-search-index]"),
-  (element2) => element2.dataset.settingsSearchIndex ?? ""
-  ).join(" ");
-  return normalizeSearchQuery(`${fieldset.textContent ?? ""} ${indexedText}`);
-}
-function settingsFieldsetCatalogMatchesQuery(fieldset, normalizedQuery) {
-  const catalogue2 = fieldset.querySelector("[data-catalog-browse]");
-  return catalogue2 !== null && catalogBrowseMatchesQuery(catalogue2, normalizedQuery);
-}
-function setSettingsSearchEmptyVisibility(form, hasMatches) {
-  const empty = form.querySelector("[data-settings-search-empty]");
-  if (empty) empty.hidden = hasMatches;
-}
-function activateSettingsPanelWithoutClearingSearch(form, panel) {
-  applySettingsPanelState(form, normalizeSettingsPanel(panel));
-}
-function applySettingsPanelState(form, normalizedPanel) {
-  form.querySelectorAll("[data-settings-panel]").forEach((section) => {
-  section.hidden = section.dataset.settingsPanel !== normalizedPanel;
-  });
-  form.querySelectorAll('[data-action="settings-panel"]').forEach((button2) => {
-  const active = button2.dataset.panel === normalizedPanel;
-  button2.setAttribute("aria-selected", String(active));
-  button2.tabIndex = active ? 0 : -1;
-  });
-}
-function activeSettingsPanel(form) {
-  return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? DEFAULT_SETTINGS_PANEL;
-}
-function normalizeSettingsPanel(panel) {
-  if (panel === "basics" || panel === "jpdb") return "api";
-  if (panel === "reading" || panel === "reader") return "appearance";
-  if (panel === "kanji") return "dictionaries";
-  return panel;
 }
 function audioHelpHtml(language2) {
   const copy = uiText(language2, "audioHelp");
@@ -61243,29 +60661,8 @@ function firstInvalidSettingsControl(form) {
 function revealInvalidSettingsControl(control, form) {
   for (let ancestor = control.parentElement; ancestor && ancestor !== form; ancestor = ancestor.parentElement) {
   if (ancestor.hidden) ancestor.hidden = false;
+  if (ancestor.tagName === "DETAILS") ancestor.open = true;
   }
-}
-function userFacingError(copyKey, options = {}) {
-  return Object.assign(
-  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
-  { name: "UserFacingError", yomuUiCopyKey: copyKey }
-  );
-}
-function userFacingErrorText(language2, fallbackKey, error) {
-  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
-  const message = uiText(language2, copyKey);
-  return typeof message === "string" ? message : uiText(language2, fallbackKey);
-}
-function userFacingCopyKeyOf(error) {
-  if (!error || typeof error !== "object") return void 0;
-  const copyKey = error.yomuUiCopyKey;
-  return typeof copyKey === "string" ? copyKey : void 0;
-}
-function isUserFacingError(error) {
-  return userFacingCopyKeyOf(error) !== void 0;
-}
-function userFacingCopyKey(error) {
-  return userFacingCopyKeyOf(error);
 }
 function dictionaryStatusElements(form) {
   return {
@@ -61586,7 +60983,7 @@ function isPendingCloudSettingsRecord(value) {
 function isFiniteTimestamp(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
-const log$b = Logger.scope("SettingsFileIO");
+const log$a = Logger.scope("SettingsFileIO");
 function recommendedDictionaryFilename(dictionary) {
   if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
   try {
@@ -61597,29 +60994,22 @@ function recommendedDictionaryFilename(dictionary) {
   }
   return `${dictionary.id}.zip`;
 }
-function getReaderSettingsExport(value) {
-  const record2 = readerSettingsExportRecord(value);
-  return record2 && isReaderSettingsExport(record2) ? record2.settings : null;
-}
-function getReaderDictionaryExport(value) {
-  if (!value || typeof value !== "object") return null;
-  const record2 = value;
-  if (record2.formatName !== "yomu-reader-settings" && record2.formatName !== "jpdb-popup-reader-settings") return null;
-  return isReaderDictionaryExport$1(record2.dictionaries) ? record2.dictionaries : record2.dictionaryData;
+const READER_SETTINGS_BACKUP_FORMAT = "yomu-reader-settings";
+const READER_SETTINGS_BACKUP_VERSION = 3;
+const BACKUP_FIELDS = /* @__PURE__ */ new Set(["formatName", "formatVersion", "exportedAt", "settings", "storage", "dictionaries"]);
+function parseReaderSettingsBackup(value) {
+  if (!isRecord$3(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord$3(value.settings)) return null;
+  if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
+  const storage = value.storage;
+  if (storage !== void 0 && !isRecord$3(storage)) return null;
+  if (storage && RETIRED_SETTINGS_STORAGE_KEYS.some((key) => Object.hasOwn(storage, key))) return null;
+  if (value.dictionaries !== void 0 && !isReaderDictionaryExport$1(value.dictionaries)) return null;
+  return { settings: value.settings, storage, dictionaries: value.dictionaries };
 }
 function readerDictionaryExportHasData(value) {
   if (!isReaderDictionaryExport$1(value)) return false;
   const record2 = value;
   return arrayHasItems(record2.dictionaries) || arrayHasItems(record2.entries) || arrayHasItems(record2.terms) || arrayHasItems(record2.kanji) || arrayHasItems(record2.termMeta) || arrayHasItems(record2.kanjiMeta);
-}
-function readerSettingsExportRecord(value) {
-  return value && typeof value === "object" ? value : null;
-}
-function isReaderSettingsExport(record2) {
-  return isReaderSettingsExportFormat(record2.formatName) && Boolean(record2.settings) && typeof record2.settings === "object" && !Array.isArray(record2.settings);
-}
-function isReaderSettingsExportFormat(formatName) {
-  return formatName === "yomu-reader-settings" || formatName === "jpdb-popup-reader-settings";
 }
 function isReaderDictionaryExport$1(value) {
   if (!value || typeof value !== "object") return false;
@@ -61635,7 +61025,7 @@ async function pickFile(root, type) {
 function pickFiles(root, type) {
   const inputEl = root.querySelector(`input[data-file="${type}"]`);
   if (!inputEl) {
-  log$b.warn("File picker input missing", { type });
+  log$a.warn("File picker input missing", { type });
   return Promise.resolve([]);
   }
   return new Promise((resolve) => {
@@ -61657,6 +61047,18 @@ function downloadBlob(blob, filename) {
 }
 function dateStamp() {
   return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+}
+const DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
+const DEFAULT_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
+function selectAnkiLibraryChoices(scan, currentDeck, currentModel) {
+  const deck = currentDeck.trim();
+  const model = currentModel.trim();
+  const replaceDeck = scan.deckNames.length > 0 && !scan.deckNames.includes(deck) && (scan.deckNames.length === 1 || DEFAULT_DECK_NAMES.has(deck));
+  const preserveModel = Boolean(model) && (scan.models.some((candidate) => candidate.modelName === model) || !DEFAULT_MODEL_NAMES.has(model));
+  return {
+  selectedDeck: replaceDeck ? scan.deckNames[0] : deck,
+  selectedModel: preserveModel ? model : scan.suggestedModel?.modelName || model
+  };
 }
 class SettingsPreviewBaseline {
   constructor(dependencies, currentForm) {
@@ -61709,7 +61111,7 @@ class SettingsPreviewBaseline {
   this.dependencies.installFab();
   }
 }
-function bindLiveSettingsSync(form, dependencies) {
+function bindLiveSettingsSync(form, dependencies, signal) {
   let adoptedSettings = snapshotDurableSettings(dependencies.getSettings());
   subscribeToSettingsChanges((detail) => {
   if (!dependencies.isActive()) return;
@@ -61725,7 +61127,7 @@ function bindLiveSettingsSync(form, dependencies) {
   }
   const theme = themeFromSettingsChange(detail);
   if (theme) dependencies.applyTheme(theme);
-  });
+  }, signal);
 }
 function snapshotDurableSettings(settings) {
   return normalizeReaderSettings(settings);
@@ -61933,18 +61335,40 @@ function requestPublishedCatalog(url) {
 }
 Logger.scope("DictionaryReplicaPurge");
 const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
-const PURGE_HONORED_KEY = "yomu:dictionary-replica-purged:v1";
+const STATE_STORE = "managedState";
+const FRESHNESS_KEY = "dictionary-replica-purge";
 async function requestDictionaryReplicaPurge(now = Date.now) {
   await gmStorageSet(PURGE_REQUEST_KEY, now());
 }
-async function markDictionaryReplicaFresh(now = Date.now) {
-  const requestedAt = await gmStorageGet(PURGE_REQUEST_KEY, 0);
-  if (!requestedAt) return;
-  await ensureManagedWebStorageCurrent();
+async function dictionaryReplicaPurgeRequest() {
+  return timestamp(await gmStorageGet(PURGE_REQUEST_KEY, 0));
+}
+function markDictionaryReplicaFresh(tx, requestedAt, mutate) {
+  readFreshness(tx, (store, record2, token) => {
   try {
-  managedLocalStorage.setItem(PURGE_HONORED_KEY, String(Math.max(now(), requestedAt)));
+    const prior = record2?.token === token ? timestamp(record2.requestedAt) : 0;
+    if (record2?.token === token && record2.kind === "purge" && prior > requestedAt) {
+      throw new Error("A newer dictionary purge superseded this import.");
+    }
+    store.put({ key: FRESHNESS_KEY, token, requestedAt: Math.max(prior, requestedAt), kind: "import" });
+    mutate();
   } catch {
+    tx.abort();
   }
+  });
+}
+function timestamp(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+function readFreshness(tx, ready) {
+  const store = tx.objectStore(STATE_STORE);
+  const epoch = store.get("epoch");
+  epoch.onsuccess = () => {
+  const token = typeof epoch.result?.token === "string" ? epoch.result.token : null;
+  const request = store.get(FRESHNESS_KEY);
+  request.onsuccess = () => ready(store, request.result, token);
+  };
 }
 function parseAcademyPairingTicket(value) {
   const record2 = object(value, "Academy pairing ticket");
@@ -62082,7 +61506,7 @@ function fromBase64Url(value) {
   const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4);
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 }
-const log$a = Logger.scope("CardStateSignal");
+const log$9 = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:private:card-state-signal:v1";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 function cardStateSignalCard(card) {
@@ -62112,7 +61536,7 @@ function publishCardStateSignal(card) {
   card: cardStateSignalCard(card)
   };
   void gmPrivateStorageSet(CARD_STATE_SIGNAL_KEY, signal).catch((error) => {
-  log$a.debug("GM card-state publish failed", error);
+  log$9.debug("GM card-state publish failed", error);
   });
   publishBroadcastCardStateSignal(signal);
 }
@@ -62123,7 +61547,7 @@ function publishBroadcastCardStateSignal(signal) {
   channel.postMessage(signal);
   channel.close();
   } catch (error) {
-  log$a.debug("Broadcast card-state publish failed", error);
+  log$9.debug("Broadcast card-state publish failed", error);
   }
 }
 async function requestPrivateApi(url, init = {}) {
@@ -62189,12 +61613,12 @@ function normalizeStoredYomuSrsDeck(value) {
   }
   const tombstones = {};
   if (isRecord$3(value.tombstones)) {
-  for (const [id, timestamp] of Object.entries(value.tombstones)) {
-    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+  for (const [id, timestamp2] of Object.entries(value.tombstones)) {
+    if (typeof timestamp2 !== "number" || !Number.isSafeInteger(timestamp2) || timestamp2 < 0) continue;
     const card = cards[id];
-    if (card && card.updatedAt > timestamp) continue;
+    if (card && card.updatedAt > timestamp2) continue;
     delete cards[id];
-    tombstones[id] = timestamp;
+    tombstones[id] = timestamp2;
   }
   }
   return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
@@ -62204,8 +61628,8 @@ function mergeStoredYomuSrsDecks(leftValue, rightValue) {
   const right = normalizeStoredYomuSrsDeck(rightValue);
   const cards = { ...left.cards };
   const tombstones = { ...left.tombstones ?? {} };
-  for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
-  tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
+  for (const [id, timestamp2] of Object.entries(right.tombstones ?? {})) {
+  tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp2);
   }
   for (const [id, incoming] of Object.entries(right.cards)) {
   const tombstone = tombstones[id];
@@ -63328,7 +62752,7 @@ function errorMessage(error) {
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-const log$9 = Logger.scope("AcademyAccountSyncSettings");
+const log$8 = Logger.scope("AcademyAccountSyncSettings");
 class AcademyAccountSyncSettingsController {
   constructor(toast) {
   this.toast = toast;
@@ -63344,7 +62768,7 @@ class AcademyAccountSyncSettingsController {
     renderStatus(form, status, language2);
   } catch (error) {
     if (probeId !== this.statusProbeId || !form.isConnected) return;
-    log$9.warn("Academy account status failed", error);
+    log$8.warn("Academy account status failed", error);
     setMessage(
       form,
       formatUiText(language2, "academyAccountConnectionProblem", {
@@ -63392,7 +62816,7 @@ class AcademyAccountSyncSettingsController {
       this.toast(uiText(language2, action === "connect-academy-account" ? "academyAccountConnectedDone" : "academyAccountSyncedDone"));
     }
   } catch (error) {
-    log$9.warn("Academy account action failed", { action }, error);
+    log$8.warn("Academy account action failed", { action }, error);
     const message = userFacingErrorText(language2, "actionFailed", error);
     setMessage(form, message, "error");
     this.toast(message);
@@ -63852,7 +63276,7 @@ const LOCAL_SETTINGS_ACTIONS = /* @__PURE__ */ new Set([
   "toggle-catalog-browse"
 ]);
 function settingsActionMode(action) {
-  if (action === "import-yomitan-settings" || action === "restore-cloud-settings") return "restore";
+  if (action === "import-reader-settings" || action === "restore-cloud-settings") return "restore";
   if (LOCAL_SETTINGS_ACTIONS.has(action)) return "local";
   return "durable";
 }
@@ -64159,18 +63583,6 @@ function syncSettingsSaveControl(save, state) {
   if (state.blockedBy) save.dataset.saveBlocked = state.blockedBy;
   else delete save.dataset.saveBlocked;
 }
-const READER_SETTINGS_BACKUP_FORMATS = /* @__PURE__ */ new Set([
-  "yomu-reader-settings",
-  "jpdb-popup-reader-settings"
-]);
-function readerStorageRestorePayload(value) {
-  if (!isStorageBackupRecord(value)) return null;
-  const record2 = value;
-  return READER_SETTINGS_BACKUP_FORMATS.has(record2.formatName ?? "") ? record2.storage : null;
-}
-function isStorageBackupRecord(value) {
-  return typeof value === "object" && value !== null;
-}
 function settingsRestoreSaveOptions(previous, next, importedView) {
   const persistPreferredJapaneseSiteLanguage = importedView !== null || previous.preferJapaneseSiteLanguage !== next.preferJapaneseSiteLanguage;
   if (!importedView) {
@@ -64198,7 +63610,7 @@ function witnessedSettingsRestoreCandidate(previous, fallback, importedView) {
   });
 }
 async function runSettingsRestoreTransaction(options) {
-  const importedView = await restoreSettingsPersistenceView(options);
+  const importedView = await readBackupSettingsPersistenceView(options.storage);
   await options.prepareSettings?.(importedView);
   const storedValues = await beginStoredValuesImport(options.storage);
   try {
@@ -64208,14 +63620,6 @@ async function runSettingsRestoreTransaction(options) {
   return { restoredValues: storedValues.count };
   } catch (error) {
   return rollbackSettingsRestore(error, storedValues, options.rollbackBeforeSettings);
-  }
-}
-async function restoreSettingsPersistenceView(options) {
-  try {
-  return await readBackupSettingsPersistenceView(options.storage);
-  } catch (error) {
-  if (options.allowInvalidSettingsAuthorityFallback && error instanceof InvalidSettingsBackupAuthorityError) return null;
-  throw error;
   }
 }
 async function rollbackSettingsRestore(error, storedValues, rollbackBeforeSettings) {
@@ -64241,6 +63645,3750 @@ async function collectRollbackErrors(operations) {
   return failures;
 }
 async function noRollback() {
+}
+async function restoreReaderSettingsBackup(file, previousSettings, port) {
+  const text2 = await file.text();
+  let json;
+  try {
+  json = JSON.parse(text2);
+  } catch {
+  throw userFacingError("settingsImportUnsupportedFormat");
+  }
+  const backup = parseReaderSettingsBackup(json);
+  if (!backup) throw userFacingError("settingsImportUnsupportedFormat");
+  let importedSettings = normalizeReaderSettings({
+  ...previousSettings,
+  ...backup.settings,
+  shortcuts: { ...previousSettings.shortcuts, ...backup.settings.shortcuts }
+  });
+  const dictionaries2 = await BundledDictionaryRestore.prepare(backup.dictionaries, port);
+  const result = await runSettingsRestoreTransaction({
+  storage: backup.storage,
+  prepareSettings: (importedView) => {
+    importedSettings = witnessedSettingsRestoreCandidate(
+      previousSettings,
+      importedSettings,
+      importedView
+    );
+  },
+  stageBeforeSettings: () => dictionaries2.stage(importedSettings).then((settings) => {
+    importedSettings = settings;
+  }),
+  rollbackBeforeSettings: () => dictionaries2.rollback(),
+  publishSettings: (importedView) => port.persistSettings(
+    importedSettings,
+    settingsRestoreSaveOptions(previousSettings, importedSettings, importedView)
+  )
+  });
+  port.adoptSettings(importedSettings);
+  return importSettingsStatus(result.restoredValues, dictionaries2.summary, importedSettings.interfaceLanguage);
+}
+class BundledDictionaryRestore {
+  constructor(restore, port) {
+  this.restore = restore;
+  this.port = port;
+  }
+  mutationAttempted = false;
+  importedSummary = null;
+  static async prepare(json, port) {
+  return new BundledDictionaryRestore(await dictionaryRestoreFiles(json, port.dictionaries), port);
+  }
+  get summary() {
+  return this.importedSummary;
+  }
+  async stage(settings) {
+  if (this.restore) await this.importBundledDictionaries(this.restore.imported, settings.interfaceLanguage);
+  const merged = await mergeImportedDictionaryPreferences(settings, this.port.dictionaries);
+  this.port.dictionaryStateChanged();
+  return merged;
+  }
+  async rollback() {
+  if (!this.restore || !this.mutationAttempted) return;
+  await this.port.dictionaries.importFile(this.restore.previous);
+  this.port.dictionaryStateChanged();
+  }
+  async importBundledDictionaries(file, language2) {
+  this.mutationAttempted = true;
+  this.port.setStatus(uiText(language2, "importingBundledDictionaries"));
+  this.importedSummary = await this.port.dictionaries.importFile(
+    file,
+    (message) => this.port.setStatus(message)
+  );
+  }
+}
+async function dictionaryRestoreFiles(dictionaryExport, dictionaries2) {
+  if (!readerDictionaryExportHasData(dictionaryExport)) return null;
+  return {
+  imported: jsonFile(dictionaryExport, "yomu-dictionaries-from-settings.json"),
+  previous: new File(
+    [await dictionaries2.exportJson()],
+    "yomu-dictionaries-before-settings-restore.json",
+    { type: "application/json" }
+  )
+  };
+}
+function jsonFile(value, filename) {
+  return new File([JSON.stringify(value)], filename, { type: "application/json" });
+}
+async function mergeImportedDictionaryPreferences(settings, dictionaries2) {
+  const importedSummary = await dictionaries2.summary().catch(() => ({ dictionaries: [] }));
+  const importedNames = importedSummary.dictionaries.map((item) => item.title);
+  const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
+  const merged = mergeDictionaryPreferences(
+  retireStaleDictionaryPreferences(settings.dictionaryPreferences, importedNames),
+  importedNames,
+  importedTypes
+  );
+  return captureActiveLanguageProfileDictionaries(settings, merged);
+}
+function importSettingsStatus(restoredValues, dictionarySummary, language2) {
+  const details = restoreStatusDetails(restoredValues, dictionarySummary, language2);
+  return details.length ? uiText(language2, "settingsImportedWithDetails").replace("{details}", details.join("; ")) : uiText(language2, "settingsImported");
+}
+function restoreStatusDetails(restoredValues, dictionarySummary, language2) {
+  const details = [];
+  if (restoredValues) {
+  details.push(countStatus(uiText(language2, "restoredStoredChoices"), restoredValues));
+  }
+  if (dictionarySummary) {
+  details.push(countStatus(uiText(language2, "importedDictionaryRecordCount"), dictionarySummary.entries));
+  }
+  return details;
+}
+function countStatus(template, count) {
+  return template.replace("{count}", count.toLocaleString()).replace("{plural}", count === 1 ? "" : "s");
+}
+function cloudSettingsActionEnabled(enabled, action) {
+  return enabled && isCloudSettingsAction(action);
+}
+function settingsForCloudAction(action, form, settings) {
+  if (action === "sync-cloud-settings") return readFormSettings(new FormData(form), settings);
+  return settings;
+}
+function setCloudSettingsActionButtonDisabled(button2, disabled) {
+  if (disabled) button2?.setAttribute("disabled", "true");
+  else button2?.removeAttribute("disabled");
+}
+function notifyCloudSettingsPersistenceFailed(callback, previousSettings) {
+  callback?.(previousSettings);
+}
+function reportCloudSettingsStatus(setStatus, message) {
+  setStatus?.(message);
+}
+class SettingsCloudSyncCoordinator {
+  constructor(port) {
+  this.port = port;
+  }
+  async handle(form, action, button2, setStatus, language2) {
+  if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action)) return false;
+  if (this.port.restore.importBlocked(form)) return true;
+  if (!cloudSettingsSyncAvailable()) return reportUnavailable(setStatus, language2);
+  return this.runAuthorizedAction(form, action, button2, setStatus, language2);
+  }
+  async perform(action, language2, setStatus, previousSettings = this.port.settings(), authorization, restoreForm) {
+  if (action === "sync-cloud-settings") {
+    await this.upload(previousSettings, authorization, setStatus, language2);
+    return;
+  }
+  await this.restore(authorization, setStatus, language2, restoreForm);
+  }
+  async runAuthorizedAction(form, action, button2, setStatus, language2) {
+  setCloudSettingsActionButtonDisabled(button2, true);
+  const authorization = createCloudSettingsAuthorization();
+  const redirectHandoff = cloudSettingsRedirectHandoffRequired();
+  const restoreRevision = this.port.restore.importRevision;
+  await rememberCloudSettingsRedirectHandoff(redirectHandoff, action, authorization);
+  const previousSettings = this.port.stableSettings();
+  try {
+    if (!this.restoreRevisionIsCurrent(form, restoreRevision)) return true;
+    this.port.setSettings(settingsForCloudAction(action, form, previousSettings));
+    await this.perform(action, language2, setStatus, previousSettings, authorization, form);
+    return true;
+  } catch (error) {
+    this.restoreAfterFailedUpload(action, previousSettings);
+    throw error;
+  } finally {
+    await clearCloudSettingsRedirectHandoff(redirectHandoff);
+    this.finishButton(form, button2);
+  }
+  }
+  restoreRevisionIsCurrent(form, revision2) {
+  if (!this.port.restore.importPending && this.port.restore.saveRevisionIsCurrent(revision2)) return true;
+  this.port.restore.showRestoreBlocked(form);
+  return false;
+  }
+  restoreAfterFailedUpload(action, previousSettings) {
+  if (action === "restore-cloud-settings") return;
+  this.port.setSettings(previousSettings);
+  notifyCloudSettingsPersistenceFailed(this.port.onSettingsPersistenceFailed, previousSettings);
+  }
+  finishButton(form, button2) {
+  if (this.port.restore.importPending) this.port.restore.sync(form);
+  else setCloudSettingsActionButtonDisabled(button2, false);
+  }
+  async upload(previousSettings, authorization, setStatus, language2) {
+  if (this.port.restore.importPending) throw new Error("A settings restore is already running.");
+  await this.port.saveCurrentSettings(previousSettings);
+  const metadata = await uploadCloudSettingsToCloud(this.port.settings(), authorization);
+  this.reportStatus(setStatus, cloudSettingsSyncedStatus(metadata.syncedAt, language2));
+  }
+  async restore(authorization, setStatus, language2, restoreForm) {
+  const currentForm = this.port.currentForm();
+  const interlockForm = restoreForm ?? (currentForm?.isConnected ? currentForm : void 0);
+  await this.port.restore.runRestore(interlockForm, async () => {
+    await this.restoreSnapshot(authorization, setStatus, language2);
+  });
+  }
+  async restoreSnapshot(authorization, setStatus, language2) {
+  const settingsBeforeRestore = this.port.stableSettings();
+  const snapshot = await downloadCloudSettingsFromCloud(authorization);
+  if (!snapshot) {
+    reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language2));
+    return;
+  }
+  let importedSettings = normalizeCloudSettings(snapshot.settings, settingsBeforeRestore);
+  try {
+    await runSettingsRestoreTransaction({
+      storage: snapshot.storage,
+      prepareSettings: (importedView) => {
+        importedSettings = witnessedSettingsRestoreCandidate(
+          settingsBeforeRestore,
+          importedSettings,
+          importedView
+        );
+      },
+      publishSettings: (importedView) => this.port.persistSettings(
+        importedSettings,
+        settingsRestoreSaveOptions(settingsBeforeRestore, importedSettings, importedView)
+      )
+    });
+  } catch (error) {
+    this.notifyRestorePersistenceFailure(settingsBeforeRestore);
+    throw error;
+  }
+  this.port.adoptSettings(importedSettings);
+  this.reportStatusAfterCommit(setStatus, cloudSettingsRestoredStatus(snapshot.syncedAt, language2));
+  this.port.applyRestoreEffects();
+  }
+  notifyRestorePersistenceFailure(settingsBeforeRestore) {
+  if (this.port.stableSettings() !== settingsBeforeRestore) return;
+  notifyCloudSettingsPersistenceFailed(this.port.onSettingsPersistenceFailed, settingsBeforeRestore);
+  }
+  reportStatus(setStatus, message) {
+  reportCloudSettingsStatus(setStatus, message);
+  this.port.toast(message);
+  }
+  reportStatusAfterCommit(setStatus, message) {
+  this.port.runPostCommitEffect("cloud restore status reporting", () => this.reportStatus(setStatus, message));
+  }
+}
+function normalizeCloudSettings(imported, current) {
+  return normalizeReaderSettings({
+  ...current,
+  ...imported,
+  shortcuts: { ...current.shortcuts, ...imported.shortcuts }
+  });
+}
+function reportUnavailable(setStatus, language2) {
+  setStatus(cloudSettingsSyncUnavailableStatus(language2));
+  return true;
+}
+function cloudSettingsSyncUnavailableStatus(language2) {
+  return language2 === "ja" ? "このブラウザーではGoogle Drive設定同期を利用できません。" : "Google Drive settings sync is unavailable in this browser.";
+}
+function cloudSettingsNotFoundStatus(language2) {
+  return language2 === "ja" ? "Google Driveに保存されたYomu設定が見つかりません。" : "No Yomu settings were found in Google Drive.";
+}
+function cloudSettingsSyncedStatus(syncedAt, language2) {
+  const time = cloudSettingsSyncTime(syncedAt, language2);
+  return language2 === "ja" ? `設定をGoogle Driveに同期しました（${time}）。` : `Settings synced to Google Drive (${time}).`;
+}
+function cloudSettingsRestoredStatus(syncedAt, language2) {
+  const time = cloudSettingsSyncTime(syncedAt, language2);
+  return language2 === "ja" ? `Google Drive設定を復元しました（${time}）。` : `Google Drive settings restored (${time}).`;
+}
+function cloudSettingsSyncTime(value, language2) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(language2 === "ja" ? "ja-JP" : void 0);
+}
+const log$7 = Logger.scope("SettingsActionRouter");
+class SettingsActionRouter {
+  constructor(port, gate) {
+  this.port = port;
+  this.gate = gate;
+  }
+  bind(form) {
+  form.addEventListener("click", (event) => this.handleClick(form, event));
+  form.addEventListener("keydown", (event) => this.handleKeydown(form, event));
+  }
+  handleClick(form, event) {
+  if (this.port.handlePreviewLookup(event)) return;
+  const target = settingsActionTarget(event);
+  if (!target) return;
+  this.dispatchActionClick(form, event, target);
+  }
+  dispatchActionClick(form, event, target) {
+  event.preventDefault();
+  event.stopPropagation();
+  const ticket = this.gate.captureAction(form, target.action);
+  if (!ticket) return;
+  const permission = authenticationInfoPermissionForAction(form, target.action, this.port.settings());
+  if (permission) void this.handlePermissionDelayedAction(form, target, permission, ticket);
+  else void this.executeAction(form, target, ticket);
+  }
+  handleKeydown(form, event) {
+  if (this.consumeAnkiTagKeydown(form, event)) return;
+  if (!isSettingsPreviewKey(event)) return;
+  if (this.port.handlePreviewLookup(event)) event.preventDefault();
+  }
+  consumeAnkiTagKeydown(form, event) {
+  if (!this.port.handleAnkiTagKeydown(form, event)) return false;
+  event.preventDefault();
+  return true;
+  }
+  async handlePermissionDelayedAction(form, target, permission, ticket) {
+  try {
+    const consent = await permission;
+    const language2 = getFormInterfaceLanguage(form, this.port.settings().interfaceLanguage);
+    if (!acceptFirefoxAuthenticationInfoConsent(consent, language2, this.port.toast)) return;
+    await this.executeAction(form, target, ticket);
+  } catch (error) {
+    this.reportActionError(form, target, error);
+  }
+  }
+  async executeAction(form, target, ticket) {
+  const setStatus = settingsStatusSetter(form, target.control);
+  try {
+    await this.gate.runAction(form, ticket, () => this.port.handleAction({
+      form,
+      action: target.action,
+      control: target.control,
+      setStatus
+    }));
+  } catch (error) {
+    this.reportActionError(form, target, error, setStatus);
+  }
+  }
+  reportActionError(form, target, error, setStatus = settingsStatusSetter(form, target.control)) {
+  const language2 = getFormInterfaceLanguage(form, this.port.settings().interfaceLanguage);
+  const message = handleSettingsActionError(target.action, target.control, setStatus, error, language2);
+  this.port.toast(message);
+  }
+}
+function acceptFirefoxAuthenticationInfoConsent(consent, language2, toast) {
+  if (consent === "granted") return true;
+  const key = consent === "extension-page-required" ? "firefoxAuthenticationInfoExtensionPageRequired" : "firefoxAuthenticationInfoDenied";
+  toast(uiText(language2, key));
+  return false;
+}
+function handleSettingsActionError(action, control, setStatus, error, language2) {
+  log$7.warn("Settings action failed", { action }, error);
+  if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
+  const message = userFacingErrorText(language2, "actionFailed", error);
+  setStatus(message);
+  return message;
+}
+function settingsActionTarget(event) {
+  const control = event.target.closest("[data-action]");
+  const action = control?.dataset.action;
+  if (!control || !action || action === "cancel") return null;
+  return { control, action };
+}
+function isSettingsPreviewKey(event) {
+  return event.key === "Enter" || event.key === " ";
+}
+function authenticationInfoPermissionForAction(form, action, settings) {
+  if (action === "sync-cloud-settings") {
+  return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form), settings));
+  }
+  if (actionNeedsCredentialPermission(action)) return requestFirefoxAuthenticationInfoPermission();
+  return void 0;
+}
+function actionNeedsCredentialPermission(action) {
+  return action === "restore-cloud-settings" || action === "import-reader-settings" || action === "connect-academy-account";
+}
+function settingsStatusSetter(form, control) {
+  return (message) => {
+  const originPanel = control?.closest("fieldset[data-settings-panel]");
+  const status = originPanel?.querySelector("[data-import-status]") ?? form.querySelector("#jpdb-reader-settings-panel-backup [data-import-status]") ?? form.querySelector("[data-import-status]");
+  if (!status) return;
+  status.textContent = message;
+  status.hidden = false;
+  };
+}
+function shouldReenableSettingsAction(action) {
+  return action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
+}
+function isSettingsCommandWord(word) {
+  return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
+}
+const log$6 = Logger.scope("SettingsDialog");
+const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
+const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
+const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
+const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
+const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
+function focusPreviewAudioSource(form, button2, previewSettings) {
+  const row = button2?.closest("[data-audio-source-row]");
+  if (!row) return;
+  const source = previewSettings.audioSources[sourceRowIndex(form, row)];
+  if (!source) return;
+  previewSettings.audioSources = [{ ...source, enabled: true }];
+  previewSettings.audioEnableDefaultSources = false;
+}
+function sourceRowIndex(form, row) {
+  return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+}
+function probeableAudioSourceUrl(row) {
+  if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
+  if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
+  const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
+  return isProbeableAudioSourceUrl(url) ? url : "";
+}
+function isProbeableAudioSourceUrl(url) {
+  try {
+  return ["http:", "https:"].includes(new URL(url).protocol);
+  } catch {
+  return false;
+  }
+}
+function recommendedDictionaryForControl(control) {
+  const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
+  if (!dictionary) throw new Error("Recommended dictionary not found.");
+  return dictionary;
+}
+function recommendedDictionaryDownloadStatus(control, dictionaryName, language2) {
+  const action = control?.dataset.installed === "true" ? uiText(language2, "update") : uiText(language2, "dictionaryDownloading");
+  return `${dictionaryName}: ${action}...`;
+}
+function settingsActionButton(control) {
+  return control instanceof HTMLButtonElement ? control : control?.closest("button") ?? null;
+}
+function namedSettingsControl(form, name) {
+  const control = form.elements.namedItem(name);
+  return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement ? control : null;
+}
+function reconcileApiCredentialInputs(form) {
+  const jpdbField = namedSettingsControl(form, "apiCredentialJpdb");
+  const jitenField = namedSettingsControl(form, "apiCredentialJiten");
+  if (!jpdbField && !jitenField) return;
+  const { apiKey, jitenApiKey } = mergeApiCredentialValues(jpdbField?.value ?? "", jitenField?.value ?? "");
+  if (jpdbField && jpdbField.value !== apiKey) jpdbField.value = apiKey;
+  if (jitenField && jitenField.value !== jitenApiKey) jitenField.value = jitenApiKey;
+}
+function suppressCredentialAutofill(form) {
+  const guarded = form.querySelectorAll(
+  "input.jpdb-reader-masked-input, input[data-settings-search]"
+  );
+  guarded.forEach((input2) => {
+  if (input2.dataset.autofillGuarded === "true") return;
+  input2.dataset.autofillGuarded = "true";
+  input2.readOnly = true;
+  const enable = () => {
+    input2.readOnly = false;
+  };
+  input2.addEventListener("focus", enable);
+  input2.addEventListener("pointerdown", enable);
+  input2.addEventListener("keydown", enable);
+  });
+}
+function ankiScanFormControls(form) {
+  return {
+  deck: namedSettingsControl(form, "ankiDeck"),
+  model: namedSettingsControl(form, "ankiModel")
+  };
+}
+function settingsControlValue(control) {
+  return control?.value.trim() || "";
+}
+function ankiScanSelection(controls, scan) {
+  return selectAnkiLibraryChoices(scan, settingsControlValue(controls.deck), settingsControlValue(controls.model));
+}
+function applySettingsControlValue(control, value) {
+  if (!control || !value) return;
+  control.value = value;
+  dispatchAuthorizedReaderControlEvent(control, new Event("input", { bubbles: true }));
+}
+function ankiConnectionAction(action) {
+  return action === "test-anki" || action === "prepare-anki" || action === "update-anki-model" ? action : null;
+}
+function ankiConnectionPendingKey(action) {
+  if (action === "prepare-anki") return "ankiPreparing";
+  if (action === "update-anki-model") return "ankiModelUpdating";
+  return "ankiTesting";
+}
+function ankiStatusSetter(status) {
+  return (message, tone, action) => {
+  if (!status) return;
+  status.dataset.statusTone = tone;
+  if (action) status.dataset.statusAction = action;
+  else delete status.dataset.statusAction;
+  setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
+  };
+}
+function statusLanguage(status) {
+  return status.closest("form")?.querySelector('select[name="interfaceLanguage"]')?.value ?? "en";
+}
+function isAnkiFieldMappingRole(role) {
+  return ANKI_FIELD_MAPPING_ROLES.has(role);
+}
+function isAnkiScanConfidence(value) {
+  return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
+}
+function ankiScanConfidenceEntries(confidence) {
+  const entries2 = [];
+  for (const [role, value] of Object.entries(confidence)) {
+  if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
+  }
+  return entries2;
+}
+function readNewTabAnkiDisabledDecks(form) {
+  return canonicalNewTabAnkiDisabledDecks(
+  namedSettingsControl(form, "newTabAnkiDisabledDecks")?.value.split(",").map((deck) => deck.trim()).filter(Boolean) ?? []
+  );
+}
+function selectedSettingsPanel(control) {
+  return control?.dataset.panel ?? "api";
+}
+function requestCancelableFrame(callback) {
+  if (typeof window.requestAnimationFrame === "function") {
+  return window.requestAnimationFrame(() => callback());
+  }
+  return window.setTimeout(callback, 16);
+}
+function cancelCancelableFrame(id) {
+  if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
+  else window.clearTimeout(id);
+}
+function nextSettingsTabIndex(key, currentIndex, tabCount) {
+  if (currentIndex < 0 || tabCount <= 0) return -1;
+  if (key === "ArrowRight" || key === "ArrowDown") return (currentIndex + 1) % tabCount;
+  if (key === "ArrowLeft" || key === "ArrowUp") return (currentIndex - 1 + tabCount) % tabCount;
+  if (key === "Home") return 0;
+  if (key === "End") return tabCount - 1;
+  return -1;
+}
+function isAnkiConnectSetupError(error) {
+  if (isAnkiConnectAvailabilityError(error)) return true;
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return /AnkiConnect/i.test(message) && /(not reachable|request failed|timed out|failed to fetch|networkerror|request bridge|CORS)/i.test(message);
+}
+function dictionaryImportReport(files, results) {
+  const summaries = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+  return {
+  summaries,
+  records: summaries.reduce((total, summary) => total + summary.entries, 0),
+  sources: new Set(summaries.flatMap((summary) => summary.dictionaries)).size,
+  failures: results.flatMap((result, index) => result.status === "rejected" ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result.reason }] : [])
+  };
+}
+function dictionaryImportStatusMessage(language2, report) {
+  const messageKey = report.failures.length ? "dictionaryImportResultWithFailures" : "dictionaryImportComplete";
+  return formatUiTemplate$1(uiText(language2, messageKey), {
+  records: report.records.toLocaleString(),
+  sources: report.sources.toLocaleString(),
+  plural: pluralSuffix(report.sources),
+  failed: report.failures.length.toLocaleString(),
+  failedPlural: pluralSuffix(report.failures.length),
+  files: report.failures.map((failure) => failure.filename).join(", ")
+  });
+}
+function pluralSuffix(count) {
+  return count === 1 ? "" : "s";
+}
+function syncCheckedControl(control, checked) {
+  if (control) control.checked = checked;
+}
+class SettingsDialogController {
+  constructor(dependencies) {
+  this.dependencies = dependencies;
+  this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
+  this.academyAccountSync = new AcademyAccountSyncSettingsController((message) => dependencies.toast(message));
+  this.restoreCoordinator = new SettingsRestoreCoordinator({
+    interfaceLanguage: () => this.settings.interfaceLanguage,
+    currentForm: () => this.currentForm,
+    toast: (message) => dependencies.toast(message),
+    invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations()
+  });
+  this.cloudSettings = new SettingsCloudSyncCoordinator({
+    settings: () => this.settings,
+    stableSettings: () => this.stableSettings,
+    setSettings: (settings) => {
+      this.settings = settings;
+    },
+    saveCurrentSettings: (previous) => this.saveCurrentSettings(previous),
+    persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
+    adoptSettings: (settings) => this.adoptPersistedSettings(settings),
+    onSettingsPersistenceFailed: dependencies.onSettingsPersistenceFailed,
+    toast: (message) => dependencies.toast(message),
+    currentForm: () => this.currentForm,
+    restore: this.restoreCoordinator,
+    runPostCommitEffect: (label, effect) => this.runPostCommitSettingsEffect(label, effect),
+    applyRestoreEffects: () => this.applySettingsRestoreEffects(true, "backup")
+  });
+  this.actionRouter = new SettingsActionRouter({
+    settings: () => this.settings,
+    toast: (message) => dependencies.toast(message),
+    handlePreviewLookup: (event) => this.handleSettingsPreviewLookup(event),
+    handleAnkiTagKeydown: (form, event) => this.handleAnkiTagInputKeydown(form, event),
+    handleAction: (context) => this.handleSettingsAction(context)
+  }, this.restoreCoordinator);
+  }
+  previewBaseline;
+  dictionarySiteStorageClearPending = false;
+  recommendedDictionaryOperations = /* @__PURE__ */ new Map();
+  currentForm;
+  settingsSyncAbort;
+  modal = new LookupModalAccessibility();
+  saveRequestId = 0;
+  ankiConnectionProbeId = 0;
+  jpdbConnectionProbeId = 0;
+  wanikaniConnectionProbeId = 0;
+  ankiLibraryScanId = 0;
+  ankiModelUpdatePromptId = 0;
+  yomuUpdateCheckId = 0;
+  dictionaryRefreshId = 0;
+  targetDictionaryAvailabilityRequestId = 0;
+  publishedDictionaryLanguagesPromise;
+  academyAccountSync;
+  restoreCoordinator;
+  cloudSettings;
+  actionRouter;
+  settingsJapaneseParseRefreshFrame;
+  settingsJapaneseParseRefreshTimer;
+  open(panel) {
+  this.settingsSyncAbort?.abort();
+  this.previewBaseline.start(this.dependencies.getSettings());
+  const trigger = settingsDialogTrigger(document.activeElement);
+  const launcher = mountSensitiveSettingsLauncher(
+    this.dependencies,
+    this.modal,
+    this.settings.interfaceLanguage,
+    panel,
+    trigger
+  );
+  if (launcher) {
+    installSettingsDrawerHandle(
+      launcher,
+      uiText(this.settings.interfaceLanguage, "resizeSettings"),
+      () => this.dismissSettings()
+    );
+    return;
+  }
+  const form = this.createSettingsForm(panel);
+  const backdrop = this.dependencies.createBackdrop();
+  this.bindFormSubmit(form);
+  installFocusedControlScrolling(form);
+  this.bindSettingsSearch(form);
+  form.addEventListener("yomu-catalog-browse-rendered", () => this.onCatalogBrowseRendered(form));
+  installCatalogBrowseFilter(form);
+  this.bindSettingsTabs(form);
+  this.bindEditorControls(form);
+  syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
+  this.dependencies.mountDialog(backdrop, form);
+  this.currentForm = form;
+  this.settingsSyncAbort = new AbortController();
+  this.bindLivePreview(form, this.settingsSyncAbort.signal);
+  this.modal.activate(form, trigger);
+  installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, "resizeSettings"), () => this.dismissSettings());
+  this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
+  this.syncRecommendedDictionaryInstallControls(form);
+  this.restoreCoordinator.sync(form);
+  this.syncJpdbStatus(form);
+  void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
+  void this.refreshAnkiConnectionStatus(form);
+  runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [
+    () => void this.refreshJpdbConnectionStatus(form),
+    () => void this.refreshWanikaniConnectionStatus(form)
+  ]);
+  void this.refreshDictionaryStatus(form);
+  this.publishedDictionaryLanguagesPromise = void 0;
+  void this.refreshTargetDictionaryAvailability(form);
+  runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [() => void this.refreshDeckControls(form)]);
+  if (panel === "help") void this.refreshYomuUpdateStatus(form);
+  this.refreshSettingsJapaneseParse(form);
+  }
+  onCatalogBrowseRendered(form) {
+  this.syncRecommendedDictionaryInstallControls(form);
+  if (this.dictionarySiteStorageClearPending) this.setDictionaryImportsDisabledForSiteClear(form, true);
+  this.restoreCoordinator.sync(form);
+  }
+  refreshLanguage(language2 = this.settings.interfaceLanguage) {
+  const form = this.currentForm;
+  if (!form?.isConnected) return;
+  localizeSettingsForm(form, language2);
+  this.syncRecommendedDictionaryInstallControls(form);
+  this.restoreCoordinator.sync(form);
+  this.syncJpdbStatus(form);
+  void this.academyAccountSync.refresh(form, language2);
+  void this.refreshAnkiConnectionStatus(form);
+  syncSubtitlePreview(form);
+  this.refreshSettingsJapaneseParse(form);
+  void this.refreshTargetDictionaryAvailability(form);
+  }
+  async resumePendingCloudSettingsSync() {
+  return resumePendingCloudSettingsAction({
+    trustedSurface: currentSensitiveSettingsSurfaceIsTrusted(this.dependencies),
+    available: CLOUD_SETTINGS_SYNC_ENABLED && cloudSettingsSyncAvailable(),
+    language: this.settings.interfaceLanguage,
+    readPending: readPendingCloudSettingsAction,
+    clearPending: clearPendingCloudSettingsAction,
+    consumeAuthorization: (expectedState) => cloudSettingsAuthRedirectResult(expectedState),
+    perform: (action, language2) => action === "sync-cloud-settings" ? this.restoreCoordinator.runDurableOperation(() => this.cloudSettings.perform(action, language2)) : this.cloudSettings.perform(action, language2),
+    authorizationFailed: (error, language2) => {
+      log$6.warn("Cloud settings authorization failed", { message: error });
+      this.dependencies.toast(uiText(language2, "actionFailed"));
+    },
+    actionFailed: (error, language2) => this.dependencies.toast(userFacingErrorText(language2, "actionFailed", error)),
+    openBackup: () => this.open("backup")
+  });
+  }
+  get settings() {
+  return this.dependencies.getSettings();
+  }
+  get stableSettings() {
+  return this.previewBaseline.settings;
+  }
+  set settings(settings) {
+  this.previewBaseline.stage(settings);
+  }
+  // Temporary form-derived swaps must not fire host-side transitions (the
+  // dialog's annotations-off instant clear would otherwise trigger from a
+  // mere Anki probe while OFF is selected but unsaved — sol review P1).
+  swapSettingsTransiently(settings) {
+  const previous = this.dependencies.getSettings();
+  this.dependencies.setSettings(settings, { transient: true });
+  return previous;
+  }
+  restoreTransientSettings(_previous) {
+  this.previewBaseline.restoreTransient();
+  }
+  invalidateRestoreDependentOperations() {
+  this.saveRequestId++;
+  this.dictionaryRefreshId++;
+  this.jpdbConnectionProbeId++;
+  this.wanikaniConnectionProbeId++;
+  this.ankiConnectionProbeId++;
+  this.ankiLibraryScanId++;
+  this.ankiModelUpdatePromptId++;
+  }
+  saveCurrentSettings(previousSettings) {
+  const attemptedSettings = this.stableSettings;
+  return this.persistCurrentSettings(previousSettings).catch((error) => {
+    if (this.stableSettings === attemptedSettings) {
+      this.previewBaseline.capture(previousSettings);
+      try {
+        this.previewBaseline.publish();
+      } catch (rollbackError) {
+        log$6.warn("Failed to restore in-memory settings after persistence failure", { rollbackError });
+      }
+      this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+    }
+    throw error;
+  });
+  }
+  persistCurrentSettings(previousSettings, options) {
+  const settings = this.stableSettings;
+  return this.persistSettingsSnapshot(settings, options ?? {
+    persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+    explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
+  });
+  }
+  persistSettingsSnapshot(settings, options) {
+  const operation = this.dependencies.saveSettings(settings, options).then(() => this.notifySettingsPersisted(settings));
+  return this.restoreCoordinator.trackSave(operation);
+  }
+  notifySettingsPersisted(settings) {
+  this.previewBaseline.refreshHost();
+  try {
+    this.dependencies.onSettingsPersisted?.(settings);
+  } catch (error) {
+    log$6.warn("Post-persistence settings notification failed", { error });
+  }
+  }
+  adoptPersistedSettings(settings) {
+  this.previewBaseline.capture(settings);
+  try {
+    this.previewBaseline.publish();
+  } catch (error) {
+    log$6.warn("Post-persistence settings adoption failed", { error });
+  }
+  this.previewBaseline.refreshHost();
+  }
+  adoptLiveSettings(settings) {
+  this.previewBaseline.adoptLive(settings);
+  }
+  runPostCommitSettingsEffect(label, effect) {
+  try {
+    void Promise.resolve(effect()).catch((error) => {
+      log$6.warn(`Post-persistence ${label} failed`, { error });
+    });
+  } catch (error) {
+    log$6.warn(`Post-persistence ${label} failed`, { error });
+  }
+  }
+  createSettingsForm(panel) {
+  const form = document.createElement("form");
+  form.className = "jpdb-reader-settings";
+  form.dataset.jpdbReaderRoot = "true";
+  form.dataset.language = activeTargetLanguageId(this.settings);
+  form.setAttribute("role", "dialog");
+  form.setAttribute("aria-modal", "true");
+  form.setAttribute("aria-label", SETTINGS_TITLE);
+  form.tabIndex = -1;
+  setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
+  localizeSettingsForm(form, this.settings.interfaceLanguage);
+  if (panel) activateSettingsPanel(form, panel);
+  return form;
+  }
+  bindFormSubmit(form) {
+  bindAuthorizedReaderFormSubmit(form, () => {
+    const previousSettings = this.stableSettings;
+    const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
+    const nextSettings = readFormSettings(new FormData(form), previousSettings);
+    const settingsImportRevision = this.restoreCoordinator.beginSave(form);
+    if (settingsImportRevision === void 0) return;
+    const saveRequestId = ++this.saveRequestId;
+    const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
+    void credentialPermission.then((consent) => {
+      if (!acceptFirefoxAuthenticationInfoConsent(
+        consent,
+        this.settings.interfaceLanguage,
+        (message) => this.dependencies.toast(message)
+      )) return;
+      if (!this.restoreCoordinator.saveRevisionIsCurrent(settingsImportRevision)) {
+        this.restoreCoordinator.showStaleSaveDiscarded(form);
+        return;
+      }
+      this.settings = nextSettings;
+      configureLogger({ forceEnabled: this.settings.enableLogging });
+      if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
+        this.dependencies.clearDictionarySourceOpenOverrides();
+      }
+      return this.saveCurrentSettings(previousSettings).then(() => {
+        this.afterSettingsSaved(form, saveRequestId);
+      });
+    }).catch((error) => {
+      log$6.error("Settings save failed", error);
+      this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "settingsSaveFailed", error));
+    }).finally(() => {
+      this.restoreCoordinator.finishSave(form);
+    });
+  }, () => reportInvalidSettingsForm(
+    form,
+    this.settings.interfaceLanguage,
+    (message) => this.dependencies.toast(message)
+  ));
+  form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
+  form.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.isComposing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.dismissSettings();
+  });
+  }
+  dismissSettings() {
+  this.settingsSyncAbort?.abort();
+  if (this.settingsJapaneseParseRefreshFrame !== void 0) {
+    cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
+    this.settingsJapaneseParseRefreshFrame = void 0;
+  }
+  if (this.settingsJapaneseParseRefreshTimer !== void 0) {
+    window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+    this.settingsJapaneseParseRefreshTimer = void 0;
+  }
+  this.previewBaseline.restoreInterfaceLanguagePreview();
+  this.modal.release();
+  this.currentForm = void 0;
+  this.dependencies.dismiss();
+  }
+  /**
+   * Clear the `aria-hidden` the modal placed on background siblings.
+   * The controller's own close paths (Escape, Cancel, Save) already restore,
+   * but the dialog can also be torn down from outside the controller — a
+   * backdrop click, factory reset, or the close-popup shortcut all route
+   * through ReaderApp.dismiss(). Those paths call this so the page is never
+   * stranded hidden from assistive technology.
+   * Idempotent: a no-op once the background has been released.
+   */
+  releaseModalBackground() {
+  this.settingsSyncAbort?.abort();
+  this.previewBaseline.restoreInterfaceLanguagePreview();
+  if (!this.currentForm?.isConnected) this.currentForm = void 0;
+  this.modal.release();
+  }
+  bindSettingsSearch(form) {
+  const input2 = form.querySelector("[data-settings-search]");
+  input2?.addEventListener("input", () => {
+    applySettingsSearch(form, input2.value);
+    syncExpandedCatalogBrowseSearch(form, input2.value);
+  });
+  }
+  bindSettingsTabs(form) {
+  form.querySelector(".jpdb-reader-settings-tabs")?.addEventListener("keydown", (event) => {
+    if (!(event.target instanceof HTMLButtonElement) || event.target.dataset.action !== "settings-panel") return;
+    const tabs = Array.from(form.querySelectorAll('[data-action="settings-panel"]'));
+    const currentIndex = tabs.indexOf(event.target);
+    const nextIndex = nextSettingsTabIndex(event.key, currentIndex, tabs.length);
+    if (nextIndex < 0) return;
+    event.preventDefault();
+    tabs[nextIndex]?.focus();
+    const panel = tabs[nextIndex]?.dataset.panel ?? "api";
+    activateSettingsPanel(form, panel);
+    this.onSettingsPanelActivated(form, panel);
+    this.refreshSettingsJapaneseParse(form);
+  });
+  }
+  afterSettingsSaved(form, saveRequestId) {
+  if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return;
+  const effects = [
+    ["JPDB cache clear", () => this.dependencies.jpdb.clear()],
+    ["theme refresh", () => this.dependencies.applyTheme()],
+    ["reader button refresh", () => this.dependencies.installFab()],
+    ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
+    ["OCR refresh", () => this.dependencies.ocr.refresh()],
+    ["YouTube refresh", () => this.dependencies.youtube.refresh()],
+    ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
+    ["settings dialog dismissal", () => this.dismissSettings()],
+    ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
+    ["new-tab refresh", () => this.dependencies.refreshNewTabIfCurrent()],
+    ["settings save status reporting", () => this.dependencies.toast(
+      uiText(this.settings.interfaceLanguage, "settingsSaved")
+    )],
+    ["dictionary style refresh", () => this.refreshDictionaryStylesAfterSave()]
+  ];
+  for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+  }
+  settingsSaveEffectsAreCurrent(form, saveRequestId) {
+  return this.currentForm === form && form.isConnected && this.saveRequestId === saveRequestId;
+  }
+  async refreshDictionaryStylesAfterSave() {
+  try {
+    await this.dependencies.refreshDictionaryStyles();
+  } catch (error) {
+    log$6.warn("Dictionary style refresh failed", error);
+    this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "actionFailed", error));
+  }
+  }
+  bindLivePreview(form, signal) {
+  const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.stableSettings));
+  let pendingAccentColor;
+  let accentPreviewFrame;
+  const flushAccentPreview = () => {
+    accentPreviewFrame = void 0;
+    const accentColor = pendingAccentColor;
+    pendingAccentColor = void 0;
+    if (!accentColor || !form.isConnected) return;
+    this.dependencies.applyAccentColor(accentColor);
+  };
+  const scheduleAccentPreview = (accentColor) => {
+    pendingAccentColor = accentColor;
+    if (accentPreviewFrame !== void 0) return;
+    accentPreviewFrame = requestCancelableFrame(flushAccentPreview);
+  };
+  const commitAccentPreview = (accentColor) => {
+    if (accentPreviewFrame !== void 0) {
+      cancelCancelableFrame(accentPreviewFrame);
+      accentPreviewFrame = void 0;
+    }
+    pendingAccentColor = void 0;
+    this.dependencies.applyAccentColor(accentColor);
+    publishSettingsChange({ accentColor }, { preview: true });
+  };
+  form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
+    const accentColor = event.currentTarget.value;
+    scheduleAccentPreview(accentColor);
+  });
+  form.querySelector('input[name="accentColor"]')?.addEventListener("change", (event) => {
+    const accentColor = event.currentTarget.value;
+    commitAccentPreview(accentColor);
+  });
+  let wordColorPreviewFrame;
+  const scheduleWordColorPreview = () => {
+    if (wordColorPreviewFrame !== void 0) return;
+    wordColorPreviewFrame = requestCancelableFrame(() => {
+      wordColorPreviewFrame = void 0;
+      if (form.isConnected) this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings));
+    });
+  };
+  form.querySelectorAll('input[name^="wordColor"], input[name^="pitchColor"]').forEach((input2) => {
+    input2.addEventListener("input", scheduleWordColorPreview);
+  });
+  const autoPlayAudio = form.querySelector('input[name="autoPlayAudio"]');
+  const audioAutoPlayMode = form.querySelector('select[name="audioAutoPlayMode"]');
+  autoPlayAudio?.addEventListener("change", () => {
+    if (audioAutoPlayMode) audioAutoPlayMode.disabled = !autoPlayAudio.checked;
+  });
+  this.syncThemeSwitch(form);
+  form.querySelector("[data-theme-switch]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    const input2 = form.querySelector("[data-theme-value]");
+    const current = this.effectiveTheme(input2?.value);
+    const next = current === "dark" ? "light" : "dark";
+    if (input2) input2.value = next;
+    applyThemePreview();
+    this.syncThemeSwitch(form);
+    publishSettingsChange({ theme: next }, { preview: true });
+  });
+  bindLiveSettingsSync(form, {
+    isActive: () => this.currentForm === form && form.isConnected,
+    getSettings: () => this.settings,
+    adoptSettings: (settings) => this.adoptLiveSettings(settings),
+    syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
+      form,
+      settings,
+      { source: "durable-settings", previousSettings }
+    ),
+    applyTheme: (theme) => {
+      const input2 = form.querySelector("[data-theme-value]");
+      if (input2 && input2.value !== theme) {
+        input2.value = theme;
+        applyThemePreview();
+        this.syncThemeSwitch(form);
+      }
+    }
+  }, signal);
+  syncSubtitlePreview(form);
+  syncFontFamilyControls(form);
+  form.addEventListener("input", (event) => {
+    if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
+  });
+  form.addEventListener("change", (event) => {
+    if (this.isFontFamilyControl(event.target)) syncFontFamilyControls(form);
+    if (this.isAnkiFieldMappingControl(event.target)) this.syncAnkiFieldMappingsFromEditor(form);
+    if (this.isAnkiModelControl(event.target)) this.renderAnkiFieldMappingEditor(form);
+    if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
+    if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
+  });
+  form.querySelector('select[name="learnerLanguage"]')?.addEventListener("change", () => {
+    void this.refreshDictionaryStatus(form);
+  });
+  form.querySelector('select[name="targetLanguage"]')?.addEventListener("change", (event) => {
+    const value = event.currentTarget.value;
+    if (!isLearningTargetRosterId(value)) return;
+    this.syncLanguageProfileForm(form, this.settings, {
+      source: "target-picker",
+      targetLanguage: value
+    });
+  });
+  this.bindAppearancePresets(form, applyThemePreview);
+  form.querySelector('select[name="popupMode"]')?.addEventListener("change", () => syncStickyBottomSheetAvailability(form));
+  syncStickyBottomSheetAvailability(form);
+  const syncImmersionTranslationReveal = () => {
+    const translations = form.querySelector('input[name="immersionKitShowTranslation"]');
+    const reveal = form.querySelector('input[name="immersionKitRevealTranslationOnClick"]');
+    if (!translations || !reveal) return;
+    reveal.disabled = !translations.checked;
+    if (!translations.checked) reveal.checked = false;
+    syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  };
+  form.querySelector('input[name="immersionKitShowTranslation"]')?.addEventListener("change", syncImmersionTranslationReveal);
+  syncImmersionTranslationReveal();
+  const syncImmersionEnabled = (source) => {
+    form.querySelectorAll('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach((input2) => {
+      if (input2 !== source) input2.checked = source.checked;
+    });
+  };
+  form.querySelectorAll('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach((input2) => {
+    input2.addEventListener("change", () => syncImmersionEnabled(input2));
+  });
+  const syncNadeshikoKeyField = () => {
+    const source = form.querySelector('select[name="immersionKitExampleSource"]')?.value;
+    const usesNadeshiko = source === "nadeshiko" || source === "combined";
+    form.querySelectorAll("[data-nadeshiko-api-key-field]").forEach((field) => {
+      field.hidden = !usesNadeshiko;
+    });
+  };
+  form.querySelector('select[name="immersionKitExampleSource"]')?.addEventListener("change", syncNadeshikoKeyField);
+  syncNadeshikoKeyField();
+  const syncImmersionLimit = () => {
+    const enabled = form.querySelector('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
+    const limit = form.querySelector('input[name="immersionKitLimit"]');
+    if (limit) limit.disabled = !enabled;
+    syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  };
+  form.querySelectorAll('input[name="immersionKitLimitEnabled"]').forEach((input2) => {
+    input2.addEventListener("change", syncImmersionLimit);
+  });
+  syncImmersionLimit();
+  form.querySelector('select[name="interfaceLanguage"]')?.addEventListener("change", (event) => {
+    const value = event.currentTarget.value;
+    if (value !== "auto" && value !== "en" && value !== "ja") return;
+    const previewSettings = readFormSettings(new FormData(form), this.stableSettings);
+    const previousSettings = this.swapSettingsTransiently(previewSettings);
+    this.previewBaseline.markInterfaceLanguagePreviewed();
+    try {
+      this.refreshLanguage(value);
+      this.dependencies.installFab();
+    } finally {
+      this.restoreTransientSettings(previousSettings);
+    }
+  });
+  form.querySelector('select[name="ocrProvider"]')?.addEventListener("change", (event) => {
+    const value = event.currentTarget.value;
+    form.querySelectorAll("[data-local-ocr]").forEach((node) => {
+      node.hidden = value !== "local-service";
+    });
+    form.querySelectorAll("[data-cloud-ocr]").forEach((node) => {
+      node.hidden = value !== "cloud-vision";
+    });
+  });
+  form.querySelectorAll('input[name="pageScanMode"]').forEach((input2) => {
+    input2.addEventListener("change", () => syncPageScanModeControls(form));
+  });
+  syncPageScanModeControls(form);
+  }
+  syncLanguageProfileForm(form, settings, request) {
+  syncLanguageProfileForm(form, settings, request, {
+    refreshTargetControls: (targetLanguage2) => {
+      void this.refreshTargetDictionaryAvailability(form, targetLanguage2);
+      void this.refreshDictionaryStatus(form);
+    }
+  });
+  }
+  async refreshTargetDictionaryAvailability(form, selected = selectedTargetLanguage(form, this.settings)) {
+  const requestId = ++this.targetDictionaryAvailabilityRequestId;
+  const status = form.querySelector("[data-target-dictionary-state]");
+  const content = form.querySelector("[data-target-dictionary-content]");
+  const showAvailability = (message) => {
+    if (status) {
+      status.hidden = !message;
+      status.textContent = message ?? "";
+    }
+    if (content) content.hidden = Boolean(message);
+  };
+  showAvailability(uiText(this.settings.interfaceLanguage, "checkingDictionaries"));
+  try {
+    this.publishedDictionaryLanguagesPromise ??= this.dependencies.publishedDictionaryLanguages?.() ?? publishedDictionaryHeadwordLanguages();
+    const languages2 = await this.publishedDictionaryLanguagesPromise;
+    if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
+    if (selectedTargetLanguage(form, this.settings) !== selected) return;
+    if (languages2.has(selected)) {
+      showAvailability();
+      return;
+    }
+    const target = learningTargetRosterEntry(selected);
+    showAvailability(formatUiTemplate$1(
+      uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
+      { language: this.settings.interfaceLanguage === "ja" ? target.nativeName : target.englishName }
+    ));
+  } catch (error) {
+    log$6.warn("Published dictionary coverage check failed", error);
+    if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
+    showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"));
+  }
+  }
+  bindEditorControls(form) {
+  suppressCredentialAutofill(form);
+  this.bindMediaEditorControls(form);
+  this.bindReviewEditorControls(form);
+  this.bindCredentialEditorControls(form);
+  this.bindAnkiEditorControls(form);
+  form.addEventListener("change", (event) => this.handleSettingsFormChange(form, event));
+  installShortcutCapture(form);
+  installSourceRowDrag(form);
+  this.actionRouter.bind(form);
+  }
+  bindMediaEditorControls(form) {
+  syncBrowserTtsVoiceOptions(form);
+  this.bindAudioSubSourceDetection(form);
+  const mediaPanel = form.querySelector('[data-settings-panel="media"]');
+  if (mediaPanel && !mediaPanel.hidden) this.refreshAudioSubSources(form);
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
+  }
+  }
+  bindReviewEditorControls(form) {
+  form.querySelector('input[name="enableReviews"]')?.addEventListener("change", () => {
+    syncReviewSettingsVisibility(form);
+    syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    this.syncJpdbStatus(form);
+  });
+  form.querySelector('select[name="twoButtonReviews"]')?.addEventListener("change", () => syncReviewSettingsVisibility(form));
+  form.querySelector('input[name="jpdbMiningEnabled"]')?.addEventListener("change", () => {
+    syncJpdbMiningDependentSettings(form);
+    syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    this.syncJpdbStatus(form);
+  });
+  syncJpdbMiningDependentSettings(form);
+  syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  }
+  bindCredentialEditorControls(form) {
+  for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="apiCredentialWanikani"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
+    apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form));
+    apiKeyInput.addEventListener("change", () => {
+      reconcileApiCredentialInputs(form);
+      const nextSettings = readFormSettings(new FormData(form), this.settings);
+      const permission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
+      void permission.then((consent) => {
+        if (!acceptFirefoxAuthenticationInfoConsent(
+          consent,
+          nextSettings.interfaceLanguage,
+          (message) => this.dependencies.toast(message)
+        )) return;
+        void this.refreshDeckControls(form);
+        void this.refreshJpdbConnectionStatus(form);
+        void this.refreshWanikaniConnectionStatus(form);
+      });
+    });
+  }
+  }
+  bindAnkiEditorControls(form) {
+  form.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
+  form.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
+  form.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
+  form.querySelector('select[name="ankiModel"]')?.addEventListener("change", () => {
+    this.retireAnkiModelUpdatePrompt(form);
+    void this.refreshAnkiModelUpdatePrompt(form);
+  });
+  }
+  handleSettingsPreviewLookup(event) {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const word = target?.closest("[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word");
+  if (!word || !this.dependencies.lookupText) return false;
+  if (!word.dataset.settingsPreviewLookup && isSettingsCommandWord(word)) return false;
+  const expression = word.dataset.settingsPreviewLookup?.trim() || word.dataset.expression?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
+  if (!expression) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  void this.dependencies.lookupText(expression, word.dataset.sentence || expression, word);
+  return true;
+  }
+  // A pasted or corrected URL should fill its provider list without waiting
+  // for a blur, but not probe a prefix of what is still being typed.
+  bindAudioSubSourceDetection(form) {
+  let pending2;
+  form.addEventListener("input", (event) => {
+    const field = event.target?.closest("[data-audio-url-field]");
+    const row = field?.closest("[data-audio-source-row]");
+    if (!row) return;
+    clearTimeout(pending2);
+    pending2 = setTimeout(() => this.refreshAudioSubSources(form, row), AUDIO_SUB_SOURCE_TYPING_DELAY_MS);
+  });
+  }
+  handleSettingsFormChange(form, event) {
+  const sourceSelect = event.target.closest('select[name^="audioSources."][name$=".type"]');
+  if (sourceSelect) {
+    syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value);
+    syncBrowserTtsVoiceOptions(form);
+  }
+  const audioSourceControl = event.target.closest(
+    'select[name^="audioSources."][name$=".type"], [data-audio-url-field], input[name^="audioSources."][name$=".enabled"]'
+  );
+  const audioRow = audioSourceControl?.closest("[data-audio-source-row]");
+  if (audioRow) this.refreshAudioSubSources(form, audioRow);
+  const templateControl = event.target.closest('select[name="ankiTemplateMode"], input[name="ankiFrontReading"], input[name="ankiFrontSentence"], input[name="ankiFrontImage"]');
+  if (templateControl) {
+    const preview = form.querySelector("[data-anki-template-preview]");
+    if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
+  }
+  const newTabAnkiDeckToggle = event.target.closest("[data-newtab-anki-deck-toggle]");
+  if (newTabAnkiDeckToggle) this.syncNewTabAnkiDeckToggles(form);
+  }
+  syncThemeSwitch(form) {
+  const input2 = form.querySelector("[data-theme-value]");
+  const button2 = form.querySelector("[data-theme-switch]");
+  if (!button2) return;
+  const theme = this.effectiveTheme(input2?.value);
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const label = uiText(language2, theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
+  button2.setAttribute("aria-checked", String(theme === "dark"));
+  button2.setAttribute("aria-label", label);
+  button2.title = label;
+  }
+  effectiveTheme(value) {
+  if (value === "dark" || value === "light") return value;
+  return globalThis.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+  isSubtitleControl(target) {
+  const name = target?.name ?? "";
+  return name.startsWith("subtitle");
+  }
+  isFontFamilyControl(target) {
+  const name = target?.name ?? "";
+  return name === "readerFontFamily" || name === "popupFontFamily" || name === "subtitleFontFamily";
+  }
+  isColorSourceControl(target) {
+  const name = target?.name ?? "";
+  return [
+    "wordHighlightColorSource",
+    "wordUnderlineColorSource",
+    "wordTextColorSource",
+    "subtitleHighlightColorSource",
+    "subtitleUnderlineColorSource",
+    "subtitleTextColorSource"
+  ].includes(name);
+  }
+  // UT-47: one-click appearance presets — each maps onto the underlying
+  // controls and replays the live theme preview, so the sample sentence and
+  // the page restyle immediately. The hidden-state fieldset only makes
+  // sense for the known-status mode.
+  bindAppearancePresets(form, applyThemePreview) {
+  const preview = form.querySelector("[data-yomu-appearance-preview]");
+  if (preview) setInnerHtml(preview, appearancePreviewContentHtml());
+  const setSelect = (name, value) => {
+    const control = form.querySelector(`select[name="${name}"]`);
+    if (control) control.value = value;
+  };
+  const setGroups = (groups) => {
+    for (const group of FURIGANA_HIDE_STATE_GROUPS) {
+      const box = form.querySelector(`input[name="furiganaHide-${group}"]`);
+      if (box) box.checked = groups.includes(group);
+    }
+  };
+  const setColorSources = (highlight, underline, text2) => {
+    setSelect("wordHighlightColorSource", highlight);
+    setSelect("wordUnderlineColorSource", underline);
+    setSelect("wordTextColorSource", text2);
+    setSelect("subtitleHighlightColorSource", highlight);
+    setSelect("subtitleUnderlineColorSource", underline);
+    setSelect("subtitleTextColorSource", text2);
+  };
+  const syncGroupVisibility = () => {
+    const fieldset = form.querySelector("[data-furigana-hide-groups]");
+    const mode = form.querySelector('select[name="furiganaMode"]')?.value;
+    if (fieldset) fieldset.hidden = mode !== "known-status";
+    const difficultyNote = form.querySelector("[data-furigana-difficulty-note]");
+    if (difficultyNote) difficultyNote.hidden = mode !== "difficult-kanji";
+  };
+  form.querySelector('select[name="furiganaMode"]')?.addEventListener("change", syncGroupVisibility);
+  const preset = form.querySelector('select[name="appearancePreset"]');
+  preset?.addEventListener("change", () => {
+    const value = preset.value;
+    if (!value) return;
+    if (value === "balanced" || value === "default") {
+      setSelect("wordColorStates", "all");
+      setSelect("furiganaMode", "all");
+      setGroups(["known", "due", "failed"]);
+      setColorSources("jpdb", "pitch", "anki");
+    } else if (value === "no-colors") {
+      setSelect("wordColorStates", "all");
+      setSelect("furiganaMode", "off");
+      setColorSources("off", "off", "off");
+    } else if (value === "new-only") {
+      setSelect("wordColorStates", "new-only");
+      setSelect("furiganaMode", "all");
+      setGroups(["known", "due", "failed"]);
+      setColorSources("jpdb", "pitch", "anki");
+    } else if (value === "underline-new") {
+      setSelect("wordColorStates", "new-only");
+      setSelect("furiganaMode", "hover");
+      setColorSources("off", "jpdb", "off");
+    } else if (value === "furi-all") {
+      setSelect("furiganaMode", "all");
+    } else if (value === "furi-known-hidden") {
+      setSelect("furiganaMode", "known-status");
+      setGroups(["known", "due", "failed"]);
+    } else if (value === "furi-hover") {
+      setSelect("furiganaMode", "hover");
+    } else if (value === "furi-off") {
+      setSelect("furiganaMode", "off");
+    }
+    syncGroupVisibility();
+    applyThemePreview();
+  });
+  }
+  isReaderDisplayControl(target) {
+  const name = target?.name ?? "";
+  return ["furiganaMode", "wordColorStates", "theme", "readerFontFamily", "readerFontFamilyCustom", "popupFontFamily", "popupFontFamilyCustom", "popupFontWeight"].includes(name) || name.startsWith("furiganaHide-");
+  }
+  isAnkiFieldMappingControl(target) {
+  return Boolean(target?.closest?.("[data-anki-field-role]"));
+  }
+  isAnkiModelControl(target) {
+  return Boolean(target?.closest?.('[name="ankiModel"]'));
+  }
+  async refreshDeckControls(form) {
+  const container = form.querySelector("[data-jpdb-decks]");
+  if (!container) return;
+  this.syncJpdbStatus(form);
+  const formSettings = readFormSettings(new FormData(form), this.settings);
+  const apiKey = effectiveJpdbApiKey(formSettings);
+  if (!apiKey) {
+    setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+    localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    this.refreshSettingsJapaneseParse(form);
+    return;
+  }
+  const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
+  try {
+    const decks = await this.dependencies.jpdb.listDecks();
+    setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+  } catch (error) {
+    log$6.warn("Deck controls failed to load", error);
+    setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+  } finally {
+    this.restoreTransientSettings(previous);
+    localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    this.refreshSettingsJapaneseParse(form);
+  }
+  }
+  syncJpdbStatus(form) {
+  const formSettings = readFormSettings(new FormData(form), this.settings);
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const status = form.querySelector("[data-jpdb-status]");
+  if (status) {
+    const line = jpdbStatusLineForSettings(formSettings, language2);
+    status.dataset.statusTone = line.tone;
+    status.textContent = formatSettingsStatusLine(line, language2);
+  }
+  const bunproStatus = form.querySelector("[data-bunpro-status]");
+  if (bunproStatus) {
+    const line = bunproStatusLineForSettings(formSettings, language2);
+    bunproStatus.dataset.statusTone = line.tone;
+    bunproStatus.textContent = formatSettingsStatusLine(line, language2);
+  }
+  const wanikaniStatus = form.querySelector("[data-wanikani-status]");
+  if (wanikaniStatus) {
+    const line = wanikaniStatusLineForSettings(formSettings, language2);
+    wanikaniStatus.dataset.statusTone = line.tone;
+    wanikaniStatus.textContent = formatSettingsStatusLine(line, language2);
+  }
+  this.refreshSettingsJapaneseParse(form);
+  }
+  // fallow-ignore-next-line complexity
+  async refreshWanikaniConnectionStatus(form) {
+  this.syncJpdbStatus(form);
+  const status = form.querySelector("[data-wanikani-status]");
+  if (!status) return;
+  const requestId = ++this.wanikaniConnectionProbeId;
+  const formSettings = readFormSettings(new FormData(form), this.settings);
+  const token = effectiveWanikaniApiToken(formSettings);
+  if (!token) return;
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  try {
+    const client = new WanikaniClient({ getToken: () => token });
+    const user = await client.getUser(true);
+    const maxLevel = await client.effectiveMaxLevel();
+    if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
+    const line = {
+      message: language2 === "ja" ? `WaniKani接続済み。現在レベル${user.level}、アクセス可能レベル${maxLevel}。` : `WaniKani connected. Current level ${user.level}; access through level ${maxLevel}.`,
+      tone: "success"
+    };
+    status.dataset.statusTone = line.tone;
+    status.textContent = formatSettingsStatusLine(line, language2);
+  } catch (error) {
+    if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
+    const message = error instanceof Error ? error.message : "WaniKani connection failed.";
+    const line = { message, tone: "error" };
+    status.dataset.statusTone = line.tone;
+    status.textContent = formatSettingsStatusLine(line, language2);
+  }
+  this.refreshSettingsJapaneseParse(form);
+  }
+  // Live probe via jpdb /ping: upgrades the static "key set" line to a real
+  // connected/rejected answer (Anki and Jiten already have live probes).
+  async refreshJpdbConnectionStatus(form) {
+  const probe = this.prepareJpdbConnectionProbe(form);
+  if (!probe) return;
+  const connected = await this.runJpdbConnectionProbe(probe.apiKey);
+  if (!this.jpdbConnectionProbeIsCurrent(form, probe.requestId)) return;
+  this.renderJpdbConnectionProbe(form, probe, connected);
+  this.refreshSettingsJapaneseParse(form);
+  }
+  prepareJpdbConnectionProbe(form) {
+  this.syncJpdbStatus(form);
+  const status = form.querySelector("[data-jpdb-status]");
+  if (!status) return null;
+  const formSettings = readFormSettings(new FormData(form), this.settings);
+  const apiKey = effectiveJpdbApiKey(formSettings);
+  if (!apiKey) return null;
+  if (typeof this.dependencies.jpdb.ping !== "function") return null;
+  return { status, formSettings, apiKey, requestId: ++this.jpdbConnectionProbeId };
+  }
+  async runJpdbConnectionProbe(apiKey) {
+  const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
+  try {
+    return await this.dependencies.jpdb.ping?.() ?? false;
+  } finally {
+    this.restoreTransientSettings(previous);
+  }
+  }
+  jpdbConnectionProbeIsCurrent(form, requestId) {
+  return this.currentForm === form && form.isConnected && requestId === this.jpdbConnectionProbeId;
+  }
+  renderJpdbConnectionProbe(form, probe, connected) {
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const successKey = hasJitenApiCredential(probe.formSettings) ? "jpdbAndJitenConnected" : "jpdbConnected";
+  const line = connected ? { message: uiText(language2, successKey), tone: "success" } : { message: uiText(language2, "jpdbConnectionFailed"), tone: "error" };
+  probe.status.dataset.statusTone = line.tone;
+  probe.status.textContent = formatSettingsStatusLine(line, language2);
+  }
+  async refreshAnkiConnectionStatus(form) {
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const formSettings = readFormSettings(new FormData(form), this.settings);
+  const initialLine = ankiStatusLineForSettings(formSettings, language2);
+  const requestId = ++this.ankiConnectionProbeId;
+  this.ankiLibraryScanId++;
+  this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
+  this.retireAnkiModelUpdatePrompt(form);
+  if (!formSettings.ankiEnabled) return;
+  const previous = this.swapSettingsTransiently(formSettings);
+  try {
+    const connected = await this.dependencies.anki.isConnected();
+    if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+    if (connected) {
+      this.setAnkiStatus(form, uiText(language2, "ankiConnectionReady"), "success", void 0, "connected");
+      this.queueAutomaticAnkiLibraryScan(form, language2);
+    } else {
+      this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language2));
+      void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language2);
+    }
+  } catch (error) {
+    if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+    log$6.warn("Anki settings probe failed", error);
+    this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language2));
+    void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language2);
+  } finally {
+    this.restoreTransientSettings(previous);
+  }
+  }
+  shouldApplyAnkiConnectionProbe(form, requestId) {
+  return this.currentForm === form && form.isConnected && requestId === this.ankiConnectionProbeId;
+  }
+  queueAutomaticAnkiLibraryScan(form, language2) {
+  const requestId = ++this.ankiLibraryScanId;
+  window.setTimeout(() => {
+    void this.refreshAnkiLibraryScan(form, requestId, language2).then(() => this.refreshAnkiModelUpdatePrompt(form)).finally(() => {
+      void this.warmAnkiStatusIndexForConnection(form, requestId);
+    });
+  }, 0);
+  }
+  // Anki is reachable, so ask whether the note type the form now shows still
+  // carries every field this release writes. A plan means the panel offers
+  // the update; null hides the offer, which is what ends it for good once
+  // the user accepts.
+  //
+  // The offer names one note type, so it gets its own request id: picking a
+  // different note type retires the offer on screen and starts this again
+  // without disturbing the library scan already running.
+  async refreshAnkiModelUpdatePrompt(form) {
+  const requestId = ++this.ankiModelUpdatePromptId;
+  const plan = await this.ankiModelUpdatePlan(form, requestId);
+  if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return;
+  applyAnkiModelUpdatePrompt(form, plan, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  }
+  // The picker moved, so the offer is about a note type the user has left.
+  // It goes at once and re-earns itself against the new selection.
+  retireAnkiModelUpdatePrompt(form) {
+  this.ankiModelUpdatePromptId++;
+  applyAnkiModelUpdatePrompt(form, null, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  }
+  shouldApplyAnkiModelUpdatePrompt(form, requestId) {
+  return this.currentForm === form && form.isConnected && requestId === this.ankiModelUpdatePromptId;
+  }
+  async ankiModelUpdatePlan(form, requestId) {
+  const yomuModelUpdatePlan = this.dependencies.anki.yomuModelUpdatePlan;
+  if (typeof yomuModelUpdatePlan !== "function") return null;
+  if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return null;
+  const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
+  try {
+    return await yomuModelUpdatePlan.call(this.dependencies.anki);
+  } catch (error) {
+    log$6.warn("Anki note type update check failed", error);
+    return null;
+  } finally {
+    this.restoreTransientSettings(previous);
+  }
+  }
+  async refreshAnkiLibraryScan(form, requestId, language2) {
+  if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+  const scanLibrary = this.dependencies.anki.scanLibrary;
+  if (typeof scanLibrary !== "function") return;
+  const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
+  if (!this.settings.ankiEnabled) {
+    this.restoreTransientSettings(previous);
+    return;
+  }
+  this.setAnkiStatus(form, uiText(language2, "ankiScanning"), "pending", void 0, "scanning");
+  try {
+    const scan = await scanLibrary.call(this.dependencies.anki);
+    if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+    const staleDetails = this.staleAnkiFieldMappingDetails(form, scan, language2);
+    this.applyAnkiScanToForm(form, scan);
+    const state = staleDetails.length ? "stale" : scan.suggestedModel ? "suggested" : "ready";
+    const tone = staleDetails.length ? "pending" : "success";
+    this.setAnkiStatus(form, this.ankiScanMessage(scan, language2), tone, void 0, state, [
+      ...staleDetails,
+      ...this.ankiScanDetails(scan, language2)
+    ]);
+  } catch (error) {
+    if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+    log$6.warn("Automatic Anki library scan failed", error);
+    this.setAnkiStatus(form, uiText(language2, "ankiConnectionReady"), "success", void 0, "connected");
+  } finally {
+    this.restoreTransientSettings(previous);
+  }
+  }
+  shouldApplyAnkiLibraryScan(form, requestId) {
+  return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
+  }
+  async warmAnkiStatusIndexForConnection(form, requestId) {
+  if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+  const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
+  if (typeof warmStatusIndex !== "function") return;
+  const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
+  if (!this.settings.ankiEnabled) {
+    this.restoreTransientSettings(previous);
+    return;
+  }
+  try {
+    await warmStatusIndex.call(this.dependencies.anki);
+  } catch (error) {
+    log$6.warn("Automatic Anki status index warmup failed", error);
+  } finally {
+    this.restoreTransientSettings(previous);
+  }
+  }
+  setAnkiStatusLine(form, line) {
+  const status = form.querySelector("[data-anki-status]");
+  if (!status) return;
+  status.dataset.statusTone = line.tone;
+  if (line.action) status.dataset.statusAction = line.action;
+  else delete status.dataset.statusAction;
+  if (line.state) status.dataset.ankiAdapterState = line.state;
+  else delete status.dataset.ankiAdapterState;
+  setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+  this.refreshSettingsJapaneseParse(form);
+  }
+  setAnkiStatus(form, message, tone, action, state, details) {
+  this.setAnkiStatusLine(form, { message, tone, action, state, details });
+  }
+  async refreshDictionaryStatus(form) {
+  const id = ++this.dictionaryRefreshId;
+  return refreshDictionaryPanel({
+    form,
+    current: () => !this.restoreCoordinator.importPending && this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId,
+    loadSummary: () => this.dependencies.dictionaries.summary(),
+    prepareSummary: (summary) => this.mergeDictionaryPreferencesFromSummary(summary, id),
+    refreshStyles: () => this.dependencies.refreshDictionaryStyles(),
+    renderContext: () => liveDictionaryPanelContext(form, this.settings),
+    afterRender: () => this.afterDictionaryPanelRendered(form),
+    interfaceLanguage: () => getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+    reportError: (error) => log$6.warn("Dictionary status unavailable", error)
+  });
+  }
+  async refreshYomuUpdateStatus(form) {
+  const status = form.querySelector("[data-yomu-update-status]");
+  if (!status) return;
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const requestId = ++this.yomuUpdateCheckId;
+  status.dataset.statusTone = "pending";
+  status.dataset.updateChecked = "true";
+  status.textContent = formatUiText(language2, "updateStatusChecking", { current: CURRENT_YOMU_VERSION });
+  this.refreshSettingsJapaneseParse(form);
+  try {
+    const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
+      allowDirectCrossOrigin: true,
+      anonymous: true,
+      credentials: "omit",
+      failureLabel: "Yomu update check",
+      preferFetch: true,
+      timeoutMs: 6e3,
+      withCredentials: false
+    });
+    if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
+    const latest = latestYomuVersionFromVersionJson(version);
+    if (!latest) throw new Error("Hosted version response did not include a build id.");
+    const comparison = compareYomuVersions(CURRENT_YOMU_VERSION, latest);
+    if (comparison === null) {
+      status.dataset.statusTone = "pending";
+      status.textContent = formatUiText(language2, "updateStatusIncomparable", { current: CURRENT_YOMU_VERSION, latest });
+      this.refreshSettingsJapaneseParse(form);
+      return;
+    }
+    const updateAvailable = comparison < 0;
+    status.dataset.statusTone = updateAvailable ? "pending" : "success";
+    status.textContent = formatUiText(language2, updateAvailable ? "updateStatusAvailable" : "updateStatusCurrent", {
+      current: CURRENT_YOMU_VERSION,
+      latest
+    });
+    this.refreshSettingsJapaneseParse(form);
+  } catch (error) {
+    log$6.warn("Yomu update status unavailable", error);
+    if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
+    status.dataset.statusTone = "pending";
+    status.textContent = formatUiText(language2, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
+    this.refreshSettingsJapaneseParse(form);
+  }
+  }
+  afterDictionaryPanelRendered(form) {
+  localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  installCatalogBrowseFilter(form);
+  this.syncRecommendedDictionaryInstallControls(form);
+  this.restoreCoordinator.sync(form);
+  this.refreshSettingsJapaneseParse(form);
+  }
+  refreshSettingsJapaneseParse(form) {
+  if (this.settingsJapaneseParseRefreshFrame !== void 0) cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
+  if (this.settingsJapaneseParseRefreshTimer !== void 0) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+  this.settingsJapaneseParseRefreshFrame = requestCancelableFrame(() => {
+    this.settingsJapaneseParseRefreshFrame = void 0;
+    this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
+      this.settingsJapaneseParseRefreshTimer = void 0;
+      if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+    }, 0);
+  });
+  }
+  async mergeDictionaryPreferencesFromSummary(summary, requestId) {
+  if (!this.dictionaryRefreshIsCurrent(requestId)) return;
+  const previousSettings = this.stableSettings;
+  const nextSettings = settingsWithDiscoveredDictionaries(previousSettings, summary);
+  if (!nextSettings) return;
+  if (!this.dictionaryRefreshIsCurrent(requestId)) return;
+  await this.persistDiscoveredDictionaryPreferences(previousSettings, nextSettings);
+  }
+  dictionaryRefreshIsCurrent(requestId) {
+  return !this.restoreCoordinator.importPending && requestId === this.dictionaryRefreshId;
+  }
+  async persistDiscoveredDictionaryPreferences(previousSettings, nextSettings) {
+  this.settings = nextSettings;
+  const attemptedSettings = this.stableSettings;
+  try {
+    await this.persistSettingsSnapshot(attemptedSettings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+  } catch (error) {
+    this.restoreDiscoveredDictionaryPreferences(previousSettings, attemptedSettings);
+    throw error;
+  }
+  }
+  restoreDiscoveredDictionaryPreferences(previousSettings, failedSettings) {
+  if (this.stableSettings === failedSettings) this.settings = previousSettings;
+  }
+  setRecommendedDictionaryInstallState(form, dictionaryId, state, message) {
+  this.recommendedDictionaryOperations.set(dictionaryId, { state, message });
+  this.syncRecommendedDictionaryInstallControls(form);
+  }
+  clearRecommendedDictionaryInstallState(form, dictionaryId) {
+  this.recommendedDictionaryOperations.delete(dictionaryId);
+  this.syncRecommendedDictionaryInstallControls(form);
+  }
+  syncRecommendedDictionaryInstallControls(form) {
+  form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
+    const dictionaryId = button2.dataset.dictionaryId ?? "";
+    const operation = this.recommendedDictionaryOperations.get(dictionaryId);
+    const status = button2.closest(".jpdb-reader-recommended-item")?.querySelector("[data-recommended-dictionary-status]");
+    if (!operation) {
+      delete button2.dataset.importState;
+      delete button2.dataset.importMessage;
+      button2.disabled = false;
+      button2.removeAttribute("disabled");
+      if (status) {
+        status.hidden = true;
+        status.textContent = "";
+        delete status.dataset.importState;
+      }
+      const installed = button2.dataset.installed === "true";
+      const label2 = installed ? uiText(this.settings.interfaceLanguage, "update") : uiText(this.settings.interfaceLanguage, "install");
+      button2.replaceChildren(label2);
+      button2.title = label2;
+      button2.setAttribute("aria-label", label2);
+      return;
+    }
+    const label = uiText(this.settings.interfaceLanguage, operation.state === "installing" ? "installing" : "queued");
+    button2.disabled = true;
+    button2.dataset.importState = operation.state;
+    button2.dataset.importMessage = operation.message;
+    button2.replaceChildren(label);
+    button2.title = operation.message;
+    button2.setAttribute("aria-label", operation.message);
+    if (status) {
+      status.hidden = false;
+      status.dataset.importState = operation.state;
+      status.textContent = operation.message;
+    }
+  });
+  }
+  async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
+  if (await this.handleSettingsConnectionAction(form, action, control)) return true;
+  return await this.handleSettingsSupportAction(action, control, setStatus);
+  }
+  async handleSettingsAction(context) {
+  const { form, action, control, setStatus } = context;
+  if (this.handleSettingsEditorAction(form, action, control)) return;
+  if (await this.handleSettingsMediaAction(context)) return;
+  if (await this.handleSettingsAccountAction(context)) return;
+  await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
+  }
+  async handleSettingsMediaAction(context) {
+  const { form, action, control, setStatus } = context;
+  if (await this.handleSettingsAudioAction(form, action, control)) return true;
+  return this.handleSettingsDictionaryAction(form, action, control, setStatus);
+  }
+  async handleSettingsAccountAction(context) {
+  const { form, action, control, setStatus } = context;
+  if (await this.academyAccountSync.handle(form, action, this.settings.interfaceLanguage)) return true;
+  if (await this.handleSettingsCloudSyncAction(form, action, control, setStatus)) return true;
+  return this.handleSettingsImportExportAction(form, action, setStatus);
+  }
+  handleSettingsEditorAction(form, action, control) {
+  if (action === "settings-panel") {
+    const panel = selectedSettingsPanel(control);
+    activateSettingsPanel(form, panel);
+    this.onSettingsPanelActivated(form, panel);
+    this.refreshSettingsJapaneseParse(form);
+    return true;
+  }
+  if (isDictionarySourceOrderAction(action)) {
+    updateSourceRowEditor(action, control);
+    return true;
+  }
+  if (isAudioSourceEditorAction(action)) {
+    updateAudioSourceEditor(form, action, control);
+    localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    syncBrowserTtsVoiceOptions(form);
+    return true;
+  }
+  if (isLookupLinkEditorAction(action)) {
+    updateDictionaryLookupLinkEditor(form, action, control);
+    localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    return true;
+  }
+  if (action === "anki-tag-add" || action === "anki-tag-remove") {
+    updateAnkiTagsEditor(form, action, control);
+    return true;
+  }
+  return false;
+  }
+  handleAnkiTagInputKeydown(form, event) {
+  if (event.key !== "Enter") return false;
+  const input2 = event.target?.closest("[data-anki-tag-input]");
+  if (!input2) return false;
+  updateAnkiTagsEditor(form, "anki-tag-add", input2);
+  return true;
+  }
+  async handleSettingsAudioAction(form, action, control) {
+  if (action !== "preview-audio") return false;
+  const button2 = settingsActionButton(control);
+  const previewSettings = readFormSettings(new FormData(form), this.settings);
+  focusPreviewAudioSource(form, button2, previewSettings);
+  const previous = this.swapSettingsTransiently({ ...previewSettings, audioEnabled: true, audioViaBlob: true });
+  button2?.setAttribute("disabled", "true");
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  try {
+    const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
+    if (played) {
+      this.dependencies.toast(uiText(language2, "playingAudioPreview"));
+    } else {
+      this.dependencies.toast(uiText(language2, "audioPreviewFailed"));
+    }
+  } catch (error) {
+    log$6.warn("Audio settings preview failed", error);
+    this.dependencies.toast(userFacingErrorText(language2, "audioPreviewFailed", error));
+  } finally {
+    this.restoreTransientSettings(previous);
+    button2?.removeAttribute("disabled");
+    this.renderKnownAudioSubSources(form);
+  }
+  return true;
+  }
+  /**
+   * Fills in each aggregator row's provider list without anything to press.
+   *
+   * Providers seen during ordinary lookups are already merged in when the
+   * rows render, so the common case costs no requests at all — including
+   * after a preview, which is why playback re-renders the lists.
+   *
+   * Sample lookups are only sent for a row the user just acted on (typing a
+   * URL, switching a row to Custom URL, enabling one). Merely opening
+   * Settings must never reach out on its own: the URL can be a private or
+   * third-party host the user has not agreed to contact yet.
+   */
+  refreshAudioSubSources(form, row) {
+  const rows = row ? [row] : Array.from(form.querySelectorAll("[data-audio-source-row]"));
+  for (const target of rows) void this.detectAudioSubSourcesForRow(form, target);
+  }
+  // Opening the media panel is the moment the user is looking at audio
+  // sources, so that is when their providers get discovered — the same shape
+  // as the help panel refreshing the update status when it is opened. Merely
+  // rendering the dialog still reaches nothing, because a source URL can be a
+  // private host that only an explicit visit here justifies contacting.
+  onSettingsPanelActivated(form, panel) {
+  if (panel === "help") void this.refreshYomuUpdateStatus(form);
+  if (panel === "media") this.refreshAudioSubSources(form);
+  }
+  renderKnownAudioSubSources(form) {
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  for (const row of form.querySelectorAll("[data-audio-source-row]")) {
+    const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
+    const known = url ? knownAudioSubSourceNames(url) : [];
+    if (known.length) this.renderDetectedAudioSubSources(form, row, known, language2);
+  }
+  }
+  async detectAudioSubSourcesForRow(form, row) {
+  const url = probeableAudioSourceUrl(row);
+  if (!url) return;
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const setDetectStatus = (message) => {
+    const status = row.querySelector("[data-audio-subsource-status]");
+    if (!status) return;
+    status.textContent = message;
+    status.hidden = !message;
+  };
+  const known = knownAudioSubSourceNames(url);
+  if (!known.length) setDetectStatus(uiText(language2, "audioDetectingSubSources"));
+  try {
+    const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
+    if (probeableAudioSourceUrl(row) !== url || !row.isConnected) return;
+    this.renderDetectedAudioSubSources(form, row, detected, language2);
+    setDetectStatus(detected.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
+  } catch (error) {
+    log$6.warn("Audio sub-source detection failed", error);
+    setDetectStatus(known.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
+  }
+  }
+  // Merges the detected names over whatever the form currently holds, so a
+  // toggle the user just changed survives a probe landing underneath them and
+  // a provider missing from this round keeps its saved state.
+  renderDetectedAudioSubSources(form, row, detected, language2) {
+  const list = row.querySelector("[data-audio-subsource-list]");
+  if (!list) return;
+  const index = Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+  if (index < 0) return;
+  const data = new FormData(form);
+  const get = (key) => String(data.get(key) ?? "");
+  const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
+  setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language2));
+  }
+  async handleSettingsDictionaryAction(form, action, control, setStatus) {
+  const disclosure = handleCatalogBrowseDisclosureAction(action, form, control, () => this.refreshDictionaryStatus(form));
+  if (disclosure) return disclosure;
+  if (this.dictionaryActionBlockedBySiteClear(form, action, setStatus)) return true;
+  return this.handleDictionaryMutationOrTransfer(form, action, control, setStatus);
+  }
+  async handleDictionaryMutationOrTransfer(form, action, control, setStatus) {
+  if (await this.handleDictionaryStorageAction(form, action, control, setStatus)) return true;
+  return this.handleDictionaryTransferAction(form, action, control, setStatus);
+  }
+  dictionaryActionBlockedBySiteClear(form, action, setStatus) {
+  if (!dictionaryActionBlockedDuringSiteClear(action, this.dictionarySiteStorageClearPending)) return false;
+  setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "clearLocalDictionarySiteStorageClearing"));
+  return true;
+  }
+  async handleDictionaryStorageAction(form, action, control, setStatus) {
+  if (action === "clear-local-dictionary-site-storage") {
+    await this.disableAndClearLocalDictionarySiteStorage(form, control, setStatus);
+    return true;
+  }
+  if (action === "delete-yomitan-dictionary") {
+    await this.deleteDictionaryFromSettings(form, control, setStatus);
+    return true;
+  }
+  return false;
+  }
+  async handleDictionaryTransferAction(form, action, control, setStatus) {
+  if (action === "import-yomitan-dictionary") {
+    await this.importDictionaryFromSettings(form, setStatus);
+    return true;
+  }
+  if (action === "download-recommended-dictionary") {
+    this.queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus);
+    return true;
+  }
+  if (action === "export-yomitan-dictionary") {
+    const blob = await this.dependencies.dictionaries.exportJson();
+    downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
+    setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "dictionariesExported"));
+    return true;
+  }
+  return false;
+  }
+  async handleSettingsCloudSyncAction(form, action, control, setStatus) {
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  return this.cloudSettings.handle(form, action, settingsActionButton(control), setStatus, language2);
+  }
+  async handleSettingsImportExportAction(form, action, setStatus) {
+  if (action === "import-reader-settings") {
+    await this.importReaderSettingsFromFile(form, setStatus);
+    return true;
+  }
+  if (action === "export-reader-settings") {
+    const dictionaries2 = await this.exportReaderDictionaryBackup();
+    const backup = await exportSettingsBackupSnapshot(this.stableSettings);
+    downloadBlob(new Blob([JSON.stringify({
+      formatName: READER_SETTINGS_BACKUP_FORMAT,
+      formatVersion: READER_SETTINGS_BACKUP_VERSION,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      settings: backup.settings,
+      storage: backup.storage,
+      ...dictionaries2 ? { dictionaries: dictionaries2 } : {}
+    }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
+    setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
+    return true;
+  }
+  return false;
+  }
+  async exportReaderDictionaryBackup() {
+  const summary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
+  if (!summary.dictionaries.length) return void 0;
+  const blob = await this.dependencies.dictionaries.exportJson();
+  const json = JSON.parse(await blob.text());
+  return readerDictionaryExportHasData(json) ? json : void 0;
+  }
+  async handleSettingsConnectionAction(form, action, control) {
+  const connectionAction = ankiConnectionAction(action);
+  if (!connectionAction) return false;
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  const button2 = settingsActionButton(control);
+  const setAnkiStatus = ankiStatusSetter(form.querySelector("[data-anki-status]"));
+  const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
+  button2?.setAttribute("disabled", "true");
+  setAnkiStatus(uiText(language2, ankiConnectionPendingKey(connectionAction)), "pending");
+  try {
+    if (!await this.checkAnkiConnectionForSettings(setAnkiStatus, language2)) return true;
+    if (connectionAction === "test-anki") {
+      this.finishAnkiConnectionTest(form, setAnkiStatus, language2);
+      return true;
+    }
+    if (connectionAction === "update-anki-model") {
+      await this.updateAnkiModelAction(form, setAnkiStatus, language2);
+      return true;
+    }
+    await this.prepareAnkiConnectionAction(form, setAnkiStatus, language2);
+  } catch (error) {
+    this.handleAnkiConnectionActionError(error, setAnkiStatus, language2);
+  } finally {
+    this.restoreTransientSettings(previous);
+    button2?.removeAttribute("disabled");
+  }
+  return true;
+  }
+  async checkAnkiConnectionForSettings(setAnkiStatus, language2) {
+  try {
+    if (await this.dependencies.anki.isConnected()) return true;
+  } catch (error) {
+    log$6.warn("Anki settings check failed", error);
+  }
+  const line = this.ankiSetupUnavailableStatus(this.settings, language2);
+  setAnkiStatus(line.message, line.tone, line.action);
+  return false;
+  }
+  finishAnkiConnectionTest(form, setAnkiStatus, language2) {
+  setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
+  this.queueAutomaticAnkiLibraryScan(form, language2);
+  }
+  async prepareAnkiConnectionAction(form, setAnkiStatus, language2) {
+  await this.dependencies.anki.ensureDeckAndModel();
+  setAnkiStatus(this.ankiReadyMessage(language2), "success");
+  this.queueAutomaticAnkiLibraryScan(form, language2);
+  }
+  // Runs from the user pressing Update, never from the scan that spots the
+  // gap: the offer is a question, not a migration. The re-scan it queues
+  // clears the offer, because the note type now matches.
+  //
+  // The write is aimed by the offer on screen, not by the picker, and the
+  // client declines anything else — so an offer the user has moved past adds
+  // nothing rather than widening whichever note type is selected now.
+  async updateAnkiModelAction(form, setAnkiStatus, language2) {
+  const addMissingYomuModelFields = this.dependencies.anki.addMissingYomuModelFields;
+  if (typeof addMissingYomuModelFields !== "function") return;
+  const offeredModel = ankiModelUpdatePromptTarget(form);
+  if (!offeredModel) {
+    setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
+    this.queueAutomaticAnkiLibraryScan(form, language2);
+    return;
+  }
+  const added = await addMissingYomuModelFields.call(this.dependencies.anki, offeredModel);
+  setAnkiStatus(added.length ? formatUiText(language2, "ankiModelUpdated", { fields: added.join(", ") }) : uiText(language2, "ankiModelUpToDate"), "success");
+  this.queueAutomaticAnkiLibraryScan(form, language2);
+  }
+  handleAnkiConnectionActionError(error, setAnkiStatus, language2) {
+  if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
+    const line = this.ankiSetupUnavailableStatus(this.settings, language2);
+    log$6.warn("Anki settings action unavailable", error);
+    setAnkiStatus(line.message, line.tone, line.action);
+    return;
+  }
+  const message = this.ankiConnectionErrorMessage(error, language2);
+  log$6.warn("Anki settings test failed", error);
+  setAnkiStatus(message, "error");
+  this.dependencies.toast(message);
+  }
+  applyAnkiScanToForm(form, scan) {
+  this.applyAnkiFieldMappingsToForm(form, scan);
+  const controls = ankiScanFormControls(form);
+  const selection = ankiScanSelection(controls, scan);
+  this.applyAnkiScanControlsToForm(form, scan, selection);
+  applySettingsControlValue(controls.model, selection.selectedModel);
+  applySettingsControlValue(controls.deck, selection.selectedDeck);
+  this.renderAnkiFieldMappingEditor(form);
+  }
+  applyAnkiFieldMappingsToForm(form, scan) {
+  const input2 = namedSettingsControl(form, "ankiFieldMappings");
+  if (!input2) return;
+  const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
+  const scannedMappings = Object.fromEntries(scan.models.flatMap((model) => {
+    const currentMapping = existing[model.modelName] ?? {};
+    const liveFields = new Set(model.fields);
+    const mapping = Object.fromEntries(model.suggestions.flatMap((suggestion) => {
+      const savedField = currentMapping[suggestion.role]?.trim();
+      const fieldName = liveFields.has(savedField ?? "") ? savedField : suggestion.fieldName?.trim();
+      return fieldName ? [[suggestion.role, fieldName]] : [];
+    }));
+    return Object.keys(mapping).length ? [[model.modelName, mapping]] : [];
+  }));
+  input2.value = JSON.stringify({ ...existing, ...scannedMappings });
+  dispatchAuthorizedReaderControlEvent(input2, new Event("input", { bubbles: true }));
+  }
+  applyAnkiScanControlsToForm(form, scan, selected = {}) {
+  const deckOptions = form.querySelector("[data-anki-deck-options]");
+  const currentDeck = selected.selectedDeck ?? namedSettingsControl(form, "ankiDeck")?.value.trim() ?? "";
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  if (deckOptions) setInnerHtml(deckOptions, renderAnkiDeckLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language2));
+  this.renderNewTabAnkiDeckToggles(form, scan.deckNames, language2);
+  const modelOptions = form.querySelector("[data-anki-model-options]");
+  if (modelOptions) {
+    const currentModel = selected.selectedModel ?? namedSettingsControl(form, "ankiModel")?.value.trim() ?? "";
+    setInnerHtml(modelOptions, renderAnkiLibraryOptions([currentModel, ...scan.models.map((model) => model.modelName)].filter(Boolean), currentModel, language2));
+  }
+  const fieldsInput = form.querySelector("[data-anki-scan-fields]");
+  if (fieldsInput) {
+    fieldsInput.value = JSON.stringify(Object.fromEntries(scan.models.map((model) => [model.modelName, model.fields])));
+  }
+  const confidenceInput = form.querySelector("[data-anki-scan-confidence]");
+  if (confidenceInput) {
+    confidenceInput.value = JSON.stringify(Object.fromEntries(scan.models.map((model) => [
+      model.modelName,
+      Object.fromEntries(model.suggestions.flatMap(
+        (suggestion) => suggestion.fieldName ? [[suggestion.role, suggestion.confidence]] : []
+      ))
+    ])));
+  }
+  this.renderAnkiFieldMappingEditor(form);
+  }
+  renderNewTabAnkiDeckToggles(form, deckNames, language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabledDecks = readNewTabAnkiDisabledDecks(form)) {
+  const container = form.querySelector("[data-newtab-anki-decks]");
+  if (!container) return;
+  const html = renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language2);
+  container.hidden = !html;
+  setInnerHtml(container, html);
+  }
+  syncNewTabAnkiDeckToggles(form) {
+  const hidden = namedSettingsControl(form, "newTabAnkiDisabledDecks");
+  if (!hidden) return;
+  const toggles = Array.from(form.querySelectorAll("[data-newtab-anki-deck-toggle]"));
+  const visibleDecks = toggles.map((toggle) => toggle.dataset.newtabAnkiDeck?.trim() ?? "").filter(Boolean);
+  const visibleDeckSet = new Set(visibleDecks);
+  const previousDisabled = readNewTabAnkiDisabledDecks(form);
+  const previousDisabledSet = new Set(previousDisabled);
+  const visibleDisabled = toggles.filter((toggle) => !toggle.checked).map((toggle) => toggle.dataset.newtabAnkiDeck?.trim() ?? "").filter(Boolean);
+  const visibleDisabledSet = new Set(visibleDisabled);
+  const disabled = canonicalNewTabAnkiDisabledDecks([
+    ...previousDisabled.filter((deck) => !visibleDeckSet.has(deck) || visibleDisabledSet.has(deck)),
+    ...visibleDisabled.filter((deck) => !previousDisabledSet.has(deck))
+  ]);
+  hidden.value = disabled.join(", ");
+  dispatchAuthorizedReaderControlEvent(hidden, new Event("input", { bubbles: true }));
+  this.renderNewTabAnkiDeckToggles(form, visibleDecks, getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabled);
+  }
+  renderAnkiFieldMappingEditor(form) {
+  const container = form.querySelector("[data-anki-field-mapping-editor]");
+  if (!container) return;
+  const settings = readFormSettings(new FormData(form), this.settings);
+  const modelName = namedSettingsControl(form, "ankiModel")?.value.trim() || settings.ankiModel;
+  setInnerHtml(container, renderAnkiFieldMappingEditor(
+    settings,
+    modelName,
+    this.ankiScanFieldsForModel(form, modelName),
+    getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+    this.ankiScanConfidenceForModel(form, modelName)
+  ));
+  }
+  syncAnkiFieldMappingsFromEditor(form) {
+  const input2 = namedSettingsControl(form, "ankiFieldMappings");
+  const modelName = namedSettingsControl(form, "ankiModel")?.value.trim();
+  if (!input2 || !modelName) return;
+  const settings = readFormSettings(new FormData(form), this.settings);
+  const next = { ...settings.ankiFieldMappings };
+  const mapping = {};
+  form.querySelectorAll("[data-anki-field-role]").forEach((select2) => {
+    const role = select2.dataset.ankiFieldRole;
+    const value = select2.value.trim();
+    if (role && value) mapping[role] = value;
+  });
+  if (Object.keys(mapping).length) next[modelName] = mapping;
+  else delete next[modelName];
+  input2.value = JSON.stringify(next);
+  dispatchAuthorizedReaderControlEvent(input2, new Event("input", { bubbles: true }));
+  }
+  ankiScanFieldsForModel(form, modelName) {
+  const input2 = form.querySelector("[data-anki-scan-fields]");
+  if (!input2?.value.trim()) return [];
+  try {
+    const parsed = JSON.parse(input2.value);
+    const fields = parsed[modelName];
+    return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+  }
+  ankiScanConfidenceForModel(form, modelName) {
+  const input2 = form.querySelector("[data-anki-scan-confidence]");
+  if (!input2?.value.trim()) return {};
+  try {
+    const parsed = JSON.parse(input2.value);
+    const confidence = parsed[modelName] ?? {};
+    return Object.fromEntries(ankiScanConfidenceEntries(confidence));
+  } catch {
+    return {};
+  }
+  }
+  ankiScanMessage(scan, language2) {
+  if (!scan.suggestedModel) {
+    return formatUiTemplate$1(uiText(language2, "ankiScanNoModels"), {
+      decks: String(scan.deckNames.length)
+    });
+  }
+  const fields = scan.suggestedModel.suggestions.filter((suggestion) => suggestion.fieldName).map((suggestion) => `${suggestion.role}: ${suggestion.fieldName}`).join(", ");
+  return formatUiTemplate$1(uiText(language2, "ankiScanSummary"), {
+    decks: String(scan.deckNames.length),
+    models: String(scan.models.length),
+    model: scan.suggestedModel.modelName,
+    fields: formatUiTemplate$1(uiText(language2, "ankiScanFieldSummary"), { fields })
+  });
+  }
+  ankiReadyMessage(language2) {
+  return formatUiTemplate$1(uiText(language2, "ankiConnectedReady"), {
+    deck: this.settings.ankiDeck,
+    model: this.settings.ankiModel
+  });
+  }
+  ankiUnreachableMessage(language2) {
+  return uiText(language2, "ankiSettingsUnreachable");
+  }
+  // Diagnostic-UX ticket: when the direct probe fails, tell the user WHICH
+  // step failed. A no-cors probe that resolves means AnkiConnect is up but
+  // rejected this origin (webCorsOriginList) — name the origin to add; only
+  // a true network failure keeps the generic 'open Anki' guidance.
+  async refineAnkiUnavailableStatus(form, requestId, settings, language2) {
+  if (canUseMobileAnkiHandoff(settings) || hasUserscriptAnkiBridge()) return;
+  const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
+  const verdict = await diagnoseAnkiConnectFailure(url).catch(() => "unreachable");
+  if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+  if (verdict !== "cors-blocked") return;
+  const origin = typeof location !== "undefined" ? location.origin : "";
+  this.setAnkiStatus(form, uiText(language2, "ankiCorsBlocked").replace("{origin}", origin), "pending");
+  }
+  ankiSetupUnavailableStatus(settings, language2) {
+  if (canUseMobileAnkiHandoff(settings)) {
+    return { message: uiText(language2, "mobileAnkiReady"), tone: "pending", state: "ready" };
+  }
+  if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname) && !hasUserscriptAnkiBridge()) {
+    return { message: uiText(language2, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-unreachable", state: "unreachable" };
+  }
+  return { message: this.ankiUnreachableMessage(language2), tone: "pending", action: "anki-unreachable", state: "unreachable" };
+  }
+  // Field-mapping suggestions with their confidence, shown as the status
+  // checklist instead of hidden mapping JSON (P1 adapter state machine).
+  ankiScanDetails(scan, language2) {
+  const suggestions = scan.suggestedModel?.suggestions ?? [];
+  return suggestions.filter((suggestion) => suggestion.fieldName || suggestion.confidence === "low").map((suggestion) => ({
+    label: `${suggestion.role}: ${suggestion.fieldName ?? "—"}`,
+    suffix: uiText(language2, suggestion.confidence === "high" ? "ankiMappingConfidenceHigh" : suggestion.confidence === "medium" ? "ankiMappingConfidenceMedium" : "ankiMappingConfidenceLow")
+  }));
+  }
+  staleAnkiFieldMappingDetails(form, scan, language2) {
+  const controls = ankiScanFormControls(form);
+  const selection = ankiScanSelection(controls, scan);
+  const modelName = selection.selectedModel?.trim();
+  if (!modelName) return [];
+  const model = scan.models.find((candidate) => candidate.modelName === modelName);
+  if (!model) return [];
+  const liveFields = new Set(model.fields);
+  const mapping = readFormSettings(new FormData(form), this.settings).ankiFieldMappings[modelName] ?? {};
+  return Object.entries(mapping).filter((entry) => isAnkiFieldMappingRole(entry[0]) && !liveFields.has(entry[1])).map(([role, fieldName]) => ({
+    label: `${role}: ${fieldName}`,
+    suffix: uiText(language2, "ankiMappingStaleField")
+  }));
+  }
+  ankiConnectionErrorMessage(error, language2) {
+  return userFacingErrorText(language2, "ankiUnreachable", error);
+  }
+  async handleSettingsSupportAction(action, control, setStatus) {
+  if (action === "open-yomu-update") {
+    openUrlInNewTab(detectYomuUpdateFlow().url);
+    return true;
+  }
+  if (action === "copy-newtab-url") {
+    await copyText(NEW_TAB_PAGE_URL);
+    this.dependencies.toast(uiText(this.settings.interfaceLanguage, "newTabAddressCopied"));
+    return true;
+  }
+  if (action === "factory-reset") {
+    const button2 = settingsActionButton(control);
+    button2?.setAttribute("disabled", "true");
+    try {
+      await this.dependencies.resetAllData();
+    } finally {
+      button2?.removeAttribute("disabled");
+    }
+    return true;
+  }
+  setStatus("");
+  return false;
+  }
+  async disableAndClearLocalDictionarySiteStorage(form, control, setStatus) {
+  if (this.dictionarySiteStorageClearPending) return;
+  const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+  if (!window.confirm(uiText(language2, "clearLocalDictionarySiteStorageConfirm"))) return;
+  const button2 = settingsActionButton(control);
+  const enabled = namedSettingsControl(form, "localDictionariesEnabled");
+  this.dictionarySiteStorageClearPending = true;
+  button2?.setAttribute("disabled", "true");
+  this.setDictionaryImportsDisabledForSiteClear(form, true);
+  setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
+  try {
+    await this.restoreCoordinator.enqueueDictionaryOperation(
+      form,
+      () => this.clearLocalDictionarySiteStorage(form, enabled, setStatus, language2)
+    );
+  } finally {
+    this.dictionarySiteStorageClearPending = false;
+    this.setDictionaryImportsDisabledForSiteClear(form, false);
+    button2?.removeAttribute("disabled");
+  }
+  }
+  async clearLocalDictionarySiteStorage(form, enabled, setStatus, language2) {
+  const previousSettings = this.settings;
+  setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
+  this.settings = { ...previousSettings, localDictionariesEnabled: false };
+  try {
+    await this.saveCurrentSettings(previousSettings);
+  } catch (error) {
+    this.settings = previousSettings;
+    syncCheckedControl(enabled, previousSettings.localDictionariesEnabled);
+    throw error;
+  }
+  syncCheckedControl(enabled, false);
+  await requestDictionaryReplicaPurge();
+  await this.dependencies.dictionaries.deleteDatabase();
+  this.dictionaryRefreshId++;
+  await this.dependencies.refreshDictionaryStyles();
+  const dictionaryStatus = form.querySelector("[data-dictionary-status]");
+  if (dictionaryStatus) dictionaryStatus.textContent = uiText(language2, "noLocalDictionariesImported");
+  this.dependencies.scheduleDictionaryRescan();
+  this.dependencies.refreshNewTabIfCurrent();
+  const message = uiText(language2, "clearLocalDictionarySiteStorageDone");
+  setStatus(message);
+  this.dependencies.toast(message);
+  }
+  setDictionaryImportsDisabledForSiteClear(form, disabled) {
+  form.querySelectorAll(
+    '[data-action="import-yomitan-dictionary"], [data-action="download-recommended-dictionary"]'
+  ).forEach((importButton) => {
+    if (disabled) {
+      importButton.dataset.disabledForSiteClear = "true";
+      importButton.disabled = true;
+      return;
+    }
+    if (importButton.dataset.disabledForSiteClear !== "true") return;
+    delete importButton.dataset.disabledForSiteClear;
+    importButton.disabled = false;
+  });
+  }
+  async deleteDictionaryFromSettings(form, control, setStatus) {
+  const dictionary = control?.dataset.dictionaryName;
+  if (!dictionary) throw new Error("Dictionary not found.");
+  if (!window.confirm(formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryRemoveConfirm"), { dictionary }))) return;
+  control?.setAttribute("disabled", "true");
+  setStatus(formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryRemoving"), { dictionary }));
+  await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
+    await this.dependencies.dictionaries.deleteDictionary(dictionary);
+    this.dictionaryRefreshId++;
+    await clearNewTabOfflineCache().catch(() => void 0);
+    const previousSettings = this.stableSettings;
+    this.settings = { ...previousSettings, dictionaryPreferences: previousSettings.dictionaryPreferences.filter((item) => item.name !== dictionary) };
+    await this.saveCurrentSettings(previousSettings);
+    await this.dependencies.refreshDictionaryStyles();
+    this.dependencies.scheduleDictionaryRescan();
+    await this.refreshDictionaryStatus(form);
+    this.dependencies.refreshNewTabIfCurrent();
+    setStatus(formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
+  });
+  }
+  async importDictionaryFromSettings(form, setStatus) {
+  const files = await this.dictionaryImportFiles(form);
+  if (!files.length) return;
+  const results = await Promise.allSettled(files.map((file) => this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
+    const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
+    await this.persistDictionaryImport(summary);
+    return summary;
+  })));
+  const report = dictionaryImportReport(files, results);
+  if (report.summaries.length) {
+    await this.refreshDictionaryStatus(form);
+    this.dependencies.refreshNewTabIfCurrent();
+  }
+  report.failures.forEach((failure) => log$6.warn("Dictionary file import failed", failure));
+  setStatus(dictionaryImportStatusMessage(this.settings.interfaceLanguage, report));
+  }
+  async dictionaryImportFiles(form) {
+  const files = await pickFiles(form, "dictionary");
+  if (!files.length) return files;
+  return this.restoreCoordinator.importBlocked(form) ? [] : files;
+  }
+  queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus) {
+  void this.downloadRecommendedDictionaryFromSettings(form, control, setStatus).catch((error) => {
+    const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+    const message = handleSettingsActionError("download-recommended-dictionary", control, setStatus, error, language2);
+    this.dependencies.toast(message);
+  });
+  }
+  async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
+  const dictionary = recommendedDictionaryForControl(control);
+  if (this.recommendedDictionaryOperations.has(dictionary.id)) return;
+  const queuedMessage = formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryInstallQueued"), { dictionary: dictionary.name });
+  this.setRecommendedDictionaryInstallState(form, dictionary.id, "queued", queuedMessage);
+  setStatus(queuedMessage);
+  await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
+    try {
+      const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
+      this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
+      setStatus(startedMessage);
+      const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
+        setStatus(message);
+        this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
+      });
+      if (!summary) return;
+      await this.persistDictionaryImport(summary);
+      setStatus(formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
+        dictionary: dictionary.name,
+        records: summary.entries.toLocaleString()
+      }));
+      await this.refreshDictionaryStatus(form);
+      this.dependencies.refreshNewTabIfCurrent();
+    } finally {
+      this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+    }
+  });
+  }
+  async persistDictionaryImport(summary) {
+  this.dictionaryRefreshId++;
+  const previousSettings = this.stableSettings;
+  const dictionaryPreferences = mergeDictionaryPreferences(
+    previousSettings.dictionaryPreferences,
+    summary.dictionaries,
+    summary.dictionaryTypes ?? {},
+    summary.replacedDictionaries ?? []
+  );
+  this.settings = captureActiveLanguageProfileDictionaries(
+    { ...previousSettings, localDictionariesEnabled: true },
+    dictionaryPreferences
+  );
+  await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
+  await this.dependencies.refreshDictionaryStyles();
+  this.dependencies.scheduleDictionaryRescan();
+  }
+  async downloadRecommendedDictionary(dictionary, control, setStatus) {
+  if (!dictionary.downloadUrl) return null;
+  const downloadUrl = dictionary.downloadUrl;
+  try {
+    const importOptions = recommendedDictionaryImportOptions(dictionary);
+    return importOptions ? await this.dependencies.dictionaries.importFromUrl(
+      downloadUrl,
+      recommendedDictionaryFilename(dictionary),
+      (message) => setStatus(message),
+      importOptions
+    ) : await this.dependencies.dictionaries.importFromUrl(
+      downloadUrl,
+      recommendedDictionaryFilename(dictionary),
+      (message) => setStatus(message)
+    );
+  } catch (error) {
+    return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
+  }
+  }
+  handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
+  control?.removeAttribute("disabled");
+  if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
+    if (isUserFacingError(error)) throw error;
+    throw userFacingError("dictionaryDownloadFailed", {
+      cause: error,
+      diagnostic: error instanceof Error ? error.message : String(error)
+    });
+  }
+  const message = userFacingErrorText(this.settings.interfaceLanguage, "dictionaryDownloadBlocked", error);
+  const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
+  setStatus(status);
+  this.dependencies.toast(status);
+  log$6.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
+  return null;
+  }
+  /**
+   * Whether to offer "import the ZIP by hand" instead of failing outright.
+   *
+   * This used to substring-match `error.message` against fifteen hints such as
+   * 'blocked in this browser' and 'request bridge'. Not one of the five real
+   * strings contains any of them -- the copy says 'Download blocked.' and
+   * 'Download needs bridge; else import ZIP.' -- so the matcher always returned
+   * false and the manual-import recovery, written for exactly the case where a
+   * userscript manager refuses the request, could never reach anyone (GitHub #39).
+   *
+   * Matching rendered COPY is the defect: it is localized, it gets shortened for
+   * width, and neither change touches this file. The copy KEY is stable, so that
+   * is what this reads.
+   */
+  shouldPromptManualDictionaryDownload(error, downloadUrl) {
+  if (!downloadUrl.startsWith("http://") && !downloadUrl.startsWith("https://")) return false;
+  const copyKey = userFacingCopyKeyOf(error);
+  return copyKey === "dictionaryDownloadBlocked" || copyKey === "dictionaryDownloadNeedsBridge";
+  }
+  async importReaderSettingsFromFile(form, setStatus) {
+  const file = await pickFile(form, "settings");
+  if (!file) return;
+  if (this.restoreCoordinator.importBlocked(form)) return;
+  const successMessage = await this.runReaderSettingsImport(form, file, setStatus);
+  this.runPostCommitSettingsEffect("settings import status reporting", () => {
+    setStatus(successMessage);
+    this.dependencies.toast(successMessage);
+  });
+  this.applySettingsRestoreEffects(false);
+  }
+  async runReaderSettingsImport(form, file, setStatus) {
+  return this.restoreCoordinator.runRestore(form, async () => {
+    const previousSettings = this.stableSettings;
+    try {
+      return await this.applyReaderSettingsImport(file, previousSettings, setStatus);
+    } catch (error) {
+      if (this.stableSettings === previousSettings) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+      }
+      throw error;
+    }
+  });
+  }
+  async applyReaderSettingsImport(file, previousSettings, setStatus) {
+  return restoreReaderSettingsBackup(file, previousSettings, {
+    dictionaries: this.dependencies.dictionaries,
+    setStatus,
+    persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
+    adoptSettings: (settings) => this.adoptPersistedSettings(settings),
+    dictionaryStateChanged: () => {
+      this.dictionaryRefreshId++;
+    }
+  });
+  }
+  applySettingsRestoreEffects(refreshOcr, panel) {
+  const effects = [
+    ["theme refresh", () => this.dependencies.applyTheme()],
+    ["dictionary style refresh", () => this.dependencies.refreshDictionaryStyles()],
+    ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
+    ["reader button refresh", () => this.dependencies.installFab()],
+    ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
+    ["YouTube refresh", () => this.dependencies.youtube.refresh()],
+    ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
+    ["settings dialog refresh", () => this.open(panel)]
+  ];
+  if (refreshOcr) effects.splice(5, 0, ["OCR refresh", () => this.dependencies.ocr.refresh()]);
+  for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+  }
+}
+function isDictionarySourceOrderAction(action) {
+  return action === "dictionary-source-up" || action === "dictionary-source-down";
+}
+function isAudioSourceEditorAction(action) {
+  return action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down";
+}
+function isLookupLinkEditorAction(action) {
+  return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
+}
+function settingsWithDiscoveredDictionaries(current, summary) {
+  const names = summary.dictionaries.map((item) => item.title);
+  const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
+  const merged = mergeDictionaryPreferences(
+  retireStaleDictionaryPreferences(current.dictionaryPreferences, names),
+  names,
+  types
+  );
+  if (JSON.stringify(merged) === JSON.stringify(current.dictionaryPreferences)) return null;
+  return captureActiveLanguageProfileDictionaries(current, merged);
+}
+function publishSettingsChange(settings, options = {}) {
+  publishSettingsChange$1({ preview: options.preview === true, settings });
+}
+function formatUiTemplate$1(template, values) {
+  return template.replace(/\{([a-z]+)\}/gi, (_, key) => values[key] ?? "");
+}
+class OnboardingTargetChoice {
+  element;
+  select;
+  error;
+  constructor(settings, language2, labelText, requiredText2) {
+  this.element = document.createElement("label");
+  this.element.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language";
+  const label = document.createElement("span");
+  label.dataset.onboardingMultilingualCopy = "targetLanguage";
+  label.textContent = labelText;
+  this.select = document.createElement("select");
+  this.select.name = "targetLanguage";
+  this.select.setAttribute("autocomplete", "language");
+  this.select.required = true;
+  this.select.setAttribute("aria-required", "true");
+  populateTargetSelect(this.select, language2, initialTarget(settings));
+  this.error = document.createElement("span");
+  this.error.className = "jpdb-reader-onboarding-target-required";
+  this.error.id = "jpdb-reader-onboarding-target-required";
+  this.error.setAttribute("role", "status");
+  this.error.textContent = requiredText2;
+  this.select.setAttribute("aria-describedby", this.error.id);
+  this.element.append(label, this.select, this.error);
+  }
+  selectedTarget() {
+  const selected = learningTargetRosterIdForTag(this.select.value);
+  return selected && isSelectableStudyTarget(selected) ? selected : null;
+  }
+  localize(language2) {
+  populateTargetSelect(this.select, language2, this.selectedTarget());
+  }
+  syncAvailability(panel, targetOwnedOptions, requiredText2, selectedTarget2 = this.selectedTarget()) {
+  const hasTarget = selectedTarget2 !== null;
+  this.select.setCustomValidity(hasTarget ? "" : requiredText2);
+  this.error.hidden = hasTarget;
+  this.error.textContent = requiredText2;
+  if (targetOwnedOptions) {
+    targetOwnedOptions.hidden = !hasTarget;
+    targetOwnedOptions.disabled = !hasTarget;
+  }
+  panel?.querySelectorAll("[data-onboarding-action]").forEach((action) => {
+    const requiresTarget = action.dataset.onboardingAction !== "close";
+    action.disabled = requiresTarget && !hasTarget;
+    action.setAttribute("aria-disabled", String(requiresTarget && !hasTarget));
+  });
+  }
+  syncLanguageFamily(panel, selectedTarget2 = this.selectedTarget()) {
+  const selected = selectedTarget2 ? this.select.selectedOptions[0] : void 0;
+  if (!selected) {
+    this.select.removeAttribute("lang");
+    this.select.removeAttribute("dir");
+    syncLanguageFamilyDom(panel, "");
+    return;
+  }
+  this.select.lang = selected.lang;
+  this.select.dir = selected.dir;
+  syncLanguageFamilyDom(panel, selected.value);
+  }
+  reportValidity() {
+  return this.select.reportValidity();
+  }
+}
+function updateOnboardingLanguageProfile(settings, learnerLanguage2, targetLanguage2, interfaceLanguage) {
+  const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage2);
+  const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage2);
+  const activated = activateLanguageProfileForOutputLanguage(
+  settings.languageProfiles,
+  settings.activeLanguageProfileId,
+  learnerLanguageTag,
+  {
+    targetLanguage: targetLanguageTag,
+    uiLocale: interfaceLanguage,
+    parserProvider: settings.parserProvider
+  }
+  );
+  return {
+  activeLanguageProfileId: activated.activeProfileId,
+  languageProfiles: activated.profiles.map((profile) => profile.id === activated.activeProfileId ? {
+    ...profile,
+    outputLanguage: learnerLanguageTag,
+    learnerLanguage: learnerLanguageTag,
+    targetLanguage: targetLanguageTag,
+    uiLocale: interfaceLanguage,
+    parserProvider: settings.parserProvider
+  } : profile)
+  };
+}
+function initialTarget(settings) {
+  if (!settings.learningTargetChosen) return null;
+  const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+  return learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja";
+}
+function populateTargetSelect(select2, language2, selected) {
+  populateStudyTargetSelect(select2, language2, selected ?? "ja");
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = uiText(language2, "onboardingChooseTarget");
+  placeholder.disabled = true;
+  placeholder.selected = selected === null;
+  select2.prepend(placeholder);
+  if (selected === null) select2.value = "";
+}
+function createOffhostOnboardingLauncher(pageUrl, language2, dismiss) {
+  const access = sensitiveSettingsSurfaceAccess(pageUrl);
+  if (access.trusted) return null;
+  const launcherUrl = access.launcherUrl;
+  const backdrop = document.createElement("div");
+  backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
+  backdrop.dataset.jpdbReaderRoot = "true";
+  const panel = document.createElement("section");
+  panel.className = "jpdb-reader-onboarding jpdb-reader-onboarding-trusted-launcher";
+  panel.dataset.jpdbReaderRoot = "true";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("aria-label", uiText(language2, "welcomeLabel"));
+  panel.tabIndex = -1;
+  const eyebrow = document.createElement("div");
+  eyebrow.className = "jpdb-reader-onboarding-eyebrow";
+  eyebrow.textContent = uiText(language2, "onboardingTrustedSurfaceEyebrow");
+  const title = document.createElement("h2");
+  title.textContent = APP_NAME;
+  const copy = document.createElement("p");
+  copy.textContent = uiText(language2, "onboardingTrustedSurfaceCopy");
+  const actions = document.createElement("div");
+  actions.className = "jpdb-reader-onboarding-actions";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.textContent = uiText(language2, "openOnboardingTrustedSurface");
+  open.className = "jpdb-reader-btn add";
+  open.dataset.onboardingAction = "open-trusted-setup";
+  open.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (!isDirectTrustedReaderInteraction(event)) return;
+  if (openUrlInNewTab(launcherUrl)) dismiss();
+  });
+  const close = document.createElement("button");
+  close.type = "button";
+  close.textContent = uiText(language2, "closeOnboarding");
+  close.className = "jpdb-reader-btn";
+  close.dataset.onboardingAction = "close";
+  close.addEventListener("click", dismiss);
+  actions.append(open, close);
+  panel.append(eyebrow, title, copy, actions);
+  return { backdrop, panel };
+}
+const log$5 = Logger.scope("Onboarding");
+const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
+const ONBOARDING_FEATURE_KEYS = [
+  ["featureText", "featureTextBody"],
+  ["featureImages", "featureImagesBody"],
+  ["featureVideo", "featureVideoBody"],
+  ["featureControl", "featureControlBody"],
+  ["featureStudy", "featureStudyBody"],
+  ["featureGame", "featureGameBody"]
+];
+function selectedOnboardingLanguage(select2, fallback) {
+  return normalizeInterfaceLanguage(select2?.value, fallback);
+}
+class OnboardingController {
+  constructor(options) {
+  this.options = options;
+  }
+  panel;
+  backdrop;
+  languageSelect;
+  learnerLanguageSelect;
+  targetChoice;
+  targetOwnedOptions;
+  themeSwitch;
+  accentColorInput;
+  pendingAccentPreviewColor;
+  accentPreviewFrame;
+  youtubeImmersionInput;
+  youtubeImmersionChoiceTouched = false;
+  preferJapaneseSiteLanguageInput;
+  offlineDictionariesInput;
+  /**
+   * Onboarding copy, resolved through the same factory the settings dialog uses so
+   * a `{language}` label cannot leak its raw token here. It did: the master switch
+   * and its auto mode gained that token and this surface -- the FIRST screen a new
+   * user sees -- was still calling uiText directly, printing
+   * "{language} text on webpages" (b20).
+   */
+  text(key) {
+  const language2 = this.options.getSettings().interfaceLanguage;
+  const selectedTarget2 = this.targetChoice?.selectedTarget();
+  if (selectedTarget2) return settingsText(language2, selectedTarget2)(key);
+  const message = uiText(language2, key);
+  return message.includes("{language}") ? formatUiText(language2, key, { language: uiText(language2, "onboardingUnselectedTargetName") }) : message;
+  }
+  pageScanModeInputs = [];
+  ocrModeInputs = [];
+  manualPageScanShortcutInput;
+  manualPageScanShortcutLabel;
+  hoverLookupShortcutInput;
+  completionPromise = Promise.resolve();
+  resolveCompletion;
+  onboardingEntrySettings;
+  async showIfNeeded() {
+  const settings = this.options.getSettings();
+  if (settings.onboardingSeen && settings.learningTargetChosen) {
+    return false;
+  }
+  const launcher = createOffhostOnboardingLauncher(
+    location.href,
+    settings.interfaceLanguage,
+    () => this.dismiss()
+  );
+  this.showOnCurrentSurface(launcher);
+  return true;
+  }
+  async waitForCompletion(settings = this.options.getSettings()) {
+  if (settings.onboardingSeen && settings.learningTargetChosen) {
+    this.close();
+    this.finishCompletionWaiter();
+    return;
+  }
+  await this.completionPromise;
+  }
+  showOnCurrentSurface(launcher) {
+  if (launcher) this.showOffhostLauncher(launcher);
+  else this.show();
+  }
+  showOffhostLauncher(launcher) {
+  this.close();
+  this.completionPromise = new Promise((resolve) => {
+    this.resolveCompletion = resolve;
+  });
+  this.backdrop = launcher.backdrop;
+  this.panel = launcher.panel;
+  applyOverlayPageScale(this.panel);
+  document.body.append(this.backdrop, this.panel);
+  this.panel.focus();
+  }
+  show() {
+  const entrySettings = this.onboardingEntrySettings ?? this.options.getSettings();
+  log$5.info("Showing onboarding", { language: entrySettings.interfaceLanguage });
+  this.close();
+  this.onboardingEntrySettings = entrySettings;
+  this.completionPromise = new Promise((resolve) => {
+    this.resolveCompletion = resolve;
+  });
+  this.backdrop = document.createElement("div");
+  this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
+  this.backdrop.dataset.jpdbReaderRoot = "true";
+  this.panel = document.createElement("section");
+  this.panel.className = "jpdb-reader-onboarding jpdb-reader-parseable";
+  this.panel.dataset.jpdbReaderRoot = "true";
+  this.panel.setAttribute("role", "dialog");
+  this.panel.setAttribute("aria-modal", "true");
+  this.panel.setAttribute("aria-label", this.text("welcomeLabel"));
+  this.panel.tabIndex = -1;
+  const closeButton = button("");
+  closeButton.className = "jpdb-reader-icon-mini jpdb-reader-onboarding-close";
+  closeButton.dataset.onboardingAction = "close";
+  closeButton.title = this.text("closeOnboarding");
+  closeButton.setAttribute("aria-label", this.text("closeOnboarding"));
+  setInnerHtml(closeButton, closeIcon());
+  closeButton.addEventListener("click", () => this.dismiss());
+  const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", this.text("onboardingEyebrow"));
+  const title = element("h2", "", APP_NAME);
+  const copy = element(
+    "p",
+    "",
+    this.text("onboardingCopy")
+  );
+  const featureList = document.createElement("ul");
+  featureList.className = "jpdb-reader-onboarding-features";
+  ONBOARDING_FEATURE_KEYS.forEach(([headingKey, textKey]) => {
+    const item = document.createElement("li");
+    item.append(
+      element("strong", "", this.text(headingKey)),
+      element("span", "", this.text(textKey))
+    );
+    featureList.append(item);
+  });
+  const learnerLanguage2 = document.createElement("label");
+  learnerLanguage2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-learner-language";
+  const learnerLanguageText = element(
+    "span",
+    "",
+    onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).learnerLanguage
+  );
+  learnerLanguageText.dataset.onboardingMultilingualCopy = "learnerLanguage";
+  this.learnerLanguageSelect = document.createElement("select");
+  this.learnerLanguageSelect.name = "learnerLanguage";
+  this.learnerLanguageSelect.setAttribute("autocomplete", "language");
+  const initialLearnerLanguage = onboardingLearnerLanguage(this.options.getSettings());
+  LEARNER_LANGUAGES.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.lang = item.runtimeLocale;
+    option.dir = item.direction;
+    option.textContent = learnerLanguageOptionLabel(item);
+    option.selected = item.id === initialLearnerLanguage;
+    this.learnerLanguageSelect?.append(option);
+  });
+  learnerLanguage2.append(learnerLanguageText, this.learnerLanguageSelect);
+  this.targetChoice = new OnboardingTargetChoice(
+    this.options.getSettings(),
+    this.options.getSettings().interfaceLanguage,
+    onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage,
+    this.text("onboardingTargetRequired")
+  );
+  const initialTarget2 = this.targetChoice.selectedTarget();
+  const language2 = document.createElement("label");
+  language2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language";
+  const languageText = element("span", "", this.text("onboardingLanguage"));
+  this.languageSelect = document.createElement("select");
+  this.languageSelect.name = "interfaceLanguage";
+  [
+    ["auto", this.text("automatic")],
+    ["en", this.text("english")],
+    ["ja", this.text("japanese")]
+  ].forEach(([value, text2]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text2;
+    option.selected = value === this.options.getSettings().interfaceLanguage;
+    this.languageSelect?.append(option);
+  });
+  language2.append(languageText, this.languageSelect);
+  const preferences = document.createElement("div");
+  preferences.className = "jpdb-reader-onboarding-preferences";
+  preferences.append(learnerLanguage2, this.targetChoice.element, language2, this.createThemeToggle());
+  const accentPicker = document.createElement("fieldset");
+  accentPicker.className = "jpdb-reader-onboarding-accent";
+  const accentLegend = document.createElement("legend");
+  accentLegend.textContent = this.text("onboardingAccentColor");
+  const swatches = document.createElement("div");
+  swatches.className = "jpdb-reader-onboarding-swatches";
+  ONBOARDING_ACCENT_SWATCHES.forEach((color) => {
+    const swatch = button("");
+    swatch.className = "jpdb-reader-onboarding-swatch";
+    swatch.dataset.onboardingAccent = color;
+    swatch.style.setProperty("--jpdb-reader-onboarding-swatch", color);
+    swatch.setAttribute("aria-label", onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color));
+    swatch.title = onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color);
+    swatch.addEventListener("click", () => this.applyAccentChoice(color));
+    swatches.append(swatch);
+  });
+  const customAccent = document.createElement("label");
+  customAccent.className = "jpdb-reader-onboarding-custom-accent";
+  const customAccentText = document.createElement("span");
+  customAccentText.dataset.onboardingCopy = "customAccentColor";
+  customAccentText.textContent = this.text("customAccentColor");
+  this.accentColorInput = document.createElement("input");
+  this.accentColorInput.type = "color";
+  this.accentColorInput.name = "accentColor";
+  this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
+  this.accentColorInput.setAttribute("aria-label", this.text("onboardingAccentColor"));
+  this.accentColorInput.addEventListener("input", () => this.previewAccentChoice(this.accentColorInput?.value));
+  this.accentColorInput.addEventListener("change", () => this.applyAccentChoice(this.accentColorInput?.value));
+  customAccent.append(customAccentText, this.accentColorInput);
+  accentPicker.append(accentLegend, swatches, customAccent);
+  const basics = document.createElement("div");
+  basics.className = "jpdb-reader-onboarding-basics";
+  basics.append(preferences, accentPicker);
+  const immersionOptions = document.createElement("fieldset");
+  immersionOptions.className = "jpdb-reader-onboarding-options";
+  this.targetOwnedOptions = immersionOptions;
+  const immersionLegend = document.createElement("legend");
+  immersionLegend.textContent = this.text("onboardingImmersionOptions");
+  this.hoverLookupShortcutInput = shortcutTextInput(
+    "shortcuts.hoverLookup",
+    this.options.getSettings().shortcuts.hoverLookup,
+    this.options.getSettings().interfaceLanguage,
+    "blankPlainHover"
+  );
+  this.manualPageScanShortcutInput = shortcutTextInput(
+    "shortcuts.scanPage",
+    this.options.getSettings().shortcuts.scanPage,
+    this.options.getSettings().interfaceLanguage,
+    "pressKeys"
+  );
+  const currentSettings = this.options.getSettings();
+  this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", jpOnlyOn(
+    currentSettings,
+    currentSettings.youtubeImmersionEnabled,
+    currentSettings.youtubeImmersionEnabledChosen
+  ));
+  this.youtubeImmersionInput.addEventListener("change", () => {
+    this.youtubeImmersionChoiceTouched = true;
+  });
+  this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
+  this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
+  const pageScanMode = createModeGroup(
+    "pageScanMode",
+    this.text("pageScanMode"),
+    pageScanModeFromSettings(this.options.getSettings()),
+    [
+      ["off", this.text("pageScanModeOff")],
+      ["auto", this.text("pageScanModeAuto")],
+      ["manual", this.text("pageScanModeManual")]
+    ]
+  );
+  this.pageScanModeInputs = pageScanMode.inputs;
+  this.pageScanModeInputs.forEach((input2) => {
+    input2.addEventListener("change", () => this.syncManualPageScanShortcut());
+  });
+  const ocrMode = createModeGroup(
+    "ocrInteractionMode",
+    this.text("ocrInteractionMode"),
+    ocrInteractionModeFromSettings(this.options.getSettings()),
+    [
+      ["auto", this.text("ocrInteractionModeAuto")],
+      ["manual", this.text("ocrInteractionModeManual")],
+      ["off", this.text("ocrInteractionModeOff")]
+    ]
+  );
+  this.ocrModeInputs = ocrMode.inputs;
+  const immersionGrid = document.createElement("div");
+  immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
+  const defaultColumn = document.createElement("div");
+  defaultColumn.className = "jpdb-reader-onboarding-option-column";
+  const preferredSiteLanguageLabel = checkboxLabel(
+    this.preferJapaneseSiteLanguageInput,
+    this.text("preferJapaneseSiteLanguage")
+  );
+  preferredSiteLanguageLabel.classList.add("jp-only");
+  preferredSiteLanguageLabel.dataset.languageFamily = "preferred-target-sites";
+  defaultColumn.append(
+    checkboxLabel(this.youtubeImmersionInput, this.text("youtubeImmersionEnabled")),
+    preferredSiteLanguageLabel,
+    checkboxLabel(this.offlineDictionariesInput, this.text("onboardingInstallOfflineDictionaries"))
+  );
+  const scanColumn = document.createElement("div");
+  scanColumn.className = "jpdb-reader-onboarding-option-column";
+  scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
+  const shortcutColumn = document.createElement("div");
+  shortcutColumn.className = "jpdb-reader-onboarding-option-column";
+  this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, this.text("manualPageScanShortcut"));
+  this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = "true";
+  shortcutColumn.append(
+    shortcutLabel(this.hoverLookupShortcutInput, this.text("onboardingHoverShortcut")),
+    this.manualPageScanShortcutLabel
+  );
+  immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
+  immersionOptions.append(
+    immersionLegend,
+    immersionGrid
+  );
+  const actions = document.createElement("div");
+  actions.className = "jpdb-reader-onboarding-actions";
+  const setup = button(this.text("onboardingAddApiKey"));
+  setup.className = "jpdb-reader-btn";
+  setup.dataset.onboardingAction = "api-key";
+  setup.addEventListener("click", () => void this.complete(true));
+  const dictionaries2 = button(this.text("onboardingUseWithoutApiKey"));
+  dictionaries2.className = "jpdb-reader-btn add";
+  dictionaries2.dataset.onboardingAction = "without-api";
+  dictionaries2.addEventListener("click", () => void this.complete("dictionaries"));
+  actions.append(dictionaries2, setup);
+  this.languageSelect.addEventListener("change", () => {
+    const language22 = selectedOnboardingLanguage(this.languageSelect, this.options.getSettings().interfaceLanguage);
+    log$5.info("Onboarding language changed", { language: language22 });
+    this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language22 });
+    this.localize(language22);
+  });
+  this.learnerLanguageSelect.addEventListener("change", () => {
+    const learnerLanguage22 = selectedLearnerLanguage(
+      this.learnerLanguageSelect,
+      onboardingLearnerLanguage(this.options.getSettings())
+    );
+    const selected = learnerLanguageById(learnerLanguage22);
+    log$5.info("Onboarding learner language changed", {
+      learnerLanguage: learnerLanguage22,
+      targetLanguage: this.targetChoice?.select.value
+    });
+    this.learnerLanguageSelect?.setAttribute("lang", selected.runtimeLocale);
+    this.learnerLanguageSelect?.setAttribute("dir", selected.direction);
+  });
+  this.targetChoice.select.addEventListener("change", () => this.syncTargetLanguageSelection());
+  this.panel.addEventListener("click", (event) => {
+    this.handleWordLookup(event);
+  });
+  this.panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (this.handleWordLookup(event)) event.preventDefault();
+  });
+  this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
+  this.targetChoice.syncAvailability(
+    this.panel,
+    this.targetOwnedOptions,
+    this.text("onboardingTargetRequired"),
+    initialTarget2
+  );
+  this.targetChoice.syncLanguageFamily(this.panel, initialTarget2);
+  this.syncThemeSwitch();
+  this.syncAccentPicker(this.accentColorInput.value);
+  this.syncManualPageScanShortcut();
+  applyOverlayPageScale(this.panel);
+  document.body.append(this.backdrop, this.panel);
+  this.panel.focus();
+  if (initialTarget2 === "ja") this.annotateJapanese();
+  }
+  annotateJapanese() {
+  if (this.panel) this.options.parseJapanese(this.panel);
+  }
+  handleWordLookup(event) {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const word = target?.closest(".jpdb-reader-onboarding .jpdb-reader-word");
+  if (!word || !this.panel?.contains(word) || !this.options.lookupText) return false;
+  if (isOnboardingCommandWord(word)) return false;
+  const expression = word.dataset.expression?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
+  if (!expression) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  this.options.lookupText(expression, word.dataset.sentence || expression, word);
+  return true;
+  }
+  syncTargetLanguageSelection() {
+  const choice = this.targetChoice;
+  const panel = this.panel;
+  if (!choice || !panel) return;
+  const selectedTarget2 = choice.selectedTarget();
+  choice.syncAvailability(
+    panel,
+    this.targetOwnedOptions,
+    this.text("onboardingTargetRequired"),
+    selectedTarget2
+  );
+  choice.syncLanguageFamily(panel, selectedTarget2);
+  this.syncYoutubeImmersionChoice(selectedTarget2);
+  this.localize(this.options.getSettings().interfaceLanguage);
+  }
+  dismiss() {
+  this.close();
+  this.resolveCompletion?.();
+  this.resolveCompletion = void 0;
+  }
+  syncYoutubeImmersionChoice(targetLanguage2) {
+  if (!targetLanguage2) return;
+  const input2 = this.youtubeImmersionInput;
+  if (!input2) return;
+  if (this.youtubeImmersionChoiceTouched) return;
+  input2.checked = defaultYoutubeImmersionChoice(this.options.getSettings(), targetLanguage2);
+  }
+  localize(language2) {
+  const text2 = (key) => this.text(key);
+  const panel = this.panel;
+  if (!panel) return;
+  panel.setAttribute("aria-label", text2("welcomeLabel"));
+  panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(text2("onboardingEyebrow"));
+  const copy = panel.querySelector("p");
+  copy?.replaceChildren(text2("onboardingCopy"));
+  panel.querySelector(".jpdb-reader-onboarding-interface-language span")?.replaceChildren(text2("onboardingLanguage"));
+  const multilingualCopy = onboardingLanguageProfileCopy(language2);
+  panel.querySelector('[data-onboarding-multilingual-copy="learnerLanguage"]')?.replaceChildren(multilingualCopy.learnerLanguage);
+  panel.querySelector('[data-onboarding-multilingual-copy="targetLanguage"]')?.replaceChildren(multilingualCopy.targetLanguage);
+  panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(text2("theme"));
+  panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(text2("onboardingImmersionOptions"));
+  panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(text2("onboardingHoverShortcut"));
+  this.hoverLookupShortcutInput?.setAttribute("placeholder", text2("blankPlainHover"));
+  panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(text2("manualPageScanShortcut"));
+  this.manualPageScanShortcutInput?.setAttribute("placeholder", text2("pressKeys"));
+  panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(text2("youtubeImmersionEnabled"));
+  panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(text2("preferJapaneseSiteLanguage"));
+  panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(text2("onboardingInstallOfflineDictionaries"));
+  panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(text2("pageScanMode"));
+  setOnboardingModeLabel(panel, "pageScanMode", "off", text2("pageScanModeOff"));
+  setOnboardingModeLabel(panel, "pageScanMode", "auto", text2("pageScanModeAuto"));
+  setOnboardingModeLabel(panel, "pageScanMode", "manual", text2("pageScanModeManual"));
+  panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(text2("ocrInteractionMode"));
+  setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", text2("ocrInteractionModeAuto"));
+  setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", text2("ocrInteractionModeManual"));
+  setOnboardingModeLabel(panel, "ocrInteractionMode", "off", text2("ocrInteractionModeOff"));
+  panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(text2("onboardingAccentColor"));
+  panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(text2("customAccentColor"));
+  this.accentColorInput?.setAttribute("aria-label", text2("onboardingAccentColor"));
+  panel.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
+    const color = button2.dataset.onboardingAccent;
+    if (!color) return;
+    const label = onboardingAccentLabel(language2, color);
+    button2.setAttribute("aria-label", label);
+    button2.title = label;
+  });
+  const options = [
+    ["auto", text2("automatic")],
+    ["en", text2("english")],
+    ["ja", text2("japanese")]
+  ];
+  options.forEach(([value, text22]) => {
+    const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
+    if (option) option.textContent = text22;
+  });
+  this.targetChoice?.localize(language2);
+  const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
+  features.forEach((feature, index) => {
+    const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
+    feature.querySelector("strong")?.replaceChildren(text2(headingKey));
+    feature.querySelector("span")?.replaceChildren(text2(bodyKey));
+  });
+  panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(text2("onboardingAddApiKey"));
+  panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(text2("onboardingUseWithoutApiKey"));
+  const closeButton = panel.querySelector('[data-onboarding-action="close"]');
+  closeButton?.setAttribute("aria-label", text2("closeOnboarding"));
+  closeButton?.setAttribute("title", text2("closeOnboarding"));
+  this.targetChoice?.syncAvailability(
+    panel,
+    this.targetOwnedOptions,
+    this.text("onboardingTargetRequired")
+  );
+  this.syncThemeSwitch();
+  if (this.targetChoice?.selectedTarget() === "ja") this.annotateJapanese();
+  }
+  async complete(openSettings) {
+  const targetLanguage2 = this.targetChoice?.selectedTarget();
+  if (!targetLanguage2) {
+    this.reportMissingTarget();
+    return;
+  }
+  await this.persistCompletedOnboarding(openSettings, targetLanguage2);
+  }
+  reportMissingTarget() {
+  this.targetChoice?.syncAvailability(
+    this.panel,
+    this.targetOwnedOptions,
+    this.text("onboardingTargetRequired"),
+    null
+  );
+  this.targetChoice?.reportValidity();
+  }
+  async persistCompletedOnboarding(openSettings, targetLanguage2) {
+  const done = log$5.time("Onboarding complete", { openSettings });
+  const installOfflineDictionaries = this.shouldInstallOfflineDictionaries();
+  const previousSettings = this.options.getSettings();
+  const intentBaseline = this.onboardingIntentBaseline(previousSettings);
+  const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2);
+  try {
+    await (this.options.saveSettings ?? saveSettings)(settings, {
+      persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+      // Every field the onboarding panel's own controls moved. It used to
+      // declare only the 17 allowlisted keys, so a theme or hotkey chosen
+      // here was not intent and a legacy store could replay the old one.
+      explicitUserChoiceKeys: changedSettingsKeys(intentBaseline, settings)
+    });
+    this.options.setSettings(settings);
+    await this.commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries);
+    log$5.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
+  } catch (error) {
+    this.notifyPersistenceFailed(previousSettings);
+    log$5.warn("Onboarding completion failed", { openSettings, error });
+    throw error;
+  } finally {
+    done();
+  }
+  }
+  shouldInstallOfflineDictionaries() {
+  return this.offlineDictionariesInput?.checked === true;
+  }
+  onboardingIntentBaseline(previousSettings) {
+  return this.onboardingEntrySettings ?? previousSettings;
+  }
+  notifyPersistenceFailed(previousSettings) {
+  this.options.onPersistenceFailed?.(previousSettings);
+  }
+  async commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries) {
+  this.close();
+  await this.options.onComplete?.(settings);
+  if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
+  this.openPostOnboardingSettings(openSettings);
+  this.finishCompletionWaiter();
+  }
+  finishCompletionWaiter() {
+  const resolve = this.resolveCompletion;
+  this.resolveCompletion = void 0;
+  resolve?.();
+  }
+  completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2) {
+  const current = this.options.getSettings();
+  const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
+  const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
+  const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect, current.interfaceLanguage);
+  const learnerLanguage2 = selectedLearnerLanguage(
+    this.learnerLanguageSelect,
+    onboardingLearnerLanguage(current)
+  );
+  const languageProfileSelection = updateOnboardingLanguageProfile(
+    current,
+    learnerLanguage2,
+    targetLanguage2,
+    interfaceLanguage
+  );
+  return {
+    ...current,
+    onboardingSeen: true,
+    learningTargetChosen: true,
+    jpdbDefinitionsEnabled: true,
+    localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
+    youtubeImmersionEnabled: checkboxValue(
+      this.youtubeImmersionInput,
+      current.youtubeImmersionEnabled,
+      this.youtubeImmersionChoiceTouched
+    ),
+    youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || this.youtubeImmersionChoiceTouched,
+    preferJapaneseSiteLanguage: checkboxValue(
+      this.preferJapaneseSiteLanguageInput,
+      current.preferJapaneseSiteLanguage
+    ),
+    annotationsPaused: pageScanMode === "off",
+    manualScanEnabled: pageScanMode === "manual",
+    ocrEnabled: ocrMode !== "off",
+    ocrAutoScanImages: ocrMode === "auto",
+    shortcuts: {
+      ...current.shortcuts,
+      hoverLookup: shortcutValue(this.hoverLookupShortcutInput, current.shortcuts.hoverLookup),
+      scanPage: shortcutValue(this.manualPageScanShortcutInput, current.shortcuts.scanPage)
+    },
+    dictionaryLookupLinks: defaultDictionaryLookupLinks(
+      defaultLookupLinkMode(openSettings === true),
+      targetLanguage2
+    ),
+    interfaceLanguage,
+    ...languageProfileSelection,
+    accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
+  };
+  }
+  openPostOnboardingSettings(openSettings) {
+  if (openSettings === "dictionaries") this.options.showSettings("dictionaries");
+  else if (openSettings) this.options.showSettings("api");
+  }
+  close() {
+  this.cancelAccentPreviewFrame();
+  this.panel?.remove();
+  this.backdrop?.remove();
+  this.panel = void 0;
+  this.backdrop = void 0;
+  this.languageSelect = void 0;
+  this.learnerLanguageSelect = void 0;
+  this.targetChoice = void 0;
+  this.targetOwnedOptions = void 0;
+  this.themeSwitch = void 0;
+  this.accentColorInput = void 0;
+  this.youtubeImmersionInput = void 0;
+  this.youtubeImmersionChoiceTouched = false;
+  this.preferJapaneseSiteLanguageInput = void 0;
+  this.offlineDictionariesInput = void 0;
+  this.pageScanModeInputs = [];
+  this.ocrModeInputs = [];
+  this.manualPageScanShortcutInput = void 0;
+  this.manualPageScanShortcutLabel = void 0;
+  this.hoverLookupShortcutInput = void 0;
+  this.onboardingEntrySettings = void 0;
+  }
+  createThemeToggle() {
+  const wrapper = document.createElement("div");
+  wrapper.className = "jpdb-reader-onboarding-theme";
+  const title = document.createElement("span");
+  title.className = "jpdb-reader-theme-title";
+  title.id = "jpdb-reader-onboarding-theme-label";
+  title.dataset.onboardingCopy = "theme";
+  title.textContent = this.text("theme");
+  const chrome = document.createElement("div");
+  chrome.className = "VPNavBarAppearance appearance jpdb-reader-theme-appearance";
+  this.themeSwitch = button("");
+  this.themeSwitch.className = "VPSwitch VPSwitchAppearance jpdb-reader-theme-switch";
+  this.themeSwitch.dataset.onboardingThemeSwitch = "true";
+  this.themeSwitch.setAttribute("role", "switch");
+  this.themeSwitch.setAttribute("aria-labelledby", title.id);
+  this.themeSwitch.setAttribute("aria-describedby", title.id);
+  setInnerHtml(this.themeSwitch, themeSwitchChrome());
+  this.themeSwitch.addEventListener("click", () => this.toggleTheme());
+  chrome.append(this.themeSwitch);
+  wrapper.append(title, chrome);
+  return wrapper;
+  }
+  toggleTheme() {
+  const current = this.options.getSettings();
+  const theme = this.effectiveTheme(current.theme) === "dark" ? "light" : "dark";
+  this.options.setSettings({ ...current, theme });
+  this.syncThemeSwitch();
+  }
+  syncThemeSwitch() {
+  if (!this.themeSwitch) return;
+  const theme = this.effectiveTheme(this.options.getSettings().theme);
+  const label = this.text(theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
+  this.themeSwitch.setAttribute("aria-label", label);
+  this.themeSwitch.setAttribute("aria-checked", String(theme === "dark"));
+  this.themeSwitch.title = label;
+  }
+  effectiveTheme(value) {
+  if (value === "dark" || value === "light") return value;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  applyAccentChoice(value) {
+  this.cancelAccentPreviewFrame();
+  const current = this.options.getSettings();
+  const accentColor = sanitizeAccentColor(value, current.accentColor);
+  this.options.setSettings({ ...current, accentColor });
+  if (this.accentColorInput && this.accentColorInput.value !== accentColor) {
+    this.accentColorInput.value = accentColor;
+  }
+  this.syncAccentPicker(accentColor);
+  }
+  previewAccentChoice(value) {
+  const current = this.options.getSettings();
+  const accentColor = sanitizeAccentColor(value, current.accentColor);
+  this.pendingAccentPreviewColor = accentColor;
+  this.syncAccentPicker(accentColor);
+  if (this.accentPreviewFrame !== void 0) return;
+  this.accentPreviewFrame = requestOnboardingFrame(() => {
+    this.accentPreviewFrame = void 0;
+    const pendingColor = this.pendingAccentPreviewColor;
+    this.pendingAccentPreviewColor = void 0;
+    if (!pendingColor || !this.panel?.isConnected) return;
+    this.options.setSettings({ ...this.options.getSettings(), accentColor: pendingColor });
+  });
+  }
+  cancelAccentPreviewFrame() {
+  if (this.accentPreviewFrame === void 0) return;
+  cancelOnboardingFrame(this.accentPreviewFrame);
+  this.accentPreviewFrame = void 0;
+  this.pendingAccentPreviewColor = void 0;
+  }
+  syncAccentPicker(color) {
+  const selectedColor = sanitizeAccentColor(color);
+  this.panel?.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
+    const selected = sanitizeAccentColor(button2.dataset.onboardingAccent) === selectedColor;
+    button2.classList.toggle("selected", selected);
+    button2.setAttribute("aria-pressed", String(selected));
+  });
+  }
+  syncManualPageScanShortcut() {
+  if (!this.manualPageScanShortcutLabel) return;
+  this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
+  }
+}
+function defaultYoutubeImmersionChoice(settings, targetLanguage2) {
+  if (!settings.youtubeImmersionEnabled) return false;
+  if (settings.youtubeImmersionEnabledChosen) return true;
+  return languageFamilyIncludes("jp-only", targetLanguage2);
+}
+function pageScanModeFromSettings(settings) {
+  if (settings.annotationsPaused) return "off";
+  return settings.manualScanEnabled ? "manual" : "auto";
+}
+function selectedMode(inputs, fallback) {
+  return inputs.find((input2) => input2.checked)?.value ?? fallback;
+}
+function shortcutValue(input2, fallback) {
+  return input2?.value.trim() ?? fallback;
+}
+function checkboxValue(input2, fallback, useInput = true) {
+  return useInput ? input2?.checked ?? fallback : fallback;
+}
+function onboardingLanguageProfileCopy(language2) {
+  return {
+  learnerLanguage: uiText(language2, "onboardingOutputLanguage"),
+  targetLanguage: uiText(language2, "onboardingTargetLanguage")
+  };
+}
+function learnerLanguageOptionLabel(language2) {
+  return language2.nativeName === language2.englishName ? language2.nativeName : `${language2.nativeName} — ${language2.englishName}`;
+}
+function onboardingLearnerLanguage(settings) {
+  const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+  const saved = slice1LanguageIdForTag(profile?.outputLanguage);
+  if (saved && saved !== "en") return saved;
+  const browserLanguages = typeof navigator === "undefined" ? [] : [...navigator.languages ?? [], navigator.language];
+  for (const browserLanguage of browserLanguages) {
+  const detected = slice1LanguageIdForTag(browserLanguage);
+  if (detected) return detected;
+  }
+  return saved ?? "en";
+}
+function selectedLearnerLanguage(select2, fallback) {
+  const value = select2?.value;
+  return value && isLearnerLanguageId(value) ? value : fallback;
+}
+function element(tag, className, text2) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = text2;
+  return node;
+}
+function button(text2) {
+  const node = document.createElement("button");
+  node.type = "button";
+  node.textContent = text2;
+  return node;
+}
+function checkboxInput(name, checked) {
+  const input2 = document.createElement("input");
+  input2.type = "checkbox";
+  input2.name = name;
+  input2.checked = checked;
+  input2.setAttribute("aria-labelledby", onboardingCopyId(name));
+  return input2;
+}
+function isOnboardingCommandWord(word) {
+  return Boolean(word.closest("button, a[href], input, select, textarea, label, [data-onboarding-action], [data-onboarding-theme-switch], [data-onboarding-accent]"));
+}
+function checkboxLabel(input2, text2) {
+  const label = document.createElement("label");
+  label.className = "inline";
+  const copy = document.createElement("span");
+  copy.id = onboardingCopyId(input2.name);
+  copy.dataset.onboardingCopy = input2.name;
+  copy.textContent = text2;
+  label.append(input2, copy);
+  return label;
+}
+function shortcutTextInput(name, value, language2, placeholderKey) {
+  const input2 = document.createElement("input");
+  input2.type = "text";
+  input2.name = name;
+  input2.value = value;
+  input2.placeholder = settingsText(language2)(placeholderKey);
+  input2.autocomplete = "off";
+  input2.inputMode = "none";
+  input2.dataset.shortcutInput = "true";
+  input2.setAttribute("aria-labelledby", onboardingCopyId(name));
+  input2.addEventListener("keydown", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  input2.value = event.key === "Backspace" || event.key === "Delete" ? "" : formatShortcutEvent(event);
+  });
+  input2.addEventListener("paste", (event) => event.preventDefault());
+  return input2;
+}
+function createModeGroup(name, legendText, selectedValue, options) {
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "jpdb-reader-onboarding-mode-group";
+  const legend = document.createElement("legend");
+  legend.dataset.onboardingModeLegend = name;
+  legend.textContent = legendText;
+  const inputs = options.map(([value, text2]) => {
+  const input2 = document.createElement("input");
+  input2.type = "radio";
+  input2.name = name;
+  input2.value = value;
+  input2.checked = value === selectedValue;
+  const label = document.createElement("label");
+  label.className = "inline";
+  label.dataset.onboardingModeLabel = `${name}.${value}`;
+  label.append(input2, document.createTextNode(text2));
+  fieldset.append(label);
+  return input2;
+  });
+  fieldset.prepend(legend);
+  return { fieldset, inputs };
+}
+function setOnboardingModeLabel(panel, name, value, text2) {
+  const label = panel.querySelector(`[data-onboarding-mode-label="${name}.${value}"]`);
+  const input2 = label?.querySelector("input");
+  if (!label || !input2) return;
+  label.replaceChildren(input2, document.createTextNode(text2));
+}
+function shortcutLabel(input2, text2) {
+  const label = document.createElement("label");
+  label.className = "jpdb-reader-onboarding-shortcut";
+  const copy = document.createElement("span");
+  copy.id = onboardingCopyId(input2.name);
+  copy.dataset.onboardingCopy = input2.name;
+  copy.textContent = text2;
+  label.append(copy, input2);
+  return label;
+}
+function onboardingCopyId(name) {
+  return `jpdb-reader-onboarding-${name}`;
+}
+function onboardingAccentLabel(language2, color) {
+  return `${settingsText(language2)("onboardingAccentColor")} ${color.toUpperCase()}`;
+}
+function requestOnboardingFrame(callback) {
+  if (typeof window.requestAnimationFrame === "function") {
+  return window.requestAnimationFrame(() => callback());
+  }
+  return window.setTimeout(callback, 16);
+}
+function cancelOnboardingFrame(id) {
+  if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
+  else window.clearTimeout(id);
+}
+function closeIcon() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
+}
+function themeSwitchChrome() {
+  return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
+}
+const log$4 = Logger.scope("DictionaryArchiveCache");
+const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
+const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
+const ARCHIVE_CHUNK_BYTES = 4 * 1024 * 1024;
+const MAX_ARCHIVE_BYTES = 192 * 1024 * 1024;
+async function listDictionaryArchives() {
+  const index = await gmStorageGet(ARCHIVE_INDEX_KEY, null);
+  return index && typeof index === "object" ? index : {};
+}
+async function enumerateDictionaryArchiveStorageKeys() {
+  const stored = await gmStorageGetForResetEnumeration(ARCHIVE_INDEX_KEY, null);
+  if (stored !== null && (typeof stored !== "object" || Array.isArray(stored))) {
+  throw new Error("The dictionary archive index is unreadable.");
+  }
+  const archives = stored ?? {};
+  const keys = [];
+  for (const [identity, meta] of Object.entries(archives)) {
+  if (!Number.isSafeInteger(meta.chunkCount) || meta.chunkCount < 0) {
+    throw new Error(`Dictionary archive metadata is unreadable for ${identity}.`);
+  }
+  for (let chunk = 0; chunk < meta.chunkCount; chunk++) keys.push(archiveChunkKey(identity, chunk));
+  }
+  return keys;
+}
+async function persistDictionaryArchive(input2) {
+  const identity = yomitanDictionaryIdentity(input2.title);
+  try {
+  const previous = (await listDictionaryArchives())[identity];
+  const meta = await writeArchivePayload(identity, input2);
+  if (!meta) return;
+  await updateArchiveIndex((index) => ({ ...index, [identity]: meta }));
+  if (previous && previous.chunkCount > meta.chunkCount) {
+    await deleteArchiveChunks(identity, previous.chunkCount, meta.chunkCount);
+  }
+  log$4.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
+  } catch (error) {
+  log$4.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
+  }
+}
+async function deleteDictionaryArchive(title) {
+  const identity = yomitanDictionaryIdentity(title);
+  const meta = (await listDictionaryArchives())[identity];
+  if (!meta) return;
+  await updateArchiveIndex((index) => {
+  const next = { ...index };
+  delete next[identity];
+  return next;
+  });
+  await deleteArchiveChunks(identity, meta.chunkCount, 0);
+  log$4.info("Dictionary archive deleted", { identity });
+}
+async function writeArchivePayload(identity, input2) {
+  if (input2.downloadUrl) {
+  return {
+    title: input2.title,
+    filename: input2.filename,
+    downloadUrl: input2.downloadUrl,
+    ...input2.integrity?.sha256 ? { sha256: input2.integrity.sha256 } : {},
+    size: input2.integrity?.bytes ?? input2.file?.size ?? 0,
+    chunkCount: 0
+  };
+  }
+  if (!input2.file) return null;
+  if (input2.file.size > MAX_ARCHIVE_BYTES) {
+  log$4.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
+  return null;
+  }
+  const bytes = await blobBytes(input2.file);
+  const chunkCount = Math.ceil(bytes.length / ARCHIVE_CHUNK_BYTES) || 1;
+  for (let chunk = 0; chunk < chunkCount; chunk++) {
+  const slice = bytes.subarray(chunk * ARCHIVE_CHUNK_BYTES, (chunk + 1) * ARCHIVE_CHUNK_BYTES);
+  await gmStorageSet(archiveChunkKey(identity, chunk), bytesToBase64(slice));
+  }
+  return {
+  title: input2.title,
+  filename: input2.filename,
+  ...input2.integrity?.sha256 ? { sha256: input2.integrity.sha256 } : {},
+  size: bytes.length,
+  chunkCount
+  };
+}
+async function updateArchiveIndex(update) {
+  const index = await listDictionaryArchives();
+  await gmStorageSet(ARCHIVE_INDEX_KEY, update(index));
+}
+async function deleteArchiveChunks(identity, fromCount, keep) {
+  for (let chunk = keep; chunk < fromCount; chunk++) {
+  await gmStorageDelete(archiveChunkKey(identity, chunk));
+  }
+}
+function archiveChunkKey(identity, chunk) {
+  return `${ARCHIVE_CHUNK_PREFIX}${identity}:${chunk}`;
+}
+async function blobBytes(blob) {
+  return localBytesFromBlob(blob);
+}
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 32768) {
+  binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+  }
+  return btoa(binary);
+}
+function catalogOfflineStarterPlan(learner, target) {
+  const selected = recommendedDictionariesForLanguageProfile(learner, target).filter((dictionary) => dictionary.selectedByDefault !== false && Boolean(dictionary.downloadUrl));
+  const pitch = target === "ja" ? findRecommendedDictionary("kanjium-pitch") : void 0;
+  if (pitch?.downloadUrl) selected.push(pitch);
+  return selected.map((dictionary) => ({
+  id: dictionary.catalogDictionaryId ?? dictionary.id,
+  dictionary: {
+    name: dictionary.name,
+    downloadUrl: dictionary.downloadUrl,
+    installedIdentity: recommendedDictionaryInstalledIdentity(dictionary),
+    ...recommendedDictionaryImportOptions(dictionary)
+  }
+  }));
+}
+function offlineStartersForProfile(learner, target) {
+  return catalogOfflineStarterPlan(learner, target).map((entry) => entry.dictionary);
+}
+const log$3 = Logger.scope("OfflineDictionarySetup");
+async function installOfflineParsingDictionaries(options) {
+  const result = { installed: [], skipped: [], failed: [] };
+  const settings = options.getSettings();
+  const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+  const plan = await offlineDictionarySetupPlan(
+  options.dictionaries,
+  slice1LanguageIdForTag(profile?.outputLanguage) ?? "en",
+  learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja",
+  result
+  );
+  if (plan.installed.length) {
+  await captureAlreadyInstalledStarters(options, plan.installed);
+  }
+  for (const target of plan.missing) {
+  try {
+    const importOptions = target.integrity ? { integrity: target.integrity } : void 0;
+    const summary = importOptions ? await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress, importOptions) : await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress);
+    const settings2 = options.getSettings();
+    const dictionaryPreferences = mergeDictionaryPreferences(
+      settings2.dictionaryPreferences,
+      summary.dictionaries,
+      summary.dictionaryTypes ?? {},
+      summary.replacedDictionaries ?? []
+    );
+    await options.applySettings(captureActiveLanguageProfileDictionaries(
+      { ...settings2, localDictionariesEnabled: true },
+      dictionaryPreferences
+    ));
+    result.installed.push(target.name);
+  } catch (error) {
+    result.failed.push(target.name);
+    log$3.warn("Offline dictionary install failed", { dictionary: target.name }, error);
+  }
+  }
+  return result;
+}
+async function offlineDictionarySetupPlan(store, learnerLanguage2, targetLanguage2, result) {
+  const targets2 = offlineStartersForProfile(learnerLanguage2, targetLanguage2);
+  const installedDictionaries = await store.summary().then((summary) => summary.dictionaries).catch(() => []);
+  const missing = [];
+  const installed = [];
+  for (const target of targets2) {
+  const match = installedDictionaries.find((info) => canonicalDownloadUrl(info.downloadUrl ?? "") === canonicalDownloadUrl(target.downloadUrl) || yomitanDictionaryIdentity(info.title) === target.installedIdentity);
+  if (!match) {
+    missing.push(target);
+    continue;
+  }
+  result.skipped.push(target.name);
+  installed.push(match);
+  }
+  return { missing, installed };
+}
+async function captureAlreadyInstalledStarters(options, installed) {
+  const settings = options.getSettings();
+  const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+  const profileInstalledIdentities = new Set(
+  active?.dictionaries.installed.map(yomitanDictionaryIdentity) ?? []
+  );
+  const newlyAddedNames = new Set(installed.filter((info) => !profileInstalledIdentities.has(yomitanDictionaryIdentity(info.title))).map((info) => info.title));
+  let dictionaryPreferences = mergeDictionaryPreferences(
+  settings.dictionaryPreferences,
+  installed.map((info) => info.title),
+  Object.fromEntries(installed.map((info) => [info.title, info.type]))
+  );
+  dictionaryPreferences = dictionaryPreferences.map((preference) => newlyAddedNames.has(preference.name) ? { ...preference, enabled: true } : preference);
+  await options.applySettings(captureActiveLanguageProfileDictionaries(
+  { ...settings, localDictionariesEnabled: true },
+  dictionaryPreferences
+  ));
+}
+function canonicalDownloadUrl(value) {
+  if (!value) return "";
+  try {
+  return new URL(value).href;
+  } catch {
+  return value.trim();
+  }
 }
 function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
   return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
@@ -64566,108 +67714,145 @@ function collectTermMatchCandidates(db, target, candidates, rank) {
   tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
   });
 }
-const log$8 = Logger.scope("DictionaryArchiveCache");
-const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
-const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
-const ARCHIVE_CHUNK_BYTES = 4 * 1024 * 1024;
-const MAX_ARCHIVE_BYTES = 192 * 1024 * 1024;
-async function listDictionaryArchives() {
-  const index = await gmStorageGet(ARCHIVE_INDEX_KEY, null);
-  return index && typeof index === "object" ? index : {};
-}
-async function enumerateDictionaryArchiveStorageKeys() {
-  const stored = await gmStorageGetForResetEnumeration(ARCHIVE_INDEX_KEY, null);
-  if (stored !== null && (typeof stored !== "object" || Array.isArray(stored))) {
-  throw new Error("The dictionary archive index is unreadable.");
-  }
-  const archives = stored ?? {};
-  const keys = [];
-  for (const [identity, meta] of Object.entries(archives)) {
-  if (!Number.isSafeInteger(meta.chunkCount) || meta.chunkCount < 0) {
-    throw new Error(`Dictionary archive metadata is unreadable for ${identity}.`);
-  }
-  for (let chunk = 0; chunk < meta.chunkCount; chunk++) keys.push(archiveChunkKey(identity, chunk));
-  }
-  return keys;
-}
-async function persistDictionaryArchive(input2) {
-  const identity = yomitanDictionaryIdentity(input2.title);
-  try {
-  const previous = (await listDictionaryArchives())[identity];
-  const meta = await writeArchivePayload(identity, input2);
-  if (!meta) return;
-  await updateArchiveIndex((index) => ({ ...index, [identity]: meta }));
-  if (previous && previous.chunkCount > meta.chunkCount) {
-    await deleteArchiveChunks(identity, previous.chunkCount, meta.chunkCount);
-  }
-  log$8.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
-  } catch (error) {
-  log$8.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
-  }
-}
-async function deleteDictionaryArchive(title) {
-  const identity = yomitanDictionaryIdentity(title);
-  const meta = (await listDictionaryArchives())[identity];
-  if (!meta) return;
-  await updateArchiveIndex((index) => {
-  const next = { ...index };
-  delete next[identity];
-  return next;
+async function reconcileManagedStateIdbEpoch(db, epoch, options) {
+  const token = managedStateEpochToken(epoch);
+  const transactionStores = [.../* @__PURE__ */ new Set([
+  options.markerStoreName,
+  ...options.clearedStoreNames,
+  ...(options.deletedRecords ?? []).map((record2) => record2.storeName)
+  ])];
+  let reconciliationError;
+  await new Promise((resolve, reject) => {
+  const tx = db.transaction(transactionStores, "readwrite");
+  const markerStore = tx.objectStore(options.markerStoreName);
+  const request = markerStore.get(options.markerKey);
+  request.onsuccess = () => {
+    const record2 = request.result;
+    const markerMissing = record2 === void 0;
+    if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
+      reconciliationError = managedStateIdbEpochError(options.label, "malformed");
+      return;
+    }
+    const storedToken = markerMissing ? void 0 : record2.token;
+    if (storedToken === token) return;
+    if (storedToken !== void 0) {
+      const relation = managedStateEpochTokenRelation(storedToken, epoch);
+      if (relation === "newer" || relation === "conflict" || relation === "malformed") {
+        reconciliationError = managedStateIdbEpochError(options.label, relation);
+        return;
+      }
+    }
+    if (storedToken !== void 0) {
+      for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
+      for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
+    }
+    markerStore.put({ [options.markerKeyPath]: options.markerKey, token });
+  };
+  request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
+  tx.oncomplete = () => resolve();
+  tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+  tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
   });
-  await deleteArchiveChunks(identity, meta.chunkCount, 0);
-  log$8.info("Dictionary archive deleted", { identity });
+  if (reconciliationError) throw reconciliationError;
+  await assertManagedStateMutationAllowed();
 }
-async function writeArchivePayload(identity, input2) {
-  if (input2.downloadUrl) {
-  return {
-    title: input2.title,
-    filename: input2.filename,
-    downloadUrl: input2.downloadUrl,
-    ...input2.integrity?.sha256 ? { sha256: input2.integrity.sha256 } : {},
-    size: input2.integrity?.bytes ?? input2.file?.size ?? 0,
-    chunkCount: 0
+async function runManagedStateIdbWrite(db, marker, storeNames, mutate, options = {}) {
+  const epoch = await assertManagedStateMutationAllowed();
+  const transactionStores = [.../* @__PURE__ */ new Set([
+  marker.storeName,
+  ...typeof storeNames === "string" ? [storeNames] : storeNames
+  ])];
+  const tx = managedStateIdbTransaction(db, transactionStores, options.durability);
+  const done = idbTransactionDone(tx);
+  let mutationError;
+  const markerRequest = tx.objectStore(marker.storeName).get(marker.key);
+  markerRequest.onsuccess = () => {
+  try {
+    assertManagedStateIdbMarker(markerRequest.result, epoch);
+    mutate(tx);
+  } catch (error) {
+    mutationError = error;
+    try {
+      tx.abort();
+    } catch {
+    }
+  }
   };
+  try {
+  await done;
+  } catch (error) {
+  throw mutationError ?? error;
   }
-  if (!input2.file) return null;
-  if (input2.file.size > MAX_ARCHIVE_BYTES) {
-  log$8.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
-  return null;
-  }
-  const bytes = await blobBytes(input2.file);
-  const chunkCount = Math.ceil(bytes.length / ARCHIVE_CHUNK_BYTES) || 1;
-  for (let chunk = 0; chunk < chunkCount; chunk++) {
-  const slice = bytes.subarray(chunk * ARCHIVE_CHUNK_BYTES, (chunk + 1) * ARCHIVE_CHUNK_BYTES);
-  await gmStorageSet(archiveChunkKey(identity, chunk), bytesToBase64(slice));
-  }
-  return {
-  title: input2.title,
-  filename: input2.filename,
-  ...input2.integrity?.sha256 ? { sha256: input2.integrity.sha256 } : {},
-  size: bytes.length,
-  chunkCount
-  };
+  if (mutationError) throw mutationError;
+  await assertManagedStateMutationAllowed();
 }
-async function updateArchiveIndex(update) {
-  const index = await listDictionaryArchives();
-  await gmStorageSet(ARCHIVE_INDEX_KEY, update(index));
-}
-async function deleteArchiveChunks(identity, fromCount, keep) {
-  for (let chunk = keep; chunk < fromCount; chunk++) {
-  await gmStorageDelete(archiveChunkKey(identity, chunk));
+function managedStateIdbTransaction(db, storeNames, durability) {
+  if (!durability) return db.transaction(storeNames, "readwrite");
+  try {
+  return db.transaction(storeNames, "readwrite", { durability });
+  } catch {
+  return db.transaction(storeNames, "readwrite");
   }
 }
-function archiveChunkKey(identity, chunk) {
-  return `${ARCHIVE_CHUNK_PREFIX}${identity}:${chunk}`;
+function idbTransactionDone(tx) {
+  return new Promise((resolve, reject) => {
+  tx.oncomplete = () => resolve();
+  tx.onerror = () => reject(tx.error ?? new Error("Managed IndexedDB write failed."));
+  tx.onabort = () => reject(tx.error ?? new Error("Managed IndexedDB write aborted."));
+  });
 }
-async function blobBytes(blob) {
-  return localBytesFromBlob(blob);
+function managedStateIdbEpochError(label, relation) {
+  if (relation === "newer") return new Error(`${label} belongs to a newer managed-state epoch.`);
+  if (relation === "conflict") return new Error(`${label} has a conflicting managed-state epoch.`);
+  return new Error(`${label} has a malformed managed-state epoch.`);
 }
-function bytesToBase64(bytes) {
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 32768) {
-  binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+function assertManagedStateIdbMarker(record2, epoch) {
+  if (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string") {
+  throw new Error("Managed IndexedDB epoch marker is missing or malformed.");
   }
-  return btoa(binary);
+  const storedToken = record2.token;
+  if (storedToken !== managedStateEpochToken(epoch)) {
+  throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
+  }
+}
+const MANAGED_STATE_STORE = "managedState";
+const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
+const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
+const CONTENT_STORES = [
+  "terms",
+  "kanji",
+  "termMeta",
+  "kanjiMeta",
+  "dictionaryInfo",
+  "termSearch",
+  "termKanji"
+];
+function ensureYomitanManagedStateStore(db) {
+  if (!db.objectStoreNames.contains(MANAGED_STATE_STORE)) {
+  db.createObjectStore(MANAGED_STATE_STORE, { keyPath: "key" });
+  }
+}
+function reconcileYomitanManagedStateEpoch(db, epoch) {
+  return reconcileManagedStateIdbEpoch(db, epoch, {
+  label: "Dictionary database",
+  markerStoreName: MANAGED_STATE_STORE,
+  markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
+  markerKeyPath: "key",
+  clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
+  });
+}
+async function fencedYomitanDbHandle(current, open) {
+  const existing = current();
+  if (existing) {
+  await assertManagedStateReadAllowed();
+  return existing;
+  }
+  const db = await open(await assertManagedStateMutationAllowed());
+  await assertManagedStateMutationAllowed();
+  return db;
+}
+function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
+  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
 }
 function readBlobWithFileReader(blob, read, result) {
   return new Promise((resolve, reject) => {
@@ -64967,7 +68152,151 @@ function findJsonStringEnd(value, quoteIndex) {
   }
   return -1;
 }
-const log$7 = Logger.scope("Yomitan");
+async function beginDictionaryImport() {
+  await assertManagedStateMutationAllowed();
+  const requestedAt = await dictionaryReplicaPurgeRequest();
+  return (tx, mutate) => markDictionaryReplicaFresh(tx, requestedAt, mutate);
+}
+let persistentStorageRequested = false;
+function requestPersistentDictionaryStorage() {
+  if (persistentStorageRequested) return;
+  persistentStorageRequested = true;
+  try {
+  void navigator.storage?.persist?.().then((granted) => {
+    Logger.scope("Yomitan").info("Persistent storage request", { granted });
+  }).catch(() => void 0);
+  } catch {
+  }
+}
+function runDictionaryImportWrite(db, stores, mutate, options, importing) {
+  return runYomitanManagedStateWrite(db, stores, (tx) => {
+  if (importing) importing(tx, () => mutate(tx));
+  else mutate(tx);
+  }, options);
+}
+async function validateZipDictionaryBanks(zip, dictionary, version) {
+  const normalizers = {
+  term: (row) => normalizeZipTermRow(row, dictionary),
+  kanji: (row) => normalizeZipKanjiRow(row, dictionary, version),
+  term_meta: (row) => normalizeZipTermMetaRow(row, dictionary),
+  kanji_meta: (row) => normalizeZipKanjiMetaRow(row, dictionary)
+  };
+  let supported = false;
+  for (const bank of zip.entries().filter((entry) => /^(?:term|kanji)(?:_meta)?_bank_\d+\.json$/i.test(entry.name))) {
+  const rows = JSON.parse(await zip.text(bank.name));
+  if (!Array.isArray(rows)) throw new TypeError(`Invalid dictionary bank: ${bank.name}`);
+  const kind = bank.name.toLowerCase().split("_bank_")[0];
+  if (!supported) supported = rows.some((row) => normalizers[kind](row) !== null);
+  }
+  return supported;
+}
+const MAX_DEXIE_SCALAR_LENGTH = 128;
+const MAX_DEXIE_NESTING = 128;
+async function validateDexieJson(file) {
+  const stack = [];
+  let root = "value";
+  let string = false, escaped = false, unicode = 0, atom = "", text2 = "";
+  let rootKey = "", format;
+  const fail2 = () => {
+  throw new SyntaxError("Invalid Dexie JSON dictionary.");
+  };
+  const value = () => {
+  const frame = stack.at(-1);
+  if (stack.length === 1 && rootKey === "formatName") format = void 0;
+  if (!frame) {
+    if (root !== "value") fail2();
+    root = "done";
+  } else {
+    if (!["value", "value-or-end"].includes(frame.next)) fail2();
+    frame.next = "comma-or-end";
+  }
+  };
+  const stringToken = () => {
+  const frame = stack.at(-1);
+  const decoded = text2.length < 256 ? JSON.parse(`"${text2}"`) : "";
+  if (frame?.kind === "object" && ["key", "key-or-end"].includes(frame.next)) {
+    frame.next = "colon";
+    if (stack.length === 1) rootKey = decoded;
+  } else {
+    value();
+    if (stack.length === 1 && rootKey === "formatName") format = decoded;
+  }
+  };
+  const finishAtom = () => {
+  if (!atom) return;
+  if (!/^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(atom)) fail2();
+  value();
+  atom = "";
+  };
+  for (let offset = 0; offset < file.size; offset += 262144) {
+  const chunk = await readBlobText(file.slice(offset, offset + 262144));
+  for (const char of chunk) {
+    if (string) {
+      if (char !== '"' || escaped || unicode) {
+        if (text2.length < 256) text2 += char;
+      }
+      if (unicode) {
+        if (!/[0-9a-f]/i.test(char)) fail2();
+        unicode--;
+        continue;
+      }
+      if (escaped) {
+        if (char === "u") unicode = 4;
+        else if (!'"\\/bfnrt'.includes(char)) fail2();
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        string = false;
+        stringToken();
+        continue;
+      }
+      if (char.charCodeAt(0) < 32) fail2();
+      continue;
+    }
+    if (/[ \t\r\n]/.test(char) || '{}[],:"'.includes(char)) finishAtom();
+    else {
+      if (atom.length >= MAX_DEXIE_SCALAR_LENGTH) throw new RangeError("Dexie import scalar exceeds 128 characters.");
+      atom += char;
+      continue;
+    }
+    if (/[ \t\r\n]/.test(char)) continue;
+    const frame = stack.at(-1);
+    if (char === '"') {
+      string = true;
+      text2 = "";
+    } else if (char === "{" || char === "[") {
+      if (stack.length >= MAX_DEXIE_NESTING) throw new RangeError("Dexie import nesting exceeds 128 levels.");
+      value();
+      stack.push({ kind: char === "{" ? "object" : "array", next: char === "{" ? "key-or-end" : "value-or-end" });
+    } else if (char === "}" || char === "]") {
+      if (!frame || frame.kind !== (char === "}" ? "object" : "array") || !["key-or-end", "value-or-end", "comma-or-end"].includes(frame.next)) fail2();
+      stack.pop();
+    } else if (char === ":") {
+      if (!frame || frame.next !== "colon") return fail2();
+      frame.next = "value";
+    } else if (char === ",") {
+      if (!frame || frame.next !== "comma-or-end") return fail2();
+      frame.next = frame.kind === "object" ? "key" : "value";
+    }
+  }
+  }
+  finishAtom();
+  if (string || escaped || unicode || stack.length || root !== "done" || format !== "dexie") fail2();
+  const known = /* @__PURE__ */ new Set(["dictionaries", "terms", "kanji", "termMeta", "kanjiMeta"]);
+  let recognized = false;
+  await streamDexieTables(file, {}, (table) => {
+  if (known.has(table)) recognized = true;
+  });
+  const counts = await readDexieTableRowCounts(file);
+  if (!recognized && !Object.keys(counts).some((table) => known.has(table))) fail2();
+  return counts;
+}
+const log$2 = Logger.scope("Yomitan");
 function filenameFromUrl(url) {
   try {
   const parsed = new URL(url);
@@ -65015,7 +68344,7 @@ function formatBytes(value) {
   return `${size.toFixed(precision)} ${units[unit]}`;
 }
 async function requestBlob(url, proxyUrl, onProgress, language2 = "en") {
-  const done = log$7.time("Dictionary download", { host: safeHost(url) });
+  const done = log$2.time("Dictionary download", { host: safeHost(url) });
   const userscriptRequest = getUserscriptHttpRequest();
   if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
   return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
@@ -65036,26 +68365,26 @@ function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, lang
   },
   readResponse: (response) => {
     if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-      log$7.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
+      log$2.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
       done();
       return response.response;
     }
     if (response.status < 200 || response.status >= 300) {
-      log$7.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+      log$2.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
       done();
       throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, response.status) });
     }
-    log$7.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+    log$2.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
     done();
     throw userFacingError("dictionaryDownloadNotZip", { diagnostic: `Dictionary download payload was not a ZIP (status ${response.status}).` });
   },
   onError: () => {
-    log$7.warn("Dictionary download failed", { host: safeHost(url) });
+    log$2.warn("Dictionary download failed", { host: safeHost(url) });
     done();
     return userFacingError("dictionaryDownloadFailed", { diagnostic: "The userscript manager reported a request error." });
   },
   onTimeout: () => {
-    log$7.warn("Dictionary download timed out", { host: safeHost(url) });
+    log$2.warn("Dictionary download timed out", { host: safeHost(url) });
     done();
     return userFacingError("dictionaryDownloadTimedOut", { diagnostic: "The dictionary download exceeded its 120s budget." });
   }
@@ -65080,7 +68409,7 @@ async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress,
   const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
   if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
   const blob = await responseBlobWithProgress(response, onProgress, language2);
-  log$7.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
+  log$2.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
   done();
   return blob;
 }
@@ -65113,17 +68442,17 @@ function formatDictionaryDownloadProgress(language2, loaded, total) {
   return `${label} ${formatBytes(loaded)}...`;
 }
 function throwDictionaryHttpError(url, status, language2) {
-  log$7.warn("Dictionary download HTTP error", { host: safeHost(url), status });
+  log$2.warn("Dictionary download HTTP error", { host: safeHost(url), status });
   throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, status) });
 }
 function handleDictionaryFetchError(url, downloadUrl, error, done) {
   const host = safeHost(url);
   if (isDictionaryCorsError(error)) {
-  log$7.warn("Dictionary download CORS failed", { host, downloadUrl });
+  log$2.warn("Dictionary download CORS failed", { host, downloadUrl });
   done();
   throw userFacingError("dictionaryDownloadBlocked", { diagnostic: `Cross-origin dictionary download was blocked for ${host}.` });
   }
-  log$7.warn("Dictionary download fetch failed", { host, error });
+  log$2.warn("Dictionary download fetch failed", { host, error });
   done();
   throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
 }
@@ -65667,146 +68996,6 @@ ${scopedInner}
       break;
     }
     return start;
-  }
-  async function reconcileManagedStateIdbEpoch(db, epoch, options) {
-    const token = managedStateEpochToken(epoch);
-    const transactionStores = [.../* @__PURE__ */ new Set([
-      options.markerStoreName,
-      ...options.clearedStoreNames,
-      ...(options.deletedRecords ?? []).map((record2) => record2.storeName)
-    ])];
-    let reconciliationError;
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(transactionStores, "readwrite");
-      const markerStore = tx.objectStore(options.markerStoreName);
-      const request = markerStore.get(options.markerKey);
-      request.onsuccess = () => {
-        const record2 = request.result;
-        const markerMissing = record2 === void 0;
-        if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
-          reconciliationError = managedStateIdbEpochError(options.label, "malformed");
-          return;
-        }
-        const storedToken = markerMissing ? void 0 : record2.token;
-        if (storedToken === token) return;
-        if (storedToken !== void 0) {
-          const relation = managedStateEpochTokenRelation(storedToken, epoch);
-          if (relation === "newer" || relation === "conflict" || relation === "malformed") {
-            reconciliationError = managedStateIdbEpochError(options.label, relation);
-            return;
-          }
-        }
-        if (storedToken !== void 0) {
-          for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
-          for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
-        }
-        markerStore.put({ [options.markerKeyPath]: options.markerKey, token });
-      };
-      request.onerror = () => reject(request.error ?? new Error(`Could not read ${options.label} epoch.`));
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-      tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
-    });
-    if (reconciliationError) throw reconciliationError;
-    await assertManagedStateMutationAllowed();
-  }
-  async function runManagedStateIdbWrite(db, marker, storeNames, mutate, options = {}) {
-    const epoch = await assertManagedStateMutationAllowed();
-    const transactionStores = [.../* @__PURE__ */ new Set([
-      marker.storeName,
-      ...typeof storeNames === "string" ? [storeNames] : storeNames
-    ])];
-    const tx = managedStateIdbTransaction(db, transactionStores, options.durability);
-    const done = idbTransactionDone(tx);
-    let mutationError;
-    const markerRequest = tx.objectStore(marker.storeName).get(marker.key);
-    markerRequest.onsuccess = () => {
-      try {
-        assertManagedStateIdbMarker(markerRequest.result, epoch);
-        mutate(tx);
-      } catch (error) {
-        mutationError = error;
-        try {
-          tx.abort();
-        } catch {
-        }
-      }
-    };
-    try {
-      await done;
-    } catch (error) {
-      throw mutationError ?? error;
-    }
-    if (mutationError) throw mutationError;
-    await assertManagedStateMutationAllowed();
-  }
-  function managedStateIdbTransaction(db, storeNames, durability) {
-    if (!durability) return db.transaction(storeNames, "readwrite");
-    try {
-      return db.transaction(storeNames, "readwrite", { durability });
-    } catch {
-      return db.transaction(storeNames, "readwrite");
-    }
-  }
-  function idbTransactionDone(tx) {
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("Managed IndexedDB write failed."));
-      tx.onabort = () => reject(tx.error ?? new Error("Managed IndexedDB write aborted."));
-    });
-  }
-  function managedStateIdbEpochError(label, relation) {
-    if (relation === "newer") return new Error(`${label} belongs to a newer managed-state epoch.`);
-    if (relation === "conflict") return new Error(`${label} has a conflicting managed-state epoch.`);
-    return new Error(`${label} has a malformed managed-state epoch.`);
-  }
-  function assertManagedStateIdbMarker(record2, epoch) {
-    if (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string") {
-      throw new Error("Managed IndexedDB epoch marker is missing or malformed.");
-    }
-    const storedToken = record2.token;
-    if (storedToken !== managedStateEpochToken(epoch)) {
-      throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
-    }
-  }
-  const MANAGED_STATE_STORE = "managedState";
-  const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
-  const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
-  const CONTENT_STORES = [
-    "terms",
-    "kanji",
-    "termMeta",
-    "kanjiMeta",
-    "dictionaryInfo",
-    "termSearch",
-    "termKanji"
-  ];
-  function ensureYomitanManagedStateStore(db) {
-    if (!db.objectStoreNames.contains(MANAGED_STATE_STORE)) {
-      db.createObjectStore(MANAGED_STATE_STORE, { keyPath: "key" });
-    }
-  }
-  function reconcileYomitanManagedStateEpoch(db, epoch) {
-    return reconcileManagedStateIdbEpoch(db, epoch, {
-      label: "Dictionary database",
-      markerStoreName: MANAGED_STATE_STORE,
-      markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
-      markerKeyPath: "key",
-      clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
-    });
-  }
-  async function fencedYomitanDbHandle(current, open) {
-    const existing = current();
-    if (existing) {
-      await assertManagedStateReadAllowed();
-      return existing;
-    }
-    const db = await open(await assertManagedStateMutationAllowed());
-    await assertManagedStateMutationAllowed();
-    return db;
-  }
-  function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
-    return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
   }
   function importEntryStores() {
     return ["terms", "kanji", "termMeta", "kanjiMeta"];
@@ -66726,7 +69915,7 @@ ${entry.reading}`;
   function hasCommonDictionaryScore(entry) {
     return typeof entry.score === "number" && entry.score >= 5;
   }
-  function formatUiTemplate$1(template, values) {
+  function formatUiTemplate(template, values) {
     return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
   }
   function formatDexieImportProgress(text2, imported, totalRows) {
@@ -66837,250 +70026,6 @@ ${entry.reading}`;
     }
     return entries2;
   }
-  const log$6 = Logger.scope("YomitanSettingsImport");
-  const AUDIO_BOOLEAN_IMPORTS = [
-    { sourceKey: "enabled", targetKey: "audioEnabled" },
-    { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
-    { sourceKey: "enableDefaultAudioSources", targetKey: "audioEnableDefaultSources" }
-  ];
-  const ANKI_BOOLEAN_IMPORTS = [
-    { sourceKey: "enable", targetKey: "ankiEnabled" }
-  ];
-  function parseYomitanSettingsExport(value, language2 = "en") {
-    const done = log$6.time("Yomitan settings export parse");
-    const profileOptions = getYomitanProfileOptions(value);
-    if (!profileOptions) {
-      done();
-      log$6.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
-      throw new Error(uiText(language2, "yomitanSettingsInvalid"));
-    }
-    const settings = {};
-    const sections = readYomitanProfileSections(profileOptions);
-    applyAudioSettings(settings, sections.audio);
-    applyGeneralSettings(settings, sections.general);
-    applyScanningSettings(settings, sections.scanning);
-    applyAnkiSettings(settings, sections.anki);
-    const dictionaryPreferences = readDictionaryPreferences(profileOptions);
-    applyDictionarySettings(settings, dictionaryPreferences);
-    const dictionaryNames = dictionaryPreferences.filter((item) => item.enabled).map((item) => item.name);
-    settings.yomitanSettingsBackup = value;
-    applyInputShortcuts(settings, sections.inputs);
-    done();
-    log$6.info("Yomitan settings import parsed", {
-      hasAudioSources: Boolean(settings.audioSources?.length),
-      theme: settings.theme
-    });
-    return { settings, dictionaryNames };
-  }
-  function readYomitanProfileSections(profileOptions) {
-    return {
-      audio: profileOptions.audio,
-      general: profileOptions.general,
-      scanning: profileOptions.scanning,
-      anki: profileOptions.anki,
-      inputs: profileOptions.inputs
-    };
-  }
-  function applyAudioSettings(settings, audio) {
-    applyBooleanSettingImports(settings, audio, AUDIO_BOOLEAN_IMPORTS);
-    applyAudioFallbackChimeSetting(settings, audio?.fallbackSoundType);
-    applyAudioSourceSettings(settings, audio?.sources);
-  }
-  function applyBooleanSettingImports(settings, source, imports) {
-    for (const item of imports) {
-      if (typeof source?.[item.sourceKey] === "boolean") assignImportedSetting(settings, item.targetKey, source[item.sourceKey]);
-    }
-  }
-  function applyTrimmedStringSetting(settings, value, targetKey) {
-    if (typeof value !== "string") return;
-    const trimmed = value.trim();
-    if (trimmed) assignImportedSetting(settings, targetKey, trimmed);
-  }
-  function assignImportedSetting(settings, key, value) {
-    settings[key] = value;
-  }
-  function applyAudioFallbackChimeSetting(settings, value) {
-    if (typeof value === "string") settings.audioFallbackChimeEnabled = value !== "none";
-  }
-  function applyAudioSourceSettings(settings, sources) {
-    if (!Array.isArray(sources)) return;
-    settings.audioSources = sources.map(normalizeAudioSource).filter((source) => source !== null);
-    settings.audioSourceUrl = settings.audioSources.find((source) => source.url)?.url;
-  }
-  function applyGeneralSettings(settings, general) {
-    applyImportedLanguage(settings, general?.language);
-    applyImportedTheme(settings, general);
-    applyGeneralPopupSizeSettings(settings, general);
-    applyLocalDictionaryMaxResults(settings, general?.maxResults);
-    applyPitchDisplaySetting(settings, general);
-  }
-  function applyImportedLanguage(settings, value) {
-    const language2 = importedInterfaceLanguage(value);
-    if (language2) settings.interfaceLanguage = language2;
-  }
-  function applyImportedTheme(settings, general) {
-    const theme = importedPopupTheme(general);
-    if (theme) settings.theme = theme;
-  }
-  function applyGeneralPopupSizeSettings(settings, general) {
-    applyPositiveNumberSetting(settings, general?.popupWidth, "popoverWidth", 280, 900);
-    applyPositiveNumberSetting(settings, general?.popupHeight, "popoverHeight", 220, 900);
-    if (hasPositiveNumber(general?.popupVerticalOffset)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
-  }
-  function applyPositiveNumberSetting(settings, value, targetKey, min, max2) {
-    if (hasPositiveNumber(value)) assignImportedSetting(settings, targetKey, clampNumber(value, min, max2));
-  }
-  function applyLocalDictionaryMaxResults(settings, value) {
-    if (typeof value === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, value));
-  }
-  function applyPitchDisplaySetting(settings, general) {
-    const pitchEnabled = importedPitchDisplayEnabled(general);
-    if (typeof pitchEnabled === "boolean") settings.showPitchAccent = pitchEnabled;
-  }
-  function importedInterfaceLanguage(value) {
-    return value === "en" || value === "ja" || value === "auto" ? value : "";
-  }
-  function importedPopupTheme(general) {
-    return general?.popupTheme === "dark" || general?.popupTheme === "light" ? general.popupTheme : "";
-  }
-  function hasPositiveNumber(value) {
-    return typeof value === "number" && value > 0;
-  }
-  function importedPopupVerticalOffset(general) {
-    return Math.max(6, Math.min(24, Math.round(Number(general?.popupVerticalOffset) || 12)));
-  }
-  function importedPitchDisplayEnabled(general) {
-    const values = [
-      general?.showPitchAccentDownstepNotation,
-      general?.showPitchAccentPositionNotation,
-      general?.showPitchAccentGraph
-    ].filter((value) => typeof value === "boolean");
-    return values.length ? values.some(Boolean) : void 0;
-  }
-  function applyScanningSettings(settings, scanning) {
-    if (typeof scanning?.delay === "number") settings.hoverOpenDelayMs = clampNumber(scanning.delay, 0, 1500);
-    if (typeof scanning?.hideDelay === "number") settings.hoverCloseDelayMs = clampNumber(scanning.hideDelay, 0, 3e3);
-    applyScanInputSettings(settings, scanning);
-  }
-  function applyAnkiSettings(settings, anki) {
-    applyBooleanSettingImports(settings, anki, ANKI_BOOLEAN_IMPORTS);
-    applyTrimmedStringSetting(settings, anki?.server, "ankiConnectUrl");
-    applyAnkiTagsSetting(settings, anki?.tags);
-    applyAnkiCardFormatSettings(settings, firstYomitanTermCardFormat(anki?.cardFormats));
-    applyAnkiScreenshotSetting(settings, anki?.screenshot);
-  }
-  function applyAnkiTagsSetting(settings, value) {
-    if (Array.isArray(value)) settings.ankiTags = value.map((tag) => String(tag).trim()).filter(Boolean).join(" ");
-  }
-  function applyAnkiCardFormatSettings(settings, cardFormat) {
-    if (!cardFormat) return;
-    applyTrimmedStringSetting(settings, cardFormat.deck, "ankiDeck");
-    applyTrimmedStringSetting(settings, cardFormat.model, "ankiModel");
-  }
-  function applyAnkiScreenshotSetting(settings, value) {
-    if (isObjectRecord(value)) settings.ankiCaptureScreenshot = true;
-  }
-  function firstYomitanTermCardFormat(value) {
-    if (!Array.isArray(value)) return null;
-    return value.find((item) => isObjectRecord(item) && (item.type === "term" || item.type == null)) ?? null;
-  }
-  function applyDictionarySettings(settings, preferences) {
-    if (!preferences.length) return;
-    settings.dictionaryPreferences = normalizeDictionaryPreferences(preferences);
-  }
-  function applyInputShortcuts(settings, inputs) {
-    applyYomitanShortcut(settings, inputs, "playAudio", "playAudio");
-    applyYomitanShortcut(settings, inputs, "close", "closePopup");
-  }
-  function applyYomitanShortcut(settings, inputs, action, target) {
-    const hotkey = inputs?.hotkeys?.find((item) => item.action === action && item.enabled !== false);
-    if (!hotkey) return;
-    const key = String(hotkey.key || "").replace(/^Key/, "");
-    const modifiers = Array.isArray(hotkey.modifiers) ? hotkey.modifiers.map((v) => String(v)) : [];
-    settings.shortcuts = {
-      ...settings.shortcuts,
-      [target]: [...modifiers.map(capitalize), key].filter(Boolean).join("+")
-    };
-  }
-  function readDictionaryPreferences(profileOptions) {
-    const dictionaries2 = Array.isArray(profileOptions.dictionaries) ? profileOptions.dictionaries : [];
-    return dictionaries2.map((item, index) => {
-      const name = typeof item.name === "string" ? item.name.trim() : "";
-      if (!name) return null;
-      return {
-        name,
-        alias: typeof item.alias === "string" && item.alias.trim() ? item.alias.trim() : name,
-        enabled: item.enabled !== false,
-        priority: index,
-        allowSecondarySearches: item.allowSecondarySearches === true
-      };
-    }).filter((item) => item !== null);
-  }
-  function applyScanInputSettings(settings, scanning) {
-    const scanInput = firstScanInput(scanning);
-    if (!scanInput) return;
-    const include = String(scanInput.include ?? "").toLowerCase();
-    const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
-    if (modifier) {
-      settings.lookupOnHover = true;
-      settings.popupActivationMode = "modifier";
-      settings.scanModifierKey = modifier;
-      settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
-      return;
-    }
-    const options = scanInput.options;
-    if (shouldEnablePlainHoverScan(options, include)) {
-      settings.lookupOnHover = true;
-      settings.popupActivationMode = "hover";
-      settings.shortcuts = { ...settings.shortcuts, hoverLookup: "" };
-    }
-  }
-  function firstScanInput(scanning) {
-    if (!Array.isArray(scanning?.inputs)) return null;
-    return scanning.inputs.find(isRecordScanInput) ?? null;
-  }
-  function isRecordScanInput(input2) {
-    return Boolean(input2 && typeof input2 === "object");
-  }
-  function isObjectRecord(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
-  }
-  function shouldEnablePlainHoverScan(options, include) {
-    return options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === "";
-  }
-  function getYomitanProfileOptions(value) {
-    if (!value || typeof value !== "object") return null;
-    const record2 = value;
-    return profileOptionsFromRoot(record2.options) ?? profileOptionsFromProfiles(record2.profiles, record2);
-  }
-  function profileOptionsFromRoot(rootOptions) {
-    if (!rootOptions || typeof rootOptions !== "object") return null;
-    const rootOptionRecord = rootOptions;
-    return nestedProfileOptions(rootOptionRecord.profiles, rootOptionRecord.profileCurrent) ?? rootOptionRecord;
-  }
-  function profileOptionsFromProfiles(profilesValue, fallback) {
-    const profile = selectedProfileRecord(profilesValue, fallback.profileCurrent) ?? fallback;
-    const options = profile.options;
-    return options && typeof options === "object" ? options : null;
-  }
-  function nestedProfileOptions(profilesValue, profileCurrent) {
-    const options = selectedProfileRecord(profilesValue, profileCurrent)?.options;
-    return options && typeof options === "object" ? options : null;
-  }
-  function selectedProfileRecord(value, profileCurrent) {
-    if (!Array.isArray(value)) return null;
-    const index = Number(profileCurrent);
-    const selected = Number.isInteger(index) && index >= 0 && index < value.length ? value[index] : null;
-    const profile = selected && typeof selected === "object" ? selected : value.find((item) => item && typeof item === "object");
-    return profile ? profile : null;
-  }
-  function capitalize(value) {
-    return value ? `${value[0].toUpperCase()}${value.slice(1).toLowerCase()}` : value;
-  }
-  function clampNumber(value, min, max2) {
-    const number = Number(value);
-    return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
-  }
   const DB_NAME = "jpdb-popup-reader-yomitan";
   const DB_VERSION = 7;
   const DB_OPEN_TIMEOUT_MS = 1e4;
@@ -67107,18 +70052,7 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
-  const log$5 = Logger.scope("Yomitan");
-  let persistentStorageRequested = false;
-  function requestPersistentDictionaryStorage() {
-    if (persistentStorageRequested) return;
-    persistentStorageRequested = true;
-    try {
-      void navigator.storage?.persist?.().then((granted) => {
-        log$5.info("Persistent storage request", { granted });
-      }).catch(() => void 0);
-    } catch {
-    }
-  }
+  const log$1 = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -67143,7 +70077,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$5.warn("Term search index preparation failed", { error });
+        log$1.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -67181,7 +70115,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [...expressionVariants, ...readingVariants, limit], preferences),
         async () => {
-          const done = log$5.time("Term lookup", {
+          const done = log$1.time("Term lookup", {
             expression: normalizedExpression,
             reading: normalizedReading,
             limit,
@@ -67212,7 +70146,7 @@ ${entry.reading}`;
             });
             return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
           } catch (error) {
-            log$5.warn("Term lookup failed", {
+            log$1.warn("Term lookup failed", {
               expression: normalizedExpression,
               reading: normalizedReading,
               error
@@ -67226,7 +70160,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$5.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$1.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -67245,7 +70179,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$5.warn("Term search failed", { query: normalizedQuery, error });
+        log$1.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -67255,7 +70189,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$5.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$1.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -67264,7 +70198,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
-            log$5.warn("Kanji lookup failed", { length: text2.length, error });
+            log$1.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -67275,14 +70209,14 @@ ${entry.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$5.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$1.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$5.warn("Kanji character list failed", { error });
+        log$1.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -67294,7 +70228,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [...expressionVariants, limit], preferences),
         async () => {
-          const done = log$5.time("Term metadata lookup", {
+          const done = log$1.time("Term metadata lookup", {
             expression: normalizedExpression,
             limit,
             dictionaries: preferences.length
@@ -67312,7 +70246,7 @@ ${entry.reading}`;
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$5.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
+            log$1.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
             throw error;
           } finally {
             done();
@@ -67324,7 +70258,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$5.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$1.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -67334,7 +70268,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$5.warn("Similar terms by kanji lookup failed", { character, error });
+            log$1.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -67344,10 +70278,10 @@ ${entry.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = [], target = activeLearningTarget()) {
       const targetGeneration = activeLearningTargetGeneration();
-      const done = log$5.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$1.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = codePointSafePrefix(text2, TERM_MATCH_SOURCE_LIMIT);
       if (source.length < text2.length) {
-        log$5.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
+        log$1.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
       }
       if (!source.trim()) {
         done();
@@ -67357,7 +70291,7 @@ ${entry.reading}`;
         const matches = await this.sweepTermMatchWindows(source, limit, preferences, target, targetGeneration);
         return isCurrentLookupTarget(target, targetGeneration) ? matches : [];
       } catch (error) {
-        log$5.warn("Inline term match search failed", { length: source.length, error });
+        log$1.warn("Inline term match search failed", { length: source.length, error });
         throw error;
       } finally {
         done();
@@ -67441,20 +70375,20 @@ ${entry.reading}`;
       return false;
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$5.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$1.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$5.warn("Random term listing failed", { limit, error });
+        log$1.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$5.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$1.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -67471,7 +70405,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$5.warn("Random top term listing failed", { limit, error });
+        log$1.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -67554,16 +70488,16 @@ ${entry.reading}`;
     }
     async importFile(file, onProgress, sourceUrl = "", options = {}) {
       await assertManagedStateMutationAllowed();
-      const done = log$5.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$1.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$5.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$1.info("Dictionary file import started", fileSummary(file, sourceUrl));
         if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
         if (options.persistArchive !== false) requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
-        log$5.info("Dictionary file import completed", summary);
+        log$1.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$5.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$1.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
@@ -67571,12 +70505,12 @@ ${entry.reading}`;
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
       await assertManagedStateMutationAllowed();
-      log$5.info("Dictionary URL import started", { filename, host: safeHost(url) });
+      log$1.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url, options);
-      log$5.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
+      log$1.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
@@ -67596,15 +70530,17 @@ ${entry.reading}`;
       const dictionary = yomitanZipDictionaryName(index, file.name);
       const version = yomitanZipVersion(index);
       const bankCount = countYomitanZipBanks(zipEntries);
-      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${formatUiTemplate$1(uiText(language2, "dictionaryBanksFound"), {
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${formatUiTemplate(uiText(language2, "dictionaryBanksFound"), {
     count: bankCount.toLocaleString(),
     plural: bankCount === 1 ? "" : "s"
   })}`);
+      if (!await validateZipDictionaryBanks(zip, dictionary, version)) throw new Error(this.text("dictionaryNoSupportedBanks"));
+      const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
+      const importing = await beginDictionaryImport();
       onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language2, "dictionaryRemovingExisting")}...`);
-      const replacedDictionaries = await this.deleteDictionariesWithSameIdentity(dictionary);
+      const replacedDictionaries = await this.deleteDictionariesWithSameIdentity(dictionary, importing);
       onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: preparing storage...`);
       const db = await this.db();
-      const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
       const summary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
       let ipaRows = 0;
       let clearedTermIndexesForImport = false;
@@ -67616,7 +70552,7 @@ ${entry.reading}`;
         const flush = async () => {
           if (!pending2.length) return;
           if (store === "terms" && !clearedTermIndexesForImport) {
-            await this.clearDerivedTermIndexes(db);
+            await this.clearDerivedTermIndexes(db, importing);
             clearedTermIndexesForImport = true;
           }
           const entries2 = pending2;
@@ -67625,7 +70561,7 @@ ${entry.reading}`;
           onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language2, "dictionarySavingBank")} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
           await this.addToStore(store, entries2, false, store !== "terms", (written) => {
             onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language2, "dictionarySavingBank")} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
-          });
+          }, importing);
           saved += entries2.length;
           if (store === "terms") importedTerms = true;
         };
@@ -67659,11 +70595,11 @@ ${entry.reading}`;
       await importBank(/^term_meta_bank_\d+\.json$/i, "termMeta", "termMeta", (row) => normalizeZipTermMetaRow(row, dictionary));
       await importBank(/^kanji_meta_bank_\d+\.json$/i, "kanjiMeta", "kanjiMeta", (row) => normalizeZipKanjiMetaRow(row, dictionary));
       if (summary.entries === 0) throw new Error(this.text("dictionaryNoSupportedBanks"));
-      if (importedTerms) await this.clearDerivedTermIndexes(db);
+      if (importedTerms) await this.clearDerivedTermIndexes(db, importing);
       info.counts = dictionaryCountsFromSummary(summary, ipaRows);
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
-      await this.putDictionaryInfo(info);
+      await this.putDictionaryInfo(info, importing);
       if (options.persistArchive !== false) {
         await persistDictionaryArchive({
           title: dictionary,
@@ -67673,7 +70609,7 @@ ${entry.reading}`;
           integrity: options.integrity
         });
       }
-      log$5.info("ZIP dictionary import parsed", summary);
+      log$1.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -67689,27 +70625,29 @@ ${entry.reading}`;
       throw new Error(this.text("dictionaryUnsupportedJson"));
     }
     async importReaderJson(json) {
-      await this.clear();
-      const terms = readerExportTerms(json);
+      const terms = readerExportTerms(json).map(normalizeImportedLookupTerm);
       const dictionaryTypes = dictionaryTypesFromReaderExport(json);
       const dictionaryNames = readerExportDictionaryNames(json, terms);
       const dictionaries2 = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
+      const importing = await beginDictionaryImport();
+      await this.clear(importing);
       await Promise.all([
-        this.addToStore("dictionaryInfo", dictionaries2, true),
-        this.addToStore("terms", terms, false, false),
-        this.addToStore("kanji", json.kanji ?? []),
-        this.addToStore("termMeta", json.termMeta ?? []),
-        this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
+        this.addToStore("dictionaryInfo", dictionaries2, true, true, void 0, importing),
+        this.addToStore("terms", terms, false, false, void 0, importing),
+        this.addToStore("kanji", json.kanji ?? [], false, true, void 0, importing),
+        this.addToStore("termMeta", json.termMeta ?? [], false, true, void 0, importing),
+        this.addToStore("kanjiMeta", json.kanjiMeta ?? [], false, true, void 0, importing)
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$5.info("JSON dictionary import parsed", summary);
+      log$1.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
       await assertManagedStateMutationAllowed();
+      const rowCounts = await validateDexieJson(file);
+      const importing = await beginDictionaryImport();
       onProgress?.("Streaming Yomitan dictionary export...");
-      await this.clear();
-      const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
+      await this.clear(importing);
       const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
       if (totalRows > 0) onProgress?.(`${this.text("dictionaryPreparingImport")} ${totalRows.toLocaleString()} ${this.text("dictionaryRecords")}...`);
       const dictionaries2 = /* @__PURE__ */ new Set();
@@ -67735,7 +70673,7 @@ ${entry.reading}`;
       const flush = async (store, forceProgress = false) => {
         const batch = batches[store];
         if (!batch.length) return;
-        await this.addToStore(store, batch, false, store !== "terms");
+        await this.addToStore(store, batch, false, store !== "terms", void 0, importing);
         batches[store] = [];
         reportProgress(store, forceProgress);
       };
@@ -67803,15 +70741,15 @@ ${entry.reading}`;
         info.counts = { ...info.counts ?? {}, ...counts };
         info.type = dictionaryTypeFromCounts(info.counts);
         summary.dictionaryTypes[dictionary] = info.type;
-        return this.putDictionaryInfo(info);
+        return this.putDictionaryInfo(info, importing);
       }));
-      log$5.info("Dexie dictionary import parsed", summary);
+      log$1.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$5.time("Dictionary export");
+      const done = log$1.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries2, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -67821,7 +70759,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$5.info("Dictionary export prepared", {
+        log$1.info("Dictionary export prepared", {
           dictionaries: dictionaries2.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -67839,7 +70777,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$5.warn("Dictionary export failed", { error });
+        log$1.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -67858,19 +70796,19 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$5.warn("Dictionary stylesheet render failed", { error });
+        log$1.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
-    async clear() {
-      const done = log$5.time("Dictionary store clear");
+    async clear(importing) {
+      const done = log$1.time("Dictionary store clear");
       try {
         const db = await this.db();
-        await this.clearDictionaryStores(db);
+        await this.clearDictionaryStores(db, importing);
         this.invalidateCaches();
-        log$5.info("Dictionary store cleared");
+        log$1.info("Dictionary store cleared");
       } catch (error) {
-        log$5.warn("Dictionary store clear failed", { error });
+        log$1.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
@@ -67884,12 +70822,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$5.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$1.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$5.time("Dictionary database delete");
+      const done = log$1.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -67915,12 +70853,12 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$5.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$1.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$5.info("Dictionary database deleted", { name: DB_NAME });
+        log$1.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$5.warn("Dictionary database delete failed", { error });
+        log$1.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
@@ -67931,7 +70869,7 @@ ${entry.reading}`;
     // Re-importing "Jitendex.org [2026-06-06]" must replace the installed
     // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
     // duplicate term rows double every lookup's index scans.
-    async deleteDictionariesWithSameIdentity(dictionary) {
+    async deleteDictionariesWithSameIdentity(dictionary, importing) {
       const identity = yomitanDictionaryIdentity(dictionary);
       let stale = [];
       try {
@@ -67942,76 +70880,76 @@ ${entry.reading}`;
         stale = [dictionary];
       }
       if (!stale.includes(dictionary)) stale.push(dictionary);
-      for (const title of stale) await this.deleteDictionary(title);
+      for (const title of stale) await this.deleteDictionary(title, importing);
       return stale.filter((title) => title !== dictionary);
     }
-    async deleteDictionary(dictionary) {
-      const done = log$5.time("Dictionary delete", { dictionary });
+    async deleteDictionary(dictionary, importing) {
+      const done = log$1.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries2 = await this.getAllDictionaryInfo(db);
         if (!dictionaries2.some((item) => item.title === dictionary)) {
-          log$5.info("Dictionary delete skipped; not installed", { dictionary });
+          log$1.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries2.length === 1) {
-          await this.clearDictionaryStores(db);
+          await this.clearDictionaryStores(db, importing);
           this.invalidateCaches();
           await deleteDictionaryArchive(dictionary).catch(() => void 0);
-          log$5.info("Only installed dictionary cleared", { dictionary });
+          log$1.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
         for (const store of stores) {
-          await deleteByDictionary(db, store, dictionary);
+          await deleteByDictionary(db, store, dictionary, importing);
         }
-        await runYomitanManagedStateWrite(db, "dictionaryInfo", (tx) => {
+        await runDictionaryImportWrite(db, "dictionaryInfo", (tx) => {
           tx.objectStore("dictionaryInfo").delete(dictionary);
-        });
-        await this.clearDerivedTermIndexes(db);
+        }, void 0, importing);
+        await this.clearDerivedTermIndexes(db, importing);
         this.invalidateCaches();
         await deleteDictionaryArchive(dictionary).catch(() => void 0);
-        log$5.info("Dictionary deleted", { dictionary });
+        log$1.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$5.warn("Dictionary delete failed", { dictionary, error });
+        log$1.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
       }
     }
-    async putDictionaryInfo(info) {
-      await this.addToStore("dictionaryInfo", [info], true);
+    async putDictionaryInfo(info, importing) {
+      await this.addToStore("dictionaryInfo", [info], true, true, void 0, importing);
     }
-    async clearDictionaryStores(db) {
+    async clearDictionaryStores(db, importing) {
       this.termIndexGeneration++;
       const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]);
-      await runYomitanManagedStateWrite(db, stores, (tx) => {
+      await runDictionaryImportWrite(db, stores, (tx) => {
         for (const storeName of stores) tx.objectStore(storeName).clear();
-      }, { durability: "relaxed" });
+      }, { durability: "relaxed" }, importing);
       this.termKanjiIndexReady = false;
     }
-    async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk) {
+    async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk, importing) {
       if (!entries2.length) return;
       const normalizedEntries = storeName === "terms" ? entries2.map((entry) => normalizeImportedLookupTerm(entry)) : storeName === "termMeta" ? entries2.map((entry) => normalizeImportedLookupMeta(entry)) : entries2;
       await assertManagedStateMutationAllowed();
       const db = await this.db();
-      if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
+      if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db, importing);
       let written = 0;
       for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
         const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
-        await this.addStoreChunk(db, storeName, chunk, put);
+        await this.addStoreChunk(db, storeName, chunk, put, importing);
         written += chunk.length;
         onChunk?.(written, normalizedEntries.length);
         await nextTask();
       }
     }
-    addStoreChunk(db, storeName, entries2, put) {
-      return runYomitanManagedStateWrite(db, storeName, (tx) => {
+    addStoreChunk(db, storeName, entries2, put, importing) {
+      return runDictionaryImportWrite(db, storeName, (tx) => {
         const store = tx.objectStore(storeName);
         for (const entry of entries2) {
           put ? store.put(entry) : store.add(entry);
         }
-      }, { durability: "relaxed" }).then(() => this.invalidateCaches());
+      }, { durability: "relaxed" }, importing).then(() => this.invalidateCaches());
     }
     async getByIndex(db, storeName, indexName, value, limit) {
       return new Promise((resolve, reject) => {
@@ -68252,9 +71190,9 @@ ${entry.reading}`;
         for (const title of stale) {
           try {
             await this.deleteDictionary(title);
-            log$5.info("Removed duplicate dictionary revision", { title });
+            log$1.info("Removed duplicate dictionary revision", { title });
           } catch (error) {
-            log$5.warn("Duplicate dictionary revision cleanup failed", { title, error });
+            log$1.warn("Duplicate dictionary revision cleanup failed", { title, error });
           }
         }
       })();
@@ -68325,7 +71263,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$5.time("Term search index rebuild");
+      const done = log$1.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termSearch", (tx) => tx.objectStore("termSearch").clear());
@@ -68342,13 +71280,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$5.info("Term search index rebuilt", { terms: indexedTerms });
+        log$1.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$5.time("Term kanji index rebuild");
+      const done = log$1.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
@@ -68365,7 +71303,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$5.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$1.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -68393,13 +71331,13 @@ ${entry.reading}`;
         };
       });
     }
-    async clearDerivedTermIndexes(db) {
+    async clearDerivedTermIndexes(db, importing) {
       this.termIndexGeneration++;
       const stores = existingStores(db, ["termSearch", "termKanji"]);
       if (!stores.length) return;
-      await runYomitanManagedStateWrite(db, stores, (tx) => {
+      await runDictionaryImportWrite(db, stores, (tx) => {
         for (const store of stores) tx.objectStore(store).clear();
-      }, { durability: "relaxed" });
+      }, { durability: "relaxed" }, importing);
       this.termKanjiIndexReady = false;
     }
     addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
@@ -68437,7 +71375,7 @@ ${entry.reading}`;
           if (settled) return;
           settled = true;
           if (this.dbPromise === promise) this.dbPromise = void 0;
-          log$5.warn("Dictionary database open failed", { reason, error });
+          log$1.warn("Dictionary database open failed", { reason, error });
           reject(error instanceof Error ? error : new Error(reason));
         };
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
@@ -68445,7 +71383,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$5.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$1.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -68514,7 +71452,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$5.info("Dictionary DB version change; closing", {
+        log$1.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -68797,14 +71735,14 @@ ${glossaryKey}`;
   function normalizeMediaPath(path) {
     return path.trim().replace(/^\.?\//, "").replace(/\\/g, "/");
   }
-  async function deleteByDictionary(db, storeName, dictionary) {
-    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
+  async function deleteByDictionary(db, storeName, dictionary, importing) {
+    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE, importing) >= DICTIONARY_DELETE_BATCH_SIZE) {
       await nextTask();
     }
   }
-  async function deleteDictionaryBatch(db, storeName, dictionary, limit) {
+  async function deleteDictionaryBatch(db, storeName, dictionary, limit, importing) {
     let deleted = 0;
-    await runYomitanManagedStateWrite(db, storeName, (tx) => {
+    await runDictionaryImportWrite(db, storeName, (tx) => {
       const index = tx.objectStore(storeName).index("dictionary");
       const request = index.openCursor(IDBKeyRange.only(dictionary));
       request.onsuccess = () => {
@@ -68815,7 +71753,7 @@ ${glossaryKey}`;
         if (deleted >= limit) return;
         cursor.continue();
       };
-    }, { durability: "relaxed" });
+    }, { durability: "relaxed" }, importing);
     return deleted;
   }
   function isCurrentLookupTarget(target, generation) {
@@ -68823,3660 +71761,6 @@ ${glossaryKey}`;
   }
   function nextTask() {
     return new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  async function restoreReaderSettingsBackup(file, previousSettings, port) {
-    const json = JSON.parse(await file.text());
-    const hasTopLevelSettings = getReaderSettingsExport(json) !== null;
-    let importedSettings = initialImportedSettings(json, previousSettings);
-    const dictionaries2 = await BundledDictionaryRestore.prepare(json, port);
-    const result = await runSettingsRestoreTransaction({
-      storage: readerStorageRestorePayload(json),
-      allowInvalidSettingsAuthorityFallback: hasTopLevelSettings,
-      prepareSettings: (importedView) => {
-        importedSettings = witnessedSettingsRestoreCandidate(
-          previousSettings,
-          importedSettings,
-          importedView
-        );
-      },
-      stageBeforeSettings: () => dictionaries2.stage(importedSettings).then((settings) => {
-        importedSettings = settings;
-      }),
-      rollbackBeforeSettings: () => dictionaries2.rollback(),
-      publishSettings: (importedView) => port.persistSettings(
-        importedSettings,
-        settingsRestoreSaveOptions(previousSettings, importedSettings, importedView)
-      )
-    });
-    port.adoptSettings(importedSettings);
-    return importSettingsStatus(result.restoredValues, dictionaries2.summary, importedSettings.interfaceLanguage);
-  }
-  class BundledDictionaryRestore {
-    constructor(restore, port) {
-      this.restore = restore;
-      this.port = port;
-    }
-    mutationAttempted = false;
-    importedSummary = null;
-    static async prepare(json, port) {
-      return new BundledDictionaryRestore(await dictionaryRestoreFiles(json, port.dictionaries), port);
-    }
-    get summary() {
-      return this.importedSummary;
-    }
-    async stage(settings) {
-      if (this.restore) await this.importBundledDictionaries(this.restore.imported, settings.interfaceLanguage);
-      const merged = await mergeImportedDictionaryPreferences(settings, this.port.dictionaries);
-      this.port.dictionaryStateChanged();
-      return merged;
-    }
-    async rollback() {
-      if (!this.restore || !this.mutationAttempted) return;
-      await this.port.dictionaries.importFile(this.restore.previous);
-      await markDictionaryReplicaFresh();
-      this.port.dictionaryStateChanged();
-    }
-    async importBundledDictionaries(file, language2) {
-      this.mutationAttempted = true;
-      this.port.setStatus(uiText(language2, "importingBundledDictionaries"));
-      this.importedSummary = await this.port.dictionaries.importFile(
-        file,
-        (message) => this.port.setStatus(message)
-      );
-      await markDictionaryReplicaFresh();
-    }
-  }
-  async function dictionaryRestoreFiles(json, dictionaries2) {
-    const dictionaryExport = getReaderDictionaryExport(json);
-    if (!readerDictionaryExportHasData(dictionaryExport)) return null;
-    return {
-      imported: jsonFile(dictionaryExport, "yomu-dictionaries-from-settings.json"),
-      previous: new File(
-        [await dictionaries2.exportJson()],
-        "yomu-dictionaries-before-settings-restore.json",
-        { type: "application/json" }
-      )
-    };
-  }
-  function jsonFile(value, filename) {
-    return new File([JSON.stringify(value)], filename, { type: "application/json" });
-  }
-  async function mergeImportedDictionaryPreferences(settings, dictionaries2) {
-    const importedSummary = await dictionaries2.summary().catch(() => ({ dictionaries: [] }));
-    const importedNames = importedSummary.dictionaries.map((item) => item.title);
-    const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
-    const merged = mergeDictionaryPreferences(
-      retireStaleDictionaryPreferences(settings.dictionaryPreferences, importedNames),
-      importedNames,
-      importedTypes
-    );
-    return captureActiveLanguageProfileDictionaries(settings, merged);
-  }
-  function initialImportedSettings(json, current) {
-    const readerSettings = getReaderSettingsExport(json);
-    return readerSettings ? normalizeReaderSettings({
-      ...current,
-      ...readerSettings,
-      shortcuts: { ...current.shortcuts, ...readerSettings.shortcuts }
-    }) : importedYomitanSettings(json, current);
-  }
-  function importedYomitanSettings(json, current) {
-    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
-    return normalizeReaderSettings({
-      ...current,
-      ...imported.settings,
-      shortcuts: {
-        ...current.shortcuts,
-        ...imported.settings.shortcuts ?? {}
-      }
-    });
-  }
-  function importSettingsStatus(restoredValues, dictionarySummary, language2) {
-    const details = restoreStatusDetails(restoredValues, dictionarySummary, language2);
-    return details.length ? uiText(language2, "settingsImportedWithDetails").replace("{details}", details.join("; ")) : uiText(language2, "settingsImported");
-  }
-  function restoreStatusDetails(restoredValues, dictionarySummary, language2) {
-    const details = [];
-    if (restoredValues) {
-      details.push(countStatus(uiText(language2, "restoredStoredChoices"), restoredValues));
-    }
-    if (dictionarySummary) {
-      details.push(countStatus(uiText(language2, "importedDictionaryRecordCount"), dictionarySummary.entries));
-    }
-    return details;
-  }
-  function countStatus(template, count) {
-    return template.replace("{count}", count.toLocaleString()).replace("{plural}", count === 1 ? "" : "s");
-  }
-  function cloudSettingsActionEnabled(enabled, action) {
-    return enabled && isCloudSettingsAction(action);
-  }
-  function settingsForCloudAction(action, form, settings) {
-    if (action === "sync-cloud-settings") return readFormSettings(new FormData(form), settings);
-    return settings;
-  }
-  function setCloudSettingsActionButtonDisabled(button2, disabled) {
-    if (disabled) button2?.setAttribute("disabled", "true");
-    else button2?.removeAttribute("disabled");
-  }
-  function notifyCloudSettingsPersistenceFailed(callback, previousSettings) {
-    callback?.(previousSettings);
-  }
-  function reportCloudSettingsStatus(setStatus, message) {
-    setStatus?.(message);
-  }
-  class SettingsCloudSyncCoordinator {
-    constructor(port) {
-      this.port = port;
-    }
-    async handle(form, action, button2, setStatus, language2) {
-      if (!cloudSettingsActionEnabled(CLOUD_SETTINGS_SYNC_ENABLED, action)) return false;
-      if (this.port.restore.importBlocked(form)) return true;
-      if (!cloudSettingsSyncAvailable()) return reportUnavailable(setStatus, language2);
-      return this.runAuthorizedAction(form, action, button2, setStatus, language2);
-    }
-    async perform(action, language2, setStatus, previousSettings = this.port.settings(), authorization, restoreForm) {
-      if (action === "sync-cloud-settings") {
-        await this.upload(previousSettings, authorization, setStatus, language2);
-        return;
-      }
-      await this.restore(authorization, setStatus, language2, restoreForm);
-    }
-    async runAuthorizedAction(form, action, button2, setStatus, language2) {
-      setCloudSettingsActionButtonDisabled(button2, true);
-      const authorization = createCloudSettingsAuthorization();
-      const redirectHandoff = cloudSettingsRedirectHandoffRequired();
-      const restoreRevision = this.port.restore.importRevision;
-      await rememberCloudSettingsRedirectHandoff(redirectHandoff, action, authorization);
-      const previousSettings = this.port.stableSettings();
-      try {
-        if (!this.restoreRevisionIsCurrent(form, restoreRevision)) return true;
-        this.port.setSettings(settingsForCloudAction(action, form, previousSettings));
-        await this.perform(action, language2, setStatus, previousSettings, authorization, form);
-        return true;
-      } catch (error) {
-        this.restoreAfterFailedUpload(action, previousSettings);
-        throw error;
-      } finally {
-        await clearCloudSettingsRedirectHandoff(redirectHandoff);
-        this.finishButton(form, button2);
-      }
-    }
-    restoreRevisionIsCurrent(form, revision2) {
-      if (!this.port.restore.importPending && this.port.restore.saveRevisionIsCurrent(revision2)) return true;
-      this.port.restore.showRestoreBlocked(form);
-      return false;
-    }
-    restoreAfterFailedUpload(action, previousSettings) {
-      if (action === "restore-cloud-settings") return;
-      this.port.setSettings(previousSettings);
-      notifyCloudSettingsPersistenceFailed(this.port.onSettingsPersistenceFailed, previousSettings);
-    }
-    finishButton(form, button2) {
-      if (this.port.restore.importPending) this.port.restore.sync(form);
-      else setCloudSettingsActionButtonDisabled(button2, false);
-    }
-    async upload(previousSettings, authorization, setStatus, language2) {
-      if (this.port.restore.importPending) throw new Error("A settings restore is already running.");
-      await this.port.saveCurrentSettings(previousSettings);
-      const metadata = await uploadCloudSettingsToCloud(this.port.settings(), authorization);
-      this.reportStatus(setStatus, cloudSettingsSyncedStatus(metadata.syncedAt, language2));
-    }
-    async restore(authorization, setStatus, language2, restoreForm) {
-      const currentForm = this.port.currentForm();
-      const interlockForm = restoreForm ?? (currentForm?.isConnected ? currentForm : void 0);
-      await this.port.restore.runRestore(interlockForm, async () => {
-        await this.restoreSnapshot(authorization, setStatus, language2);
-      });
-    }
-    async restoreSnapshot(authorization, setStatus, language2) {
-      const settingsBeforeRestore = this.port.stableSettings();
-      const snapshot = await downloadCloudSettingsFromCloud(authorization);
-      if (!snapshot) {
-        reportCloudSettingsStatus(setStatus, cloudSettingsNotFoundStatus(language2));
-        return;
-      }
-      let importedSettings = normalizeCloudSettings(snapshot.settings, settingsBeforeRestore);
-      try {
-        await runSettingsRestoreTransaction({
-          storage: snapshot.storage,
-          prepareSettings: (importedView) => {
-            importedSettings = witnessedSettingsRestoreCandidate(
-              settingsBeforeRestore,
-              importedSettings,
-              importedView
-            );
-          },
-          publishSettings: (importedView) => this.port.persistSettings(
-            importedSettings,
-            settingsRestoreSaveOptions(settingsBeforeRestore, importedSettings, importedView)
-          )
-        });
-      } catch (error) {
-        this.notifyRestorePersistenceFailure(settingsBeforeRestore);
-        throw error;
-      }
-      this.port.adoptSettings(importedSettings);
-      this.reportStatusAfterCommit(setStatus, cloudSettingsRestoredStatus(snapshot.syncedAt, language2));
-      this.port.applyRestoreEffects();
-    }
-    notifyRestorePersistenceFailure(settingsBeforeRestore) {
-      if (this.port.stableSettings() !== settingsBeforeRestore) return;
-      notifyCloudSettingsPersistenceFailed(this.port.onSettingsPersistenceFailed, settingsBeforeRestore);
-    }
-    reportStatus(setStatus, message) {
-      reportCloudSettingsStatus(setStatus, message);
-      this.port.toast(message);
-    }
-    reportStatusAfterCommit(setStatus, message) {
-      this.port.runPostCommitEffect("cloud restore status reporting", () => this.reportStatus(setStatus, message));
-    }
-  }
-  function normalizeCloudSettings(imported, current) {
-    return normalizeReaderSettings({
-      ...current,
-      ...imported,
-      shortcuts: { ...current.shortcuts, ...imported.shortcuts }
-    });
-  }
-  function reportUnavailable(setStatus, language2) {
-    setStatus(cloudSettingsSyncUnavailableStatus(language2));
-    return true;
-  }
-  function cloudSettingsSyncUnavailableStatus(language2) {
-    return language2 === "ja" ? "このブラウザーではGoogle Drive設定同期を利用できません。" : "Google Drive settings sync is unavailable in this browser.";
-  }
-  function cloudSettingsNotFoundStatus(language2) {
-    return language2 === "ja" ? "Google Driveに保存されたYomu設定が見つかりません。" : "No Yomu settings were found in Google Drive.";
-  }
-  function cloudSettingsSyncedStatus(syncedAt, language2) {
-    const time = cloudSettingsSyncTime(syncedAt, language2);
-    return language2 === "ja" ? `設定をGoogle Driveに同期しました（${time}）。` : `Settings synced to Google Drive (${time}).`;
-  }
-  function cloudSettingsRestoredStatus(syncedAt, language2) {
-    const time = cloudSettingsSyncTime(syncedAt, language2);
-    return language2 === "ja" ? `Google Drive設定を復元しました（${time}）。` : `Google Drive settings restored (${time}).`;
-  }
-  function cloudSettingsSyncTime(value, language2) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString(language2 === "ja" ? "ja-JP" : void 0);
-  }
-  const log$4 = Logger.scope("SettingsActionRouter");
-  class SettingsActionRouter {
-    constructor(port, gate) {
-      this.port = port;
-      this.gate = gate;
-    }
-    bind(form) {
-      form.addEventListener("click", (event) => this.handleClick(form, event));
-      form.addEventListener("keydown", (event) => this.handleKeydown(form, event));
-    }
-    handleClick(form, event) {
-      if (this.port.handlePreviewLookup(event)) return;
-      const target = settingsActionTarget(event);
-      if (!target) return;
-      this.dispatchActionClick(form, event, target);
-    }
-    dispatchActionClick(form, event, target) {
-      event.preventDefault();
-      event.stopPropagation();
-      const ticket = this.gate.captureAction(form, target.action);
-      if (!ticket) return;
-      const permission = authenticationInfoPermissionForAction(form, target.action, this.port.settings());
-      if (permission) void this.handlePermissionDelayedAction(form, target, permission, ticket);
-      else void this.executeAction(form, target, ticket);
-    }
-    handleKeydown(form, event) {
-      if (this.consumeAnkiTagKeydown(form, event)) return;
-      if (!isSettingsPreviewKey(event)) return;
-      if (this.port.handlePreviewLookup(event)) event.preventDefault();
-    }
-    consumeAnkiTagKeydown(form, event) {
-      if (!this.port.handleAnkiTagKeydown(form, event)) return false;
-      event.preventDefault();
-      return true;
-    }
-    async handlePermissionDelayedAction(form, target, permission, ticket) {
-      try {
-        const consent = await permission;
-        const language2 = getFormInterfaceLanguage(form, this.port.settings().interfaceLanguage);
-        if (!acceptFirefoxAuthenticationInfoConsent(consent, language2, this.port.toast)) return;
-        await this.executeAction(form, target, ticket);
-      } catch (error) {
-        this.reportActionError(form, target, error);
-      }
-    }
-    async executeAction(form, target, ticket) {
-      const setStatus = settingsStatusSetter(form, target.control);
-      try {
-        await this.gate.runAction(form, ticket, () => this.port.handleAction({
-          form,
-          action: target.action,
-          control: target.control,
-          setStatus
-        }));
-      } catch (error) {
-        this.reportActionError(form, target, error, setStatus);
-      }
-    }
-    reportActionError(form, target, error, setStatus = settingsStatusSetter(form, target.control)) {
-      const language2 = getFormInterfaceLanguage(form, this.port.settings().interfaceLanguage);
-      const message = handleSettingsActionError(target.action, target.control, setStatus, error, language2);
-      this.port.toast(message);
-    }
-  }
-  function acceptFirefoxAuthenticationInfoConsent(consent, language2, toast) {
-    if (consent === "granted") return true;
-    const key = consent === "extension-page-required" ? "firefoxAuthenticationInfoExtensionPageRequired" : "firefoxAuthenticationInfoDenied";
-    toast(uiText(language2, key));
-    return false;
-  }
-  function handleSettingsActionError(action, control, setStatus, error, language2) {
-    log$4.warn("Settings action failed", { action }, error);
-    if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
-    const message = userFacingErrorText(language2, "actionFailed", error);
-    setStatus(message);
-    return message;
-  }
-  function settingsActionTarget(event) {
-    const control = event.target.closest("[data-action]");
-    const action = control?.dataset.action;
-    if (!control || !action || action === "cancel") return null;
-    return { control, action };
-  }
-  function isSettingsPreviewKey(event) {
-    return event.key === "Enter" || event.key === " ";
-  }
-  function authenticationInfoPermissionForAction(form, action, settings) {
-    if (action === "sync-cloud-settings") {
-      return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form), settings));
-    }
-    if (actionNeedsCredentialPermission(action)) return requestFirefoxAuthenticationInfoPermission();
-    return void 0;
-  }
-  function actionNeedsCredentialPermission(action) {
-    return action === "restore-cloud-settings" || action === "import-yomitan-settings" || action === "connect-academy-account";
-  }
-  function settingsStatusSetter(form, control) {
-    return (message) => {
-      const originPanel = control?.closest("fieldset[data-settings-panel]");
-      const status = originPanel?.querySelector("[data-import-status]") ?? form.querySelector("#jpdb-reader-settings-panel-backup [data-import-status]") ?? form.querySelector("[data-import-status]");
-      if (!status) return;
-      status.textContent = message;
-      status.hidden = false;
-    };
-  }
-  function shouldReenableSettingsAction(action) {
-    return action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
-  }
-  function isSettingsCommandWord(word) {
-    return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
-  }
-  const log$3 = Logger.scope("SettingsDialog");
-  const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
-  const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
-  const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
-  const AUTO_REPLACE_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
-  const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
-  const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
-  const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-  function focusPreviewAudioSource(form, button2, previewSettings) {
-    const row = button2?.closest("[data-audio-source-row]");
-    if (!row) return;
-    const source = previewSettings.audioSources[sourceRowIndex(form, row)];
-    if (!source) return;
-    previewSettings.audioSources = [{ ...source, enabled: true }];
-    previewSettings.audioEnableDefaultSources = false;
-  }
-  function sourceRowIndex(form, row) {
-    return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
-  }
-  function probeableAudioSourceUrl(row) {
-    if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
-    if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
-    const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
-    return isProbeableAudioSourceUrl(url) ? url : "";
-  }
-  function isProbeableAudioSourceUrl(url) {
-    try {
-      return ["http:", "https:"].includes(new URL(url).protocol);
-    } catch {
-      return false;
-    }
-  }
-  function recommendedDictionaryForControl(control) {
-    const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
-    if (!dictionary) throw new Error("Recommended dictionary not found.");
-    return dictionary;
-  }
-  function recommendedDictionaryDownloadStatus(control, dictionaryName, language2) {
-    const action = control?.dataset.installed === "true" ? uiText(language2, "update") : uiText(language2, "dictionaryDownloading");
-    return `${dictionaryName}: ${action}...`;
-  }
-  function settingsActionButton(control) {
-    return control instanceof HTMLButtonElement ? control : control?.closest("button") ?? null;
-  }
-  function namedSettingsControl(form, name) {
-    const control = form.elements.namedItem(name);
-    return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement ? control : null;
-  }
-  function reconcileApiCredentialInputs(form) {
-    const jpdbField = namedSettingsControl(form, "apiCredentialJpdb");
-    const jitenField = namedSettingsControl(form, "apiCredentialJiten");
-    if (!jpdbField && !jitenField) return;
-    const { apiKey, jitenApiKey } = mergeApiCredentialValues(jpdbField?.value ?? "", jitenField?.value ?? "");
-    if (jpdbField && jpdbField.value !== apiKey) jpdbField.value = apiKey;
-    if (jitenField && jitenField.value !== jitenApiKey) jitenField.value = jitenApiKey;
-  }
-  function suppressCredentialAutofill(form) {
-    const guarded = form.querySelectorAll(
-      "input.jpdb-reader-masked-input, input[data-settings-search]"
-    );
-    guarded.forEach((input2) => {
-      if (input2.dataset.autofillGuarded === "true") return;
-      input2.dataset.autofillGuarded = "true";
-      input2.readOnly = true;
-      const enable = () => {
-        input2.readOnly = false;
-      };
-      input2.addEventListener("focus", enable);
-      input2.addEventListener("pointerdown", enable);
-      input2.addEventListener("keydown", enable);
-    });
-  }
-  function ankiScanFormControls(form) {
-    return {
-      deck: namedSettingsControl(form, "ankiDeck"),
-      model: namedSettingsControl(form, "ankiModel")
-    };
-  }
-  function settingsControlValue(control) {
-    return control?.value.trim() || "";
-  }
-  function shouldUseScannedAnkiDeck(deckNames, currentDeck) {
-    return Boolean(
-      deckNames.length && !deckNames.includes(currentDeck) && (deckNames.length === 1 || AUTO_REPLACE_ANKI_DECK_NAMES.has(currentDeck))
-    );
-  }
-  function selectedAnkiScanDeck(deckNames, currentDeck) {
-    return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? currentDeck : currentDeck;
-  }
-  function selectedAnkiScanModel(scan, currentModel) {
-    const savedModel = currentModel.trim();
-    if (savedModel && scan.models.some((model) => model.modelName === savedModel)) return savedModel;
-    if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
-    return scan.suggestedModel?.modelName || savedModel;
-  }
-  function ankiScanSelection(controls, scan) {
-    return {
-      selectedDeck: selectedAnkiScanDeck(scan.deckNames, settingsControlValue(controls.deck)),
-      selectedModel: selectedAnkiScanModel(scan, settingsControlValue(controls.model))
-    };
-  }
-  function applySettingsControlValue(control, value) {
-    if (!control || !value) return;
-    control.value = value;
-    dispatchAuthorizedReaderControlEvent(control, new Event("input", { bubbles: true }));
-  }
-  function ankiConnectionAction(action) {
-    return action === "test-anki" || action === "prepare-anki" || action === "update-anki-model" ? action : null;
-  }
-  function ankiConnectionPendingKey(action) {
-    if (action === "prepare-anki") return "ankiPreparing";
-    if (action === "update-anki-model") return "ankiModelUpdating";
-    return "ankiTesting";
-  }
-  function ankiStatusSetter(status) {
-    return (message, tone, action) => {
-      if (!status) return;
-      status.dataset.statusTone = tone;
-      if (action) status.dataset.statusAction = action;
-      else delete status.dataset.statusAction;
-      setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
-    };
-  }
-  function statusLanguage(status) {
-    return status.closest("form")?.querySelector('select[name="interfaceLanguage"]')?.value ?? "en";
-  }
-  function isAnkiFieldMappingRole(role) {
-    return ANKI_FIELD_MAPPING_ROLES.has(role);
-  }
-  function isAnkiScanConfidence(value) {
-    return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
-  }
-  function ankiScanConfidenceEntries(confidence) {
-    const entries2 = [];
-    for (const [role, value] of Object.entries(confidence)) {
-      if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
-    }
-    return entries2;
-  }
-  function readNewTabAnkiDisabledDecks(form) {
-    return canonicalNewTabAnkiDisabledDecks(
-      namedSettingsControl(form, "newTabAnkiDisabledDecks")?.value.split(",").map((deck) => deck.trim()).filter(Boolean) ?? []
-    );
-  }
-  function selectedSettingsPanel(control) {
-    return control?.dataset.panel ?? "api";
-  }
-  function requestCancelableFrame(callback) {
-    if (typeof window.requestAnimationFrame === "function") {
-      return window.requestAnimationFrame(() => callback());
-    }
-    return window.setTimeout(callback, 16);
-  }
-  function cancelCancelableFrame(id) {
-    if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
-    else window.clearTimeout(id);
-  }
-  function nextSettingsTabIndex(key, currentIndex, tabCount) {
-    if (currentIndex < 0 || tabCount <= 0) return -1;
-    if (key === "ArrowRight" || key === "ArrowDown") return (currentIndex + 1) % tabCount;
-    if (key === "ArrowLeft" || key === "ArrowUp") return (currentIndex - 1 + tabCount) % tabCount;
-    if (key === "Home") return 0;
-    if (key === "End") return tabCount - 1;
-    return -1;
-  }
-  function isAnkiConnectSetupError(error) {
-    if (isAnkiConnectAvailabilityError(error)) return true;
-    const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-    return /AnkiConnect/i.test(message) && /(not reachable|request failed|timed out|failed to fetch|networkerror|request bridge|CORS)/i.test(message);
-  }
-  function dictionaryImportReport(files, results) {
-    const summaries = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-    return {
-      summaries,
-      records: summaries.reduce((total, summary) => total + summary.entries, 0),
-      sources: new Set(summaries.flatMap((summary) => summary.dictionaries)).size,
-      failures: results.flatMap((result, index) => result.status === "rejected" ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result.reason }] : [])
-    };
-  }
-  function dictionaryImportStatusMessage(language2, report) {
-    const messageKey = report.failures.length ? "dictionaryImportResultWithFailures" : "dictionaryImportComplete";
-    return formatUiTemplate(uiText(language2, messageKey), {
-      records: report.records.toLocaleString(),
-      sources: report.sources.toLocaleString(),
-      plural: pluralSuffix(report.sources),
-      failed: report.failures.length.toLocaleString(),
-      failedPlural: pluralSuffix(report.failures.length),
-      files: report.failures.map((failure) => failure.filename).join(", ")
-    });
-  }
-  function pluralSuffix(count) {
-    return count === 1 ? "" : "s";
-  }
-  function syncCheckedControl(control, checked) {
-    if (control) control.checked = checked;
-  }
-  class SettingsDialogController {
-    constructor(dependencies) {
-      this.dependencies = dependencies;
-      this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
-      this.academyAccountSync = new AcademyAccountSyncSettingsController((message) => dependencies.toast(message));
-      this.restoreCoordinator = new SettingsRestoreCoordinator({
-        interfaceLanguage: () => this.settings.interfaceLanguage,
-        currentForm: () => this.currentForm,
-        toast: (message) => dependencies.toast(message),
-        invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations()
-      });
-      this.cloudSettings = new SettingsCloudSyncCoordinator({
-        settings: () => this.settings,
-        stableSettings: () => this.stableSettings,
-        setSettings: (settings) => {
-          this.settings = settings;
-        },
-        saveCurrentSettings: (previous) => this.saveCurrentSettings(previous),
-        persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
-        adoptSettings: (settings) => this.adoptPersistedSettings(settings),
-        onSettingsPersistenceFailed: dependencies.onSettingsPersistenceFailed,
-        toast: (message) => dependencies.toast(message),
-        currentForm: () => this.currentForm,
-        restore: this.restoreCoordinator,
-        runPostCommitEffect: (label, effect) => this.runPostCommitSettingsEffect(label, effect),
-        applyRestoreEffects: () => this.applySettingsRestoreEffects(true, "backup")
-      });
-      this.actionRouter = new SettingsActionRouter({
-        settings: () => this.settings,
-        toast: (message) => dependencies.toast(message),
-        handlePreviewLookup: (event) => this.handleSettingsPreviewLookup(event),
-        handleAnkiTagKeydown: (form, event) => this.handleAnkiTagInputKeydown(form, event),
-        handleAction: (context) => this.handleSettingsAction(context)
-      }, this.restoreCoordinator);
-    }
-    previewBaseline;
-    dictionarySiteStorageClearPending = false;
-    recommendedDictionaryOperations = /* @__PURE__ */ new Map();
-    currentForm;
-    modal = new LookupModalAccessibility();
-    saveRequestId = 0;
-    ankiConnectionProbeId = 0;
-    jpdbConnectionProbeId = 0;
-    wanikaniConnectionProbeId = 0;
-    ankiLibraryScanId = 0;
-    ankiModelUpdatePromptId = 0;
-    yomuUpdateCheckId = 0;
-    dictionaryRefreshId = 0;
-    targetDictionaryAvailabilityRequestId = 0;
-    publishedDictionaryLanguagesPromise;
-    academyAccountSync;
-    restoreCoordinator;
-    cloudSettings;
-    actionRouter;
-    settingsJapaneseParseRefreshFrame;
-    settingsJapaneseParseRefreshTimer;
-    open(panel) {
-      this.previewBaseline.start(this.dependencies.getSettings());
-      const trigger = settingsDialogTrigger(document.activeElement);
-      const launcher = mountSensitiveSettingsLauncher(
-        this.dependencies,
-        this.modal,
-        this.settings.interfaceLanguage,
-        panel,
-        trigger
-      );
-      if (launcher) {
-        installSettingsDrawerHandle(
-          launcher,
-          uiText(this.settings.interfaceLanguage, "resizeSettings"),
-          () => this.dismissSettings()
-        );
-        return;
-      }
-      const form = this.createSettingsForm(panel);
-      const backdrop = this.dependencies.createBackdrop();
-      this.bindFormSubmit(form);
-      installFocusedControlScrolling(form);
-      this.bindSettingsSearch(form);
-      form.addEventListener("yomu-catalog-browse-rendered", () => this.onCatalogBrowseRendered(form));
-      installCatalogBrowseFilter(form);
-      this.bindSettingsTabs(form);
-      this.bindLivePreview(form);
-      this.bindEditorControls(form);
-      syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
-      this.dependencies.mountDialog(backdrop, form);
-      this.currentForm = form;
-      this.modal.activate(form, trigger);
-      installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, "resizeSettings"), () => this.dismissSettings());
-      this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
-      this.syncRecommendedDictionaryInstallControls(form);
-      this.restoreCoordinator.sync(form);
-      this.syncJpdbStatus(form);
-      void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
-      void this.refreshAnkiConnectionStatus(form);
-      runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [
-        () => void this.refreshJpdbConnectionStatus(form),
-        () => void this.refreshWanikaniConnectionStatus(form)
-      ]);
-      void this.refreshDictionaryStatus(form);
-      this.publishedDictionaryLanguagesPromise = void 0;
-      void this.refreshTargetDictionaryAvailability(form);
-      runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [() => void this.refreshDeckControls(form)]);
-      if (panel === "help") void this.refreshYomuUpdateStatus(form);
-      this.refreshSettingsJapaneseParse(form);
-    }
-    onCatalogBrowseRendered(form) {
-      this.syncRecommendedDictionaryInstallControls(form);
-      if (this.dictionarySiteStorageClearPending) this.setDictionaryImportsDisabledForSiteClear(form, true);
-      this.restoreCoordinator.sync(form);
-    }
-    refreshLanguage(language2 = this.settings.interfaceLanguage) {
-      const form = this.currentForm;
-      if (!form?.isConnected) return;
-      localizeSettingsForm(form, language2);
-      this.syncRecommendedDictionaryInstallControls(form);
-      this.restoreCoordinator.sync(form);
-      this.syncJpdbStatus(form);
-      void this.academyAccountSync.refresh(form, language2);
-      void this.refreshAnkiConnectionStatus(form);
-      syncSubtitlePreview(form);
-      this.refreshSettingsJapaneseParse(form);
-      void this.refreshTargetDictionaryAvailability(form);
-    }
-    async resumePendingCloudSettingsSync() {
-      return resumePendingCloudSettingsAction({
-        trustedSurface: currentSensitiveSettingsSurfaceIsTrusted(this.dependencies),
-        available: CLOUD_SETTINGS_SYNC_ENABLED && cloudSettingsSyncAvailable(),
-        language: this.settings.interfaceLanguage,
-        readPending: readPendingCloudSettingsAction,
-        clearPending: clearPendingCloudSettingsAction,
-        consumeAuthorization: (expectedState) => cloudSettingsAuthRedirectResult(expectedState),
-        perform: (action, language2) => action === "sync-cloud-settings" ? this.restoreCoordinator.runDurableOperation(() => this.cloudSettings.perform(action, language2)) : this.cloudSettings.perform(action, language2),
-        authorizationFailed: (error, language2) => {
-          log$3.warn("Cloud settings authorization failed", { message: error });
-          this.dependencies.toast(uiText(language2, "actionFailed"));
-        },
-        actionFailed: (error, language2) => this.dependencies.toast(userFacingErrorText(language2, "actionFailed", error)),
-        openBackup: () => this.open("backup")
-      });
-    }
-    get settings() {
-      return this.dependencies.getSettings();
-    }
-    get stableSettings() {
-      return this.previewBaseline.settings;
-    }
-    set settings(settings) {
-      this.previewBaseline.stage(settings);
-    }
-    // Temporary form-derived swaps must not fire host-side transitions (the
-    // dialog's annotations-off instant clear would otherwise trigger from a
-    // mere Anki probe while OFF is selected but unsaved — sol review P1).
-    swapSettingsTransiently(settings) {
-      const previous = this.dependencies.getSettings();
-      this.dependencies.setSettings(settings, { transient: true });
-      return previous;
-    }
-    restoreTransientSettings(_previous) {
-      this.previewBaseline.restoreTransient();
-    }
-    invalidateRestoreDependentOperations() {
-      this.saveRequestId++;
-      this.dictionaryRefreshId++;
-      this.jpdbConnectionProbeId++;
-      this.wanikaniConnectionProbeId++;
-      this.ankiConnectionProbeId++;
-      this.ankiLibraryScanId++;
-      this.ankiModelUpdatePromptId++;
-    }
-    saveCurrentSettings(previousSettings) {
-      const attemptedSettings = this.stableSettings;
-      return this.persistCurrentSettings(previousSettings).catch((error) => {
-        if (this.stableSettings === attemptedSettings) {
-          this.previewBaseline.capture(previousSettings);
-          try {
-            this.previewBaseline.publish();
-          } catch (rollbackError) {
-            log$3.warn("Failed to restore in-memory settings after persistence failure", { rollbackError });
-          }
-          this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-        }
-        throw error;
-      });
-    }
-    persistCurrentSettings(previousSettings, options) {
-      const settings = this.stableSettings;
-      return this.persistSettingsSnapshot(settings, options ?? {
-        persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-        explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
-      });
-    }
-    persistSettingsSnapshot(settings, options) {
-      const operation = this.dependencies.saveSettings(settings, options).then(() => this.notifySettingsPersisted(settings));
-      return this.restoreCoordinator.trackSave(operation);
-    }
-    notifySettingsPersisted(settings) {
-      this.previewBaseline.refreshHost();
-      try {
-        this.dependencies.onSettingsPersisted?.(settings);
-      } catch (error) {
-        log$3.warn("Post-persistence settings notification failed", { error });
-      }
-    }
-    adoptPersistedSettings(settings) {
-      this.previewBaseline.capture(settings);
-      try {
-        this.previewBaseline.publish();
-      } catch (error) {
-        log$3.warn("Post-persistence settings adoption failed", { error });
-      }
-      this.previewBaseline.refreshHost();
-    }
-    adoptLiveSettings(settings) {
-      this.previewBaseline.adoptLive(settings);
-    }
-    runPostCommitSettingsEffect(label, effect) {
-      try {
-        void Promise.resolve(effect()).catch((error) => {
-          log$3.warn(`Post-persistence ${label} failed`, { error });
-        });
-      } catch (error) {
-        log$3.warn(`Post-persistence ${label} failed`, { error });
-      }
-    }
-    createSettingsForm(panel) {
-      const form = document.createElement("form");
-      form.className = "jpdb-reader-settings";
-      form.dataset.jpdbReaderRoot = "true";
-      form.dataset.language = activeTargetLanguageId(this.settings);
-      form.setAttribute("role", "dialog");
-      form.setAttribute("aria-modal", "true");
-      form.setAttribute("aria-label", SETTINGS_TITLE);
-      form.tabIndex = -1;
-      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
-      localizeSettingsForm(form, this.settings.interfaceLanguage);
-      if (panel) activateSettingsPanel(form, panel);
-      return form;
-    }
-    bindFormSubmit(form) {
-      bindAuthorizedReaderFormSubmit(form, () => {
-        const previousSettings = this.stableSettings;
-        const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
-        const nextSettings = readFormSettings(new FormData(form), previousSettings);
-        const settingsImportRevision = this.restoreCoordinator.beginSave(form);
-        if (settingsImportRevision === void 0) return;
-        const saveRequestId = ++this.saveRequestId;
-        const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
-        void credentialPermission.then((consent) => {
-          if (!acceptFirefoxAuthenticationInfoConsent(
-            consent,
-            this.settings.interfaceLanguage,
-            (message) => this.dependencies.toast(message)
-          )) return;
-          if (!this.restoreCoordinator.saveRevisionIsCurrent(settingsImportRevision)) {
-            this.restoreCoordinator.showStaleSaveDiscarded(form);
-            return;
-          }
-          this.settings = nextSettings;
-          configureLogger({ forceEnabled: this.settings.enableLogging });
-          if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
-            this.dependencies.clearDictionarySourceOpenOverrides();
-          }
-          return this.saveCurrentSettings(previousSettings).then(() => {
-            this.afterSettingsSaved(form, saveRequestId);
-          });
-        }).catch((error) => {
-          log$3.error("Settings save failed", error);
-          this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "settingsSaveFailed", error));
-        }).finally(() => {
-          this.restoreCoordinator.finishSave(form);
-        });
-      }, () => reportInvalidSettingsForm(
-        form,
-        this.settings.interfaceLanguage,
-        (message) => this.dependencies.toast(message)
-      ));
-      form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
-      form.addEventListener("keydown", (event) => {
-        if (event.key !== "Escape" || event.isComposing) return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.dismissSettings();
-      });
-    }
-    dismissSettings() {
-      if (this.settingsJapaneseParseRefreshFrame !== void 0) {
-        cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
-        this.settingsJapaneseParseRefreshFrame = void 0;
-      }
-      if (this.settingsJapaneseParseRefreshTimer !== void 0) {
-        window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-        this.settingsJapaneseParseRefreshTimer = void 0;
-      }
-      this.previewBaseline.restoreInterfaceLanguagePreview();
-      this.modal.release();
-      this.currentForm = void 0;
-      this.dependencies.dismiss();
-    }
-    /**
-     * Clear the `aria-hidden` the modal placed on background siblings.
-     * The controller's own close paths (Escape, Cancel, Save) already restore,
-     * but the dialog can also be torn down from outside the controller — a
-     * backdrop click, factory reset, or the close-popup shortcut all route
-     * through ReaderApp.dismiss(). Those paths call this so the page is never
-     * stranded hidden from assistive technology.
-     * Idempotent: a no-op once the background has been released.
-     */
-    releaseModalBackground() {
-      this.previewBaseline.restoreInterfaceLanguagePreview();
-      if (!this.currentForm?.isConnected) this.currentForm = void 0;
-      this.modal.release();
-    }
-    bindSettingsSearch(form) {
-      const input2 = form.querySelector("[data-settings-search]");
-      input2?.addEventListener("input", () => {
-        applySettingsSearch(form, input2.value);
-        syncExpandedCatalogBrowseSearch(form, input2.value);
-      });
-    }
-    bindSettingsTabs(form) {
-      form.querySelector(".jpdb-reader-settings-tabs")?.addEventListener("keydown", (event) => {
-        if (!(event.target instanceof HTMLButtonElement) || event.target.dataset.action !== "settings-panel") return;
-        const tabs = Array.from(form.querySelectorAll('[data-action="settings-panel"]'));
-        const currentIndex = tabs.indexOf(event.target);
-        const nextIndex = nextSettingsTabIndex(event.key, currentIndex, tabs.length);
-        if (nextIndex < 0) return;
-        event.preventDefault();
-        tabs[nextIndex]?.focus();
-        const panel = tabs[nextIndex]?.dataset.panel ?? "api";
-        activateSettingsPanel(form, panel);
-        this.onSettingsPanelActivated(form, panel);
-        this.refreshSettingsJapaneseParse(form);
-      });
-    }
-    afterSettingsSaved(form, saveRequestId) {
-      if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return;
-      const effects = [
-        ["JPDB cache clear", () => this.dependencies.jpdb.clear()],
-        ["theme refresh", () => this.dependencies.applyTheme()],
-        ["reader button refresh", () => this.dependencies.installFab()],
-        ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
-        ["OCR refresh", () => this.dependencies.ocr.refresh()],
-        ["YouTube refresh", () => this.dependencies.youtube.refresh()],
-        ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
-        ["settings dialog dismissal", () => this.dismissSettings()],
-        ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
-        ["new-tab refresh", () => this.dependencies.refreshNewTabIfCurrent()],
-        ["settings save status reporting", () => this.dependencies.toast(
-          uiText(this.settings.interfaceLanguage, "settingsSaved")
-        )],
-        ["dictionary style refresh", () => this.refreshDictionaryStylesAfterSave()]
-      ];
-      for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
-    }
-    settingsSaveEffectsAreCurrent(form, saveRequestId) {
-      return this.currentForm === form && form.isConnected && this.saveRequestId === saveRequestId;
-    }
-    async refreshDictionaryStylesAfterSave() {
-      try {
-        await this.dependencies.refreshDictionaryStyles();
-      } catch (error) {
-        log$3.warn("Dictionary style refresh failed", error);
-        this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "actionFailed", error));
-      }
-    }
-    bindLivePreview(form) {
-      const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.stableSettings));
-      let pendingAccentColor;
-      let accentPreviewFrame;
-      const flushAccentPreview = () => {
-        accentPreviewFrame = void 0;
-        const accentColor = pendingAccentColor;
-        pendingAccentColor = void 0;
-        if (!accentColor || !form.isConnected) return;
-        this.dependencies.applyAccentColor(accentColor);
-      };
-      const scheduleAccentPreview = (accentColor) => {
-        pendingAccentColor = accentColor;
-        if (accentPreviewFrame !== void 0) return;
-        accentPreviewFrame = requestCancelableFrame(flushAccentPreview);
-      };
-      const commitAccentPreview = (accentColor) => {
-        if (accentPreviewFrame !== void 0) {
-          cancelCancelableFrame(accentPreviewFrame);
-          accentPreviewFrame = void 0;
-        }
-        pendingAccentColor = void 0;
-        this.dependencies.applyAccentColor(accentColor);
-        publishSettingsChange({ accentColor }, { preview: true });
-      };
-      form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
-        const accentColor = event.currentTarget.value;
-        scheduleAccentPreview(accentColor);
-      });
-      form.querySelector('input[name="accentColor"]')?.addEventListener("change", (event) => {
-        const accentColor = event.currentTarget.value;
-        commitAccentPreview(accentColor);
-      });
-      let wordColorPreviewFrame;
-      const scheduleWordColorPreview = () => {
-        if (wordColorPreviewFrame !== void 0) return;
-        wordColorPreviewFrame = requestCancelableFrame(() => {
-          wordColorPreviewFrame = void 0;
-          if (form.isConnected) this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings));
-        });
-      };
-      form.querySelectorAll('input[name^="wordColor"], input[name^="pitchColor"]').forEach((input2) => {
-        input2.addEventListener("input", scheduleWordColorPreview);
-      });
-      const autoPlayAudio = form.querySelector('input[name="autoPlayAudio"]');
-      const audioAutoPlayMode = form.querySelector('select[name="audioAutoPlayMode"]');
-      autoPlayAudio?.addEventListener("change", () => {
-        if (audioAutoPlayMode) audioAutoPlayMode.disabled = !autoPlayAudio.checked;
-      });
-      this.syncThemeSwitch(form);
-      form.querySelector("[data-theme-switch]")?.addEventListener("click", (event) => {
-        event.preventDefault();
-        const input2 = form.querySelector("[data-theme-value]");
-        const current = this.effectiveTheme(input2?.value);
-        const next = current === "dark" ? "light" : "dark";
-        if (input2) input2.value = next;
-        applyThemePreview();
-        this.syncThemeSwitch(form);
-        publishSettingsChange({ theme: next }, { preview: true });
-      });
-      bindLiveSettingsSync(form, {
-        isActive: () => this.currentForm === form && form.isConnected,
-        getSettings: () => this.settings,
-        adoptSettings: (settings) => this.adoptLiveSettings(settings),
-        syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
-          form,
-          settings,
-          { source: "durable-settings", previousSettings }
-        ),
-        applyTheme: (theme) => {
-          const input2 = form.querySelector("[data-theme-value]");
-          if (input2 && input2.value !== theme) {
-            input2.value = theme;
-            applyThemePreview();
-            this.syncThemeSwitch(form);
-          }
-        }
-      });
-      syncSubtitlePreview(form);
-      syncFontFamilyControls(form);
-      form.addEventListener("input", (event) => {
-        if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
-      });
-      form.addEventListener("change", (event) => {
-        if (this.isFontFamilyControl(event.target)) syncFontFamilyControls(form);
-        if (this.isAnkiFieldMappingControl(event.target)) this.syncAnkiFieldMappingsFromEditor(form);
-        if (this.isAnkiModelControl(event.target)) this.renderAnkiFieldMappingEditor(form);
-        if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
-        if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
-      });
-      form.querySelector('select[name="learnerLanguage"]')?.addEventListener("change", () => {
-        void this.refreshDictionaryStatus(form);
-      });
-      form.querySelector('select[name="targetLanguage"]')?.addEventListener("change", (event) => {
-        const value = event.currentTarget.value;
-        if (!isLearningTargetRosterId(value)) return;
-        this.syncLanguageProfileForm(form, this.settings, {
-          source: "target-picker",
-          targetLanguage: value
-        });
-      });
-      this.bindAppearancePresets(form, applyThemePreview);
-      form.querySelector('select[name="popupMode"]')?.addEventListener("change", () => syncStickyBottomSheetAvailability(form));
-      syncStickyBottomSheetAvailability(form);
-      const syncImmersionTranslationReveal = () => {
-        const translations = form.querySelector('input[name="immersionKitShowTranslation"]');
-        const reveal = form.querySelector('input[name="immersionKitRevealTranslationOnClick"]');
-        if (!translations || !reveal) return;
-        reveal.disabled = !translations.checked;
-        if (!translations.checked) reveal.checked = false;
-        syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      };
-      form.querySelector('input[name="immersionKitShowTranslation"]')?.addEventListener("change", syncImmersionTranslationReveal);
-      syncImmersionTranslationReveal();
-      const syncImmersionEnabled = (source) => {
-        form.querySelectorAll('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach((input2) => {
-          if (input2 !== source) input2.checked = source.checked;
-        });
-      };
-      form.querySelectorAll('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach((input2) => {
-        input2.addEventListener("change", () => syncImmersionEnabled(input2));
-      });
-      const syncNadeshikoKeyField = () => {
-        const source = form.querySelector('select[name="immersionKitExampleSource"]')?.value;
-        const usesNadeshiko = source === "nadeshiko" || source === "combined";
-        form.querySelectorAll("[data-nadeshiko-api-key-field]").forEach((field) => {
-          field.hidden = !usesNadeshiko;
-        });
-      };
-      form.querySelector('select[name="immersionKitExampleSource"]')?.addEventListener("change", syncNadeshikoKeyField);
-      syncNadeshikoKeyField();
-      const syncImmersionLimit = () => {
-        const enabled = form.querySelector('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
-        const limit = form.querySelector('input[name="immersionKitLimit"]');
-        if (limit) limit.disabled = !enabled;
-        syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      };
-      form.querySelectorAll('input[name="immersionKitLimitEnabled"]').forEach((input2) => {
-        input2.addEventListener("change", syncImmersionLimit);
-      });
-      syncImmersionLimit();
-      form.querySelector('select[name="interfaceLanguage"]')?.addEventListener("change", (event) => {
-        const value = event.currentTarget.value;
-        if (value !== "auto" && value !== "en" && value !== "ja") return;
-        const previewSettings = readFormSettings(new FormData(form), this.stableSettings);
-        const previousSettings = this.swapSettingsTransiently(previewSettings);
-        this.previewBaseline.markInterfaceLanguagePreviewed();
-        try {
-          this.refreshLanguage(value);
-          this.dependencies.installFab();
-        } finally {
-          this.restoreTransientSettings(previousSettings);
-        }
-      });
-      form.querySelector('select[name="ocrProvider"]')?.addEventListener("change", (event) => {
-        const value = event.currentTarget.value;
-        form.querySelectorAll("[data-local-ocr]").forEach((node) => {
-          node.hidden = value !== "local-service";
-        });
-        form.querySelectorAll("[data-cloud-ocr]").forEach((node) => {
-          node.hidden = value !== "cloud-vision";
-        });
-      });
-      form.querySelectorAll('input[name="pageScanMode"]').forEach((input2) => {
-        input2.addEventListener("change", () => syncPageScanModeControls(form));
-      });
-      syncPageScanModeControls(form);
-    }
-    syncLanguageProfileForm(form, settings, request) {
-      syncLanguageProfileForm(form, settings, request, {
-        refreshTargetControls: (targetLanguage2) => {
-          void this.refreshTargetDictionaryAvailability(form, targetLanguage2);
-          void this.refreshDictionaryStatus(form);
-        }
-      });
-    }
-    async refreshTargetDictionaryAvailability(form, selected = selectedTargetLanguage(form, this.settings)) {
-      const requestId = ++this.targetDictionaryAvailabilityRequestId;
-      const status = form.querySelector("[data-target-dictionary-state]");
-      const content = form.querySelector("[data-target-dictionary-content]");
-      const showAvailability = (message) => {
-        if (status) {
-          status.hidden = !message;
-          status.textContent = message ?? "";
-        }
-        if (content) content.hidden = Boolean(message);
-      };
-      showAvailability(uiText(this.settings.interfaceLanguage, "checkingDictionaries"));
-      try {
-        this.publishedDictionaryLanguagesPromise ??= this.dependencies.publishedDictionaryLanguages?.() ?? publishedDictionaryHeadwordLanguages();
-        const languages2 = await this.publishedDictionaryLanguagesPromise;
-        if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-        if (selectedTargetLanguage(form, this.settings) !== selected) return;
-        if (languages2.has(selected)) {
-          showAvailability();
-          return;
-        }
-        const target = learningTargetRosterEntry(selected);
-        showAvailability(formatUiTemplate(
-          uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
-          { language: this.settings.interfaceLanguage === "ja" ? target.nativeName : target.englishName }
-        ));
-      } catch (error) {
-        log$3.warn("Published dictionary coverage check failed", error);
-        if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-        showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"));
-      }
-    }
-    bindEditorControls(form) {
-      suppressCredentialAutofill(form);
-      this.bindMediaEditorControls(form);
-      this.bindReviewEditorControls(form);
-      this.bindCredentialEditorControls(form);
-      this.bindAnkiEditorControls(form);
-      form.addEventListener("change", (event) => this.handleSettingsFormChange(form, event));
-      installShortcutCapture(form);
-      installSourceRowDrag(form);
-      this.actionRouter.bind(form);
-    }
-    bindMediaEditorControls(form) {
-      syncBrowserTtsVoiceOptions(form);
-      this.bindAudioSubSourceDetection(form);
-      const mediaPanel = form.querySelector('[data-settings-panel="media"]');
-      if (mediaPanel && !mediaPanel.hidden) this.refreshAudioSubSources(form);
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
-      }
-    }
-    bindReviewEditorControls(form) {
-      form.querySelector('input[name="enableReviews"]')?.addEventListener("change", () => {
-        syncReviewSettingsVisibility(form);
-        syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        this.syncJpdbStatus(form);
-      });
-      form.querySelector('select[name="twoButtonReviews"]')?.addEventListener("change", () => syncReviewSettingsVisibility(form));
-      form.querySelector('input[name="jpdbMiningEnabled"]')?.addEventListener("change", () => {
-        syncJpdbMiningDependentSettings(form);
-        syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        this.syncJpdbStatus(form);
-      });
-      syncJpdbMiningDependentSettings(form);
-      syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-    }
-    bindCredentialEditorControls(form) {
-      for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="apiCredentialWanikani"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
-        apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form));
-        apiKeyInput.addEventListener("change", () => {
-          reconcileApiCredentialInputs(form);
-          const nextSettings = readFormSettings(new FormData(form), this.settings);
-          const permission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
-          void permission.then((consent) => {
-            if (!acceptFirefoxAuthenticationInfoConsent(
-              consent,
-              nextSettings.interfaceLanguage,
-              (message) => this.dependencies.toast(message)
-            )) return;
-            void this.refreshDeckControls(form);
-            void this.refreshJpdbConnectionStatus(form);
-            void this.refreshWanikaniConnectionStatus(form);
-          });
-        });
-      }
-    }
-    bindAnkiEditorControls(form) {
-      form.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
-      form.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
-      form.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
-      form.querySelector('select[name="ankiModel"]')?.addEventListener("change", () => {
-        this.retireAnkiModelUpdatePrompt(form);
-        void this.refreshAnkiModelUpdatePrompt(form);
-      });
-    }
-    handleSettingsPreviewLookup(event) {
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      const word = target?.closest("[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word");
-      if (!word || !this.dependencies.lookupText) return false;
-      if (!word.dataset.settingsPreviewLookup && isSettingsCommandWord(word)) return false;
-      const expression = word.dataset.settingsPreviewLookup?.trim() || word.dataset.expression?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
-      if (!expression) return false;
-      event.preventDefault();
-      event.stopPropagation();
-      void this.dependencies.lookupText(expression, word.dataset.sentence || expression, word);
-      return true;
-    }
-    // A pasted or corrected URL should fill its provider list without waiting
-    // for a blur, but not probe a prefix of what is still being typed.
-    bindAudioSubSourceDetection(form) {
-      let pending2;
-      form.addEventListener("input", (event) => {
-        const field = event.target?.closest("[data-audio-url-field]");
-        const row = field?.closest("[data-audio-source-row]");
-        if (!row) return;
-        clearTimeout(pending2);
-        pending2 = setTimeout(() => this.refreshAudioSubSources(form, row), AUDIO_SUB_SOURCE_TYPING_DELAY_MS);
-      });
-    }
-    handleSettingsFormChange(form, event) {
-      const sourceSelect = event.target.closest('select[name^="audioSources."][name$=".type"]');
-      if (sourceSelect) {
-        syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value);
-        syncBrowserTtsVoiceOptions(form);
-      }
-      const audioSourceControl = event.target.closest(
-        'select[name^="audioSources."][name$=".type"], [data-audio-url-field], input[name^="audioSources."][name$=".enabled"]'
-      );
-      const audioRow = audioSourceControl?.closest("[data-audio-source-row]");
-      if (audioRow) this.refreshAudioSubSources(form, audioRow);
-      const templateControl = event.target.closest('select[name="ankiTemplateMode"], input[name="ankiFrontReading"], input[name="ankiFrontSentence"], input[name="ankiFrontImage"]');
-      if (templateControl) {
-        const preview = form.querySelector("[data-anki-template-preview]");
-        if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
-      }
-      const newTabAnkiDeckToggle = event.target.closest("[data-newtab-anki-deck-toggle]");
-      if (newTabAnkiDeckToggle) this.syncNewTabAnkiDeckToggles(form);
-    }
-    syncThemeSwitch(form) {
-      const input2 = form.querySelector("[data-theme-value]");
-      const button2 = form.querySelector("[data-theme-switch]");
-      if (!button2) return;
-      const theme = this.effectiveTheme(input2?.value);
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const label = uiText(language2, theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
-      button2.setAttribute("aria-checked", String(theme === "dark"));
-      button2.setAttribute("aria-label", label);
-      button2.title = label;
-    }
-    effectiveTheme(value) {
-      if (value === "dark" || value === "light") return value;
-      return globalThis.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
-    }
-    isSubtitleControl(target) {
-      const name = target?.name ?? "";
-      return name.startsWith("subtitle");
-    }
-    isFontFamilyControl(target) {
-      const name = target?.name ?? "";
-      return name === "readerFontFamily" || name === "popupFontFamily" || name === "subtitleFontFamily";
-    }
-    isColorSourceControl(target) {
-      const name = target?.name ?? "";
-      return [
-        "wordHighlightColorSource",
-        "wordUnderlineColorSource",
-        "wordTextColorSource",
-        "subtitleHighlightColorSource",
-        "subtitleUnderlineColorSource",
-        "subtitleTextColorSource"
-      ].includes(name);
-    }
-    // UT-47: one-click appearance presets — each maps onto the underlying
-    // controls and replays the live theme preview, so the sample sentence and
-    // the page restyle immediately. The hidden-state fieldset only makes
-    // sense for the known-status mode.
-    bindAppearancePresets(form, applyThemePreview) {
-      const preview = form.querySelector("[data-yomu-appearance-preview]");
-      if (preview) setInnerHtml(preview, appearancePreviewContentHtml());
-      const setSelect = (name, value) => {
-        const control = form.querySelector(`select[name="${name}"]`);
-        if (control) control.value = value;
-      };
-      const setGroups = (groups) => {
-        for (const group of FURIGANA_HIDE_STATE_GROUPS) {
-          const box = form.querySelector(`input[name="furiganaHide-${group}"]`);
-          if (box) box.checked = groups.includes(group);
-        }
-      };
-      const setColorSources = (highlight, underline, text2) => {
-        setSelect("wordHighlightColorSource", highlight);
-        setSelect("wordUnderlineColorSource", underline);
-        setSelect("wordTextColorSource", text2);
-        setSelect("subtitleHighlightColorSource", highlight);
-        setSelect("subtitleUnderlineColorSource", underline);
-        setSelect("subtitleTextColorSource", text2);
-      };
-      const syncGroupVisibility = () => {
-        const fieldset = form.querySelector("[data-furigana-hide-groups]");
-        const mode = form.querySelector('select[name="furiganaMode"]')?.value;
-        if (fieldset) fieldset.hidden = mode !== "known-status";
-        const difficultyNote = form.querySelector("[data-furigana-difficulty-note]");
-        if (difficultyNote) difficultyNote.hidden = mode !== "difficult-kanji";
-      };
-      form.querySelector('select[name="furiganaMode"]')?.addEventListener("change", syncGroupVisibility);
-      const preset = form.querySelector('select[name="appearancePreset"]');
-      preset?.addEventListener("change", () => {
-        const value = preset.value;
-        if (!value) return;
-        if (value === "balanced" || value === "default") {
-          setSelect("wordColorStates", "all");
-          setSelect("furiganaMode", "all");
-          setGroups(["known", "due", "failed"]);
-          setColorSources("jpdb", "pitch", "anki");
-        } else if (value === "no-colors") {
-          setSelect("wordColorStates", "all");
-          setSelect("furiganaMode", "off");
-          setColorSources("off", "off", "off");
-        } else if (value === "new-only") {
-          setSelect("wordColorStates", "new-only");
-          setSelect("furiganaMode", "all");
-          setGroups(["known", "due", "failed"]);
-          setColorSources("jpdb", "pitch", "anki");
-        } else if (value === "underline-new") {
-          setSelect("wordColorStates", "new-only");
-          setSelect("furiganaMode", "hover");
-          setColorSources("off", "jpdb", "off");
-        } else if (value === "furi-all") {
-          setSelect("furiganaMode", "all");
-        } else if (value === "furi-known-hidden") {
-          setSelect("furiganaMode", "known-status");
-          setGroups(["known", "due", "failed"]);
-        } else if (value === "furi-hover") {
-          setSelect("furiganaMode", "hover");
-        } else if (value === "furi-off") {
-          setSelect("furiganaMode", "off");
-        }
-        syncGroupVisibility();
-        applyThemePreview();
-      });
-    }
-    isReaderDisplayControl(target) {
-      const name = target?.name ?? "";
-      return ["furiganaMode", "wordColorStates", "theme", "readerFontFamily", "readerFontFamilyCustom", "popupFontFamily", "popupFontFamilyCustom", "popupFontWeight"].includes(name) || name.startsWith("furiganaHide-");
-    }
-    isAnkiFieldMappingControl(target) {
-      return Boolean(target?.closest?.("[data-anki-field-role]"));
-    }
-    isAnkiModelControl(target) {
-      return Boolean(target?.closest?.('[name="ankiModel"]'));
-    }
-    async refreshDeckControls(form) {
-      const container = form.querySelector("[data-jpdb-decks]");
-      if (!container) return;
-      this.syncJpdbStatus(form);
-      const formSettings = readFormSettings(new FormData(form), this.settings);
-      const apiKey = effectiveJpdbApiKey(formSettings);
-      if (!apiKey) {
-        setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        this.refreshSettingsJapaneseParse(form);
-        return;
-      }
-      const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
-      try {
-        const decks = await this.dependencies.jpdb.listDecks();
-        setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
-      } catch (error) {
-        log$3.warn("Deck controls failed to load", error);
-        setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
-      } finally {
-        this.restoreTransientSettings(previous);
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        this.refreshSettingsJapaneseParse(form);
-      }
-    }
-    syncJpdbStatus(form) {
-      const formSettings = readFormSettings(new FormData(form), this.settings);
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const status = form.querySelector("[data-jpdb-status]");
-      if (status) {
-        const line = jpdbStatusLineForSettings(formSettings, language2);
-        status.dataset.statusTone = line.tone;
-        status.textContent = formatSettingsStatusLine(line, language2);
-      }
-      const bunproStatus = form.querySelector("[data-bunpro-status]");
-      if (bunproStatus) {
-        const line = bunproStatusLineForSettings(formSettings, language2);
-        bunproStatus.dataset.statusTone = line.tone;
-        bunproStatus.textContent = formatSettingsStatusLine(line, language2);
-      }
-      const wanikaniStatus = form.querySelector("[data-wanikani-status]");
-      if (wanikaniStatus) {
-        const line = wanikaniStatusLineForSettings(formSettings, language2);
-        wanikaniStatus.dataset.statusTone = line.tone;
-        wanikaniStatus.textContent = formatSettingsStatusLine(line, language2);
-      }
-      this.refreshSettingsJapaneseParse(form);
-    }
-    // fallow-ignore-next-line complexity
-    async refreshWanikaniConnectionStatus(form) {
-      this.syncJpdbStatus(form);
-      const status = form.querySelector("[data-wanikani-status]");
-      if (!status) return;
-      const requestId = ++this.wanikaniConnectionProbeId;
-      const formSettings = readFormSettings(new FormData(form), this.settings);
-      const token = effectiveWanikaniApiToken(formSettings);
-      if (!token) return;
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      try {
-        const client = new WanikaniClient({ getToken: () => token });
-        const user = await client.getUser(true);
-        const maxLevel = await client.effectiveMaxLevel();
-        if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
-        const line = {
-          message: language2 === "ja" ? `WaniKani接続済み。現在レベル${user.level}、アクセス可能レベル${maxLevel}。` : `WaniKani connected. Current level ${user.level}; access through level ${maxLevel}.`,
-          tone: "success"
-        };
-        status.dataset.statusTone = line.tone;
-        status.textContent = formatSettingsStatusLine(line, language2);
-      } catch (error) {
-        if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
-        const message = error instanceof Error ? error.message : "WaniKani connection failed.";
-        const line = { message, tone: "error" };
-        status.dataset.statusTone = line.tone;
-        status.textContent = formatSettingsStatusLine(line, language2);
-      }
-      this.refreshSettingsJapaneseParse(form);
-    }
-    // Live probe via jpdb /ping: upgrades the static "key set" line to a real
-    // connected/rejected answer (Anki and Jiten already have live probes).
-    async refreshJpdbConnectionStatus(form) {
-      const probe = this.prepareJpdbConnectionProbe(form);
-      if (!probe) return;
-      const connected = await this.runJpdbConnectionProbe(probe.apiKey);
-      if (!this.jpdbConnectionProbeIsCurrent(form, probe.requestId)) return;
-      this.renderJpdbConnectionProbe(form, probe, connected);
-      this.refreshSettingsJapaneseParse(form);
-    }
-    prepareJpdbConnectionProbe(form) {
-      this.syncJpdbStatus(form);
-      const status = form.querySelector("[data-jpdb-status]");
-      if (!status) return null;
-      const formSettings = readFormSettings(new FormData(form), this.settings);
-      const apiKey = effectiveJpdbApiKey(formSettings);
-      if (!apiKey) return null;
-      if (typeof this.dependencies.jpdb.ping !== "function") return null;
-      return { status, formSettings, apiKey, requestId: ++this.jpdbConnectionProbeId };
-    }
-    async runJpdbConnectionProbe(apiKey) {
-      const previous = this.swapSettingsTransiently({ ...this.stableSettings, apiKey });
-      try {
-        return await this.dependencies.jpdb.ping?.() ?? false;
-      } finally {
-        this.restoreTransientSettings(previous);
-      }
-    }
-    jpdbConnectionProbeIsCurrent(form, requestId) {
-      return this.currentForm === form && form.isConnected && requestId === this.jpdbConnectionProbeId;
-    }
-    renderJpdbConnectionProbe(form, probe, connected) {
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const successKey = hasJitenApiCredential(probe.formSettings) ? "jpdbAndJitenConnected" : "jpdbConnected";
-      const line = connected ? { message: uiText(language2, successKey), tone: "success" } : { message: uiText(language2, "jpdbConnectionFailed"), tone: "error" };
-      probe.status.dataset.statusTone = line.tone;
-      probe.status.textContent = formatSettingsStatusLine(line, language2);
-    }
-    async refreshAnkiConnectionStatus(form) {
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const formSettings = readFormSettings(new FormData(form), this.settings);
-      const initialLine = ankiStatusLineForSettings(formSettings, language2);
-      const requestId = ++this.ankiConnectionProbeId;
-      this.ankiLibraryScanId++;
-      this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
-      this.retireAnkiModelUpdatePrompt(form);
-      if (!formSettings.ankiEnabled) return;
-      const previous = this.swapSettingsTransiently(formSettings);
-      try {
-        const connected = await this.dependencies.anki.isConnected();
-        if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-        if (connected) {
-          this.setAnkiStatus(form, uiText(language2, "ankiConnectionReady"), "success", void 0, "connected");
-          this.queueAutomaticAnkiLibraryScan(form, language2);
-        } else {
-          this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language2));
-          void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language2);
-        }
-      } catch (error) {
-        if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-        log$3.warn("Anki settings probe failed", error);
-        this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language2));
-        void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language2);
-      } finally {
-        this.restoreTransientSettings(previous);
-      }
-    }
-    shouldApplyAnkiConnectionProbe(form, requestId) {
-      return this.currentForm === form && form.isConnected && requestId === this.ankiConnectionProbeId;
-    }
-    queueAutomaticAnkiLibraryScan(form, language2) {
-      const requestId = ++this.ankiLibraryScanId;
-      window.setTimeout(() => {
-        void this.refreshAnkiLibraryScan(form, requestId, language2).then(() => this.refreshAnkiModelUpdatePrompt(form)).finally(() => {
-          void this.warmAnkiStatusIndexForConnection(form, requestId);
-        });
-      }, 0);
-    }
-    // Anki is reachable, so ask whether the note type the form now shows still
-    // carries every field this release writes. A plan means the panel offers
-    // the update; null hides the offer, which is what ends it for good once
-    // the user accepts.
-    //
-    // The offer names one note type, so it gets its own request id: picking a
-    // different note type retires the offer on screen and starts this again
-    // without disturbing the library scan already running.
-    async refreshAnkiModelUpdatePrompt(form) {
-      const requestId = ++this.ankiModelUpdatePromptId;
-      const plan = await this.ankiModelUpdatePlan(form, requestId);
-      if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return;
-      applyAnkiModelUpdatePrompt(form, plan, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-    }
-    // The picker moved, so the offer is about a note type the user has left.
-    // It goes at once and re-earns itself against the new selection.
-    retireAnkiModelUpdatePrompt(form) {
-      this.ankiModelUpdatePromptId++;
-      applyAnkiModelUpdatePrompt(form, null, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-    }
-    shouldApplyAnkiModelUpdatePrompt(form, requestId) {
-      return this.currentForm === form && form.isConnected && requestId === this.ankiModelUpdatePromptId;
-    }
-    async ankiModelUpdatePlan(form, requestId) {
-      const yomuModelUpdatePlan = this.dependencies.anki.yomuModelUpdatePlan;
-      if (typeof yomuModelUpdatePlan !== "function") return null;
-      if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return null;
-      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
-      try {
-        return await yomuModelUpdatePlan.call(this.dependencies.anki);
-      } catch (error) {
-        log$3.warn("Anki note type update check failed", error);
-        return null;
-      } finally {
-        this.restoreTransientSettings(previous);
-      }
-    }
-    async refreshAnkiLibraryScan(form, requestId, language2) {
-      if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
-      const scanLibrary = this.dependencies.anki.scanLibrary;
-      if (typeof scanLibrary !== "function") return;
-      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
-      if (!this.settings.ankiEnabled) {
-        this.restoreTransientSettings(previous);
-        return;
-      }
-      this.setAnkiStatus(form, uiText(language2, "ankiScanning"), "pending", void 0, "scanning");
-      try {
-        const scan = await scanLibrary.call(this.dependencies.anki);
-        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
-        const staleDetails = this.staleAnkiFieldMappingDetails(form, scan, language2);
-        this.applyAnkiScanToForm(form, scan);
-        const state = staleDetails.length ? "stale" : scan.suggestedModel ? "suggested" : "ready";
-        const tone = staleDetails.length ? "pending" : "success";
-        this.setAnkiStatus(form, this.ankiScanMessage(scan, language2), tone, void 0, state, [
-          ...staleDetails,
-          ...this.ankiScanDetails(scan, language2)
-        ]);
-      } catch (error) {
-        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
-        log$3.warn("Automatic Anki library scan failed", error);
-        this.setAnkiStatus(form, uiText(language2, "ankiConnectionReady"), "success", void 0, "connected");
-      } finally {
-        this.restoreTransientSettings(previous);
-      }
-    }
-    shouldApplyAnkiLibraryScan(form, requestId) {
-      return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
-    }
-    async warmAnkiStatusIndexForConnection(form, requestId) {
-      if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
-      const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
-      if (typeof warmStatusIndex !== "function") return;
-      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
-      if (!this.settings.ankiEnabled) {
-        this.restoreTransientSettings(previous);
-        return;
-      }
-      try {
-        await warmStatusIndex.call(this.dependencies.anki);
-      } catch (error) {
-        log$3.warn("Automatic Anki status index warmup failed", error);
-      } finally {
-        this.restoreTransientSettings(previous);
-      }
-    }
-    setAnkiStatusLine(form, line) {
-      const status = form.querySelector("[data-anki-status]");
-      if (!status) return;
-      status.dataset.statusTone = line.tone;
-      if (line.action) status.dataset.statusAction = line.action;
-      else delete status.dataset.statusAction;
-      if (line.state) status.dataset.ankiAdapterState = line.state;
-      else delete status.dataset.ankiAdapterState;
-      setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
-      this.refreshSettingsJapaneseParse(form);
-    }
-    setAnkiStatus(form, message, tone, action, state, details) {
-      this.setAnkiStatusLine(form, { message, tone, action, state, details });
-    }
-    async refreshDictionaryStatus(form) {
-      const id = ++this.dictionaryRefreshId;
-      return refreshDictionaryPanel({
-        form,
-        current: () => !this.restoreCoordinator.importPending && this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId,
-        loadSummary: () => this.dependencies.dictionaries.summary(),
-        prepareSummary: (summary) => this.mergeDictionaryPreferencesFromSummary(summary, id),
-        refreshStyles: () => this.dependencies.refreshDictionaryStyles(),
-        renderContext: () => liveDictionaryPanelContext(form, this.settings),
-        afterRender: () => this.afterDictionaryPanelRendered(form),
-        interfaceLanguage: () => getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
-        reportError: (error) => log$3.warn("Dictionary status unavailable", error)
-      });
-    }
-    async refreshYomuUpdateStatus(form) {
-      const status = form.querySelector("[data-yomu-update-status]");
-      if (!status) return;
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const requestId = ++this.yomuUpdateCheckId;
-      status.dataset.statusTone = "pending";
-      status.dataset.updateChecked = "true";
-      status.textContent = formatUiText(language2, "updateStatusChecking", { current: CURRENT_YOMU_VERSION });
-      this.refreshSettingsJapaneseParse(form);
-      try {
-        const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
-          allowDirectCrossOrigin: true,
-          anonymous: true,
-          credentials: "omit",
-          failureLabel: "Yomu update check",
-          preferFetch: true,
-          timeoutMs: 6e3,
-          withCredentials: false
-        });
-        if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
-        const latest = latestYomuVersionFromVersionJson(version);
-        if (!latest) throw new Error("Hosted version response did not include a build id.");
-        const comparison = compareYomuVersions(CURRENT_YOMU_VERSION, latest);
-        if (comparison === null) {
-          status.dataset.statusTone = "pending";
-          status.textContent = formatUiText(language2, "updateStatusIncomparable", { current: CURRENT_YOMU_VERSION, latest });
-          this.refreshSettingsJapaneseParse(form);
-          return;
-        }
-        const updateAvailable = comparison < 0;
-        status.dataset.statusTone = updateAvailable ? "pending" : "success";
-        status.textContent = formatUiText(language2, updateAvailable ? "updateStatusAvailable" : "updateStatusCurrent", {
-          current: CURRENT_YOMU_VERSION,
-          latest
-        });
-        this.refreshSettingsJapaneseParse(form);
-      } catch (error) {
-        log$3.warn("Yomu update status unavailable", error);
-        if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
-        status.dataset.statusTone = "pending";
-        status.textContent = formatUiText(language2, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
-        this.refreshSettingsJapaneseParse(form);
-      }
-    }
-    afterDictionaryPanelRendered(form) {
-      localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      installCatalogBrowseFilter(form);
-      this.syncRecommendedDictionaryInstallControls(form);
-      this.restoreCoordinator.sync(form);
-      this.refreshSettingsJapaneseParse(form);
-    }
-    refreshSettingsJapaneseParse(form) {
-      if (this.settingsJapaneseParseRefreshFrame !== void 0) cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
-      if (this.settingsJapaneseParseRefreshTimer !== void 0) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-      this.settingsJapaneseParseRefreshFrame = requestCancelableFrame(() => {
-        this.settingsJapaneseParseRefreshFrame = void 0;
-        this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
-          this.settingsJapaneseParseRefreshTimer = void 0;
-          if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-        }, 0);
-      });
-    }
-    async mergeDictionaryPreferencesFromSummary(summary, requestId) {
-      if (!this.dictionaryRefreshIsCurrent(requestId)) return;
-      const previousSettings = this.stableSettings;
-      const nextSettings = settingsWithDiscoveredDictionaries(previousSettings, summary);
-      if (!nextSettings) return;
-      if (!this.dictionaryRefreshIsCurrent(requestId)) return;
-      await this.persistDiscoveredDictionaryPreferences(previousSettings, nextSettings);
-    }
-    dictionaryRefreshIsCurrent(requestId) {
-      return !this.restoreCoordinator.importPending && requestId === this.dictionaryRefreshId;
-    }
-    async persistDiscoveredDictionaryPreferences(previousSettings, nextSettings) {
-      this.settings = nextSettings;
-      const attemptedSettings = this.stableSettings;
-      try {
-        await this.persistSettingsSnapshot(attemptedSettings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-      } catch (error) {
-        this.restoreDiscoveredDictionaryPreferences(previousSettings, attemptedSettings);
-        throw error;
-      }
-    }
-    restoreDiscoveredDictionaryPreferences(previousSettings, failedSettings) {
-      if (this.stableSettings === failedSettings) this.settings = previousSettings;
-    }
-    setRecommendedDictionaryInstallState(form, dictionaryId, state, message) {
-      this.recommendedDictionaryOperations.set(dictionaryId, { state, message });
-      this.syncRecommendedDictionaryInstallControls(form);
-    }
-    clearRecommendedDictionaryInstallState(form, dictionaryId) {
-      this.recommendedDictionaryOperations.delete(dictionaryId);
-      this.syncRecommendedDictionaryInstallControls(form);
-    }
-    syncRecommendedDictionaryInstallControls(form) {
-      form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
-        const dictionaryId = button2.dataset.dictionaryId ?? "";
-        const operation = this.recommendedDictionaryOperations.get(dictionaryId);
-        const status = button2.closest(".jpdb-reader-recommended-item")?.querySelector("[data-recommended-dictionary-status]");
-        if (!operation) {
-          delete button2.dataset.importState;
-          delete button2.dataset.importMessage;
-          button2.disabled = false;
-          button2.removeAttribute("disabled");
-          if (status) {
-            status.hidden = true;
-            status.textContent = "";
-            delete status.dataset.importState;
-          }
-          const installed = button2.dataset.installed === "true";
-          const label2 = installed ? uiText(this.settings.interfaceLanguage, "update") : uiText(this.settings.interfaceLanguage, "install");
-          button2.replaceChildren(label2);
-          button2.title = label2;
-          button2.setAttribute("aria-label", label2);
-          return;
-        }
-        const label = uiText(this.settings.interfaceLanguage, operation.state === "installing" ? "installing" : "queued");
-        button2.disabled = true;
-        button2.dataset.importState = operation.state;
-        button2.dataset.importMessage = operation.message;
-        button2.replaceChildren(label);
-        button2.title = operation.message;
-        button2.setAttribute("aria-label", operation.message);
-        if (status) {
-          status.hidden = false;
-          status.dataset.importState = operation.state;
-          status.textContent = operation.message;
-        }
-      });
-    }
-    async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
-      if (await this.handleSettingsConnectionAction(form, action, control)) return true;
-      return await this.handleSettingsSupportAction(action, control, setStatus);
-    }
-    async handleSettingsAction(context) {
-      const { form, action, control, setStatus } = context;
-      if (this.handleSettingsEditorAction(form, action, control)) return;
-      if (await this.handleSettingsMediaAction(context)) return;
-      if (await this.handleSettingsAccountAction(context)) return;
-      await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
-    }
-    async handleSettingsMediaAction(context) {
-      const { form, action, control, setStatus } = context;
-      if (await this.handleSettingsAudioAction(form, action, control)) return true;
-      return this.handleSettingsDictionaryAction(form, action, control, setStatus);
-    }
-    async handleSettingsAccountAction(context) {
-      const { form, action, control, setStatus } = context;
-      if (await this.academyAccountSync.handle(form, action, this.settings.interfaceLanguage)) return true;
-      if (await this.handleSettingsCloudSyncAction(form, action, control, setStatus)) return true;
-      return this.handleSettingsImportExportAction(form, action, setStatus);
-    }
-    handleSettingsEditorAction(form, action, control) {
-      if (action === "settings-panel") {
-        const panel = selectedSettingsPanel(control);
-        activateSettingsPanel(form, panel);
-        this.onSettingsPanelActivated(form, panel);
-        this.refreshSettingsJapaneseParse(form);
-        return true;
-      }
-      if (isDictionarySourceOrderAction(action)) {
-        updateSourceRowEditor(action, control);
-        return true;
-      }
-      if (isAudioSourceEditorAction(action)) {
-        updateAudioSourceEditor(form, action, control);
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        syncBrowserTtsVoiceOptions(form);
-        return true;
-      }
-      if (isLookupLinkEditorAction(action)) {
-        updateDictionaryLookupLinkEditor(form, action, control);
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        return true;
-      }
-      if (action === "anki-tag-add" || action === "anki-tag-remove") {
-        updateAnkiTagsEditor(form, action, control);
-        return true;
-      }
-      return false;
-    }
-    handleAnkiTagInputKeydown(form, event) {
-      if (event.key !== "Enter") return false;
-      const input2 = event.target?.closest("[data-anki-tag-input]");
-      if (!input2) return false;
-      updateAnkiTagsEditor(form, "anki-tag-add", input2);
-      return true;
-    }
-    async handleSettingsAudioAction(form, action, control) {
-      if (action !== "preview-audio") return false;
-      const button2 = settingsActionButton(control);
-      const previewSettings = readFormSettings(new FormData(form), this.settings);
-      focusPreviewAudioSource(form, button2, previewSettings);
-      const previous = this.swapSettingsTransiently({ ...previewSettings, audioEnabled: true, audioViaBlob: true });
-      button2?.setAttribute("disabled", "true");
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      try {
-        const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
-        if (played) {
-          this.dependencies.toast(uiText(language2, "playingAudioPreview"));
-        } else {
-          this.dependencies.toast(uiText(language2, "audioPreviewFailed"));
-        }
-      } catch (error) {
-        log$3.warn("Audio settings preview failed", error);
-        this.dependencies.toast(userFacingErrorText(language2, "audioPreviewFailed", error));
-      } finally {
-        this.restoreTransientSettings(previous);
-        button2?.removeAttribute("disabled");
-        this.renderKnownAudioSubSources(form);
-      }
-      return true;
-    }
-    /**
-     * Fills in each aggregator row's provider list without anything to press.
-     *
-     * Providers seen during ordinary lookups are already merged in when the
-     * rows render, so the common case costs no requests at all — including
-     * after a preview, which is why playback re-renders the lists.
-     *
-     * Sample lookups are only sent for a row the user just acted on (typing a
-     * URL, switching a row to Custom URL, enabling one). Merely opening
-     * Settings must never reach out on its own: the URL can be a private or
-     * third-party host the user has not agreed to contact yet.
-     */
-    refreshAudioSubSources(form, row) {
-      const rows = row ? [row] : Array.from(form.querySelectorAll("[data-audio-source-row]"));
-      for (const target of rows) void this.detectAudioSubSourcesForRow(form, target);
-    }
-    // Opening the media panel is the moment the user is looking at audio
-    // sources, so that is when their providers get discovered — the same shape
-    // as the help panel refreshing the update status when it is opened. Merely
-    // rendering the dialog still reaches nothing, because a source URL can be a
-    // private host that only an explicit visit here justifies contacting.
-    onSettingsPanelActivated(form, panel) {
-      if (panel === "help") void this.refreshYomuUpdateStatus(form);
-      if (panel === "media") this.refreshAudioSubSources(form);
-    }
-    renderKnownAudioSubSources(form) {
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      for (const row of form.querySelectorAll("[data-audio-source-row]")) {
-        const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
-        const known = url ? knownAudioSubSourceNames(url) : [];
-        if (known.length) this.renderDetectedAudioSubSources(form, row, known, language2);
-      }
-    }
-    async detectAudioSubSourcesForRow(form, row) {
-      const url = probeableAudioSourceUrl(row);
-      if (!url) return;
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const setDetectStatus = (message) => {
-        const status = row.querySelector("[data-audio-subsource-status]");
-        if (!status) return;
-        status.textContent = message;
-        status.hidden = !message;
-      };
-      const known = knownAudioSubSourceNames(url);
-      if (!known.length) setDetectStatus(uiText(language2, "audioDetectingSubSources"));
-      try {
-        const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
-        if (probeableAudioSourceUrl(row) !== url || !row.isConnected) return;
-        this.renderDetectedAudioSubSources(form, row, detected, language2);
-        setDetectStatus(detected.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
-      } catch (error) {
-        log$3.warn("Audio sub-source detection failed", error);
-        setDetectStatus(known.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
-      }
-    }
-    // Merges the detected names over whatever the form currently holds, so a
-    // toggle the user just changed survives a probe landing underneath them and
-    // a provider missing from this round keeps its saved state.
-    renderDetectedAudioSubSources(form, row, detected, language2) {
-      const list = row.querySelector("[data-audio-subsource-list]");
-      if (!list) return;
-      const index = Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
-      if (index < 0) return;
-      const data = new FormData(form);
-      const get = (key) => String(data.get(key) ?? "");
-      const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
-      setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language2));
-    }
-    async handleSettingsDictionaryAction(form, action, control, setStatus) {
-      const disclosure = handleCatalogBrowseDisclosureAction(action, form, control, () => this.refreshDictionaryStatus(form));
-      if (disclosure) return disclosure;
-      if (this.dictionaryActionBlockedBySiteClear(form, action, setStatus)) return true;
-      return this.handleDictionaryMutationOrTransfer(form, action, control, setStatus);
-    }
-    async handleDictionaryMutationOrTransfer(form, action, control, setStatus) {
-      if (await this.handleDictionaryStorageAction(form, action, control, setStatus)) return true;
-      return this.handleDictionaryTransferAction(form, action, control, setStatus);
-    }
-    dictionaryActionBlockedBySiteClear(form, action, setStatus) {
-      if (!dictionaryActionBlockedDuringSiteClear(action, this.dictionarySiteStorageClearPending)) return false;
-      setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "clearLocalDictionarySiteStorageClearing"));
-      return true;
-    }
-    async handleDictionaryStorageAction(form, action, control, setStatus) {
-      if (action === "clear-local-dictionary-site-storage") {
-        await this.disableAndClearLocalDictionarySiteStorage(form, control, setStatus);
-        return true;
-      }
-      if (action === "delete-yomitan-dictionary") {
-        await this.deleteDictionaryFromSettings(form, control, setStatus);
-        return true;
-      }
-      return false;
-    }
-    async handleDictionaryTransferAction(form, action, control, setStatus) {
-      if (action === "import-yomitan-dictionary") {
-        await this.importDictionaryFromSettings(form, setStatus);
-        return true;
-      }
-      if (action === "download-recommended-dictionary") {
-        this.queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus);
-        return true;
-      }
-      if (action === "export-yomitan-dictionary") {
-        const blob = await this.dependencies.dictionaries.exportJson();
-        downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
-        setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "dictionariesExported"));
-        return true;
-      }
-      return false;
-    }
-    async handleSettingsCloudSyncAction(form, action, control, setStatus) {
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      return this.cloudSettings.handle(form, action, settingsActionButton(control), setStatus, language2);
-    }
-    async handleSettingsImportExportAction(form, action, setStatus) {
-      if (action === "import-yomitan-settings") {
-        await this.importReaderSettingsFromFile(form, setStatus);
-        return true;
-      }
-      if (action === "export-reader-settings") {
-        const dictionaries2 = await this.exportReaderDictionaryBackup();
-        const backup = await exportSettingsBackupSnapshot(this.stableSettings);
-        downloadBlob(new Blob([JSON.stringify({
-          formatName: "yomu-reader-settings",
-          formatVersion: 3,
-          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          settings: backup.settings,
-          storage: backup.storage,
-          ...dictionaries2 ? { dictionaries: dictionaries2 } : {}
-        }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
-        setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
-        return true;
-      }
-      return false;
-    }
-    async exportReaderDictionaryBackup() {
-      const summary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
-      if (!summary.dictionaries.length) return void 0;
-      const blob = await this.dependencies.dictionaries.exportJson();
-      const json = JSON.parse(await blob.text());
-      return readerDictionaryExportHasData(json) ? json : void 0;
-    }
-    async handleSettingsConnectionAction(form, action, control) {
-      const connectionAction = ankiConnectionAction(action);
-      if (!connectionAction) return false;
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const button2 = settingsActionButton(control);
-      const setAnkiStatus = ankiStatusSetter(form.querySelector("[data-anki-status]"));
-      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
-      button2?.setAttribute("disabled", "true");
-      setAnkiStatus(uiText(language2, ankiConnectionPendingKey(connectionAction)), "pending");
-      try {
-        if (!await this.checkAnkiConnectionForSettings(setAnkiStatus, language2)) return true;
-        if (connectionAction === "test-anki") {
-          this.finishAnkiConnectionTest(form, setAnkiStatus, language2);
-          return true;
-        }
-        if (connectionAction === "update-anki-model") {
-          await this.updateAnkiModelAction(form, setAnkiStatus, language2);
-          return true;
-        }
-        await this.prepareAnkiConnectionAction(form, setAnkiStatus, language2);
-      } catch (error) {
-        this.handleAnkiConnectionActionError(error, setAnkiStatus, language2);
-      } finally {
-        this.restoreTransientSettings(previous);
-        button2?.removeAttribute("disabled");
-      }
-      return true;
-    }
-    async checkAnkiConnectionForSettings(setAnkiStatus, language2) {
-      try {
-        if (await this.dependencies.anki.isConnected()) return true;
-      } catch (error) {
-        log$3.warn("Anki settings check failed", error);
-      }
-      const line = this.ankiSetupUnavailableStatus(this.settings, language2);
-      setAnkiStatus(line.message, line.tone, line.action);
-      return false;
-    }
-    finishAnkiConnectionTest(form, setAnkiStatus, language2) {
-      setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
-      this.queueAutomaticAnkiLibraryScan(form, language2);
-    }
-    async prepareAnkiConnectionAction(form, setAnkiStatus, language2) {
-      await this.dependencies.anki.ensureDeckAndModel();
-      setAnkiStatus(this.ankiReadyMessage(language2), "success");
-      this.queueAutomaticAnkiLibraryScan(form, language2);
-    }
-    // Runs from the user pressing Update, never from the scan that spots the
-    // gap: the offer is a question, not a migration. The re-scan it queues
-    // clears the offer, because the note type now matches.
-    //
-    // The write is aimed by the offer on screen, not by the picker, and the
-    // client declines anything else — so an offer the user has moved past adds
-    // nothing rather than widening whichever note type is selected now.
-    async updateAnkiModelAction(form, setAnkiStatus, language2) {
-      const addMissingYomuModelFields = this.dependencies.anki.addMissingYomuModelFields;
-      if (typeof addMissingYomuModelFields !== "function") return;
-      const offeredModel = ankiModelUpdatePromptTarget(form);
-      if (!offeredModel) {
-        setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
-        this.queueAutomaticAnkiLibraryScan(form, language2);
-        return;
-      }
-      const added = await addMissingYomuModelFields.call(this.dependencies.anki, offeredModel);
-      setAnkiStatus(added.length ? formatUiText(language2, "ankiModelUpdated", { fields: added.join(", ") }) : uiText(language2, "ankiModelUpToDate"), "success");
-      this.queueAutomaticAnkiLibraryScan(form, language2);
-    }
-    handleAnkiConnectionActionError(error, setAnkiStatus, language2) {
-      if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
-        const line = this.ankiSetupUnavailableStatus(this.settings, language2);
-        log$3.warn("Anki settings action unavailable", error);
-        setAnkiStatus(line.message, line.tone, line.action);
-        return;
-      }
-      const message = this.ankiConnectionErrorMessage(error, language2);
-      log$3.warn("Anki settings test failed", error);
-      setAnkiStatus(message, "error");
-      this.dependencies.toast(message);
-    }
-    applyAnkiScanToForm(form, scan) {
-      this.applyAnkiFieldMappingsToForm(form, scan);
-      const controls = ankiScanFormControls(form);
-      const selection = ankiScanSelection(controls, scan);
-      this.applyAnkiScanControlsToForm(form, scan, selection);
-      applySettingsControlValue(controls.model, selection.selectedModel);
-      applySettingsControlValue(controls.deck, selection.selectedDeck);
-      this.renderAnkiFieldMappingEditor(form);
-    }
-    applyAnkiFieldMappingsToForm(form, scan) {
-      const input2 = namedSettingsControl(form, "ankiFieldMappings");
-      if (!input2) return;
-      const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
-      const scannedMappings = Object.fromEntries(scan.models.flatMap((model) => {
-        const currentMapping = existing[model.modelName] ?? {};
-        const liveFields = new Set(model.fields);
-        const mapping = Object.fromEntries(model.suggestions.flatMap((suggestion) => {
-          const savedField = currentMapping[suggestion.role]?.trim();
-          const fieldName = liveFields.has(savedField ?? "") ? savedField : suggestion.fieldName?.trim();
-          return fieldName ? [[suggestion.role, fieldName]] : [];
-        }));
-        return Object.keys(mapping).length ? [[model.modelName, mapping]] : [];
-      }));
-      input2.value = JSON.stringify({ ...existing, ...scannedMappings });
-      dispatchAuthorizedReaderControlEvent(input2, new Event("input", { bubbles: true }));
-    }
-    applyAnkiScanControlsToForm(form, scan, selected = {}) {
-      const deckOptions = form.querySelector("[data-anki-deck-options]");
-      const currentDeck = selected.selectedDeck ?? namedSettingsControl(form, "ankiDeck")?.value.trim() ?? "";
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      if (deckOptions) setInnerHtml(deckOptions, renderAnkiDeckLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language2));
-      this.renderNewTabAnkiDeckToggles(form, scan.deckNames, language2);
-      const modelOptions = form.querySelector("[data-anki-model-options]");
-      if (modelOptions) {
-        const currentModel = selected.selectedModel ?? namedSettingsControl(form, "ankiModel")?.value.trim() ?? "";
-        setInnerHtml(modelOptions, renderAnkiLibraryOptions([currentModel, ...scan.models.map((model) => model.modelName)].filter(Boolean), currentModel, language2));
-      }
-      const fieldsInput = form.querySelector("[data-anki-scan-fields]");
-      if (fieldsInput) {
-        fieldsInput.value = JSON.stringify(Object.fromEntries(scan.models.map((model) => [model.modelName, model.fields])));
-      }
-      const confidenceInput = form.querySelector("[data-anki-scan-confidence]");
-      if (confidenceInput) {
-        confidenceInput.value = JSON.stringify(Object.fromEntries(scan.models.map((model) => [
-          model.modelName,
-          Object.fromEntries(model.suggestions.flatMap(
-            (suggestion) => suggestion.fieldName ? [[suggestion.role, suggestion.confidence]] : []
-          ))
-        ])));
-      }
-      this.renderAnkiFieldMappingEditor(form);
-    }
-    renderNewTabAnkiDeckToggles(form, deckNames, language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabledDecks = readNewTabAnkiDisabledDecks(form)) {
-      const container = form.querySelector("[data-newtab-anki-decks]");
-      if (!container) return;
-      const html = renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language2);
-      container.hidden = !html;
-      setInnerHtml(container, html);
-    }
-    syncNewTabAnkiDeckToggles(form) {
-      const hidden = namedSettingsControl(form, "newTabAnkiDisabledDecks");
-      if (!hidden) return;
-      const toggles = Array.from(form.querySelectorAll("[data-newtab-anki-deck-toggle]"));
-      const visibleDecks = toggles.map((toggle) => toggle.dataset.newtabAnkiDeck?.trim() ?? "").filter(Boolean);
-      const visibleDeckSet = new Set(visibleDecks);
-      const previousDisabled = readNewTabAnkiDisabledDecks(form);
-      const previousDisabledSet = new Set(previousDisabled);
-      const visibleDisabled = toggles.filter((toggle) => !toggle.checked).map((toggle) => toggle.dataset.newtabAnkiDeck?.trim() ?? "").filter(Boolean);
-      const visibleDisabledSet = new Set(visibleDisabled);
-      const disabled = canonicalNewTabAnkiDisabledDecks([
-        ...previousDisabled.filter((deck) => !visibleDeckSet.has(deck) || visibleDisabledSet.has(deck)),
-        ...visibleDisabled.filter((deck) => !previousDisabledSet.has(deck))
-      ]);
-      hidden.value = disabled.join(", ");
-      dispatchAuthorizedReaderControlEvent(hidden, new Event("input", { bubbles: true }));
-      this.renderNewTabAnkiDeckToggles(form, visibleDecks, getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabled);
-    }
-    renderAnkiFieldMappingEditor(form) {
-      const container = form.querySelector("[data-anki-field-mapping-editor]");
-      if (!container) return;
-      const settings = readFormSettings(new FormData(form), this.settings);
-      const modelName = namedSettingsControl(form, "ankiModel")?.value.trim() || settings.ankiModel;
-      setInnerHtml(container, renderAnkiFieldMappingEditor(
-        settings,
-        modelName,
-        this.ankiScanFieldsForModel(form, modelName),
-        getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
-        this.ankiScanConfidenceForModel(form, modelName)
-      ));
-    }
-    syncAnkiFieldMappingsFromEditor(form) {
-      const input2 = namedSettingsControl(form, "ankiFieldMappings");
-      const modelName = namedSettingsControl(form, "ankiModel")?.value.trim();
-      if (!input2 || !modelName) return;
-      const settings = readFormSettings(new FormData(form), this.settings);
-      const next = { ...settings.ankiFieldMappings };
-      const mapping = {};
-      form.querySelectorAll("[data-anki-field-role]").forEach((select2) => {
-        const role = select2.dataset.ankiFieldRole;
-        const value = select2.value.trim();
-        if (role && value) mapping[role] = value;
-      });
-      if (Object.keys(mapping).length) next[modelName] = mapping;
-      else delete next[modelName];
-      input2.value = JSON.stringify(next);
-      dispatchAuthorizedReaderControlEvent(input2, new Event("input", { bubbles: true }));
-    }
-    ankiScanFieldsForModel(form, modelName) {
-      const input2 = form.querySelector("[data-anki-scan-fields]");
-      if (!input2?.value.trim()) return [];
-      try {
-        const parsed = JSON.parse(input2.value);
-        const fields = parsed[modelName];
-        return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
-      } catch {
-        return [];
-      }
-    }
-    ankiScanConfidenceForModel(form, modelName) {
-      const input2 = form.querySelector("[data-anki-scan-confidence]");
-      if (!input2?.value.trim()) return {};
-      try {
-        const parsed = JSON.parse(input2.value);
-        const confidence = parsed[modelName] ?? {};
-        return Object.fromEntries(ankiScanConfidenceEntries(confidence));
-      } catch {
-        return {};
-      }
-    }
-    ankiScanMessage(scan, language2) {
-      if (!scan.suggestedModel) {
-        return formatUiTemplate(uiText(language2, "ankiScanNoModels"), {
-          decks: String(scan.deckNames.length)
-        });
-      }
-      const fields = scan.suggestedModel.suggestions.filter((suggestion) => suggestion.fieldName).map((suggestion) => `${suggestion.role}: ${suggestion.fieldName}`).join(", ");
-      return formatUiTemplate(uiText(language2, "ankiScanSummary"), {
-        decks: String(scan.deckNames.length),
-        models: String(scan.models.length),
-        model: scan.suggestedModel.modelName,
-        fields: formatUiTemplate(uiText(language2, "ankiScanFieldSummary"), { fields })
-      });
-    }
-    ankiReadyMessage(language2) {
-      return formatUiTemplate(uiText(language2, "ankiConnectedReady"), {
-        deck: this.settings.ankiDeck,
-        model: this.settings.ankiModel
-      });
-    }
-    ankiUnreachableMessage(language2) {
-      return uiText(language2, "ankiSettingsUnreachable");
-    }
-    // Diagnostic-UX ticket: when the direct probe fails, tell the user WHICH
-    // step failed. A no-cors probe that resolves means AnkiConnect is up but
-    // rejected this origin (webCorsOriginList) — name the origin to add; only
-    // a true network failure keeps the generic 'open Anki' guidance.
-    async refineAnkiUnavailableStatus(form, requestId, settings, language2) {
-      if (canUseMobileAnkiHandoff(settings) || hasUserscriptAnkiBridge()) return;
-      const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
-      const verdict = await diagnoseAnkiConnectFailure(url).catch(() => "unreachable");
-      if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-      if (verdict !== "cors-blocked") return;
-      const origin = typeof location !== "undefined" ? location.origin : "";
-      this.setAnkiStatus(form, uiText(language2, "ankiCorsBlocked").replace("{origin}", origin), "pending");
-    }
-    ankiSetupUnavailableStatus(settings, language2) {
-      if (canUseMobileAnkiHandoff(settings)) {
-        return { message: uiText(language2, "mobileAnkiReady"), tone: "pending", state: "ready" };
-      }
-      if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname) && !hasUserscriptAnkiBridge()) {
-        return { message: uiText(language2, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-unreachable", state: "unreachable" };
-      }
-      return { message: this.ankiUnreachableMessage(language2), tone: "pending", action: "anki-unreachable", state: "unreachable" };
-    }
-    // Field-mapping suggestions with their confidence, shown as the status
-    // checklist instead of hidden mapping JSON (P1 adapter state machine).
-    ankiScanDetails(scan, language2) {
-      const suggestions = scan.suggestedModel?.suggestions ?? [];
-      return suggestions.filter((suggestion) => suggestion.fieldName || suggestion.confidence === "low").map((suggestion) => ({
-        label: `${suggestion.role}: ${suggestion.fieldName ?? "—"}`,
-        suffix: uiText(language2, suggestion.confidence === "high" ? "ankiMappingConfidenceHigh" : suggestion.confidence === "medium" ? "ankiMappingConfidenceMedium" : "ankiMappingConfidenceLow")
-      }));
-    }
-    staleAnkiFieldMappingDetails(form, scan, language2) {
-      const controls = ankiScanFormControls(form);
-      const selection = ankiScanSelection(controls, scan);
-      const modelName = selection.selectedModel?.trim();
-      if (!modelName) return [];
-      const model = scan.models.find((candidate) => candidate.modelName === modelName);
-      if (!model) return [];
-      const liveFields = new Set(model.fields);
-      const mapping = readFormSettings(new FormData(form), this.settings).ankiFieldMappings[modelName] ?? {};
-      return Object.entries(mapping).filter((entry) => isAnkiFieldMappingRole(entry[0]) && !liveFields.has(entry[1])).map(([role, fieldName]) => ({
-        label: `${role}: ${fieldName}`,
-        suffix: uiText(language2, "ankiMappingStaleField")
-      }));
-    }
-    ankiConnectionErrorMessage(error, language2) {
-      return userFacingErrorText(language2, "ankiUnreachable", error);
-    }
-    async handleSettingsSupportAction(action, control, setStatus) {
-      if (action === "open-yomu-update") {
-        openUrlInNewTab(detectYomuUpdateFlow().url);
-        return true;
-      }
-      if (action === "copy-newtab-url") {
-        await copyText(NEW_TAB_PAGE_URL);
-        this.dependencies.toast(uiText(this.settings.interfaceLanguage, "newTabAddressCopied"));
-        return true;
-      }
-      if (action === "factory-reset") {
-        const button2 = settingsActionButton(control);
-        button2?.setAttribute("disabled", "true");
-        try {
-          await this.dependencies.resetAllData();
-        } finally {
-          button2?.removeAttribute("disabled");
-        }
-        return true;
-      }
-      setStatus("");
-      return false;
-    }
-    async disableAndClearLocalDictionarySiteStorage(form, control, setStatus) {
-      if (this.dictionarySiteStorageClearPending) return;
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      if (!window.confirm(uiText(language2, "clearLocalDictionarySiteStorageConfirm"))) return;
-      const button2 = settingsActionButton(control);
-      const enabled = namedSettingsControl(form, "localDictionariesEnabled");
-      this.dictionarySiteStorageClearPending = true;
-      button2?.setAttribute("disabled", "true");
-      this.setDictionaryImportsDisabledForSiteClear(form, true);
-      setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
-      try {
-        await this.restoreCoordinator.enqueueDictionaryOperation(
-          form,
-          () => this.clearLocalDictionarySiteStorage(form, enabled, setStatus, language2)
-        );
-      } finally {
-        this.dictionarySiteStorageClearPending = false;
-        this.setDictionaryImportsDisabledForSiteClear(form, false);
-        button2?.removeAttribute("disabled");
-      }
-    }
-    async clearLocalDictionarySiteStorage(form, enabled, setStatus, language2) {
-      const previousSettings = this.settings;
-      setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
-      this.settings = { ...previousSettings, localDictionariesEnabled: false };
-      try {
-        await this.saveCurrentSettings(previousSettings);
-      } catch (error) {
-        this.settings = previousSettings;
-        syncCheckedControl(enabled, previousSettings.localDictionariesEnabled);
-        throw error;
-      }
-      syncCheckedControl(enabled, false);
-      await requestDictionaryReplicaPurge();
-      await this.dependencies.dictionaries.deleteDatabase();
-      this.dictionaryRefreshId++;
-      await this.dependencies.refreshDictionaryStyles();
-      const dictionaryStatus = form.querySelector("[data-dictionary-status]");
-      if (dictionaryStatus) dictionaryStatus.textContent = uiText(language2, "noLocalDictionariesImported");
-      this.dependencies.scheduleDictionaryRescan();
-      this.dependencies.refreshNewTabIfCurrent();
-      const message = uiText(language2, "clearLocalDictionarySiteStorageDone");
-      setStatus(message);
-      this.dependencies.toast(message);
-    }
-    setDictionaryImportsDisabledForSiteClear(form, disabled) {
-      form.querySelectorAll(
-        '[data-action="import-yomitan-dictionary"], [data-action="download-recommended-dictionary"]'
-      ).forEach((importButton) => {
-        if (disabled) {
-          importButton.dataset.disabledForSiteClear = "true";
-          importButton.disabled = true;
-          return;
-        }
-        if (importButton.dataset.disabledForSiteClear !== "true") return;
-        delete importButton.dataset.disabledForSiteClear;
-        importButton.disabled = false;
-      });
-    }
-    async deleteDictionaryFromSettings(form, control, setStatus) {
-      const dictionary = control?.dataset.dictionaryName;
-      if (!dictionary) throw new Error("Dictionary not found.");
-      if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoveConfirm"), { dictionary }))) return;
-      control?.setAttribute("disabled", "true");
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoving"), { dictionary }));
-      await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
-        await this.dependencies.dictionaries.deleteDictionary(dictionary);
-        this.dictionaryRefreshId++;
-        await clearNewTabOfflineCache().catch(() => void 0);
-        const previousSettings = this.stableSettings;
-        this.settings = { ...previousSettings, dictionaryPreferences: previousSettings.dictionaryPreferences.filter((item) => item.name !== dictionary) };
-        await this.saveCurrentSettings(previousSettings);
-        await this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        await this.refreshDictionaryStatus(form);
-        this.dependencies.refreshNewTabIfCurrent();
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
-      });
-    }
-    async importDictionaryFromSettings(form, setStatus) {
-      const files = await this.dictionaryImportFiles(form);
-      if (!files.length) return;
-      const results = await Promise.allSettled(files.map((file) => this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
-        const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
-        await this.persistDictionaryImport(summary);
-        return summary;
-      })));
-      const report = dictionaryImportReport(files, results);
-      if (report.summaries.length) {
-        await this.refreshDictionaryStatus(form);
-        this.dependencies.refreshNewTabIfCurrent();
-      }
-      report.failures.forEach((failure) => log$3.warn("Dictionary file import failed", failure));
-      setStatus(dictionaryImportStatusMessage(this.settings.interfaceLanguage, report));
-    }
-    async dictionaryImportFiles(form) {
-      const files = await pickFiles(form, "dictionary");
-      if (!files.length) return files;
-      return this.restoreCoordinator.importBlocked(form) ? [] : files;
-    }
-    queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus) {
-      void this.downloadRecommendedDictionaryFromSettings(form, control, setStatus).catch((error) => {
-        const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        const message = handleSettingsActionError("download-recommended-dictionary", control, setStatus, error, language2);
-        this.dependencies.toast(message);
-      });
-    }
-    async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
-      const dictionary = recommendedDictionaryForControl(control);
-      if (this.recommendedDictionaryOperations.has(dictionary.id)) return;
-      const queuedMessage = formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryInstallQueued"), { dictionary: dictionary.name });
-      this.setRecommendedDictionaryInstallState(form, dictionary.id, "queued", queuedMessage);
-      setStatus(queuedMessage);
-      await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
-        try {
-          const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
-          this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
-          setStatus(startedMessage);
-          const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
-            setStatus(message);
-            this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
-          });
-          if (!summary) return;
-          await this.persistDictionaryImport(summary);
-          setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
-            dictionary: dictionary.name,
-            records: summary.entries.toLocaleString()
-          }));
-          await this.refreshDictionaryStatus(form);
-          this.dependencies.refreshNewTabIfCurrent();
-        } finally {
-          this.clearRecommendedDictionaryInstallState(form, dictionary.id);
-        }
-      });
-    }
-    async persistDictionaryImport(summary) {
-      this.dictionaryRefreshId++;
-      const previousSettings = this.stableSettings;
-      const dictionaryPreferences = mergeDictionaryPreferences(
-        previousSettings.dictionaryPreferences,
-        summary.dictionaries,
-        summary.dictionaryTypes ?? {},
-        summary.replacedDictionaries ?? []
-      );
-      this.settings = captureActiveLanguageProfileDictionaries(
-        { ...previousSettings, localDictionariesEnabled: true },
-        dictionaryPreferences
-      );
-      await markDictionaryReplicaFresh();
-      await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
-      await this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
-    }
-    async downloadRecommendedDictionary(dictionary, control, setStatus) {
-      if (!dictionary.downloadUrl) return null;
-      const downloadUrl = dictionary.downloadUrl;
-      try {
-        const importOptions = recommendedDictionaryImportOptions(dictionary);
-        return importOptions ? await this.dependencies.dictionaries.importFromUrl(
-          downloadUrl,
-          recommendedDictionaryFilename(dictionary),
-          (message) => setStatus(message),
-          importOptions
-        ) : await this.dependencies.dictionaries.importFromUrl(
-          downloadUrl,
-          recommendedDictionaryFilename(dictionary),
-          (message) => setStatus(message)
-        );
-      } catch (error) {
-        return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
-      }
-    }
-    handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
-      control?.removeAttribute("disabled");
-      if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
-        if (isUserFacingError(error)) throw error;
-        throw userFacingError("dictionaryDownloadFailed", {
-          cause: error,
-          diagnostic: error instanceof Error ? error.message : String(error)
-        });
-      }
-      const message = userFacingErrorText(this.settings.interfaceLanguage, "dictionaryDownloadBlocked", error);
-      const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
-      setStatus(status);
-      this.dependencies.toast(status);
-      log$3.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
-      return null;
-    }
-    /**
-     * Whether to offer "import the ZIP by hand" instead of failing outright.
-     *
-     * This used to substring-match `error.message` against fifteen hints such as
-     * 'blocked in this browser' and 'request bridge'. Not one of the five real
-     * strings contains any of them -- the copy says 'Download blocked.' and
-     * 'Download needs bridge; else import ZIP.' -- so the matcher always returned
-     * false and the manual-import recovery, written for exactly the case where a
-     * userscript manager refuses the request, could never reach anyone (GitHub #39).
-     *
-     * Matching rendered COPY is the defect: it is localized, it gets shortened for
-     * width, and neither change touches this file. The copy KEY is stable, so that
-     * is what this reads.
-     */
-    shouldPromptManualDictionaryDownload(error, downloadUrl) {
-      if (!downloadUrl.startsWith("http://") && !downloadUrl.startsWith("https://")) return false;
-      const copyKey = userFacingCopyKeyOf(error);
-      return copyKey === "dictionaryDownloadBlocked" || copyKey === "dictionaryDownloadNeedsBridge";
-    }
-    async importReaderSettingsFromFile(form, setStatus) {
-      const file = await pickFile(form, "settings");
-      if (!file) return;
-      if (this.restoreCoordinator.importBlocked(form)) return;
-      const successMessage = await this.runReaderSettingsImport(form, file, setStatus);
-      this.runPostCommitSettingsEffect("settings import status reporting", () => {
-        setStatus(successMessage);
-        this.dependencies.toast(successMessage);
-      });
-      this.applySettingsRestoreEffects(false);
-    }
-    async runReaderSettingsImport(form, file, setStatus) {
-      return this.restoreCoordinator.runRestore(form, async () => {
-        const previousSettings = this.stableSettings;
-        try {
-          return await this.applyReaderSettingsImport(file, previousSettings, setStatus);
-        } catch (error) {
-          if (this.stableSettings === previousSettings) {
-            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
-          }
-          throw error;
-        }
-      });
-    }
-    async applyReaderSettingsImport(file, previousSettings, setStatus) {
-      return restoreReaderSettingsBackup(file, previousSettings, {
-        dictionaries: this.dependencies.dictionaries,
-        setStatus,
-        persistSettings: (settings, options) => this.persistSettingsSnapshot(settings, options),
-        adoptSettings: (settings) => this.adoptPersistedSettings(settings),
-        dictionaryStateChanged: () => {
-          this.dictionaryRefreshId++;
-        }
-      });
-    }
-    applySettingsRestoreEffects(refreshOcr, panel) {
-      const effects = [
-        ["theme refresh", () => this.dependencies.applyTheme()],
-        ["dictionary style refresh", () => this.dependencies.refreshDictionaryStyles()],
-        ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
-        ["reader button refresh", () => this.dependencies.installFab()],
-        ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
-        ["YouTube refresh", () => this.dependencies.youtube.refresh()],
-        ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
-        ["settings dialog refresh", () => this.open(panel)]
-      ];
-      if (refreshOcr) effects.splice(5, 0, ["OCR refresh", () => this.dependencies.ocr.refresh()]);
-      for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
-    }
-  }
-  function isDictionarySourceOrderAction(action) {
-    return action === "dictionary-source-up" || action === "dictionary-source-down";
-  }
-  function isAudioSourceEditorAction(action) {
-    return action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down";
-  }
-  function isLookupLinkEditorAction(action) {
-    return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
-  }
-  function settingsWithDiscoveredDictionaries(current, summary) {
-    const names = summary.dictionaries.map((item) => item.title);
-    const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
-    const merged = mergeDictionaryPreferences(
-      retireStaleDictionaryPreferences(current.dictionaryPreferences, names),
-      names,
-      types
-    );
-    if (JSON.stringify(merged) === JSON.stringify(current.dictionaryPreferences)) return null;
-    return captureActiveLanguageProfileDictionaries(current, merged);
-  }
-  function publishSettingsChange(settings, options = {}) {
-    publishSettingsChange$1({ preview: options.preview === true, settings });
-  }
-  function formatUiTemplate(template, values) {
-    return template.replace(/\{([a-z]+)\}/gi, (_, key) => values[key] ?? "");
-  }
-  class OnboardingTargetChoice {
-    element;
-    select;
-    error;
-    constructor(settings, language2, labelText, requiredText2) {
-      this.element = document.createElement("label");
-      this.element.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language";
-      const label = document.createElement("span");
-      label.dataset.onboardingMultilingualCopy = "targetLanguage";
-      label.textContent = labelText;
-      this.select = document.createElement("select");
-      this.select.name = "targetLanguage";
-      this.select.setAttribute("autocomplete", "language");
-      this.select.required = true;
-      this.select.setAttribute("aria-required", "true");
-      populateTargetSelect(this.select, language2, initialTarget(settings));
-      this.error = document.createElement("span");
-      this.error.className = "jpdb-reader-onboarding-target-required";
-      this.error.id = "jpdb-reader-onboarding-target-required";
-      this.error.setAttribute("role", "status");
-      this.error.textContent = requiredText2;
-      this.select.setAttribute("aria-describedby", this.error.id);
-      this.element.append(label, this.select, this.error);
-    }
-    selectedTarget() {
-      const selected = learningTargetRosterIdForTag(this.select.value);
-      return selected && isSelectableStudyTarget(selected) ? selected : null;
-    }
-    localize(language2) {
-      populateTargetSelect(this.select, language2, this.selectedTarget());
-    }
-    syncAvailability(panel, targetOwnedOptions, requiredText2, selectedTarget2 = this.selectedTarget()) {
-      const hasTarget = selectedTarget2 !== null;
-      this.select.setCustomValidity(hasTarget ? "" : requiredText2);
-      this.error.hidden = hasTarget;
-      this.error.textContent = requiredText2;
-      if (targetOwnedOptions) {
-        targetOwnedOptions.hidden = !hasTarget;
-        targetOwnedOptions.disabled = !hasTarget;
-      }
-      panel?.querySelectorAll("[data-onboarding-action]").forEach((action) => {
-        const requiresTarget = action.dataset.onboardingAction !== "close";
-        action.disabled = requiresTarget && !hasTarget;
-        action.setAttribute("aria-disabled", String(requiresTarget && !hasTarget));
-      });
-    }
-    syncLanguageFamily(panel, selectedTarget2 = this.selectedTarget()) {
-      const selected = selectedTarget2 ? this.select.selectedOptions[0] : void 0;
-      if (!selected) {
-        this.select.removeAttribute("lang");
-        this.select.removeAttribute("dir");
-        syncLanguageFamilyDom(panel, "");
-        return;
-      }
-      this.select.lang = selected.lang;
-      this.select.dir = selected.dir;
-      syncLanguageFamilyDom(panel, selected.value);
-    }
-    reportValidity() {
-      return this.select.reportValidity();
-    }
-  }
-  function updateOnboardingLanguageProfile(settings, learnerLanguage2, targetLanguage2, interfaceLanguage) {
-    const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage2);
-    const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage2);
-    const activated = activateLanguageProfileForOutputLanguage(
-      settings.languageProfiles,
-      settings.activeLanguageProfileId,
-      learnerLanguageTag,
-      {
-        targetLanguage: targetLanguageTag,
-        uiLocale: interfaceLanguage,
-        parserProvider: settings.parserProvider
-      }
-    );
-    return {
-      activeLanguageProfileId: activated.activeProfileId,
-      languageProfiles: activated.profiles.map((profile) => profile.id === activated.activeProfileId ? {
-        ...profile,
-        outputLanguage: learnerLanguageTag,
-        learnerLanguage: learnerLanguageTag,
-        targetLanguage: targetLanguageTag,
-        uiLocale: interfaceLanguage,
-        parserProvider: settings.parserProvider
-      } : profile)
-    };
-  }
-  function initialTarget(settings) {
-    if (!settings.learningTargetChosen) return null;
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja";
-  }
-  function populateTargetSelect(select2, language2, selected) {
-    populateStudyTargetSelect(select2, language2, selected ?? "ja");
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = uiText(language2, "onboardingChooseTarget");
-    placeholder.disabled = true;
-    placeholder.selected = selected === null;
-    select2.prepend(placeholder);
-    if (selected === null) select2.value = "";
-  }
-  function createOffhostOnboardingLauncher(pageUrl, language2, dismiss) {
-    const access = sensitiveSettingsSurfaceAccess(pageUrl);
-    if (access.trusted) return null;
-    const launcherUrl = access.launcherUrl;
-    const backdrop = document.createElement("div");
-    backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
-    backdrop.dataset.jpdbReaderRoot = "true";
-    const panel = document.createElement("section");
-    panel.className = "jpdb-reader-onboarding jpdb-reader-onboarding-trusted-launcher";
-    panel.dataset.jpdbReaderRoot = "true";
-    panel.setAttribute("role", "dialog");
-    panel.setAttribute("aria-modal", "true");
-    panel.setAttribute("aria-label", uiText(language2, "welcomeLabel"));
-    panel.tabIndex = -1;
-    const eyebrow = document.createElement("div");
-    eyebrow.className = "jpdb-reader-onboarding-eyebrow";
-    eyebrow.textContent = uiText(language2, "onboardingTrustedSurfaceEyebrow");
-    const title = document.createElement("h2");
-    title.textContent = APP_NAME;
-    const copy = document.createElement("p");
-    copy.textContent = uiText(language2, "onboardingTrustedSurfaceCopy");
-    const actions = document.createElement("div");
-    actions.className = "jpdb-reader-onboarding-actions";
-    const open = document.createElement("button");
-    open.type = "button";
-    open.textContent = uiText(language2, "openOnboardingTrustedSurface");
-    open.className = "jpdb-reader-btn add";
-    open.dataset.onboardingAction = "open-trusted-setup";
-    open.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      if (!isDirectTrustedReaderInteraction(event)) return;
-      if (openUrlInNewTab(launcherUrl)) dismiss();
-    });
-    const close = document.createElement("button");
-    close.type = "button";
-    close.textContent = uiText(language2, "closeOnboarding");
-    close.className = "jpdb-reader-btn";
-    close.dataset.onboardingAction = "close";
-    close.addEventListener("click", dismiss);
-    actions.append(open, close);
-    panel.append(eyebrow, title, copy, actions);
-    return { backdrop, panel };
-  }
-  const log$2 = Logger.scope("Onboarding");
-  const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
-  const ONBOARDING_FEATURE_KEYS = [
-    ["featureText", "featureTextBody"],
-    ["featureImages", "featureImagesBody"],
-    ["featureVideo", "featureVideoBody"],
-    ["featureControl", "featureControlBody"],
-    ["featureStudy", "featureStudyBody"],
-    ["featureGame", "featureGameBody"]
-  ];
-  function selectedOnboardingLanguage(select2, fallback) {
-    return normalizeInterfaceLanguage(select2?.value, fallback);
-  }
-  class OnboardingController {
-    constructor(options) {
-      this.options = options;
-    }
-    panel;
-    backdrop;
-    languageSelect;
-    learnerLanguageSelect;
-    targetChoice;
-    targetOwnedOptions;
-    themeSwitch;
-    accentColorInput;
-    pendingAccentPreviewColor;
-    accentPreviewFrame;
-    youtubeImmersionInput;
-    youtubeImmersionChoiceTouched = false;
-    preferJapaneseSiteLanguageInput;
-    offlineDictionariesInput;
-    /**
-     * Onboarding copy, resolved through the same factory the settings dialog uses so
-     * a `{language}` label cannot leak its raw token here. It did: the master switch
-     * and its auto mode gained that token and this surface -- the FIRST screen a new
-     * user sees -- was still calling uiText directly, printing
-     * "{language} text on webpages" (b20).
-     */
-    text(key) {
-      const language2 = this.options.getSettings().interfaceLanguage;
-      const selectedTarget2 = this.targetChoice?.selectedTarget();
-      if (selectedTarget2) return settingsText(language2, selectedTarget2)(key);
-      const message = uiText(language2, key);
-      return message.includes("{language}") ? formatUiText(language2, key, { language: uiText(language2, "onboardingUnselectedTargetName") }) : message;
-    }
-    pageScanModeInputs = [];
-    ocrModeInputs = [];
-    manualPageScanShortcutInput;
-    manualPageScanShortcutLabel;
-    hoverLookupShortcutInput;
-    completionPromise = Promise.resolve();
-    resolveCompletion;
-    onboardingEntrySettings;
-    async showIfNeeded() {
-      const settings = this.options.getSettings();
-      if (settings.onboardingSeen && settings.learningTargetChosen) {
-        return false;
-      }
-      const launcher = createOffhostOnboardingLauncher(
-        location.href,
-        settings.interfaceLanguage,
-        () => this.dismiss()
-      );
-      this.showOnCurrentSurface(launcher);
-      return true;
-    }
-    async waitForCompletion(settings = this.options.getSettings()) {
-      if (settings.onboardingSeen && settings.learningTargetChosen) {
-        this.close();
-        this.finishCompletionWaiter();
-        return;
-      }
-      await this.completionPromise;
-    }
-    showOnCurrentSurface(launcher) {
-      if (launcher) this.showOffhostLauncher(launcher);
-      else this.show();
-    }
-    showOffhostLauncher(launcher) {
-      this.close();
-      this.completionPromise = new Promise((resolve) => {
-        this.resolveCompletion = resolve;
-      });
-      this.backdrop = launcher.backdrop;
-      this.panel = launcher.panel;
-      applyOverlayPageScale(this.panel);
-      document.body.append(this.backdrop, this.panel);
-      this.panel.focus();
-    }
-    show() {
-      const entrySettings = this.onboardingEntrySettings ?? this.options.getSettings();
-      log$2.info("Showing onboarding", { language: entrySettings.interfaceLanguage });
-      this.close();
-      this.onboardingEntrySettings = entrySettings;
-      this.completionPromise = new Promise((resolve) => {
-        this.resolveCompletion = resolve;
-      });
-      this.backdrop = document.createElement("div");
-      this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
-      this.backdrop.dataset.jpdbReaderRoot = "true";
-      this.panel = document.createElement("section");
-      this.panel.className = "jpdb-reader-onboarding jpdb-reader-parseable";
-      this.panel.dataset.jpdbReaderRoot = "true";
-      this.panel.setAttribute("role", "dialog");
-      this.panel.setAttribute("aria-modal", "true");
-      this.panel.setAttribute("aria-label", this.text("welcomeLabel"));
-      this.panel.tabIndex = -1;
-      const closeButton = button("");
-      closeButton.className = "jpdb-reader-icon-mini jpdb-reader-onboarding-close";
-      closeButton.dataset.onboardingAction = "close";
-      closeButton.title = this.text("closeOnboarding");
-      closeButton.setAttribute("aria-label", this.text("closeOnboarding"));
-      setInnerHtml(closeButton, closeIcon());
-      closeButton.addEventListener("click", () => this.dismiss());
-      const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", this.text("onboardingEyebrow"));
-      const title = element("h2", "", APP_NAME);
-      const copy = element(
-        "p",
-        "",
-        this.text("onboardingCopy")
-      );
-      const featureList = document.createElement("ul");
-      featureList.className = "jpdb-reader-onboarding-features";
-      ONBOARDING_FEATURE_KEYS.forEach(([headingKey, textKey]) => {
-        const item = document.createElement("li");
-        item.append(
-          element("strong", "", this.text(headingKey)),
-          element("span", "", this.text(textKey))
-        );
-        featureList.append(item);
-      });
-      const learnerLanguage2 = document.createElement("label");
-      learnerLanguage2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-learner-language";
-      const learnerLanguageText = element(
-        "span",
-        "",
-        onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).learnerLanguage
-      );
-      learnerLanguageText.dataset.onboardingMultilingualCopy = "learnerLanguage";
-      this.learnerLanguageSelect = document.createElement("select");
-      this.learnerLanguageSelect.name = "learnerLanguage";
-      this.learnerLanguageSelect.setAttribute("autocomplete", "language");
-      const initialLearnerLanguage = onboardingLearnerLanguage(this.options.getSettings());
-      LEARNER_LANGUAGES.forEach((item) => {
-        const option = document.createElement("option");
-        option.value = item.id;
-        option.lang = item.runtimeLocale;
-        option.dir = item.direction;
-        option.textContent = learnerLanguageOptionLabel(item);
-        option.selected = item.id === initialLearnerLanguage;
-        this.learnerLanguageSelect?.append(option);
-      });
-      learnerLanguage2.append(learnerLanguageText, this.learnerLanguageSelect);
-      this.targetChoice = new OnboardingTargetChoice(
-        this.options.getSettings(),
-        this.options.getSettings().interfaceLanguage,
-        onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage,
-        this.text("onboardingTargetRequired")
-      );
-      const initialTarget2 = this.targetChoice.selectedTarget();
-      const language2 = document.createElement("label");
-      language2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language";
-      const languageText = element("span", "", this.text("onboardingLanguage"));
-      this.languageSelect = document.createElement("select");
-      this.languageSelect.name = "interfaceLanguage";
-      [
-        ["auto", this.text("automatic")],
-        ["en", this.text("english")],
-        ["ja", this.text("japanese")]
-      ].forEach(([value, text2]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = text2;
-        option.selected = value === this.options.getSettings().interfaceLanguage;
-        this.languageSelect?.append(option);
-      });
-      language2.append(languageText, this.languageSelect);
-      const preferences = document.createElement("div");
-      preferences.className = "jpdb-reader-onboarding-preferences";
-      preferences.append(learnerLanguage2, this.targetChoice.element, language2, this.createThemeToggle());
-      const accentPicker = document.createElement("fieldset");
-      accentPicker.className = "jpdb-reader-onboarding-accent";
-      const accentLegend = document.createElement("legend");
-      accentLegend.textContent = this.text("onboardingAccentColor");
-      const swatches = document.createElement("div");
-      swatches.className = "jpdb-reader-onboarding-swatches";
-      ONBOARDING_ACCENT_SWATCHES.forEach((color) => {
-        const swatch = button("");
-        swatch.className = "jpdb-reader-onboarding-swatch";
-        swatch.dataset.onboardingAccent = color;
-        swatch.style.setProperty("--jpdb-reader-onboarding-swatch", color);
-        swatch.setAttribute("aria-label", onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color));
-        swatch.title = onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color);
-        swatch.addEventListener("click", () => this.applyAccentChoice(color));
-        swatches.append(swatch);
-      });
-      const customAccent = document.createElement("label");
-      customAccent.className = "jpdb-reader-onboarding-custom-accent";
-      const customAccentText = document.createElement("span");
-      customAccentText.dataset.onboardingCopy = "customAccentColor";
-      customAccentText.textContent = this.text("customAccentColor");
-      this.accentColorInput = document.createElement("input");
-      this.accentColorInput.type = "color";
-      this.accentColorInput.name = "accentColor";
-      this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
-      this.accentColorInput.setAttribute("aria-label", this.text("onboardingAccentColor"));
-      this.accentColorInput.addEventListener("input", () => this.previewAccentChoice(this.accentColorInput?.value));
-      this.accentColorInput.addEventListener("change", () => this.applyAccentChoice(this.accentColorInput?.value));
-      customAccent.append(customAccentText, this.accentColorInput);
-      accentPicker.append(accentLegend, swatches, customAccent);
-      const basics = document.createElement("div");
-      basics.className = "jpdb-reader-onboarding-basics";
-      basics.append(preferences, accentPicker);
-      const immersionOptions = document.createElement("fieldset");
-      immersionOptions.className = "jpdb-reader-onboarding-options";
-      this.targetOwnedOptions = immersionOptions;
-      const immersionLegend = document.createElement("legend");
-      immersionLegend.textContent = this.text("onboardingImmersionOptions");
-      this.hoverLookupShortcutInput = shortcutTextInput(
-        "shortcuts.hoverLookup",
-        this.options.getSettings().shortcuts.hoverLookup,
-        this.options.getSettings().interfaceLanguage,
-        "blankPlainHover"
-      );
-      this.manualPageScanShortcutInput = shortcutTextInput(
-        "shortcuts.scanPage",
-        this.options.getSettings().shortcuts.scanPage,
-        this.options.getSettings().interfaceLanguage,
-        "pressKeys"
-      );
-      const currentSettings = this.options.getSettings();
-      this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", jpOnlyOn(
-        currentSettings,
-        currentSettings.youtubeImmersionEnabled,
-        currentSettings.youtubeImmersionEnabledChosen
-      ));
-      this.youtubeImmersionInput.addEventListener("change", () => {
-        this.youtubeImmersionChoiceTouched = true;
-      });
-      this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
-      this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
-      const pageScanMode = createModeGroup(
-        "pageScanMode",
-        this.text("pageScanMode"),
-        pageScanModeFromSettings(this.options.getSettings()),
-        [
-          ["off", this.text("pageScanModeOff")],
-          ["auto", this.text("pageScanModeAuto")],
-          ["manual", this.text("pageScanModeManual")]
-        ]
-      );
-      this.pageScanModeInputs = pageScanMode.inputs;
-      this.pageScanModeInputs.forEach((input2) => {
-        input2.addEventListener("change", () => this.syncManualPageScanShortcut());
-      });
-      const ocrMode = createModeGroup(
-        "ocrInteractionMode",
-        this.text("ocrInteractionMode"),
-        ocrInteractionModeFromSettings(this.options.getSettings()),
-        [
-          ["auto", this.text("ocrInteractionModeAuto")],
-          ["manual", this.text("ocrInteractionModeManual")],
-          ["off", this.text("ocrInteractionModeOff")]
-        ]
-      );
-      this.ocrModeInputs = ocrMode.inputs;
-      const immersionGrid = document.createElement("div");
-      immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
-      const defaultColumn = document.createElement("div");
-      defaultColumn.className = "jpdb-reader-onboarding-option-column";
-      const preferredSiteLanguageLabel = checkboxLabel(
-        this.preferJapaneseSiteLanguageInput,
-        this.text("preferJapaneseSiteLanguage")
-      );
-      preferredSiteLanguageLabel.classList.add("jp-only");
-      preferredSiteLanguageLabel.dataset.languageFamily = "preferred-target-sites";
-      defaultColumn.append(
-        checkboxLabel(this.youtubeImmersionInput, this.text("youtubeImmersionEnabled")),
-        preferredSiteLanguageLabel,
-        checkboxLabel(this.offlineDictionariesInput, this.text("onboardingInstallOfflineDictionaries"))
-      );
-      const scanColumn = document.createElement("div");
-      scanColumn.className = "jpdb-reader-onboarding-option-column";
-      scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
-      const shortcutColumn = document.createElement("div");
-      shortcutColumn.className = "jpdb-reader-onboarding-option-column";
-      this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, this.text("manualPageScanShortcut"));
-      this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = "true";
-      shortcutColumn.append(
-        shortcutLabel(this.hoverLookupShortcutInput, this.text("onboardingHoverShortcut")),
-        this.manualPageScanShortcutLabel
-      );
-      immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
-      immersionOptions.append(
-        immersionLegend,
-        immersionGrid
-      );
-      const actions = document.createElement("div");
-      actions.className = "jpdb-reader-onboarding-actions";
-      const setup = button(this.text("onboardingAddApiKey"));
-      setup.className = "jpdb-reader-btn";
-      setup.dataset.onboardingAction = "api-key";
-      setup.addEventListener("click", () => void this.complete(true));
-      const dictionaries2 = button(this.text("onboardingUseWithoutApiKey"));
-      dictionaries2.className = "jpdb-reader-btn add";
-      dictionaries2.dataset.onboardingAction = "without-api";
-      dictionaries2.addEventListener("click", () => void this.complete("dictionaries"));
-      actions.append(dictionaries2, setup);
-      this.languageSelect.addEventListener("change", () => {
-        const language22 = selectedOnboardingLanguage(this.languageSelect, this.options.getSettings().interfaceLanguage);
-        log$2.info("Onboarding language changed", { language: language22 });
-        this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language22 });
-        this.localize(language22);
-      });
-      this.learnerLanguageSelect.addEventListener("change", () => {
-        const learnerLanguage22 = selectedLearnerLanguage(
-          this.learnerLanguageSelect,
-          onboardingLearnerLanguage(this.options.getSettings())
-        );
-        const selected = learnerLanguageById(learnerLanguage22);
-        log$2.info("Onboarding learner language changed", {
-          learnerLanguage: learnerLanguage22,
-          targetLanguage: this.targetChoice?.select.value
-        });
-        this.learnerLanguageSelect?.setAttribute("lang", selected.runtimeLocale);
-        this.learnerLanguageSelect?.setAttribute("dir", selected.direction);
-      });
-      this.targetChoice.select.addEventListener("change", () => this.syncTargetLanguageSelection());
-      this.panel.addEventListener("click", (event) => {
-        this.handleWordLookup(event);
-      });
-      this.panel.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        if (this.handleWordLookup(event)) event.preventDefault();
-      });
-      this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
-      this.targetChoice.syncAvailability(
-        this.panel,
-        this.targetOwnedOptions,
-        this.text("onboardingTargetRequired"),
-        initialTarget2
-      );
-      this.targetChoice.syncLanguageFamily(this.panel, initialTarget2);
-      this.syncThemeSwitch();
-      this.syncAccentPicker(this.accentColorInput.value);
-      this.syncManualPageScanShortcut();
-      applyOverlayPageScale(this.panel);
-      document.body.append(this.backdrop, this.panel);
-      this.panel.focus();
-      if (initialTarget2 === "ja") this.annotateJapanese();
-    }
-    annotateJapanese() {
-      if (this.panel) this.options.parseJapanese(this.panel);
-    }
-    handleWordLookup(event) {
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      const word = target?.closest(".jpdb-reader-onboarding .jpdb-reader-word");
-      if (!word || !this.panel?.contains(word) || !this.options.lookupText) return false;
-      if (isOnboardingCommandWord(word)) return false;
-      const expression = word.dataset.expression?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
-      if (!expression) return false;
-      event.preventDefault();
-      event.stopPropagation();
-      this.options.lookupText(expression, word.dataset.sentence || expression, word);
-      return true;
-    }
-    syncTargetLanguageSelection() {
-      const choice = this.targetChoice;
-      const panel = this.panel;
-      if (!choice || !panel) return;
-      const selectedTarget2 = choice.selectedTarget();
-      choice.syncAvailability(
-        panel,
-        this.targetOwnedOptions,
-        this.text("onboardingTargetRequired"),
-        selectedTarget2
-      );
-      choice.syncLanguageFamily(panel, selectedTarget2);
-      this.syncYoutubeImmersionChoice(selectedTarget2);
-      this.localize(this.options.getSettings().interfaceLanguage);
-    }
-    dismiss() {
-      this.close();
-      this.resolveCompletion?.();
-      this.resolveCompletion = void 0;
-    }
-    syncYoutubeImmersionChoice(targetLanguage2) {
-      if (!targetLanguage2) return;
-      const input2 = this.youtubeImmersionInput;
-      if (!input2) return;
-      if (this.youtubeImmersionChoiceTouched) return;
-      input2.checked = defaultYoutubeImmersionChoice(this.options.getSettings(), targetLanguage2);
-    }
-    localize(language2) {
-      const text2 = (key) => this.text(key);
-      const panel = this.panel;
-      if (!panel) return;
-      panel.setAttribute("aria-label", text2("welcomeLabel"));
-      panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(text2("onboardingEyebrow"));
-      const copy = panel.querySelector("p");
-      copy?.replaceChildren(text2("onboardingCopy"));
-      panel.querySelector(".jpdb-reader-onboarding-interface-language span")?.replaceChildren(text2("onboardingLanguage"));
-      const multilingualCopy = onboardingLanguageProfileCopy(language2);
-      panel.querySelector('[data-onboarding-multilingual-copy="learnerLanguage"]')?.replaceChildren(multilingualCopy.learnerLanguage);
-      panel.querySelector('[data-onboarding-multilingual-copy="targetLanguage"]')?.replaceChildren(multilingualCopy.targetLanguage);
-      panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(text2("theme"));
-      panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(text2("onboardingImmersionOptions"));
-      panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(text2("onboardingHoverShortcut"));
-      this.hoverLookupShortcutInput?.setAttribute("placeholder", text2("blankPlainHover"));
-      panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(text2("manualPageScanShortcut"));
-      this.manualPageScanShortcutInput?.setAttribute("placeholder", text2("pressKeys"));
-      panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(text2("youtubeImmersionEnabled"));
-      panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(text2("preferJapaneseSiteLanguage"));
-      panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(text2("onboardingInstallOfflineDictionaries"));
-      panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(text2("pageScanMode"));
-      setOnboardingModeLabel(panel, "pageScanMode", "off", text2("pageScanModeOff"));
-      setOnboardingModeLabel(panel, "pageScanMode", "auto", text2("pageScanModeAuto"));
-      setOnboardingModeLabel(panel, "pageScanMode", "manual", text2("pageScanModeManual"));
-      panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(text2("ocrInteractionMode"));
-      setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", text2("ocrInteractionModeAuto"));
-      setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", text2("ocrInteractionModeManual"));
-      setOnboardingModeLabel(panel, "ocrInteractionMode", "off", text2("ocrInteractionModeOff"));
-      panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(text2("onboardingAccentColor"));
-      panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(text2("customAccentColor"));
-      this.accentColorInput?.setAttribute("aria-label", text2("onboardingAccentColor"));
-      panel.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
-        const color = button2.dataset.onboardingAccent;
-        if (!color) return;
-        const label = onboardingAccentLabel(language2, color);
-        button2.setAttribute("aria-label", label);
-        button2.title = label;
-      });
-      const options = [
-        ["auto", text2("automatic")],
-        ["en", text2("english")],
-        ["ja", text2("japanese")]
-      ];
-      options.forEach(([value, text22]) => {
-        const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
-        if (option) option.textContent = text22;
-      });
-      this.targetChoice?.localize(language2);
-      const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
-      features.forEach((feature, index) => {
-        const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
-        feature.querySelector("strong")?.replaceChildren(text2(headingKey));
-        feature.querySelector("span")?.replaceChildren(text2(bodyKey));
-      });
-      panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(text2("onboardingAddApiKey"));
-      panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(text2("onboardingUseWithoutApiKey"));
-      const closeButton = panel.querySelector('[data-onboarding-action="close"]');
-      closeButton?.setAttribute("aria-label", text2("closeOnboarding"));
-      closeButton?.setAttribute("title", text2("closeOnboarding"));
-      this.targetChoice?.syncAvailability(
-        panel,
-        this.targetOwnedOptions,
-        this.text("onboardingTargetRequired")
-      );
-      this.syncThemeSwitch();
-      if (this.targetChoice?.selectedTarget() === "ja") this.annotateJapanese();
-    }
-    async complete(openSettings) {
-      const targetLanguage2 = this.targetChoice?.selectedTarget();
-      if (!targetLanguage2) {
-        this.reportMissingTarget();
-        return;
-      }
-      await this.persistCompletedOnboarding(openSettings, targetLanguage2);
-    }
-    reportMissingTarget() {
-      this.targetChoice?.syncAvailability(
-        this.panel,
-        this.targetOwnedOptions,
-        this.text("onboardingTargetRequired"),
-        null
-      );
-      this.targetChoice?.reportValidity();
-    }
-    async persistCompletedOnboarding(openSettings, targetLanguage2) {
-      const done = log$2.time("Onboarding complete", { openSettings });
-      const installOfflineDictionaries = this.shouldInstallOfflineDictionaries();
-      const previousSettings = this.options.getSettings();
-      const intentBaseline = this.onboardingIntentBaseline(previousSettings);
-      const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2);
-      try {
-        await (this.options.saveSettings ?? saveSettings)(settings, {
-          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          // Every field the onboarding panel's own controls moved. It used to
-          // declare only the 17 allowlisted keys, so a theme or hotkey chosen
-          // here was not intent and a legacy store could replay the old one.
-          explicitUserChoiceKeys: changedSettingsKeys(intentBaseline, settings)
-        });
-        this.options.setSettings(settings);
-        await this.commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries);
-        log$2.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
-      } catch (error) {
-        this.notifyPersistenceFailed(previousSettings);
-        log$2.warn("Onboarding completion failed", { openSettings, error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    shouldInstallOfflineDictionaries() {
-      return this.offlineDictionariesInput?.checked === true;
-    }
-    onboardingIntentBaseline(previousSettings) {
-      return this.onboardingEntrySettings ?? previousSettings;
-    }
-    notifyPersistenceFailed(previousSettings) {
-      this.options.onPersistenceFailed?.(previousSettings);
-    }
-    async commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries) {
-      this.close();
-      await this.options.onComplete?.(settings);
-      if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
-      this.openPostOnboardingSettings(openSettings);
-      this.finishCompletionWaiter();
-    }
-    finishCompletionWaiter() {
-      const resolve = this.resolveCompletion;
-      this.resolveCompletion = void 0;
-      resolve?.();
-    }
-    completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2) {
-      const current = this.options.getSettings();
-      const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
-      const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
-      const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect, current.interfaceLanguage);
-      const learnerLanguage2 = selectedLearnerLanguage(
-        this.learnerLanguageSelect,
-        onboardingLearnerLanguage(current)
-      );
-      const languageProfileSelection = updateOnboardingLanguageProfile(
-        current,
-        learnerLanguage2,
-        targetLanguage2,
-        interfaceLanguage
-      );
-      return {
-        ...current,
-        onboardingSeen: true,
-        learningTargetChosen: true,
-        jpdbDefinitionsEnabled: true,
-        localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
-        youtubeImmersionEnabled: checkboxValue(
-          this.youtubeImmersionInput,
-          current.youtubeImmersionEnabled,
-          this.youtubeImmersionChoiceTouched
-        ),
-        youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || this.youtubeImmersionChoiceTouched,
-        preferJapaneseSiteLanguage: checkboxValue(
-          this.preferJapaneseSiteLanguageInput,
-          current.preferJapaneseSiteLanguage
-        ),
-        annotationsPaused: pageScanMode === "off",
-        manualScanEnabled: pageScanMode === "manual",
-        ocrEnabled: ocrMode !== "off",
-        ocrAutoScanImages: ocrMode === "auto",
-        shortcuts: {
-          ...current.shortcuts,
-          hoverLookup: shortcutValue(this.hoverLookupShortcutInput, current.shortcuts.hoverLookup),
-          scanPage: shortcutValue(this.manualPageScanShortcutInput, current.shortcuts.scanPage)
-        },
-        dictionaryLookupLinks: defaultDictionaryLookupLinks(
-          defaultLookupLinkMode(openSettings === true),
-          targetLanguage2
-        ),
-        interfaceLanguage,
-        ...languageProfileSelection,
-        accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
-      };
-    }
-    openPostOnboardingSettings(openSettings) {
-      if (openSettings === "dictionaries") this.options.showSettings("dictionaries");
-      else if (openSettings) this.options.showSettings("api");
-    }
-    close() {
-      this.cancelAccentPreviewFrame();
-      this.panel?.remove();
-      this.backdrop?.remove();
-      this.panel = void 0;
-      this.backdrop = void 0;
-      this.languageSelect = void 0;
-      this.learnerLanguageSelect = void 0;
-      this.targetChoice = void 0;
-      this.targetOwnedOptions = void 0;
-      this.themeSwitch = void 0;
-      this.accentColorInput = void 0;
-      this.youtubeImmersionInput = void 0;
-      this.youtubeImmersionChoiceTouched = false;
-      this.preferJapaneseSiteLanguageInput = void 0;
-      this.offlineDictionariesInput = void 0;
-      this.pageScanModeInputs = [];
-      this.ocrModeInputs = [];
-      this.manualPageScanShortcutInput = void 0;
-      this.manualPageScanShortcutLabel = void 0;
-      this.hoverLookupShortcutInput = void 0;
-      this.onboardingEntrySettings = void 0;
-    }
-    createThemeToggle() {
-      const wrapper = document.createElement("div");
-      wrapper.className = "jpdb-reader-onboarding-theme";
-      const title = document.createElement("span");
-      title.className = "jpdb-reader-theme-title";
-      title.id = "jpdb-reader-onboarding-theme-label";
-      title.dataset.onboardingCopy = "theme";
-      title.textContent = this.text("theme");
-      const chrome = document.createElement("div");
-      chrome.className = "VPNavBarAppearance appearance jpdb-reader-theme-appearance";
-      this.themeSwitch = button("");
-      this.themeSwitch.className = "VPSwitch VPSwitchAppearance jpdb-reader-theme-switch";
-      this.themeSwitch.dataset.onboardingThemeSwitch = "true";
-      this.themeSwitch.setAttribute("role", "switch");
-      this.themeSwitch.setAttribute("aria-labelledby", title.id);
-      this.themeSwitch.setAttribute("aria-describedby", title.id);
-      setInnerHtml(this.themeSwitch, themeSwitchChrome());
-      this.themeSwitch.addEventListener("click", () => this.toggleTheme());
-      chrome.append(this.themeSwitch);
-      wrapper.append(title, chrome);
-      return wrapper;
-    }
-    toggleTheme() {
-      const current = this.options.getSettings();
-      const theme = this.effectiveTheme(current.theme) === "dark" ? "light" : "dark";
-      this.options.setSettings({ ...current, theme });
-      this.syncThemeSwitch();
-    }
-    syncThemeSwitch() {
-      if (!this.themeSwitch) return;
-      const theme = this.effectiveTheme(this.options.getSettings().theme);
-      const label = this.text(theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
-      this.themeSwitch.setAttribute("aria-label", label);
-      this.themeSwitch.setAttribute("aria-checked", String(theme === "dark"));
-      this.themeSwitch.title = label;
-    }
-    effectiveTheme(value) {
-      if (value === "dark" || value === "light") return value;
-      return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    applyAccentChoice(value) {
-      this.cancelAccentPreviewFrame();
-      const current = this.options.getSettings();
-      const accentColor = sanitizeAccentColor(value, current.accentColor);
-      this.options.setSettings({ ...current, accentColor });
-      if (this.accentColorInput && this.accentColorInput.value !== accentColor) {
-        this.accentColorInput.value = accentColor;
-      }
-      this.syncAccentPicker(accentColor);
-    }
-    previewAccentChoice(value) {
-      const current = this.options.getSettings();
-      const accentColor = sanitizeAccentColor(value, current.accentColor);
-      this.pendingAccentPreviewColor = accentColor;
-      this.syncAccentPicker(accentColor);
-      if (this.accentPreviewFrame !== void 0) return;
-      this.accentPreviewFrame = requestOnboardingFrame(() => {
-        this.accentPreviewFrame = void 0;
-        const pendingColor = this.pendingAccentPreviewColor;
-        this.pendingAccentPreviewColor = void 0;
-        if (!pendingColor || !this.panel?.isConnected) return;
-        this.options.setSettings({ ...this.options.getSettings(), accentColor: pendingColor });
-      });
-    }
-    cancelAccentPreviewFrame() {
-      if (this.accentPreviewFrame === void 0) return;
-      cancelOnboardingFrame(this.accentPreviewFrame);
-      this.accentPreviewFrame = void 0;
-      this.pendingAccentPreviewColor = void 0;
-    }
-    syncAccentPicker(color) {
-      const selectedColor = sanitizeAccentColor(color);
-      this.panel?.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
-        const selected = sanitizeAccentColor(button2.dataset.onboardingAccent) === selectedColor;
-        button2.classList.toggle("selected", selected);
-        button2.setAttribute("aria-pressed", String(selected));
-      });
-    }
-    syncManualPageScanShortcut() {
-      if (!this.manualPageScanShortcutLabel) return;
-      this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
-    }
-  }
-  function defaultYoutubeImmersionChoice(settings, targetLanguage2) {
-    if (!settings.youtubeImmersionEnabled) return false;
-    if (settings.youtubeImmersionEnabledChosen) return true;
-    return languageFamilyIncludes("jp-only", targetLanguage2);
-  }
-  function pageScanModeFromSettings(settings) {
-    if (settings.annotationsPaused) return "off";
-    return settings.manualScanEnabled ? "manual" : "auto";
-  }
-  function selectedMode(inputs, fallback) {
-    return inputs.find((input2) => input2.checked)?.value ?? fallback;
-  }
-  function shortcutValue(input2, fallback) {
-    return input2?.value.trim() ?? fallback;
-  }
-  function checkboxValue(input2, fallback, useInput = true) {
-    return useInput ? input2?.checked ?? fallback : fallback;
-  }
-  function onboardingLanguageProfileCopy(language2) {
-    return {
-      learnerLanguage: uiText(language2, "onboardingOutputLanguage"),
-      targetLanguage: uiText(language2, "onboardingTargetLanguage")
-    };
-  }
-  function learnerLanguageOptionLabel(language2) {
-    return language2.nativeName === language2.englishName ? language2.nativeName : `${language2.nativeName} — ${language2.englishName}`;
-  }
-  function onboardingLearnerLanguage(settings) {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const saved = slice1LanguageIdForTag(profile?.outputLanguage);
-    if (saved && saved !== "en") return saved;
-    const browserLanguages = typeof navigator === "undefined" ? [] : [...navigator.languages ?? [], navigator.language];
-    for (const browserLanguage of browserLanguages) {
-      const detected = slice1LanguageIdForTag(browserLanguage);
-      if (detected) return detected;
-    }
-    return saved ?? "en";
-  }
-  function selectedLearnerLanguage(select2, fallback) {
-    const value = select2?.value;
-    return value && isLearnerLanguageId(value) ? value : fallback;
-  }
-  function element(tag, className, text2) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    node.textContent = text2;
-    return node;
-  }
-  function button(text2) {
-    const node = document.createElement("button");
-    node.type = "button";
-    node.textContent = text2;
-    return node;
-  }
-  function checkboxInput(name, checked) {
-    const input2 = document.createElement("input");
-    input2.type = "checkbox";
-    input2.name = name;
-    input2.checked = checked;
-    input2.setAttribute("aria-labelledby", onboardingCopyId(name));
-    return input2;
-  }
-  function isOnboardingCommandWord(word) {
-    return Boolean(word.closest("button, a[href], input, select, textarea, label, [data-onboarding-action], [data-onboarding-theme-switch], [data-onboarding-accent]"));
-  }
-  function checkboxLabel(input2, text2) {
-    const label = document.createElement("label");
-    label.className = "inline";
-    const copy = document.createElement("span");
-    copy.id = onboardingCopyId(input2.name);
-    copy.dataset.onboardingCopy = input2.name;
-    copy.textContent = text2;
-    label.append(input2, copy);
-    return label;
-  }
-  function shortcutTextInput(name, value, language2, placeholderKey) {
-    const input2 = document.createElement("input");
-    input2.type = "text";
-    input2.name = name;
-    input2.value = value;
-    input2.placeholder = settingsText(language2)(placeholderKey);
-    input2.autocomplete = "off";
-    input2.inputMode = "none";
-    input2.dataset.shortcutInput = "true";
-    input2.setAttribute("aria-labelledby", onboardingCopyId(name));
-    input2.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      input2.value = event.key === "Backspace" || event.key === "Delete" ? "" : formatShortcutEvent(event);
-    });
-    input2.addEventListener("paste", (event) => event.preventDefault());
-    return input2;
-  }
-  function createModeGroup(name, legendText, selectedValue, options) {
-    const fieldset = document.createElement("fieldset");
-    fieldset.className = "jpdb-reader-onboarding-mode-group";
-    const legend = document.createElement("legend");
-    legend.dataset.onboardingModeLegend = name;
-    legend.textContent = legendText;
-    const inputs = options.map(([value, text2]) => {
-      const input2 = document.createElement("input");
-      input2.type = "radio";
-      input2.name = name;
-      input2.value = value;
-      input2.checked = value === selectedValue;
-      const label = document.createElement("label");
-      label.className = "inline";
-      label.dataset.onboardingModeLabel = `${name}.${value}`;
-      label.append(input2, document.createTextNode(text2));
-      fieldset.append(label);
-      return input2;
-    });
-    fieldset.prepend(legend);
-    return { fieldset, inputs };
-  }
-  function setOnboardingModeLabel(panel, name, value, text2) {
-    const label = panel.querySelector(`[data-onboarding-mode-label="${name}.${value}"]`);
-    const input2 = label?.querySelector("input");
-    if (!label || !input2) return;
-    label.replaceChildren(input2, document.createTextNode(text2));
-  }
-  function shortcutLabel(input2, text2) {
-    const label = document.createElement("label");
-    label.className = "jpdb-reader-onboarding-shortcut";
-    const copy = document.createElement("span");
-    copy.id = onboardingCopyId(input2.name);
-    copy.dataset.onboardingCopy = input2.name;
-    copy.textContent = text2;
-    label.append(copy, input2);
-    return label;
-  }
-  function onboardingCopyId(name) {
-    return `jpdb-reader-onboarding-${name}`;
-  }
-  function onboardingAccentLabel(language2, color) {
-    return `${settingsText(language2)("onboardingAccentColor")} ${color.toUpperCase()}`;
-  }
-  function requestOnboardingFrame(callback) {
-    if (typeof window.requestAnimationFrame === "function") {
-      return window.requestAnimationFrame(() => callback());
-    }
-    return window.setTimeout(callback, 16);
-  }
-  function cancelOnboardingFrame(id) {
-    if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
-    else window.clearTimeout(id);
-  }
-  function closeIcon() {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
-  }
-  function themeSwitchChrome() {
-    return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
-  }
-  const log$1 = Logger.scope("OfflineDictionarySetup");
-  const OFFLINE_PITCH_DICTIONARY_ID = "kanjium-pitch";
-  async function installOfflineParsingDictionaries(options) {
-    const result = { installed: [], skipped: [], failed: [] };
-    const settings = options.getSettings();
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const plan = await offlineDictionarySetupPlan(
-      options.dictionaries,
-      slice1LanguageIdForTag(profile?.outputLanguage) ?? "en",
-      learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja",
-      result
-    );
-    if (plan.installed.length) {
-      await captureAlreadyInstalledStarters(options, plan.installed);
-    }
-    for (const target of plan.missing) {
-      try {
-        const importOptions = recommendedDictionaryImportOptions(target);
-        const summary = importOptions ? await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress, importOptions) : await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress);
-        const settings2 = options.getSettings();
-        const dictionaryPreferences = mergeDictionaryPreferences(
-          settings2.dictionaryPreferences,
-          summary.dictionaries,
-          summary.dictionaryTypes ?? {},
-          summary.replacedDictionaries ?? []
-        );
-        await options.applySettings(captureActiveLanguageProfileDictionaries(
-          { ...settings2, localDictionariesEnabled: true },
-          dictionaryPreferences
-        ));
-        result.installed.push(target.name);
-      } catch (error) {
-        result.failed.push(target.name);
-        log$1.warn("Offline dictionary install failed", { dictionary: target.name }, error);
-      }
-    }
-    return result;
-  }
-  async function offlineDictionarySetupPlan(store, learnerLanguage2, targetLanguage2, result) {
-    const targets2 = recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2).filter((dictionary) => dictionary.selectedByDefault !== false && Boolean(dictionary.downloadUrl));
-    const pitch = targetLanguage2 === "ja" ? findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID) : void 0;
-    if (pitch?.downloadUrl) targets2.push(pitch);
-    const installedDictionaries = await store.summary().then((summary) => summary.dictionaries).catch(() => []);
-    const missing = [];
-    const installed = [];
-    for (const target of targets2) {
-      const match = installedDictionaries.find((info) => canonicalDownloadUrl(info.downloadUrl ?? "") === canonicalDownloadUrl(target.downloadUrl) || yomitanDictionaryIdentity(info.title) === recommendedDictionaryInstalledIdentity(target));
-      if (!match) {
-        missing.push(target);
-        continue;
-      }
-      result.skipped.push(target.name);
-      installed.push(match);
-    }
-    return { missing, installed };
-  }
-  async function captureAlreadyInstalledStarters(options, installed) {
-    const settings = options.getSettings();
-    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const profileInstalledIdentities = new Set(
-      active?.dictionaries.installed.map(yomitanDictionaryIdentity) ?? []
-    );
-    const newlyAddedNames = new Set(installed.filter((info) => !profileInstalledIdentities.has(yomitanDictionaryIdentity(info.title))).map((info) => info.title));
-    let dictionaryPreferences = mergeDictionaryPreferences(
-      settings.dictionaryPreferences,
-      installed.map((info) => info.title),
-      Object.fromEntries(installed.map((info) => [info.title, info.type]))
-    );
-    dictionaryPreferences = dictionaryPreferences.map((preference) => newlyAddedNames.has(preference.name) ? { ...preference, enabled: true } : preference);
-    await options.applySettings(captureActiveLanguageProfileDictionaries(
-      { ...settings, localDictionariesEnabled: true },
-      dictionaryPreferences
-    ));
-  }
-  function canonicalDownloadUrl(value) {
-    if (!value) return "";
-    try {
-      return new URL(value).href;
-    } catch {
-      return value.trim();
-    }
   }
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const SETTINGS_PARSE_TARGET_LIMIT = 120;

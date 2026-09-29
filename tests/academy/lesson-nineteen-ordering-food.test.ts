@@ -1,11 +1,16 @@
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import path from 'node:path';
 import { createLessonNineteenOrderingFoodBeat } from '../../src/academy/content/lesson-nineteen-ordering-food';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type SentenceBuilderModel } from '../../src/academy/minigames';
 import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
+let loaded: LoadedAuthoredWeekPackage;
+beforeAll(async () => { loaded = await validateCommittedAuthoredWeek(getAuthoredWeekRegistration('l1-l19')); });
+
 function model(): SentenceBuilderModel {
-    return createLessonNineteenOrderingFoodBeat().activity as SentenceBuilderModel;
+    return createLessonNineteenOrderingFoodBeat(loaded).activity as SentenceBuilderModel;
 }
 
 describe('Lesson 19 Moodle ordering-food source slice', () => {
@@ -67,7 +72,7 @@ describe('Lesson 19 Moodle ordering-food source slice', () => {
     });
 
     it('places the Moodle-first order activity in the established menu story', async () => {
-        const chapter = await loadLessonActivityChapter('l1-l19', { lookup: async () => null });
+        const chapter = await loadLessonActivityChapter('l1-l19', { lookup: async () => null }, loaded);
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l19',
             canonicalEpisodeId: 's1e08-menu-without-pictures',

@@ -1,6 +1,7 @@
 import { ACADEMY_SRS_LABEL, ANKI_SOURCE_ID } from '../app/constants';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
-import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons, reviewButtonGrades } from '../anki/render';
+import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons } from '../anki/render';
+import { reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from './grade-scale';
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
@@ -16,7 +17,7 @@ import { cardPronunciationReading, headwordComponentPitchSegments, type Expressi
 import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
-import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
@@ -75,7 +76,7 @@ interface PopoverReviewTarget {
     kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
     label: string;
     shortLabel: string;
-    gradeProfile: 'standard' | 'bunpro-regular' | 'bunpro-fsrs';
+    gradeProfile: ReviewGradeProfile;
     ankiCardId?: number;
     plainLabel?: string;
 }
@@ -352,7 +353,7 @@ export class CardPopoverRenderer {
 
     private renderPublicReviewButtons(options: ReviewButtonsRenderOptions): string {
         if (!this.canRenderPublicReviewButtons(options)) return '';
-        return renderReviewButtons(this.settings());
+        return renderReviewButtons(this.settings(), null, { gradeProfile: reviewGradeProfile(options.card, options.provider?.id) });
     }
 
     private canRenderPublicReviewButtons(options: ReviewButtonsRenderOptions): boolean {
@@ -405,6 +406,7 @@ export class CardPopoverRenderer {
             title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
             // Jiten/Anki parity: due-in previews on the popover grade row.
             intervals: card.reviewGradeIntervals,
+            gradeProfile: reviewGradeProfile(card, provider?.id),
         });
     }
 
@@ -506,7 +508,7 @@ export class CardPopoverRenderer {
             kind: isJiten ? 'jiten' : 'jpdb',
             label: uiText(language, isJiten ? 'gradeTargetJiten' : 'gradeTargetJpdb'),
             shortLabel: provider.label,
-            gradeProfile: 'standard',
+            gradeProfile: isJiten ? 'jiten' : 'standard',
         };
     }
 
@@ -524,7 +526,7 @@ export class CardPopoverRenderer {
             label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
             shortLabel: uiText(language, 'gradeTargetBoth'),
             ankiCardId: ankiTarget.ankiCardId,
-            gradeProfile: 'standard',
+            gradeProfile: provider.id === 'jiten' ? 'jiten' : 'standard',
         };
     }
 
@@ -546,7 +548,7 @@ export class CardPopoverRenderer {
             plainLabel: label,
             label: formatTargetLabel(uiText(language, 'gradeTargetAnki'), label),
             shortLabel: compactAnkiReviewTargetLabel(label, cardId),
-            gradeProfile: 'standard',
+            gradeProfile: 'anki',
         }));
     }
 
@@ -559,25 +561,13 @@ export class CardPopoverRenderer {
         const settings = this.settings();
         const selected = targets[0];
         if (!selected) return '';
-        const standardGrades = reviewButtonGrades(settings);
-        const bunproRegularGrades: Array<[string, string]> = [
-            ['fail', uiText(language, 'bunproGradeHardLabel')],
-            ['pass', uiText(language, 'bunproGradeGoodLabel')],
-        ];
-        const bunproFsrsGrades: Array<[string, string]> = [
-            ['nothing', uiText(language, 'bunproGradeAgainLabel')],
-            ['hard', uiText(language, 'bunproGradeHardLabel')],
-            ['okay', uiText(language, 'bunproGradeGoodLabel')],
-            ['easy', uiText(language, 'bunproGradeEasyLabel')],
-        ];
-        const profiles = new Set(targets.map(target => target.gradeProfile));
-        const gradeRows = [
-            profiles.has('standard') ? renderTargetedGradeRow(standardGrades, selected, 'standard', selected.gradeProfile !== 'standard') : '',
-            profiles.has('bunpro-regular') ? renderTargetedGradeRow(bunproRegularGrades, selected, 'bunpro-regular', selected.gradeProfile !== 'bunpro-regular') : '',
-            profiles.has('bunpro-fsrs') ? renderTargetedGradeRow(bunproFsrsGrades, selected, 'bunpro-fsrs', selected.gradeProfile !== 'bunpro-fsrs') : '',
-        ].filter(Boolean).join('');
+        const reviewGroup = canSwitchTarget ? Symbol('review-group') : undefined;
+        const profiles = new Set((canSwitchTarget ? targets : [selected]).map(target => target.gradeProfile));
+        const gradeRows = [...profiles].map(profile => renderTargetedGradeRow(
+            reviewGradeScale(settings, profile), selected, profile, selected.gradeProfile !== profile, reviewGroup,
+        )).join('');
         if (!gradeRows) return '';
-        const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : '';
+        const selector = reviewGroup ? renderReviewTargetSelector(targets, language, reviewGroup) : '';
         const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
         return `
             ${targetGutter}
@@ -738,29 +728,21 @@ function updatePopoverReviewButtonLabel(button: HTMLButtonElement, label: string
     button.setAttribute('aria-label', `${buttonLabel}: ${label}`);
 }
 
-export function popoverUsesBunproGradeScale(root: ParentNode | null | undefined): boolean {
-    return popoverBunproGradeMode(root) !== null;
-}
-
-export function popoverBunproGradeMode(root: ParentNode | null | undefined): 'regular' | 'fsrs' | null {
-    const row = root?.querySelector<HTMLElement>('[data-review-grade-profile^="bunpro-"]:not([hidden])');
-    if (row?.dataset.reviewGradeProfile === 'bunpro-fsrs') return 'fsrs';
-    return row ? 'regular' : null;
-}
-
 function renderTargetedGradeRow(
-    grades: Array<[string, string]>,
+    scale: ReturnType<typeof reviewGradeScale>,
     selected: PopoverReviewTarget,
     profile: PopoverReviewTarget['gradeProfile'],
     hidden: boolean,
+    reviewGroup?: symbol,
 ): string {
+    const { grades, shortcuts } = scale;
     const targetLabel = renderReviewTargetLabel(selected);
     const targetAttrs = reviewTargetButtonAttrs(selected);
     return `<div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-review-target-row data-review-grade-profile="${profile}"${hidden ? ' hidden' : ''}>
         ${targetLabel}
         ${grades.map(([grade, label]) => {
             const title = selected.label ? ` title="${escapeHtml(selected.label)}" aria-label="${escapeHtml(`${label}: ${selected.label}`)}"` : '';
-            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade: grade as JPDBGrade, reviewTarget: selected.kind === 'wanikani' ? undefined : selected.kind, ankiCardId: selected.ankiCardId })}${title}>${escapeHtml(label)}</button>`;
+            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade, gradeProfile: profile, gradeShortcut: shortcuts.find(([, value]) => value === grade)?.[0], reviewGroup, reviewTarget: selected.kind === 'wanikani' ? undefined : selected.kind, ankiCardId: selected.ankiCardId })}${title}>${escapeHtml(label)}</button>`;
         }).join('')}
     </div>`;
 }
@@ -804,10 +786,10 @@ function renderReviewTargetToggle(canSwitchTarget: boolean, label: string): stri
         : '';
 }
 
-function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
+function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage, reviewGroup: symbol): string {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(uiText(language, 'gradeTargetSelector'))}">
-            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''}${privateCommandAttributes({ kind: 'review-target', target: target.kind, gradeProfile: target.gradeProfile, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(uiText(language, 'gradeTargetSelector'))}"${privateCommandAttributes({ kind: 'review-selector', reviewGroup })}>
+            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''}${privateCommandAttributes({ kind: 'review-target', target: target.kind, gradeProfile: target.gradeProfile, reviewGroup, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
     </div>`;
 }

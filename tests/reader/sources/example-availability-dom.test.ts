@@ -233,7 +233,6 @@ describe('U46 target example mounts in the definition stack', () => {
         document.body.innerHTML = renderTargetExampleSourceMounts(spanishTarget(), sourceAttributes);
         const root = document.body;
         const fetchJson = vi.fn()
-            .mockResolvedValueOnce(new Error('unused'))
             .mockRejectedValueOnce(new Error('network down'))
             .mockResolvedValueOnce(TATOEBA_SPANISH_PAYLOAD);
         const adapter = createTatoebaExampleSource({ fetchJson: (url, signal) => fetchJson(url, signal) });
@@ -245,9 +244,11 @@ describe('U46 target example mounts in the definition stack', () => {
             adapters: [adapter],
         });
         await vi.waitFor(() => expect(root.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('unavailable'));
+        expect(fetchJson).toHaveBeenCalledTimes(1);
 
         root.querySelector<HTMLElement>('[data-action="retry-example-source"]')!.click();
         await vi.waitFor(() => expect(root.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('loaded'));
+        expect(fetchJson).toHaveBeenCalledTimes(2);
         expect(root.querySelectorAll('.jpdb-reader-jpdb-example')).toHaveLength(2);
         // The refusal row is still there beside the loaded one.
         expect(root.querySelector('[data-example-source="immersion-kit"]')?.getAttribute('data-availability')).toBe('unsupported');

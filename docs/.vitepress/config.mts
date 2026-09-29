@@ -8,7 +8,6 @@ import {
     sitemapItemsForRoutes,
     withHostedAppSitemapItems,
 } from '../../config/docs/published-pages';
-import { heroStudyLanguages } from '../../config/docs/product-claims';
 import {
     legacyDocsHashRedirects,
     legacyDocsRedirect,
@@ -317,7 +316,6 @@ const linkedRoutes = navigationRoutes([
     ...localizedSiteNavigation.ja.nav,
     ...localizedSiteNavigation.ja.sidebar,
 ]);
-const hostedHeroStudyLanguages = heroStudyLanguages();
 
 function docsThemeConfig(locale: WebsiteLocaleId): DefaultTheme.Config {
     const navigation = localizedSiteNavigation[locale];
@@ -338,10 +336,7 @@ function docsThemeConfig(locale: WebsiteLocaleId): DefaultTheme.Config {
                 },
             },
         },
-        socialLinks: [
-            { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
-            { icon: 'discord', link: 'https://discord.gg/jD6NPURewD' },
-        ],
+        socialLinks: [],
         footer: {
             message: websiteMessage('docs.footer.message', locale),
             copyright: websiteMessage('docs.footer.copyright', locale),
@@ -531,9 +526,6 @@ export default defineConfig({
     },
     vite: {
         plugins: [jpdbAudioDevProxyPlugin()],
-        define: {
-            __YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages),
-        },
         resolve: {
             // Import the renderer package directly instead of Vue's one-line
             // re-export facade. In linked worktrees that facade can resolve

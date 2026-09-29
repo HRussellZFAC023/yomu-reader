@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import academyBuildAssets from '../lib/academy-build-manifest.cjs';
 
 const root = process.cwd();
 const write = process.argv.includes('--write');
@@ -43,6 +44,16 @@ const productionSource = await readFile(productionPath);
 const distApp = await readFile(distAppPath);
 const hostedApp = await readFile(hostedAppPath);
 if (!distApp.equals(hostedApp)) throw new Error('Built dist and hosted Academy app bytes differ.');
+const buildManifest = await readFile(resolve(root, 'dist/academy/manifest.json'));
+const hostedManifest = await readFile(resolve(root, 'docs/public/academy/manifest.json'));
+if (!buildManifest.equals(hostedManifest)) throw new Error('Built and hosted Academy manifests differ.');
+const buildAssetHashes = {};
+for (const file of ['manifest.json', ...academyBuildAssets.academyBuildManifest(JSON.parse(buildManifest)).files]) {
+    const built = await readFile(resolve(root, 'dist/academy', file));
+    const hosted = await readFile(resolve(root, 'docs/public/academy', file));
+    if (!built.equals(hosted)) throw new Error(`Built and hosted Academy asset differs: ${file}`);
+    buildAssetHashes[file] = sha256(built);
+}
 const catalog = JSON.parse(catalogSource);
 const assets = {};
 for (const entry of catalog.entries) {
@@ -65,6 +76,7 @@ const expected = {
         distApp: 'dist/academy/app.js',
         hostedApp: 'docs/public/academy/app.js',
         appSha256: sha256(distApp),
+        assetSha256ByPath: buildAssetHashes,
         byteParityRequired: true,
     },
     runtimeSources,

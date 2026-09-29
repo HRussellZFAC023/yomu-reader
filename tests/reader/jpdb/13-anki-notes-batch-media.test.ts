@@ -26,6 +26,7 @@ import type {
     TestAnkiQueryRoute,
 } from './fixtures';
 import { ankiStatusIndexSettingsKey } from '../../../src/reader/anki/account-context';
+import { activeAnkiStatusIndexRebuildLease } from '../../../src/reader/anki/status-index';
 
 registerReaderHelpersCleanup();
 
@@ -690,7 +691,7 @@ describe('reader helpers', () => {
         const now = Date.now();
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
             version: 1,
-            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            settingsKey: ankiStatusIndexSettingsKey(DEFAULT_SETTINGS),
             syncedAt: now,
             checkedAt: now,
             cardCount: 1,
@@ -1093,7 +1094,7 @@ describe('reader helpers', () => {
         const requests = stubTestAnkiConnectResults(request => {
             const query = String(request.params?.query ?? '');
             const resultByAction: Record<string, unknown> = {
-                answerCards: null,
+                answerCards: [true],
                 version: 6,
                 deckNames: ['Anime::Mining'],
                 getDeckStats: {
@@ -1491,7 +1492,7 @@ describe('reader helpers', () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const now = Date.now();
-        const settingsKey = JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl });
+        const settingsKey = ankiStatusIndexSettingsKey(DEFAULT_SETTINGS);
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
             version: 1,
             settingsKey,
@@ -1544,6 +1545,7 @@ describe('reader helpers', () => {
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
 
+            expect(activeAnkiStatusIndexRebuildLease(settingsKey)?.owner).toBe('other-page');
             await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toMatchObject([{
                 state: 'new',
                 primary: {

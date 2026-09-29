@@ -1,6 +1,5 @@
 import {
     assertManagedStateMutationAllowed,
-    cacheManagedValueForHostedStartup,
     clearManagedBrowserCaches,
     ensureManagedWebStorageCurrent,
     ensureManagedWebStorageCurrentSync,
@@ -59,6 +58,5 @@ registerStorageRuntimeApi({
     unregisterManagedServiceWorkers,
     subscribeToStoredValueChanges,
     storedValueExists,
-    cacheManagedValueForHostedStartup,
     isHostedYomuOrigin,
 });

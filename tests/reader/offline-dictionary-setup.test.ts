@@ -37,10 +37,12 @@ interface HarnessOverrides {
     installedUrls?: string[];
     installedTitles?: string[];
     failUrl?: string;
+    unavailable?: boolean;
+    summaryUnavailable?: boolean;
 }
 
 function setupHarness(
-    { installedUrls = [], installedTitles = [], failUrl }: HarnessOverrides = {},
+    { installedUrls = [], installedTitles = [], failUrl, unavailable, summaryUnavailable }: HarnessOverrides = {},
     initialSettings: ReaderSettings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: false },
 ) {
     let settings: ReaderSettings = initialSettings;
@@ -50,7 +52,7 @@ function setupHarness(
         _onProgress?: (message: string) => void,
         _options?: DictionaryImportOptions,
     ) => {
-        if (url === failUrl) throw new Error('download failed');
+        if (unavailable || url === failUrl) throw new Error('download failed');
         return importSummary(STARTER_BY_URL.get(url)?.name ?? 'Imported starter');
     });
     const store = {
@@ -75,6 +77,7 @@ function setupHarness(
     const applySettings = vi.fn((next: ReaderSettings) => {
         settings = next;
     });
+    if (summaryUnavailable) store.summary.mockRejectedValue(new Error('storage unavailable'));
     return {
         store,
         importFromUrl,
@@ -85,6 +88,29 @@ function setupHarness(
 }
 
 describe('offline dictionary setup', () => {
+    it('reports every unavailable archive without applying settings', async () => {
+        const harness = setupHarness({ unavailable: true });
+        const result = await harness.run();
+        expect(result).toEqual({ installed: [], skipped: [], failed: ENGLISH_STARTER.map(dictionary => dictionary.name) });
+        expect(harness.importFromUrl).toHaveBeenCalledTimes(ENGLISH_STARTER.length);
+        expect(harness.applySettings).not.toHaveBeenCalled();
+        expect(harness.getSettings().localDictionariesEnabled).toBe(false);
+    });
+
+    it('retains the install attempt when the installed summary is unavailable', async () => {
+        const harness = setupHarness({ summaryUnavailable: true });
+        const result = await harness.run();
+        expect(result.installed).toEqual(ENGLISH_STARTER.map(dictionary => dictionary.name));
+        expect(result.skipped).toEqual([]);
+    });
+
+    it('keeps installed, failed and successful archives distinct in a partial install', async () => {
+        const harness = setupHarness({ installedUrls: [ENGLISH_STARTER[0]!.downloadUrl!], failUrl: ENGLISH_STARTER[1]!.downloadUrl });
+        const result = await harness.run();
+        expect(result).toEqual({ skipped: [ENGLISH_STARTER[0]!.name], failed: [ENGLISH_STARTER[1]!.name], installed: ENGLISH_STARTER.slice(2).map(dictionary => dictionary.name) });
+        expect(harness.getSettings().languageProfiles[0]!.dictionaries.installed).not.toContain(ENGLISH_STARTER[1]!.name);
+    });
+
     it('installs the language starter set and pitch dictionary on a fresh profile', async () => {
         const harness = setupHarness();
 

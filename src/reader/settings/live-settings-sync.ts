@@ -102,6 +102,7 @@ export class SettingsPreviewBaseline {
 export function bindLiveSettingsSync(
     form: HTMLFormElement,
     dependencies: LiveSettingsSyncDependencies,
+    signal: AbortSignal,
 ): void {
     let adoptedSettings = snapshotDurableSettings(dependencies.getSettings());
     subscribeToSettingsChanges(detail => {
@@ -118,7 +119,7 @@ export function bindLiveSettingsSync(
         }
         const theme = themeFromSettingsChange(detail);
         if (theme) dependencies.applyTheme(theme);
-    });
+    }, signal);
 }
 
 function snapshotDurableSettings(settings: ReaderSettings): ReaderSettings {

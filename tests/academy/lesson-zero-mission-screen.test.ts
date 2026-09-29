@@ -20,6 +20,21 @@ const pronunciation = { play: vi.fn(async () => ({ dispose() {} })) };
 describe('Lesson Zero story mission screen', () => {
     beforeEach(() => pronunciation.play.mockClear());
 
+    it.each([
+        ['activity:lesson-zero-text-input', '/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.webp'],
+        ['activity:lesson-zero-speaking-input', '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp'],
+        ['activity:lesson-zero-sound-transfer', '/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp'],
+        ['activity:lesson-zero-read-name-cards', '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp'],
+    ] as const)('preserves the existing permitted host image for %s', (activityId, imagePath) => {
+        const screen = createLessonZeroMissionScreen({
+            language: 'en', definition: createLessonZeroMissionDefinition(content, activityId, 'Henry'),
+            pronunciation, onEvaluation: vi.fn(async () => undefined), onBack: vi.fn(), onComplete: vi.fn(),
+        });
+        try {
+            expect(screen.element.querySelector('.academy-mission-portrait')?.getAttribute('src')).toBe(imagePath);
+        } finally { screen.dispose(); }
+    });
+
     it('repairs the two particle links without exposing an answer first', async () => {
         const onEvaluation = vi.fn(async () => undefined);
         const screen = createLessonZeroMissionScreen({
@@ -135,6 +150,35 @@ describe('Lesson Zero story mission screen', () => {
         expect(screen.element.textContent).not.toMatch(/moodle|source question|runtime|evidence/iu);
         expect(screen.element.querySelectorAll('.academy-mission-room-action')).toHaveLength(6);
         screen.dispose();
+    });
+
+    it('keeps a written repair draft and accepts the Japanese-studying line taught in class', async () => {
+        const onEvaluation = vi.fn(async () => undefined);
+        const screen = createLessonZeroMissionScreen({
+            language: 'en',
+            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-text-transfer', 'Henry'),
+            pronunciation, onEvaluation, onBack: vi.fn(), onComplete: vi.fn(),
+        });
+        const submitLine = (text: string): void => {
+            const input = screen.element.querySelector<HTMLTextAreaElement>('textarea')!;
+            input.value = text;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            screen.element.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        };
+        try {
+            submitLine('aaaaのです');
+            await vi.waitFor(() => expect(screen.element.dataset.attempted).toBe('true'));
+            expect(screen.element.dataset.complete).toBe('false');
+            expect(screen.element.querySelector('textarea')?.value).toBe('aaaaのです');
+            expect(screen.element.textContent).toContain('not every Japanese sentence');
+            expect(onEvaluation).not.toHaveBeenCalled();
+            expect(screen.element.querySelector('[data-outcome="unassessed"]')).not.toBeNull();
+            click(screen.element, 'Try again');
+            expect(screen.element.querySelector('textarea')?.value).toBe('aaaaのです');
+            submitLine('わたしも日本語を勉強しています。');
+            await vi.waitFor(() => expect(screen.element.dataset.complete).toBe('true'));
+            expect(onEvaluation).toHaveBeenLastCalledWith(expect.objectContaining({ result: expect.objectContaining({ outcome: 'pass' }), reviewSeeds: [] }), expect.objectContaining({ text: 'わたしも日本語を勉強しています。' }));
+        } finally { screen.dispose(); }
     });
 });
 

@@ -30,7 +30,7 @@ import {
     normalizeReaderSettings,
     saveSettings as persistReaderSettings,
 } from '../../src/reader/settings';
-import { readSettingsPersistenceView } from '../../src/reader/settings/settings-persistence-transaction';
+import { readSettingsPersistenceViewStrict } from '../../src/reader/settings/settings-persistence-transaction';
 import type { SettingsIntentRecord } from '../../src/reader/settings/intent-ledger';
 import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki/types';
@@ -1214,10 +1214,10 @@ describe('settings dialog keyboard dismissal', () => {
     it('commits a live theme preview as explicit intent instead of replaying the old light choice', async () => {
         vi.stubGlobal('location', new URL('http://127.0.0.1:5174/study/'));
         await persistReaderSettings(
-            { ...DEFAULT_SETTINGS, theme: 'light', themeAutoRestored20260730: true },
+            { ...DEFAULT_SETTINGS, theme: 'light' },
             { explicitUserChoiceKeys: ['theme'] },
         );
-        const beforeIntent = (await readSettingsPersistenceView()).intentLedger.records.theme;
+        const beforeIntent = (await readSettingsPersistenceViewStrict()).intentLedger.records.theme;
         let current = await loadSettings();
         expect(current.theme).toBe('light');
         const saveSettings = vi.fn(persistReaderSettings);
@@ -1247,7 +1247,7 @@ describe('settings dialog keyboard dismissal', () => {
         expectExplicitSettingSaved(saveSettings, 'theme', 'dark');
         expect(current.theme).toBe('dark');
         expect((await loadSettings()).theme).toBe('dark');
-        const afterIntent = (await readSettingsPersistenceView()).intentLedger.records.theme;
+        const afterIntent = (await readSettingsPersistenceViewStrict()).intentLedger.records.theme;
         expectExplicitIntentAdvanced(beforeIntent, afterIntent, 'light', 'dark');
     });
 
@@ -1257,7 +1257,7 @@ describe('settings dialog keyboard dismissal', () => {
             { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' },
             { explicitUserChoiceKeys: ['interfaceLanguage'] },
         );
-        const beforeIntent = (await readSettingsPersistenceView()).intentLedger.records.interfaceLanguage;
+        const beforeIntent = (await readSettingsPersistenceViewStrict()).intentLedger.records.interfaceLanguage;
         let current = await loadSettings();
         expect(current.interfaceLanguage).toBe('en');
         const installedLanguages: ReaderSettings['interfaceLanguage'][] = [];
@@ -1281,7 +1281,7 @@ describe('settings dialog keyboard dismissal', () => {
         expectExplicitSettingSaved(saveSettings, 'interfaceLanguage', 'ja');
         expect(current.interfaceLanguage).toBe('ja');
         expect((await loadSettings()).interfaceLanguage).toBe('ja');
-        const afterIntent = (await readSettingsPersistenceView()).intentLedger.records.interfaceLanguage;
+        const afterIntent = (await readSettingsPersistenceViewStrict()).intentLedger.records.interfaceLanguage;
         expectExplicitIntentAdvanced(beforeIntent, afterIntent, 'en', 'ja');
     });
 
@@ -1379,6 +1379,47 @@ describe('settings dialog keyboard dismissal', () => {
         dialog.controller.releaseModalBackground();
 
         expectInterfaceLanguagePreview(dialog, 'en');
+    });
+
+    it.each([true, false])('releases subscriptions on replacement (host teardown: %s)', hostTeardown => {
+        const bus = () => (globalThis as unknown as Record<symbol, { listeners: Set<unknown> }>)[
+            Symbol.for('yomu.private-settings-change-bus.v1')
+        ];
+        const baseline = bus()?.listeners.size ?? 0;
+        let releasePrevious: () => void = () => undefined;
+        const dialog = createSettingsDialog({
+            mountDialog: (backdrop: HTMLElement, surface: HTMLElement) => {
+                document.querySelector('.jpdb-reader-settings')?.remove();
+                if (hostTeardown) releasePrevious();
+                document.body.append(backdrop, surface);
+            },
+        });
+        releasePrevious = () => dialog.controller.releaseModalBackground();
+        expect(bus().listeners.size).toBe(baseline + 1);
+        for (let index = 0; index < 5; index += 1) {
+            dialog.controller.open();
+            expect(bus().listeners.size).toBe(baseline + 1);
+        }
+        const form = document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!;
+        publishSettingsChange({ settings: { theme: 'dark' } });
+        expect(settingsInputValue(form, '[data-theme-value]')).toBe('dark');
+        form.remove();
+        dialog.controller.releaseModalBackground();
+        expect(bus().listeners.size).toBe(baseline);
+    });
+
+    it.each(['cancel', 'escape'])('releases the form subscription on %s', action => {
+        const dialog = createSettingsDialog();
+        const bus = (globalThis as unknown as Record<symbol, { listeners: Set<unknown> }>)[
+            Symbol.for('yomu.private-settings-change-bus.v1')
+        ];
+        const mountedCount = bus.listeners.size;
+        if (action === 'cancel') {
+            dialog.form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+        } else {
+            dialog.form.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        }
+        expect(bus.listeners.size).toBe(mountedCount - 1);
     });
 
     it('owns a replacement form after production-order teardown during mount', async () => {
@@ -1669,7 +1710,7 @@ describe('settings dialog keyboard dismissal', () => {
 
         dependencies.toast.mockClear();
         const settingsFile = form.querySelector<HTMLInputElement>('input[data-file="settings"]')!;
-        const importButton = form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!;
+        const importButton = form.querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')!;
         await waitForCondition(() => !importButton.disabled);
         const openFilePicker = vi.spyOn(settingsFile, 'click');
         importButton.click();

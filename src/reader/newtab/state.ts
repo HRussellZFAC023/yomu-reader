@@ -26,6 +26,8 @@ export interface NewTabUiState {
     keyHintsDismissed: boolean;
 }
 
+export type SharedNewTabViewState = Omit<NewTabUiState, 'revealAnswer'>;
+
 // fallow-ignore-next-line unused-export
 export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     route: 'study',
@@ -54,21 +56,9 @@ export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }
     { value: 'local', labelKey: 'dictionary' },
 ];
 
-type LegacyNewTabUiState = Partial<NewTabUiState> & { mode?: unknown };
-
-export type LegacyNewTabStudyIntent =
-    | { kind: 'recall' }
-    | { kind: 'kanji' }
-    | { kind: 'listen'; interaction: 'perceive' | 'recall' | 'shadow' };
-
-export interface LoadedNewTabUiState {
-    state: NewTabUiState;
-    legacyStudyIntent: LegacyNewTabStudyIntent | null;
-}
-
-export function normalizeNewTabUiState(value: LegacyNewTabUiState | null | undefined): NewTabUiState {
+export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | undefined): NewTabUiState {
     return {
-        route: normalizeNewTabRoute(value?.route, value?.mode),
+        route: value?.route === 'search' || value?.route === 'stats' ? value.route : 'study',
         sort: normalizeNewTabSort(value?.sort),
         filter: normalizeNewTabFilter(value?.filter),
         source: normalizeNewTabSource(value?.source),
@@ -79,15 +69,13 @@ export function normalizeNewTabUiState(value: LegacyNewTabUiState | null | undef
     };
 }
 
-export function loadNewTabUiStateWithLegacyIntent(): LoadedNewTabUiState {
+export function loadNewTabUiState(): NewTabUiState {
     try {
-        const stored = gmStorageGetSync<(LegacyNewTabUiState & { listenSubMode?: unknown }) | null>(STATE_STORAGE_KEY, null);
-        return {
-            state: frontFacingNewTabUiState(normalizeNewTabUiState(stored)),
-            legacyStudyIntent: legacyStudyIntent(stored?.mode, stored?.listenSubMode),
-        };
+        const stored = gmStorageGetSync<unknown>(STATE_STORAGE_KEY, null);
+        return isCurrentNewTabUiState(stored)
+            ? frontFacingNewTabUiState(normalizeNewTabUiState(stored)) : { ...DEFAULT_NEW_TAB_UI_STATE };
     } catch {
-        return { state: { ...DEFAULT_NEW_TAB_UI_STATE }, legacyStudyIntent: null };
+        return { ...DEFAULT_NEW_TAB_UI_STATE };
     }
 }
 
@@ -99,19 +87,19 @@ export function saveNewTabUiState(state: NewTabUiState): void {
     }
 }
 
-export function createNewTabStateChannel(onState: (state: NewTabUiState) => void): { publish: (state: NewTabUiState) => void; close: () => void } {
+export function createNewTabStateChannel(onState: (state: SharedNewTabViewState) => void): { publish: (state: NewTabUiState) => void; close: () => void } {
     if (typeof BroadcastChannel !== 'function') return { publish: () => {}, close: () => {} };
     const channel = new BroadcastChannel(STATE_CHANNEL_NAME);
     let isClosed = false;
     channel.onmessage = event => {
-        if (!isPlainRecord(event.data) || event.data.type !== 'state') return;
-        onState(normalizeNewTabUiState(event.data.state as LegacyNewTabUiState));
+        if (!isPlainRecord(event.data) || event.data.type !== 'state' || !isCurrentNewTabUiState(event.data.state)) return;
+        onState(sharedNewTabViewState(event.data.state));
     };
     return {
         publish(state) {
             if (isClosed) return;
             try {
-                channel.postMessage({ type: 'state', state: normalizeNewTabUiState(state) });
+                channel.postMessage({ type: 'state', state: sharedNewTabViewState(state) });
             } catch (error) {
                 isClosed = true;
                 log.warn('Failed to publish new tab state update', error);
@@ -134,20 +122,14 @@ function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {
     return { ...state, revealAnswer: false };
 }
 
-function normalizeNewTabRoute(route: unknown, legacyMode: unknown): NewTabRoute {
-    if (route === 'search' || route === 'stats') return route;
-    if (legacyMode === 'search' || legacyMode === 'stats') return legacyMode;
-    return 'study';
+function sharedNewTabViewState(state: Partial<NewTabUiState>): SharedNewTabViewState {
+    const { revealAnswer: _localAnswer, ...shared } = normalizeNewTabUiState(state);
+    return shared;
 }
 
-function legacyStudyIntent(mode: unknown, listenSubMode: unknown): LegacyNewTabStudyIntent | null {
-    if (mode === 'recall') return { kind: 'recall' };
-    if (mode === 'kanji') return { kind: 'kanji' };
-    if (mode !== 'listen') return null;
-    return {
-        kind: 'listen',
-        interaction: listenSubMode === 'recall' || listenSubMode === 'shadow' ? listenSubMode : 'perceive',
-    };
+function isCurrentNewTabUiState(value: unknown): value is NewTabUiState {
+    return isPlainRecord(value) && !('mode' in value) && !('listenSubMode' in value)
+        && (value.route === 'study' || value.route === 'search' || value.route === 'stats');
 }
 
 function normalizeNewTabSort(value: unknown): NewTabSort {

@@ -1,3 +1,15 @@
+import type { JPDBCard } from '../app/types';
+
+export interface JpdbVocabularyLookupResult {
+    info: JpdbVocabularyInfo | null;
+    status: 'complete' | 'partial';
+}
+
+export interface JpdbVocabularySearchResult {
+    cards: JPDBCard[];
+    status: 'complete' | 'partial';
+}
+
 export interface JpdbVocabularyCompound {
     term: string;
     reading: string;

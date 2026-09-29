@@ -16,6 +16,7 @@ import type {
     InterfaceLanguage,
 } from '../app/types';
 import { booleanValue, finiteNumber, objectRecord, stringValue } from '../settings/values';
+import type { DictionaryImportMutation } from './yomitan/import-ownership';
 
 declare const __YOMU_EXTENSION_STORAGE_PREFIX__: string | undefined;
 
@@ -37,7 +38,7 @@ const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>([
     'custom',
     'custom-json',
 ]);
-const compiledStoragePrefix = typeof __YOMU_EXTENSION_STORAGE_PREFIX__ === 'string'
+export const compiledStoragePrefix = typeof __YOMU_EXTENSION_STORAGE_PREFIX__ === 'string'
     ? __YOMU_EXTENSION_STORAGE_PREFIX__
     : '';
 
@@ -182,6 +183,19 @@ export class DirectExtensionDictionaryStorage {
         return value === unreadable ? fallback : value as T;
     }
 
+    async assertCallerEpoch(expected: ManagedStateEpoch, completedResetId?: string): Promise<void> {
+        if (this.settingsPromise) await this.settingsPromise;
+        const actual = await this.assertAllowed();
+        if (sameManagedStateEpoch(expected, actual)) return;
+        if (completedResetId && actual.generation === expected.generation + 1 && actual.resetId === completedResetId) {
+            const signal = await this.readRaw(FACTORY_RESET_SIGNAL_KEY);
+            if (factoryResetPreparing(signal)
+                && (signal.value as { id?: unknown }).id === completedResetId
+                && sameManagedStateEpoch(actual, await this.assertAllowed())) return;
+        }
+        throw new StaleManagedStateEpochError(expected, actual);
+    }
+
     private async readEpoch(): Promise<ManagedStateEpoch> {
         const stored = await this.readRaw(STATE_EPOCH_KEY);
         return parseManagedStateEpoch(stored.found ? stored.value : undefined);
@@ -225,6 +239,15 @@ export function assertManagedStateMutationAllowed(): Promise<ManagedStateEpoch> 
 export function assertManagedStateReadAllowed(): Promise<ManagedStateEpoch> {
     return extensionDictionaryBackgroundStorage().assertAllowed();
 }
+
+/** Canonical imports retain the epoch fence but do not participate in page-replica purges. */
+export async function beginDictionaryImport(): Promise<DictionaryImportMutation> {
+    await assertManagedStateMutationAllowed();
+    return (_tx, mutate) => mutate();
+}
+
+// Extension-origin storage is owned by the package, not a per-site persistence grant.
+export function requestPersistentDictionaryStorage(): void {}
 
 // A shared extension-origin IndexedDB no longer needs cross-origin source ZIP
 // replication. Keep these build-specific adapters inert so an 80 MB import is

@@ -64,7 +64,9 @@ describe('authored Academy cast guard', () => {
         const aakash = packageWithMisspelling.lesson.inputScripts
             .flatMap(script => script.lines)
             .find(line => line.speakerId === 'aakash')!;
-        aakash.japanese = aakash.japanese.replace('Aakash', 'Akash');
+        expect(aakash.japanese).toContain('アーカッシュ');
+        aakash.japanese = aakash.japanese.replace('アーカッシュ', 'アカシュ');
+        expect(aakash.japanese).not.toContain('アーカッシュ');
         expect(() => validateLessonZeroPackage(packageWithMisspelling))
             .toThrow(/canonical first name Aakash/u);
     });

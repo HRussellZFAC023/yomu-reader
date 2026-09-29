@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import type { AnkiStatusIndex } from '../../src/reader/anki/types';
 import { installFreshManagedStateEpochSessionForTests } from '../../src/reader/app/managed-state-epoch';
 
-const DB_NAME = 'yomu-anki-status-index';
+const DB_NAME = 'yomu-anki-status-index-userscript-v2';
 const EPOCH_KEY = 'yomu:state-epoch';
 
 function installGmStore(values: Map<string, unknown>): void {

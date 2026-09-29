@@ -131,7 +131,6 @@ const desktopSettings = {
     kanjivgEnabled: false,
     kanjiOriginsEnabled: false,
     rtkEnabled: false,
-    uchisenEnabled: false,
     immersionKitEnabled: false,
     studyTranslationEnabled: false,
     studyGrammarEnabled: false,

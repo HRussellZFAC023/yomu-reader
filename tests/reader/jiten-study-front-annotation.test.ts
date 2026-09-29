@@ -27,6 +27,7 @@ function renderStudyCard(options: { revealed: boolean }): HTMLElement {
                     <div class="w-full mx-auto">
                         <div class="relative bg-surface-0 rounded-2xl shadow-lg" data-case="card">
                             <div class="text-5xl" lang="ja" data-case="headword">友達</div>
+                            ${options.revealed ? '<div role="region" aria-label="Answer"></div>' : ''}
                         </div>
                     </div>
                 </div>
@@ -38,6 +39,13 @@ function renderStudyCard(options: { revealed: boolean }): HTMLElement {
 }
 
 describe('jiten study front prompt detection', () => {
+    it('keeps a write-in prompt plain without a Show Answer button', () => {
+        stubLocation('/srs/study');
+        const headword = renderStudyCard({ revealed: false });
+        document.querySelector('button')!.remove();
+        expect(isJitenStudyFrontPrompt(headword)).toBe(true);
+    });
+
     afterEach(() => {
         vi.unstubAllGlobals();
         document.body.replaceChildren();

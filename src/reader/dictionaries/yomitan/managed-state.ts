@@ -5,6 +5,11 @@ import {
 } from '../../app/managed-indexeddb';
 import type { ManagedStateEpoch } from '../../app/managed-state-epoch';
 import { assertManagedStateMutationAllowed, assertManagedStateReadAllowed } from '../../app/storage';
+import { assertYomitanStorageOwner } from './database-owner';
+
+export function assertYomitanDatabaseOwner(db: IDBDatabase): void {
+    assertYomitanStorageOwner(db.name);
+}
 
 const MANAGED_STATE_STORE = 'managedState';
 const MANAGED_STATE_EPOCH_RECORD_KEY = 'epoch';
@@ -32,6 +37,7 @@ export function reconcileYomitanManagedStateEpoch(db: IDBDatabase, epoch: Manage
         markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
         markerKeyPath: 'key',
         clearedStoreNames: CONTENT_STORES.filter(storeName => db.objectStoreNames.contains(storeName)),
+        beforeMutate: () => assertYomitanDatabaseOwner(db),
     });
 }
 
@@ -67,16 +73,17 @@ export function reconcileYomitanManagedStateEpoch(db: IDBDatabase, epoch: Manage
  * so nothing it does can persist.
  */
 export async function fencedYomitanDbHandle(
+    databaseName: string,
     current: () => Promise<IDBDatabase> | undefined,
     open: (epoch: ManagedStateEpoch) => Promise<IDBDatabase>,
 ): Promise<IDBDatabase> {
+    assertYomitanStorageOwner(databaseName);
     const existing = current();
-    if (existing) {
-        await assertManagedStateReadAllowed();
-        return existing;
-    }
-    const db = await open(await assertManagedStateMutationAllowed());
-    await assertManagedStateMutationAllowed();
+    const epoch = existing ? await assertManagedStateReadAllowed() : await assertManagedStateMutationAllowed();
+    assertYomitanStorageOwner(databaseName);
+    const db = await (existing ?? open(epoch));
+    if (!existing) await assertManagedStateMutationAllowed();
+    assertYomitanStorageOwner(databaseName);
     return db;
 }
 
@@ -86,5 +93,8 @@ export function runYomitanManagedStateWrite(
     mutate: (tx: IDBTransaction) => void,
     options?: ManagedStateIdbWriteOptions,
 ): Promise<void> {
-    return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
+    return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, tx => {
+        assertYomitanDatabaseOwner(db);
+        mutate(tx);
+    }, options);
 }

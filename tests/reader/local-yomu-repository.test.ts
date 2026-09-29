@@ -12,6 +12,30 @@ describe('LocalYomuSrsRepository semantic collection', () => {
     beforeEach(() => localStorage.clear());
     afterEach(() => { vi.unstubAllGlobals(); });
 
+    it('saves context without scheduling review, then starts review explicitly once', async () => {
+        let now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const saved = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
+        const id = saved.card!.providerCardId;
+        const reloaded = new LocalYomuSrsRepository(() => now);
+        const savedSnapshot = await reloaded.snapshot();
+        expect((await reloaded.snapshot()).cards[id]).toMatchObject({ sentence: '本を読む。', reviews: 0 });
+        expect((await reloaded.queue()).cards).toEqual([]);
+        expect((await reloaded.stats()).reviewsDue).toBe(0);
+        await expect(reloaded.review({ card: saved.card!, grade: 'good' })).rejects.toThrow('not enrolled');
+
+        now += 1000;
+        const enrolled = await reloaded.startReview(id);
+        await reloaded.mergeSnapshot(savedSnapshot);
+        expect((await reloaded.queue()).cards).toHaveLength(1);
+        await reloaded.review({ card: enrolled, grade: 'good' });
+        const reviewed = (await reloaded.snapshot()).cards[id];
+        now += 1000;
+        await reloaded.startReview(id);
+        expect((await reloaded.snapshot()).cards[id]).toEqual(reviewed);
+        expect((await reloaded.queue()).cards).toEqual([]);
+    });
+
     it('migrates raw and source-card ids into one canonical semantic card without losing review state', async () => {
         const now = Date.parse('2026-07-13T10:00:00.000Z');
         const semanticId = canonicalStudyCardKey('A読む', 'よむ');
@@ -211,6 +235,7 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         const repository = new LocalYomuSrsRepository(() => now);
         const mined = await repository.mine({ expression: '生', reading: 'なま', meaning: 'raw' });
         await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+        await repository.startReview(mined.card!.providerCardId);
         await repository.review({ card: mined.card!, grade: 'good' });
 
         const cards = await repository.lookupCards([
@@ -222,13 +247,14 @@ describe('LocalYomuSrsRepository semantic collection', () => {
 
         expect(cards).toHaveLength(2);
         expect(cards.find(card => card.reading === 'なま')).toMatchObject({ state: ['learning'], dueAt: now + 2 * 86_400_000 });
-        expect(cards.find(card => card.expression === '読む')).toMatchObject({ state: ['new'], dueAt: now });
+        expect(cards.find(card => card.expression === '読む')).toMatchObject({ state: [], dueAt: undefined, srsLevel: 'Saved' });
     });
 
     it('returns the authoritative stored schedule when an existing card is mined again', async () => {
         const now = 1_000_000;
         const repository = new LocalYomuSrsRepository(() => now);
         const mined = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+        await repository.startReview(mined.card!.providerCardId);
         await repository.review({ card: mined.card!, grade: 'good' });
 
         const duplicate = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'read' });
@@ -237,6 +263,25 @@ describe('LocalYomuSrsRepository semantic collection', () => {
             card: { state: ['learning'], dueAt: now + 2 * 86_400_000, lastReviewAt: now },
             raw: { imported: 0, skipped: 1 },
         });
+    });
+
+    it('keeps an unreviewed future schedule when saving another context for the word', async () => {
+        const now = 1_000_000;
+        const dueAt = now + 7 * 86_400_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        await repository.importBatch(yomuSrsImportBatch('test-collection', [
+            { expression: '読む', reading: 'よむ', meanings: ['to read'], dueAt },
+        ], now));
+        const before = await repository.snapshot();
+        await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'read', sentence: '本を読む。' });
+        const reloaded = new LocalYomuSrsRepository(() => now);
+        const after = await reloaded.snapshot();
+        const id = canonicalStudyCardKey('読む', 'よむ');
+        expect(after.cards[id]).toMatchObject({
+            dueAt, reviews: 0, lastReviewAt: null, sentence: '本を読む。', meanings: ['to read', 'read'],
+            intervalDays: before.cards[id]!.intervalDays, ease: before.cards[id]!.ease,
+        });
+        expect((await reloaded.queue()).cards).toEqual([]);
     });
 
     it('reports hosted Study quota exhaustion without announcing a saved mine', async () => {

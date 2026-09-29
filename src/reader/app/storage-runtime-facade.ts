@@ -106,10 +106,6 @@ export function storedValueExists(key: string): Promise<boolean> {
     return storageRuntimeApi().storedValueExists(key);
 }
 
-export function cacheManagedValueForHostedStartup(key: string, value: unknown): void {
-    storageRuntimeApi().cacheManagedValueForHostedStartup(key, value);
-}
-
 export function isHostedYomuOrigin(): boolean {
     return storageRuntimeApi().isHostedYomuOrigin();
 }

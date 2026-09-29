@@ -12,15 +12,16 @@
 //
 // WHY IT IS REPRODUCIBLE WITHOUT A BUILD
 //
-// Every input has a committed counterpart. dist/academy/app.js and
-// dist/academy/style.css are the only two that live outside git, and the sync
-// copies them verbatim to docs/public/academy/{app.js,style.css}, so the
+// Every input has a committed counterpart. The Vite manifest enumerates the
+// entry, shared/lazy chunks, CSS and emitted assets outside git. Sync copies
+// those verbatim under docs/public/academy/, so the
 // committed hosted file IS the byte string that was hashed. Recomputing with
 // that substitution reproduces the stamp exactly from a clean checkout with no
 // toolchain -- and without it you get a different number every time your
 // node_modules differs from the one that built dist, which is why the revision
 // looked unreproducible from a local rebuild.
 const crypto = require('node:crypto');
+const { academyBuildSources, academyHostedCounterpart } = require('./academy-build-manifest.cjs');
 
 const REVISION_TOKEN = '__ACADEMY_REVISION__';
 const REVISION_PATTERN = /s1-[0-9a-f]{12}/;
@@ -33,8 +34,8 @@ const TEMPLATES = [
 const LEARNING_VOICE_CATALOG = 'public/academy/audio/learning-voice-playback.json';
 const STORY_VOICE_CATALOG = 'public/academy/audio/story-voice-playback.json';
 
-// Everything ahead of the two voice catalogs, whose asset lists are read out of
-// the catalogs themselves. Order is the copy order; the hash sorts separately.
+// Source assets precede manifest-derived build outputs. Voice assets are read
+// from their playback catalogs. Order is copy order; the hash sorts separately.
 const RUNTIME_SOURCES_HEAD = [
     ['public/academy/manifest.webmanifest', 'manifest.webmanifest'],
     ['public/academy/art/ACADEMY-ASSET-REGISTRY.json', 'art/ACADEMY-ASSET-REGISTRY.json'],
@@ -66,8 +67,6 @@ const RUNTIME_SOURCES_HEAD = [
 
 const RUNTIME_SOURCES_TAIL = [
     ['public/academy/vendor', 'vendor'],
-    ['dist/academy/app.js', 'app.js'],
-    ['dist/academy/style.css', 'style.css'],
 ];
 
 // Hashed but not copied: the generated graph already binds the final core and
@@ -78,13 +77,6 @@ const HOSTED_DEPENDENCIES = [
     'docs/public/hosted-runtime-graph.js',
     'docs/public/yomu.css',
 ];
-
-// The build outputs that are not in git, and the committed file each one is
-// copied to byte for byte.
-const HOSTED_COUNTERPARTS = new Map([
-    ['dist/academy/app.js', 'docs/public/academy/app.js'],
-    ['dist/academy/style.css', 'docs/public/academy/style.css'],
-]);
 
 /**
  * The [source, target] runtime entries, with the voice assets expanded from the
@@ -105,6 +97,7 @@ function academyRuntimeSources(readJson) {
         [LEARNING_VOICE_CATALOG, 'audio/learning-voice-playback.json'],
         ...voiceAssetSources(learningVoiceCatalog, /^\/academy\/audio\/learning-lines\/[a-z0-9][a-z0-9._/-]*\.opus$/u),
         ...RUNTIME_SOURCES_TAIL,
+        ...academyBuildSources(readJson),
     ];
 }
 
@@ -146,7 +139,7 @@ function academyRevision(sourcePaths, entries) {
 }
 
 module.exports = {
-    HOSTED_COUNTERPARTS,
+    academyHostedCounterpart,
     HOSTED_DEPENDENCIES,
     REVISION_PATTERN,
     REVISION_TOKEN,

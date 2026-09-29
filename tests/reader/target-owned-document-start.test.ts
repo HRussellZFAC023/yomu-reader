@@ -9,7 +9,6 @@ const runtimeMocks = vi.hoisted(() => {
         installStorageBridge: vi.fn(),
         installShadowBridge: vi.fn(),
         activateTargetOwnedCompanions: vi.fn(),
-        promoteHostedSettings: vi.fn(async () => undefined),
         asyncStoredSettings: null as Record<string, unknown> | null,
         asyncStoredIntentLedger: null as Record<string, unknown> | null,
         asyncStoredSettingsGate: null as Promise<void> | null,
@@ -68,10 +67,6 @@ vi.mock('../../src/reader/app/storage', async importOriginal => ({
 vi.mock('../../src/reader/app/target-owned-document-start', () => ({
     activateTargetOwnedDocumentStartCompanions: runtimeMocks.activateTargetOwnedCompanions,
 }));
-vi.mock('../../src/reader/settings/index', async importOriginal => ({
-    ...await importOriginal<typeof import('../../src/reader/settings/index')>(),
-    promoteStrandedHostedSettingsToGmStorage: runtimeMocks.promoteHostedSettings,
-}));
 
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
@@ -128,7 +123,6 @@ describe('target-owned document-start activation', () => {
         runtimeMocks.installStorageBridge.mockReset();
         runtimeMocks.installShadowBridge.mockReset();
         runtimeMocks.activateTargetOwnedCompanions.mockReset();
-        runtimeMocks.promoteHostedSettings.mockClear();
         runtimeMocks.gmStorageGetShared.mockClear();
         runtimeMocks.gmStorageGetShared.mockImplementation(async key => {
             if (runtimeMocks.asyncStoredSettingsGate) await runtimeMocks.asyncStoredSettingsGate;
@@ -252,12 +246,13 @@ describe('target-owned document-start activation', () => {
         await vi.waitFor(expectTargetOwnedCanvasActivation);
     });
 
-    it('preserves synchronous document-start activation for pre-1.9 subtitle settings', async () => {
+    it('does not infer a chosen target from old subtitle settings', async () => {
         runtimeMocks.syncStoredSettings = { subtitleFontSize: 48 };
 
         await importUserscriptEntry();
 
-        expectTargetOwnedCanvasActivation();
+        expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
+        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
     });
 
     it('keeps stored-target document-start activation safe before documentElement exists', async () => {
@@ -274,7 +269,7 @@ describe('target-owned document-start activation', () => {
         }
     });
 
-    it('activates pre-1.9 JPDB settings from the async shared store', async () => {
+    it('does not infer a chosen target from old JPDB settings', async () => {
         runtimeMocks.asyncStoredSettings = {
             apiKey: 'legacy-jpdb-key',
             parserProvider: 'jpdb',
@@ -282,7 +277,8 @@ describe('target-owned document-start activation', () => {
 
         await importUserscriptEntry();
 
-        expectTargetOwnedRuntimeActivation();
+        expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
+        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
     });
 
     it('keeps the untouched compatibility profile neutral without substantive Reader state', async () => {
@@ -295,6 +291,9 @@ describe('target-owned document-start activation', () => {
         await importUserscriptEntry();
 
         expectTargetOwnedRuntimeInert();
+        // Finish this realm's pending subscription before resetModules imports
+        // a new entry into the same jsdom window for the following test.
+        await dispatchSettingsChoice(true);
     });
 
     it('keeps fresh hosted Study transport-private until its chooser completes', async () => {

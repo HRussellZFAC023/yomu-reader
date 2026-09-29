@@ -1,5 +1,7 @@
 export const LOCAL_DICTIONARY_STORAGE_COPY = {
     enSettings: {
+        extensionDictionaryUnavailable: 'The extension dictionary service is unavailable. Retry, or reload the Yomu extension.',
+        extensionDictionaryConnectionLost: 'The extension dictionary connection was lost. Check whether the operation completed before retrying.',
         localDictionariesEnabled: 'Show imported dictionary definitions',
         localDictionarySiteStorageHelp: 'Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.',
         clearLocalDictionarySiteStorage: 'Disable and remove stored dictionaries',
@@ -16,6 +18,8 @@ export const LOCAL_DICTIONARY_STORAGE_COPY = {
         dictionaryImportResultWithFailures: '{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。',
     },
     jaSettings: {
+        extensionDictionaryUnavailable: '拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。',
+        extensionDictionaryConnectionLost: '拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。',
         localDictionariesEnabled: 'インポート済み辞書の定義を表示',
         localDictionarySiteStorageHelp: 'インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。',
         clearLocalDictionarySiteStorage: '無効にして保存済み辞書を削除',

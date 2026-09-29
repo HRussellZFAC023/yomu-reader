@@ -2349,7 +2349,6 @@ function newTabDictionaryFallbackSettings() {
         apiKey: '',
         ankiEnabled: false,
         localDictionariesEnabled: true,
-        newTabEnabled: false,
         newTabOfflineEnabled: false,
         newTabSource: 'dictionary',
         showFloatingButton: false,

@@ -1,5 +1,7 @@
 import type { ActivityEvaluation, ReviewSeed } from '../domain/activity-runtime';
 import type { LessonZeroActivity, LessonZeroContent, LessonZeroInputScript } from './lesson-zero';
+import { lessonZeroClassNote, lessonZeroIntroduction, lessonZeroNameCard } from './lesson-zero-writing';
+import { createKatakanaNameDraft } from './learner-name';
 
 export const LESSON_ZERO_MISSION_ACTIVITY_IDS = [
     'activity:lesson-zero-text-input',
@@ -51,11 +53,13 @@ export function createLessonZeroMissionDefinition(
     if (!activity || !isLessonZeroMissionActivity(activity.id)) {
         throw new TypeError(`Lesson Zero is missing mission activity ${activityId}.`);
     }
-    const script = activity.inputScriptId
-        ? content.lesson.inputScripts.find(candidate => candidate.id === activity.inputScriptId)
+    const scriptId = activity.inputScriptId ?? (activityId === 'activity:lesson-zero-read-name-cards'
+        ? 'input:lesson-zero-text-hosts' : undefined);
+    const script = scriptId
+        ? content.lesson.inputScripts.find(candidate => candidate.id === scriptId)
         : undefined;
-    if (activity.inputScriptId && !script) {
-        throw new TypeError(`Lesson Zero mission ${activityId} is missing ${activity.inputScriptId}.`);
+    if (scriptId && !script) {
+        throw new TypeError(`Lesson Zero mission ${activityId} is missing ${scriptId}.`);
     }
     const audio = script
         ? content.lesson.audioAssets.find(candidate => candidate.id === script.audioAssetId)
@@ -75,9 +79,14 @@ export function evaluateLessonZeroMission(
     definition: LessonZeroMissionDefinition,
     response: LessonZeroMissionResponse,
     at = Date.now(),
-): ActivityEvaluation {
+): ActivityEvaluation | { kind: 'unassessed'; feedback: ActivityEvaluation['result']['feedback'] } {
     const { activity } = definition;
     const passed = responsePasses(definition, response);
+    // A bounded pattern checker cannot infer lack of knowledge from writing it
+    // does not recognise. Offer support without emitting a scored attempt.
+    if (!passed && response.kind === 'written') {
+        return { kind: 'unassessed', feedback: repairFeedback(activity.id) };
+    }
     const outcome = passed ? 'pass' : 'lapse';
     const score = passed ? 1 : 0;
     const errorTags = passed ? [] : [`lesson-zero:${activity.id.split('-').at(-1)}:repair`];
@@ -87,7 +96,8 @@ export function evaluateLessonZeroMission(
             eventId: `attempt:${activity.id}:${at}`,
             at,
             activityId: activity.id,
-            ...(activity.sourceQuestionIds[0] ? { sourceQuestionId: activity.sourceQuestionIds[0] } : {}),
+            ...(activity.id === 'activity:lesson-zero-sound-transfer'
+                ? { sourceQuestionId: 'source-question:classroom-phrase-09' } : {}),
             conceptIds: activity.conceptIds,
             responseKind: responseKind(response),
             outcome,
@@ -100,7 +110,7 @@ export function evaluateLessonZeroMission(
             errorTags,
             feedback: passed ? passFeedback(activity.id) : repairFeedback(activity.id),
         },
-        reviewSeeds: passed ? reviewSeeds(activity) : [],
+        reviewSeeds: passed ? reviewSeeds(definition) : [],
     };
 }
 
@@ -118,11 +128,11 @@ function responsePasses(
                 && response.personId === 'ruparna'
                 && response.lineId === 'line:lesson-zero-text-ruparna';
         case 'activity:lesson-zero-write-name-card':
-            return response.kind === 'written' && nameCardIsUsable(response.text);
+            return response.kind === 'written' && lessonZeroNameCard(response.text, chosenNames(definition));
         case 'activity:lesson-zero-text-transfer':
-            return response.kind === 'written' && textTransferIsUsable(response.text);
+            return response.kind === 'written' && lessonZeroClassNote(response.text);
         case 'activity:lesson-zero-written-transfer':
-            return response.kind === 'written' && writtenIntroductionIsUsable(response.text);
+            return response.kind === 'written' && lessonZeroIntroduction(response.text, chosenNames(definition));
         case 'activity:lesson-zero-speaking-input':
         case 'activity:lesson-zero-sound-transfer':
         case 'activity:lesson-zero-speaking-transfer':
@@ -136,30 +146,14 @@ function responsePasses(
     }
 }
 
-function nameCardIsUsable(value: string): boolean {
-    const text = normalize(value);
-    const beforeDesu = text.split('です')[0]?.replace(/[。.!！?？]/gu, '').trim() ?? '';
-    return beforeDesu.length >= 1 && text.includes('です');
-}
-
-function textTransferIsUsable(value: string): boolean {
-    const text = normalize(value);
-    return text.length >= 6 && text.includes('です') && (text.includes('の') || text.includes('も'));
-}
-
-function writtenIntroductionIsUsable(value: string): boolean {
-    const text = normalize(value);
-    return text.length >= 8
-        && text.includes('です')
-        && (text.includes('はじめまして') || text.includes('よろしくお願いします'));
-}
-
-function normalize(value: string): string {
-    return value.normalize('NFKC').replace(/\s+/gu, '').trim();
-}
-
 function requiredChecks(activity: LessonZeroActivity): readonly string[] {
     return activity.expectedEvidence.rubricIds ?? [];
+}
+
+function chosenNames(definition: LessonZeroMissionDefinition): readonly string[] {
+    return [definition.learnerName, definition.lockedClassName,
+        createKatakanaNameDraft(definition.learnerName).katakana]
+        .filter((name): name is string => Boolean(name));
 }
 
 function responseKind(response: LessonZeroMissionResponse): string {
@@ -202,14 +196,14 @@ function repairFeedback(activityId: LessonZeroMissionActivityId) {
     }
     if (activityId === 'activity:lesson-zero-text-transfer') {
         return {
-            explanation: { en: 'Keep it short: one joining word and “desu” are enough.', ja: '短い文で大丈夫です。つなぐことば一つと「です」を使いましょう。' },
-            repairPrompt: { en: 'Use no (の) or mo (も), then finish with desu (です).', ja: '「の」か「も」を使い、最後を「です。」にしましょう。' },
+            explanation: { en: 'I can check the class patterns, but not every Japanese sentence yet.', ja: 'この練習では、クラスで使った文型だけを確認できます。' },
+            repairPrompt: { en: 'Try これはわたしの名札です。 or わたしも日本語を勉強しています。 Use a line that is true for you.', ja: '「これはわたしの名札です。」や「わたしも日本語を勉強しています。」を参考に、自分に合う文を書きましょう。' },
         };
     }
     if (activityId === 'activity:lesson-zero-written-transfer') {
         return {
-            explanation: { en: 'A classmate needs your hello and your name.', ja: 'クラスメイトに、あいさつと名前を残しましょう。' },
-            repairPrompt: { en: 'Use hajimemashite, your name + desu, and yoroshiku onegaishimasu.', ja: '「はじめまして」、名前＋「です」、短い結びを使いましょう。' },
+            explanation: { en: 'Use the name you chose for class, with a greeting or closing.', ja: 'クラスで使う名前に、あいさつか結びを添えましょう。' },
+            repairPrompt: { en: 'Write your saved name + です。 Add はじめまして。 before it or よろしくお願いします。 after it. This checks that frame, not every possible introduction.', ja: '保存した名前に「です。」を付け、前に「はじめまして。」か、後ろに「よろしくお願いします。」を添えてください。この文型を確認する練習です。' },
         };
     }
     return {
@@ -218,14 +212,17 @@ function repairFeedback(activityId: LessonZeroMissionActivityId) {
     };
 }
 
-function reviewSeeds(activity: LessonZeroActivity): readonly ReviewSeed[] {
-    const seed = seedFor(activity.id as LessonZeroMissionActivityId);
+function reviewSeeds(definition: LessonZeroMissionDefinition): readonly ReviewSeed[] {
+    const { activity } = definition;
+    const seed = seedFor(definition);
     if (!seed) return [];
     return [{
-        id: `review:${activity.id}`,
+        // New content must not reuse the scheduling event of the former stock
+        // card. Existing learner cards remain untouched.
+        id: `review:${activity.id}:task-content-v2`,
         conceptId: activity.conceptIds[seed.conceptIndex] ?? activity.conceptIds[0]!,
         reason: 'new-learning',
-        ...(activity.sourceQuestionIds[0] ? { sourceQuestionId: activity.sourceQuestionIds[0] } : {}),
+        ...(seed.sourceQuestionId ? { sourceQuestionId: seed.sourceQuestionId } : {}),
         content: {
             expression: seed.expression,
             reading: seed.reading,
@@ -235,28 +232,34 @@ function reviewSeeds(activity: LessonZeroActivity): readonly ReviewSeed[] {
     }];
 }
 
-function seedFor(activityId: LessonZeroMissionActivityId): Readonly<{
+function seedFor(definition: LessonZeroMissionDefinition): Readonly<{
     expression: string;
     reading: string;
     meaning: string;
     conceptIndex: number;
+    sourceQuestionId?: string;
 }> | null {
-    switch (activityId) {
+    switch (definition.activity.id) {
         case 'activity:lesson-zero-text-input':
-        case 'activity:lesson-zero-text-transfer':
-            return { expression: 'わたしも学生です。', reading: 'わたしもがくせいです', meaning: 'I am a student too.', conceptIndex: 1 };
-        case 'activity:lesson-zero-speaking-input':
-            return { expression: 'お名前は何ですか。', reading: 'おなまえはなんですか', meaning: 'What is your name?', conceptIndex: 0 };
-        case 'activity:lesson-zero-read-name-cards':
-        case 'activity:lesson-zero-write-name-card':
-            return { expression: 'りえです。', reading: 'りえです', meaning: "I'm Rie.", conceptIndex: 0 };
+        case 'activity:lesson-zero-read-name-cards': {
+            const line = definition.script?.lines.find(line => line.id === 'line:lesson-zero-text-ruparna');
+            return line ? { expression: line.japanese, reading: line.reading, meaning: line.english,
+                conceptIndex: definition.activity.id === 'activity:lesson-zero-text-input' ? 2 : 1 } : null;
+        }
+        case 'activity:lesson-zero-speaking-input': {
+            const line = definition.script?.lines.find(line => line.id === 'line:lesson-zero-speaking-aakash-cue');
+            return line ? { expression: line.japanese, reading: line.reading, meaning: line.english, conceptIndex: 0 } : null;
+        }
         case 'activity:lesson-zero-sound-transfer':
-            return { expression: 'もう一度お願いします。', reading: 'もういちどおねがいします', meaning: 'One more time, please.', conceptIndex: 1 };
+            return { expression: 'もう一度お願いします。', reading: 'もういちどおねがいします', meaning: 'One more time, please.', conceptIndex: 1, sourceQuestionId: 'source-question:classroom-phrase-09' };
         case 'activity:lesson-zero-speaking-transfer':
             return { expression: 'よろしくお願いします。', reading: 'よろしくおねがいします', meaning: 'Nice to meet you.', conceptIndex: 0 };
         case 'activity:lesson-zero-written-transfer':
-            return { expression: 'はじめまして。', reading: 'はじめまして', meaning: 'Nice to meet you.', conceptIndex: 0 };
+        case 'activity:lesson-zero-text-transfer':
+        case 'activity:lesson-zero-write-name-card':
         case 'activity:lesson-zero-close-room':
-            return { expression: 'おわりましょう。', reading: 'おわりましょう', meaning: "Let's finish.", conceptIndex: 0 };
+            // Personal writing has no verified translation/reading; a room
+            // choice isn't Japanese recall. Neither earns a stock review card.
+            return null;
     }
 }

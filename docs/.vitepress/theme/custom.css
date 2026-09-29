@@ -1041,12 +1041,6 @@
   line-height: 1.25 !important;
 }
 
-.yomu-try-me-sample {
-  color: var(--yomu-doc-demo-text) !important;
-  font-size: 20px !important;
-  line-height: 1.85 !important;
-}
-
 /* Demo styling is scoped to the pre-baked sample ONLY. Live runtime-annotated
    words elsewhere in a try-me block (labels, live demo paragraphs) follow the
    user's real decoration settings — painting demo status boxes on them faked
@@ -1312,1563 +1306,299 @@
 }
 
 
-/* --- Scroll reveal --- */
-.yomu-reveal {
-  opacity: 1;
-  transform: none;
-  transition: opacity 0.45s ease, transform 0.45s ease;
-  will-change: opacity, transform;
-}
-
-.yomu-reveal[data-yomu-reveal-ready]:not(.is-in) {
-  opacity: 1;
-  transform: none;
-}
-
-.yomu-reveal.is-in {
-  opacity: 1;
-  transform: none;
-}
-
-
-body:has(.yomu-home) .jpdb-reader-fab {
-  bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .yomu-reveal {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
-}
-
-/* ============================================================
-   Homepage (layout: page, pageClass: yomu-home)
-
-   ONE grammar, restored: paper/ink slabs, 3px keylines, zero-blur
-   offset shadows, four rotation tokens, exactly one bleed per
-   section. The fold runs the real reader; everything below it is
-   proof.
-
-   ONE token layer, TWO palettes. Every colour on this page resolves
-   through the semantic tokens below, so night is a designed palette
-   rather than an inversion. The dark grounds are stepped up from the
-   world ink #141824 (deep indigo ink — owner rule 2026-08-04: no browns,
-   no greys, no dark greens anywhere on this page. That bans the earlier
-   warm charcoal family as well as the four olive greys the restyle pass
-   used: a grep of this file must find none of them.
-
-   The page GROUND and the object PAPER are two different materials:
-   #fbf9f4 is the warm near-white the page sits on, #f1ead9 is the
-   bible's letter paper and belongs to the LETTER, the live sample, the
-   popover card and the section slabs. Flooding the viewport with the
-   cream is what made nothing lift.
-
-   Colour has one job each: green is the primary action and nothing
-   else; amber (--lamp at night, --guide on paper) is lamplight —
-   kickers, band numerals and pencil guidance; ink and paper carry
-   everything else.
-   ============================================================ */
-
+/* Homepage: a reading page with quiet rules and full, uncropped captures. */
 .yomu-home {
-  /* --- The grammar --- */
-  --ink: #0b0e14;
-  --world-ink: #141824;
-  /* Warm night surfaces. These are the three the visual system allows;
-     the olive set they replaced is banned outright. */
-  --night-1: #141824;
-  --night-2: #1c2130;
-  --night-3: #242a3d;
-  --paper: #f1ead9;
-  --paper-ground: #fbf9f4;
-  --paper-folded: #e5dcc4;
-  --paper-ink: #20242f;
-  --pencil: #4f566d;
-  --accent: var(--jpdb-reader-accent, #5ea780);
-  /* Lamplight. Deliberately NOT the accent: the accent is reserved for the
-     primary action and is learner-configurable, so guidance drawn in it
-     vanishes whenever someone picks a green. --lamp is the night value,
-     --guide the darkened one that clears 4.5:1 on cream paper. */
-  --lamp: #e8a33d;
-  /* Guide is vermillion, not the brief's #9a6512 ochre: dark ambers are
-     browns, which the owner's 2026-08-04 palette rule bans, and #9a6512
-     also measured 4.12:1 on cream — under AA for the 13px bold kicker.
-     #b23a2a measures 4.96:1 on --paper and 5.65:1 on --paper-ground. */
-  --guide: #b23a2a;
-  /* Guidance drawn on the page GROUND rather than on a paper card: the ground
-     flips with the theme, the cards do not, so the two cannot share a token. */
-  --guide-on-ground: var(--guide);
-  --rot-1: -3deg;
-  --rot-2: -1.5deg;
-  --rot-3: 2deg;
-  --rot-4: 3.5deg;
-  --keyline-w: 3px;
-  --gutter: clamp(20px, 5vw, 88px);
-
-  /* Semantic surfaces + inks. Redefined once for night, below. */
-  --surface-page: var(--paper-ground);
-  --surface-sunk: var(--paper-folded);
-  --surface-slab: var(--paper);
-  --surface-plate: var(--world-ink);
-  --ink-strong: var(--paper-ink);
-  --ink-body: #3a4050;
-  --ink-quiet: #4d5468;
-  --keyline: var(--ink);
-  /* Border for objects with LIGHT fills (cream chip, green button, the
-     popover card). On paper it is the same ink as every keyline; at night
-     the periwinkle keyline is for dark slabs coming up out of the ground,
-     and on a cream or green fill it read as a glow — these objects keep a
-     printed near-black edge instead. */
-  --keyline-object: var(--ink);
-  --rule: var(--keyline);
-  --rule-w: var(--keyline-w);
-  --shadow-ink: var(--ink);
-  --shadow-cast: var(--shadow-ink);
-  --accent-ink: #27593e;
-  --accent-fill: var(--accent);
-  /* Follow the runtime's own accent-ink, derived from whatever accent the
-     learner chose, and fall back to the world ink only when none is stamped.
-     Hardcoding a dark literal assumed a light accent: against a dark custom
-     accent the band buttons and the Discord call to action measured 1.04:1. */
-  --on-accent: var(--yomu-accent-ink, var(--yomu-doc-accent-ink, #141824));
-  --on-plate: var(--paper);
-  --on-plate-quiet: #ddd5bf;
-  --scrim-ink: 24, 27, 24;
-  --focus-ring: var(--guide);
-
-  /* ONE spacing scale. Steps widen as they go so the page can give
-     something disproportionate room without inventing a new value. */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 14px;
-  --s-4: 22px;
-  --s-5: 36px;
-  --s-6: 58px;
-  --s-7: 94px;
-  --s-8: 152px;
-  --band-y: clamp(var(--s-6), 9vh, var(--s-7));
-
-  /* Motion steps from the visual system: response / transition / entrance. */
-  --motion-fast: 150ms;
-  --motion-mid: 340ms;
-  --motion-slow: 460ms;
-
-  --ja-font: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+  --home-page: #f8f5ef;
+  --home-surface: #fffdf8;
+  --home-text: #292824;
+  --home-muted: #66635a;
+  --home-line: #d9d4c9;
+  --home-action: #315944;
+  --home-on-action: #fffdf8;
+  --home-gutter: clamp(20px, 5vw, 80px);
+  --home-space: clamp(56px, 8vw, 112px);
+  --home-serif: Georgia, 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  background: var(--home-page);
+  color: var(--home-text);
 }
 
-/* Night. Applied twice on purpose:
-   (1) .dark — the site's own toggle and the pre-paint appearance boot,
-       which is authoritative whenever JS has run;
-   (2) prefers-color-scheme, gated on the marker the boot stamps, so a
-       visitor with no JS still gets the dark palette from the OS while
-       an explicit "light" choice on a dark machine can never be
-       overridden. Both directions, one token list. */
 .dark .yomu-home {
-  --surface-page: var(--night-1);
-  --surface-sunk: #0f1320;
-  --surface-slab: var(--night-2);
-  --surface-plate: var(--night-3);
-  --ink-strong: #f1ead9;
-  --ink-body: #ded7c2;
-  --ink-quiet: #bfb69f;
-  /* The slabs are dark at night, so their keyline has to come UP out of the
-     ground rather than down into it. The live sample slab must stay dark: the
-     reader paints its own word and furigana colours into that paragraph from
-     the reader theme, and on a cream card they measured 1.28:1. */
-  --keyline: #6a739c;
-  --keyline-object: #080a12;
-  --shadow-ink: #080a12;
-  --accent-ink: #7cc39c;
-  --on-plate: #f1ead9;
-  --on-plate-quiet: #ddd5bf;
-  --guide-on-ground: var(--lamp);
-  --focus-ring: var(--lamp);
-}
-
-/* VitePress' stock dark chrome is a blue-dominant slate (#181b20), which the
-   visual system forbids ("never cold navy"). The nav, body and footer sit
-   ABOVE .yomu-home in the tree, so their custom properties have to be
-   redefined on <html> — a token declared on the page class can never reach
-   them. Scoped with :has() so only the homepage repaints the chrome. */
-html.dark:has(.yomu-home) {
-  --vp-c-bg: #141824;
-  --vp-c-bg-alt: #0f1320;
-  --vp-c-bg-elv: #1c2130;
-  --vp-c-bg-soft: #1c2130;
-  --vp-c-text-1: #f1ead9;
-  --vp-c-text-2: #ded7c2;
-  --vp-c-text-3: #bfb69f;
-  --vp-c-divider: #2c3347;
-  --vp-c-gutter: #2c3347;
+  --home-page: #20211e;
+  --home-surface: #292b26;
+  --home-text: #eeeae1;
+  --home-muted: #b9b8ae;
+  --home-line: #45483e;
+  --home-action: #b7d0b6;
+  --home-on-action: #20211e;
 }
 
 @media (prefers-color-scheme: dark) {
   html:not(.yomu-theme-resolved) .yomu-home {
-    --surface-page: #141824;
-    --surface-sunk: #0f1320;
-    --surface-slab: #1c2130;
-    --surface-plate: #242a3d;
-    --ink-strong: #f1ead9;
-    --ink-body: #ded7c2;
-    --ink-quiet: #bfb69f;
-    --keyline: #6a739c;
-    --keyline-object: #080a12;
-    --shadow-ink: #080a12;
-    --accent-ink: #7cc39c;
-    --on-plate: #f1ead9;
-    --on-plate-quiet: #ddd5bf;
-    --guide-on-ground: var(--lamp);
-    --focus-ring: var(--lamp);
-  }
-
-  html:not(.yomu-theme-resolved):has(.yomu-home) {
-    --vp-c-bg: #141824;
-    --vp-c-bg-alt: #0f1320;
-    --vp-c-bg-elv: #1c2130;
-    --vp-c-bg-soft: #1c2130;
-    --vp-c-text-1: #f1ead9;
-    --vp-c-text-2: #ded7c2;
-    --vp-c-text-3: #bfb69f;
-    --vp-c-divider: #2c3347;
-    --vp-c-gutter: #2c3347;
+    --home-page: #20211e;
+    --home-surface: #292b26;
+    --home-text: #eeeae1;
+    --home-muted: #b9b8ae;
+    --home-line: #45483e;
+    --home-action: #b7d0b6;
+    --home-on-action: #20211e;
   }
 }
 
-.yomu-home {
-  background: var(--surface-page);
-  color: var(--ink-strong);
-}
-
-.yomu-home .VPContent {
-  padding: 0;
-  max-width: 100%;
-}
-
+.yomu-home .VPContent,
 .yomu-home .VPPage {
-  background: var(--surface-page);
+  background: var(--home-page);
 }
-
-/* The fold is full-bleed, so the bar floats over it until the reader
-   scrolls; from then on it takes its normal ground back. */
-.yomu-home .VPNavBar.top,
-.yomu-home .VPNavBar.top .wrapper,
-.yomu-home .VPNavBar.top .container,
-.yomu-home .VPNavBar.top .content-body,
-.yomu-home .VPNavBar.top .title {
-  background: transparent;
-  background-color: transparent;
-  backdrop-filter: none;
-}
-
-.yomu-home .VPNavBar.top .divider-line,
-.yomu-home .VPNavBar.top .divider {
-  background: transparent;
-  background-color: transparent;
-}
-
-.yomu-home .VPNavBar.top {
-  border-bottom-color: transparent;
-}
-
-/* layout: page still resolves a sidebar from the site config; the homepage is
-   full-bleed and must not reserve the rail. */
+.yomu-home .VPPage { padding: 0; }
+.yomu-home .VPContent.has-sidebar { padding-inline: 0; }
 .yomu-home .VPSidebar,
-.yomu-home .VPLocalNav {
-  display: none;
-}
+.yomu-home .VPLocalNav { display: none; }
 
-.yomu-home .VPContent.has-sidebar {
+.yomu-home :is(h1, h2) {
   margin: 0;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.yomu-home :is(h1, h2, .yomu-wordmark, .yomu-band-numeral) {
+  border: 0;
+  padding: 0;
+  color: var(--home-text);
+  font-family: var(--home-serif);
+  font-weight: 400;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
-
-/* Rotation must never clip a focus ring, and the ring is drawn in lamplight
-   rather than the accent — a learner whose accent is a pale green would
-   otherwise have an invisible focus indicator on cream paper. */
-.yomu-home a:focus-visible,
-.yomu-home summary:focus-visible,
-.yomu-home video:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
+.yomu-home h2 {
+  font-size: clamp(30px, 3.6vw, 46px);
+  line-height: 1.18;
 }
-
-/* --- The shared primitives ------------------------------------------
-   .yomu-slab is the grammar in one rule: 3px keyline, 2px radius, one
-   zero-blur offset shadow. .yomu-paper is its section-sized sibling —
-   the torn-corner slab a block of copy sits on, with the page's tape
-   strip. Everything else on the page is one of these two plus a
-   rotation token, which is what stops the page reading as a template
-   of identical cards. */
-.yomu-home .yomu-slab {
-  border: var(--keyline-w) solid var(--keyline);
-  border-radius: 2px;
-  background: var(--surface-slab);
-  box-shadow: 8px 8px 0 var(--shadow-ink);
+.yomu-home :is(a, video):focus-visible {
+  outline: 3px solid var(--home-action);
+  outline-offset: 5px;
 }
-
-.yomu-home .yomu-paper,
-.yomu-letter {
-  position: relative;
-  border: 2px solid var(--keyline);
-  border-radius: 4px 15px 5px 12px;
-  background: var(--surface-slab);
-  box-shadow: 8px 9px 0 var(--shadow-ink);
-  color: var(--ink-strong);
+.yomu-home :is(.yomu-fold, .yomu-band, .yomu-story, .yomu-fits,
+  .yomu-install, .yomu-discord, .yomu-next, .yomu-home-more) {
+  width: min(100%, 1280px);
+  margin-inline: auto;
+  padding-inline: var(--home-gutter);
+  box-sizing: border-box;
 }
+.yomu-home :is(.yomu-band, .yomu-story, .yomu-fits, .yomu-install, .yomu-discord) {
+  padding-block: var(--home-space);
+  border-top: 1px solid var(--home-line);
+  scroll-margin-top: calc(var(--vp-nav-height) + 24px);
+}
+.yomu-home :is(.yomu-fold-main, .yomu-band-copy, figure) { min-width: 0; }
 
-/* --- The fold -------------------------------------------------------
-   The popover card is pinned past the bottom-right corner and slides off
-   the page, which is the fold's single bleed. Off-axis composition comes
-   from that and from the rotation tokens, never from a centred column. */
 .yomu-fold {
-  position: relative;
-  /* The card bleeds off two edges on purpose; without this the rotated,
-     negatively-inset card would push the document past the viewport. */
-  overflow: hidden;
   display: grid;
-  /* Anchored to the top, not centred. Centring inside an 860px fold left a tall
-     dead band above the wordmark whenever the copy was short — and it got
-     shorter deliberately. Centre-everything is also one of the template tells. */
-  align-content: start;
-  min-height: min(100svh, 860px);
-  padding: calc(var(--vp-nav-height) + var(--s-4)) var(--gutter) var(--band-y);
-  background: var(--surface-page);
-  color: var(--ink-strong);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 80px);
+  padding-block: clamp(40px, 6vw, 88px) var(--home-space);
 }
-
-.yomu-fold-main {
-  position: relative;
-  z-index: 3;
-  max-width: min(620px, 100%);
-}
-
 .yomu-wordmark {
-  display: block;
-  margin: 0 0 var(--s-4);
-  line-height: 1;
-}
-
-.yomu-wordmark-ja {
-  display: inline-block;
-  padding: 6px 18px 10px;
-  border: var(--keyline-w) solid var(--keyline);
-  border-radius: 3px 15px 4px 11px;
-  background: var(--surface-slab);
-  box-shadow: 6px 6px 0 var(--shadow-ink);
-  color: var(--ink-strong);
-  font-family: var(--ja-font);
-  font-size: clamp(2.6rem, 8vw, 5rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  transform: rotate(var(--rot-1));
-}
-
-.yomu-wordmark-en {
-  display: inline-block;
-  margin: -10px 0 0 40px;
-  padding: 5px 12px;
-  border: var(--keyline-w) solid var(--keyline-object);
-  border-radius: 8px 3px 10px 4px;
-  background: var(--ink-strong);
-  color: var(--surface-page);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  transform: rotate(var(--rot-3));
-}
-
-.yomu-fold-h1 {
-  /* The SSR headline is ONE text node naming 日本語, so crawlers, social
-     unfurls and the no-JS page always read the same sentence. The client
-     rotator (owner decision 2026-08-04) then owns the whole headline and
-     re-renders it per interface language — Japanese puts the object first
-     (日本語を学ぶための…), so the rotating word cannot be a fixed-position span
-     in a translated template; the rotator composes the full sentence. */
-  font-family: var(--vp-font-family-base), var(--ja-font);
-  max-width: 18ch;
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(34px, 5vw, 68px);
-  font-weight: 800;
-  line-height: 0.98;
-  letter-spacing: -0.02em;
-  word-break: keep-all;
-}
-
-/* The live language names do not all wrap to the same number of lines. Keep
-   every roster candidate in one hidden overlapping grid cell so the h1 always
-   reserves the real maximum at the current font and responsive width. The
-   visible frame can then rotate without moving the Try me surface below it. */
-.yomu-fold-h1[data-yomu-hero-rotator='on'],
-.yomu-home .yomu-fold-h1-reserve {
-  display: grid;
-}
-
-.yomu-home .yomu-fold-h1-reserve,
-.yomu-home .yomu-fold-h1-live,
-.yomu-home .yomu-fold-h1-reserve-candidate {
-  grid-area: 1 / 1;
-  min-width: 0;
-}
-
-.yomu-home .yomu-fold-h1-reserve {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.yomu-home .yomu-fold-h1-live,
-.yomu-home .yomu-fold-h1-reserve-candidate {
-  align-self: start;
-}
-
-/* The rotating study target. Amber/vermillion is the page's guidance colour,
-   so the one word that changes carries it; the entry nudge follows the page's
-   rotation grammar. dir comes from the roster so RTL names (العربية) isolate
-   correctly inside the LTR sentence. */
-.yomu-home .yomu-fold-h1-lang {
-  display: inline-block;
-  color: var(--guide-on-ground);
-  animation: yomu-hero-lang-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1);
-}
-
-@keyframes yomu-hero-lang-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.16em) rotate(-1.2deg);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .yomu-home .yomu-fold-h1-lang {
-    animation: none;
-  }
-}
-
-.yomu-fold-live {
-  margin: var(--s-5) 0 0;
-}
-
-/* The pencil register: a hand-drawn pointer at the live sample. It is
-   the ONE annotation of its kind on the page, drawn in lamplight so it
-   still reads when a learner's accent is itself a green. */
-.yomu-fold-prompt {
-  /* The arrow's tip dips into the sample slab below, and the slab paints later
-     in the DOM — without a stacking context the slab's fill amputates the
-     arrowhead along its keyline and the pointer reads as cut off. */
-  position: relative;
-  z-index: 2;
   display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  margin: 0 0 2px clamp(48px, 20%, 190px);
-  /* On the page ground, so it follows the ground: dark ochre on paper, the
-     bright lamp at night. The arrow inherits it through currentColor, which
-     keeps the label and its arrow one gesture. */
-  color: var(--guide-on-ground);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 28px;
+  color: var(--home-muted);
 }
-
-.yomu-fold-arrow {
-  width: 52px;
-  height: 36px;
-  flex: none;
-  margin-bottom: -10px;
-  overflow: visible;
+.yomu-wordmark-ja { color: var(--home-text); font-size: 30px; font-weight: 650; }
+.yomu-wordmark-en { font-size: 12px; letter-spacing: 0.2em; }
+.yomu-home .yomu-fold-h1 {
+  max-width: 15ch;
+  font-size: clamp(42px, 5.8vw, 76px);
+  line-height: 1.06;
 }
-
-.yomu-fold-prompt-fallback,
-.yomu-fold-prompt[data-yomu-runtime-missing] .yomu-fold-prompt-live {
-  display: none;
+.yomu-fold-lead {
+  max-width: 43ch;
+  margin: 24px 0 12px;
+  font-size: clamp(18px, 1.8vw, 22px);
+  line-height: 1.6;
 }
-
-.yomu-fold-prompt[data-yomu-runtime-missing] .yomu-fold-prompt-fallback {
-  display: inline;
+.yomu-fold-scope {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.yomu-fold-live { margin-block: 32px; }
+.yomu-fold-prompt {
+  display: grid;
+  margin: 0 0 8px;
+  color: var(--home-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  pointer-events: auto;
+}
+.yomu-fold-prompt > * { grid-area: 1 / 1; }
+.yomu-fold-prompt-fallback {
+  visibility: hidden;
+  pointer-events: auto;
   color: inherit;
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
-
-/* Paper object #1: the live sample. Asymmetric corners, one offset
-   shadow, one rotation token. */
+.yomu-fold-prompt[data-yomu-runtime-missing] .yomu-fold-prompt-live { visibility: hidden; }
+.yomu-fold-prompt[data-yomu-runtime-missing] .yomu-fold-prompt-fallback {
+  visibility: visible;
+  pointer-events: auto;
+}
 .yomu-home .yomu-fold-try {
+  --yomu-doc-demo-text: var(--home-text);
+  --yomu-doc-demo-surface: var(--home-surface);
   display: block;
   margin: 0;
-  padding: var(--s-3) var(--s-4) var(--s-4);
-  border: var(--keyline-w) solid var(--keyline);
-  border-radius: 4px 15px 5px 12px;
-  background: var(--surface-slab);
-  box-shadow: 8px 8px 0 var(--shadow-ink);
-  transform: rotate(var(--rot-2));
+  padding: 16px 20px;
+  border: 1px solid var(--home-line);
+  border-radius: 4px;
+  background: var(--home-surface);
+  box-shadow: none;
 }
-
 .yomu-home .yomu-fold-try .yomu-try-me-sample {
   margin: 0;
-  color: var(--ink-strong);
-  font-family: var(--ja-font);
-  font-size: clamp(26px, 3.4vw, 46px);
-  line-height: 2;
+  color: var(--home-text);
+  font-size: clamp(24px, 2.35vw, 32px);
+  line-height: 2.2;
 }
-
-/* Paper object #2: the popover capture, pinned past the corner. This is the
-   fold's one bleed — the card is meant to run off the page, not to sit in a
-   column beside the copy. */
 .yomu-fold-card {
-  position: absolute;
-  right: -5%;
-  bottom: -8%;
-  z-index: 2;
-  width: min(42vw, 460px);
+  width: 100%;
+  max-width: 390px;
   margin: 0;
-  border: var(--keyline-w) solid var(--keyline-object);
-  border-radius: 5px 15px 4px 12px;
-  background: var(--surface-slab);
-  box-shadow: 10px 10px 0 var(--shadow-ink);
-  transform: rotate(var(--rot-4));
+  justify-self: center;
 }
-
-.yomu-fold-card img {
+.yomu-home figure img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 3px 12px 3px 10px;
+  border-radius: 4px;
 }
+.yomu-fold-card img { border: 1px solid var(--home-line); }
 
-/* --- Install routes ---
-   Three real links, one promoted to the fold's single button. Which one is
-   promoted is decided by [data-yomu-install] on <html>, stamped pre-paint by
-   the head snippet in scripts/lib/hosted-install-route.cjs. Wrapping rows keep
-   the button on its own line, then the micro line, then the quiet "Also
-   available" line — so the promoted route is the only thing that reads as a
-   button whichever route wins. */
 .yomu-install-routes {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  margin: var(--s-5) 0 0;
-  column-gap: var(--s-3);
-  row-gap: var(--s-2);
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 24px;
 }
-
-/* Resting state for a route the visitor's browser cannot use: a quiet text
-   link on the last row, never competing with the button above it. */
 .yomu-install-route {
-  order: 4;
-  min-height: 44px;
   display: inline-flex;
   align-items: center;
-  color: var(--ink-body);
+  min-height: 44px;
+  color: var(--home-action);
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.5;
   text-decoration: underline;
-  text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
-
-.yomu-install-route:hover,
-.yomu-install-route:focus-visible {
-  color: var(--ink-strong);
-}
-
-.yomu-install-routes .yomu-fold-micro {
-  order: 2;
-  flex: 0 0 100%;
-}
-
-.yomu-install-routes-note {
-  order: 3;
-  margin: var(--s-1) 0 0;
-  color: var(--ink-quiet);
-  /* One micro step, 14px, shared with .yomu-fold-micro. 12 and 13 were two
-     different sizes of the same thing and both sat under the readable floor. */
-  font-size: 14px;
-  font-weight: 700;
-}
-
-/* The promoted route — the page's ONE green. The no-JS branch comes first and
-   promotes the userscript: it is the only build that runs on every browser, so
-   a page whose detection never executed still offers something that works. */
 .yomu-install-route:is(
-    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
-    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
-    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
-  ) {
-  display: inline-flex;
-  order: 1;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  min-height: 58px;
-  margin: 0;
-  padding: 0 26px;
-  border: var(--keyline-w) solid var(--keyline-object);
-  border-radius: 4px 13px 5px 11px;
-  background: var(--accent-fill);
-  box-shadow: 8px 8px 0 var(--shadow-ink);
-  color: var(--on-accent);
-  font-size: clamp(17px, 1.6vw, 21px);
-  font-weight: 800;
+  :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+  :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+  :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+  :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+) {
+  order: -3;
+  padding: 13px 22px;
+  border: 1px solid var(--home-action);
+  border-radius: 4px;
+  background: var(--home-action);
+  color: var(--home-on-action);
+  font-size: 16px;
   text-decoration: none;
-  transition: box-shadow var(--motion-fast) ease, translate var(--motion-fast) ease;
 }
-
-.yomu-install-route:is(
-    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
-    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
-    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
-  ):is(:hover, :focus-visible) {
-  box-shadow: 4px 4px 0 var(--shadow-ink);
-  translate: 4px 4px;
-}
-
-.yomu-fold-micro {
-  margin: var(--s-3) 0 0;
-  color: var(--ink-quiet);
-  font-size: 14px;
-  letter-spacing: 0.02em;
-}
-
-/* --- The letter -----------------------------------------------------
-   One human paragraph, signed, given deliberately more room than any
-   other block on the page. This is the spacing scale being broken on
-   purpose: everything else is --band-y, this is --s-8. The ground is
-   folded paper ruled at 48px, the genko-yoshi grid, so the letter reads
-   as a sheet on a desk rather than as another band. */
-.yomu-story {
-  display: grid;
-  justify-items: start;
-  padding: clamp(var(--s-7), 12vh, var(--s-8)) var(--gutter);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
-    var(--surface-sunk);
-  color: var(--ink-strong);
-}
-
-/* Paper object #3, and the page's only tape strip. */
-.yomu-letter {
-  /* max-width, never width: as a stretched grid item the box has to subtract
-     its own indent, or the indent pushes it past the gutter (it added 9px of
-     document overflow at 768). */
-  max-width: 720px;
-  margin: 0 0 0 clamp(0px, 6vw, 120px);
-  padding: var(--s-5) var(--s-5) var(--s-4);
-  transform: rotate(-0.4deg);
-}
-
-.yomu-letter::before,
-.yomu-home .yomu-paper::before {
-  content: "";
-  position: absolute;
-  top: -10px;
-  left: clamp(30px, 8vw, 96px);
-  width: 92px;
-  height: 20px;
-  background: color-mix(in srgb, var(--accent-fill) 30%, var(--surface-sunk));
-  transform: rotate(-2deg);
-}
-
-.yomu-letter h2 {
-  max-width: 26ch;
+.yomu-install-route:hover { text-decoration-thickness: 2px; }
+.yomu-install-routes .yomu-fold-micro {
+  order: -2;
+  flex-basis: 100%;
   margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(26px, 3.2vw, 40px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.yomu-letter p {
-  max-width: 60ch;
-  margin: var(--s-4) 0 0;
-  color: var(--ink-body);
-  font-size: clamp(17px, 1.45vw, 20px);
-  line-height: 1.65;
-}
-
-.yomu-letter-sign {
-  margin-top: var(--s-4) !important;
-  color: var(--ink-quiet) !important;
-  font-size: 15px !important;
-  font-style: italic;
-}
-
-/* --- Proof bands ----------------------------------------------------
-   A real painted interior, a three-stop lit scrim, one dark ink copy
-   card and one product capture that slides off the page edge. Each band
-   carries ONE rotation token, and no two neighbours carry the same one. */
-.yomu-band {
-  /* How far the product frame slides past the page edge. Declared once so
-     every breakpoint can restate it in one place. --bleed-portrait is the
-     shallow variant a capped PORTRAIT capture uses: a landscape screenshot can
-     lose a third of itself off the edge and still read, a page-shaped one
-     cannot. Derived from --bleed so a breakpoint only ever restates one value. */
-  --bleed: calc(var(--gutter) + 9vw);
-  /* Both are measured from the COLUMN edge, which sits one --gutter inside the
-     page, so anything at or under --gutter does not reach the page edge at all
-     and is not a bleed. Hence gutter + a shallow 5vw rather than a fraction of
-     --bleed: a fraction landed the manga panel flush against the viewport. */
-  --bleed-portrait: calc(var(--gutter) + 5vw);
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-content: center;
-  align-items: center;
-  gap: var(--s-5) var(--s-4);
-  min-height: min(100svh, 820px);
-  padding: var(--band-y) var(--gutter);
-  color: var(--paper);
-}
-
-.yomu-band-ground {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* The scrim is LIT, not a flat wash: the paintings are lamplit interiors, so
-   the floor is heavy at the top and bottom edges and opens to 0.62 across the
-   middle where the lamp is. Warm-tinted from the world ink, never the cold
-   navy the first pass used. A flat wash killed the paintings outright. */
-.yomu-band::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(var(--scrim-ink), 0.86) 0%,
-    rgba(var(--scrim-ink), 0.62) 46%,
-    rgba(var(--scrim-ink), 0.9) 100%
-  );
-}
-
-/* The band numeral: an OUTLINED kanji in lamplight, rotated off the grid.
-   Outlined is the whole point — a solid amber glyph inside a keyline box is a
-   chip, and the grammar asks for a stamp pressed onto the painting. The fill
-   is knocked out with -webkit-text-stroke, which every engine we ship to
-   supports; `color: var(--lamp)` stays as the no-stroke fallback, so an engine
-   without it gets the old filled glyph rather than an invisible one. */
-.yomu-band-numeral,
-.yomu-install-numeral {
-  margin: 0;
-  padding: 4px 16px 10px;
-  border: var(--keyline-w) solid var(--paper);
-  border-radius: 3px 14px 4px 11px;
-  background: transparent;
-  color: var(--lamp);
-  -webkit-text-stroke: 2px var(--lamp);
-  font-family: var(--ja-font);
-  font-size: clamp(2.4rem, 6vw, 4.4rem);
-  font-weight: 900;
-  line-height: 1;
-}
-
-@supports (-webkit-text-stroke: 2px currentColor) {
-  .yomu-band-numeral,
-  .yomu-install-numeral {
-    color: transparent;
-  }
-}
-
-.yomu-band-numeral {
-  position: absolute;
-  top: clamp(18px, 4vh, 44px);
-  /* Above the copy card, not level with it: at the same z-index the card is
-     painted later and clipped the numeral's lower third. */
-  z-index: 4;
-}
-
-.yomu-band[data-bleed="right"] .yomu-band-numeral {
-  left: var(--gutter);
-  transform: rotate(var(--rot-1));
-}
-
-.yomu-band[data-bleed="left"] .yomu-band-numeral {
-  right: var(--gutter);
-  transform: rotate(var(--rot-3));
-}
-
-/* The dark ink copy card. It carries its own ground so the copy is measurable
-   wherever the painting happens to be bright, and it is INK rather than paper
-   because a cream card on every band turned the proof section into a row of
-   identical light rectangles. */
-.yomu-band-copy {
-  position: relative;
-  z-index: 3;
-  padding: clamp(20px, 2.6vw, 34px);
-  border: var(--keyline-w) solid var(--paper);
-  border-radius: 4px 15px 5px 12px;
-  background: rgba(8, 12, 20, 0.82);
-  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.55);
-  color: var(--paper);
-}
-
-.yomu-band[data-bleed="right"] .yomu-band-copy {
-  grid-column: 1 / 7;
-}
-
-.yomu-band[data-bleed="left"] .yomu-band-copy {
-  grid-column: 7 / 13;
-}
-
-.yomu-band-kicker {
-  margin: 0 0 10px;
-  color: var(--lamp);
+  color: var(--home-muted);
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  line-height: 1.6;
+}
+.yomu-install-routes-note { order: -1; margin: 0; color: var(--home-muted); font-size: 13px; }
+
+.yomu-band {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 72px);
+}
+.yomu-band-kicker {
+  margin: 0 0 16px;
+  color: var(--home-muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-
-.yomu-band-copy h2 {
-  margin: 0;
-  color: var(--paper);
-  font-size: clamp(28px, 3.4vw, 44px);
-  font-weight: 800;
-  line-height: 1.06;
-  letter-spacing: -0.02em;
-}
-
 .yomu-band-lead {
-  max-width: 40ch;
-  margin: 14px 0 0;
-  color: color-mix(in srgb, var(--paper) 88%, transparent);
-  font-size: clamp(17px, 1.4vw, 20px);
-  line-height: 1.5;
+  max-width: 48ch;
+  margin: 20px 0 0;
+  color: var(--home-muted);
+  font-size: 17px;
+  line-height: 1.75;
 }
-
-.yomu-band-frame {
-  position: relative;
-  z-index: 2;
-  margin: 0;
-  border: var(--keyline-w) solid var(--paper);
-  border-radius: 4px 15px 5px 12px;
-  background: var(--night-3);
-  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
+.yomu-band-action, .yomu-discord a, .yomu-fits-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 16px;
+  color: var(--home-action);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 5px;
 }
-
-.yomu-band-frame img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.yomu-band[data-bleed="right"] .yomu-band-frame {
-  grid-column: 7 / 13;
-  margin-right: calc(-1 * var(--bleed));
-}
-
-.yomu-band[data-bleed="left"] .yomu-band-frame {
-  grid-column: 1 / 7;
-  grid-row: 1;
-  margin-left: calc(-1 * var(--bleed));
-}
-
-/* One rotation token per band, never the same one twice in a row. */
-#read .yomu-band-frame {
-  transform: rotate(var(--rot-2));
-}
-
-#watch .yomu-band-frame {
-  transform: rotate(var(--rot-3));
-}
-
-#study .yomu-band-frame {
-  transform: rotate(var(--rot-2));
-}
-
-#manga .yomu-band-frame {
-  transform: rotate(var(--rot-1));
-}
-
-#mobile .yomu-band-frame {
-  transform: rotate(var(--rot-3));
-}
-
-/* A manga page is portrait: at the band frame's full grid width it would tower
-   over the copy, so it is capped. It still bleeds — every band bleeds exactly
-   once, and a centred capped panel made this the one band with no edge — but at
-   a portrait-scaled depth. A full-depth bleed took half of the live OCR panel
-   off the page; --bleed-portrait leaves the pressable majority of it on. */
-#manga .yomu-band-frame {
-  justify-self: start;
-  max-width: min(540px, 100%);
-  margin-left: calc(-1 * var(--bleed-portrait));
-}
-
-/* #mobile bleeds the iPad and nothing else. Both captures are the evidence, so
-   the frame is a flex row with the PHONE first: the row bleeds off the right
-   edge, which takes a strip of the tablet and leaves the phone whole. Dropping
-   the bleed outright (the previous pass) cost the band its edge and left ~45%
-   of an unpainted plate as dead space to the right of the devices. */
-#mobile .yomu-band-frame {
-  margin-right: calc(-1 * var(--bleed));
-}
-
-.yomu-band-player {
-  margin: var(--s-4) 0 0;
-  border: 2px solid color-mix(in srgb, var(--paper) 62%, transparent);
-  border-radius: 3px 12px 4px 9px;
-  background: #000;
-}
-
-.yomu-band-video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  background: #000;
-}
-
-/* Two real stills with a hard connector, so the Study band reads as a
-   move rather than as two screenshots. */
-.yomu-band-pair {
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
-.yomu-band-pair img {
-  border: var(--keyline-w) solid var(--paper);
-  border-radius: 4px 14px 5px 11px;
-  background: var(--night-3);
-  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
-}
-
-.yomu-band-pair .yomu-pair-a,
-.yomu-band-pair .yomu-pair-b {
-  width: 66%;
-}
-
-.yomu-band-pair .yomu-pair-b {
-  margin: 3% 0 0 34%;
-}
-
-.yomu-pair-arrow {
-  position: absolute;
-  left: 24%;
-  top: 44%;
-  width: clamp(56px, 8vw, 108px);
-  height: auto;
-  color: var(--lamp);
-}
-
-/* Phone + iPad. Both captures are PORTRAIT, so they sit side by side instead of
-   stacking with an offset like the landscape pair — stacked portraits would
-   make the band taller than the viewport at every breakpoint. Widths are
-   percentages of the figure, so neither image can exceed its grid column
-   however narrow the page gets. */
+.yomu-band-frame { margin: 0; }
+.yomu-band-frame > img { border: 1px solid var(--home-line); }
+.yomu-band-pair { display: grid; gap: 20px; }
+.yomu-band-player { margin: 24px 0 0; }
+.yomu-band-video { display: block; width: 100%; border-radius: 4px; background: #111; }
+.yomu-manga-figure { max-width: 420px; justify-self: center; }
 .yomu-band-devices {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0 4%;
-  border: 0;
-  background: none;
-  box-shadow: none;
+  display: grid;
+  grid-template-columns: minmax(0, 0.48fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 20px;
 }
 
-.yomu-band-devices img {
-  border: var(--keyline-w) solid var(--paper);
-  border-radius: 2px;
-  background: var(--night-3);
-  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
+.yomu-letter { max-width: 780px; margin: 0 auto; }
+.yomu-letter > p { margin: 24px 0 0; font-size: 18px; line-height: 1.8; color: var(--home-muted); }
+.yomu-letter .yomu-letter-sign { color: var(--home-text); font-family: var(--home-serif); font-style: italic; }
+.yomu-fits-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: clamp(28px, 5vw, 72px);
 }
+.yomu-fits-list { margin: 0; padding: 0; list-style: none; }
+.yomu-fits-list li { margin: 0; padding: 20px 0; border-bottom: 1px solid var(--home-line); color: var(--home-muted); font-size: 17px; line-height: 1.75; }
+.yomu-fits-list li:first-child { padding-top: 0; }
+.yomu-fits-list strong { color: var(--home-text); font-weight: 600; }
+.yomu-fits-list a { margin: 0; }
+.yomu-home-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
+.yomu-home .yomu-band-concept { display: block; padding-inline: 0; }
+.yomu-install-inner { max-width: 740px; }
+.yomu-install-lead, .yomu-discord p { margin: 24px 0 0; max-width: 55ch; color: var(--home-muted); font-size: 18px; line-height: 1.75; }
+.yomu-install-lead a, .yomu-install-note a { color: var(--home-action); text-decoration: underline; text-underline-offset: 4px; }
+.yomu-install-note { margin: 24px 0 0; color: var(--home-muted); font-size: 14px; line-height: 1.6; }
+.yomu-discord-inner { max-width: 740px; }
+.yomu-next { padding-block: 24px 48px; border-top: 1px solid var(--home-line); }
+.yomu-next-row { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.yomu-next-row a { display: inline-flex; align-items: center; min-height: 44px; color: var(--home-muted); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
+body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)) !important; }
 
-.yomu-band-devices .yomu-device-tablet {
-  width: 56%;
+@media (max-width: 900px) {
+  .yomu-fold { grid-template-columns: minmax(0, 1fr); }
+  .yomu-home .yomu-fold-h1 { max-width: 19ch; }
+  .yomu-fold-card { max-width: 360px; justify-self: start; }
+  .yomu-band, .yomu-fits-inner { grid-template-columns: minmax(0, 1fr); }
+  .yomu-band-copy { max-width: 620px; }
+  .yomu-manga-figure { justify-self: start; }
+  .yomu-band-devices { max-width: 600px; }
 }
-
-.yomu-band-devices .yomu-device-phone {
-  width: 30%;
-}
-
-/* The one shared call to action, and the page's only other green. Ink on
-   accent measured 6.03:1; the old paper-ink fill measured 4.38-4.42:1. */
-.yomu-band-action,
-.yomu-discord a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  margin-top: var(--s-4);
-  padding: 10px 22px;
-  border: 2px solid var(--paper-ink);
-  border-radius: 4px 13px 5px 10px;
-  background: var(--accent-fill);
-  box-shadow: 4px 5px 0 var(--paper-ink);
-  color: var(--on-accent) !important;
-  font-weight: 800;
-  text-decoration: none;
-  transition: box-shadow var(--motion-fast) ease, translate var(--motion-fast) ease;
-}
-
-.yomu-band-action:hover,
-.yomu-band-action:focus-visible,
-.yomu-discord a:hover,
-.yomu-discord a:focus-visible {
-  box-shadow: 2px 2px 0 var(--paper-ink);
-  translate: 2px 3px;
-}
-
-/* --- The bands with no painting behind them -------------------------
-   A flat warm plate, never a 135deg gradient with an accent radial glow —
-   that pairing is the single most recognisable "generated page" tell. With
-   no painting there is nothing for a dark ink card to sit on, so the copy
-   becomes the PAPER card instead: a sheet pinned to a plate. These rules
-   must sit AFTER the generic [data-bleed] placement; they carry the same
-   specificity, so order is what decides. */
-.yomu-band-plate,
-.yomu-band-concept {
-  background: var(--surface-plate);
-}
-
-.yomu-band-plate::after,
-.yomu-band-concept::after {
-  background: none;
-}
-
-/* Both the keyline and the shadow have to read against the PLATE, not against
-   the card: they are the edge between a cream sheet and a near-black ground.
-   #20242f ink on #141824 plate measured 1.14:1 and a black offset shadow on it
-   measured nothing at all, which left these three cards as bare cream
-   rectangles pasted on black — no keyline, no lift. Folded paper for the
-   keyline and pencil for the offset are the two warm tones that clear the
-   plate in both themes while staying clearly darker than the sheet. */
-.yomu-band-plate .yomu-band-copy,
-.yomu-band-concept .yomu-band-copy {
-  border-color: var(--paper-folded);
-  background: var(--paper);
-  box-shadow: 8px 9px 0 var(--pencil);
-  color: var(--paper-ink);
-}
-
-.yomu-band-plate .yomu-band-copy h2,
-.yomu-band-concept .yomu-band-copy h2 {
-  color: var(--paper-ink);
-}
-
-.yomu-band-plate .yomu-band-lead,
-.yomu-band-concept .yomu-band-lead {
-  color: var(--pencil);
-}
-
-.yomu-band-plate .yomu-band-kicker,
-.yomu-band-concept .yomu-band-kicker {
-  color: var(--guide);
-}
-
-.yomu-band-plate .yomu-band-copy {
-  transform: rotate(var(--rot-2));
-}
-
-.yomu-band-concept {
-  min-height: 0;
-  gap: var(--s-2) var(--s-4);
-}
-
-.yomu-band-concept[data-bleed="left"] .yomu-band-copy,
-.yomu-band-concept[data-bleed="left"] .yomu-band-numeral {
-  grid-column: 5 / 13;
-}
-
-.yomu-band-concept[data-bleed="right"] .yomu-band-copy,
-.yomu-band-concept[data-bleed="right"] .yomu-band-numeral {
-  grid-column: 1 / 9;
-}
-
-/* Specificity has to match the generic [data-bleed] numeral placement, or its
-   left/right offset survives and slides the numeral 64px off the card's edge. */
-.yomu-band-concept[data-bleed="left"] .yomu-band-numeral,
-.yomu-band-concept[data-bleed="right"] .yomu-band-numeral {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  justify-self: start;
-}
-
-/* The concept cards keep their keyline, corners and offset shadow but stay
-   square to the page: their numeral sits IN FLOW directly above the card, and
-   a rotated card lifts one corner into it. The numeral carries the rotation
-   for these two bands instead. */
-
-/* --- The paper sections --------------------------------------------
-   A prioritised list on a sheet, not three equal cards: the rows are
-   different lengths and only a rule separates them. */
-.yomu-fits {
-  padding: var(--band-y) var(--gutter);
-  background: var(--surface-page);
-  color: var(--ink-strong);
-}
-
-.yomu-home .yomu-fits-inner {
-  width: min(100%, 1040px);
-  margin: 0 auto;
-  padding: clamp(26px, 4vw, 48px);
-}
-
-.yomu-fits:nth-of-type(even) .yomu-fits-inner {
-  transform: rotate(0.3deg);
-}
-
-/* Heading beside its list, not stacked above it.
-   Stacked, these sections were a 780px column against a 1440px page: four
-   screens in a row where the right half of the viewport held nothing at all,
-   which is what made a finished page read as an unfinished draft. The bands
-   either side of them are already two-column, so this is the page's own rhythm
-   rather than a new idea. Single column below 1080 where there is no width to
-   share. */
-@media (min-width: 1080px) {
-  .yomu-home .yomu-fits-inner {
-    display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
-    align-items: start;
-    gap: 0 var(--s-6);
-  }
-
-  .yomu-fits-inner > h2 {
-    /* Holds the heading beside its own list while that list scrolls past,
-       so the pairing stays legible on a tall section. */
-    position: sticky;
-    top: calc(var(--vp-nav-height) + var(--s-5));
-  }
-
-  .yomu-fits-list {
-    margin-top: 0;
-  }
-}
-
-.yomu-fits h2 {
-  max-width: 22ch;
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(26px, 3vw, 38px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.yomu-fits-list {
-  width: min(100%, 780px);
-  margin: var(--s-5) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.yomu-fits-list li {
-  padding: var(--s-4) 0;
-  border-top: 2px solid color-mix(in srgb, var(--keyline) 45%, transparent);
-  color: var(--ink-body);
-  font-size: clamp(16px, 1.35vw, 18px);
-  line-height: 1.6;
-}
-
-.yomu-fits-list li:last-child {
-  border-bottom: 2px solid color-mix(in srgb, var(--keyline) 45%, transparent);
-}
-
-.yomu-fits-list strong {
-  color: var(--ink-strong);
-}
-
-.yomu-fits-list a {
-  display: inline-block;
-  min-height: 44px;
-  padding: 11px 0;
-  color: var(--accent-ink);
-  font-weight: 700;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-/* The live OCR panel, now a band frame in #manga: it keeps the frame grammar
-   and its own rotation from the band rules above. */
-.yomu-manga-figure img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-/* --- Install: a hard tonal cut to a printed plate -------------------
-   Light: the plate is the world ink. Night: the page is already ink,
-   so the plate steps UP instead of down to a near-black the visual
-   system forbids. Left-aligned to the gutter, because a centred column
-   under a centred heading is the one layout every generated landing
-   page ships. */
-.yomu-install {
-  padding: var(--band-y) var(--gutter);
-  background: var(--surface-plate);
-  color: var(--on-plate);
-}
-
-/* The stamped numeral, in flow above the slab and carrying the section's one
-   rotation token — the concept bands' arrangement, so the CTA is built out of
-   the same parts as everything above it. */
-.yomu-install-numeral {
-  display: inline-block;
-  margin-bottom: var(--s-3);
-  transform: rotate(var(--rot-1));
-}
-
-/* The copy is a SLAB on the plate, not loose text on it: keyline, corners and
-   an offset shadow, like every other block of copy on this page. --shadow-ink
-   is a near-black, which on the near-black plate paints nothing, so the offset
-   comes up in pencil the way the plate bands' cards do. */
-/* Scoped with .yomu-home so it OUTRANKS `.yomu-home .yomu-slab`, whose
-   --shadow-ink offset is the near-black that paints nothing here. */
-.yomu-home .yomu-install-inner {
-  max-width: min(760px, 100%);
-  margin: 0;
-  padding: clamp(24px, 3.4vw, 42px);
-  box-shadow: 8px 9px 0 var(--pencil);
-  color: var(--ink-strong);
-}
-
-.yomu-install-inner h2 {
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(28px, 3.2vw, 42px);
-  font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -0.02em;
-}
-
-.yomu-install-lead {
-  max-width: 42ch;
-  margin: var(--s-3) 0 0;
-  color: var(--ink-body);
-  font-size: clamp(17px, 1.4vw, 20px);
-  line-height: 1.55;
-}
-
-/* The two links inlined into this sentence when the numbered install chips were
-   removed (A24.2). They inherit the paragraph's colour and weight, so without a
-   decoration they measured IDENTICAL to the surrounding text — an invisible link is
-   worse than the chips it replaced, because the destination is simply gone. Underline
-   is the affordance the rest of this band already uses for secondary routes. */
-.yomu-install-lead a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
-}
-
-.yomu-install-lead a:hover,
-.yomu-install-lead a:focus-visible {
-  color: var(--ink-strong);
-}
-
-/* The routes sit on a slab now, so the shared .yomu-install-route rules — the
-   ones the fold already uses — are correct here unchanged. The on-plate
-   overrides that used to live at this point were undoing them for a plate this
-   copy no longer sits directly on. */
-
-.yomu-install-note {
-  margin: var(--s-5) 0 0;
-  color: var(--ink-body);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.yomu-install-note a {
-  color: var(--ink-strong);
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-/* --- Discord: the warm close ---------------------------------------- */
-.yomu-discord {
-  padding: var(--band-y) var(--gutter);
-  background: var(--surface-page);
-  color: var(--ink-strong);
-}
-
-/* Green is the primary action and nothing else. This sheet took a full 3px
-   accent keyline AND an accent-mixed fill, so the close read as a green-trimmed
-   green panel sitting behind a green button — measured (94,167,128) on the
-   keyline and a green-shifted (232,230,212) on the fill, and worse at night.
-   It is an ordinary .yomu-paper sheet now: it keeps its rotation and its tape,
-   and the BUTTON carries the only green in the section. */
-.yomu-home .yomu-discord-inner {
-  width: min(100%, 1040px);
-  margin: 0 auto;
-  padding: clamp(26px, 4vw, 48px);
-  border-color: var(--keyline);
-  background: var(--surface-slab);
-  transform: rotate(0.35deg);
-}
-
-.yomu-discord h2 {
-  max-width: 20ch;
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(26px, 3vw, 38px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.yomu-discord p {
-  max-width: 54ch;
-  margin: var(--s-3) 0 0;
-  color: var(--ink-body);
-  font-size: clamp(17px, 1.4vw, 20px);
-  line-height: 1.6;
-}
-
-/* --- Footer strip: deliberately the smallest step on the page ------- */
-.yomu-next {
-  padding: var(--s-5) var(--gutter) var(--s-6);
-  background: var(--surface-sunk);
-  color: var(--ink-strong);
-}
-
-.yomu-next-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2) var(--s-5);
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.yomu-next-row a {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  color: var(--ink-body);
-  text-decoration: none;
-}
-
-.yomu-next-row a:hover,
-.yomu-next-row a:focus-visible {
-  color: var(--ink-strong);
-  text-decoration: underline;
-}
-
-/* --- Motion: a printed wipe, not a fade -----------------------------
-   The band arrives the way a page comes off a press: the copy card and
-   the capture are both wiped in from the left. A fade-and-rise on every
-   section is the decorative scroll-animation tell; a clip-path wipe is
-   the printing press this page is drawn as. */
-.yomu-band .yomu-band-copy,
-.yomu-band .yomu-band-frame {
-  transition: clip-path var(--motion-mid) cubic-bezier(0.2, 0.9, 0.3, 1);
-}
-
-/* A clip-path clips the element's box-shadow too, so `inset(0 0 0 0)` as the
-   REST state silently deleted the zero-blur offset shadow from every band card
-   and every band frame — permanently, not just during the wipe. One of the four
-   named grammar elements, gone, measured as zero shadow pixels off the #study
-   card's right edge. Every side except the wipe front is inset NEGATIVELY, far
-   enough to clear the deepest offset on the page (10px), so the clip only ever
-   cuts along the front the wipe is actually travelling on. */
-.yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-copy,
-.yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame {
-  clip-path: inset(-24px 100% -24px -24px);
-}
-
-.yomu-reveal.is-in .yomu-band-copy,
-.yomu-reveal.is-in .yomu-band-frame {
-  clip-path: inset(-24px -24px -24px -24px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .yomu-band .yomu-band-copy,
-  .yomu-band .yomu-band-frame,
-  .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-copy,
-  .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame,
-  /* The settled state too: with no wipe to run there is no reason to leave a
-     clip on the card at all, and a clip is what ate the shadows. */
-  .yomu-reveal.is-in .yomu-band-copy,
-  .yomu-reveal.is-in .yomu-band-frame {
-    clip-path: none;
-    transition: none;
-  }
-
-  .yomu-band-action,
-  .yomu-discord a,
-  .yomu-install-route {
-    transition: none;
-  }
-}
-
-/* --- Tablet ---
-   Below ~1080px the 12-column band stops working as two facing halves: the
-   copy card and the product frame are both squeezed under ~46% of a narrow
-   viewport, the frame's bleed drags it off-canvas, and what is left is a
-   tall band of empty ground with an illegible screenshot pinned to one edge.
-   Stack instead — copy, then the frame at full measure. */
-@media (max-width: 1080px) {
-  .yomu-band {
-    /* Half the desktop bleed: enough to keep the frame reading as a slide off
-       the edge of the page, not so much that the product is cropped away. */
-    --bleed: calc(var(--gutter) + 4vw);
-    grid-template-columns: minmax(0, 1fr);
-    align-content: start;
-    min-height: 0;
-    padding-block: var(--band-y);
-  }
-
-  .yomu-band-numeral {
-    position: relative;
-    top: auto;
-    left: auto !important;
-    right: auto !important;
-    justify-self: start;
-    margin-bottom: var(--s-1);
-  }
-
-  .yomu-band[data-bleed="right"] .yomu-band-copy,
-  .yomu-band[data-bleed="left"] .yomu-band-copy,
-  .yomu-band-concept[data-bleed="right"] .yomu-band-copy,
-  .yomu-band-concept[data-bleed="left"] .yomu-band-copy,
-  /* Left in place, grid-column 5/13 on a one-column grid conjures eleven
-     implicit columns and their gaps, which crushed the copy card and added
-     1,455px to the phone page. */
-  .yomu-band-concept[data-bleed="right"] .yomu-band-numeral,
-  .yomu-band-concept[data-bleed="left"] .yomu-band-numeral,
-  .yomu-band[data-bleed="right"] .yomu-band-frame,
-  .yomu-band[data-bleed="left"] .yomu-band-frame {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  .yomu-band[data-bleed="right"] .yomu-band-frame {
-    margin-right: calc(-1 * var(--bleed));
-    margin-left: 0;
-  }
-
-  .yomu-band[data-bleed="left"] .yomu-band-frame {
-    margin-left: calc(-1 * var(--bleed));
-    margin-right: 0;
-  }
-
-  /* #manga and #mobile are NOT zeroed here any more. Their own id rules above
-     already carry the right bleed (portrait depth off the left, full depth off
-     the right) and outrank these generic ones at every width, so stacking keeps
-     the edge instead of losing it — the tablet half of the same defect. */
-
-  .yomu-fold-card {
-    width: min(46vw, 390px);
-  }
-}
-
-/* --- Phone --- */
-@media (max-width: 720px) {
-  .yomu-home {
-    --keyline-w: 2px;
-  }
-
-  .yomu-fold {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding-bottom: 0;
-  }
-
-  .yomu-fold-main {
-    order: 1;
-  }
-
-  .yomu-fold-h1 {
-    font-size: clamp(28px, 8vw, 40px);
-  }
-
-  .yomu-wordmark-ja {
-    font-size: 56px;
-  }
-
-  .yomu-home .yomu-fold-try .yomu-try-me-sample {
-    font-size: 30px;
-    line-height: 1.95;
-  }
-
-  .yomu-fold-prompt {
-    margin-left: 24%;
-  }
-
-  .yomu-install-route:is(
-      :root:not([data-yomu-install]) [data-yomu-route='userscript'],
-      :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
-      :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-      :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
-    ) {
-    flex: 0 0 100%;
-    box-shadow: 6px 6px 0 var(--shadow-ink);
-  }
-
-  /* The card comes back into flow below 720: pinned to the corner it either
-     covered the install button or left the fold with a 200px hole. */
-  .yomu-fold-card {
-    order: 3;
-    position: relative;
-    right: auto;
-    bottom: auto;
-    width: 62%;
-    margin: var(--s-5) 0 -14% auto;
-  }
-
-  .yomu-band {
-    --bleed: calc(var(--gutter) + 12vw);
-    padding-block: var(--band-y);
-  }
-
-  .yomu-band-numeral,
-  .yomu-install-numeral {
-    font-size: 2.4rem;
-  }
-
-  .yomu-letter {
-    margin-left: 0;
-    padding: var(--s-4);
-  }
-
-  .yomu-band-pair .yomu-pair-a,
-  .yomu-band-pair .yomu-pair-b {
-    width: 76%;
-  }
-
-  .yomu-band-pair .yomu-pair-b {
-    margin: 5% 0 0 24%;
-  }
-
-  .yomu-band-devices .yomu-device-tablet {
-    width: 62%;
-  }
-
-  .yomu-band-devices .yomu-device-phone {
-    width: 34%;
-  }
-}
-
-@media (max-width: 420px) {
-  .yomu-home .yomu-fold-try .yomu-try-me-sample {
-    font-size: 27px;
-  }
+@media (max-width: 600px) {
+  .yomu-home-more { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .yomu-home .yomu-fold-try { padding-inline: 12px; }
+  .yomu-install-route { font-size: 13px; }
 }
 
 /* --- Membership: a support letter, in the living-paper grammar ---------------

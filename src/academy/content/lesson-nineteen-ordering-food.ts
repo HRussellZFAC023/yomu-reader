@@ -1,4 +1,4 @@
-import lessonPackage from '../../../public/academy/content/lessons/020-l1-l19.json';
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from './lesson-content-registry';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import type { SentenceBuilderModel, SentenceBuilderToken } from '../minigames/sentence-builder';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
@@ -18,8 +18,8 @@ const TOKENS: readonly SentenceBuilderToken[] = Object.freeze([
     { id: 'request', label: 'ください。' },
 ]);
 
-export function createLessonNineteenOrderingFoodBeat(): LessonActivityBeat {
-    assertExactPackageSources();
+export function createLessonNineteenOrderingFoodBeat(loaded: LoadedAuthoredWeekPackage): LessonActivityBeat {
+    assertExactPackageSources(loaded);
     const activity: SentenceBuilderModel = {
         id: 'activity:l1-l19-moodle-ordering-food',
         kind: 'academy-sentence-builder',
@@ -124,8 +124,12 @@ function audio(title: string, payloadSha256: string, url: string, durationSecond
     });
 }
 
-function assertExactPackageSources(): void {
-    const root = record(lessonPackage, 'l1-l19 package');
+function assertExactPackageSources(loaded: LoadedAuthoredWeekPackage): void {
+    if (loaded.week.id !== PACKAGE_ID
+        || loaded.week.provenance.source.sha256 !== getAuthoredWeekRegistration(PACKAGE_ID).expectedSha256) {
+        throw new TypeError('The activity requires its validated l1-l19 package.');
+    }
+    const root = record(loaded.value, 'l1-l19 package');
     if (root.id !== PACKAGE_ID || record(root.identity, 'l1-l19 identity').moduleId !== MODULE_ID) {
         throw new TypeError('Unexpected l1-l19 package identity.');
     }

@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+// @ts-expect-error Production build-manifest helper is plain Node JavaScript.
+import { academyBuildCode, readAcademyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
 import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -292,11 +294,12 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
             'src/academy/content/n3-mock-listening/registry.ts',
         ].map(file => readFileSync(path.resolve(file), 'utf8')).join('\n');
         const barrel = readFileSync(path.resolve('src/academy/content/n3-mock-listening/index.ts'), 'utf8');
-        const publicBundle = readFileSync(path.resolve('docs/public/academy/app.js'), 'utf8');
-        const baselineBundle = execFileSync('git', ['show', 'HEAD:docs/public/academy/app.js'], {
-            encoding: 'utf8',
-            maxBuffer: 30 * 1024 * 1024,
-        });
+        const publicBundle = readAcademyBuildCode(path.resolve(process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy'));
+        const baselineBundle = academyBuildCode((file: string) => {
+            try {
+                return execFileSync('git', ['show', `HEAD:docs/public/academy/${file}`], { encoding: 'utf8', maxBuffer: 30 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+            } catch { return null; }
+        }, true); // Historical pre-ESM commits carried the complete app.js.
         expect(runtimeSources).not.toContain("from './audit'");
         expect(runtimeSources).not.toContain('SOYA_SOURCE_SHA256');
         expect(runtimeSources).not.toContain('audioSha256');

@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { startRepeatRequestCoverageSession, transitionRepeatRequestCoverageSession,
+    type RepeatRequestCoverageAction } from '../../src/academy/content/lesson-zero-repeat-request-coverage';
 import path from 'node:path';
 import {
     createLessonZeroRepeatRequestDefinition,
@@ -55,6 +57,79 @@ function select(
 }
 
 describe('Lesson Zero repetition-request session', () => {
+    it('requires every source probe after repeat transfer, with repair and persisted resume', () => {
+        const { definition } = fixture();
+        const classroom = validateLessonZeroClassroomExpressions(JSON.parse(fs.readFileSync(CLASSROOM_PATH, 'utf8')));
+        const sourceProbes = classroom.expressions
+            .filter(expression => ['08', '09', '10', '11', '12'].some(id => expression.id === `expression:classroom-${id}`))
+            .flatMap(expression => expression.probes.map(probe => probe.id));
+        expect(['probe:classroom-09-repeat', ...definition.coverageProbes.map(probe => probe.id)].sort())
+            .toEqual(sourceProbes.sort());
+        let state = startRepeatRequestCoverageSession(definition);
+        const evaluations: string[] = [];
+        let time = 0;
+        const act = (action: RepeatRequestCoverageAction) => {
+            const next = transitionRepeatRequestCoverageSession(definition, state, action, ++time);
+            state = next.state;
+            if (next.evaluation?.attempt.outcome === 'pass') evaluations.push(next.evaluation.attempt.sourceQuestionId!);
+            return next;
+        };
+        act({ kind: 'coverage-begin' });
+        expect(state.stage).toBe('meet');
+        act({ kind: 'start' });
+        for (const kind of ['practice', 'transfer']) {
+            if (kind === 'transfer') act({ kind: 'begin-transfer' });
+            act({ kind: 'select', chunkId: 'once-more' });
+            act({ kind: 'select', chunkId: 'please' });
+            act({ kind: 'submit' });
+        }
+        expect(state.status).toBe('active');
+        expect(state.repairCoverage?.stage).toBe('teach');
+        for (const [index, probe] of definition.coverageProbes.entries()) {
+            expect(state.repairCoverage?.index).toBe(index);
+            act({ kind: 'coverage-next' }); // Teaching cannot be skipped.
+            expect(state.repairCoverage?.stage).toBe('teach');
+            act({ kind: 'coverage-begin' });
+            act({ kind: 'coverage-select', index: 1 });
+            act({ kind: 'coverage-select', index: 0 });
+            const wrong = act({ kind: 'coverage-submit' });
+            expect(wrong.evaluation?.attempt).toMatchObject({ sourceQuestionId: probe.sourceQuestionId, outcome: 'lapse' });
+            expect(state.repairCoverage?.passedProbeIds).not.toContain(probe.id);
+            act({ kind: 'pause' });
+            state = startRepeatRequestCoverageSession(definition, JSON.parse(JSON.stringify(state)));
+            act({ kind: 'resume' });
+            expect(state.repairCoverage?.outcome).toBe('lapse');
+            act({ kind: 'coverage-next' });
+            act({ kind: 'coverage-begin' });
+            act({ kind: 'coverage-select', index: 0 });
+            act({ kind: 'coverage-select', index: 1 });
+            const correct = act({ kind: 'coverage-submit' });
+            expect(correct.evaluation?.attempt.activityId).toBe(`activity:lesson-zero-reconstruct-repair:${probe.id.replace('probe:', '')}`);
+            expect(state.status).toBe('active'); // Feedback must be acknowledged.
+            act({ kind: 'coverage-next' });
+        }
+        expect(state.status).toBe('complete');
+        expect(state.repairCoverage?.passedProbeIds).toEqual(definition.coverageProbes.map(probe => probe.id));
+        expect([...new Set(evaluations)].sort()).toEqual(['08', '09', '10', '11', '12'].map(id => `source-question:classroom-phrase-${id}`));
+        const { repairCoverage: _coverage, ...legacy } = state;
+        const resumed = startRepeatRequestCoverageSession(definition, legacy);
+        expect(resumed.status).toBe('active');
+        expect(resumed.repairCoverage?.passedProbeIds).toEqual([]);
+        expect(() => startRepeatRequestCoverageSession(definition, {
+            ...state, repairCoverage: { ...state.repairCoverage!, passedProbeIds: ['probe:classroom-12-wrong'] },
+        })).toThrow('coverage progress');
+    });
+
+    it('rejects source wording drift rather than assigning coverage to substitute phrases', () => {
+        const classroom = validateLessonZeroClassroomExpressions(JSON.parse(fs.readFileSync(CLASSROOM_PATH, 'utf8')));
+        const { activity } = fixture();
+        for (const id of ['08', '10', '11', '12']) {
+            const altered = structuredClone(classroom);
+            (altered.expressions.find(expression => expression.id === `expression:classroom-${id}`)!.probes[0] as { modelAnswer: string }).modelAnswer = '別の答え';
+            expect(() => createLessonZeroRepeatRequestDefinition(altered, activity)).toThrow('drifted');
+        }
+    });
+
     it('grounds one survival phrase in two sound chunks and registers both evidence rounds', () => {
         const { activity, definition } = fixture();
         expect(definition.target).toMatchObject({
@@ -75,7 +150,7 @@ describe('Lesson Zero repetition-request session', () => {
         ));
         expect(lessonZeroRepeatRequestCompletionEvaluation(activity, definition, 40).attempt).toMatchObject({
             activityId: LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
-            conceptIds: ['concept:classroom-repair-repeat', 'concept:polite-request'],
+            conceptIds: [...new Set([...definition.conceptIds, ...definition.coverageProbes.flatMap(probe => probe.conceptIds)])],
             outcome: 'pass',
         });
     });

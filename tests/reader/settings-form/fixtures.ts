@@ -170,12 +170,10 @@ export function savedAnkiFieldMappings(form: HTMLFormElement): AnkiFieldMappings
     return readFormSettings(new FormData(form), DEFAULT_SETTINGS).ankiFieldMappings;
 }
 
-export function legacyStoredSettings(overrides: Partial<typeof DEFAULT_SETTINGS> = {}): Partial<typeof DEFAULT_SETTINGS> {
-    // Model a genuine pre-current stored payload. newTabEnabled shipped as false
-    // in the legacy default (it only became true once the extension opt-out fix
-    // moved the first-install default into DEFAULT_SETTINGS), and the Anki-mobile
-    // migration heuristic keys off that historical false, so the fixture pins it.
-    const settings: Partial<typeof DEFAULT_SETTINGS> = { ...DEFAULT_SETTINGS, newTabEnabled: false, ...overrides };
+type LegacyStoredSettings = Partial<ReaderSettings> & { newTabEnabled?: boolean };
+
+export function legacyStoredSettings(overrides: LegacyStoredSettings = {}): LegacyStoredSettings {
+    const settings: LegacyStoredSettings = { ...DEFAULT_SETTINGS, newTabEnabled: false, ...overrides };
     delete settings.jitenApiKey;
     return settings;
 }

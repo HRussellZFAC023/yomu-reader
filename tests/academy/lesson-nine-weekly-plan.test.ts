@@ -1,3 +1,5 @@
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import lessonPackage from '../../public/academy/content/lessons/010-l1-l09.json';
@@ -16,8 +18,11 @@ import {
 
 const runtime = createActivityRuntime([weeklyPlanWorkbookPlugin]);
 
+let loaded: LoadedAuthoredWeekPackage;
+beforeAll(async () => { loaded = await validateCommittedAuthoredWeek(getAuthoredWeekRegistration('l1-l09')); });
+
 function model(): WeeklyPlanWorkbookModel {
-    return createLessonNineWeeklyPlanModel();
+    return createLessonNineWeeklyPlanModel(loaded);
 }
 
 function answerFor(round: WeeklyPlanRound): WeeklyPlanAnswer {
@@ -269,7 +274,7 @@ describe('Lesson 9 exact weekly-plan workbook', () => {
     });
 
     it('wraps the activity as one beat and keeps mobile, touch-target, and reduced-motion contracts', () => {
-        expect(createLessonNineWeeklyPlanBeat()).toMatchObject({
+        expect(createLessonNineWeeklyPlanBeat(loaded)).toMatchObject({
             id: 'weekly-plan-workbook',
             activity: {
                 id: 'activity:l1-l09-weekly-plan-workbook',

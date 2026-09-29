@@ -155,9 +155,13 @@ describe('Academy production workflow', () => {
         expect(config.reviewProviders['claude-fable']).not.toHaveProperty('executableSha256');
     });
 
-    it('reports literal canonical completion without converting it to an effort claim', () => {
-        const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), config);
-        expect(progressSummary(tasks)).toMatchObject({ complete: 19, total: 126, percent: 15.1 });
+    it('counts task flags without estimating effort or certifying canonical completion', () => {
+        const tasks = parseBacklog(
+            '- [x] **GOV-001** Small check. **Deps:** none. **Proof:** `C`.\n'
+            + '- [ ] **QA-001** Large remaining course. **Deps:** none. **Proof:** `T`,`Q`.\n', config,
+        );
+        expect(progressSummary(tasks)).toMatchObject({ complete: 1, total: 2, percent: 50 });
+        expect(progressSummary([])).toMatchObject({ complete: 0, total: 0, percent: 0 });
     });
 
     it('derives task states, percentages, and route counts from one production ledger', () => {

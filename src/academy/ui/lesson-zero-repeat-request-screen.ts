@@ -1,16 +1,18 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_ASSETS } from '../assets';
+import { defaultCastPortrait } from '../assets';
 import { playLearningVoiceBinding } from '../audio/learning-voice';
 import {
-    startLessonZeroRepeatRequestSession,
-    transitionLessonZeroRepeatRequestSession,
     type LessonZeroRepeatRequestChunk,
     type LessonZeroRepeatRequestChunkId,
-    type LessonZeroRepeatRequestDefinition,
-    type LessonZeroRepeatRequestSessionAction,
-    type LessonZeroRepeatRequestSessionState,
-    type LessonZeroRepeatRequestSessionTransition,
 } from '../domain/lesson-zero-repeat-request-session';
+import {
+    startRepeatRequestCoverageSession as startLessonZeroRepeatRequestSession,
+    transitionRepeatRequestCoverageSession as transitionLessonZeroRepeatRequestSession,
+    type RepeatRequestCoverageDefinition as LessonZeroRepeatRequestDefinition,
+    type RepeatRequestCoverageAction as LessonZeroRepeatRequestSessionAction,
+    type RepeatRequestCoverageState as LessonZeroRepeatRequestSessionState,
+    type RepeatRequestCoverageTransition as LessonZeroRepeatRequestSessionTransition,
+} from '../content/lesson-zero-repeat-request-coverage';
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import { academyBackgroundPicture, backButton, choiceToken, element } from './dom';
 
@@ -35,7 +37,7 @@ export interface LessonZeroRepeatRequestScreen {
 
 const COPY = {
     eyebrow: { en: 'When you miss something', ja: '聞き逃したとき' },
-    title: { en: 'Ask Rie to say it again', ja: 'りえ先生にもう一度頼む' },
+    title: { en: 'Understand, ask again, and give feedback', ja: '理解を確認し、聞き返し、応答する' },
     progressMeet: { en: 'Meet it', ja: '聞く' },
     progressPractice: { en: 'Build it', ja: '組み立てる' },
     progressTransfer: { en: 'Use it', ja: '使う' },
@@ -81,10 +83,10 @@ const COPY = {
         ja: '次は見本なしで、カフェでもう一度使いましょう。',
     },
     beginTransfer: { en: 'Try it at the cafe', ja: 'カフェで使ってみる' },
-    complete: { en: 'You did it without the example.', ja: '見本なしで言えました。' },
+    complete: { en: 'You rebuilt all five classroom expressions.', ja: '五つの教室表現を組み立てられました。' },
     completeBody: {
-        en: 'You asked again instead of guessing. We’ll bring this phrase back in a short review.',
-        ja: '分かったふりをせず、もう一度頼めました。この一言は短い復習でもう一度出てきます。',
+        en: 'You checked understanding, asked for repetition, praised a result, confirmed an answer and corrected a mistake.',
+        ja: '理解を確認し、聞き返し、褒め、答えの正誤を伝えられました。',
     },
     continue: { en: 'Continue your day', ja: '今日の続きを見る' },
     again: { en: 'Practise it again', ja: 'もう一度練習する' },
@@ -156,14 +158,61 @@ export function createLessonZeroRepeatRequestScreen(
             renderRepair(signal);
         } else if (state.stage === 'transfer-ready') {
             renderTransferReady(signal);
+        } else if (state.status !== 'complete') {
+            renderSourceCoverage(signal);
         } else {
             renderComplete(signal);
         }
     };
 
+    const renderSourceCoverage = (signal: AbortSignal): void => {
+        const coverage = state.repairCoverage!;
+        const probe = options.definition.coverageProbes[coverage.index]!;
+        screen.dataset.sessionStage = `coverage-${coverage.stage}`;
+        screen.dataset.sourceQuestionId = probe.sourceQuestionId;
+        screen.dataset.probeId = probe.id;
+        progress.textContent = `${coverage.index + 1} / ${options.definition.coverageProbes.length}`;
+        const work = paper('academy-repeat-request-work');
+        work.append(localized('p', 'academy-repeat-request-build-prompt', probe.prompt, options.language));
+        const action = (label: string, kind: 'coverage-begin' | 'coverage-next' | 'coverage-submit') => {
+            const button = actionButton(label, 'academy-button-primary');
+            button.dataset.repeatAction = kind;
+            button.addEventListener('click', () => void enqueueTransition({ kind }), { signal });
+            return button;
+        };
+        if (coverage.stage === 'teach') {
+            work.append(japanese('p', 'academy-repeat-request-target', probe.modelAnswer),
+                textSpan(probe.sounds.join(' '), 'academy-repeat-request-target-meaning'),
+                localized('p', 'academy-repeat-request-note', probe.repair.contrast, options.language),
+                action(options.language === 'ja' ? '見本を隠して組み立てる' : 'Hide the model and build it', 'coverage-begin'));
+        } else if (coverage.stage === 'response') {
+            const slots = element('p', 'academy-repeat-request-slots');
+            slots.textContent = coverage.selected.map(index => probe.pieces[index]).join('') || (options.language === 'ja' ? '音のピースを順番に選びます。' : 'Choose the sound pieces in order.');
+            work.append(slots);
+            for (const index of [1, 0]) {
+                const button = actionButton(`${probe.pieces[index]} · ${probe.sounds[index]}`, 'academy-repeat-request-choice');
+                button.dataset.coveragePiece = String(index);
+                button.setAttribute('aria-pressed', String(coverage.selected.includes(index)));
+                button.addEventListener('click', () => void enqueueTransition({ kind: 'coverage-select', index }), { signal });
+                work.append(button);
+            }
+            const submit = action(options.language === 'ja' ? '答えを確かめる' : 'Check my response', 'coverage-submit');
+            submit.disabled = coverage.selected.length !== 2;
+            work.append(submit);
+        } else {
+            work.append(localized('p', 'academy-repeat-request-pass-title', coverage.outcome === 'pass'
+                ? { en: 'That response fits this situation.', ja: 'この場面に合う応答です。' }
+                : probe.repair.retryPrompt, options.language),
+                japanese('p', 'academy-repeat-request-target', probe.modelAnswer),
+                localized('p', 'academy-repeat-request-note', probe.repair.contrast, options.language),
+                action(coverage.outcome === 'pass' ? (options.language === 'ja' ? '次へ' : 'Continue') : COPY.retry[options.language], 'coverage-next'));
+        }
+        body.append(work, leaveControl(signal));
+    };
+
     const renderMeet = (signal: AbortSignal): void => {
         const scene = element('section', 'academy-repeat-request-meet');
-        const portrait = characterPortrait(ACADEMY_ASSETS.rie, 'academy-repeat-request-rie');
+        const portrait = characterPortrait(defaultCastPortrait('rie', 'lesson:foundation-00:repeat-request-host'), 'academy-repeat-request-rie');
         const dialogue = paper('academy-repeat-request-meet-paper');
         const speaker = element('strong', 'academy-repeat-request-speaker');
         speaker.textContent = options.language === 'ja' ? 'りえ先生' : 'Rie-sensei';
@@ -247,7 +296,7 @@ export function createLessonZeroRepeatRequestScreen(
         const attempt = [...state.attempts].reverse().find(candidate => candidate.outcome === 'lapse');
         const slipped = chunkFor(attempt?.slippedChunkId ?? 'once-more');
         const root = element('section', 'academy-repeat-request-repair');
-        const portrait = characterPortrait(ACADEMY_ASSETS.rie, 'academy-repeat-request-repair-rie');
+        const portrait = characterPortrait(defaultCastPortrait('rie', 'lesson:foundation-00:repeat-request-host'), 'academy-repeat-request-repair-rie');
         const dialogue = paper('academy-repeat-request-repair-paper');
         const title = localized('h2', 'academy-repeat-request-repair-title', COPY.repairTitle, options.language);
         const prefix = localized('p', 'academy-repeat-request-repair-prefix', COPY.repairPrefix, options.language);
@@ -274,7 +323,7 @@ export function createLessonZeroRepeatRequestScreen(
 
     const renderTransferReady = (signal: AbortSignal): void => {
         const root = element('section', 'academy-repeat-request-transfer-ready');
-        const portrait = characterPortrait(ACADEMY_ASSETS.rie, 'academy-repeat-request-transfer-ready-rie');
+        const portrait = characterPortrait(defaultCastPortrait('rie', 'lesson:foundation-00:repeat-request-host'), 'academy-repeat-request-transfer-ready-rie');
         const dialogue = paper('academy-repeat-request-transfer-ready-paper');
         const title = localized('h2', 'academy-repeat-request-pass-title', COPY.practicePass, options.language);
         const line = localized(
@@ -296,9 +345,9 @@ export function createLessonZeroRepeatRequestScreen(
         const root = element('section', 'academy-repeat-request-complete');
         const pair = element('div', 'academy-repeat-request-complete-cast');
         pair.append(
-            characterPortrait(ACADEMY_ASSETS.rie, 'academy-repeat-request-complete-rie'),
+            characterPortrait(defaultCastPortrait('rie', 'lesson:foundation-00:repeat-request-host'), 'academy-repeat-request-complete-rie'),
             characterPortrait(
-                ACADEMY_ASSETS.characters.approved.aakash,
+                defaultCastPortrait('aakash', 'lesson:foundation-00:repeat-request-host'),
                 'academy-repeat-request-complete-aakash',
             ),
         );
@@ -326,7 +375,7 @@ export function createLessonZeroRepeatRequestScreen(
     const riePrompt = (): HTMLElement => {
         const prompt = element('div', 'academy-repeat-request-rie-prompt');
         prompt.append(
-            characterPortrait(ACADEMY_ASSETS.rie, 'academy-repeat-request-prompt-rie'),
+            characterPortrait(defaultCastPortrait('rie', 'lesson:foundation-00:repeat-request-host'), 'academy-repeat-request-prompt-rie'),
             localized(
                 'p',
                 'academy-repeat-request-prompt-line',
@@ -345,7 +394,7 @@ export function createLessonZeroRepeatRequestScreen(
         const plate = academyBackgroundPicture('cafe');
         plate.classList.add('academy-repeat-request-transfer-plate');
         const portrait = characterPortrait(
-            ACADEMY_ASSETS.characters.approved.aakash,
+            defaultCastPortrait('aakash', 'lesson:foundation-00:repeat-request-host'),
             'academy-repeat-request-aakash',
         );
         const dialogue = localized(
@@ -589,7 +638,8 @@ function paper(className: string): HTMLElement {
     return element('div', `academy-repeat-request-paper ${className}`);
 }
 
-function characterPortrait(source: string, className: string): HTMLImageElement {
+function characterPortrait(source: string | undefined, className: string): HTMLImageElement | DocumentFragment {
+    if (!source) return document.createDocumentFragment();
     const portrait = element('img', className);
     portrait.src = source;
     portrait.alt = '';

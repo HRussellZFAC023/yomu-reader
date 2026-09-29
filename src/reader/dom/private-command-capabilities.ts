@@ -1,4 +1,5 @@
 import type { JPDBGrade } from '../app/types';
+import type { ReviewGradeProfile, ReviewShortcutKey } from '../cards/grade-scale';
 import { createPrivateElementStateSlot } from './private-element-state';
 
 export type CardCommandAction =
@@ -30,6 +31,10 @@ export type CardCommandCapability = Readonly<{
     kind: 'card-action';
     action: CardCommandAction;
     grade?: JPDBGrade;
+    gradeProfile?: ReviewGradeProfile;
+    gradeShortcut?: ReviewShortcutKey;
+    /** A switchable group requires its own privately bound selector. */
+    reviewGroup?: symbol;
     noteId?: number;
     mediaFilename?: string;
     sentence?: string;
@@ -62,7 +67,8 @@ export type DeckChoiceCapability = Readonly<{
 export type ReviewTargetCapability = Readonly<{
     kind: 'review-target';
     target: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
-    gradeProfile: 'standard' | 'bunpro-regular' | 'bunpro-fsrs';
+    gradeProfile: ReviewGradeProfile;
+    reviewGroup?: symbol;
     label: string;
     shortLabel: string;
     ankiCardId?: number;
@@ -162,6 +168,8 @@ export type SubtitleCommandCapability = Readonly<{
     candidateIndex?: number;
     candidateKey?: string;
     grade?: JPDBGrade;
+    batchGroup?: symbol;
+    batchPlans?: readonly symbol[];
     placement?: 'left' | 'bottom' | 'right';
     shadowDirection?: 'prev' | 'next';
 }>;
@@ -189,6 +197,7 @@ export type SubtitleStyleOptionCapability = Readonly<{
 
 export type PrivateCommandCapability =
     | CardCommandCapability
+    | Readonly<{ kind: 'review-selector'; reviewGroup: symbol }>
     | CardUiCommandCapability
     | DeckChoiceCapability
     | ReviewTargetCapability
@@ -265,6 +274,20 @@ export function readDeckChoiceCapability(element: Element | null | undefined): D
 export function readReviewTargetCapability(element: Element | null | undefined): ReviewTargetCapability | undefined {
     const command = readPrivateCommandCapability(element);
     return command?.kind === 'review-target' ? command : undefined;
+}
+
+/** A valid hidden-row command still cannot act on a different selected scale. */
+export function privateReviewGradeAllowed(button: HTMLButtonElement, command: CardCommandCapability): boolean {
+    const actions = button.closest('.jpdb-reader-actions, [data-newtab-controls]');
+    const select = actions?.querySelector<HTMLSelectElement>('[data-review-target-select], [data-newtab-grade-target-select]');
+    if (!select) return command.reviewGroup === undefined;
+    const selected = readReviewTargetCapability(select.options[select.selectedIndex]);
+    if (command.reviewGroup) {
+        const selector = readPrivateCommandCapability(select);
+        if (selector?.kind !== 'review-selector' || selector.reviewGroup !== command.reviewGroup) return false;
+    }
+    return Boolean(selected && selected.reviewGroup === command.reviewGroup
+        && selected.gradeProfile === (command.gradeProfile ?? 'standard'));
 }
 
 export function readAnkiAudioMergeCapability(element: Element | null | undefined): AnkiAudioMergeCapability | undefined {
@@ -408,6 +431,9 @@ function privateReviewTarget(value: string | undefined): 'both' | 'jpdb' | 'jite
 }
 
 function immutableCommandSnapshot(command: PrivateCommandCapability): PrivateCommandCapability {
+    if (command.kind === 'subtitle-action' && command.batchPlans) {
+        return Object.freeze({ ...command, batchPlans: Object.freeze([...command.batchPlans]) });
+    }
     if (command.kind === 'card-action' && command.audioUrls) {
         return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
     }

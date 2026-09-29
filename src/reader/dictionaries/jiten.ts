@@ -701,15 +701,10 @@ export class JitenApiClient {
         return reviews.length;
     }
 
-    // Parity with JPDB's refreshCard: Jiten exposes card state only through
-    // /parse (knownState), so refresh by re-parsing the word itself and
-    // copying the fresh state back onto the card.
     async refreshCardState(card: JPDBCard): Promise<void> {
-        const reference = jitenCardReference(card);
-        const [tokens] = await this.parse([card.spelling]);
-        const fresh = (tokens ?? []).find(token => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card
-            ?? (tokens ?? [])[0]?.card;
-        if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
+        // Single-card callers must still reject an unsupported provider identity.
+        jitenCardReference(card);
+        await this.refreshCardStates([card]);
     }
 
     // Batch parity for refreshCardState: refresh the known/SRS state of many
@@ -728,11 +723,14 @@ export class JitenApiClient {
             words: entries.map(entry => [entry.ref.wordId, entry.ref.readingIndex] as [number, number]),
         });
         const states = isJsonRecord(response) && Array.isArray(response.result) ? response.result : [];
+        let refreshed = 0;
         entries.forEach((entry, index) => {
-            const cardStates = jitenKnownStateToCardStates(states[index]);
-            if (cardStates.length) entry.card.cardState = cardStates;
+            const state = states[index];
+            if (!Array.isArray(state) || !state.every(value => Number.isInteger(value) && Object.hasOwn(JITEN_CARD_STATE_MAP, value))) return;
+            entry.card.cardState = jitenKnownStateToCardStates(state);
+            refreshed += 1;
         });
-        return entries.length;
+        return refreshed;
     }
 
     async setVocabularyState(card: JPDBCard, deck: JitenVocabularyDeckState, action: JitenVocabularyStateAction): Promise<void> {

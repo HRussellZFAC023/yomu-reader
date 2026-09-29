@@ -128,6 +128,25 @@ flowchart LR
 5. **One annotation bridge.** Furigana, pitch, dictionary popovers, and KanjiVG share network/fallback behavior.
 6. **Plugins deepen the core.** New content adds manifests and plugins; it does not enlarge an Academy god-object.
 
+## Academy code delivery
+
+Academy builds as ES modules. Vite's `manifest.json` owns the entry, static and
+dynamic imports, styles and emitted assets. Sync copies that reachable graph;
+the revision hashes the manifest and every copied build file. Provenance checks
+inspect all JavaScript in the graph, since `app.js` can be only an entry shim.
+
+Reader Study loads when mounted. A failed chunk request offers retry and reload;
+leaving during loading prevents a late mount. Failed Reader initialization is
+disposed, and a successful mount retains its existing review and teardown API.
+
+The service worker still downloads the full required code/content set and story
+voices before marking a release ready offline. Splitting Study reduces initial
+JavaScript parsing and loading, not that background download requirement. CSS
+currently remains eager. A failed install discards only its incomplete candidate;
+a complete update waits for old controlled pages to close before activation and
+old-cache cleanup. Navigation HTML from another revision never replaces the
+current release's offline page.
+
 ## File-size and ownership guardrails
 
 - Core orchestrators target 300 lines or fewer.

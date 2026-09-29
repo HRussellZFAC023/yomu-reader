@@ -1,10 +1,9 @@
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { ClassroomExpressionSessionDefinition } from '../domain/classroom-expression-session';
-import type {
-    LessonZeroRepeatRequestDefinition,
-} from '../domain/lesson-zero-repeat-request-session';
 import type { LessonZeroActivity } from './lesson-zero-schema';
 import { lessonZeroCanonicalReading } from './lesson-zero-pedagogy-definitions';
+import { repeatRequestCoverageProbes, REPEAT_REQUEST_COVERAGE_ACTIVITY_IDS,
+    type RepeatRequestCoverageDefinition } from './lesson-zero-repeat-request-coverage';
 
 export const LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID =
     'activity:lesson-zero-reconstruct-repair' as const;
@@ -12,17 +11,23 @@ export const LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID =
 export const LESSON_ZERO_REPEAT_REQUEST_CHILD_ACTIVITY_IDS = Object.freeze([
     `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:practice`,
     `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:transfer`,
+    ...REPEAT_REQUEST_COVERAGE_ACTIVITY_IDS,
 ] as const);
 
 export function createLessonZeroRepeatRequestDefinition(
     classroom: ClassroomExpressionSessionDefinition,
     activity: LessonZeroActivity,
-): LessonZeroRepeatRequestDefinition {
+): RepeatRequestCoverageDefinition {
     if (activity.id !== LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID
         || activity.responseMode !== 'reconstruct'
         || activity.expectedEvidence.kind !== 'constructed-japanese'
         || !activity.sourceQuestionIds.includes('source-question:classroom-phrase-09')) {
         throw new TypeError('Lesson Zero repeat-request activity has the wrong contract.');
+    }
+    for (const number of ['08', '09', '10', '11', '12']) {
+        if (!activity.sourceQuestionIds.includes(`source-question:classroom-phrase-${number}`)) {
+            throw new TypeError(`Repeat-request activity is missing source phrase ${number}.`);
+        }
     }
     const expression = classroom.expressions.find(candidate =>
         candidate.id === 'expression:classroom-09');
@@ -77,12 +82,13 @@ export function createLessonZeroRepeatRequestDefinition(
         practiceChunkIds: Object.freeze(['once-more', 'please'] as const),
         transferChunkIds: Object.freeze(['once-more', 'please'] as const),
         transferChoiceIds: Object.freeze(['desu', 'please', 'once-more'] as const),
+        coverageProbes: repeatRequestCoverageProbes(classroom),
     });
 }
 
 export function lessonZeroRepeatRequestCompletionEvaluation(
     activity: LessonZeroActivity,
-    definition: LessonZeroRepeatRequestDefinition,
+    definition: RepeatRequestCoverageDefinition,
     at: number,
 ): ActivityEvaluation {
     if (activity.id !== LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID) {
@@ -94,7 +100,7 @@ export function lessonZeroRepeatRequestCompletionEvaluation(
             eventId: `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:complete`,
             at,
             activityId: activity.id,
-            conceptIds: definition.conceptIds,
+            conceptIds: [...new Set([...definition.conceptIds, ...definition.coverageProbes.flatMap(probe => probe.conceptIds)])],
             responseKind: activity.expectedEvidence.kind,
             outcome: 'pass',
             score: 1,
@@ -105,8 +111,8 @@ export function lessonZeroRepeatRequestCompletionEvaluation(
             errorTags: [],
             feedback: {
                 explanation: {
-                    en: 'You rebuilt the request and used it when the scene changed.',
-                    ja: '頼み方を組み立て直し、違う場面でも使えました。',
+                    en: 'You practised checking understanding, asking again, praising, confirming and correcting.',
+                    ja: '理解の確認、聞き返し、褒め方、正誤の伝え方を練習しました。',
                 },
             },
         },

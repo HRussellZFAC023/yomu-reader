@@ -167,9 +167,9 @@ import {
     type SubtitleBatchMiningRow,
 } from './subtitle-batch-mining';
 import { formatSubtitleText, subtitleText } from './i18n';
+import { SubtitleBatchActions, type SubtitleBatchActionCallbacks } from './subtitle-batch-actions';
 import {
     renderSubtitleBatchMiningPanel,
-    type SubtitleBatchMiningGradeOption,
     type SubtitleBatchMiningStatus,
 } from './subtitle-batch-mining-panel';
 import {
@@ -210,7 +210,6 @@ import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut, NO_EXPLICIT_USER_CHOICE } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
-import { primaryCardState } from '../cards/state';
 import {
     SubtitleParsedHtmlCache,
     SUBTITLE_PARSE_CACHE_MAX_ENTRIES,
@@ -231,7 +230,7 @@ import {
     isMobileYouTubePage,
     mutationSwapsFullscreenHostCandidate,
 } from './fullscreen-host';
-import type { InterfaceLanguage, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
 const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
@@ -295,15 +294,13 @@ const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLU
 // not tapping.
 const PANEL_PRESS_RENDER_HOLD_MAX_MS = 700;
 
-interface SubtitlePlayerOptions {
+interface SubtitlePlayerOptions extends SubtitleBatchActionCallbacks {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string, options?: SubtitleParseOptions) => Promise<JPDBToken[]>;
     parseJapaneseBatch?: (texts: string[], options?: SubtitleParseOptions) => Promise<JPDBToken[][]>;
     beforeRenderTokens?: (tokens: JPDBToken[]) => void | Promise<void>;
     afterParseTokens?: (tokens: JPDBToken[], roots?: ParentNode[]) => void;
     showBatchMiningCard?: (candidate: SubtitleBatchMiningCandidate) => void | Promise<void>;
-    mineBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[]) => Promise<number>;
-    gradeBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[], grade: JPDBGrade) => Promise<number>;
     toast?: (message: string) => void;
     onTranscriptPanelClosed?: () => void;
     onSettingsChange: (
@@ -892,6 +889,15 @@ export class SubtitlePlayerController {
     private batchMiningRows: SubtitleBatchMiningRow[] = [];
     private batchMiningError = '';
     private batchMiningSerial = 0;
+    private readonly batchActions = new SubtitleBatchActions({
+        getSettings: () => this.options.getSettings(),
+        getCandidates: () => this.batchMiningCandidates,
+        getSelected: () => this.batchMiningSelectedKeys,
+        callbacks: () => this.options,
+        available: () => this.batchMiningStatus === 'ready',
+        render: () => this.renderBatchMiningPanel(),
+        toast: message => this.options.toast?.(message),
+    });
     private transcriptPanelSize = loadTranscriptPanelSize();
     private videoInset: SubtitleVideoInsetAdapter = createSubtitleVideoInsetAdapter();
     private lastYomuCaptionsActive = false;
@@ -988,10 +994,10 @@ export class SubtitlePlayerController {
         'bm-scan': () => { void this.scanBatchMiningTranscript(); },
         'bm-toggle': (_target, command) => this.toggleBatchMiningCandidate(command.candidateKey),
         'bm-open': (_target, command) => { void this.openBatchMiningCandidate(command.candidateKey); },
-        'bm-add': () => { void this.addSelectedBatchMiningCandidates(); },
+        'bm-add': (_target, command) => { void this.batchActions.run('collect', command); },
         'bm-copy': () => { void this.copySelectedBatchMiningCandidates(); },
-        'bm-grade': (_target, command) => { void this.gradeBatchMiningCandidate(command.candidateKey, command.grade); },
-        'bm-grade-selected': (_target, command) => { void this.gradeSelectedBatchMiningCandidates(command.grade); },
+        'bm-grade': (_target, command) => { void this.batchActions.run('review', command); },
+        'bm-grade-selected': (_target, command) => { void this.batchActions.run('review', command); },
         'bm-all': () => this.selectAllBatchMiningCandidates(),
         'bm-clear': () => this.clearBatchMiningSelection(),
         'shadow-replay': () => this.replayShadowCue(),
@@ -6395,7 +6401,7 @@ export class SubtitlePlayerController {
             candidates,
             selectedKeys: this.batchMiningSelectedKeys,
             summary: subtitleBatchMiningSummary(rows, candidates),
-            reviewGrades: this.batchMiningReviewGrades(settings),
+            ...this.batchActions.renderState(candidates, this.batchMiningSelectedKeys),
             errorMessage: this.batchMiningError,
             hasTranscriptSurface: this.hasTranscriptSurface(),
             pausePanelEnabled: settings.subtitlePausePanel,
@@ -6404,29 +6410,6 @@ export class SubtitlePlayerController {
             language: settings.interfaceLanguage,
             targetContent: this.subtitleLanguageContext.targetContent,
         };
-    }
-
-    private batchMiningReviewGrades(settings: ReaderSettings): SubtitleBatchMiningGradeOption[] {
-        if (!this.canReviewBatchMiningCandidates(settings)) return [];
-        return settings.twoButtonReviews
-            ? [
-                { grade: 'fail', label: uiText(settings.interfaceLanguage, 'gradeFailLabel') },
-                { grade: 'pass', label: uiText(settings.interfaceLanguage, 'gradePassLabel') },
-            ]
-            : [
-                { grade: 'nothing', label: uiText(settings.interfaceLanguage, 'gradeNothingLabel') },
-                { grade: 'something', label: uiText(settings.interfaceLanguage, 'gradeSomethingLabel') },
-                { grade: 'hard', label: uiText(settings.interfaceLanguage, 'gradeHardLabel') },
-                { grade: 'okay', label: uiText(settings.interfaceLanguage, 'gradeOkayLabel') },
-                { grade: 'easy', label: uiText(settings.interfaceLanguage, 'gradeEasyLabel') },
-            ];
-    }
-
-    private canReviewBatchMiningCandidates(settings: ReaderSettings): boolean {
-        return settings.enableReviews
-            && (settings.yomuLocalSrsEnabled
-                || settings.bunproMiningEnabled
-                || (settings.jpdbMiningEnabled && this.hasAuthoritativeParseTier(settings)));
     }
 
     private currentBatchMiningRows(): SubtitleBatchMiningRow[] {
@@ -6445,6 +6428,7 @@ export class SubtitlePlayerController {
     }
 
     private async scanBatchMiningTranscript(): Promise<void> {
+        if (this.batchActions.busy) return;
         // The scan SNAPSHOTS transcriptRows() into batchMiningRows: rows a
         // later refresh would add can never join this scan, so the cue lists
         // must be current at the moment of snapshotting.
@@ -6458,6 +6442,7 @@ export class SubtitlePlayerController {
             return;
         }
 
+        if (!this.batchActions.beginGeneration()) return;
         const serial = ++this.batchMiningSerial;
         this.batchMiningStatus = 'scanning';
         this.batchMiningError = '';
@@ -6509,7 +6494,7 @@ export class SubtitlePlayerController {
     }
 
     private toggleBatchMiningCandidate(key: string | undefined): void {
-        if (!key) return;
+        if (!key || this.batchActions.busy) return;
         if (this.batchMiningSelectedKeys.has(key)) this.batchMiningSelectedKeys.delete(key);
         else this.batchMiningSelectedKeys.add(key);
         this.renderBatchMiningPanel();
@@ -6519,24 +6504,6 @@ export class SubtitlePlayerController {
         const candidate = this.batchMiningCandidateForKey(key);
         if (!candidate || !this.options.showBatchMiningCard) return;
         await this.options.showBatchMiningCard(candidate);
-    }
-
-    private async addSelectedBatchMiningCandidates(): Promise<void> {
-        const language = this.options.getSettings().interfaceLanguage;
-        const candidates = this.selectedBatchMiningCandidates();
-        if (!candidates.length || !this.options.mineBatchMiningCandidates) {
-            this.options.toast?.(candidates.length ? uiText(language, 'batchMiningNoDestination') : subtitleText(language, 'bmNoSelection'));
-            return;
-        }
-        try {
-            const count = await this.options.mineBatchMiningCandidates(candidates);
-            for (const candidate of candidates) this.batchMiningSelectedKeys.delete(candidate.key);
-            this.options.toast?.(formatSubtitleText(language, 'bmAdded', { count }));
-            this.renderBatchMiningPanel();
-        } catch (error) {
-            log.warn('Batch mining add failed', error);
-            this.options.toast?.(subtitleText(language, 'bmAddFailed'));
-        }
     }
 
     private async copySelectedBatchMiningCandidates(): Promise<void> {
@@ -6550,43 +6517,14 @@ export class SubtitlePlayerController {
         this.options.toast?.(formatSubtitleText(language, 'bmCopied', { count: candidates.length }));
     }
 
-    private async gradeBatchMiningCandidate(key: string | undefined, grade: JPDBGrade | undefined): Promise<void> {
-        const candidate = this.batchMiningCandidateForKey(key);
-        if (!grade || !candidate) return;
-        await this.gradeBatchMiningCandidates([candidate], grade);
-    }
-
-    private async gradeSelectedBatchMiningCandidates(grade: JPDBGrade | undefined): Promise<void> {
-        if (!grade) return;
-        await this.gradeBatchMiningCandidates(this.selectedBatchMiningCandidates(), grade);
-    }
-
-    private async gradeBatchMiningCandidates(candidates: SubtitleBatchMiningCandidate[], grade: JPDBGrade): Promise<void> {
-        const language = this.options.getSettings().interfaceLanguage;
-        if (!candidates.length || !this.options.gradeBatchMiningCandidates) {
-            this.options.toast?.(candidates.length ? uiText(language, 'batchMiningNoDestination') : subtitleText(language, 'bmNoSelection'));
-            return;
-        }
-        try {
-            const count = await this.options.gradeBatchMiningCandidates(candidates, grade);
-            for (const candidate of candidates) {
-                candidate.state = primaryCardState(candidate.card.cardState);
-                this.batchMiningSelectedKeys.delete(candidate.key);
-            }
-            this.options.toast?.(formatSubtitleText(language, 'bmGraded', { count }));
-            this.renderBatchMiningPanel();
-        } catch (error) {
-            log.warn('Batch mining grade failed', error);
-            this.options.toast?.(subtitleText(language, 'bmGradeFailed'));
-        }
-    }
-
     private selectAllBatchMiningCandidates(): void {
+        if (this.batchActions.busy) return;
         this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.map(candidate => candidate.key));
         this.renderBatchMiningPanel();
     }
 
     private clearBatchMiningSelection(): void {
+        if (this.batchActions.busy) return;
         this.batchMiningSelectedKeys.clear();
         this.renderBatchMiningPanel();
     }

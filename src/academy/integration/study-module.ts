@@ -25,6 +25,7 @@ export interface AcademyStudyMountContext {
     /** Academy's grounded snapshot for this session; scheduling stays in Reader Study. */
     readonly sessionVocabulary?: readonly AcademyStudyVocabulary[];
     readonly onExit: () => void;
+    readonly signal?: AbortSignal;
 }
 
 export interface AcademyStudyVocabulary {
@@ -61,13 +62,23 @@ interface CanonicalStudyRuntimeModule {
 
 type CanonicalStudyRuntimeLoader = () => Promise<CanonicalStudyRuntimeModule>;
 
+class StudyRuntimeLoadFailure extends Error {}
+
 /** Production Adapter: lazily mounts the real Reader Study composition root. */
 export function createCanonicalAcademyStudyModule(
     loadRuntime: CanonicalStudyRuntimeLoader = () => import('../../reader/newtab/runtime'),
 ): AcademyStudyModule {
     return {
         async mount(host, context) {
-            const runtime = await loadRuntime();
+            let runtime: CanonicalStudyRuntimeModule;
+            try {
+                // Do not memoize a rejected load. A retry calls import() again;
+                // Reload remains available for browser-cached evaluation errors.
+                runtime = await loadRuntime();
+            } catch (cause) {
+                throw new StudyRuntimeLoadFailure('Study runtime could not be loaded.', { cause });
+            }
+            if (context.signal?.aborted) return { dispose() {} };
             return runtime.mountNewTabStudySurface(host, {
                 language: context.language,
                 sessionClock: context.countdown,
@@ -138,33 +149,82 @@ export async function mountAcademyStudyModule(
         },
     });
 
-    let mounted: Disposable;
-    try {
-        mounted = await module.mount(moduleHost, {
-            language: options.language,
-            surface: { id: 'academy', theme: 'living-paper' },
-            countdown,
-            sessionVocabulary: options.sessionVocabulary ?? [],
-            onExit: options.onExit,
-        });
-    } catch (error) {
+    const lifecycle = new AbortController();
+    let mounted: Disposable | undefined;
+    let disposed = false;
+    let loading = false;
+    const clockButton = clockHost.querySelector<HTMLButtonElement>('button');
+    countdown.pause();
+    if (clockButton) clockButton.disabled = true;
+
+    function dispose(): void {
+        if (disposed) return;
+        disposed = true;
+        lifecycle.abort();
+        host.removeEventListener('academy:dispose', dispose);
         back.removeEventListener('click', onExit);
+        mounted?.dispose();
         clockControl.dispose();
         countdown.dispose();
         host.replaceChildren();
-        throw error;
+        host.classList.remove('academy-study-mount');
+        delete host.dataset.studySurface;
+        delete host.dataset.studyTheme;
+        delete host.dataset.studySessionMode;
     }
-    return {
-        dispose() {
-            back.removeEventListener('click', onExit);
-            mounted.dispose();
-            clockControl.dispose();
-            countdown.dispose();
-            host.replaceChildren();
-            host.classList.remove('academy-study-mount');
-            delete host.dataset.studySurface;
-            delete host.dataset.studyTheme;
-            delete host.dataset.studySessionMode;
-        },
-    };
+    host.addEventListener('academy:dispose', dispose, { once: true });
+
+    async function attemptLoad(): Promise<void> {
+        if (disposed || loading) return;
+        loading = true;
+        moduleHost.textContent = academyText(options.language, 'loading');
+        moduleHost.setAttribute('aria-busy', 'true');
+        moduleHost.inert = true;
+        try {
+            const view = await module.mount(moduleHost, {
+                language: options.language,
+                surface: { id: 'academy', theme: 'living-paper' },
+                countdown,
+                sessionVocabulary: options.sessionVocabulary ?? [],
+                onExit: options.onExit,
+                signal: lifecycle.signal,
+            });
+            if (disposed) { view.dispose(); return; }
+            mounted = view;
+            if (clockButton) clockButton.disabled = false;
+            countdown.resume();
+        } catch (error) {
+            if (disposed) return;
+            const status = document.createElement('p');
+            status.setAttribute('role', 'alert');
+            status.textContent = options.language === 'ja'
+                ? '学習画面を読み込めませんでした。接続を確認するか、ページを再読み込みしてください。'
+                : 'Study could not load. Check your connection or reload the page.';
+            moduleHost.replaceChildren(status);
+            // Retry missing code without replaying initialization failures;
+            // those can require page/setup reconciliation through Reload.
+            if (error instanceof StudyRuntimeLoadFailure) {
+                const retry = document.createElement('button');
+                retry.type = 'button';
+                retry.className = 'academy-button-primary';
+                retry.dataset.academyStudyRetry = '';
+                retry.textContent = academyText(options.language, 'retry');
+                retry.addEventListener('click', () => { void attemptLoad(); }, { once: true });
+                moduleHost.append(retry);
+            }
+            const reload = document.createElement('a');
+            reload.className = 'academy-button-secondary';
+            reload.href = location.href;
+            reload.textContent = options.language === 'ja' ? 'Academyを再読み込み' : 'Reload Academy';
+            moduleHost.append(reload);
+        } finally {
+            loading = false;
+            if (!disposed) {
+                moduleHost.removeAttribute('aria-busy');
+                moduleHost.inert = false;
+            }
+        }
+    }
+    await attemptLoad();
+    return { dispose };
 }

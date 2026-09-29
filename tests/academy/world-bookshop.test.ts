@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import sharp from 'sharp';
+import { sha256File } from './helpers/hash-memo';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
 import { worldChoiceButtonByLabel } from './helpers/world-choice';
 
@@ -97,9 +99,10 @@ describe('Bookshop world', () => {
         expect(reading.textContent).toContain('川から 大きな もも');
     });
 
-    it('uses Sophie’s current painterly cutout and translucent living paper without duplicate chrome', () => {
+    it('uses Sophie’s current painterly cutout and translucent living paper without duplicate chrome', async () => {
         const styles = fs.readFileSync(path.resolve('src/academy/styles/bookshop-world.css'), 'utf8');
-        const sophie = path.resolve('public/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png');
+        const portraitPath = '/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.webp';
+        const sophie = path.resolve(`public${portraitPath}`);
         expect(styles).toContain("data-current-place='bookshop'");
         expect(styles).toMatch(/academy-world-action-dock[\s\S]*background:\s*transparent/);
         expect(styles).not.toContain("url('/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png')");
@@ -110,10 +113,21 @@ describe('Bookshop world', () => {
         expect(styles).toMatch(/academy-world-back[\s\S]*min-height:\s*44px/);
         expect(styles).toMatch(/academy-world-map-current\s*\{\s*display:\s*none/);
         expect(styles).toMatch(/academy-world-reward[\s\S]*top:\s*max\(86px/);
-        expect(fs.statSync(sophie).size).toBeGreaterThan(1_000_000);
-        const sprite = fs.readFileSync(sophie);
-        expect(sprite.subarray(1, 4).toString('ascii')).toBe('PNG');
-        expect(sprite[25]).toBe(6); // PNG colour type 6: RGBA, not a baked rectangular portrait.
+        expect(sha256File(sophie)).toBe('37bcbb7dba24b2e32bd962a3997622c55a7237bdd6a4da1b086b679dfe45c530');
+        expect(await sharp(sophie).metadata()).toMatchObject({ format: 'webp', hasAlpha: true });
+        const { data, info } = await sharp(sophie).raw().toBuffer({ resolveWithObject: true });
+        expect(info.channels).toBe(4);
+        let transparent = 0;
+        let visible = 0;
+        for (let index = 3; index < data.length; index += info.channels) {
+            if (data[index] === 0) transparent++;
+            else visible++;
+        }
+        expect(transparent).toBeGreaterThan(0);
+        expect(visible).toBeGreaterThan(0);
+        const screen = renderWorldPlaceScreen({ language: 'en', place: 'bookshop', route: 'world', progress,
+            onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn() });
+        expect(screen.querySelector('[data-world-character="sophie"] img')?.getAttribute('src')).toBe(portraitPath);
         const inventory = JSON.parse(fs.readFileSync(
             path.resolve('public/academy/art/CLASSMATE-SPRITE-INVENTORY.json'),
             'utf8',
@@ -124,7 +138,7 @@ describe('Bookshop world', () => {
         expect(inventory.characters.find(character => character.id === 'sophie')?.currentAssets)
             .toEqual(expect.arrayContaining([
                 expect.objectContaining({
-                    path: expect.stringContaining('sophie__bookshop-neutral__halfbody__v003.png'),
+                    path: portraitPath,
                     coverageStatus: 'approved',
                 }),
             ]));

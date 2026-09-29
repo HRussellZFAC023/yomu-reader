@@ -1,9 +1,9 @@
 import { Logger } from '../app/logger';
 import { ACADEMY_SRS_LABEL, FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { publishSettingsChange } from './settings-change-bus';
-import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
-import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
-import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
+import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
+import { normalizeAnkiFieldMappings } from './anki-field-mappings';
+import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from './api-credential';
 import { accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY, DEFAULT_OCR_OUTLINE_COLOR, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor } from './color-settings';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import {
@@ -13,27 +13,22 @@ import {
     NO_EXPLICIT_USER_CHOICE,
     recordSettingsIntent,
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
-    settingsIntentKeys,
     type SettingsIntentLedger,
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
-import { normalizeLearningTargetChosen } from './learning-target-choice';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
-import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsPersistenceView, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
-import { cacheManagedValueForHostedStartup, cacheManagedValueForHostedStartupIfAbsent, gmStorageDelete, gmStorageGet, gmStorageGetSharedStrict, gmStorageGetStrict, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
+import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsPersistenceViewStrict, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
+import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
+import { gmStorageDelete, gmStorageGetSharedStrict, gmStorageGetStrict, isHostedYomuOrigin, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguageWithSettings, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
 export { changedSettingsKeys } from './store-reconciliation';
-import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
 import {
     DEFAULT_AUDIO_SOURCES,
     DEFAULT_AUDIO_URL,
-    DEFAULT_OFF_AUDIO_SOURCE_TYPES,
     isAudioSourceType,
-    LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS,
-    LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS,
 } from './audio-source-defaults';
 import {
     activeLanguageProfile,
@@ -41,8 +36,7 @@ import {
     DEFAULT_LANGUAGE_PROFILE_ID,
 } from '../languages/profiles';
 import { learningTargetRosterIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages/roster';
-import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
 export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
@@ -50,24 +44,14 @@ export { NO_EXPLICIT_USER_CHOICE } from './intent-ledger';
 export { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES } from './audio-source-defaults';
 export { EXPLICIT_USER_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
 export { PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY };
-/** Superseded by the intent ledger; still read once so upgrades keep their pins. */
-const LEGACY_SETTINGS_STORAGE_KEYS = [
-    'jpdb-reader-settings',
-    'yomu-reader-settings',
-    'yomu-settings',
-] as const;
-export const SETTINGS_STORAGE_KEYS = [
-    SETTINGS_STORAGE_KEY,
-    ...LEGACY_SETTINGS_STORAGE_KEYS,
-] as const;
+/** The canonical key is the only settings source. Retired keys are purge-only. */
+export const SETTINGS_STORAGE_KEYS = [SETTINGS_STORAGE_KEY] as const;
 const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
 
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
-const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 export const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
 
@@ -87,12 +71,6 @@ export function isPopupLookupEnabled(settings: Pick<
 
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
 const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status', 'hover']);
-const OCR_ENGINE_ALIASES = new Map<string, string>([
-    ['MangaOcrAdapter', 'MangaOCR'],
-    ['PpOcrAdapter', 'PaddleOCR'],
-    ['AppleVisionAdapter', 'AppleVision'],
-]);
-
 type ReaderColorChannelKey =
     | 'wordHighlightColorSource'
     | 'wordUnderlineColorSource'
@@ -102,7 +80,6 @@ type ReaderColorChannelKey =
     | 'subtitleTextColorSource';
 type NumberSettingRange = { min: number; max: number };
 type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
-type LegacyWordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
 type AccentColorSettingKey = Extract<keyof ReaderSettings, string>;
 
 const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorSource> = {
@@ -116,7 +93,6 @@ const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorS
 const KANJI_BOOLEAN_SETTING_KEYS = [
     'jpdbKanjiEnabled',
     'kanjiImmersionKitEnabled',
-    'uchisenEnabled',
     'wanikaniKanjiEnabled',
 ] as const;
 const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
@@ -143,7 +119,6 @@ const SOURCE_ALIAS_SETTING_KEYS = [
     'wanikaniDefinitionsAlias',
     'jpdbKanjiAlias',
     'kanjiImmersionKitAlias',
-    'uchisenAlias',
     'wanikaniKanjiAlias',
     'rtkAlias',
     'kanjivgAlias',
@@ -190,7 +165,6 @@ const ANKI_STUDY_NUMBER_SETTING_RANGES = {
 const KANJI_NUMBER_SETTING_RANGES = {
     jpdbKanjiPriority: { min: 0, max: 999 },
     kanjiImmersionKitPriority: { min: 0, max: 999 },
-    uchisenPriority: { min: 0, max: 999 },
     wanikaniKanjiPriority: { min: 0, max: 999 },
     rtkPriority: { min: 0, max: 999 },
     kanjivgPriority: { min: 0, max: 999 },
@@ -229,34 +203,7 @@ const SUBTITLE_TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const sati
 const NEW_TAB_SOURCES = ['jpdb', 'bunpro', 'wanikani', 'yomu-local', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
 const NEW_TAB_JPDB_REVIEW_MODES = ['auto', 'api-vocabulary', 'live-review'] as const satisfies readonly ReaderSettings['newTabJpdbReviewMode'][];
 const NEW_TAB_KANJI_KEYWORD_SOURCES = ['auto', 'rtk', 'jpdb', 'local'] as const satisfies readonly ReaderSettings['newTabKanjiKeywordSource'][];
-export const DEFAULT_NEW_TAB_STUDY_STEP_ORDER: NewTabStudyChallengeStep[] = [
-    'kanji-doodle',
-    'word',
-    'type-word',
-    'recall-cloze',
-    'listen-pitch',
-    'speaking',
-];
-const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set<NewTabStudyChallengeStep>(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 const NEW_TAB_TYPE_WORD_INPUT_MODES = ['keyboard', 'handwriting'] as const satisfies readonly ReaderSettings['newTabTypeWordInputMode'][];
-
-const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
-    wordHighlightColorSource: 'auto',
-    wordUnderlineColorSource: 'auto',
-    wordTextColorSource: 'off',
-    subtitleHighlightColorSource: 'off',
-    subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'auto',
-};
-const LEGACY_DEFAULT_ANKI_DECK_NAMES = new Set(['よむ', 'Yomu', 'yomu']);
-const LEGACY_DEFAULT_ANKI_MODEL_NAMES = new Set(['よむ Japanese', 'Yomu Japanese']);
-const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = 'Alt+ArrowLeft';
-const LEGACY_NEXT_SUBTITLE_SHORTCUT = 'Alt+ArrowRight';
-
-type LegacyReaderSettings = Partial<ReaderSettings> & {
-    wordHighlightMode?: LegacyWordHighlightMode;
-    pitchColorKifuku?: unknown;
-};
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
@@ -304,9 +251,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     kanjiImmersionKitEnabled: true,
     kanjiImmersionKitAlias: '',
     kanjiImmersionKitPriority: 60,
-    uchisenEnabled: false, // Ignored legacy field; only the outbound link remains.
-    uchisenAlias: '',
-    uchisenPriority: 50,
     wanikaniKanjiEnabled: true,
     wanikaniKanjiAlias: '',
     wanikaniKanjiPriority: 55,
@@ -342,7 +286,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     immersionKitExampleSource: 'immersion-kit',
     nadeshikoApiKey: '',
     immersionKitPriority: 80,
-    immersionKitExpandedLimitMigrated20260721: true,
     immersionKitLimitEnabled: false,
     immersionKitLimit: 12,
     immersionKitMinLength: 8,
@@ -365,9 +308,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     showFloatingButton: true,
-    // Historical browser-extension preference retained for settings migration. The
-    // main extension no longer overrides the browser new-tab page.
-    newTabEnabled: false,
     newTabAnkiEnabled: false,
     newTabAnkiDisabledDecks: [],
     newTabSource: 'auto',
@@ -385,11 +325,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabSwipeReviews: true,
     newTabShortcutHintsEnabled: true,
     newTabKanjiAutogradeEnabled: true,
-    newTabKanjiAutoSubmit: false,
-    newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
-    newTabStudyDisabledSteps: [],
     newTabTypeWordInputMode: 'keyboard',
-    newTabStudyTourSeen: false,
     puckPositionX: undefined,
     puckPositionY: undefined,
     manualScanEnabled: false,
@@ -449,12 +385,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     youtubeImmersionEnabled: true,
     youtubeImmersionEnabledChosen: false,
     youtubeShowFilterNotice: true,
-    // Default TRUE: only stored records that PREDATE this key (the era when
-    // the notice's hide button persisted the setting off) migrate below.
-    youtubeFilterNoticeRestored20260711: true,
-    // TRUE by default so a fresh install never runs the theme migration below;
-    // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
-    themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
     youtubeShowChannelRecommendationsChosen: false,
     preferJapaneseSiteLanguage: false,
@@ -482,7 +412,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiFieldMappings: {},
     // Default TRUE: only stored records that PREDATE this key had a single
     // audio role and can hold a sentence-audio field in the word-audio slot.
-    ankiSentenceAudioMappingMigrated: true,
     // 'auto' so the operating system's own light/dark choice wins until the
     // learner picks one. It was 'light', and because the hosted appearance boot
     // reads settings.theme BEFORE falling back to 'auto', that default made the
@@ -550,29 +479,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     },
 };
 
-const LEGACY_DEFAULT_TRUE_ANKI_SETTINGS = [
-    'ankiMobileHandoff',
-    'ankiMineWithJpdb',
-    'ankiSectionEnabled',
-    'ankiFrontReading',
-    'ankiFrontSentence',
-    'ankiFrontImage',
-    'ankiCaptureScreenshot',
-] as const satisfies readonly (keyof ReaderSettings)[];
-const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
-    ['ankiConnectUrl', DEFAULT_SETTINGS.ankiConnectUrl],
-    ['ankiTemplateMode', DEFAULT_SETTINGS.ankiTemplateMode],
-    ['ankiTags', DEFAULT_SETTINGS.ankiTags],
-] as const satisfies readonly (readonly [keyof ReaderSettings, string])[];
-
-function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
-    const settingsValue = migrateSentenceAudioFieldMappings(
-        migrateDefaultLightTheme(
-            migratePinnedOcrLanguage(
-                migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value)),
-            ),
-        ),
-    );
+function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
+    const settingsValue = value;
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -611,15 +519,13 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
             activeTargetRosterId(languageProfileSettings),
         ),
         ...languageProfileSettings,
-        // Choice migration is based on the raw stored record. The migrations
-        // above add marker fields even to `{}`, which is still no prior choice.
-        learningTargetChosen: normalizeLearningTargetChosen(value),
+        learningTargetChosen: booleanSetting(value, 'learningTargetChosen'),
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
 }
 
-function normalizePreferredJapaneseSiteLanguage(value: LegacyReaderSettings | null): boolean {
+function normalizePreferredJapaneseSiteLanguage(value: Partial<ReaderSettings> | null): boolean {
     if (!value || !hasOwn(value, 'preferJapaneseSiteLanguage')) {
         return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
     }
@@ -628,17 +534,14 @@ function normalizePreferredJapaneseSiteLanguage(value: LegacyReaderSettings | nu
         : false;
 }
 
-// New installs parse with local dictionaries by default. Saved payloads that
-// predate the setting keep API-first parsing so provider-backed word colors
-// and known states do not change under existing users.
-function normalizeParserProvider(value: LegacyReaderSettings | null): ReaderSettings['parserProvider'] {
+function normalizeParserProvider(value: Partial<ReaderSettings> | null): ReaderSettings['parserProvider'] {
     const provider = value?.parserProvider;
     if (provider === 'local' || provider === 'jiten' || provider === 'jpdb' || provider === 'auto') return provider;
-    return value ? 'auto' : DEFAULT_SETTINGS.parserProvider;
+    return DEFAULT_SETTINGS.parserProvider;
 }
 
 export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {
-    return mergeSettings(value as LegacyReaderSettings | null);
+    return mergeSettings(value as Partial<ReaderSettings> | null);
 }
 
 /**
@@ -656,22 +559,17 @@ function activeTargetRosterId(
     return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
 }
 
-function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {
+function normalizeApiCredentialSettings(value: Partial<ReaderSettings> | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {
     const apiKey = trimmedStringSetting(value, 'apiKey', DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey);
     const bunproApiKey = trimmedStringSetting(value, 'bunproApiKey', DEFAULT_SETTINGS.bunproApiKey);
     const bunproFrontendApiToken = trimmedStringSetting(value, 'bunproFrontendApiToken', DEFAULT_SETTINGS.bunproFrontendApiToken);
     const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
     const wanikaniApiToken = trimmedStringSetting(value, 'wanikaniApiToken', DEFAULT_SETTINGS.wanikaniApiToken);
-    // UT-56: Jiten and JPDB credentials COEXIST — the study queue loads both
-    // providers in parallel, so a Jiten key must not wipe the JPDB key (that
-    // wipe made the study page silently diverge from jpdb Learn). A
-    // jiten-prefixed value in the JPDB slot still routes to the Jiten slot.
-    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
     return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
 }
 
-function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined): Partial<ReaderSettings> | null {
+function stripUnsupportedSettings(value: Partial<ReaderSettings> | null | undefined): Partial<ReaderSettings> | null {
     if (!value) return null;
     const supportedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
     return Object.fromEntries(
@@ -679,141 +577,11 @@ function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined
     ) as Partial<ReaderSettings>;
 }
 
-// Until 1.6.139 the YouTube filter notice's "hide" button silently persisted
-// youtubeShowFilterNotice=false forever — the only in-page path that wrote
-// this key. Restore it ONCE (marker-gated); the settings dialog remains the
-// deliberate permanent switch and its later choices stick.
-function migrateHiddenFilterNotice(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
-    if (!value) return value;
-    if (value.youtubeFilterNoticeRestored20260711) return value;
-    const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
-    if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
-    return migrated;
-}
-
-// Until 1.8.39 the default theme was 'light', and every save persisted it, so a
-// stored 'light' is indistinguishable from a real choice — yet almost nobody
-// chose it. The hosted appearance boot reads settings.theme before its own
-// 'auto' fallback, so those installs can never follow the operating system and
-// stay bright on a dark screen forever. Move a stored 'light' to 'auto' ONCE
-// (marker-gated). Someone whose system is light sees no change; someone whose
-// system is dark finally gets dark, and if they truly want light the settings
-// dialog still wins and the marker stops this ever running again.
-function migrateDefaultLightTheme(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
-    if (!value) return value;
-    if (value.themeAutoRestored20260730) return value;
-    const migrated = { ...value, themeAutoRestored20260730: true };
-    if (migrated.theme === 'light') migrated.theme = 'auto';
-    return migrated;
-}
-
-// `ocrLanguage: ''` means "follow the language being studied". Until now the
-// settings form resolved that blank to a concrete tag on every save, so an
-// install that ever opened Settings holds a language it never chose — and the
-// field is hidden, so there was no way to choose otherwise. Clear a stored
-// value that is only ever a target's own default and OCR follows the study
-// target again; a tag no target claims was set deliberately and stays.
-function migratePinnedOcrLanguage(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
-    if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
-    return { ...value, ocrLanguage: '' };
-}
-
-// Word audio and sentence audio shared one field role until the sentenceAudio
-// role landed, so saved mappings can point the word-audio role at a
-// sentence-audio field. Move it ONCE (marker-gated) — the mapping editor now
-// offers both rows, and a later deliberate choice there must not be undone.
-function migrateSentenceAudioFieldMappings(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
-    if (!value) return value;
-    if (value.ankiSentenceAudioMappingMigrated) return value;
-    const migrated: LegacyReaderSettings = { ...value, ankiSentenceAudioMappingMigrated: true };
-    if (!value.ankiFieldMappings) return migrated;
-    const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
-    if (!movedModels.length) return migrated;
-    log.info('Moved Anki sentence-audio field mappings off the word-audio role', { models: movedModels });
-    return { ...migrated, ankiFieldMappings: mappings };
-}
-
-function migrateLegacyDefaultMobileSettings(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
-    if (!value) return value;
-    const migrateAnki = isLegacyDefaultAnkiSettings(value);
-    const migrateNewTabAnki = isLegacyDefaultNewTabAnkiSettings(value);
-    if (!migrateAnki && !migrateNewTabAnki) return value;
-
-    const migrated = { ...value };
-    if (migrateAnki) {
-        migrated.ankiEnabled = false;
-        migrated.ankiSectionEnabled = false;
-        migrated.ankiMobileHandoff = false;
-        migrated.ankiMineWithJpdb = false;
-    }
-    if (migrateNewTabAnki) migrated.newTabAnkiEnabled = false;
-    return migrated;
-}
-
-function isLegacyDefaultAnkiSettings(value: LegacyReaderSettings): boolean {
-    if (!isPreCurrentSavedSettingsPayload(value)) return false;
-    return legacyAnkiBooleanSettingsAreDefault(value)
-        && legacyAnkiStringSettingsAreDefault(value)
-        && legacyStringSettingIn(value, 'ankiDeck', LEGACY_DEFAULT_ANKI_DECK_NAMES)
-        && legacyStringSettingIn(value, 'ankiModel', LEGACY_DEFAULT_ANKI_MODEL_NAMES)
-        && legacyAnkiFieldMappingsAreDefault(value);
-}
-
-function legacyAnkiBooleanSettingsAreDefault(value: LegacyReaderSettings): boolean {
-    return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every(key => legacyBooleanSettingMatches(value, key, true));
-}
-
-function legacyAnkiStringSettingsAreDefault(value: LegacyReaderSettings): boolean {
-    return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key, expected]) => legacyStringSettingMatches(value, key, expected));
-}
-
-function isLegacyDefaultNewTabAnkiSettings(value: LegacyReaderSettings): boolean {
-    if (!isPreCurrentSavedSettingsPayload(value)) return false;
-    return legacyBooleanSettingMatches(value, 'newTabAnkiEnabled', true)
-        && legacyBooleanSettingMatches(value, 'newTabEnabled', false)
-        && legacyStringListSettingIsEmpty(value, 'newTabAnkiDisabledDecks')
-        && legacyStringSettingMatches(value, 'newTabSource', DEFAULT_SETTINGS.newTabSource)
-        && legacyStringSettingMatches(value, 'newTabJpdbDeck', DEFAULT_SETTINGS.newTabJpdbDeck)
-        && legacyStringSettingMatches(value, 'newTabJpdbReviewMode', DEFAULT_SETTINGS.newTabJpdbReviewMode);
-}
-
-function isPreCurrentSavedSettingsPayload(value: LegacyReaderSettings): boolean {
-    return !hasOwn(value, 'jitenApiKey');
-}
-
-function legacyBooleanSettingMatches<Key extends keyof ReaderSettings>(value: LegacyReaderSettings, key: Key, expected: boolean): boolean {
-    return hasOwn(value, key) && value[key] === expected;
-}
-
-function legacyStringSettingMatches<Key extends keyof ReaderSettings>(value: LegacyReaderSettings, key: Key, expected: string): boolean {
-    const raw = value[key];
-    return hasOwn(value, key) && typeof raw === 'string' && raw.trim() === expected;
-}
-
-function legacyStringSettingIn<Key extends keyof ReaderSettings>(value: LegacyReaderSettings, key: Key, expected: ReadonlySet<string>): boolean {
-    const raw = value[key];
-    return hasOwn(value, key) && typeof raw === 'string' && expected.has(raw.trim());
-}
-
-function legacyStringListSettingIsEmpty<Key extends keyof ReaderSettings>(value: LegacyReaderSettings, key: Key): boolean {
-    const raw = value[key];
-    return hasOwn(value, key) && Array.isArray(raw) && raw.length === 0;
-}
-
-function legacyAnkiFieldMappingsAreDefault(value: LegacyReaderSettings): boolean {
-    const raw = value.ankiFieldMappings;
-    return hasOwn(value, 'ankiFieldMappings')
-        && Boolean(raw)
-        && typeof raw === 'object'
-        && !Array.isArray(raw)
-        && Object.keys(raw).length === 0;
-}
-
 function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     const settings = value ?? {};
-    const hasSavedAudioSources = hasOwn(settings, 'audioSources') || Boolean(settings.audioSourceUrl);
+    const hasSavedAudioSources = hasOwn(settings, 'audioSources');
     const audioSources = hasSavedAudioSources
-        ? normalizeAudioSources(settings.audioSources, settings.audioSourceUrl)
+        ? normalizeAudioSources(settings.audioSources)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
     const audioAutoPlayMode = normalizeAudioAutoPlayMode(settings.audioAutoPlayMode);
     return {
@@ -821,53 +589,22 @@ function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Partial<
         suppressAutoAudioOnVideo: booleanSetting(value, 'suppressAutoAudioOnVideo'),
         audioAutoPlayMode,
         audioSources,
-        audioSourceUrl: preferredAudioSourceUrl(audioSources, settings.audioSourceUrl),
+        audioSourceUrl: preferredAudioSourceUrl(audioSources),
         audioTtsMode: normalizeAudioTtsMode(settings.audioTtsMode),
     };
 }
 
-function preferredAudioSourceUrl(audioSources: AudioSourceSetting[], fallback: string | undefined): string {
-    return audioSources.find(source => source.url)?.url ?? fallback ?? DEFAULT_AUDIO_URL;
+function preferredAudioSourceUrl(audioSources: AudioSourceSetting[]): string {
+    return audioSources.find(source => source.url)?.url ?? DEFAULT_AUDIO_URL;
 }
 
 function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): ReaderSettings['shortcuts'] {
-    const shortcuts = {
-        ...DEFAULT_SETTINGS.shortcuts,
-        ...(value?.shortcuts ?? {}),
-    };
-    if (value?.shortcuts && !hasOwn(value.shortcuts, 'hoverLookup')) {
-        shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
+    const shortcuts = { ...DEFAULT_SETTINGS.shortcuts };
+    for (const key of Object.keys(shortcuts) as Array<keyof ReaderSettings['shortcuts']>) {
+        const saved = value?.shortcuts?.[key];
+        if (typeof saved === 'string') shortcuts[key] = saved;
     }
-    // A blank shortcut matches every event, which would silently turn 'modifier'
-    // mode into plain hover mode, so a legacy modifier profile must resolve to a
-    // key -- but only when the learner has not stored a hover shortcut of their
-    // own. This tested the emptiness of the RESULT rather than the absence of a
-    // stored choice, so someone who deliberately cleared the shortcut had 'Shift'
-    // re-minted inside every save and every load, which is why it came back
-    // seconds later and again after an update (GitHub #36). The clause above
-    // already uses this guard; this one has to agree with it.
-    if (
-        value?.popupActivationMode === 'modifier'
-        && !shortcuts.hoverLookup.trim()
-        && !hasOwn(value?.shortcuts ?? {}, 'hoverLookup')
-    ) {
-        shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || 'Shift';
-    }
-    migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
-}
-
-function migrateLegacySubtitleLineShortcuts(
-    shortcuts: ReaderSettings['shortcuts'],
-    savedShortcuts: Partial<ReaderSettings['shortcuts']> | undefined,
-): void {
-    if (!savedShortcuts) return;
-    if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
-        shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
-    }
-    if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
-        shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
-    }
 }
 
 function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -885,18 +622,7 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
 }
 
 function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsPriority' | 'jitenDefinitionsPriority' | 'bunproDefinitionsPriority' | 'wanikaniDefinitionsPriority'> {
-    const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
-    const ordered = isLegacyDefaultDefinitionSourceOrder(value)
-        ? {
-            ...normalized,
-            jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
-            jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority,
-        }
-        : normalized;
-    if (!hasOwn(value, 'bunproDefinitionsPriority')) {
-        ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
-    }
-    return ordered;
+    return normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
 }
 
 function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]> {
@@ -905,26 +631,6 @@ function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pi
         aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
     }
     return aliases;
-}
-
-/**
- * The one-shot 1.4.215 migration that moved Jiten in front of JPDB.
- *
- * {jpdb: 0, jiten: 1} is also EXACTLY what dragging JPDB to the top of the
- * definition-source editor produces, so applying this on every normalize
- * force-reverted that drag inside the same save -- "it still jams jiten to the
- * top of the dictionary array" (GitHub #43). The migration is therefore gated on
- * the record predating it: `bunproDefinitionsPriority` arrived after the
- * migration shipped, so a record without it was written before the migration
- * could have run, and every record written since carries it (the whole settings
- * object is persisted on every save).
- */
-function isLegacyDefaultDefinitionSourceOrder(value: Partial<ReaderSettings> | null | undefined): boolean {
-    return hasOwn(value, 'jpdbDefinitionsPriority')
-        && hasOwn(value, 'jitenDefinitionsPriority')
-        && !hasOwn(value, 'bunproDefinitionsPriority')
-        && value?.jpdbDefinitionsPriority === 0
-        && value?.jitenDefinitionsPriority === 1;
 }
 
 function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'dictionarySourcesInitiallyExpanded' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
@@ -939,7 +645,6 @@ function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | nul
 
 function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        newTabEnabled: booleanSetting(value, 'newTabEnabled'),
         newTabAnkiEnabled: booleanSetting(value, 'newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: normalizeStringList(value?.newTabAnkiDisabledDecks),
         newTabSource: normalizeNewTabSource(value?.newTabSource),
@@ -957,45 +662,12 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
         newTabSwipeReviews: booleanSetting(value, 'newTabSwipeReviews'),
         newTabShortcutHintsEnabled: booleanSetting(value, 'newTabShortcutHintsEnabled'),
         newTabKanjiAutogradeEnabled: booleanSetting(value, 'newTabKanjiAutogradeEnabled'),
-        newTabKanjiAutoSubmit: booleanSetting(value, 'newTabKanjiAutoSubmit'),
-        newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
-        newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
         newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode),
-        newTabStudyTourSeen: booleanSetting(value, 'newTabStudyTourSeen'),
     };
 }
 
-function normalizeNewTabStudyStepOrder(value: unknown): NewTabStudyChallengeStep[] {
-    const ordered = normalizeStudyStepList(value);
-    // Installs that never customised the order carry the previous default
-    // verbatim; keep them on the product default (writing follows word).
-    const legacyDefault: NewTabStudyChallengeStep[] = ['kanji-doodle', 'word', 'recall-cloze', 'listen-pitch', 'speaking', 'type-word'];
-    if (ordered.join(',') === legacyDefault.join(',')) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
-    return [
-        ...ordered,
-        ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter(step => !ordered.includes(step)),
-    ];
-}
 
-function normalizeNewTabStudyDisabledSteps(value: unknown): NewTabStudyChallengeStep[] {
-    return normalizeStudyStepList(value);
-}
-
-function normalizeStudyStepList(value: unknown): NewTabStudyChallengeStep[] {
-    if (!Array.isArray(value)) return [];
-    const out: NewTabStudyChallengeStep[] = [];
-    for (const item of value) {
-        if (!isNewTabStudyChallengeStep(item) || out.includes(item)) continue;
-        out.push(item);
-    }
-    return out;
-}
-
-function isNewTabStudyChallengeStep(value: unknown): value is NewTabStudyChallengeStep {
-    return typeof value === 'string' && NEW_TAB_STUDY_CHALLENGE_STEPS.has(value as NewTabStudyChallengeStep);
-}
-
-function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Partial<ReaderSettings> {
+function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     const settings = value ?? {};
     return {
         accentColor: sanitizeAccentColor(settings.accentColor),
@@ -1004,7 +676,7 @@ function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Par
         puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
         puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
         showFurigana: booleanSetting(value, 'showFurigana'),
-        furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+        furiganaMode: normalizeFuriganaMode(settings.furiganaMode),
         clampedRowReadings: settings.clampedRowReadings === 'hover' ? 'hover' : 'show',
         puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== 'off'
             ? settings.puckFuriganaModeBeforeHide
@@ -1040,8 +712,8 @@ function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): P
         ankiSectionEnabled: normalizeAnkiSectionEnabled(value),
         ...normalizeNumberSettingGroup(value, ANKI_STUDY_NUMBER_SETTING_RANGES),
         ankiConnectUrl: normalizeUrl(settings.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
-        ankiDeck: normalizeAnkiName(settings.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
-        ankiModel: normalizeAnkiName(settings.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
+        ankiDeck: normalizeAnkiName(settings.ankiDeck, DEFAULT_SETTINGS.ankiDeck),
+        ankiModel: normalizeAnkiName(settings.ankiModel, DEFAULT_SETTINGS.ankiModel),
         ankiTemplateMode: normalizeAnkiTemplateMode(settings.ankiTemplateMode),
         ankiFieldMappings: normalizeAnkiFieldMappings(settings.ankiFieldMappings),
         ...normalizeBooleanSettingGroup(value, ANKI_STUDY_BOOLEAN_SETTING_KEYS),
@@ -1049,10 +721,7 @@ function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): P
 }
 
 function normalizeAnkiSectionEnabled(value: Partial<ReaderSettings> | null): boolean {
-    const ankiEnabled = booleanSetting(value, 'ankiEnabled');
-    return hasOwn(value, 'ankiSectionEnabled')
-        ? booleanSetting(value, 'ankiSectionEnabled')
-        : ankiEnabled;
+    return booleanSetting(value, 'ankiSectionEnabled');
 }
 
 function normalizePresentationSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -1120,7 +789,7 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: booleanSetting(value, 'immersionKitPlayOnImageClick'),
-        ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+        ocrProvider: normalizeOcrProvider(settings.ocrProvider),
         ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
         ocrEngine: normalizeOcrEngine(settings.ocrEngine),
         ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
@@ -1132,27 +801,21 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
     };
 }
 
-function normalizeImmersionExampleLimitSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'immersionKitExpandedLimitMigrated20260721' | 'immersionKitLimitEnabled' | 'immersionKitLimit'> {
-    const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true
-        && value?.immersionKitLimitEnabled === true
-        && value?.immersionKitLimit === 3;
+function normalizeImmersionExampleLimitSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'immersionKitLimitEnabled' | 'immersionKitLimit'> {
     return {
-        immersionKitExpandedLimitMigrated20260721: true,
-        immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, 'immersionKitLimitEnabled'),
-        immersionKitLimit: legacyDefault
-            ? DEFAULT_SETTINGS.immersionKitLimit
-            : clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+        immersionKitLimitEnabled: booleanSetting(value, 'immersionKitLimitEnabled'),
+        immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
     };
 }
 
 function normalizeOcrTextColor(settings: Partial<ReaderSettings>): string {
     const color = sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor);
-    return color === LEGACY_DEFAULT_OCR_TEXT_COLOR ? DEFAULT_SETTINGS.ocrTextColor : color;
+    return color;
 }
 
 function normalizeOcrOutlineColor(settings: Partial<ReaderSettings>): string {
     const color = sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor);
-    return color === LEGACY_DEFAULT_OCR_OUTLINE_COLOR ? DEFAULT_SETTINGS.ocrOutlineColor : color;
+    return color;
 }
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -1186,10 +849,10 @@ function normalizeStringList(value: unknown): string[] {
         .filter(Boolean))];
 }
 
-function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string): string {
+function normalizeAnkiName(value: unknown, fallback: string): string {
     if (typeof value !== 'string') return fallback;
     const trimmed = value.trim();
-    if (!trimmed || trimmed === oldDefault) return fallback;
+    if (!trimmed) return fallback;
     return trimmed;
 }
 
@@ -1248,13 +911,6 @@ function normalizeUrl(value: unknown, fallback: string): string {
     } catch {
         return fallback;
     }
-}
-
-function shortcutFromLegacyModifier(value: unknown): string {
-    if (value === 'alt') return 'Alt';
-    if (value === 'ctrl') return 'Ctrl';
-    if (value === 'meta') return 'Meta';
-    return value === 'shift' ? 'Shift' : '';
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -1339,127 +995,18 @@ function normalizeNewTabKanjiKeywordSource(value: unknown): ReaderSettings['newT
     return normalizeOption(value, NEW_TAB_KANJI_KEYWORD_SOURCES, DEFAULT_SETTINGS.newTabKanjiKeywordSource);
 }
 
-function normalizeReaderColorChannelSettings(value: LegacyReaderSettings | null): Pick<ReaderSettings, ReaderColorChannelKey> {
-    if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
-    const channels: Pick<ReaderSettings, ReaderColorChannelKey> = {
-        wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
-        wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
-        wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
-        subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
-        subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
-        subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource)),
-    };
-    return normalizeStaleDoublePitchHighlightChannels(value, channels);
+function normalizeReaderColorChannelSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, ReaderColorChannelKey> {
+    return Object.fromEntries(Object.entries(DEFAULT_COLOR_CHANNELS).map(([key, fallback]) => [
+        key, normalizeReaderColorSource(value?.[key as ReaderColorChannelKey], fallback),
+    ])) as Pick<ReaderSettings, ReaderColorChannelKey>;
 }
 
-function isLegacyDefaultColorChannelSettings(value: LegacyReaderSettings | null | undefined): boolean {
-    if (!value) return false;
-    return (Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS) as ReaderColorChannelKey[])
-        .every(key => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
+function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource): ReaderColorSource {
+    return READER_COLOR_SOURCES.has(value as ReaderColorSource) ? value as ReaderColorSource : fallback;
 }
 
-function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource, autoFallback = fallback): ReaderColorSource {
-    const source = value === 'auto' ? autoFallback : value;
-    return READER_COLOR_SOURCES.has(source as ReaderColorSource) ? source as ReaderColorSource : fallback;
-}
-
-function normalizeStaleDoublePitchHighlightChannels(
-    settings: LegacyReaderSettings | null | undefined,
-    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
-): Pick<ReaderSettings, ReaderColorChannelKey> {
-    const staleWordHighlight = hasStaleWordPitchHighlight(settings, channels);
-    const staleSubtitleHighlight = hasStaleSubtitlePitchHighlight(settings, channels);
-    if (!staleWordHighlight && !staleSubtitleHighlight) return channels;
-    return {
-        ...channels,
-        wordHighlightColorSource: staleWordHighlight
-            ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource
-            : channels.wordHighlightColorSource,
-        subtitleHighlightColorSource: staleSubtitleHighlight
-            ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource
-            : channels.subtitleHighlightColorSource,
-    };
-}
-
-function hasStaleWordPitchHighlight(
-    settings: LegacyReaderSettings | null | undefined,
-    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
-): boolean {
-    if (!settings) return false;
-    if (settings.wordHighlightMode === 'pitch') return true;
-    return hasStalePitchHighlightPair(settings, channels, 'wordHighlightColorSource', 'wordUnderlineColorSource');
-}
-
-function hasStaleSubtitlePitchHighlight(
-    settings: LegacyReaderSettings | null | undefined,
-    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
-): boolean {
-    if (!settings) return false;
-    if (settings.wordHighlightMode === 'pitch') return true;
-    return hasStalePitchHighlightPair(settings, channels, 'subtitleHighlightColorSource', 'subtitleUnderlineColorSource');
-}
-
-function hasStalePitchHighlightPair(
-    settings: LegacyReaderSettings,
-    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
-    highlight: ReaderColorChannelKey,
-    underline: ReaderColorChannelKey,
-): boolean {
-    return (isPreCurrentSavedSettingsPayload(settings) || hasOwn(settings, 'wordHighlightMode'))
-        && isRawPitchPair(settings, highlight, underline)
-        && channels[highlight] === 'pitch'
-        && channels[underline] === 'pitch';
-}
-
-function isRawPitchPair(settings: LegacyReaderSettings, highlight: ReaderColorChannelKey, underline: ReaderColorChannelKey): boolean {
-    return settings[highlight] === 'pitch' && settings[underline] === 'pitch';
-}
-
-function legacyHighlightColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
-    const mode = legacyEffectiveWordHighlightMode(settings);
-    if (mode === 'pitch') return fallback;
-    return legacyReaderColorSourceForAuto(settings, fallback);
-}
-
-function legacyReaderColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
-    const mode = legacyEffectiveWordHighlightMode(settings);
-    return mode === 'status' ? fallback : mode ?? fallback;
-}
-
-function legacySubtitleHighlightColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
-    const mode = legacyEffectiveWordHighlightMode(settings);
-    if (mode === 'pitch') return fallback;
-    return legacySubtitleColorSourceForAuto(settings, fallback);
-}
-
-function legacySubtitleColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
-    const mode = legacyEffectiveWordHighlightMode(settings);
-    if (!mode) return fallback;
-    return mode === 'status' ? 'jpdb' : mode;
-}
-
-function legacyEffectiveWordHighlightMode(settings: LegacyReaderSettings | null | undefined): Exclude<LegacyWordHighlightMode, 'auto'> | null {
-    if (!settings || !hasOwn(settings, 'wordHighlightMode')) return null;
-    if (settings.wordHighlightMode === 'status' || settings.wordHighlightMode === 'pitch' || settings.wordHighlightMode === 'off') return settings.wordHighlightMode;
-    return hasLegacyMiningStatusSource(settings) ? 'status' : 'pitch';
-}
-
-function hasLegacyMiningStatusSource(settings: LegacyReaderSettings): boolean {
-    return Boolean(settings.ankiEnabled || (settings.jpdbMiningEnabled && settings.apiKey?.trim()));
-}
-
-function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
-    if (value === 'auto') return effectiveLegacyAutoFuriganaMode();
-    if (isFuriganaMode(value)) return value;
-    if (legacyBooleanSettingIs(settings, 'showFurigana', false)) return 'off';
-    if (legacyBooleanSettingIs(settings, 'hideKnownFurigana', false)) return 'all';
-    return DEFAULT_SETTINGS.furiganaMode;
-}
-
-// Legacy stored 'auto' also lands on the transparent default. Status- and
-// difficulty-based hiding require an explicit current choice.
-function effectiveLegacyAutoFuriganaMode(): Exclude<FuriganaMode, 'auto'> {
-    return 'all';
+function normalizeFuriganaMode(value: unknown): FuriganaMode {
+    return isFuriganaMode(value) ? value : DEFAULT_SETTINGS.furiganaMode;
 }
 
 function isFuriganaMode(value: unknown): value is FuriganaMode {
@@ -1484,10 +1031,6 @@ function normalizeWordColorHiddenStateGroups(value: unknown): ReaderSettings['wo
     return [...new Set(groups)];
 }
 
-function legacyBooleanSettingIs(settings: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings, expected: boolean): boolean {
-    return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
-}
-
 function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
@@ -1506,16 +1049,16 @@ export function shouldLookupBunproWordStates(settings: Partial<ReaderSettings>, 
 }
 
 export function effectiveReaderColorSource(
-    settings: LegacyReaderSettings,
+    settings: Partial<ReaderSettings>,
     source: ReaderColorSource,
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
 ): ConcreteReaderColorSource {
-    const concrete = source === 'auto' ? legacyReaderColorSourceForAuto(settings, fallback) : source;
+    const concrete = source === 'auto' ? fallback : source;
     return effectiveAvailableColorSource(settings, concrete, fallback);
 }
 
 export function effectiveReaderTextColorSource(
-    settings: LegacyReaderSettings,
+    settings: Partial<ReaderSettings>,
     source: ReaderColorSource,
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.wordTextColorSource,
 ): ConcreteReaderColorSource {
@@ -1523,29 +1066,29 @@ export function effectiveReaderTextColorSource(
 }
 
 export function effectiveSubtitleColorSource(
-    settings: LegacyReaderSettings,
+    settings: Partial<ReaderSettings>,
     source: ReaderColorSource,
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource,
 ): ConcreteReaderColorSource {
-    const concrete = source === 'auto' ? legacySubtitleColorSourceForAuto(settings, fallback) : source;
+    const concrete = source === 'auto' ? fallback : source;
     if (concrete === 'status') return 'status';
     return effectiveAvailableColorSource(settings, concrete);
 }
 
 export function effectiveSubtitleTextColorSource(
-    settings: LegacyReaderSettings,
+    settings: Partial<ReaderSettings>,
     source: ReaderColorSource,
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.subtitleTextColorSource,
 ): ConcreteReaderColorSource {
     return effectiveTextColorSource(settings, effectiveSubtitleColorSource(settings, source, fallback));
 }
 
-function effectiveTextColorSource(settings: LegacyReaderSettings, source: ConcreteReaderColorSource): ConcreteReaderColorSource {
+function effectiveTextColorSource(settings: Partial<ReaderSettings>, source: ConcreteReaderColorSource): ConcreteReaderColorSource {
     return effectiveAvailableColorSource(settings, source);
 }
 
 function effectiveAvailableColorSource(
-    settings: LegacyReaderSettings,
+    settings: Partial<ReaderSettings>,
     source: ConcreteReaderColorSource,
     fallback: ConcreteReaderColorSource = 'off',
 ): ConcreteReaderColorSource {
@@ -1561,7 +1104,7 @@ function effectiveAvailableColorSource(
     return source;
 }
 
-function effectiveAvailableStatusSource(settings: LegacyReaderSettings, includeRequestedAnki = false): ConcreteReaderColorSource {
+function effectiveAvailableStatusSource(settings: Partial<ReaderSettings>, includeRequestedAnki = false): ConcreteReaderColorSource {
     const hasStates = hasSrsStateColorSource(settings);
     const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
     if (hasStates && hasAnki) return 'status';
@@ -1576,11 +1119,11 @@ function effectiveAvailableStatusSource(settings: LegacyReaderSettings, includeR
  * it. The local deck writes the same five-state `cardState` taxonomy through
  * hydrateYomuLocalSrsCardStates, so it drives the channel the same way.
  */
-function hasLocalSrsStatusSource(settings: LegacyReaderSettings): boolean {
+function hasLocalSrsStatusSource(settings: Partial<ReaderSettings>): boolean {
     return settings.yomuLocalSrsEnabled === true;
 }
 
-function hasSrsStateColorSource(settings: LegacyReaderSettings): boolean {
+function hasSrsStateColorSource(settings: Partial<ReaderSettings>): boolean {
     return hasJpdbStatusSource(settings) || hasLocalSrsStatusSource(settings);
 }
 
@@ -1589,23 +1132,23 @@ function hasSrsStateColorSource(settings: LegacyReaderSettings): boolean {
  * shows the no-source line when this is false, so an empty colour channel
  * always comes with a reason.
  */
-export function hasStatusColorSource(settings: LegacyReaderSettings): boolean {
+export function hasStatusColorSource(settings: Partial<ReaderSettings>): boolean {
     return effectiveAvailableStatusSource(settings, true) !== 'off';
 }
 
 /** Names whichever deck feeds the state colour channel, for the picker labels. */
-export function statusColorSourceLabel(settings: LegacyReaderSettings): string {
+export function statusColorSourceLabel(settings: Partial<ReaderSettings>): string {
     if (hasJpdbStatusSource(settings)) return combinedApiCredentialLabel(apiCredentials(settings));
     if (hasLocalSrsStatusSource(settings)) return ACADEMY_SRS_LABEL;
     if (hasAnkiStatusSource(settings)) return 'Anki';
     return '';
 }
 
-function apiCredentials(settings: LegacyReaderSettings): { apiKey: string; jitenApiKey: string } {
+function apiCredentials(settings: Partial<ReaderSettings>): { apiKey: string; jitenApiKey: string } {
     return { apiKey: settings.apiKey ?? '', jitenApiKey: settings.jitenApiKey ?? '' };
 }
 
-function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
+function hasJpdbStatusSource(settings: Partial<ReaderSettings>): boolean {
     const credentials = {
         apiKey: settings.apiKey ?? '',
         jitenApiKey: settings.jitenApiKey ?? '',
@@ -1613,7 +1156,7 @@ function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
     return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials));
 }
 
-function hasAnkiStatusSource(settings: LegacyReaderSettings): boolean {
+function hasAnkiStatusSource(settings: Partial<ReaderSettings>): boolean {
     return Boolean(settings.ankiEnabled);
 }
 
@@ -1636,7 +1179,7 @@ const COLOR_STATUS_CHANNEL_KEYS: ReaderColorChannelKey[] = [
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
     if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-    return effectiveLegacyAutoFuriganaMode();
+    return 'all';
 }
 
 /**
@@ -1693,18 +1236,9 @@ function bootstrapAudioSources(settings: ReaderSettings, audio: string): AudioSo
         : settings.audioSources;
 }
 
-export function normalizeOcrProvider(value: unknown, settings?: Partial<ReaderSettings> | null): OcrProvider {
-    if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
-    if (typeof value !== 'string') return DEFAULT_SETTINGS.ocrProvider;
-    return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider);
+export function normalizeOcrProvider(value: unknown): OcrProvider {
+    return OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider;
 }
-
-const OCR_PROVIDER_ALIASES: Record<string, OcrProvider> = {
-    auto: 'google-lens',
-    fast: 'google-lens',
-    'page-text': 'google-lens',
-    'custom-json': 'local-service',
-};
 
 const OCR_PROVIDERS = new Set<OcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
 
@@ -1712,40 +1246,19 @@ function normalizeCloudVisionApiKey(value: unknown): string {
     return typeof value === 'string' ? value.trim() : DEFAULT_SETTINGS.ocrCloudVisionApiKey;
 }
 
-function isBlankLegacyLocalOcrSetting(value: unknown, settings: Partial<ReaderSettings> | null | undefined): boolean {
-    if (value !== 'local-service' || !settings) return false;
-    if (hasOwn(settings, 'ocrCloudVisionApiKey')) return false;
-    return !(typeof settings.ocrEndpointUrl === 'string' && settings.ocrEndpointUrl.trim());
-}
-
 function normalizeOcrEngine(value: unknown): string {
     const normalized = normalizedOcrEngineInput(value);
-    return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_SETTINGS.ocrEngine;
+    return normalized || DEFAULT_SETTINGS.ocrEngine;
 }
 
 function normalizedOcrEngineInput(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-export async function loadSettings(): Promise<ReaderSettings> {
-    try {
-        return await loadSettingsWithWitnessedAuthority();
-    } catch (error) {
-        log.warn('Settings load failed', { error });
-        return mergeSettings(null);
-    }
-}
-
 /** Startup/remote adoption that refuses unavailable or unattested settings authority. */
-export async function loadSettingsWithWitnessedAuthority(): Promise<ReaderSettings> {
+export async function loadSettings(): Promise<ReaderSettings> {
     if (settingsResetInProgress) return mergeSettings(null);
     return loadSettingsFromStorage();
-}
-
-interface SettingsRecoveryState {
-    settings: ReaderSettings;
-    readonly settledKeys: Set<string>;
-    recovered: boolean;
 }
 
 async function loadSettingsFromStorage(): Promise<ReaderSettings> {
@@ -1758,144 +1271,29 @@ async function loadSettingsFromStorage(): Promise<ReaderSettings> {
         undefined,
     );
     const view = await readSettingsPersistenceViewStrictFrom(readSettingsOwnedValueStrict);
-    const canonicalSettingsWitnessed = settingsRecord(view.settings) !== null;
-    const recovered = await recoverStoredSettings(view.settings, view.intentLedger);
-    const withSitePreference = await applyStoredSitePreference(recovered.settings, storedSitePreference);
-    const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as LegacyReaderSettings);
-    await finalizeLoadedSettings(settings, recovered.recovered, canonicalSettingsWitnessed);
+    const current = mergeSettings(settingsRecord(view.settings));
+    const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
+    const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as Partial<ReaderSettings>);
     return settings;
 }
 
-async function recoverStoredSettings(
-    persistedSettings: unknown,
-    intentLedger: SettingsIntentLedger,
-): Promise<SettingsRecoveryState> {
-    const state: SettingsRecoveryState = {
-        settings: mergeSettings(settingsRecord(persistedSettings)),
-        // Keys the learner deliberately chose cannot be filled from an older
-        // donor just because their current value happens to equal a default.
-        settledKeys: new Set(settingsIntentKeys(intentLedger)),
-        recovered: false,
-    };
-    for (const key of LEGACY_SETTINGS_STORAGE_KEYS) await recoverLegacySettingsKey(state, key);
-    recoverStrandedSettings(state, strandedHostedLocalSettingsRecord());
-    return state;
-}
-
-async function recoverLegacySettingsKey(state: SettingsRecoveryState, key: string): Promise<void> {
-    const stored = await readSettingsOwnedValueStrict<Partial<ReaderSettings> | null>(key, null);
-    const legacyRecord = settingsRecord(stored);
-    if (!legacyRecord) return;
-    applySettingsRecovery(state, recoverLegacySettings(
-        state.settings,
-        mergeSettings(legacyRecord),
-        state.settledKeys,
-        DEFAULT_SETTINGS,
-    ));
-}
-
-function recoverStrandedSettings(
-    state: SettingsRecoveryState,
-    strandedRecord: Partial<ReaderSettings> | null,
-): void {
-    if (!strandedRecord) return;
-    applySettingsRecovery(state, recoverStrandedHostedSettings(
-        state.settings,
-        mergeSettings(strandedRecord),
-        state.settledKeys,
-        DEFAULT_SETTINGS,
-    ));
-}
-
-function applySettingsRecovery(
-    state: SettingsRecoveryState,
-    recovery: { settings: ReaderSettings; changed: boolean },
-): void {
-    state.settings = recovery.settings;
-    state.recovered ||= recovery.changed;
-}
-
-async function applyStoredSitePreference(
+function applyStoredSitePreference(
     settings: ReaderSettings,
     storedSitePreference: unknown,
-): Promise<ReaderSettings> {
+): ReaderSettings {
     return {
         ...settings,
-        preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+        preferJapaneseSiteLanguage: authoritativePreferredJapaneseSiteLanguage(
             storedSitePreference,
             settings.preferJapaneseSiteLanguage,
         ),
     };
 }
 
-async function finalizeLoadedSettings(
-    settings: ReaderSettings,
-    recoveredLegacySettings: boolean,
-    canonicalSettingsWitnessed: boolean,
-): Promise<void> {
-    if (recoveredLegacySettings) return persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
-    if (![canonicalSettingsWitnessed, isHostedYomuOrigin(), hasAsyncGmStorageBackend()].every(Boolean)) return;
-    cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
-}
-
 function readSettingsOwnedValueStrict<T>(key: string, fallback: T): Promise<T> {
     return isHostedYomuOrigin()
         ? gmStorageGetStrict(key, fallback)
         : gmStorageGetSharedStrict(key, fallback);
-}
-
-// Hosted pages (yomureader.com and friends) historically had no GM backend, so
-// settings edited there fell back to that origin's localStorage and never
-// reached the shared GM store the userscript reads on every other site. Once a
-// GM backend (usually the userscript storage bridge) is available, fold those
-// stranded values back in — but only where the shared settings still sit at
-// their defaults, so the installed copy's explicit choices always win.
-function strandedHostedLocalSettingsRecord(): Partial<ReaderSettings> | null {
-    if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
-    return settingsRecord(localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
-}
-
-// Called from the userscript entry at document-start on trusted hosted origins
-// (yomureader.com). Root cause it addresses (iPad Safari): a user's API key and
-// theme entered through the hosted-app Settings land in THIS origin's
-// localStorage, but every other site's userscript reads the shared GM store —
-// so the token/theme never leave yomureader.com and youtube.com falls back to
-// defaults (light theme, no key). The lazy loadSettings recovery only fires
-// when the hosted PAGE re-loads after its bridge is ready, which can miss.
-// The userscript SANDBOX, by contrast, has DIRECT GM_setValue and shares this
-// origin's localStorage, so it can promote the stranded values into GM
-// immediately and unconditionally. Reuses recoverStrandedHostedSettings, so it
-// only fills GM fields still at their default — a stale hosted default can
-// never clobber an explicit choice already in GM.
-export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolean> {
-    if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
-    try {
-        const gmRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
-        const strandedRecord = settingsRecord(localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
-        if (!strandedRecord) return false;
-        // gmStorageGet already migrates a whole stranded blob into an EMPTY GM
-        // store as a side effect; running it first fills that case. Then
-        // reconcile field-by-field for a partially-populated GM, filling only
-        // fields the GM store does not HAVE so an explicit GM choice is never
-        // clobbered. Either path leaves the shared store holding the hosted
-        // key/theme, so youtube.com stops falling back to defaults.
-        //
-        // "does not have", not "is still at its default": a GM field the learner
-        // deliberately cleared equals the default, and treating that as unset let
-        // the hosted mirror replay the old value on every visit (GitHub #36).
-        const current = mergeSettings(gmRecord);
-        const recovery = recoverStrandedHostedSettings(
-            current,
-            mergeSettings(strandedRecord),
-            new Set<string>(gmRecord ? Object.keys(gmRecord) : []),
-            DEFAULT_SETTINGS,
-        );
-        if (recovery.changed) await persistSettings(recovery.settings, NO_EXPLICIT_USER_CHOICE);
-        return true;
-    } catch (error) {
-        log.warn('Stranded hosted settings promotion failed', { error });
-        return false;
-    }
 }
 
 function settingsRecord(value: unknown): Partial<ReaderSettings> | null {
@@ -1909,14 +1307,13 @@ export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderS
     let refreshRevision = 0;
     const refresh = (): void => {
         const revision = ++refreshRevision;
-        void loadSettingsWithWitnessedAuthority().then(settings => {
+        void loadSettings().then(settings => {
             if (active && revision === refreshRevision) onSettings(settings);
         }).catch(error => log.warn('Settings change reconciliation failed', { error }));
     };
     const unsubscribers = [
         subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
         subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
-        subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
         subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh),
     ];
     return () => {
@@ -1970,7 +1367,7 @@ export async function saveSettings(
         throw new Error();
     }
     try {
-        const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
+        const normalizedSettings = mergeSettings(settings as Partial<ReaderSettings>);
         await persistSettingsWithIntent(normalizedSettings, intent);
     } catch (error) {
         log.warn('Settings save failed', { error });
@@ -2005,7 +1402,7 @@ export function coupledSettingsIntentKeys(
 }
 
 async function readSettingsIntentLedger(): Promise<SettingsIntentLedger> {
-    return (await readSettingsPersistenceView()).intentLedger;
+    return (await readSettingsPersistenceViewStrict()).intentLedger;
 }
 
 async function persistSettings(
@@ -2013,8 +1410,7 @@ async function persistSettings(
     explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
     clearExplicitUserChoiceKeys: readonly (keyof ReaderSettings)[] = [],
 ): Promise<void> {
-    const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
-    primeStandaloneHostedSettingsBaseline();
+    const normalizedSettings = mergeSettings(settings as Partial<ReaderSettings>);
     let storedSettings: Partial<ReaderSettings> = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
         // Only the CALLER can say what the learner touched. A save may carry a stale
@@ -2028,22 +1424,13 @@ async function persistSettings(
             normalizedSettings,
         );
         storedSettings = mergeSettings(
-            applySettingsIntent(normalizedSettings, nextLedger) as LegacyReaderSettings,
+            applySettingsIntent(normalizedSettings, nextLedger) as Partial<ReaderSettings>,
         );
         const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
-        await persistSettingsStorageTransaction(nextLedger === ledger ? undefined : nextLedger, supportedSettings);
+        await persistSettingsStorageTransaction(nextLedger, supportedSettings);
         storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
-}
-
-function primeStandaloneHostedSettingsBaseline(): void {
-    if (!isHostedYomuOrigin() || hasAsyncGmStorageBackend()) return;
-    const baseline = mergeSettings(null);
-    cacheManagedValueForHostedStartupIfAbsent(
-        SETTINGS_STORAGE_KEY,
-        stripUnsupportedSettings(baseline) ?? baseline,
-    );
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
@@ -2064,9 +1451,8 @@ export function endSettingsResetGuard(): void {
 }
 
 export async function deleteSettingsStorage(): Promise<void> {
-    for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
+    for (const key of [...SETTINGS_STORAGE_KEYS, ...RETIRED_SETTINGS_STORAGE_KEYS]) await gmStorageDelete(key);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
-    await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
     await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
 }
 
@@ -2074,8 +1460,8 @@ export async function settingsStorageKeysStillPresent(): Promise<string[]> {
     const keys: string[] = [];
     for (const key of [
         ...SETTINGS_STORAGE_KEYS,
+        ...RETIRED_SETTINGS_STORAGE_KEYS,
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
         SETTINGS_INTENT_LEDGER_STORAGE_KEY,
     ]) {
         if (await storedValueExists(key)) keys.push(key);
@@ -2124,75 +1510,8 @@ function audioSourceEnabled(value: unknown): boolean {
     return typeof value === 'boolean' ? value : true;
 }
 
-export function normalizeAudioSources(value: unknown, legacyUrl?: string): AudioSourceSetting[] {
-    const sources = Array.isArray(value)
+export function normalizeAudioSources(value: unknown): AudioSourceSetting[] {
+    return Array.isArray(value)
         ? value.map(normalizeAudioSource).filter((source): source is AudioSourceSetting => source !== null)
-        : [];
-    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(withBunproAudioSource(migrateLegacyDefaultAudioSources(sources))) : sources;
-
-    if (typeof legacyUrl === 'string' && legacyUrl.trim()) {
-        return ensureHostedAudioSourceFirst([{ type: 'custom-json', url: legacyUrl.trim(), voice: '', enabled: true }]);
-    }
-    return DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
-}
-
-function ensureHostedAudioSourceFirst(sources: AudioSourceSetting[]): AudioSourceSetting[] {
-    const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0]!;
-    return [
-        { ...hosted },
-        ...sources.filter(source => !isHostedAudioSource(source)).map(source => ({ ...source })),
-    ];
-}
-
-function isHostedAudioSource(source: AudioSourceSetting): boolean {
-    return source.type === 'custom-json' && source.url.trim() === DEFAULT_AUDIO_URL;
-}
-
-function migrateLegacyDefaultAudioSources(sources: AudioSourceSetting[]): AudioSourceSetting[] {
-    if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
-
-    const migrated = sources.map(source => ({ ...source }));
-    ensureBuiltInAudioSource(migrated, { type: 'jpdb-tts', url: '', voice: '', enabled: false }, 'text-to-speech');
-    ensureBuiltInAudioSource(migrated, { type: 'jiten-tts', url: '', voice: '', enabled: false }, 'jpdb-tts');
-    for (const source of migrated) {
-        if (isDefaultOffAudioSource(source)) source.enabled = false;
-    }
-    return migrated;
-}
-
-function isUntouchedLegacyDefaultAudioSources(sources: AudioSourceSetting[]): boolean {
-    return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS)
-        || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
-}
-
-function audioSourceListMatches(sources: AudioSourceSetting[], expected: AudioSourceSetting[]): boolean {
-    return sources.length === expected.length
-        && expected.every((source, index) => audioSourceMatches(sources[index], source));
-}
-
-function audioSourceMatches(source: AudioSourceSetting | undefined, expected: AudioSourceSetting): boolean {
-    return Boolean(source
-        && source.type === expected.type
-        && source.url === expected.url
-        && source.voice === expected.voice
-        && source.enabled === expected.enabled);
-}
-
-function isDefaultOffAudioSource(source: AudioSourceSetting): boolean {
-    return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
-}
-
-// Bunpro pronunciation audio is a later addition: seed it (OPT-IN, disabled)
-// into every saved source list, not just untouched legacy defaults.
-function withBunproAudioSource(sources: AudioSourceSetting[]): AudioSourceSetting[] {
-    const result = sources.map(source => ({ ...source }));
-    ensureBuiltInAudioSource(result, { type: 'bunpro', url: '', voice: '', enabled: false }, 'jiten-tts');
-    return result;
-}
-
-function ensureBuiltInAudioSource(sources: AudioSourceSetting[], source: AudioSourceSetting, beforeType: AudioSourceType): void {
-    if (sources.some(candidate => candidate.type === source.type)) return;
-    const insertIndex = sources.findIndex(candidate => candidate.type === beforeType);
-    if (insertIndex < 0) sources.push(source);
-    else sources.splice(insertIndex, 0, source);
+        : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
 }

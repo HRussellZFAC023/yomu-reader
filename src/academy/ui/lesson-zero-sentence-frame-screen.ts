@@ -1,5 +1,5 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_ASSETS } from '../assets';
+import { defaultCastPortrait } from '../assets';
 import {
     createVocabularyPictographIndex,
     loadVocabularyPictographManifest,
@@ -561,11 +561,11 @@ function livingPaper(): HTMLElement {
     return paper;
 }
 
-function portrait(speaker: 'rie' | 'sophie'): HTMLImageElement {
+function portrait(speaker: 'rie' | 'sophie'): HTMLImageElement | DocumentFragment {
+    const source = defaultCastPortrait(speaker, 'lesson:foundation-00:sentence-frame-host');
+    if (!source) return document.createDocumentFragment();
     const image = element('img', 'academy-sentence-frame-portrait');
-    image.src = speaker === 'sophie'
-        ? ACADEMY_ASSETS.characters.approved.sophie
-        : ACADEMY_ASSETS.rie;
+    image.src = source;
     image.alt = '';
     image.setAttribute('aria-hidden', 'true');
     return image;

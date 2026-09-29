@@ -248,6 +248,22 @@ describe('reader helpers', () => {
         expect(onAnkiStatusChanged).toHaveBeenCalledWith(card);
     });
 
+    it.each([true, false])('collects Jiten batch words without reviewing (reviews enabled: %s)', async enableReviews => {
+        const addToStudyDeck = vi.fn(async () => undefined);
+        const reviewCard = vi.fn(async () => undefined);
+        const controller = testCardActionController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', jpdbMiningEnabled: true,
+                apiGradingProvider: 'jiten', ankiEnabled: false, enableReviews }),
+            jiten: { addToStudyDeck, reviewCard, listStudyDecks: vi.fn(async () => [{ id: 12, name: 'Reading' }]) } as unknown as JitenApiClient,
+        });
+        const candidate = { ...card, source: 'jiten' as const, jitenWordId: 42, jitenReadingIndex: 0 };
+
+        await expect(controller.addBatchMiningCards([{ card: candidate, sentence: '本を読む。' }])).resolves.toMatchObject({ items: [{ state: 'completed', completedStages: ['api-collection'] }] });
+        expect(addToStudyDeck).toHaveBeenCalledOnce();
+        expect(addToStudyDeck).toHaveBeenCalledWith('12', candidate, '本を読む。', document.title);
+        expect(reviewCard).not.toHaveBeenCalled();
+    });
+
     it('batch grades mining candidates through the shared review path', async () => {
         const addToDeck = vi.fn(async () => undefined);
         const reviewCard = vi.fn(async () => undefined);
@@ -256,6 +272,7 @@ describe('reader helpers', () => {
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 apiKey: 'test-key',
+                twoButtonReviews: true,
                 jpdbMiningEnabled: true,
                 enableReviews: true,
             }),
@@ -268,7 +285,7 @@ describe('reader helpers', () => {
         await expect(controller.reviewBatchMiningCards([
             { card: notInDeckCard, sentence: '本を読む。' },
             { card: newCard, sentence: '字を書く。' },
-        ], 'pass')).resolves.toBe(2);
+        ], 'pass')).resolves.toMatchObject({ items: [{ state: 'completed' }, { state: 'completed' }] });
 
         expect(addToDeck).toHaveBeenCalledTimes(1);
         expect(addToDeck).toHaveBeenCalledWith(DEFAULT_SETTINGS.miningDeck, notInDeckCard, '本を読む。');
@@ -336,7 +353,7 @@ describe('reader helpers', () => {
         expect(mount.querySelector('[data-review-target-label]')?.classList.contains('jpdb-reader-sr-only')).toBe(true);
         expect(mount.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Jiten');
         expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.dataset.reviewTarget).toBe('jiten');
-        expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.getAttribute('aria-label')).toBe('Okay: Grades Jiten');
+        expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.getAttribute('aria-label')).toBe('Good: Grades Jiten');
         expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.title).toBe('Grades Jiten');
     });
 
@@ -1007,20 +1024,20 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
+    it('uses current color-channel defaults and ignores retired wordHighlightMode', () => {
         // A20: Yomu's own deck feeds the state channel, so the "nothing can
         // answer what I know" cases have to switch it off to stay about that.
         const deckless = { ...DEFAULT_SETTINGS, yomuLocalSrsEnabled: false };
         expect(effectiveReaderColorSource(deckless, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(deckless, 'auto', 'pitch')).toBe('pitch');
-        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' }, 'auto')).toBe('jpdb');
-        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'status' }, 'auto')).toBe('off');
-        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'off' }, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' } as never, 'auto')).toBe('jpdb');
+        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'off' } as never, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(effectiveReaderColorSource(deckless, 'anki')).toBe('off');
-        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' }, 'auto')).toBe('jpdb');
-        expect(effectiveSubtitleColorSource({ ...deckless, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
+        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' } as never, 'auto')).toBe('jpdb');
+        expect(effectiveSubtitleColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
         expect(effectiveSubtitleColorSource(DEFAULT_SETTINGS, 'status')).toBe('status');
 
         const html = renderTokensToHtml('読む', [{
@@ -1079,14 +1096,14 @@ describe('reader helpers', () => {
 
     // A11: the shipped default reads every parsed word, and legacy 'auto' lands
     // on a mode the surrounding UI can explain.
-    it('defaults furigana to every parsed word and migrates legacy automatic mode to concrete behavior (UT-47)', () => {
+    it('defaults furigana to every parsed word and preserves typed automatic mode', () => {
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
+        expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
+        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'off' })).toBe('off');
     });
 

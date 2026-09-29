@@ -38,10 +38,8 @@ export const SETTINGS_INTENT_LEDGER_STORAGE_KEY = 'yomu:settings-intent:v2';
 /**
  * `value` is present only for a scalar preference.
  *
- * A record with no value still says "the learner decided about this key", which
- * is what legacy recovery needs to stop treating the field as a gap (GitHub
- * #36: a cleared hover-lookup hotkey came back from an older storage key). What
- * it deliberately does NOT do is substitute the value back on a later write:
+ * A record with no value still says "the learner decided about this key".
+ * It does not substitute the value back on a later write:
  * `dictionaryPreferences`, `shortcuts` and `languageProfiles` are containers
  * that legitimate machine writes ADD to -- a newly imported dictionary, a
  * discovered profile -- and replacing the whole container would silently drop
@@ -58,11 +56,9 @@ export interface SettingsIntentLedger {
     readonly records: Readonly<Record<string, SettingsIntentRecord>>;
 }
 
-const EMPTY_SETTINGS_INTENT_LEDGER: SettingsIntentLedger = { revision: 0, records: {} };
-
 /**
  * The declaration a write with no human behind it makes: normalization,
- * legacy recovery, auto-discovery, theme following the host page. Named rather
+ * auto-discovery, theme following the host page. Named rather
  * than an empty literal so `explicitUserChoiceKeys` being REQUIRED forces every
  * caller to state which kind of write it is, and so the machine writers are
  * greppable.
@@ -92,47 +88,21 @@ export function coupledIntentKeys(
     return [...expanded];
 }
 
-/**
- * The stored ledger, plus any 1.8.22-era flat pin store folded in.
- *
- * The old store was a bare `key -> value` map with no ordering, so its entries
- * enter at sequence 0: every later declaration outranks them, and an install
- * upgrading mid-session keeps the choices it had already made.
- */
-export function settingsIntentLedgerFromStorage(stored: unknown, legacyPins: unknown): SettingsIntentLedger {
-    const fromLegacy = ledgerFromLegacyPins(legacyPins);
-    const fromStored = parseSettingsIntentLedger(stored);
-    if (!fromStored) return fromLegacy;
-    return {
-        revision: Math.max(fromStored.revision, fromLegacy.revision),
-        records: { ...fromLegacy.records, ...fromStored.records },
-    };
-}
-
-function parseSettingsIntentLedger(value: unknown): SettingsIntentLedger | null {
+export function parseSettingsIntentLedger(value: unknown): SettingsIntentLedger | null {
     const record = objectRecord(value);
-    if (!record) return null;
+    if (!record || typeof record.revision !== 'number' || !Number.isSafeInteger(record.revision)
+        || record.revision < 0) return null;
     const records = objectRecord(record.records);
     if (!records) return null;
     const parsed: Record<string, SettingsIntentRecord> = {};
-    let highest = 0;
     for (const [key, entry] of Object.entries(records)) {
         const item = objectRecord(entry);
-        if (!item) continue;
-        const seq = typeof item.seq === 'number' && Number.isFinite(item.seq) ? item.seq : 0;
+        if (!item || typeof item.seq !== 'number' || !Number.isSafeInteger(item.seq)
+            || item.seq <= 0 || item.seq > record.revision) return null;
+        const seq = item.seq;
         parsed[key] = hasOwn(item, 'value') ? { seq, value: item.value } : { seq };
-        highest = Math.max(highest, seq);
     }
-    const revision = typeof record.revision === 'number' && Number.isFinite(record.revision) ? record.revision : 0;
-    return { revision: Math.max(revision, highest), records: parsed };
-}
-
-function ledgerFromLegacyPins(value: unknown): SettingsIntentLedger {
-    const record = objectRecord(value);
-    if (!record) return EMPTY_SETTINGS_INTENT_LEDGER;
-    const records: Record<string, SettingsIntentRecord> = {};
-    for (const [key, pinned] of Object.entries(record)) records[key] = { seq: 0, value: pinned };
-    return { revision: 0, records };
+    return { revision: record.revision, records: parsed };
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {
@@ -208,7 +178,7 @@ function isSubstitutableSettingValue(value: unknown): boolean {
         || typeof value === 'string';
 }
 
-/** Keys the learner has decided about, for the legacy-recovery gap test. */
+/** Keys explicitly declared by the learner, including container choices. */
 export function settingsIntentKeys(ledger: SettingsIntentLedger): string[] {
     return Object.keys(ledger.records);
 }

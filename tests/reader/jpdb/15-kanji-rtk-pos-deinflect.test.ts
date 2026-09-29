@@ -847,7 +847,6 @@ describe('reader helpers', () => {
                 localDictionaryShowKanji: false,
                 rtkEnabled: false,
                 kanjiOriginsEnabled: false,
-                uchisenEnabled: false,
                 immersionKitEnabled: false,
             },
             kanji: '子',

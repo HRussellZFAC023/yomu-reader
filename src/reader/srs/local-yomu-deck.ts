@@ -23,6 +23,8 @@ export interface StoredYomuSrsCard {
     sourceUrl?: string;
     tags?: string[];
     dueAt: number;
+    /** False for saved material not yet enrolled; existing learner schedules remain active. */
+    reviewEnabled?: boolean;
     lastReviewAt: number | null;
     createdAt: number;
     updatedAt: number;
@@ -304,6 +306,7 @@ function normalizeStoredCard(value: unknown): StoredYomuSrsCard | null {
         ...(cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {}),
         tags: stringArray(value.tags),
         dueAt: finiteNumber(value.dueAt, createdAt),
+        ...(value.reviewEnabled === false ? { reviewEnabled: false } : {}),
         lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
         createdAt,
         updatedAt,
@@ -326,6 +329,9 @@ function storedCardIdentity(card: StoredYomuSrsCard): ReturnType<typeof canonica
 }
 
 function preferredSchedule(left: StoredYomuSrsCard, right: StoredYomuSrsCard): StoredYomuSrsCard {
+    if ((left.reviewEnabled === false) !== (right.reviewEnabled === false)) {
+        return left.reviewEnabled === false ? right : left;
+    }
     if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
     const leftReviewed = left.lastReviewAt ?? -1;
     const rightReviewed = right.lastReviewAt ?? -1;

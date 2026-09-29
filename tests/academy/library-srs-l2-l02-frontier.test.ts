@@ -56,7 +56,7 @@ describe('Library SRS l2-l02 exact vocabulary frontier', () => {
         expect(seeds.every(seed => seed.sourceQuestionId?.startsWith(SOURCE_ID))).toBe(true);
     });
 
-    it('carries a canonical row through Reader, Jiten fallback, and Word to Type while withholding source gaps', async () => {
+    it('carries a canonical row through Reader, Jiten fallback, and native review with optional writing while withholding source gaps', async () => {
         const sheet = createLibraryVocabularySheetFromPackage(lessonPackage(), 'l2-l02');
         const canonical = sheet.items[6]!;
         const surface = document.createElement('span');
@@ -81,14 +81,33 @@ describe('Library SRS l2-l02 exact vocabulary frontier', () => {
         }, { concurrency: 1, jpdbPublicLookup: false });
         expect(lookupMany.mock.calls[0]?.[0]).toContain('一度');
 
-        const steps = createNewTabStudySession(token!.card, {
-            mode: 'word',
+        const options = {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        }).steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
 
         const unsupported = sheet.items[0]!;
         const unsupportedSurface = document.createElement('span');

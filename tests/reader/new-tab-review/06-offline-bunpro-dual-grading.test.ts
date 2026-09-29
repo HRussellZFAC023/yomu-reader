@@ -2,7 +2,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
-    WORD_ONLY_STUDY_DISABLED_STEPS,
     DEFAULT_SETTINGS,
     NEW_TAB_GRADE_QUEUE_KEY,
     newTabTestCard,
@@ -35,6 +34,30 @@ import { newTabReviewProviderContext } from '../../../src/reader/newtab/provider
 describe('new tab review — offline grades, Bunpro & dual-source grading', () => {
     registerNewTabReviewCleanup();
 
+    it.each([false, true])('does not replay a lost Anki response (explicit target: %s)', async explicitTarget => {
+        const card = newTabTestCard({ source: 'anki', reviewSource: 'anki', ankiCardId: 7701, cardState: ['due'] });
+        const reviewAnki = vi.fn(async () => { throw new Error('response lost after native commit'); });
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }, { anki: { answerCard: reviewAnki } as never });
+        const probe = controller as unknown as {
+            gradeCurrentCard(grade: 'okay', target?: { kind: 'anki'; ankiCardId: number }): Promise<boolean>;
+            loadWordsInto(root: HTMLElement, preferStoredWord: boolean, options: { useOfflineCache: boolean }): Promise<void>;
+            flushQueuedGrades(): Promise<void>;
+        };
+        vi.spyOn(probe, 'loadWordsInto').mockResolvedValue(undefined);
+        const root = renderSeededNewTabWord(controller, card, {
+            allWords: [card], visibleWords: [card], reviewCountMode: true, sourceLabel: 'Anki',
+            state: { source: 'anki', revealAnswer: true }, appendToDocument: true, bindRootEvents: true,
+        });
+        try {
+            await probe.gradeCurrentCard('okay', explicitTarget ? { kind: 'anki', ankiCardId: 7701 } : undefined);
+            expect(reviewAnki).toHaveBeenCalledOnce();
+            expect(readNewTabGradeQueue()).toEqual([]);
+            expect(probe.loadWordsInto).toHaveBeenCalledWith(root, false, { useOfflineCache: false });
+            await probe.flushQueuedGrades();
+            expect(reviewAnki).toHaveBeenCalledOnce();
+        } finally { controller.destroy(); root.remove(); }
+    });
+
 
     it('queues offline JPDB grades without returning navigation to the graded card', async () => {
         const first = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
@@ -49,7 +72,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
                 newTabOfflineEnabled: true,
                 newTabParsingEnabled: false,
                 newTabFrontSentenceEnabled: false,
-                newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
             }), {
             jpdb: { reviewCard } as never,
         });
@@ -197,6 +220,11 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const queue = readNewTabGradeQueue();
         expect(queue).toHaveLength(1);
         expect(queue[0]).toMatchObject({ target: 'anki', grade: 'fail', attempts: 1, lastError: 'anki offline' });
+        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; syncStatusSegment(): string };
+        expect(probe.syncStatusSegment()).toBe('Review outcome unknown — check your SRS');
+        await probe.flushQueuedGrades();
+        expect(answerCard).toHaveBeenCalledOnce();
+        expect(reviewCard).toHaveBeenCalledOnce();
     });
 
     it('flushes queued Anki grades through AnkiConnect', async () => {
@@ -788,7 +816,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         }
     });
 
-    it('refuses stale Bunpro lookup and doodle callbacks after the queue changes cards', async () => {
+    it('refuses stale Bunpro lookup callbacks after the queue changes cards', async () => {
         const previous = newTabTestCard({
             spelling: '同じ', reading: 'おなじ', source: 'bunpro', reviewSource: 'bunpro-api',
             bunproReviewId: '1001', bunproReviewableId: 2001, bunproReviewableType: 'vocabulary',
@@ -806,7 +834,6 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
             bunproMiningEnabled: true,
             enableReviews: true,
-            newTabKanjiAutoSubmit: true,
             immersionKitEnabled: false,
         };
         const review = vi.fn(async () => ({}));
@@ -822,10 +849,6 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         try {
             await expect(controller.gradeFromLookup('pass', { kind: 'bunpro' }, previous))
                 .resolves.toEqual({ preserveLookup: false });
-            (controller as unknown as {
-                autoSubmitDoodleAssessment(settings: typeof DEFAULT_SETTINGS, passed: boolean, expectedCard: JPDBCard): void;
-            }).autoSubmitDoodleAssessment(settings, true, previous);
-            await Promise.resolve();
 
             expect(review).not.toHaveBeenCalled();
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords).toEqual([current]);
@@ -867,28 +890,6 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             controller.destroy();
             root.remove();
         }
-    });
-
-    it('maps doodle auto-submit to Bunpro regular and FSRS outcomes', () => {
-        const controller = newTabBareController();
-        const gradeCurrentCard = vi.fn(async (_grade: JPDBGrade, _target?: unknown, _card?: JPDBCard) => true);
-        const internals = controller as unknown as {
-            state: { revealAnswer: boolean };
-            gradeCurrentCard: typeof gradeCurrentCard;
-            autoSubmitDoodleAssessment(settings: typeof DEFAULT_SETTINGS, passed: boolean, expectedCard: JPDBCard): void;
-        };
-        internals.state = { ...internals.state, revealAnswer: true };
-        internals.gradeCurrentCard = gradeCurrentCard;
-        const regular = newTabTestCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewInputMode: 'regular' });
-        const fsrs = newTabTestCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewInputMode: 'fsrs' });
-        const settings = { ...DEFAULT_SETTINGS, enableReviews: true, newTabKanjiAutoSubmit: true };
-
-        internals.autoSubmitDoodleAssessment(settings, true, regular);
-        internals.autoSubmitDoodleAssessment(settings, false, regular);
-        internals.autoSubmitDoodleAssessment(settings, true, fsrs);
-        internals.autoSubmitDoodleAssessment(settings, false, fsrs);
-
-        expect(gradeCurrentCard.mock.calls.map(([grade]) => grade)).toEqual(['pass', 'fail', 'okay', 'nothing']);
     });
 
     it('merges matching JPDB and Anki auto review cards into one dual-source prompt', async () => {
@@ -1082,7 +1083,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         }
     });
 
-    it('lets the main new-tab grade bar split JPDB and individual Anki targets while keeping Both as the default', async () => {
+    it.each(['jpdb', 'anki:405'])('selects %s from the main grade bar while keeping Both as the default', async target => {
         const { card, reviewCard, answerCard, root } = renderJpdbAnkiReviewWordFixture({ bindRootEvents: true });
 
         try {
@@ -1097,30 +1098,21 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
             expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Both');
 
-            targetSelect.value = 'jpdb';
+            targetSelect.value = target;
             targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
-            expect(targetSelect.selectedOptions[0]?.textContent).toBe('JPDB');
-            expect(root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.getAttribute('aria-label')).toBe('Okay: Grades JPDB');
-            root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
-
+            const anki = target === 'anki:405';
+            const grade = anki ? 'easy' : 'okay';
+            expect(targetSelect.options[targetSelect.selectedIndex]?.textContent).toBe(anki ? 'Core #405' : 'JPDB');
+            const button = root.querySelector<HTMLButtonElement>(`[data-grade="${grade}"]`)!;
+            expect(button.getAttribute('aria-label')).toBe(anki ? 'Easy: Grades Anki card: Core #405' : 'Okay: Grades JPDB');
+            button.click();
             await waitForExpect(() => {
-                expect(reviewCard).toHaveBeenCalledWith(card, 'okay');
+                if (anki) expect(answerCard).toHaveBeenCalledWith(405, 'easy');
+                else expect(reviewCard).toHaveBeenCalledWith(card, 'okay');
             });
-            expect(answerCard).not.toHaveBeenCalled();
-
-            targetSelect.value = 'anki:405';
-            targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
-            expect(targetSelect.selectedOptions[0]?.textContent).toBe('Core #405');
-            expect(targetSelect.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades Anki card: Core #405');
-            expect(root.querySelector<HTMLButtonElement>('[data-grade="easy"]')?.getAttribute('aria-label')).toBe('Easy: Grades Anki card: Core #405');
-            root.querySelector<HTMLButtonElement>('[data-grade="easy"]')?.click();
-
-            await waitForExpect(() => {
-                expect(answerCard).toHaveBeenCalledWith(405, 'easy');
-            });
-            expect(reviewCard).toHaveBeenCalledTimes(1);
+            expect(reviewCard).toHaveBeenCalledTimes(anki ? 0 : 1);
+            expect(answerCard).toHaveBeenCalledTimes(anki ? 1 : 0);
         } finally {
             root.remove();
         }
@@ -1161,14 +1153,14 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             allWords: [card],
             visibleWords: [card],
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'anki', revealAnswer: true },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'anki', revealAnswer: true },
         });
         (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderWord(root: HTMLElement, card: JPDBCard): void }).bindRootEvents(root);
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
@@ -1200,7 +1192,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         }
     });
 
-    it('queues only the failed provider when one half of a dual-source review grade is offline', async () => {
+    it('does not replay either provider after an ambiguous Anki result in a dual-source grade', async () => {
         const card = newTabTestCard({
             vid: 250,
             sid: 1,
@@ -1252,31 +1244,40 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             allWords: [card],
             visibleWords: [card],
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'JPDB + Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
         });
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
+        const probe = controller as unknown as {
+            gradeCurrentCard(grade: 'okay'): Promise<void>;
+            loadWordsInto(root: HTMLElement, preferStoredWord: boolean, options: { useOfflineCache: boolean }): Promise<void>;
+            flushQueuedGrades(): Promise<void>;
+        };
+        vi.spyOn(probe, 'loadWordsInto').mockResolvedValue(undefined);
         try {
-            await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
+            await probe.gradeCurrentCard('okay');
 
             expect(reviewCard).toHaveBeenCalledWith(card, 'okay');
             expect(answerCard).toHaveBeenCalledWith(404, 'okay');
-            const queue = readNewTabGradeQueue();
-            expect(queue).toHaveLength(1);
-            expect(queue[0]).toMatchObject({ target: 'anki', grade: 'okay', attempts: 0 });
+            expect(readNewTabGradeQueue()).toEqual([]);
+            expect(probe.loadWordsInto).toHaveBeenCalledWith(root, false, { useOfflineCache: false });
+            await probe.flushQueuedGrades();
+            expect(reviewCard).toHaveBeenCalledOnce();
+            expect(answerCard).toHaveBeenCalledOnce();
         } finally {
+            controller.destroy();
             root.remove();
         }
     });
 
-    it('reloads the Anki SRS queue after grading instead of reusing a stale source cache', async () => {
+    it.each(['pass', 'fail'] as const)('reloads Anki scheduling after %s instead of replaying the old prompt', async grade => {
         document.body.replaceChildren();
         const first = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404, rid: 404 });
         const second = newTabTestCard({ spelling: '次回', reading: 'じかい', source: 'anki', reviewSource: 'anki', ankiCardId: 405, rid: 405 });
@@ -1312,18 +1313,22 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         await controller.renderPage();
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab')!;
         const internals = controller as unknown as {
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             visibleWords: JPDBCard[];
             index: number;
             renderWord(root: HTMLElement, card: JPDBCard): void;
-            gradeCurrentCard(grade: 'pass'): Promise<void>;
+            gradeCurrentCard(grade: 'pass' | 'fail'): Promise<void>;
+            canUndoLastReview(): boolean;
+            reviewHistoryCards: JPDBCard[];
         };
         internals.state.revealAnswer = true;
         internals.renderWord(root, first);
 
-        await internals.gradeCurrentCard('pass');
+        await internals.gradeCurrentCard(grade);
 
-        expect(answerCard).toHaveBeenCalledWith(404, 'pass');
+        expect(answerCard).toHaveBeenCalledWith(404, grade);
+        expect(internals.canUndoLastReview()).toBe(false);
+        expect(internals.reviewHistoryCards).not.toContainEqual(expect.objectContaining({ ankiCardId: 404 }));
         await waitForExpect(() => {
             expect(listNewTabCards).toHaveBeenCalledTimes(2);
             expect(newTabPromptText()).toBe('次回');
@@ -1379,12 +1384,12 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         Object.assign(controller as unknown as {
             allWords: JPDBCard[];
             visibleWords: JPDBCard[];
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             loadWordsInto: typeof reload;
         }, {
             allWords: [card],
             visibleWords: [card],
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
             loadWordsInto: reload,
         });
 
@@ -1403,13 +1408,13 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             allWords: JPDBCard[];
             visibleWords: JPDBCard[];
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             loadWordsInto: typeof reload;
         }, {
             allWords: [graded, next],
             visibleWords: [graded, next],
             sourceLabel: 'JPDB',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
             loadWordsInto: reload,
         });
 
@@ -1435,7 +1440,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
-            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
         }, {
             jpdb: { reviewCard } as never,
         });
@@ -1447,7 +1452,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             bindRootEvents(root: HTMLElement): void;
             renderWord(root: HTMLElement, card: JPDBCard): void;
             loadWordsInto: typeof loadWordsInto;
@@ -1459,7 +1464,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
                 index: 0,
                 reviewCountMode: true,
                 sourceLabel: 'JPDB',
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+                state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
                 loadWordsInto,
             });
             internals.bindRootEvents(root);
@@ -1500,7 +1505,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
-            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
         }));
         const root = renderSeededNewTabWord(controller, current, {
             allWords: [current],
@@ -1534,7 +1539,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
-            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
         }));
         const root = renderSeededNewTabWord(controller, first, {
             allWords: [first, second],
@@ -1572,7 +1577,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             loadWordsInto: typeof reload;
         }, {
             allWords: [previous, graded, next],
@@ -1580,7 +1585,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             index: 1,
             reviewCountMode: true,
             sourceLabel: 'JPDB',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
             loadWordsInto: reload,
         });
 

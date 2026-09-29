@@ -50,7 +50,7 @@ const LOCAL_SETTINGS_ACTIONS = new Set([
 ]);
 
 function settingsActionMode(action: string): SettingsActionMode {
-    if (action === 'import-yomitan-settings' || action === 'restore-cloud-settings') return 'restore';
+    if (action === 'import-reader-settings' || action === 'restore-cloud-settings') return 'restore';
     if (LOCAL_SETTINGS_ACTIONS.has(action)) return 'local';
     // Unknown actions fail closed. Adding a durable settings action does not
     // silently make it concurrent with Save or restore.

@@ -1,5 +1,5 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_ASSETS, type AcademyPlateId } from '../assets';
+import { defaultCastPortrait, type AcademyPlateId } from '../assets';
 import {
     createPrivatePracticeRecorder,
     type PrivatePracticeCapture,
@@ -13,6 +13,8 @@ import {
 } from '../content/lesson-zero-mission-activity';
 import { createKatakanaNameDraft } from '../content/learner-name';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
+import { restoreLessonZeroMissionSession, type LessonZeroMissionSession, type LessonZeroMissionReceipt } from '../domain/lesson-zero-mission-session';
+import { canonicalGroundedReviewKey } from '../domain/review-identity';
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import { academyBackgroundPicture, backButton, choiceToken, element } from './dom';
 
@@ -23,12 +25,15 @@ export interface LessonZeroMissionScreenOptions {
     readonly definition: LessonZeroMissionDefinition;
     readonly pronunciation: PronunciationService;
     readonly recorder?: PrivatePracticeRecorder;
+    readonly revision?: string;
+    readonly initialState?: LessonZeroMissionSession;
+    readonly onStateChange?: (state: LessonZeroMissionSession) => void | Promise<void>;
     readonly onEvaluation: (
         evaluation: ActivityEvaluation,
         response: LessonZeroMissionResponse,
     ) => void | Promise<void>;
     readonly onBack: () => void | Promise<void>;
-    readonly onComplete: () => void | Promise<void>;
+    readonly onComplete: (response?: LessonZeroMissionResponse) => void | Promise<void>;
 }
 
 export interface LessonZeroMissionScreen {
@@ -88,24 +93,31 @@ export function createLessonZeroMissionScreen(
     const lifecycle = new AbortController();
     let renderLifecycle = new AbortController();
     const recorder = options.recorder ?? createPrivatePracticeRecorder();
+    const revision = options.revision ?? 'mission-v1';
+    const saved = restoreLessonZeroMissionSession(options.definition.activity.id, revision, options.initialState);
+    let receipt: LessonZeroMissionReceipt | undefined = saved?.receipt;
+    let unassessedFeedback = saved?.unassessedFeedback;
+    let closeAction = saved?.closeAction;
     let playback: Disposable | null = null;
     let authoredAudio: HTMLAudioElement | null = null;
     let capture: PrivatePracticeCapture | null = null;
     let recording: PrivatePracticeRecording | null = null;
-    let performed = false;
-    let attempted = false;
-    let completed = false;
+    let spokeWithoutRecording = saved?.spokeWithoutRecording ?? false;
+    let performed = spokeWithoutRecording;
+    let attempted = Boolean(receipt?.committed || unassessedFeedback);
+    let completed = receipt?.committed === true && receipt.outcome === 'pass';
     let busy = false;
     let disposed = false;
-    let feedback: ActivityEvaluation['result']['feedback'] | null = null;
-    let particleValues: [string, string] = ['', ''];
-    const selectedChecks = new Set<string>();
+    let feedback: ActivityEvaluation['result']['feedback'] | null = unassessedFeedback ?? (receipt?.committed && (saved?.repairing || completed) ? receipt.feedback : null);
+    let writtenDraft = saved?.writtenDraft ?? '';
+    let particleValues: [string, string] = saved ? [...saved.particles] : ['', ''];
+    const selectedChecks = new Set(saved?.checks ?? []);
     const nameDraft = createKatakanaNameDraft(options.definition.learnerName);
     const lockedClassName = options.definition.lockedClassName?.trim() || null;
-    let selectedCardName = lockedClassName ?? nameDraft.katakana ?? nameDraft.usualName;
-    let editedKatakana = nameDraft.katakana ?? '';
+    let selectedCardName = lockedClassName ?? saved?.selectedCardName ?? nameDraft.katakana ?? nameDraft.usualName;
+    let editedKatakana = saved?.editedKatakana ?? nameDraft.katakana ?? '';
     let nameEntryMode: 'ime' | 'katakana-choice' | 'usual-spelling' =
-        selectedCardName === nameDraft.katakana ? 'katakana-choice' : 'usual-spelling';
+        saved?.nameEntryMode ?? (selectedCardName === nameDraft.katakana ? 'katakana-choice' : 'usual-spelling');
 
     const screen = element('section', 'academy-screen academy-mission-screen');
     screen.dataset.academyScreen = 'lesson-zero-mission';
@@ -119,7 +131,7 @@ export function createLessonZeroMissionScreen(
     back.className = 'academy-mission-back';
     back.textContent = '←';
     back.title = localized({ en: 'Back', ja: '戻る' });
-    back.addEventListener('click', () => void options.onBack(), { signal: lifecycle.signal });
+    back.addEventListener('click', () => void leave(options.onBack), { signal: lifecycle.signal });
     const heading = element('div', 'academy-mission-heading');
     heading.append(
         copyNode('p', 'academy-mission-eyebrow', EYEBROWS[options.definition.activity.id]),
@@ -135,6 +147,29 @@ export function createLessonZeroMissionScreen(
     live.setAttribute('aria-live', 'polite');
     shell.append(header, body, live);
     screen.append(shell);
+
+    let saveQueue: Promise<void> = Promise.resolve();
+    const persist = (): Promise<void> => {
+        const state: LessonZeroMissionSession = {
+            schemaVersion: 1, activityId: options.definition.activity.id, revision,
+            writtenDraft, particles: [...particleValues], checks: [...selectedChecks].filter(id => id !== 'listen-back-reflection'),
+            spokeWithoutRecording, selectedCardName, editedKatakana, nameEntryMode,
+            repairing: Boolean(feedback) && !completed || receipt?.committed === false && receipt.outcome === 'lapse',
+            ...(receipt ? { receipt: structuredClone(receipt) } : {}), ...(closeAction ? { closeAction } : {}),
+            ...(unassessedFeedback ? { unassessedFeedback: structuredClone(unassessedFeedback) } : {}),
+        };
+        saveQueue = saveQueue.catch(() => undefined).then(async () => { await options.onStateChange?.(state); });
+        return saveQueue;
+    };
+    const saveError = (): void => {
+        if (disposed) return;
+        live.textContent = localized({ en: 'Progress did not save. Try again before leaving.', ja: '進み具合を保存できませんでした。戻る前にもう一度お試しください。' });
+    };
+    const changed = (): void => { void persist().catch(saveError); };
+    const leave = async (action: () => void | Promise<void>): Promise<void> => {
+        try { await persist(); if (!disposed) await action(); } catch { saveError(); }
+    };
+    const finish = (): Promise<void> => leave(() => options.onComplete(closeAction ? { kind: 'room-action', actionId: closeAction } : undefined));
 
     const render = (): void => {
         renderLifecycle.abort();
@@ -214,6 +249,7 @@ export function createLessonZeroMissionScreen(
                 const slot = particleValues[0] ? 1 : 0;
                 particleValues[slot] = value;
                 feedback = null;
+                changed();
                 render();
             });
             button.dataset.choiceToken = choiceToken(index);
@@ -223,6 +259,7 @@ export function createLessonZeroMissionScreen(
         const reset = actionButton({ en: 'Clear', ja: 'やり直す' }, 'quiet', signal, () => {
             particleValues = ['', ''];
             feedback = null;
+            changed();
             render();
         });
         const check = actionButton({ en: 'Check', ja: '確認する' }, 'primary', signal, () => submit({
@@ -246,6 +283,7 @@ export function createLessonZeroMissionScreen(
         button.addEventListener('click', () => {
             particleValues[slot] = '';
             feedback = null;
+            changed();
             render();
         }, { signal: renderLifecycle.signal });
         return button;
@@ -297,10 +335,18 @@ export function createLessonZeroMissionScreen(
         input.spellcheck = false;
         input.rows = 4;
         input.maxLength = 180;
+        input.value = writtenDraft;
+        input.addEventListener('input', () => { writtenDraft = input.value; changed(); }, { signal });
         input.placeholder = id === 'activity:lesson-zero-written-transfer'
             ? localized({ en: 'はじめまして。…です。…', ja: 'はじめまして。…です。…' })
             : localized({ en: 'A short Japanese sentence', ja: '短い日本語の文' });
         root.append(label, input);
+        if (id === 'activity:lesson-zero-text-transfer') {
+            root.append(copyNode('p', 'academy-mission-help', {
+                en: 'Use the class patterns with わたし / 私, Sophie / ソフィー, or Ruparna / ルパルナ. You can write about a name card, notebook, book, being a student, or studying Japanese. This checks the pattern, not whether a personal fact is true.',
+                ja: '「わたし／私」「Sophie／ソフィー」「Ruparna／ルパルナ」と、名札・ノート・本・学生・日本語の勉強について、クラスで使った文型で書きましょう。文型を確認する練習です。内容が事実かどうかは判定しません。',
+            }));
+        }
         if (attempted) {
             if (options.definition.audioUrl) {
                 root.append(authoredAudioButton(
@@ -315,6 +361,7 @@ export function createLessonZeroMissionScreen(
         root.append(send);
         root.addEventListener('submit', event => {
             event.preventDefault();
+            writtenDraft = input.value;
             void submit({ kind: 'written', text: input.value.trim() });
         }, { signal });
         return root;
@@ -340,6 +387,7 @@ export function createLessonZeroMissionScreen(
             }
             const preview = element('p', 'academy-mission-writing-preview');
             syncNamePreview(preview);
+            changed();
             const send = actionButton(
                 { en: 'Put the card on the desk', ja: '名札を机に置く' },
                 'primary',
@@ -475,6 +523,7 @@ export function createLessonZeroMissionScreen(
             nameEntryMode = value === nameDraft.katakana ? 'katakana-choice' : 'usual-spelling';
             const preview = label.closest('form')?.querySelector<HTMLElement>('.academy-mission-writing-preview');
             if (preview) syncNamePreview(preview);
+            changed();
         }, { signal });
         label.append(
             input,
@@ -509,6 +558,8 @@ export function createLessonZeroMissionScreen(
             }
             modes.append(actionButton({ en: 'Speak now', ja: '今、話す' }, 'primary', signal, () => {
                 performed = true;
+                spokeWithoutRecording = true;
+                changed();
                 render();
             }));
             root.append(modes, copyNode('p', 'academy-mission-privacy', {
@@ -546,6 +597,7 @@ export function createLessonZeroMissionScreen(
             input.addEventListener('change', () => {
                 if (input.checked) selectedChecks.add(id);
                 else selectedChecks.delete(id);
+                changed();
             }, { signal });
             label.append(input, copyNode('span', '', CHECK_LABELS[id] ?? { en: id, ja: id }));
             fieldset.append(label);
@@ -598,7 +650,7 @@ export function createLessonZeroMissionScreen(
             { en: 'Back to the story', ja: '物語に戻る' },
             'primary',
             signal,
-            options.onComplete,
+            finish,
         ));
     };
 
@@ -607,12 +659,14 @@ export function createLessonZeroMissionScreen(
         signal: AbortSignal,
     ): HTMLElement => {
         const block = element('section', 'academy-mission-feedback');
-        block.dataset.outcome = 'lapse';
+        block.dataset.outcome = unassessedFeedback ? 'unassessed' : 'lapse';
         block.setAttribute('role', 'status');
         block.append(copyNode('strong', '', value.explanation));
         if (value.repairPrompt) block.append(copyNode('p', '', value.repairPrompt));
         block.append(actionButton({ en: 'Try again', ja: 'もう一度' }, 'quiet', signal, () => {
             feedback = null;
+            unassessedFeedback = undefined;
+            changed();
             render();
         }));
         return block;
@@ -623,14 +677,41 @@ export function createLessonZeroMissionScreen(
         busy = true;
         screen.setAttribute('aria-busy', 'true');
         try {
-            const evaluation = evaluateLessonZeroMission(options.definition, response);
+            const evaluated = evaluateLessonZeroMission(options.definition, response);
+            if ('kind' in evaluated) {
+                receipt = undefined;
+                unassessedFeedback = feedback = evaluated.feedback;
+                attempted = true;
+                completed = false;
+                await persist();
+                if (!disposed) { live.textContent = feedback.explanation[options.language]; render(); }
+                return;
+            }
+            unassessedFeedback = undefined;
+            const evaluation = { ...evaluated, attempt: { ...evaluated.attempt, eventId: `attempt:mission:${crypto.randomUUID()}` } };
+            closeAction = response.kind === 'room-action' ? response.actionId : undefined;
+            receipt = { eventId: evaluation.attempt.eventId!, at: evaluation.attempt.at ?? Date.now(),
+                outcome: evaluation.result.outcome === 'pass' ? 'pass' : 'lapse',
+                feedback: { explanation: { ...evaluation.result.feedback.explanation },
+                    ...(evaluation.result.feedback.repairPrompt ? { repairPrompt: { ...evaluation.result.feedback.repairPrompt } } : {}) },
+                reviewEventIds: evaluation.reviewSeeds.map(seed => `review-scheduled:academy:${seed.id}`),
+                reviewKeys: evaluation.reviewSeeds.map(seed => ({
+                    canonical: canonicalGroundedReviewKey(seed.content.expression, seed.content.reading), legacy: `yomu-local:${seed.id}`,
+                })), committed: false };
+            await persist();
             await options.onEvaluation(evaluation, response);
+            receipt = { ...receipt, committed: true };
             attempted = true;
             feedback = evaluation.result.feedback;
             completed = evaluation.result.outcome === 'pass';
+            await persist();
+            if (disposed) return;
             live.textContent = feedback.explanation[options.language];
             render();
+            if (completed && response.kind === 'room-action') await finish();
         } catch (error) {
+            if (disposed) return;
+            if (receipt?.committed) { render(); saveError(); return; }
             console.error('Lesson Zero mission evidence did not save.', error);
             live.textContent = localized({ en: 'That did not save. Try once more.', ja: '保存できませんでした。もう一度お試しください。' });
         } finally {
@@ -642,9 +723,14 @@ export function createLessonZeroMissionScreen(
     const startRecording = async (): Promise<void> => {
         if (busy || disposed) return;
         try {
+            spokeWithoutRecording = false;
+            performed = false;
+            selectedChecks.clear();
+            changed();
             recording?.dispose();
             recording = null;
             capture = await recorder.start();
+            if (disposed) { capture.cancel(); capture = null; return; }
             performed = true;
             render();
             const take = await capture.completion;
@@ -652,10 +738,12 @@ export function createLessonZeroMissionScreen(
             if (disposed) take?.dispose();
             else {
                 recording = take;
+                performed = Boolean(take);
                 render();
             }
         } catch {
             capture = null;
+            if (disposed) return;
             live.textContent = localized({ en: 'The microphone is unavailable. You can speak without recording.', ja: 'マイクを使えません。録音せずに話せます。' });
             render();
         }
@@ -672,7 +760,9 @@ export function createLessonZeroMissionScreen(
     const playPhrase = async (term: string, reading: string): Promise<void> => {
         stopAuthoredAudio();
         playback?.dispose();
-        playback = await options.pronunciation.play(term, reading);
+        const result = await options.pronunciation.play(term, reading);
+        if (disposed) result.dispose();
+        else playback = result;
     };
 
     const authoredAudioButton = (
@@ -794,7 +884,7 @@ export function createLessonZeroMissionScreen(
         if (id === 'activity:lesson-zero-written-transfer') {
             root.append(japanese('はじめまして。＿＿です。よろしくお願いします。'));
         } else {
-            root.append(japanese('＿＿も＿＿です。'), japanese('＿＿の＿＿です。'));
+            root.append(japanese('＿＿も学生です。'), japanese('これは＿＿の名札です。'), japanese('＿＿も日本語を勉強しています。'));
         }
         return root;
     }
@@ -822,18 +912,19 @@ function portraitFor(id: LessonZeroMissionDefinition['activity']['id']): HTMLIma
     let source: string | undefined;
     let alt = '';
     if (id.includes('text')) {
-        source = ACADEMY_ASSETS.characters.approved.sophie;
+        source = defaultCastPortrait('sophie', 'lesson:foundation-00:mission-host');
         alt = 'Sophie';
     } else if (id.includes('speaking')) {
-        source = ACADEMY_ASSETS.characters.approved.aakash;
+        source = defaultCastPortrait('aakash', 'lesson:foundation-00:mission-host');
         alt = 'Aakash';
     } else if (id.includes('sound')) {
-        source = ACADEMY_ASSETS.characters.approved.mika;
+        source = defaultCastPortrait('mika', 'lesson:foundation-00:mission-host');
         alt = 'Mika';
     } else {
-        source = ACADEMY_ASSETS.characters.approved.rie;
+        source = defaultCastPortrait('rie', 'lesson:foundation-00:mission-host');
         alt = 'Rie-sensei';
     }
+    if (!source) return null;
     const image = element('img', 'academy-mission-portrait');
     image.src = source;
     image.alt = alt;

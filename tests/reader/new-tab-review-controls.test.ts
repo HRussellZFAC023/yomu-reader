@@ -4,14 +4,32 @@ import { newTabKeyHintsRenderable, renderNewTabGradeControlButtons } from '../..
 import { newTabGradeOptions, usesTwoButtonNewTabGradeScale } from '../../src/reader/newtab/review-targets';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard } from '../../src/reader/app/types';
-import { popoverUsesBunproGradeScale, updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
-import { bindPrivateCommandCapability } from '../../src/reader/dom/private-command-capabilities';
+import { updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
+import { bindPrivateCommandCapability, readReviewTargetCapability } from '../../src/reader/dom/private-command-capabilities';
 
 afterEach(() => {
     vi.unstubAllGlobals();
 });
 
 describe('new-tab review controls', () => {
+    it('uses native Anki outcomes instead of two choices for Hard', () => {
+        const card = { source: 'anki', reviewSource: 'anki' } as JPDBCard;
+        expect(newTabGradeOptions(DEFAULT_SETTINGS, card)).toEqual([
+            ['nothing', 'Again'], ['hard', 'Hard'], ['okay', 'Good'], ['easy', 'Easy'],
+        ]);
+        expect(newTabGradeOptions({ ...DEFAULT_SETTINGS, twoButtonReviews: true }, card)).toEqual([
+            ['fail', 'Again'], ['pass', 'Good'],
+        ]);
+    });
+    it('uses Jiten four outcomes without the duplicate Something grade', () => {
+        const card = { source: 'jiten', reviewSource: 'jiten-api' } as JPDBCard;
+        expect(newTabGradeOptions(DEFAULT_SETTINGS, card)).toEqual([
+            ['nothing', 'Again'], ['hard', 'Hard'], ['okay', 'Good'], ['easy', 'Easy'],
+        ]);
+        expect(newTabGradeOptions({ ...DEFAULT_SETTINGS, twoButtonReviews: true }, card)).toEqual([
+            ['fail', 'Fail'], ['pass', 'Pass'],
+        ]);
+    });
     it('uses Bunpro Hard/Good instead of the JPDB five-point scale', () => {
         const card = { source: 'bunpro', reviewSource: 'bunpro-api' } as JPDBCard;
         expect(newTabGradeOptions(DEFAULT_SETTINGS, card)).toEqual([
@@ -53,13 +71,13 @@ describe('new-tab review controls', () => {
 
         expect(document.querySelector<HTMLElement>('[data-review-grade-profile="standard"]')?.hidden).toBe(true);
         expect(document.querySelector<HTMLElement>('[data-review-grade-profile="bunpro-regular"]')?.hidden).toBe(false);
-        expect(popoverUsesBunproGradeScale(document)).toBe(true);
+        expect(readReviewTargetCapability(select.options[select.selectedIndex])?.gradeProfile).toBe('bunpro-regular');
         expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('Bunpro');
         expect(document.querySelector('[data-review-grade-profile="bunpro-regular"] button')?.getAttribute('data-review-target')).toBe('bunpro');
 
         select.selectedIndex = 0;
         updatePopoverReviewTargetSelection(select);
-        expect(popoverUsesBunproGradeScale(document)).toBe(false);
+        expect(readReviewTargetCapability(select.options[select.selectedIndex])?.gradeProfile).toBe('standard');
     });
     it('renders shortcut hints from configured keys on keyboard-capable devices', () => {
         vi.stubGlobal('matchMedia', (query: string) => ({

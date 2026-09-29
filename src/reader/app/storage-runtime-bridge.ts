@@ -46,7 +46,6 @@ export interface StorageRuntimeApi {
         onChange: (newValue: unknown, source: RuntimeStoredValueChangeSource) => void,
     ) => () => void;
     readonly storedValueExists: (key: string) => Promise<boolean>;
-    readonly cacheManagedValueForHostedStartup: (key: string, value: unknown) => void;
     readonly isHostedYomuOrigin: () => boolean;
 }
 

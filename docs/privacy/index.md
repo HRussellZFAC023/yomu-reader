@@ -28,13 +28,11 @@ The extension does not replace or redirect your browser's new-tab page. Study is
 
 Uninstalling the extension normally removes its browser-managed local data. Export settings first if you want a backup.
 
-## Settings recovery after 1.9.2
+## Settings backups
 
-Version 1.9.3 makes hosted Study reconcile with authoritative Reader settings as soon as their bridge arrives, and makes Firefox's extension-owned Study page and the Reader on ordinary websites share one canonical settings store.
+Export or import settings from Study → Settings → Backup & sync. Only the current Yomu settings backup format is supported; older Yomu and Yomitan settings files are not converted. Unsupported files are rejected before restoring data. Backups can contain API keys. Store them privately.
 
-If Study and ordinary websites already show different chosen settings, update to 1.9.3 or newer, open Study from the extension toolbar, and import your latest settings backup once. Keep only that settings surface active, leave the Study tab open, and wait for the import result; its Save and competing settings actions stay unavailable until the restore finishes.
-
-Do not factory reset or downgrade to recover from this incident. Factory reset is for deliberately erasing local Yomu data; it now also removes managed settings bytes stranded by older Firefox extension builds.
+Factory reset deliberately erases local Yomu data. It is not a settings-repair tool.
 
 ## Optional network services
 

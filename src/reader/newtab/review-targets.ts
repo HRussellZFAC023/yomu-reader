@@ -1,4 +1,5 @@
 import { uiText } from '../app/i18n';
+import { reviewGradeProfile, reviewGradeScale } from '../cards/grade-scale';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
@@ -39,7 +40,7 @@ export function isJitenSrsCard(card: JPDBCard): boolean {
 // UT-60: a jpdb-primary card that merged with its Jiten twin keeps the Jiten
 // identity (jitenWordId) without becoming a Jiten-sourced card — gradeability
 // follows the identity, not the winning source.
-function isJitenGradableCard(card: JPDBCard): boolean {
+export function isJitenGradableCard(card: JPDBCard): boolean {
     return isJitenSrsCard(card) || (typeof card.jitenWordId === 'number' && card.jitenWordId > 0);
 }
 
@@ -144,33 +145,11 @@ export function usesBunproFsrsGradeScale(card?: JPDBCard): boolean {
 }
 
 export function usesTwoButtonNewTabGradeScale(settings: ReaderSettings, card?: JPDBCard): boolean {
-    return settings.twoButtonReviews || usesBunproGradeScale(card) && !usesBunproFsrsGradeScale(card);
+    return reviewGradeScale(settings, reviewGradeProfile(card)).twoButton;
 }
 
 export function newTabGradeOptions(settings: ReaderSettings, card?: JPDBCard): Array<[JPDBGrade, string]> {
-    if (usesBunproFsrsGradeScale(card)) {
-        return [
-            ['nothing', uiText(settings.interfaceLanguage, 'bunproGradeAgainLabel')],
-            ['hard', uiText(settings.interfaceLanguage, 'bunproGradeHardLabel')],
-            ['okay', uiText(settings.interfaceLanguage, 'bunproGradeGoodLabel')],
-            ['easy', uiText(settings.interfaceLanguage, 'bunproGradeEasyLabel')],
-        ];
-    }
-    if (usesBunproGradeScale(card)) {
-        return [
-            ['fail', uiText(settings.interfaceLanguage, 'bunproGradeHardLabel')],
-            ['pass', uiText(settings.interfaceLanguage, 'bunproGradeGoodLabel')],
-        ];
-    }
-    return settings.twoButtonReviews
-        ? [['fail', uiText(settings.interfaceLanguage, 'gradeFailLabel')], ['pass', uiText(settings.interfaceLanguage, 'gradePassLabel')]]
-        : [
-            ['nothing', uiText(settings.interfaceLanguage, 'gradeNothingLabel')],
-            ['something', uiText(settings.interfaceLanguage, 'gradeSomethingLabel')],
-            ['hard', uiText(settings.interfaceLanguage, 'gradeHardLabel')],
-            ['okay', uiText(settings.interfaceLanguage, 'gradeOkayLabel')],
-            ['easy', uiText(settings.interfaceLanguage, 'gradeEasyLabel')],
-        ];
+    return reviewGradeScale(settings, reviewGradeProfile(card)).grades;
 }
 
 function hasBunproReviewSession(card: JPDBCard): boolean {

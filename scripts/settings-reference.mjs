@@ -41,14 +41,9 @@ export const SETTINGS_REFERENCE_PAGE = path.join(ROOT, 'docs', 'reference', 'set
 
 const NOT_DESCRIBED = 'Not yet described';
 const NO_DESCRIPTION = '—';
-const IGNORED_COMPATIBILITY_SETTINGS = new Set([
-    'uchisenEnabled',
-    'uchisenAlias',
-    'uchisenPriority',
-]);
 const LEARNING_TARGET_CHOSEN_LABEL = 'Learning target selected';
 const LEARNING_TARGET_CHOSEN_DESCRIPTION = 'Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off.';
-const UCHISEN_RETIREMENT_COPY = 'Uchisen is not an embedded kanji source. It remains available only as a disabled-by-default outbound lookup link; よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Older saved `uchisenEnabled`, `uchisenAlias`, and `uchisenPriority` fields are retained for settings compatibility but ignored.';
+const UCHISEN_RETIREMENT_COPY = 'Uchisen is available only as an optional outbound lookup link, disabled by default. よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Its retired provider settings are discarded when settings are loaded or imported.';
 const FRESH_INSTALL_PRESENTATION = new Map([
     ['annotationsPaused', {
         label: 'Selected learning-language text on webpages',
@@ -244,7 +239,7 @@ function flatten(settings) {
 
 function settingRows(source, controls, writers) {
     const values = flatten(source.defaults);
-    return Object.keys(values).filter(key => !IGNORED_COMPATIBILITY_SETTINGS.has(key)).map(key => {
+    return Object.keys(values).map(key => {
         const wording = settingWording(key, controls, writers, source);
         return Object.assign({
             key,

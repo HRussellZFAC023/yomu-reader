@@ -1,4 +1,4 @@
-import lessonPackage from '../../../public/academy/content/lessons/021-l1-l20.json';
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from './lesson-content-registry';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import type { FrequencyLensModel } from '../minigames/frequency-lens';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
@@ -18,8 +18,12 @@ const CUES = [
     ['いちねん／かのじょ に プレゼント を あげます（7）', 'いちねんに ７かい かのじょに プレゼントを あげます。', 'seven'],
 ] as const;
 
-function createLessonTwentyFrequencyLensModel(): FrequencyLensModel {
-    assertExactPackageSources();
+function createLessonTwentyFrequencyLensModel(loaded: LoadedAuthoredWeekPackage): FrequencyLensModel {
+    if (loaded.week.id !== PACKAGE_ID
+        || loaded.week.provenance.source.sha256 !== getAuthoredWeekRegistration(PACKAGE_ID).expectedSha256) {
+        throw new TypeError('Lesson 20 requires its validated authored package.');
+    }
+    assertExactPackageSources(loaded.value);
     const rounds = CUES.map(([sourceCue, answerExpression, correctCountId], index) => Object.freeze({
         id: `sensei-frequency-${index + 1}`,
         sourceOrder: index + 1,
@@ -110,18 +114,18 @@ function createLessonTwentyFrequencyLensModel(): FrequencyLensModel {
     } satisfies FrequencyLensModel);
 }
 
-export function createLessonTwentyFrequencyLensBeat(): LessonActivityBeat {
+export function createLessonTwentyFrequencyLensBeat(loaded: LoadedAuthoredWeekPackage): LessonActivityBeat {
     return Object.freeze({
         id: 'sensei-frequency-lens',
         narrative: {
             ja: 'ジョディが六つの予定カードを窓にかざします。ピーターは、時間の長さではなく、何回するかを見るカードだけを選ぶように言います。',
             en: 'Jodi holds six schedule cards against the window. Peter asks the learner to select the lens that sees how often, not how long.',
         },
-        activity: createLessonTwentyFrequencyLensModel(),
+        activity: createLessonTwentyFrequencyLensModel(loaded),
     });
 }
 
-function assertExactPackageSources(): void {
+function assertExactPackageSources(lessonPackage: unknown): void {
     const root = record(lessonPackage, 'l1-l20 package');
     if (root.id !== PACKAGE_ID || record(root.identity, 'l1-l20 identity').moduleId !== MODULE_ID) throw new TypeError('Unexpected l1-l20 package identity.');
     const members = array(record(root.sourceCoverage, 'l1-l20 coverage').members, 'l1-l20 members').map((value, index) => record(value, `l1-l20 member ${index}`));

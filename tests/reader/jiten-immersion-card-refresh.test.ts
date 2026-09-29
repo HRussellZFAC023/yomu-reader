@@ -27,6 +27,7 @@ interface ReaderAppInternals {
     refreshJpdbPageEnhancements(): Promise<void>;
     scheduleJpdbPageEnhancements(delay?: number, options?: { preserveEarlier?: boolean }): void;
     updateJpdbPageAddonHtml(root: HTMLElement, html: string): boolean;
+    installJpdbWordPageEnhancement(target: unknown, generation: number): void;
 }
 
 // Mirror ReaderApp.jpdbPageWordAddonKey without reaching into private state, so
@@ -61,8 +62,10 @@ function renderStudyCard(options: { term: string; reading?: string; revealed: bo
                     <div class="w-full mx-auto">
                         <div class="relative bg-surface-0 rounded-2xl shadow-lg" data-case="card">
                             <div class="text-5xl" lang="ja" data-case="headword">${headword}</div>
+                            ${options.revealed ? '<div role="region" aria-label="Answer">' : ''}
                             <div data-case="kanji-breakdown">Kanji breakdown</div>
                             <div data-case="composed-of">Composed of</div>
+                            ${options.revealed ? '</div>' : ''}
                         </div>
                     </div>
                 </div>
@@ -80,13 +83,59 @@ function mountAddonForKey(key: string): HTMLElement {
     addon.dataset.yomuGeneration = '1';
     addon.dataset.yomuAnchorFallback = 'false';
     addon.innerHTML = '<details data-immersion-kit open><summary>Immersion Kit</summary></details>';
-    // Real code inserts the addon after the card's last section (composed-of),
-    // so it becomes the card's last child — mirror that here.
-    card.append(addon);
+    // The addon belongs inside the native answer, after its final section.
+    (card.querySelector('[role="region"][aria-label="Answer"]') ?? card).append(addon);
     return addon;
 }
 
 describe('jiten in-place card swap refresh gate', () => {
+    it('waits for a positive reveal across a delayed outgoing answer and a write-in front', async () => {
+        vi.useFakeTimers();
+        stubStudyLocation();
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, jpdbPageEnhancementsEnabled: true, jpdbPageWordEnhancementsEnabled: true, immersionKitEnabled: true };
+        // Keep the real scheduler and target gate; isolate provider IO.
+        const install = vi.spyOn(internals, 'installJpdbWordPageEnhancement').mockImplementation(() => undefined);
+        try {
+            renderStudyCard({ term: '食べる', revealed: true });
+            // Initial attachment to an already-revealed card needs no prior front.
+            await internals.refreshJpdbPageEnhancements();
+            await vi.advanceTimersByTimeAsync(21);
+            expect(install).toHaveBeenCalledTimes(1);
+            install.mockClear();
+            mountAddonForKey(currentJitenWordAddonKey());
+            internals.jpdbPageEnhancementGeneration = 1;
+            internals.lastEnhancedHref = location.href;
+            renderStudyCardKeepingAddon({ term: '百科事典' });
+            const outgoing = document.querySelector<HTMLElement>('[aria-label="Answer"]')!;
+            // SrsStudyCard uses Transition name="reveal": the old back remains
+            // attached while isFlipped is false. Write-in fronts omit Show Answer.
+            outgoing.classList.add('reveal-leave-active', 'reveal-leave-to');
+            await internals.refreshJpdbPageEnhancements();
+            expect(document.querySelector('[data-yomu-jpdb-addon]')).toBeNull();
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(install).not.toHaveBeenCalled();
+            outgoing.remove();
+            await internals.refreshJpdbPageEnhancements();
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(install).not.toHaveBeenCalled();
+
+            const answer = document.createElement('div');
+            answer.setAttribute('role', 'region');
+            answer.setAttribute('aria-label', 'Answer');
+            answer.append(document.createElement('div'));
+            document.querySelector('[data-case="card"]')!.append(answer);
+            await internals.refreshJpdbPageEnhancements();
+            await vi.advanceTimersByTimeAsync(21);
+            expect(install).toHaveBeenCalledTimes(1);
+            expect(install.mock.calls[0]?.[0]).toMatchObject({ term: '百科事典' });
+        } finally {
+            app.destroy();
+            vi.useRealTimers();
+        }
+    });
+
     afterEach(() => {
         vi.unstubAllGlobals();
         document.body.replaceChildren();

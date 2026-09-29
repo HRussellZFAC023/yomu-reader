@@ -6,6 +6,7 @@ import { initJpdbReviewPageBridge } from '../../src/reader/jpdb/jpdb-review-brid
 import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT } from '../../src/reader/dom/index';
 import { OPEN_SHADOW_ROOT_DISCOVERY_EVENT } from '../../src/reader/dom/shadow-scan-registry';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { installCompatibilityGuard } from '../../src/reader/ui/control-compatibility-guard';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 
 // Regression tests for the lifecycle leak CLASS that caused the 1.6.109 iOS OOM
@@ -52,6 +53,9 @@ describe('reader global listener lifecycle (FIX 1)', () => {
     });
 
     it('registers every document/window listener with the app abort signal so destroy() removes them all', () => {
+        // These listeners belong to the document/selector engine, not an app.
+        installCompatibilityGuard(document);
+        document.querySelector(':hover');
         const app = new ReaderApp();
         const abortSignal = internals(app).abortController.signal;
         // Spy AFTER construction: sub-controllers (e.g. the Anki client) register
@@ -90,6 +94,27 @@ describe('reader global listener lifecycle (FIX 1)', () => {
             expect(leaked.map(call => call[0])).toEqual([]);
         } finally {
             app.destroy();
+        }
+    });
+
+    it('installs the shared compatibility guard only once per document', () => {
+        const frame = document.createElement('iframe');
+        document.body.append(frame);
+        const target = frame.contentDocument!;
+        const documentSpy = vi.spyOn(target, 'addEventListener');
+        const windowSpy = vi.spyOn(frame.contentWindow!, 'addEventListener');
+        try {
+            installCompatibilityGuard(target);
+            expect(documentSpy).toHaveBeenCalledTimes(10);
+            expect(windowSpy).toHaveBeenCalledTimes(4);
+            documentSpy.mockClear();
+            windowSpy.mockClear();
+            installCompatibilityGuard(target);
+            installCompatibilityGuard(target);
+            expect(documentSpy).not.toHaveBeenCalled();
+            expect(windowSpy).not.toHaveBeenCalled();
+        } finally {
+            frame.remove();
         }
     });
 

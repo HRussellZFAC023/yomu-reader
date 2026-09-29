@@ -3,7 +3,7 @@ import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
-import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
     applyNativeSubtitleDisplayMode,
@@ -131,14 +131,6 @@ const KANJI_ADDON_SOURCE_ROWS = [
     ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority', 'kanjivgAlias'],
     ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority', 'kanjiOriginsAlias'],
 ] as const satisfies readonly SourcePriorityFormRow[];
-const NEW_TAB_STUDY_CHALLENGE_STEPS = [
-    'kanji-doodle',
-    'word',
-    'recall-cloze',
-    'listen-pitch',
-    'speaking',
-    'type-word',
-] as const satisfies readonly NewTabStudyChallengeStep[];
 
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
     const source = settings[name];
@@ -486,10 +478,6 @@ function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
 function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
     return {
-        // Kept in storage for backwards compatibility with older extension
-        // builds. The main extension no longer declares a new-tab override, so
-        // Settings must preserve rather than expose or mutate this legacy flag.
-        newTabEnabled: current.newTabEnabled,
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'bunpro', 'wanikani', 'yomu-local', 'anki', 'dictionary'] as const, current.newTabSource),
@@ -507,28 +495,9 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabSwipeReviews: has('newTabSwipeReviews'),
         newTabShortcutHintsEnabled: has('newTabShortcutHintsEnabled'),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
-        newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
-        newTabStudyStepOrder: readNewTabStudyStepOrder(reader, current),
-        newTabStudyDisabledSteps: readNewTabStudyDisabledSteps(reader, current),
-        newTabStudyTourSeen: get('newTabStudyTourSeen') === 'true',
     };
 }
 
-function readNewTabStudyStepOrder(reader: SettingsFormReader, current: ReaderSettings): NewTabStudyChallengeStep[] {
-    const ordered = reader.getAll('newTabStudyStepOrder')
-        .filter(isNewTabStudyChallengeStep);
-    return ordered.length ? ordered : current.newTabStudyStepOrder;
-}
-
-function readNewTabStudyDisabledSteps(reader: SettingsFormReader, current: ReaderSettings): NewTabStudyChallengeStep[] {
-    const ordered = readNewTabStudyStepOrder(reader, current);
-    const enabled = new Set(reader.getAll('newTabStudyEnabledStep').filter(isNewTabStudyChallengeStep));
-    return ordered.filter(step => !enabled.has(step));
-}
-
-function isNewTabStudyChallengeStep(value: string): value is NewTabStudyChallengeStep {
-    return (NEW_TAB_STUDY_CHALLENGE_STEPS as readonly string[]).includes(value);
-}
 
 function readReadingDisplayFormSettings(
     reader: SettingsFormReader,

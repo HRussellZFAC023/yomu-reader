@@ -1,5 +1,6 @@
 import type { LocalDictionaryStore } from './local-store';
 import type { InterfaceLanguage } from '../app/types';
+import type { ManagedStateEpoch } from '../app/managed-state-epoch';
 import {
     DictionaryRpcBinaryReceiver,
     EXTENSION_DICTIONARY_BACKGROUND_MARKER,
@@ -7,6 +8,8 @@ import {
     EXTENSION_DICTIONARY_RPC_PORT,
     EXTENSION_DICTIONARY_RPC_VERSION,
     decodeDictionaryRpcValue,
+    dictionaryRpcEpoch,
+    dictionaryRpcEpochValue,
     dictionaryRpcBinaryIds,
     dictionaryRpcError,
     isDictionaryRpcBinaryChunk,
@@ -48,6 +51,7 @@ interface ExtensionDictionaryRuntime {
 }
 
 interface DictionaryRpcEnvelope {
+    readonly epoch?: unknown;
     readonly channel?: string;
     readonly version?: number;
     readonly kind?: string;
@@ -57,6 +61,7 @@ interface DictionaryRpcEnvelope {
 }
 
 interface DictionaryRpcResponse {
+    readonly epoch?: unknown;
     readonly channel: typeof EXTENSION_DICTIONARY_RPC_CHANNEL;
     readonly version: typeof EXTENSION_DICTIONARY_RPC_VERSION;
     readonly kind: 'capability' | 'result' | 'error';
@@ -98,13 +103,14 @@ export function installExtensionDictionaryBackgroundHost(
         const request = dictionaryRpcEnvelope(message);
         if (!request) return undefined;
         if (request.kind === 'ping') {
-            void storage.loadSettings().then(
-                settings => safeRespond(sendResponse, response('capability', true, {
+            void storage.loadSettings().then(async settings => {
+                const epoch = await storage.assertAllowed();
+                safeRespond(sendResponse, response('capability', true, {
                     enabled: settings.localDictionariesEnabled,
                     marker: EXTENSION_DICTIONARY_BACKGROUND_MARKER,
-                })),
-                error => safeRespond(sendResponse, errorResponse(error)),
-            );
+                    epoch: dictionaryRpcEpochValue(epoch),
+                }));
+            }).catch(error => safeRespond(sendResponse, errorResponse(error)));
             return true;
         }
         if (request.kind === 'invoke') {
@@ -118,7 +124,7 @@ export function installExtensionDictionaryBackgroundHost(
 
     runtime.onConnect.addListener(port => {
         if (port.name !== EXTENSION_DICTIONARY_RPC_PORT) return;
-        installOperationPort(port, store, options.adoptTarget, operations, options.resolveTarget);
+        installOperationPort(port, store, options.adoptTarget, operations, options.resolveTarget, storage);
     });
     return true;
 }
@@ -143,16 +149,26 @@ function installOperationPort(
     adoptTarget: ExtensionDictionaryBackgroundHostOptions['adoptTarget'],
     operations: OperationInvocationQueue,
     resolveTarget: ExtensionDictionaryBackgroundHostOptions['resolveTarget'],
+    storage: DirectExtensionDictionaryStorage,
 ): void {
     const receiver = new DictionaryRpcBinaryReceiver();
     let request: DictionaryRpcEnvelope | undefined;
     let started = false;
     let disconnected = false;
+    let admitted = false;
+    let rejected = false;
+    let callerEpoch: ManagedStateEpoch;
+
+    const rejectRequest = (error: unknown) => {
+        rejected = true;
+        if (!disconnected) safePost(port, { kind: 'error', error: dictionaryRpcError(error) });
+    };
 
     port.onDisconnect.addListener(() => {
         disconnected = true;
     });
     port.onMessage.addListener(message => {
+        if (disconnected || rejected) return;
         const record = message && typeof message === 'object' ? message as DictionaryRpcEnvelope : null;
         if (record?.kind === 'keepalive') {
             safePost(port, { kind: 'keepalive-ack' });
@@ -160,21 +176,27 @@ function installOperationPort(
         }
         if (isDictionaryRpcBinaryChunk(message)) {
             try {
+                if (!request) throw new Error('Dictionary binary data requires an admitted request header.');
                 receiver.accept(message);
                 void startWhenReady();
             } catch (error) {
-                safePost(port, { kind: 'error', error: dictionaryRpcError(error) });
+                rejectRequest(error);
             }
             return;
         }
         const envelope = dictionaryRpcEnvelope(message);
         if (!envelope || envelope.kind !== 'invoke' || !validMethodName(envelope.method) || request) return;
         request = envelope;
-        void startWhenReady();
+        try { callerEpoch = dictionaryRpcEpoch(envelope.epoch); }
+        catch (error) { rejectRequest(error); return; }
+        void storage.assertCallerEpoch(callerEpoch, completedResetId(envelope)).then(() => {
+            admitted = true;
+            return startWhenReady();
+        }).catch(rejectRequest);
     });
 
     async function startWhenReady(): Promise<void> {
-        if (!request || started || disconnected) return;
+        if (!request || !admitted || rejected || started || disconnected) return;
         const binaryIds = dictionaryRpcBinaryIds(request.args);
         if (binaryIds.some(id => !receiver.has(id))) return;
         started = true;
@@ -182,13 +204,16 @@ function installOperationPort(
             let resultDelivered = false;
             const result = await operations.run(async () => {
                 if (disconnected) throw new Error('Dictionary background operation disconnected while queued.');
+                await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                 const dictionaryStore = await store();
                 if (disconnected) throw new Error('Dictionary background operation disconnected while queued.');
+                await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                 if (request!.target) adoptTarget(request!.target);
                 const args = decodeArguments(request!.args, resolveTarget, receiver, port);
                 const retainForSearchIndex = request!.method === 'searchTerms' && searchTermsMayPrepareIndex(args);
                 try {
                     const value = await invokeStore(dictionaryStore, request!.method!, args);
+                    await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                     if (retainForSearchIndex) {
                         await postOperationResult(port, value, true);
                         resultDelivered = true;
@@ -201,6 +226,7 @@ function installOperationPort(
                         // rejects, so chunked writes retain the Port keepalive
                         // and the queue remains exclusive. On success the caller
                         // still receives the cursor fallback before this wait.
+                        await storage.assertCallerEpoch(callerEpoch);
                         await dictionaryStore.prepareTermSearchIndex();
                         if (resultDelivered && !disconnected) safePost(port, { kind: 'complete' });
                     }
@@ -208,9 +234,17 @@ function installOperationPort(
             });
             if (!resultDelivered && !disconnected) await postOperationResult(port, result, false);
         } catch (error) {
-            if (!disconnected) safePost(port, { kind: 'error', error: dictionaryRpcError(error) });
+            rejectRequest(error);
         }
     }
+}
+
+function completedResetId(request: DictionaryRpcEnvelope): string | undefined {
+    if (request.method !== 'deleteDatabase' || !Array.isArray(request.args)) return undefined;
+    const options = request.args[0];
+    if (!options || typeof options !== 'object') return undefined;
+    const id = (options as { completedResetId?: unknown }).completedResetId;
+    return typeof id === 'string' && id ? id : undefined;
 }
 
 async function postOperationResult(port: ExtensionPort, result: unknown, backgroundPending: boolean): Promise<void> {

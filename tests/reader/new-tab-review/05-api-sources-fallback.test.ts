@@ -1,3 +1,4 @@
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../../src/reader/newtab/state';
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -189,7 +190,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         const listStudyBatchCards = vi.fn(async () => [] as JPDBCard[]);
         const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
         const listNewTabCards = vi.fn(async () => [] as JPDBCard[]);
-        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
+        const publicSearch = vi.fn(async () => ({ cards: [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })], status: 'complete' as const }));
         const controller = newTabLocalFallbackController(() => ({
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -202,7 +203,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         }), localCard, listRandomTopTerms, {
             anki: { listNewTabCards } as never,
             jpdb: { listDeckCards } as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch } as never,
             jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
         });
 
@@ -286,7 +287,6 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             });
             expect(Array.from(root.querySelectorAll<HTMLButtonElement>('[data-grade]')).map(button => button.dataset.grade)).toEqual([
                 'nothing',
-                'something',
                 'hard',
                 'okay',
                 'easy',
@@ -304,7 +304,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         const listStudyBatchCards = vi.fn(async () => [] as JPDBCard[]);
         const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
         const listNewTabCards = vi.fn(async () => [] as JPDBCard[]);
-        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
+        const publicSearch = vi.fn(async () => ({ cards: [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })], status: 'complete' as const }));
         const controller = newTabLocalFallbackController(() => ({
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -316,7 +316,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         }), localCard, listRandomTopTerms, {
             anki: { listNewTabCards } as never,
             jpdb: { listDeckCards } as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch } as never,
             jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
         });
 
@@ -499,12 +499,12 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
                 allWords: JPDBCard[];
                 sourceLabel: string;
                 reviewCountMode: boolean;
-                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+                state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             }, {
                 allWords: result.cards,
                 sourceLabel: 'JPDB',
                 reviewCountMode: true,
-                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+                state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
             });
 
             (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, false);
@@ -565,14 +565,14 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             allWords: [card],
             visibleWords: [card],
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'Jiten',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
         });
 
         try {
@@ -645,7 +645,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             loggedIn: false,
             kanjiReviewsEnabled: false,
         }));
-        const publicSearch = vi.fn(async () => []);
+        const publicSearch = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const fallbackCardFromText = vi.fn((text: string) => newTabTestCard({
             spelling: text,
             reading: '',
@@ -667,7 +667,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: {
                 onUpdate: () => () => {},
             } as never,
@@ -693,7 +693,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
     });
 
     it('uses local dictionary fallback without public JPDB when no API key is configured', async () => {
-        const publicSearch = vi.fn(async (query: string) => [
+        const publicSearch = vi.fn(async (query: string) => ({ cards: [
             newTabTestCard({
                 vid: query.charCodeAt(0),
                 sid: 0,
@@ -702,7 +702,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
                 source: 'jpdb',
                 cardState: ['not-in-deck'],
             }),
-        ]);
+        ], status: 'complete' as const }));
         const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(
             ['書く', 'かく', 'to write'],
             ['見る', 'みる', 'to see'],
@@ -741,7 +741,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         vi.useFakeTimers();
         const publicSearch = vi.fn(async (query: string) => {
             await new Promise(resolve => setTimeout(resolve, 2000));
-            return [newTabTestCard({ spelling: `${query}公開`, reading: `${query}こうかい`, source: 'jpdb' })];
+            return ({ cards: [newTabTestCard({ spelling: `${query}公開`, reading: `${query}こうかい`, source: 'jpdb' })], status: 'complete' as const });
         });
         const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['書く', 'かく', 'to write']));
         const controller = newTabPublicFallbackController(() => ({
@@ -820,9 +820,9 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
 
     it('keeps strict JPDB review empty instead of falling back when no cards are scheduled', async () => {
         const listDeckCards = vi.fn(async () => [newTabTestCard({ spelling: '既知', source: 'jpdb', cardState: ['known'] })]);
-        const publicSearch = vi.fn(async (query: string) => [
+        const publicSearch = vi.fn(async (query: string) => ({ cards: [
             newTabTestCard({ spelling: `${query}公開`, reading: `${query}こうかい`, source: 'jpdb', cardState: ['not-in-deck'] }),
-        ]);
+        ], status: 'complete' as const }));
         const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['新語', 'しんご', 'new word']));
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
@@ -836,7 +836,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             jpdb: {
                 listDeckCards,
             } as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: publicSearch },
             jpdbReviewBridge: disconnectedJpdbReviewBridge(),
             parser: {
                 localCardFromEntry: vi.fn(newTabLocalCardFromEntry),
@@ -867,10 +867,10 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
                 immersionKitEnabled: false,
             }));
         const root = renderEnabledNewTabRoot(controller);
-        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { mode: string; revealAnswer: boolean } }, {
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { route: string; revealAnswer: boolean } }, {
             visibleWords: [card],
             sourceLabel: 'JPDB',
-            state: { mode: 'word', revealAnswer: true },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: true },
         });
 
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
@@ -901,7 +901,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         });
         const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'Jiten',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
             appendToDocument: true,
         });
         Object.assign(controller as unknown as { lastUndoableReview?: { card: JPDBCard; at: number; serverUndo: boolean; counted: boolean } }, {
@@ -919,16 +919,16 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
         }
     });
 
-    it('marks two-button study-step navigation for equal-width controls', () => {
+    it('renders explicit reveal between previous and next on the native prompt', () => {
         const card = newTabTestCard({ spelling: '図鑑', reading: 'ずかん' });
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
                 immersionKitEnabled: false,
-                newTabStudyDisabledSteps: ['recall-cloze', 'listen-pitch', 'speaking'],
+
             }));
         const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'Dictionary',
-            state: { mode: 'word', revealAnswer: false },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false },
         });
 
         try {
@@ -937,8 +937,8 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
                 .map(button => button.dataset.newtabAction);
 
             expect(controls?.dataset.newtabGradeControls).toBe('false');
-            expect(controls?.dataset.newtabControlCount).toBe('2');
-            expect(actions).toEqual(['previous', 'next']);
+            expect(controls?.dataset.newtabControlCount).toBe('3');
+            expect(actions).toEqual(['previous', 'reveal', 'next']);
         } finally {
             root.remove();
         }
@@ -968,14 +968,14 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             showSettings: vi.fn(),
             dismiss: vi.fn(),
         });
-        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { mode: string; revealAnswer: boolean } }, {
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { route: string; revealAnswer: boolean } }, {
             visibleWords: [card],
             sourceLabel: 'JPDB',
-            state: { mode: 'word', revealAnswer: true },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: true },
         });
 
         expect(controller.lookupGradeOptions(card)).toEqual([['fail', 'Fail'], ['pass', 'Pass']]);
-        (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: false };
+        (controller as unknown as { state: { route: string; revealAnswer: boolean } }).state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: false };
         expect(controller.lookupGradeOptions(card)).toEqual([]);
     });
 
@@ -990,7 +990,7 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             }));
         const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'JPDB',
-            state: { mode: 'word', revealAnswer: true },
+            state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', revealAnswer: true },
         });
 
         try {

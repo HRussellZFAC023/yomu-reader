@@ -242,7 +242,8 @@ describe('Season One fiction spine', () => {
         expect(felix?.visualBrief).toBe(
             'White; glasses; longer curly dark-blond to light-brown hair; likes cats.',
         );
-        expect(felix?.visualEvidence).toBe('candidate-needs-owner');
+        expect(felix?.visualEvidence).toBe('approved');
+        expect(felix?.eligibility).toEqual({ story: true, lessons: true, likenessRuntime: true });
         expect(unlockEpisode?.eventArt.brief.toLowerCase())
             .toContain('white classmate with glasses and longer curly dark-blond to light-brown hair');
         expect(unlockEpisode?.eventArt.safety.toLowerCase()).toContain('no approved visual evidence');

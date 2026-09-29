@@ -1131,7 +1131,8 @@ describe('reader helpers', () => {
 
         try {
             const client = new JpdbVocabularyClient(() => TEST_PROXY_URL);
-            const info = await client.lookup(1456360, '読む', 'よむ');
+            const { info, status } = await client.lookup(1456360, '読む', 'よむ');
+            expect(status).toBe('complete');
             const html = renderJpdbDefinitionSource({
                 ...card,
                 vid: 1456360,
@@ -1202,7 +1203,8 @@ describe('reader helpers', () => {
         });
 
         try {
-            const info = await new JpdbVocabularyClient().lookup(1297200, '咲き乱れる', 'さきみだれる');
+            const { info, status } = await new JpdbVocabularyClient().lookup(1297200, '咲き乱れる', 'さきみだれる');
+            expect(status).toBe('complete');
             const html = renderJpdbDefinitionSource({
                 ...card,
                 spelling: '咲き乱れる',
@@ -1273,7 +1275,8 @@ describe('reader helpers', () => {
         });
 
         try {
-            const info = await new JpdbVocabularyClient().lookup(-1, '一方', 'いっぽう');
+            const { info, status } = await new JpdbVocabularyClient().lookup(-1, '一方', 'いっぽう');
+            expect(status).toBe('complete');
             const html = renderJpdbDefinitionSource({
                 ...card,
                 vid: -1,
@@ -1758,10 +1761,8 @@ describe('reader helpers', () => {
 
     it('loads public JPDB vocabulary details for Jiten-backed cards without a JPDB key', async () => {
         const keylessLookup = vi.fn(async () => ({
-            meanings: ['review'],
-            compounds: [],
-            usedInVocabulary: [],
-            examples: [],
+            info: { meanings: ['review'], compounds: [], usedInVocabulary: [], examples: [] },
+            status: 'complete' as const,
         }));
         const keylessLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({

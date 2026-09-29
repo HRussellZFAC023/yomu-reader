@@ -806,7 +806,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  { owner: "settings/extension-study-settings-recovery", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
+  { owner: "settings (retired promotion marker; purge only)", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
   // Private, one-use cloud settings OAuth handoff. The old page-readable key
   // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
   { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
@@ -895,6 +895,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
+  { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
@@ -989,7 +991,7 @@ function managedStateEpochSessionForRealm(root = globalThis) {
 }
 function parseManagedStateEpoch(value) {
   if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
-  if (!isPlainRecord$1(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+  if (!isPlainRecord(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
   throw new Error("The managed-state epoch is malformed.");
   }
   return {
@@ -1017,7 +1019,7 @@ function managedStateLogicalValue(stored, epoch, fallback) {
   return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
 }
 function managedStateResetEnumerationValue(stored) {
-  if (!isPlainRecord$1(stored) || !Object.hasOwn(stored, "__yomuManagedStateEnvelope")) {
+  if (!isPlainRecord(stored) || !Object.hasOwn(stored, "__yomuManagedStateEnvelope")) {
   return stored;
   }
   if (!isManagedStateEnvelope(stored)) {
@@ -1047,12 +1049,12 @@ function assertManagedStateEpoch(expected, actual) {
   if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
 }
 function isManagedStateEnvelope(value) {
-  return isPlainRecord$1(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+  return isPlainRecord(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
 }
 function isManagedStateEpochSession(value) {
   return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
 }
-function isPlainRecord$1(value) {
+function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 const MISSING = { __yomuStorageValueMissing: true };
@@ -1323,6 +1325,85 @@ const HOSTED_DEMO_READER_SETTINGS = {
   ocrOverlayTheme: "auto",
   preferJapaneseSiteLanguage: false
 };
+function hasOwn(value, key) {
+  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+function objectRecord$1(value) {
+  return value && typeof value === "object" ? value : null;
+}
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY$1 = "yomu:settings-intent:v2";
+const NO_EXPLICIT_USER_CHOICE = [];
+function parseSettingsIntentLedger(value) {
+  const record2 = objectRecord(value);
+  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
+  const records = objectRecord(record2.records);
+  if (!records) return null;
+  const parsed = {};
+  for (const [key, entry] of Object.entries(records)) {
+  const item = objectRecord(entry);
+  if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
+  const seq = item.seq;
+  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+  }
+  return { revision: record2.revision, records: parsed };
+}
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
+const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
+function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
+  const marker = transactionMarker(storedSettings);
+  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
+  return matchingCommittedPair(settings, intentLedger);
+}
+function matchingCommittedPair(settings, intentLedger) {
+  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
+  const settingsId = commitId(settings);
+  const ledgerId = commitId(intentLedger);
+  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+}
+function commitId(value) {
+  const record2 = objectRecord$1(value);
+  if (!record2) return void 0;
+  return recordCommitId(record2);
+}
+function recordCommitId(record2) {
+  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
+  const id = record2[COMMIT_FIELD];
+  return typeof id === "string" && id ? id : null;
+}
+function withoutCommit(value) {
+  const record2 = objectRecord$1(value);
+  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
+  const clean = { ...record2 };
+  delete clean[COMMIT_FIELD];
+  return clean;
+}
+function transactionMarker(value) {
+  const owner = objectRecord$1(value);
+  const marker = owner && objectRecord$1(owner[TRANSACTION_FIELD]);
+  if (!marker) return null;
+  return validatedTransactionMarker(marker);
+}
+function validatedTransactionMarker(marker) {
+  if (marker.version !== 1) return null;
+  const settings = serializedSnapshot(marker.settings);
+  const intentLedger = serializedSnapshot(marker.intentLedger);
+  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
+}
+function serializedSnapshot(value) {
+  const record2 = objectRecord$1(value);
+  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
+  existed: record2.existed,
+  previousValue: record2.previousValue,
+  localFallbackExisted: record2.localFallbackExisted,
+  localFallbackValue: record2.localFallbackValue
+  } : null;
+}
+function snapshotValue(snapshot) {
+  return snapshot.existed ? snapshot.previousValue : null;
+}
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
 const HOSTED_SETTINGS_INTENT_KEY = "yomu:settings-intent:v2";
 const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
@@ -1362,27 +1443,36 @@ function hostedStoragePromotionValue(key, value, hostedOrigin) {
   const sanitized = sanitizedHostedStorageValue(key, value, hostedOrigin);
   return isRecord$1(sanitized) ? withoutSettingsCoordination(sanitized) : sanitized;
 }
-function pendingHostedSettingsPatch(key, localValue, hostedOrigin) {
-  const localSettings = rawHostedSettingsRecord(key, localValue, hostedOrigin);
-  if (!localSettings) return void 0;
-  const patch = localSettings[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  if (!isRecord$1(patch)) return void 0;
-  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
-  return withoutSettingsCoordination(sanitized);
-}
-function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious) {
+function hostedSettingsLocalFallbackValue(key, value, hostedOrigin, readPrevious, readIntent) {
   const current = sanitizedHostedSettingsRecord(key, value, hostedOrigin);
   if (!current) return value;
   const previousValue = readPrevious();
-  const previous = sanitizedHostedSettingsRecord(key, previousValue, hostedOrigin);
-  if (!previous) return current;
-  return {
-  ...current,
-  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: {
-    ...earlierHostedPatch(previousValue),
-    ...changedRecordFields(previous, current)
+  if (Object.hasOwn(current, HOSTED_SETTINGS_TRANSACTION_FIELD)) return value;
+  if (Object.hasOwn(current, HOSTED_SETTINGS_COMMIT_FIELD)) {
+  const intent = readIntent();
+  const ledger = parseSettingsIntentLedger(intent);
+  if (!ledger || !commitId(current) || !committedSettingsStoragePair(current, intent)) {
+    throw new Error("Hosted settings publication requires a matching intent ledger.");
   }
-  };
+  const marker = transactionMarker(previousValue);
+  if (!marker) throw new Error("Hosted settings publication requires a valid prior transaction marker.");
+  const previousIntent = snapshotValue(marker.intentLedger);
+  const previousLedger = previousIntent == null ? { records: {} } : parseSettingsIntentLedger(previousIntent);
+  if (!previousLedger) throw new Error("Hosted settings transaction has invalid previous intent.");
+  const snapshot = snapshotValue(marker.settings);
+  const patch = earlierHostedPatch(snapshot);
+  for (const key2 of Object.keys(patch)) {
+    if (!Object.hasOwn(ledger.records, key2) || !Object.hasOwn(current, key2)) delete patch[key2];
+    else patch[key2] = current[key2];
+  }
+  for (const [key2, record2] of Object.entries(ledger.records)) {
+    if (record2.seq === previousLedger?.records[key2]?.seq || !Object.hasOwn(current, key2)) continue;
+    patch[key2] = current[key2];
+  }
+  const sanitized = sanitizedHostedStorageValue(key, patch, hostedOrigin);
+  return { ...current, [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: withoutSettingsCoordination(sanitized) };
+  }
+  return current;
 }
 function sanitizedHostedStorageValue(key, value, hostedOrigin) {
   if (!hostedOrigin || !isRecord$1(value)) return value;
@@ -1413,13 +1503,6 @@ function earlierHostedPatch(value) {
   if (!isRecord$1(value)) return {};
   const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
   return isRecord$1(patch) ? withoutSettingsCoordination(patch) : {};
-}
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field, value] of Object.entries(current)) {
-  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-  }
-  return withoutSettingsCoordination(changed);
 }
 function withoutSettingsCoordination(record2) {
   const clean = { ...record2 };
@@ -1468,6 +1551,25 @@ function storageWriteError(key, message, ...causes) {
   return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const RETIRED_SETTINGS_STORAGE_KEYS = [
+  "jpdb-reader-settings",
+  "yomu-reader-settings",
+  "yomu-settings",
+  "yomu:explicit-user-settings:v1"
+];
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1 = "yomu:prefer-japanese-site-language:v1";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  SETTINGS_STORAGE_KEY,
+  ...RETIRED_SETTINGS_STORAGE_KEYS,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY$1,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
+]);
+function isSettingsAuthorityStorageKey(key) {
+  return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
+}
 const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key) {
@@ -1609,7 +1711,7 @@ function asyncGmGetValue() {
 }
 function directGmGetValue() {
   if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmGetValue() ?? modernGmGetValue() ?? rawExtensionStorageGetValue();
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
 }
 function legacyGmGetValue() {
   return typeof GM_getValue === "function" ? GM_getValue : null;
@@ -1752,7 +1854,10 @@ async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue)
 }
 function managedStateEpochFromSynchronousGetter(getValue) {
   const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-  if (isPromiseLike$1(stored)) return null;
+  if (isPromiseLike$1(stored)) {
+  void Promise.resolve(stored).catch((error) => debugStorageError("Synchronous epoch probe could not read async storage", MANAGED_STATE_EPOCH_KEY, error));
+  return null;
+  }
   const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
   managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
   cacheManagedStateEpochForLocalFallback(shared2);
@@ -1760,7 +1865,7 @@ function managedStateEpochFromSynchronousGetter(getValue) {
 }
 function managedStateEpochForSynchronousLocalRead() {
   try {
-  const getValue = directGmGetValue();
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   if (getValue) {
     const synchronous = managedStateEpochFromSynchronousGetter(getValue);
     if (synchronous) return synchronous;
@@ -1815,23 +1920,13 @@ async function sharedOwnedManagedValue(getValue, key, fallback, errorLabel) {
   }
 }
 async function sharedManagedValue(getValue, key, fallback, epoch) {
-  const pendingPatch = pendingHostedLocalPatch(key, epoch);
-  return pendingPatch ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
-}
-async function reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch) {
-  const shared2 = await managedGmValue(getValue, key, void 0, epoch);
-  const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
-  const reconciled = { ...sharedRecord, ...pendingPatch };
-  await gmStorageSet(key, reconciled);
-  return reconciled;
-}
-async function sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   return promoteLocalManagedValue(key, fallback, epoch);
 }
 async function promoteLocalManagedValue(key, fallback, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return fallback;
   const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
   if (!isMissingSentinel(migrated)) {
   const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
@@ -1843,6 +1938,7 @@ async function promoteLocalManagedValue(key, fallback, epoch) {
 function failedManagedReadValue(error, key, fallback, epoch) {
   if (isStaleManagedStateEpochError(error)) throw error;
   debugStorageError("GM storage read failed", key, error);
+  if (isSettingsAuthorityStorageKey(key)) return fallback;
   if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
   return localStorageGet(key, fallback);
   }
@@ -1888,6 +1984,7 @@ function gmStorageGetSync(key, fallback) {
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   }
+  if (isSettingsAuthorityStorageKey(key) && asyncGmGetValue()) return fallback;
   epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
@@ -1937,6 +2034,7 @@ function gmStorageSyncRead(key, getValue, epoch) {
   }
 }
 function migratedLocalStorageSyncValue(key, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return { kind: "fallback" };
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
@@ -1944,18 +2042,14 @@ function migratedLocalStorageSyncValue(key, epoch) {
   void gmStorageSet(key, promoted);
   return { kind: "found", value: promoted };
 }
-function pendingHostedLocalPatch(key, epoch) {
-  if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return void 0;
-  if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
-  return pendingHostedSettingsPatch(key, localStorageGet(key, void 0), true);
-}
 function localFallbackValueForWrite(key, value) {
   if (!isHostedSettingsStorageKey(key)) return value;
   return hostedSettingsLocalFallbackValue(
   key,
   value,
   isHostedYomuOrigin(),
-  () => localStorageGet(key, void 0)
+  () => localStorageGet(key, void 0),
+  () => localStorageGet("yomu:settings-intent:v2", void 0)
   );
 }
 async function gmStorageSet(key, value, options = {}) {
@@ -2122,9 +2216,6 @@ function gmStorageDeleteSync(key) {
   } catch (error) {
   debugStorageError("localStorage sync delete failed", key, error);
   }
-}
-function isPlainRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 function mirrorManagedValueToHostedStorage(key, value, epoch) {
   if (!shouldMirrorManagedValueToHostedStorage(key)) return;
@@ -7490,9 +7581,6 @@ const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
   DEFAULT_ACCENT_COLOR,
   DEFAULT_OCR_BACKGROUND_OPACITY
 );
-function hasOwn(value, key) {
-  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
-}
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
@@ -8629,6 +8717,8 @@ const SUBTITLE_SETTINGS_COPY = {
 };
 const LOCAL_DICTIONARY_STORAGE_COPY = {
   enSettings: {
+  extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
+  extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
   localDictionariesEnabled: "Show imported dictionary definitions",
   localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
   clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
@@ -8645,6 +8735,8 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
   },
   jaSettings: {
+  extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
+  extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
   localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
   clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
@@ -8681,32 +8773,111 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
 });
 const SETTINGS_RECOVERY_COPY = {
   en: {
-  extensionSettingsRecoveryTitle: "Study paused to protect your settings",
-  extensionSettingsRecoveryBody: "Yomu could not reconnect your saved settings. The existing data was retained unchanged, and Study will not replace it with setup defaults.",
-  extensionSettingsRecoveryGuidance: "Retry recovery or reload Study. If this continues, import your latest settings backup once after recovery succeeds. Do not use Factory Reset or downgrade Yomu.",
-  extensionSettingsRecoveryRetry: "Retry recovery",
+  settingsImportUnsupportedFormat: "This settings backup format is not supported.",
+  settingsImportIncomplete: "The settings data in this backup is incomplete.",
+  extensionSettingsRecoveryTitle: "Could not load settings",
+  extensionSettingsRecoveryBody: "Your saved settings have not been changed.",
+  extensionSettingsRecoveryRetry: "Try again",
   extensionSettingsRecoveryReload: "Reload Study",
-  extensionSettingsRecoveryRetrying: "Retrying settings recovery…",
-  extensionSettingsRecoveryStillBlocked: "Recovery is still unavailable. Your existing data remains unchanged.",
+  extensionSettingsRecoveryRetrying: "Loading settings…",
+  extensionSettingsRecoveryStillBlocked: "Settings are still unavailable.",
   saveAfterImport: "Save after import",
   settingsImportSaveBlocked: "Settings import is running. Save unlocks when it finishes.",
   settingsImportStaleSaveDiscarded: "Settings import replaced the earlier pending Save."
   },
   ja: {
-  extensionSettingsRecoveryTitle: "設定を保護するためStudyを一時停止しました",
-  extensionSettingsRecoveryBody: "保存済み設定に再接続できませんでした。既存データは変更せず保持され、Studyが初期設定で上書きすることはありません。",
-  extensionSettingsRecoveryGuidance: "復旧を再試行するかStudyを再読み込みしてください。解決しない場合は、復旧成功後に最新の設定バックアップを一度だけインポートしてください。初期状態へのリセットやYomuのダウングレードは行わないでください。",
-  extensionSettingsRecoveryRetry: "復旧を再試行",
+  settingsImportUnsupportedFormat: "このバックアップの設定形式には対応していません。",
+  settingsImportIncomplete: "このバックアップの設定データが不完全です。",
+  extensionSettingsRecoveryTitle: "設定を読み込めませんでした",
+  extensionSettingsRecoveryBody: "保存済みの設定は変更されていません。",
+  extensionSettingsRecoveryRetry: "再試行",
   extensionSettingsRecoveryReload: "Studyを再読み込み",
-  extensionSettingsRecoveryRetrying: "設定の復旧を再試行中…",
-  extensionSettingsRecoveryStillBlocked: "まだ復旧できません。既存データは変更されていません。",
+  extensionSettingsRecoveryRetrying: "設定を読み込み中…",
+  extensionSettingsRecoveryStillBlocked: "まだ設定を読み込めません。",
   saveAfterImport: "インポート後に保存",
   settingsImportSaveBlocked: "設定をインポート中です。完了後に保存できます。",
   settingsImportStaleSaveDiscarded: "設定のインポートを優先し、先に待機していた保存は破棄しました。"
   }
 };
+const PRACTICE_SESSION_COPY = {
+  en: {
+  practiceTitle: "Practice",
+  practicePurpose: "Session type",
+  practiceRecognition: "Read words",
+  practiceCloze: "Complete sentences",
+  practiceWriting: "Write words",
+  practiceListening: "Listen",
+  practiceSpeaking: "Speak",
+  practiceStart: "Start session",
+  practiceResume: "Resume",
+  practiceSaved: "Saved sessions",
+  practiceCurrentSelection: "Use current selection",
+  practiceScheduleUnchanged: "Your scheduled reviews stay unchanged.",
+  practicePreparing: "Preparing session…",
+  practiceUnavailable: "This session could not be opened.",
+  practiceNoMaterial: "No selected words are ready for this session type.",
+  practiceSaveFailed: "Progress could not be saved. Try again.",
+  practiceConflict: "This session changed in another window. Copy any unsaved answer before reopening.",
+  practiceReopen: "Reopen saved progress",
+  practiceEmptyAnswer: "Enter an answer.",
+  practiceCheck: "Check",
+  practiceCorrect: "Matches the word",
+  practiceAccepted: "Reading matches",
+  practiceDifferent: "Try again, or compare with the answer.",
+  practiceRemembered: "I remembered",
+  practiceNotYet: "Not yet",
+  practiceNext: "Next",
+  practiceSkip: "Skip",
+  practicePause: "Pause",
+  practiceComplete: "Session complete",
+  practiceBack: "Back to Study",
+  practiceNew: "New session",
+  practiceWordsCount: "{count} words",
+  practicePosition: "{current} of {total}",
+  practiceResponse: "Your answer",
+  practiceAudio: "Play question audio"
+  },
+  ja: {
+  practiceTitle: "練習",
+  practicePurpose: "練習方法",
+  practiceRecognition: "単語を読む",
+  practiceCloze: "文の空欄を埋める",
+  practiceWriting: "単語を書く",
+  practiceListening: "聞き取り",
+  practiceSpeaking: "発話",
+  practiceStart: "練習を開始",
+  practiceResume: "再開",
+  practiceSaved: "保存した練習",
+  practiceCurrentSelection: "現在の選択を使う",
+  practiceScheduleUnchanged: "復習予定には影響しません。",
+  practicePreparing: "練習を準備中…",
+  practiceUnavailable: "この練習を開けませんでした。",
+  practiceNoMaterial: "選択した単語では、この形式の練習を開始できません。",
+  practiceSaveFailed: "進捗を保存できませんでした。もう一度お試しください。",
+  practiceConflict: "別のウィンドウで進捗が変わりました。未保存の回答をコピーしてから開き直してください。",
+  practiceReopen: "保存済みの進捗を開く",
+  practiceEmptyAnswer: "回答を入力してください。",
+  practiceCheck: "確認",
+  practiceCorrect: "表記が一致",
+  practiceAccepted: "読みが一致",
+  practiceDifferent: "もう一度試すか、答えを確認してください。",
+  practiceRemembered: "思い出せた",
+  practiceNotYet: "まだ覚えていない",
+  practiceNext: "次へ",
+  practiceSkip: "スキップ",
+  practicePause: "中断",
+  practiceComplete: "練習完了",
+  practiceBack: "学習に戻る",
+  practiceNew: "新しい練習",
+  practiceWordsCount: "{count}語",
+  practicePosition: "{total}問中{current}問",
+  practiceResponse: "回答",
+  practiceAudio: "問題の音声を再生"
+  }
+};
 const COPY = {
   en: {
+  ...PRACTICE_SESSION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
   onboardingEyebrow: "{language}, wherever it appears",
@@ -8781,7 +8952,6 @@ const COPY = {
   sources: "Sources",
   backupSync: "Backup & sync",
   backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
-  backupMovedHelp: "Backup, sync, and settings/dictionary import-export live in the Backup & sync section.",
   media: "Media",
   mining: "Mining",
   shortcuts: "Shortcuts",
@@ -8846,7 +9016,8 @@ const COPY = {
   jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
   jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
   jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
-  fivePoint: "Five point: NOTHING to EASY",
+  fivePoint: "Provider default",
+  fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
   automatic: "Automatic",
@@ -8908,7 +9079,6 @@ const COPY = {
   newTabParsingEnabled: "Enable sentence parsing on Study",
   newTabFrontSentenceEnabled: "Show sentence on word fronts",
   newTabKanjiAutogradeEnabled: "Auto-grade kanji drawing",
-  newTabKanjiAutoSubmit: "Auto-submit kanji grade",
   newTabOfflineEnabled: "Cache Study for offline use",
   newTabOfflineLimit: "Offline review cache limit",
   newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
@@ -8920,21 +9090,6 @@ const COPY = {
   newTabOfflineHelp: "Caches due cards and queued grades.",
   newTabAddressHelp: "Use as a start page or iPad shortcut.",
   newTabJpdbDeck: "Study JPDB deck",
-  newTabStudySteps: "Study steps",
-  newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
-  newTabStudyStepHeader: "Step",
-  newTabStudyStepKanji: "Kanji drawing",
-  newTabStudyStepWord: "Word meaning",
-  newTabStudyStepRecall: "Write in sentence",
-  newTabStudyStepListen: "Pitch listening",
-  newTabStudyStepSpeaking: "Speaking",
-  newTabStudyStepType: "Type the word",
-  newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
-  newTabStudyStepWordHelp: "{language} front, meaning and reading on reveal.",
-  newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
-  newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
-  newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
-  newTabStudyStepTypeHelp: "Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.",
   openNewTabPage: "Open Study",
   copyAddress: "Copy address",
   wordColors: "Word colors",
@@ -9311,7 +9466,6 @@ const COPY = {
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
   exportDictionaries: "Export dictionaries",
-  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.",
   lookupPills: "Lookup pills",
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
@@ -9399,7 +9553,6 @@ const COPY = {
   dictionaryNoSupportedBanks: "No supported banks found.",
   dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
   dictionaryZipMissingIndex: "ZIP missing index.json.",
-  yomitanSettingsInvalid: "Not a Yomitan settings export.",
   localWordSingular: "entry",
   localWordPlural: "entries",
   decksLoaded: "Decks are loaded from your JPDB account.",
@@ -9560,7 +9713,6 @@ const COPY = {
   gradeFail: "Pass/fail: FAIL",
   gradePass: "Pass/fail: PASS",
   helpLinksTitle: "Useful pages",
-  helpLinksCopy: "Open reader tools and docs from here.",
   versionAndUpdates: "Version",
   currentYomuVersion: "Yomu",
   updateStatusIdle: "Current {current}. Latest check pending.",
@@ -9643,12 +9795,10 @@ const COPY = {
   ankiLapseSingular: "lapse",
   ankiLapsePlural: "lapses",
   gradeNothingLabel: "Nothing",
+  gradeAgainLabel: "Again",
+  gradeGoodLabel: "Good",
   gradeSomethingLabel: "Something",
   gradeHardLabel: "Hard",
-  bunproGradeAgainLabel: "Again",
-  bunproGradeHardLabel: "Hard",
-  bunproGradeGoodLabel: "Good",
-  bunproGradeEasyLabel: "Easy",
   gradeOkayLabel: "Okay",
   gradeEasyLabel: "Easy",
   gradeFailLabel: "Fail",
@@ -10098,7 +10248,6 @@ importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応辞書バンクがありません。
 dictionaryUnsupportedJson	Dexie、ZIP、出力を使ってください。
 dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
@@ -10142,12 +10291,10 @@ ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
 ankiLapsePlural	回失敗
 gradeNothingLabel	全然
+gradeAgainLabel	もう一度
+gradeGoodLabel	良い
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
-bunproGradeAgainLabel	もう一度
-bunproGradeHardLabel	難しい
-bunproGradeGoodLabel	良い
-bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -10470,7 +10617,8 @@ translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
-  ...SETTINGS_RECOVERY_COPY.ja
+  ...SETTINGS_RECOVERY_COPY.ja,
+  ...PRACTICE_SESSION_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -10494,7 +10642,6 @@ reading	読解
 sources	ソース
 backupSync	バックアップと同期
 backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
-backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -10556,7 +10703,8 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-fivePoint	5段階: 全然から簡単まで
+fivePoint	サービスの標準評価
+fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 theme	テーマ
@@ -10613,7 +10761,6 @@ newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
-newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
@@ -10625,21 +10772,6 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
-newTabStudySteps	学習ステップ
-newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
-newTabStudyStepHeader	ステップ
-newTabStudyStepKanji	漢字書き取り
-newTabStudyStepWord	単語の意味
-newTabStudyStepRecall	文で書く
-newTabStudyStepListen	ピッチ聞き取り
-newTabStudyStepSpeaking	発音
-newTabStudyStepType	単語を書く
-newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
-newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
-newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
-newTabStudyStepTypeHelp	聞いて発音した単語を書き出します。入力または漢字ごとの手書きで解答できます。セッション中はスキップ可能。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -10994,7 +11126,6 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -11082,7 +11213,6 @@ ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
-helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 versionAndUpdates	バージョン
 currentYomuVersion	Yomu
 updateStatusIdle	現在 {current}。確認待ち。
@@ -12462,8 +12592,6 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
-const NO_EXPLICIT_USER_CHOICE = [];
 function createDefaultSubtitleSettings(fontFamily) {
   return {
   subtitlePlayerEnabled: true,
@@ -12589,62 +12717,6 @@ function languageProfileHasIndependentState(profile, defaults) {
   profile.definitionTranslationProviderIds.length > 0
   ].includes(true);
 }
-const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
-const COMMIT_FIELD = "__yomuSettingsPersistenceCommitV1";
-function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
-  const marker = transactionMarker(storedSettings);
-  const { settings, intentLedger } = marker ? { settings: snapshotValue(marker.settings), intentLedger: snapshotValue(marker.intentLedger) } : { settings: storedSettings, intentLedger: storedIntentLedger };
-  return matchingCommittedPair(settings, intentLedger);
-}
-function matchingCommittedPair(settings, intentLedger) {
-  const settingsId = commitId(settings);
-  const ledgerId = commitId(intentLedger);
-  return settingsId !== null && ledgerId !== null && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
-}
-function commitId(value) {
-  const record2 = objectRecord(value);
-  if (!record2) return void 0;
-  return recordCommitId(record2);
-}
-function recordCommitId(record2) {
-  if (!Object.hasOwn(record2, COMMIT_FIELD)) return void 0;
-  const id = record2[COMMIT_FIELD];
-  return typeof id === "string" && id ? id : null;
-}
-function withoutCommit(value) {
-  const record2 = objectRecord(value);
-  if (!record2 || !Object.hasOwn(record2, COMMIT_FIELD)) return value;
-  const clean = { ...record2 };
-  delete clean[COMMIT_FIELD];
-  return clean;
-}
-function transactionMarker(value) {
-  const owner = objectRecord(value);
-  const marker = owner && objectRecord(owner[TRANSACTION_FIELD]);
-  if (!marker) return null;
-  return validatedTransactionMarker(marker);
-}
-function validatedTransactionMarker(marker) {
-  if (marker.version !== 1) return null;
-  const settings = serializedSnapshot(marker.settings);
-  const intentLedger = serializedSnapshot(marker.intentLedger);
-  return settings && intentLedger ? { version: 1, settings, intentLedger } : null;
-}
-function serializedSnapshot(value) {
-  const record2 = objectRecord(value);
-  return record2 && typeof record2.existed === "boolean" && typeof record2.localFallbackExisted === "boolean" ? {
-  existed: record2.existed,
-  previousValue: record2.previousValue,
-  localFallbackExisted: record2.localFallbackExisted,
-  localFallbackValue: record2.localFallbackValue
-  } : null;
-}
-function snapshotValue(snapshot) {
-  return snapshot.existed ? snapshot.previousValue : null;
-}
-function objectRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const AUDIO_SOURCE_TYPE_VALUES = [
@@ -12722,15 +12794,7 @@ function normalizeEventKey(key) {
 function isModifierKey(key) {
   return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
 }
-const LEGACY_SETTINGS_STORAGE_KEYS = [
-  "jpdb-reader-settings",
-  "yomu-reader-settings",
-  "yomu-settings"
-];
-const SETTINGS_STORAGE_KEYS = [
-  SETTINGS_STORAGE_KEY,
-  ...LEGACY_SETTINGS_STORAGE_KEYS
-];
+const SETTINGS_STORAGE_KEYS = [SETTINGS_STORAGE_KEY];
 Logger.scope("Settings");
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
@@ -12745,15 +12809,6 @@ const DEFAULT_COLOR_CHANNELS = {
   subtitleUnderlineColorSource: "pitch",
   subtitleTextColorSource: "anki"
 };
-const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-  "kanji-doodle",
-  "word",
-  "type-word",
-  "recall-cloze",
-  "listen-pitch",
-  "speaking"
-];
-new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 const DEFAULT_SETTINGS = {
   apiKey: "",
   jitenApiKey: "",
@@ -12800,10 +12855,6 @@ const DEFAULT_SETTINGS = {
   kanjiImmersionKitEnabled: true,
   kanjiImmersionKitAlias: "",
   kanjiImmersionKitPriority: 60,
-  uchisenEnabled: false,
-  // Ignored legacy field; only the outbound link remains.
-  uchisenAlias: "",
-  uchisenPriority: 50,
   wanikaniKanjiEnabled: true,
   wanikaniKanjiAlias: "",
   wanikaniKanjiPriority: 55,
@@ -12839,7 +12890,6 @@ const DEFAULT_SETTINGS = {
   immersionKitExampleSource: "immersion-kit",
   nadeshikoApiKey: "",
   immersionKitPriority: 80,
-  immersionKitExpandedLimitMigrated20260721: true,
   immersionKitLimitEnabled: false,
   immersionKitLimit: 12,
   immersionKitMinLength: 8,
@@ -12862,9 +12912,6 @@ const DEFAULT_SETTINGS = {
   popupActivationMode: "hover",
   scanModifierKey: "shift",
   showFloatingButton: true,
-  // Historical browser-extension preference retained for settings migration. The
-  // main extension no longer overrides the browser new-tab page.
-  newTabEnabled: false,
   newTabAnkiEnabled: false,
   newTabAnkiDisabledDecks: [],
   newTabSource: "auto",
@@ -12882,11 +12929,7 @@ const DEFAULT_SETTINGS = {
   newTabSwipeReviews: true,
   newTabShortcutHintsEnabled: true,
   newTabKanjiAutogradeEnabled: true,
-  newTabKanjiAutoSubmit: false,
-  newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
-  newTabStudyDisabledSteps: [],
   newTabTypeWordInputMode: "keyboard",
-  newTabStudyTourSeen: false,
   puckPositionX: void 0,
   puckPositionY: void 0,
   manualScanEnabled: false,
@@ -12946,12 +12989,6 @@ const DEFAULT_SETTINGS = {
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
-  // Default TRUE: only stored records that PREDATE this key (the era when
-  // the notice's hide button persisted the setting off) migrate below.
-  youtubeFilterNoticeRestored20260711: true,
-  // TRUE by default so a fresh install never runs the theme migration below;
-  // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
-  themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
   youtubeShowChannelRecommendationsChosen: false,
   preferJapaneseSiteLanguage: false,
@@ -12979,7 +13016,6 @@ const DEFAULT_SETTINGS = {
   ankiFieldMappings: {},
   // Default TRUE: only stored records that PREDATE this key had a single
   // audio role and can hold a sentence-audio field in the word-audio slot.
-  ankiSentenceAudioMappingMigrated: true,
   // 'auto' so the operating system's own light/dark choice wins until the
   // learner picks one. It was 'light', and because the hosted appearance boot
   // reads settings.theme BEFORE falling back to 'auto', that default made the
@@ -13046,14 +13082,11 @@ const DEFAULT_SETTINGS = {
   gradePass: "2"
   }
 };
-function effectiveLegacyAutoFuriganaMode() {
-  return "all";
-}
 new Set(FURIGANA_HIDE_STATE_GROUPS);
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-  return effectiveLegacyAutoFuriganaMode();
+  return "all";
 }
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
@@ -13081,6 +13114,9 @@ function readSubtitleStyleOptionCapability(element) {
   return command?.kind === "subtitle-style-option" ? command : void 0;
 }
 function immutableCommandSnapshot(command) {
+  if (command.kind === "subtitle-action" && command.batchPlans) {
+  return Object.freeze({ ...command, batchPlans: Object.freeze([...command.batchPlans]) });
+  }
   if (command.kind === "card-action" && command.audioUrls) {
   return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
   }
@@ -14644,6 +14680,13 @@ const SUBTITLE_COPY = {
   bmScan: "Scan",
   bmRescan: "Rescan",
   bmAdd: "Add selected",
+  bmActionsHelp: "Add selected saves words. Grade buttons record reviews.",
+  bmIncompatible: "Selected words have different review scales, or some cannot be reviewed. Grade available words individually.",
+  bmPlanChanged: "The words or review settings changed. Check the refreshed controls and try again.",
+  bmBusy: "A batch action is still running.",
+  bmCapacity: "Batch history limit reached. Use a smaller selection, or finish pending batches and rescan. Unfinished work has been kept.",
+  bmPartial: "Completed {count} of {total} words. Unfinished words remain selected.",
+  bmUncertain: "Review result is uncertain. Refresh the provider review session before reviewing this word again.",
   bmCopy: "Copy list",
   bmGradeSelected: "Grade selected",
   bmGradeWord: "Grade word",
@@ -14686,6 +14729,13 @@ const SUBTITLE_COPY = {
   bmScan: "スキャン",
   bmRescan: "再スキャン",
   bmAdd: "選択を追加",
+  bmActionsHelp: "「選択を追加」は単語を保存し、評価ボタンは復習結果を記録します。",
+  bmIncompatible: "選択した単語は評価段階が異なるか、一部の単語を復習できません。復習できる単語を個別に評価してください。",
+  bmPlanChanged: "単語または復習設定が変わりました。更新された操作を確認して、もう一度お試しください。",
+  bmBusy: "一括操作を実行中です。",
+  bmCapacity: "一括操作の履歴が上限に達しました。選択数を減らすか、未完了の操作を終えて再スキャンしてください。未完了の処理は保持しています。",
+  bmPartial: "{total}語中{count}語が完了しました。未完了の単語は選択したままです。",
+  bmUncertain: "復習結果を確認できません。この単語を再び復習する前に、サービスの復習セッションを更新してください。",
   bmCopy: "リストをコピー",
   bmGradeSelected: "選択を評価",
   bmGradeWord: "単語を評価",
@@ -20679,6 +20729,99 @@ function isBatchMiningParticleCard(card) {
 function tsvCell(value) {
   return value.replace(/\t/gu, " ").replace(/\r?\n/gu, " ");
 }
+function commonBatchGrades(plans) {
+  const first = plans[0]?.grades;
+  if (!first?.length || plans.some((plan) => JSON.stringify(plan.grades) !== JSON.stringify(first))) return [];
+  return first;
+}
+class SubtitleBatchActions {
+  constructor(deps) {
+  this.deps = deps;
+  }
+  busy = false;
+  view = {
+  batchGroup: Symbol("batch-view"),
+  candidatePlans: /* @__PURE__ */ new Map(),
+  selectedPlans: [],
+  reviewGrades: [],
+  canCollect: false,
+  incompatible: false,
+  busy: false
+  };
+  candidates = /* @__PURE__ */ new Map();
+  beginGeneration() {
+  if (this.busy || this.deps.callbacks().beginBatchMiningGeneration?.() === false) return false;
+  this.view = { ...this.view, batchGroup: Symbol("batch-view"), candidatePlans: /* @__PURE__ */ new Map(), selectedPlans: [], reviewGrades: [], canCollect: false };
+  this.candidates.clear();
+  return true;
+  }
+  renderState(candidates, selected) {
+  if (this.busy) return { ...this.view, busy: true };
+  const plans = this.deps.callbacks().prepareBatchMiningCandidates?.(candidates) ?? [];
+  this.candidates.clear();
+  const candidatePlans = /* @__PURE__ */ new Map();
+  candidates.forEach((candidate, index) => {
+    const plan = plans[index];
+    if (!plan) return;
+    candidatePlans.set(candidate.key, plan);
+    this.candidates.set(plan.token, candidate);
+  });
+  const chosen = candidates.filter((candidate) => selected.has(candidate.key)).map((candidate) => candidatePlans.get(candidate.key));
+  const complete = chosen.length > 0 && chosen.every((plan) => Boolean(plan));
+  const grades = complete ? commonBatchGrades(chosen) : [];
+  this.view = {
+    batchGroup: Symbol("batch-view"),
+    candidatePlans,
+    selectedPlans: chosen.flatMap((plan) => plan ? [plan.token] : []),
+    reviewGrades: grades.map(([grade, label]) => ({ grade, label })),
+    canCollect: complete && chosen.every((plan) => plan.canCollect),
+    incompatible: chosen.length > 0 && (!complete || !grades.length),
+    busy: false
+  };
+  return this.view;
+  }
+  async run(action, command) {
+  if (this.busy) return;
+  const language = this.deps.getSettings().interfaceLanguage;
+  const execute = this.deps.callbacks().executeBatchMiningCandidates;
+  if (!execute || this.deps.available?.() === false || !this.matches(command)) {
+    this.deps.toast(subtitleText(language, "bmPlanChanged"));
+    return;
+  }
+  const plans = [...command.batchPlans];
+  this.busy = true;
+  this.deps.render();
+  try {
+    const result = await execute(plans, action, command.grade);
+    let completed = 0;
+    for (const item of result.items) {
+      const candidate = this.candidates.get(item.token);
+      if (item.state !== "completed" || !candidate) continue;
+      completed += 1;
+      const current = this.deps.getCandidates().find((current2) => current2.key === candidate.key && current2.card === candidate.card);
+      if (current) {
+        current.state = primaryCardState(current.card.cardState);
+        this.deps.getSelected().delete(candidate.key);
+      }
+    }
+    const message = result.rejected === "busy" ? subtitleText(language, "bmBusy") : result.rejected === "capacity" ? subtitleText(language, "bmCapacity") : result.rejected === "stale" ? subtitleText(language, "bmPlanChanged") : result.rejected ? subtitleText(language, "bmIncompatible") : completed === plans.length ? formatSubtitleText(language, action === "collect" ? "bmAdded" : "bmGraded", { count: completed }) : formatSubtitleText(language, "bmPartial", { count: completed, total: plans.length });
+    this.deps.toast(message);
+  } catch {
+    this.deps.toast(subtitleText(language, action === "collect" ? "bmAddFailed" : "bmGradeFailed"));
+  } finally {
+    this.busy = false;
+    this.deps.render();
+  }
+  }
+  matches(command) {
+  if (command.batchGroup !== this.view.batchGroup || !command.batchPlans?.length) return false;
+  const expected = command.candidateKey ? [this.view.candidatePlans.get(command.candidateKey)?.token] : this.deps.getCandidates().filter((candidate) => this.deps.getSelected().has(candidate.key)).map((candidate) => this.view.candidatePlans.get(candidate.key)?.token);
+  return expected.length === command.batchPlans.length && expected.every((token, index) => token === command.batchPlans[index]) && command.batchPlans.every((token) => {
+    const planned = this.candidates.get(token);
+    return planned && this.deps.getCandidates().some((candidate) => candidate.key === planned.key && candidate.card === planned.card);
+  });
+  }
+}
 function renderSubtitleBatchMiningPanel(state) {
   const language = state.language;
   return `<div class="jpdb-subtitle-batch-sticky">${renderDrawerHead({
@@ -20694,34 +20837,38 @@ function renderBatchMiningToolbar(state) {
   renderBatchMiningScanButton(state),
   ...renderBatchMiningCandidateActions(state)
   ];
-  return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml(subtitleText(state.language, "bmToolbar"))}">${buttons.join("")}</div>`;
+  const help = state.candidates.length ? `<p class="jpdb-reader-help jpdb-subtitle-batch-actions-help">${escapeHtml(subtitleText(state.language, "bmActionsHelp"))}</p>` : "";
+  const incompatible = state.incompatible ? `<p class="jpdb-reader-help" data-batch-scale-help>${escapeHtml(subtitleText(state.language, "bmIncompatible"))}</p>` : "";
+  return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml(subtitleText(state.language, "bmToolbar"))}">${buttons.join("")}</div>${help}${incompatible}`;
 }
 function renderBatchMiningScanButton(state) {
   const key = state.status === "ready" ? "bmRescan" : "bmScan";
   const label = subtitleText(state.language, key);
-  return `<button type="button" data-action="bm-scan"${subtitleActionAttributes("bm-scan")} ${disabledAttribute(state.status === "scanning")}>${subtitleIcon("transcript")}<span>${escapeHtml(label)}</span></button>`;
+  return `<button type="button" data-action="bm-scan"${subtitleActionAttributes("bm-scan")} ${disabledAttribute(state.status === "scanning" || Boolean(state.busy))}>${subtitleIcon("transcript")}<span>${escapeHtml(label)}</span></button>`;
 }
 function renderBatchMiningCandidateActions(state) {
   if (!state.candidates.length) return [];
   const selectedCount = state.selectedKeys.size;
   const language = state.language;
   return [
-  `<button type="button" data-action="bm-add"${subtitleActionAttributes("bm-add")} ${disabledAttribute(selectedCount === 0)}>${subtitleIcon("check")}<span>${escapeHtml(subtitleText(language, "bmAdd"))}</span></button>`,
+  `<button type="button" data-action="bm-add"${subtitleActionAttributes("bm-add", { batchGroup: state.batchGroup, batchPlans: state.selectedPlans })} ${disabledAttribute(selectedCount === 0 || Boolean(state.busy) || state.canCollect === false)}>${subtitleIcon("check")}<span>${escapeHtml(subtitleText(language, "bmAdd"))}</span></button>`,
   `<button type="button" data-action="bm-copy"${subtitleActionAttributes("bm-copy")} ${disabledAttribute(selectedCount === 0)}>${subtitleIcon("copy")}<span>${escapeHtml(subtitleText(language, "bmCopy"))}</span></button>`,
   renderBatchMiningGradeGroup({
     action: "bm-grade-selected",
     label: subtitleText(language, "bmGradeSelected"),
     grades: state.reviewGrades,
-    disabled: selectedCount === 0,
+    disabled: selectedCount === 0 || state.busy,
+    batchGroup: state.batchGroup,
+    batchPlans: state.selectedPlans,
     className: "jpdb-subtitle-batch-grade-selected"
   }),
-  `<button type="button" data-action="bm-all"${subtitleActionAttributes("bm-all")} ${disabledAttribute(selectedCount === state.candidates.length)}>${escapeHtml(subtitleText(language, "selectAll"))}</button>`,
+  `<button type="button" data-action="bm-all"${subtitleActionAttributes("bm-all")} ${disabledAttribute(selectedCount === state.candidates.length || Boolean(state.busy))}>${escapeHtml(subtitleText(language, "selectAll"))}</button>`,
   ...renderBatchMiningClearAction(state)
   ];
 }
 function renderBatchMiningClearAction(state) {
   if (!state.selectedKeys.size) return [];
-  return [`<button type="button" data-action="bm-clear"${subtitleActionAttributes("bm-clear")}>${escapeHtml(subtitleText(state.language, "clearSelection"))}</button>`];
+  return [`<button type="button" data-action="bm-clear"${subtitleActionAttributes("bm-clear")} ${disabledAttribute(Boolean(state.busy))}>${escapeHtml(subtitleText(state.language, "clearSelection"))}</button>`];
 }
 function disabledAttribute(disabled) {
   return disabled ? "disabled" : "";
@@ -20751,7 +20898,7 @@ function renderBatchMiningCandidate(candidate, state) {
   const selectLabel = subtitleText(language, batchMiningSelectLabelKey(selected));
   const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
   const content = subtitleContentAttributes(state.targetContent);
-  return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle"${subtitleActionAttributes("bm-toggle", { candidateKey: candidate.key })} aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${batchMiningSelectedIcon(selected)}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"${subtitleActionAttributes("bm-open", { candidateKey: candidate.key })}><span class="jpdb-subtitle-batch-expression" ${content}>${escapeHtml(candidate.card.spelling)}</span>${renderBatchMiningReading(candidate, content)}</button><div class="jpdb-subtitle-batch-meta">${renderBatchMiningIPlusOneBadge(candidate, language)}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" ${content}>${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
+  return `<div class="jpdb-subtitle-batch-row" role="listitem" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle"${subtitleActionAttributes("bm-toggle", { candidateKey: candidate.key })} ${disabledAttribute(Boolean(state.busy))} aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${batchMiningSelectedIcon(selected)}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"${subtitleActionAttributes("bm-open", { candidateKey: candidate.key })}><span class="jpdb-subtitle-batch-expression" ${content}>${escapeHtml(candidate.card.spelling)}</span>${renderBatchMiningReading(candidate, content)}</button><div class="jpdb-subtitle-batch-meta">${renderBatchMiningIPlusOneBadge(candidate, language)}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" ${content}>${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
 }
 function batchMiningSelectLabelKey(selected) {
   return selected ? "bmDeselect" : "bmSelect";
@@ -20768,12 +20915,17 @@ function renderBatchMiningIPlusOneBadge(candidate, language) {
   return `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, "bmIPlusOne"))}</span>`;
 }
 function renderBatchMiningCandidateGrades(candidate, state) {
-  if (!state.reviewGrades.length) return "";
+  const plan = state.candidatePlans?.get(candidate.key);
+  if (plan?.uncertain) return `<p class="jpdb-reader-help">${escapeHtml(subtitleText(state.language, "bmUncertain"))}</p>`;
+  if (!plan?.grades.length) return "";
   const label = `${subtitleText(state.language, "bmGradeWord")}: ${candidate.card.spelling}`;
   return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({
       action: "bm-grade",
       candidateKey: candidate.key,
-      grades: state.reviewGrades,
+      grades: plan.grades.map(([grade, label2]) => ({ grade, label: label2 })),
+      batchGroup: state.batchGroup,
+      batchPlans: [plan.token],
+      disabled: state.busy,
       ariaContext: label
     })}</div>`;
 }
@@ -20784,7 +20936,7 @@ function renderBatchMiningGradeGroup(options) {
 function renderBatchMiningGradeButtons(options) {
   return options.grades.map(({ grade, label }) => {
   const ariaLabel = options.ariaContext ? `${label}: ${options.ariaContext}` : label;
-  return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml(options.action)}" data-grade="${escapeHtml(grade)}"${subtitleActionAttributes(options.action, { grade, candidateKey: options.candidateKey })} ${options.disabled ? "disabled" : ""} aria-label="${escapeHtml(ariaLabel)}">${escapeHtml(label)}</button>`;
+  return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml(options.action)}" data-grade="${escapeHtml(grade)}"${subtitleActionAttributes(options.action, { grade, candidateKey: options.candidateKey, batchGroup: options.batchGroup, batchPlans: options.batchPlans })} ${options.disabled ? "disabled" : ""} aria-label="${escapeHtml(ariaLabel)}">${escapeHtml(label)}</button>`;
   }).join("");
 }
 function batchMiningMetaText(state) {
@@ -22459,6 +22611,15 @@ class SubtitlePlayerController {
   batchMiningRows = [];
   batchMiningError = "";
   batchMiningSerial = 0;
+  batchActions = new SubtitleBatchActions({
+  getSettings: () => this.options.getSettings(),
+  getCandidates: () => this.batchMiningCandidates,
+  getSelected: () => this.batchMiningSelectedKeys,
+  callbacks: () => this.options,
+  available: () => this.batchMiningStatus === "ready",
+  render: () => this.renderBatchMiningPanel(),
+  toast: (message) => this.options.toast?.(message)
+  });
   transcriptPanelSize = loadTranscriptPanelSize();
   videoInset = createSubtitleVideoInsetAdapter();
   lastYomuCaptionsActive = false;
@@ -22558,17 +22719,17 @@ class SubtitlePlayerController {
   "bm-open": (_target, command) => {
     void this.openBatchMiningCandidate(command.candidateKey);
   },
-  "bm-add": () => {
-    void this.addSelectedBatchMiningCandidates();
+  "bm-add": (_target, command) => {
+    void this.batchActions.run("collect", command);
   },
   "bm-copy": () => {
     void this.copySelectedBatchMiningCandidates();
   },
   "bm-grade": (_target, command) => {
-    void this.gradeBatchMiningCandidate(command.candidateKey, command.grade);
+    void this.batchActions.run("review", command);
   },
   "bm-grade-selected": (_target, command) => {
-    void this.gradeSelectedBatchMiningCandidates(command.grade);
+    void this.batchActions.run("review", command);
   },
   "bm-all": () => this.selectAllBatchMiningCandidates(),
   "bm-clear": () => this.clearBatchMiningSelection(),
@@ -26904,7 +27065,7 @@ class SubtitlePlayerController {
     candidates,
     selectedKeys: this.batchMiningSelectedKeys,
     summary: subtitleBatchMiningSummary(rows, candidates),
-    reviewGrades: this.batchMiningReviewGrades(settings),
+    ...this.batchActions.renderState(candidates, this.batchMiningSelectedKeys),
     errorMessage: this.batchMiningError,
     hasTranscriptSurface: this.hasTranscriptSurface(),
     pausePanelEnabled: settings.subtitlePausePanel,
@@ -26913,22 +27074,6 @@ class SubtitlePlayerController {
     language: settings.interfaceLanguage,
     targetContent: this.subtitleLanguageContext.targetContent
   };
-  }
-  batchMiningReviewGrades(settings) {
-  if (!this.canReviewBatchMiningCandidates(settings)) return [];
-  return settings.twoButtonReviews ? [
-    { grade: "fail", label: uiText(settings.interfaceLanguage, "gradeFailLabel") },
-    { grade: "pass", label: uiText(settings.interfaceLanguage, "gradePassLabel") }
-  ] : [
-    { grade: "nothing", label: uiText(settings.interfaceLanguage, "gradeNothingLabel") },
-    { grade: "something", label: uiText(settings.interfaceLanguage, "gradeSomethingLabel") },
-    { grade: "hard", label: uiText(settings.interfaceLanguage, "gradeHardLabel") },
-    { grade: "okay", label: uiText(settings.interfaceLanguage, "gradeOkayLabel") },
-    { grade: "easy", label: uiText(settings.interfaceLanguage, "gradeEasyLabel") }
-  ];
-  }
-  canReviewBatchMiningCandidates(settings) {
-  return settings.enableReviews && (settings.yomuLocalSrsEnabled || settings.bunproMiningEnabled || settings.jpdbMiningEnabled && this.hasAuthoritativeParseTier(settings));
   }
   currentBatchMiningRows() {
   const settings = this.options.getSettings();
@@ -26945,6 +27090,7 @@ class SubtitlePlayerController {
   });
   }
   async scanBatchMiningTranscript() {
+  if (this.batchActions.busy) return;
   this.forceNativeCueRefresh();
   const rows = this.transcriptRows();
   const settings = this.options.getSettings();
@@ -26954,6 +27100,7 @@ class SubtitlePlayerController {
     this.renderBatchMiningPanel();
     return;
   }
+  if (!this.batchActions.beginGeneration()) return;
   const serial = ++this.batchMiningSerial;
   this.batchMiningStatus = "scanning";
   this.batchMiningError = "";
@@ -27002,7 +27149,7 @@ class SubtitlePlayerController {
   }
   }
   toggleBatchMiningCandidate(key) {
-  if (!key) return;
+  if (!key || this.batchActions.busy) return;
   if (this.batchMiningSelectedKeys.has(key)) this.batchMiningSelectedKeys.delete(key);
   else this.batchMiningSelectedKeys.add(key);
   this.renderBatchMiningPanel();
@@ -27011,23 +27158,6 @@ class SubtitlePlayerController {
   const candidate = this.batchMiningCandidateForKey(key);
   if (!candidate || !this.options.showBatchMiningCard) return;
   await this.options.showBatchMiningCard(candidate);
-  }
-  async addSelectedBatchMiningCandidates() {
-  const language = this.options.getSettings().interfaceLanguage;
-  const candidates = this.selectedBatchMiningCandidates();
-  if (!candidates.length || !this.options.mineBatchMiningCandidates) {
-    this.options.toast?.(candidates.length ? uiText(language, "batchMiningNoDestination") : subtitleText(language, "bmNoSelection"));
-    return;
-  }
-  try {
-    const count = await this.options.mineBatchMiningCandidates(candidates);
-    for (const candidate of candidates) this.batchMiningSelectedKeys.delete(candidate.key);
-    this.options.toast?.(formatSubtitleText(language, "bmAdded", { count }));
-    this.renderBatchMiningPanel();
-  } catch (error) {
-    log.warn("Batch mining add failed", error);
-    this.options.toast?.(subtitleText(language, "bmAddFailed"));
-  }
   }
   async copySelectedBatchMiningCandidates() {
   const language = this.options.getSettings().interfaceLanguage;
@@ -27039,39 +27169,13 @@ class SubtitlePlayerController {
   await copyText(subtitleBatchMiningTsv(candidates));
   this.options.toast?.(formatSubtitleText(language, "bmCopied", { count: candidates.length }));
   }
-  async gradeBatchMiningCandidate(key, grade) {
-  const candidate = this.batchMiningCandidateForKey(key);
-  if (!grade || !candidate) return;
-  await this.gradeBatchMiningCandidates([candidate], grade);
-  }
-  async gradeSelectedBatchMiningCandidates(grade) {
-  if (!grade) return;
-  await this.gradeBatchMiningCandidates(this.selectedBatchMiningCandidates(), grade);
-  }
-  async gradeBatchMiningCandidates(candidates, grade) {
-  const language = this.options.getSettings().interfaceLanguage;
-  if (!candidates.length || !this.options.gradeBatchMiningCandidates) {
-    this.options.toast?.(candidates.length ? uiText(language, "batchMiningNoDestination") : subtitleText(language, "bmNoSelection"));
-    return;
-  }
-  try {
-    const count = await this.options.gradeBatchMiningCandidates(candidates, grade);
-    for (const candidate of candidates) {
-      candidate.state = primaryCardState(candidate.card.cardState);
-      this.batchMiningSelectedKeys.delete(candidate.key);
-    }
-    this.options.toast?.(formatSubtitleText(language, "bmGraded", { count }));
-    this.renderBatchMiningPanel();
-  } catch (error) {
-    log.warn("Batch mining grade failed", error);
-    this.options.toast?.(subtitleText(language, "bmGradeFailed"));
-  }
-  }
   selectAllBatchMiningCandidates() {
+  if (this.batchActions.busy) return;
   this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.map((candidate) => candidate.key));
   this.renderBatchMiningPanel();
   }
   clearBatchMiningSelection() {
+  if (this.batchActions.busy) return;
   this.batchMiningSelectedKeys.clear();
   this.renderBatchMiningPanel();
   }
@@ -31215,7 +31319,7 @@ function readStoredSettingsSync() {
   const storedCanonical = gmStorageGetSharedSync(SETTINGS_STORAGE_KEYS[0], void 0);
   const canonical = canonicalStoredSettings(
   storedCanonical,
-  gmStorageGetSharedSync(SETTINGS_INTENT_LEDGER_STORAGE_KEY, void 0)
+  gmStorageGetSharedSync(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, void 0)
   );
   return canonical.blocksLegacy ? canonical.settings : readLegacyStoredSettingsSync();
 }
@@ -31242,7 +31346,7 @@ async function readStoredSettingsAsync() {
   const storedCanonical = await readPreferenceStorageValue(SETTINGS_STORAGE_KEYS[0], void 0);
   const canonical = canonicalStoredSettings(
   storedCanonical,
-  await readPreferenceStorageValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY, void 0)
+  await readPreferenceStorageValue(SETTINGS_INTENT_LEDGER_STORAGE_KEY$1, void 0)
   );
   return canonical.blocksLegacy ? canonical.settings : readLegacyStoredSettingsAsync();
 }

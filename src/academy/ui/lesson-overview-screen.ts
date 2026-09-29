@@ -1,7 +1,6 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_ASSETS } from '../assets';
+import { defaultCastPortrait } from '../assets';
 import {
-    canRenderAcademyCastPortrait,
     getAcademyCastMember,
     type AcademyCastMember,
 } from '../domain/cast-registry';
@@ -125,8 +124,7 @@ function rosterMember(id: string, language: AcademyLanguage, index: number): HTM
 }
 
 function portraitAsset(person: AcademyCastMember): string | undefined {
-    if (!canRenderAcademyCastPortrait(person.id, 'story-runtime')) return undefined;
-    return (ACADEMY_ASSETS.characters.approved as Readonly<Record<string, string>>)[person.id];
+    return defaultCastPortrait(person.id, 'lesson-overview:roster');
 }
 
 function sectionRow(section: LessonOverviewSection, index: number, options: LessonOverviewScreenOptions): HTMLElement {

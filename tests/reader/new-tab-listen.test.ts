@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as storage from '../../src/reader/app/storage';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
-import { pitchItemKey, type PitchSrsItem } from '../../src/reader/newtab/pitch-srs';
+import { type PitchSrsItem } from '../../src/reader/newtab/pitch-srs';
 import { renderListenCard, type ListenCardView } from '../../src/reader/newtab/listen-render';
 import { newTabText } from '../../src/reader/newtab/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -54,29 +56,29 @@ interface ListenInternals {
     sourceLabel: string;
     reviewCountMode: boolean;
     state: Record<string, unknown>;
-    listenInteractionMode: 'perceive' | 'recall';
-    pitchSrs: { item(key: string): PitchSrsItem | undefined; size(): number };
+    listenInteractionMode: 'perceive' | 'recall' | 'shadow';
+    setStudyStepOverrideForCard(card: JPDBCard, id: string | null): void;
     renderWord(root: HTMLElement, card: JPDBCard): void;
     bindRootEvents(root: HTMLElement): void;
     pickListenPosition(position: number): void;
-    advanceListen(root: HTMLElement): void;
     gradeCurrentCard(grade: string): Promise<boolean>;
 }
 
 function listenController(cards: JPDBCard[], subMode: 'perceive' | 'recall' | 'shadow', settings: Partial<ReaderSettings> = {}, deps: Record<string, unknown> = {}) {
     const playWordAudio = vi.fn(async () => undefined);
+    const reviewCard = vi.fn(async () => undefined);
     const mergedSettings: ReaderSettings = {
         ...testEnSettings(),
         enableReviews: true,
         jpdbMiningEnabled: true,
         apiKey: 'jpdb-key',
-        newTabStudyDisabledSteps: ['kanji-doodle', 'word', 'recall-cloze'],
+
         ...settings,
     };
     const controller = new NewTabController({
         getSettings: () => mergedSettings,
         anki: {} as never,
-        jpdb: { reviewCard: vi.fn(async () => undefined) } as never,
+        jpdb: { reviewCard } as never,
         jiten: {} as never,
         jpdbKanji: { lookup: vi.fn(async () => null) } as never,
         kanjiVG: {} as never,
@@ -93,7 +95,7 @@ function listenController(cards: JPDBCard[], subMode: 'perceive' | 'recall' | 's
         toast: vi.fn(),
         playWordAudio,
         ...deps,
-    } as never);
+    } as never, { surface: 'academy' });
     const internals = controller as unknown as ListenInternals;
     internals.allWords = cards.slice();
     internals.visibleWords = cards.slice();
@@ -101,8 +103,8 @@ function listenController(cards: JPDBCard[], subMode: 'perceive' | 'recall' | 's
     internals.sourceLabel = 'JPDB';
     internals.reviewCountMode = true;
     internals.state = {
-        mode: 'listen',
-        listenSubMode: subMode,
+        ...DEFAULT_NEW_TAB_UI_STATE,
+        route: 'study',
         sort: 'random',
         filter: 'study',
         source: 'jpdb',
@@ -111,12 +113,28 @@ function listenController(cards: JPDBCard[], subMode: 'perceive' | 'recall' | 's
         ankiDeck: '',
         keyHintsDismissed: false,
     };
-    return { controller, internals, playWordAudio };
+    internals.listenInteractionMode = subMode;
+    internals.setStudyStepOverrideForCard(cards[0], subMode === 'shadow' ? 'speaking' : 'listen-pitch');
+    return { controller, internals, playWordAudio, reviewCard };
 }
 
+function expectNoPitchWrites(write: { mock: { calls: unknown[][] } }): void {
+    expect(write.mock.calls.filter(([key]) => String(key).includes('yomu-pitch-'))).toEqual([]);
+}
+
+let pitchWriteBoundaries: Array<{ mock: { calls: unknown[][] } }>;
+beforeEach(() => {
+    pitchWriteBoundaries = [
+        vi.spyOn(Storage.prototype, 'setItem'),
+        vi.spyOn(storage, 'gmStorageSet'),
+        vi.spyOn(storage, 'gmStorageSetSync'),
+    ];
+});
+
 afterEach(() => {
+    pitchWriteBoundaries.forEach(expectNoPitchWrites);
     document.body.replaceChildren();
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
 });
 
 describe('new-tab Listen mode', () => {
@@ -216,21 +234,23 @@ describe('new-tab Listen mode', () => {
             const reveal = new KeyboardEvent('keydown', { key: 'k', bubbles: true, cancelable: true });
             root.dispatchEvent(reveal);
             expect(reveal.defaultPrevented).toBe(true);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('speaking');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('listen-pitch');
+            expect(internals.state.revealAnswer).toBe(true);
+            expect(root.querySelector('[data-newtab-action="grade"]')).toBeNull();
         } finally {
             controller.destroy();
         }
     });
 
     it('shows instant correct feedback on the picked position without SRS-grading it', () => {
-        const { controller, internals } = listenController([pitchCard()], 'perceive');
+        const { controller, internals, reviewCard } = listenController([pitchCard()], 'perceive');
         const root = listenRoot();
+        const write = vi.spyOn(Storage.prototype, 'setItem');
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             internals.pickListenPosition(1); // correct (atamadaka)
-            const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
-            expect(item?.reps).toBe(0);
-            expect(item?.lapses).toBe(0);
+            expect(reviewCard).not.toHaveBeenCalled();
+            expectNoPitchWrites(write);
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Correct!');
             expect(root.querySelector('[data-listen-pos="1"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
             expect(root.querySelector('.jpdb-reader-newtab-listen-pos-wrong')).toBeNull();
@@ -244,15 +264,15 @@ describe('new-tab Listen mode', () => {
         // Two same-reading cards with different downstep form a strict minimal pair.
         const hashiAtamadaka = pitchCard();
         const hashiOdaka = pitchCard({ vid: 11, spelling: '橋', pitchAccent: [pitchPatternFromPosition('はし', 2)] });
-        const { controller, internals } = listenController([hashiAtamadaka, hashiOdaka], 'perceive');
+        const { controller, internals, reviewCard } = listenController([hashiAtamadaka, hashiOdaka], 'perceive');
         const root = listenRoot();
+        const write = vi.spyOn(Storage.prototype, 'setItem');
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             expect(root.querySelector('[data-newtab-action="listen-play"]')?.classList.contains('jpdb-reader-newtab-listen-icon-btn')).toBe(true);
             internals.pickListenPosition(2); // wrong (真 answer is 1)
-            const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
-            expect(item?.lapses).toBe(0);
-            expect(item?.reps).toBe(0);
+            expect(reviewCard).not.toHaveBeenCalled();
+            expectNoPitchWrites(write);
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Not quite');
             expect(root.querySelector('[data-listen-pos="2"]')?.classList.contains('jpdb-reader-newtab-listen-pos-wrong')).toBe(true);
             expect(root.querySelector('[data-listen-pos="1"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
@@ -263,8 +283,7 @@ describe('new-tab Listen mode', () => {
     });
 
     it('accepts any listed accent variant as correct (multi-accent words)', () => {
-        // 双子-style word: heiban AND odaka both accepted; the SRS item keys on
-        // the first variant but a pick on either must grade correct.
+        // Either dictionary-listed variant must receive correct feedback.
         const twoAccents = pitchCard({
             pitchAccent: [pitchPatternFromPosition('はし', 1), pitchPatternFromPosition('はし', 2)],
         });
@@ -305,15 +324,17 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('fronts the word + meaning in Recall and defers grading to a self-grade after reveal', () => {
-        const { controller, internals } = listenController([pitchCard()], 'recall');
+    it('fronts the word + meaning in Recall without scheduling or native grading', () => {
+        const { controller, internals, reviewCard } = listenController([pitchCard()], 'recall');
         const root = listenRoot();
+        const write = vi.spyOn(Storage.prototype, 'setItem');
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             expect(root.querySelector('.jpdb-reader-newtab-listen-cue')?.textContent).toContain('chopsticks');
-            // No picker grading yet — Recall reveals then offers self-grade buttons.
+            // A pitch choice provides feedback without a native review submission.
             internals.pickListenPosition(1);
-            expect(internals.pitchSrs.item(pitchItemKey('はし', 1))?.reps).toBe(0); // not graded on pick
+            expect(reviewCard).not.toHaveBeenCalled();
+            expectNoPitchWrites(write);
             expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
             expect(root.querySelector('[data-newtab-action="listen-grade"]')).toBeNull();
         } finally {
@@ -339,33 +360,28 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('advances listen controls through merged study steps before changing cards', () => {
+    it('navigates from Listen to the next vocabulary card without forcing another exercise', () => {
         const cards = [pitchCard(), pitchCard({ vid: 11, spelling: '橋', pitchAccent: [pitchPatternFromPosition('はし', 2)] })];
-        const { controller, internals } = listenController(cards, 'perceive');
+        const { controller, internals, reviewCard } = listenController(cards, 'perceive');
         const root = listenRoot();
         try {
-            internals.renderWord(root, internals.visibleWords[0]);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('listen-pitch');
-            internals.advanceListen(root);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('speaking');
-            expect(internals.visibleWords[internals.index]?.spelling).toBe('箸');
-            internals.advanceListen(root);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('final-reveal');
-            expect(internals.visibleWords[internals.index]?.spelling).toBe('箸');
-            expect(root.classList.contains('jpdb-reader-newtab-final-reveal-mode')).toBe(true);
-            expect(root.querySelector('.jpdb-reader-newtab-listen-card')).toBeNull();
-        } finally {
-            controller.destroy();
-        }
+            internals.bindRootEvents(root);
+            internals.renderWord(root, cards[0]);
+            root.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+            expect(internals.visibleWords[internals.index]).toBe(cards[1]);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
+            expect(internals.state.revealAnswer).toBe(false);
+            expect(reviewCard).not.toHaveBeenCalled();
+        } finally { controller.destroy(); }
     });
 
-    it('does not re-render forever when enriched pitch never seeds an SRS item', async () => {
+    it('does not re-render forever when enriched pitch cannot match the reading', async () => {
         // Regression: a fetched contour that cannot match the reading (mora
         // mismatch) used to re-render on every cached-promise resolution —
         // an infinite render loop that froze the tab on the Speak step.
         const { controller, internals } = listenController([pitchCard({ pitchAccent: [] })], 'shadow');
         const hacked = controller as unknown as { loadWordPitch(card: JPDBCard): Promise<string[]> };
-        hacked.loadWordPitch = () => Promise.resolve(['HLLLLLLL']); // 8 levels for the 2-mora はし — never seeds
+        hacked.loadWordPitch = () => Promise.resolve(['HLLLLLLL']); // 8 levels cannot match the 2-mora はし
         const originalRender = internals.renderWord.bind(internals);
         let renders = 0;
         internals.renderWord = (root: HTMLElement, card: JPDBCard) => {
@@ -383,20 +399,24 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('auto-seeds the pitch deck from a passing vocab review', async () => {
-        const { controller, internals } = listenController([pitchCard()], 'perceive', {
-            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
-        });
-        internals.state.mode = 'word'; // grade as a normal vocab review
+    it('submits an explicitly revealed vocabulary grade without creating a pitch deck', async () => {
+        const card = pitchCard();
+        const { controller, internals, reviewCard } = listenController([card], 'perceive');
+        internals.setStudyStepOverrideForCard(card, null);
         const root = listenRoot();
+        const write = vi.spyOn(Storage.prototype, 'setItem');
         try {
-            internals.renderWord(root, internals.visibleWords[0]);
-            expect(internals.pitchSrs.size()).toBe(0);
-            await internals.gradeCurrentCard('okay');
-            expect(internals.pitchSrs.item(pitchItemKey('はし', 1))).toBeTruthy();
-        } finally {
-            controller.destroy();
-        }
+            internals.bindRootEvents(root);
+            internals.renderWord(root, card);
+            root.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+            expect(reviewCard).not.toHaveBeenCalled();
+            root.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+            expect(root.querySelector('[data-newtab-action="grade"]')).not.toBeNull();
+            root.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true, cancelable: true }));
+            await vi.waitFor(() => expect(reviewCard).toHaveBeenCalledWith(card, 'hard'));
+            expect(reviewCard).toHaveBeenCalledTimes(1);
+        } finally { controller.destroy(); }
+        expectNoPitchWrites(write);
     });
 
     it('shows local speaking pitch feedback in Shadow without turning it into a grade', () => {

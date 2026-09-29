@@ -75,13 +75,13 @@ export function setNewTabImmersionTranslationBlurred(element: HTMLElement, blurr
 export function newTabImmersionImageUrl(
     example: ImmersionKitExample,
     settings: ReaderSettings,
-    client: ImmersionKitClient,
+    client: Pick<ImmersionKitClient, 'mediaUrls'>,
 ): string {
     const urls = settings.immersionKitShowImages ? client.mediaUrls(example, 'image') : [];
     return urls[0] ?? '';
 }
 
-export function newTabImmersionAudioUrls(example: ImmersionKitExample, client: ImmersionKitClient): string[] {
+export function newTabImmersionAudioUrls(example: ImmersionKitExample, client: Pick<ImmersionKitClient, 'mediaUrls'>): string[] {
     return client.mediaUrls(example, 'sound');
 }
 

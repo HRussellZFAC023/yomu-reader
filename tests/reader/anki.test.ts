@@ -483,6 +483,26 @@ describe('AnkiConnect browser fetch eligibility', () => {
         }
     });
 
+    it.each(['moz-extension', 'chrome-extension', 'safari-web-extension'])('uses the existing network privilege of a %s page without a GM HTTP shim', async scheme => {
+        const href = `${scheme}://owned-package/newtab/index.html`;
+        const { client, fetchMock } = stubBrowserAnkiConnectCheck(href);
+        try {
+            expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', href)).toBe(true);
+            await expect(client.isConnected()).resolves.toBe(true);
+            expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8765', expect.objectContaining({ method: 'POST' }));
+        } finally { client.destroy(); vi.unstubAllGlobals(); }
+    });
+
+    it('does not confuse lookalike origins or non-HTTP targets with extension network privilege', () => {
+        const packaged = 'moz-extension://owned-package/newtab/index.html';
+        for (const target of ['ftp://127.0.0.1:8765', 'file:///tmp/anki', 'data:text/plain,anki', 'moz-extension://other/']) {
+            expect(canDirectFetchAnkiConnectFrom(target, packaged)).toBe(false);
+        }
+        expect(canDirectFetchAnkiConnectFrom('https://anki.example.test', packaged)).toBe(true);
+        expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', 'moz-extension:/newtab/index.html')).toBe(false);
+        expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', 'https://moz-extension.example.test/')).toBe(false);
+    });
+
     it('prefers the userscript bridge over direct hosted fetch when the bridge exists', async () => {
         const { fetchMock, bridgeRequest } = stubHostedLoopbackBridgeMocks('hosted bridge requests should not fall through to fetch');
         vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FactoryResetCoordinator } from '../../src/reader/app/factory-reset-coordinator';
+import { createFactoryResetCoordinator, FactoryResetCoordinator, type FactoryResetDictionaryStore } from '../../src/reader/app/factory-reset-coordinator';
 import { DEFAULT_SETTINGS, endSettingsResetGuard, NO_EXPLICIT_USER_CHOICE, saveSettings } from '../../src/reader/settings/index';
 
 describe('FactoryResetCoordinator', () => {
@@ -10,6 +10,28 @@ describe('FactoryResetCoordinator', () => {
         endSettingsResetGuard();
         localStorage.clear();
         sessionStorage.clear();
+    });
+
+    it('forwards the committed reset receipt through the production dictionary adapter only after commit', async () => {
+        const observedEpochs: unknown[] = [];
+        let epoch = (): unknown => undefined;
+        const deleteDatabase = vi.fn(async (_options: { timeoutMs: number; completedResetId?: string }) => { observedEpochs.push(epoch()); });
+        const unused = vi.fn(async () => { throw new Error('Production adapter must handle dictionary deletion'); });
+        const { coordinator, gmValues, reload } = setupFactoryResetHarness({
+            resetDictionaryDatabase: unused,
+            dictionaryStore: { deleteDatabase },
+        });
+        epoch = () => gmValues.get('yomu:state-epoch');
+        const resetting = coordinator.resetAllData();
+        await vi.runAllTimersAsync();
+        await resetting;
+        const committed = gmValues.get('yomu:state-epoch') as { resetId: string };
+        expect(deleteDatabase).toHaveBeenCalledTimes(2);
+        expect(deleteDatabase.mock.calls[0][0]).not.toHaveProperty('completedResetId');
+        expect(deleteDatabase.mock.calls[1][0]).toMatchObject({ completedResetId: committed.resetId });
+        expect(observedEpochs).toEqual([undefined, committed]);
+        expect(unused).not.toHaveBeenCalled();
+        expect(reload).toHaveBeenCalledOnce();
     });
 
     it('removes the reset coordination signal before reloading', async () => {
@@ -34,9 +56,13 @@ describe('FactoryResetCoordinator', () => {
             generation: 1,
             resetId: expect.any(String),
         });
-        expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-old');
+        expect(deleteCache).not.toHaveBeenCalled();
+        expect(caches.has('yomu-newtab-old')).toBe(true);
         expect(caches.has('foreign-cache')).toBe(true);
         expect(resetDictionaryDatabase).toHaveBeenCalledTimes(2);
+        expect(resetDictionaryDatabase).toHaveBeenNthCalledWith(1);
+        expect(resetDictionaryDatabase).toHaveBeenNthCalledWith(2,
+            (gmValues.get('yomu:state-epoch') as { resetId: string }).resetId);
         expect(reload).toHaveBeenCalledOnce();
     });
 
@@ -147,6 +173,7 @@ function setupFactoryResetHarness(options: {
     failSignalCleanupAfterEpoch?: boolean;
     failEpochReadAfterWrite?: boolean;
     resetDictionaryDatabase: () => Promise<unknown>;
+    dictionaryStore?: FactoryResetDictionaryStore;
 }): {
     coordinator: FactoryResetCoordinator;
     gmValues: Map<string, unknown>;
@@ -179,13 +206,15 @@ function setupFactoryResetHarness(options: {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const reload = vi.fn();
     const toast = vi.fn();
-    const coordinator = new FactoryResetCoordinator({
+    const common = {
         isDestroyed: () => false,
-        getLanguage: () => 'en',
+        getLanguage: () => 'en' as const,
         invalidateRuntimeStores: vi.fn(async () => undefined),
-        resetDictionaryDatabase: options.resetDictionaryDatabase,
         toast,
         reload,
-    });
+    };
+    const coordinator = options.dictionaryStore
+        ? createFactoryResetCoordinator({ ...common, dictionaries: options.dictionaryStore })
+        : new FactoryResetCoordinator({ ...common, resetDictionaryDatabase: options.resetDictionaryDatabase });
     return { coordinator, gmValues, reload, toast };
 }

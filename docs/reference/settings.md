@@ -94,10 +94,6 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Swipe cards to grade (left = fail, right = pass) | — | on | `newTabSwipeReviews` |
 | Show Study keyboard shortcut hints | — | on | `newTabShortcutHintsEnabled` |
 | Auto-grade kanji drawing | — | on | `newTabKanjiAutogradeEnabled` |
-| Auto-submit kanji grade | — | off | `newTabKanjiAutoSubmit` |
-| Not yet described | — | 6 entries | `newTabStudyStepOrder` |
-| Not yet described | — | empty list | `newTabStudyDisabledSteps` |
-| Not yet described | — | off | `newTabStudyTourSeen` |
 | Enable Academy | — | on | `yomuLocalSrsEnabled` |
 | Review rating scale | — | off | `twoButtonReviews` |
 
@@ -113,6 +109,7 @@ URL tokens: {term}, {reading}, {language}.
 | Auto-play trigger | — | Hover and tap/click (`all`) | `audioAutoPlayMode` |
 | Not yet described | — | 8 entries | `audioSources` |
 | Enable built-in audio sources | — | on | `audioEnableDefaultSources` |
+| Not yet described | — | `https://audio.yomureader.com/?term={term}&r…` | `audioSourceUrl` |
 | Enable fallback chime | — | on | `audioFallbackChimeEnabled` |
 | Audio timeout (ms) | — | `6000` | `audioTimeoutMs` |
 | When several sources or clips exist | — | Shuffle audio (`random`) | `audioSelectionMode` |
@@ -207,7 +204,7 @@ Set a hover key. Blank means plain hover.
 
 ## Kanji (Sources tab)
 
-Uchisen is not an embedded kanji source. It remains available only as a disabled-by-default outbound lookup link; よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Older saved `uchisenEnabled`, `uchisenAlias`, and `uchisenPriority` fields are retained for settings compatibility but ignored.
+Uchisen is available only as an optional outbound lookup link, disabled by default. よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Its retired provider settings are discarded when settings are loaded or imported.
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
@@ -377,11 +374,8 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Learning target selected | Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off. | off | `learningTargetChosen` |
 | Not yet described | — | on | `similarKanjiWords` |
 | Not yet described | — | `40` | `similarKanjiWordsPriority` |
-| Not yet described | — | `https://audio.yomureader.com/?term={term}&r…` | `audioSourceUrl` |
 | Not yet described | — | on | `audioViaBlob` |
-| Not yet described | — | on | `immersionKitExpandedLimitMigrated20260721` |
 | Not yet described | — | `shift` | `scanModifierKey` |
-| Not yet described | — | off | `newTabEnabled` |
 | Not yet described | — | `keyboard` | `newTabTypeWordInputMode` |
 | Not yet described | — | unset | `puckPositionX` |
 | Not yet described | — | unset | `puckPositionY` |
@@ -394,6 +388,3 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Not yet described | — | empty list | `dictionaryPreferences` |
 | Show native subtitles | — | off | `subtitleSecondaryVisible` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |
-| Not yet described | — | on | `youtubeFilterNoticeRestored20260711` |
-| Not yet described | — | on | `themeAutoRestored20260730` |
-| Not yet described | — | on | `ankiSentenceAudioMappingMigrated` |

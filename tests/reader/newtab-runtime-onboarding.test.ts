@@ -9,8 +9,8 @@ import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
     endSettingsResetGuard,
+    saveSettings,
 } from '../../src/reader/settings';
-import { gmStorageSet } from '../../src/reader/app/storage';
 import { installUserscriptGmStorageBridge, uninstallUserscriptGmStorageBridge } from '../../src/reader/userscript/storage-bridge';
 import { rejectOnboardingTargetPersistence } from './helpers/rejected-onboarding-target';
 
@@ -71,46 +71,35 @@ function installPackagedSettings(overrides: Partial<typeof DEFAULT_SETTINGS>): v
     });
 }
 
-interface FailedRawRecoveryHarness {
+interface SettingsStartupHarness {
     readonly values: Map<string, unknown>;
+    readonly rawGet: Mock<[key: string | null], Promise<Record<string, unknown>>>;
     readonly rawSet: Mock<[updates: Record<string, unknown>], Promise<void>>;
     readonly rawRemove: Mock<[key: string], Promise<void>>;
     readonly gmSet: Mock<[key: string, value: unknown], void>;
     readonly gmDelete: Mock<[key: string], void>;
+    readonly allowReads: () => void;
 }
 
-function installFailedRawRecoveryHarness(
-    canonicalChosen: boolean,
+function installSettingsStartupHarness(
+    readable: boolean,
     options: { readonly stableTornPair?: boolean } = {},
-): FailedRawRecoveryHarness {
-    const stableTornPair = options.stableTornPair === true;
-    const rawSettings = {
-        ...DEFAULT_SETTINGS,
-        learningTargetChosen: true,
-        onboardingSeen: true,
-        apiKey: 'raw-startup-secret',
-        ...(stableTornPair ? { [SETTINGS_COMMIT_KEY]: 'raw-settings-commit' } : {}),
-    };
-    const intent = {
-        revision: 1,
-        records: {},
-        ...(stableTornPair ? { [SETTINGS_COMMIT_KEY]: 'raw-intent-commit' } : {}),
-    };
+): SettingsStartupHarness {
+    const torn = options.stableTornPair === true;
+    let available = readable || torn;
     const values = new Map<string, unknown>([
-        [SETTINGS_STORAGE_KEY, rawSettings],
-        [SETTINGS_INTENT_KEY, intent],
+        [SETTINGS_STORAGE_KEY, { learningTargetChosen: true, apiKey: 'raw-startup-secret' }],
+        [SETTINGS_INTENT_KEY, { revision: 1, records: {} }],
+        [`${COMPILER_STORAGE_PREFIX}${SETTINGS_STORAGE_KEY}`, {
+            ...DEFAULT_SETTINGS, learningTargetChosen: true, onboardingSeen: true,
+            [SETTINGS_COMMIT_KEY]: 'current-settings',
+        }],
+        [`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`, {
+            revision: 1, records: {}, [SETTINGS_COMMIT_KEY]: torn ? 'different-current-intent' : 'current-settings',
+        }],
     ]);
-    if (canonicalChosen) {
-        values.set(`${COMPILER_STORAGE_PREFIX}${SETTINGS_STORAGE_KEY}`, {
-            ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
-            onboardingSeen: true,
-        });
-        values.set(`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`, intent);
-    }
-    const rawGet = vi.fn(async (key: string | null) => {
-        if (!stableTornPair && key === SETTINGS_INTENT_KEY) throw new Error('raw adapter unavailable');
-        return rawExtensionStorageSelection(values, key);
+    const rawGet = vi.fn(async (_key: string | null): Promise<Record<string, unknown>> => {
+        throw new Error('Raw settings must not be inspected');
     });
     const rawSet = vi.fn(async (updates: Record<string, unknown>) => {
         for (const [key, value] of Object.entries(updates)) values.set(key, value);
@@ -119,16 +108,10 @@ function installFailedRawRecoveryHarness(
     const gmSet = vi.fn((key: string, value: unknown) => {
         values.set(`${COMPILER_STORAGE_PREFIX}${key}`, value);
     });
-    const gmDelete = vi.fn((key: string) => {
-        values.delete(`${COMPILER_STORAGE_PREFIX}${key}`);
-    });
+    const gmDelete = vi.fn((key: string) => { values.delete(`${COMPILER_STORAGE_PREFIX}${key}`); });
     vi.stubGlobal('location', {
-        protocol: 'moz-extension:',
-        origin: 'null',
-        hostname: 'yomu-test',
-        pathname: '/newtab/index.html',
-        href: 'moz-extension://yomu-test/newtab/index.html',
-        reload: vi.fn(),
+        protocol: 'moz-extension:', origin: 'null', hostname: 'yomu-test',
+        pathname: '/newtab/index.html', href: 'moz-extension://yomu-test/newtab/index.html', reload: vi.fn(),
     });
     vi.stubGlobal('browser', {
         runtime: { id: 'yomu@yomureader.com' },
@@ -136,26 +119,18 @@ function installFailedRawRecoveryHarness(
     });
     vi.stubGlobal('__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__', true);
     vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => {
+        if (!available) throw new Error('current backend unavailable');
         const physicalKey = `${COMPILER_STORAGE_PREFIX}${key}`;
         return values.has(physicalKey) ? values.get(physicalKey) : fallback;
     }));
     vi.stubGlobal('GM_setValue', gmSet);
     vi.stubGlobal('GM_deleteValue', gmDelete);
     vi.stubGlobal('GM_listValues', vi.fn(() => []));
-    return { values, rawSet, rawRemove, gmSet, gmDelete };
-}
-
-function rawExtensionStorageSelection(
-    values: ReadonlyMap<string, unknown>,
-    key: string | null,
-): Record<string, unknown> {
-    if (key === null) return Object.fromEntries(values);
-    if (!values.has(key)) return {};
-    return { [key]: values.get(key) };
+    return { values, rawGet, rawSet, rawRemove, gmSet, gmDelete, allowReads: () => { available = true; } };
 }
 
 function expectNoCanonicalSettingsMutation(
-    harness: Pick<FailedRawRecoveryHarness, 'gmSet' | 'gmDelete'>,
+    harness: Pick<SettingsStartupHarness, 'gmSet' | 'gmDelete'>,
 ): void {
     const settingsKeys = new Set([SETTINGS_STORAGE_KEY, SETTINGS_INTENT_KEY]);
     expect(harness.gmSet.mock.calls.some(([key]) => (
@@ -166,8 +141,9 @@ function expectNoCanonicalSettingsMutation(
     ))).toBe(false);
 }
 
-function expectRawSettingsUntouched(harness: FailedRawRecoveryHarness, rawBefore: unknown): void {
+function expectRawSettingsUntouched(harness: SettingsStartupHarness, rawBefore: unknown): void {
     expect(harness.values.get(SETTINGS_STORAGE_KEY)).toEqual(rawBefore);
+    expect(harness.rawGet).not.toHaveBeenCalled();
     expect(harness.rawSet).not.toHaveBeenCalled();
     expect(harness.rawRemove).not.toHaveBeenCalled();
     expectNoCanonicalSettingsMutation(harness);
@@ -199,7 +175,7 @@ async function waitForRecoveryAlert(): Promise<HTMLElement> {
 }
 
 async function unblockRecoveryWithChosenCanonical(
-    harness: Pick<FailedRawRecoveryHarness, 'values'>,
+    harness: Pick<SettingsStartupHarness, 'values' | 'allowReads'>,
     alert: HTMLElement,
     starting: Promise<void>,
 ): Promise<void> {
@@ -207,11 +183,14 @@ async function unblockRecoveryWithChosenCanonical(
         ...DEFAULT_SETTINGS,
         learningTargetChosen: true,
         onboardingSeen: true,
+        [SETTINGS_COMMIT_KEY]: 'ready-current',
     });
     harness.values.set(`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`, {
         revision: 1,
         records: {},
+        [SETTINGS_COMMIT_KEY]: 'ready-current',
     });
+    harness.allowReads();
     alert.querySelector<HTMLButtonElement>('[data-recovery-action="retry"]')!.click();
     await starting;
 }
@@ -320,8 +299,8 @@ describe('packaged Study welcome integration', () => {
         expect(calls).toEqual(['welcome', 'choose-target', 'render']);
     });
 
-    it('blocks full Study startup before onboarding when raw chosen settings cannot be recovered', async () => {
-        const harness = installFailedRawRecoveryHarness(false);
+    it('blocks full Study startup when current settings cannot be read', async () => {
+        const harness = installSettingsStartupHarness(false);
         const rawBefore = structuredClone(harness.values.get(SETTINGS_STORAGE_KEY));
         const backgroundButton = document.createElement('button');
         backgroundButton.textContent = 'existing Study control';
@@ -329,10 +308,10 @@ describe('packaged Study welcome integration', () => {
         const { init, createRuntime, starting } = startRecoveryTestRuntime();
         const alert = await waitForRecoveryAlert();
         expect(alert.matches('[role="alert"]')).toBe(true);
-        expect(alert.textContent).toContain('Study paused to protect your settings');
-        expect(alert.textContent).toContain('existing data was retained unchanged');
-        expect(alert.textContent).toContain('latest settings backup');
-        expect(alert.textContent).toContain('Do not use Factory Reset or downgrade Yomu');
+        expect(alert.textContent).toContain('Could not load settings');
+        expect(alert.textContent).toContain('Your saved settings have not been changed.');
+        expect(alert.textContent).not.toContain('backup');
+        expect(alert.textContent).not.toContain('downgrade');
         expect(alert.querySelector('[data-recovery-action="retry"]')).not.toBeNull();
         expect(alert.querySelector('[data-recovery-action="reload"]')).not.toBeNull();
         expect(backgroundButton.inert).toBe(true);
@@ -360,13 +339,13 @@ describe('packaged Study welcome integration', () => {
         expect(backgroundButton.inert).toBe(false);
     });
 
-    it('blocks before runtime and onboarding when stable raw settings and intent commits are torn', async () => {
-        const harness = installFailedRawRecoveryHarness(false, { stableTornPair: true });
+    it('blocks before runtime and onboarding when current settings and intent commits are torn', async () => {
+        const harness = installSettingsStartupHarness(false, { stableTornPair: true });
         const rawSettingsBefore = structuredClone(harness.values.get(SETTINGS_STORAGE_KEY));
         const rawIntentBefore = structuredClone(harness.values.get(SETTINGS_INTENT_KEY));
         const { init, createRuntime, starting } = startRecoveryTestRuntime();
         const alert = await waitForRecoveryAlert();
-        expect(alert.textContent).toContain('Study paused to protect your settings');
+        expect(alert.textContent).toContain('Could not load settings');
         expect(alert.textContent).not.toContain('raw-startup-secret');
         expect(document.body.textContent).not.toContain('raw-startup-secret');
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
@@ -374,8 +353,8 @@ describe('packaged Study welcome integration', () => {
         expect(init).not.toHaveBeenCalled();
         expect(harness.values.get(SETTINGS_STORAGE_KEY)).toEqual(rawSettingsBefore);
         expect(harness.values.get(SETTINGS_INTENT_KEY)).toEqual(rawIntentBefore);
-        expect(harness.values.has(`${COMPILER_STORAGE_PREFIX}${SETTINGS_STORAGE_KEY}`)).toBe(false);
-        expect(harness.values.has(`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`)).toBe(false);
+        expect(harness.values.get(`${COMPILER_STORAGE_PREFIX}${SETTINGS_STORAGE_KEY}`)).toHaveProperty(SETTINGS_COMMIT_KEY, 'current-settings');
+        expect(harness.values.get(`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`)).toHaveProperty(SETTINGS_COMMIT_KEY, 'different-current-intent');
         expectRawSettingsUntouched(harness, rawSettingsBefore);
 
         await unblockRecoveryWithChosenCanonical(harness, alert, starting);
@@ -387,8 +366,8 @@ describe('packaged Study welcome integration', () => {
         expect(harness.rawRemove).not.toHaveBeenCalled();
     });
 
-    it('continues full Study startup when canonical chosen settings survive a raw probe failure', async () => {
-        const harness = installFailedRawRecoveryHarness(true);
+    it('continues full Study startup without probing the raw namespace', async () => {
+        const harness = installSettingsStartupHarness(true);
         const rawBefore = structuredClone(harness.values.get(SETTINGS_STORAGE_KEY));
         const { init, createRuntime, starting } = startRecoveryTestRuntime();
 
@@ -400,14 +379,12 @@ describe('packaged Study welcome integration', () => {
 
     it('renders the packaged Study recovery block in Japanese for a Japanese interface locale', async () => {
         vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['ja-JP']);
-        const harness = installFailedRawRecoveryHarness(false);
+        const harness = installSettingsStartupHarness(false);
         const { starting } = startRecoveryTestRuntime();
         const alert = await waitForRecoveryAlert();
-        expect(alert.textContent).toContain('設定を保護するためStudyを一時停止しました');
-        expect(alert.textContent).toContain('既存データは変更せず保持');
-        expect(alert.textContent).toContain('最新の設定バックアップ');
-        expect(alert.textContent).toContain('初期状態へのリセット');
-        expect(alert.textContent).toContain('ダウングレード');
+        expect(alert.textContent).toContain('設定を読み込めませんでした');
+        expect(alert.textContent).toContain('保存済みの設定は変更されていません。');
+        expect(alert.textContent).not.toContain('バックアップ');
 
         await unblockRecoveryWithChosenCanonical(harness, alert, starting);
     });
@@ -737,16 +714,11 @@ describe('packaged Study welcome integration', () => {
         };
         internals.isDestroyed = false;
         internals.applyRemoteSettings = applyRemoteSettings;
-        await gmStorageSet(SETTINGS_STORAGE_KEY, {
-            ...DEFAULT_SETTINGS,
-            theme: 'light',
-            popupMode: 'modal',
-        });
-        await gmStorageSet(SETTINGS_STORAGE_KEY, {
+        await saveSettings({
             ...DEFAULT_SETTINGS,
             theme: 'dark',
-            popupMode: 'modal',
-        });
+            popupMode: 'sheet',
+        }, { explicitUserChoiceKeys: ['theme'] });
         expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
             theme: 'dark',
             __yomuHostedPendingGmPatch: { theme: 'dark' },

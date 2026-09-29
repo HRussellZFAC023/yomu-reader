@@ -3,7 +3,6 @@ import {
     type StoredValuesImportTransaction,
 } from '../app/storage';
 import {
-    InvalidSettingsBackupAuthorityError,
     readBackupSettingsPersistenceView,
     type SettingsPersistenceView,
 } from './settings-persistence-transaction';
@@ -14,7 +13,6 @@ import type { ReaderSettings } from '../app/types';
 
 export interface SettingsRestoreTransactionOptions {
     readonly storage: unknown;
-    readonly allowInvalidSettingsAuthorityFallback?: boolean;
     readonly prepareSettings?: (importedView: SettingsPersistenceView | null) => void | Promise<void>;
     readonly stageBeforeSettings?: () => Promise<void>;
     readonly rollbackBeforeSettings?: () => Promise<void>;
@@ -23,23 +21,6 @@ export interface SettingsRestoreTransactionOptions {
 
 export interface SettingsRestoreTransactionResult {
     readonly restoredValues: number;
-}
-
-const READER_SETTINGS_BACKUP_FORMATS = new Set([
-    'yomu-reader-settings',
-    'jpdb-popup-reader-settings',
-]);
-
-export function readerStorageRestorePayload(value: unknown): unknown {
-    if (!isStorageBackupRecord(value)) return null;
-    const record = value as { formatName?: string; storage?: unknown };
-    return READER_SETTINGS_BACKUP_FORMATS.has(record.formatName ?? '')
-        ? record.storage
-        : null;
-}
-
-function isStorageBackupRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
 }
 
 export function settingsRestoreSaveOptions(
@@ -90,7 +71,7 @@ export async function runSettingsRestoreTransaction(
     options: SettingsRestoreTransactionOptions,
 ): Promise<SettingsRestoreTransactionResult> {
     // Reject a witnessed half-commit before any durable store is touched.
-    const importedView = await restoreSettingsPersistenceView(options);
+    const importedView = await readBackupSettingsPersistenceView(options.storage);
     await options.prepareSettings?.(importedView);
     const storedValues = await beginStoredValuesImport(options.storage);
     try {
@@ -100,18 +81,6 @@ export async function runSettingsRestoreTransaction(
         return { restoredValues: storedValues.count };
     } catch (error) {
         return rollbackSettingsRestore(error, storedValues, options.rollbackBeforeSettings);
-    }
-}
-
-async function restoreSettingsPersistenceView(
-    options: SettingsRestoreTransactionOptions,
-): Promise<SettingsPersistenceView | null> {
-    try {
-        return await readBackupSettingsPersistenceView(options.storage);
-    } catch (error) {
-        if (options.allowInvalidSettingsAuthorityFallback
-            && error instanceof InvalidSettingsBackupAuthorityError) return null;
-        throw error;
     }
 }
 

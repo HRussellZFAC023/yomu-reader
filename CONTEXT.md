@@ -1,16 +1,18 @@
 # Yomu Domain Context
 
-Yomu is a self-contained reading userscript. All 33 learning targets share the
-core reading, lookup, mining and review paths, but target and data depth remain
-explicit. Only Japanese is currently `full`; the other 32 targets remain
-`reading-only`. Japanese has mature deinflection, pitch accent, recorded audio,
-stroke feedback, and a much larger grammar inventory. Six targets have an
-actual morphology Adapter; the other 27 have literal dictionary-form lookup,
-which is not called morphology. Use these terms when naming Modules,
-Interfaces, tests, and docs.
+Yomu helps learners understand, use and remember Japanese. Reader, Academy and
+practice share learning context while the learner's review destinations retain
+their own schedules. These terms describe the product's concepts; current
+implementation coverage and unfinished work belong in the rebuild ledger.
 
 ## Core Terms
 
+- Lookup Source: A dictionary, parser or example source that helps explain Japanese. It does not determine where the learner's reviews live.
+- Saved Material: A word, sentence or other learning item the learner chose to keep with its context. Saving it does not itself prove that a review occurred.
+- Review Destination: The learner's chosen review application and collection for a task, such as an Anki deck or Jiten deck. Defaults reduce repeated choices without making other destinations exclusive.
+- Review Ownership: The responsibility for an item's schedule and review history. The destination owns that record; Yomu must not silently create a competing schedule.
+- Practice Session: Prepared material, one chosen purpose and resumable progress. Its owner stores responses separately from immutable material, retains the original selection for later practice, and rejects stale actions. Responses are practice evidence, not completion of a provider's scheduled reviews.
+- Review Session: A sequence of review obligations owned by a chosen Review Destination. Its prompts, accepted responses and scheduling meanings belong to that destination.
 - Reader Surface: Any page area Yomu can scan, annotate, or use as lookup context.
 - Website Locale: One human-reviewed public-site route tree with its own prose, navigation, metadata, links, `lang`, and `dir`. It is independent of Learning Target, Definition Language, and Reader Interface Language; a machine draft is not a publishable Website Locale.
 - Chosen Learning Target: The learner-confirmed language that may activate target-owned parsing, lookup, OCR, subtitles, mining, and Study behavior. A compatibility default in a stored profile is not a choice; first-run Reader work remains inert until the learner confirms one.
@@ -20,12 +22,14 @@ Interfaces, tests, and docs.
 - Annotation Scope: A page-owned boundary that restricts Yomu's generic scan to explicitly declared Reader Surfaces; pages that do not declare one retain whole-document scanning.
 - Annotation Pass: One lossless, coalescing scan of a Reader Surface. Ordinary page mutations and lookups may queue another pass but never discard the active pass; only an explicit reader shutdown or annotations-off transition cancels it. Each parse batch preserves one result per input and isolates fallback from later batches.
 - Lookup: Turning text in the selected Learning Target at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.
+- Public Lookup Outcome: A complete response, usable partial response, or failed acquisition. Complete-empty is different from transport failure. Completion describes the requested bounded lookup, not exhaustive vocabulary coverage; incomplete results must not become durable complete-cache entries.
+- Mounted Example Presentation: The listeners, carousel position and media lifetime belonging to one Study card or Search panel. Search panels have independent presentations while sharing example acquisition.
 - Mining Context: The sentence, source title, source URL, and optional image captured with a card for JPDB or Anki.
 - Card: A JPDB, local dictionary, or Anki-shaped vocabulary item shown by Yomu.
 - Study Card Identity: The canonical local and synced vocabulary identity `[expression, reading, partOfSpeech, language]`. Empty trailing fields are elided and Japanese is the default language, so legacy Japanese keys remain byte-identical while non-Japanese cards retain an explicit language slot.
 - Target-scoped Study Queue: A Study queue filtered to the active learning target before provider caps, reading normalization, deduplication, or fallback selection. Card-owned morphology still resolves from each card's identity rather than ambient UI state.
 - Dictionary Import: Loading Yomitan ZIP, Yomitan Dexie JSON, or Yomu reader exports into local IndexedDB stores.
-- Shared Dictionary Host: In a browser-extension build, the generated background realm that owns the extension-origin Yomitan IndexedDB and answers content-script store calls over the Dictionary Store Protocol. Userscript and failed-capability-probe paths keep using their direct origin-local store.
+- Shared Dictionary Host: The sole imported-dictionary owner in a browser-extension installation. An unavailable host does not transfer ownership to a page; userscript installations without an extension runtime retain their origin-local store.
 - Dictionary Store Protocol: The versioned extension message contract that capability-probes the Shared Dictionary Host with one short message, then keeps every store call alive and ordered over a chunked runtime Port. Its client is a Proxy over the derived public store facade, never a second method inventory, so future methods inherit the durable path automatically.
 - Dictionary Preference: User ordering, aliases, and enablement for local dictionaries.
 - Study Target Readiness: The explicit product promise attached to every target in the hand-maintained language roster: `full`, `reading-only`, or `planned`. Pickers and claims consume that one value; a planned target is named, disabled, and accompanied by its reason.

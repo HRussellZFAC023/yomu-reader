@@ -44,7 +44,6 @@ const STATIC_ROUTES = new Map([
 function baseSettings(overrides = {}) {
     return {
         onboardingSeen: true,
-        newTabEnabled: true,
         interfaceLanguage: 'en',
         apiKey: '',
         jitenApiKey: '',

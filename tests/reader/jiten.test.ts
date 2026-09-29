@@ -529,20 +529,21 @@ describe('JitenApiClient', () => {
         expect(word.nextSibling?.textContent).toBe('する。');
     });
 
-    it('refreshes a card state from a self-parse after reviews (JPDB refreshCard parity)', async () => {
+    it('refreshes the exact word and reading state without reparsing its spelling', async () => {
         const fetchMock = createFetchMock({
+            result: [[4]],
             vocabulary: [{
-                wordId: 42,
-                readingIndex: 2,
+                wordId: 99,
+                readingIndex: 0,
                 spelling: '日本語',
                 reading: '日本語[にほんご]',
                 partsOfSpeech: ['n'],
                 meaningsChunks: [['Japanese language']],
                 meaningsPartOfSpeech: ['n'],
-                knownState: [4],
+                knownState: [2],
                 pitchAccents: [0],
             }],
-            tokens: [[{ wordId: 42, readingIndex: 2, start: 0, end: 3, length: 3 }]],
+            tokens: [[{ wordId: 99, readingIndex: 0, start: 0, end: 3, length: 3 }]],
         });
         const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
         const card = {
@@ -565,6 +566,11 @@ describe('JitenApiClient', () => {
         await client.refreshCardState(card as never);
 
         expect(card.cardState).toEqual(['due']);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/reader/lookup-vocabulary`, expect.objectContaining({
+            method: 'POST',
+            body: JSON.stringify({ words: [[42, 2]] }),
+        }));
     });
 
     it('refreshes many card states in ONE batched reader/lookup-vocabulary request', async () => {
@@ -600,6 +606,35 @@ describe('JitenApiClient', () => {
         }));
         expect(cards[0].cardState).toEqual(['mature']);
         expect(cards[1].cardState).toEqual(['due']);
+    });
+
+    it.each([{}, { result: [] }, { result: [null] }, { result: ['due'] }, { result: [[null]] }, { result: [[99]] }])('preserves known state when a refresh response is incomplete: %j', async payload => {
+        const fetchMock = createFetchMock(payload);
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+        const card = { source: 'jiten', vid: 42, sid: 2, cardState: ['due'] } as JPDBCard;
+
+        expect(await client.refreshCardStates([card])).toBe(0);
+        expect(card.cardState).toEqual(['due']);
+    });
+
+    it('retains row alignment when only part of a state response is valid', async () => {
+        const client = new JitenApiClient(() => 'jiten-token', {
+            fetchImpl: createFetchMock({ result: [null, [2], []] }),
+        });
+        const cards = [11, 22, 33].map(vid => ({ source: 'jiten', vid, sid: 0, cardState: ['due'] } as JPDBCard));
+
+        expect(await client.refreshCardStates(cards)).toBe(2);
+        expect(cards.map(card => card.cardState)).toEqual([['due'], ['mature'], ['not-in-deck']]);
+    });
+
+    it('rejects a non-Jiten card before requesting its state', async () => {
+        const fetchMock = createFetchMock({ result: [[2]] });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+        const card = { source: 'jpdb', vid: 42, sid: 2, cardState: ['due'] } as JPDBCard;
+
+        await expect(client.refreshCardState(card)).rejects.toThrow('Card is not backed by Jiten');
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(card.cardState).toEqual(['due']);
     });
 
     it('maps the Jiten known-state enum to Yomu card states', async () => {

@@ -1,5 +1,13 @@
 import type { GmGetValue } from './managed-read-path';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
+import { detectInstalledReaderRuntime } from './runtime-presence';
+
+export function managedStorageOwner(): 'standalone' | 'userscript' | 'extension' {
+    const installed = detectInstalledReaderRuntime();
+    if (installed) return installed;
+    if (!getUserscriptGmStorage()) return 'standalone';
+    return document.documentElement?.dataset.yomuStorageBridgeKind === 'extension' ? 'extension' : 'userscript';
+}
 
 export type GmSetValue = (key: string, value: unknown) => void | Promise<void>;
 export type GmDeleteValue = (key: string) => void | Promise<void>;
@@ -47,8 +55,8 @@ export function asyncGmGetValue(): GmGetValue | null {
 
 export function directGmGetValue(): GmGetValue | null {
     if (packagedExtensionStorageAdapterMissing()) return null;
-    return legacyGmGetValue()
-        ?? modernGmGetValue()
+    return modernGmGetValue()
+        ?? legacyGmGetValue()
         ?? rawExtensionStorageGetValue();
 }
 
@@ -140,7 +148,7 @@ export function asyncGmListValues(): GmListValues | null {
 }
 
 function directGmListValues(): GmListValues | null {
-    return legacyGmListValues() ?? modernGmListValues() ?? extensionGmListValues();
+    return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
 }
 
 function legacyGmListValues(): GmListValues | null {

@@ -112,9 +112,9 @@ Chrome Web Store and Firefox Add-ons are supported release channels, but their r
 
 The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own language, Jiten/JPDB keys, settings, and progress.
 
-### Recover settings after 1.9.2
+### Settings backups
 
-If extension-owned Study and ordinary websites already show different chosen settings, update to 1.9.3 or newer, open Study from the extension toolbar, and import your latest settings backup once. Keep only that settings surface active, leave the Study tab open, and wait for the import result; its Save and competing settings actions stay unavailable until the restore finishes. Do not factory reset or downgrade to recover from this incident.
+Export or import settings from Study → Settings → Backup & sync. Only the current Yomu settings backup format is supported; older Yomu and Yomitan settings files are not converted. Unsupported files are rejected before restoring data. Backups can contain API keys. Store them privately.
 
 ## Privacy
 

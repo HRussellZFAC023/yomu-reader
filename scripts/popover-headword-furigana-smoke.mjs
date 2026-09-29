@@ -39,7 +39,6 @@ const settings = {
     kanjivgEnabled: false,
     kanjiOriginsEnabled: false,
     rtkEnabled: false,
-    uchisenEnabled: false,
     localDictionariesEnabled: false,
     ankiEnabled: false,
     ankiSectionEnabled: false,

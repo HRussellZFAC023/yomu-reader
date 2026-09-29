@@ -7,6 +7,7 @@ import {
     type ClassWeekCastPlan,
 } from '../../src/academy/content/class-week-cast-plan';
 import { ACADEMY_CAST, getAcademyCastMember } from '../../src/academy/domain/cast-registry';
+import { expectAcademyAssetSynced, academyWorkerHarness, installAcademyWorker } from '../helpers/academy-offline';
 
 const PLAN_PATH = path.resolve('public/academy/content/curriculum/class-week-cast.v1.json');
 
@@ -19,9 +20,8 @@ function clonePlan(): ClassWeekCastPlan {
 }
 
 describe('74-week classmate appearance plan', () => {
-    it('covers the reviewed chronology without claiming the weeks are authored or playable', () => {
+    it('covers the reviewed chronology without claiming the weeks are authored or playable', async () => {
         const plan = validateClassWeekCastPlan(planJson());
-        const syncScript = fs.readFileSync(path.resolve('scripts/sync-academy.cjs'), 'utf8');
 
         expect(plan.weeks).toHaveLength(74);
         expect(plan.weeks.map(week => week.weekId)).toEqual(CANONICAL_CLASS_WEEK_IDS);
@@ -37,7 +37,8 @@ describe('74-week classmate appearance plan', () => {
                 sha256: CANONICAL_CLASS_WEEK_INDEX_SHA256,
             },
         });
-        expect(syncScript).toContain("['public/academy/content/curriculum', 'content/curriculum']");
+        expectAcademyAssetSynced('content/curriculum/class-week-cast.v1.json');
+        expect(await installAcademyWorker(academyWorkerHarness())).toContain('/academy/content/curriculum/class-week-cast.v1.json');
     });
 
     it('uses source topics where they exist and records uncertainty instead of guessing at outline-only weeks', () => {

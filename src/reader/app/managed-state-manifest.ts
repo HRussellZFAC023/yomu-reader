@@ -29,7 +29,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'settings', kind: 'gm', key: 'yomu:prefer-japanese-site-language:v1' },
     { owner: 'settings (pre-ledger pins)', kind: 'gm', key: 'yomu:explicit-user-settings:v1' },
     { owner: 'settings/intent-ledger', kind: 'gm', key: 'yomu:settings-intent:v2' },
-    { owner: 'settings/extension-study-settings-recovery', kind: 'gm', key: 'yomu:extension-study-legacy-promotion:v1' },
+    { owner: 'settings (retired promotion marker; purge only)', kind: 'gm', key: 'yomu:extension-study-legacy-promotion:v1' },
 
     // Private, one-use cloud settings OAuth handoff. The old page-readable key
     // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
@@ -45,6 +45,8 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'app/managed-web-storage', kind: 'session', key: 'yomu:web-storage-epoch:v1:session' },
     { owner: 'app/managed-web-storage', kind: 'local', prefix: 'yomu:web-storage-slot:v1:' },
     { owner: 'app/managed-web-storage', kind: 'session', prefix: 'yomu:web-storage-slot:v1:' },
+    { owner: 'app/managed-web-storage', kind: 'local', prefix: 'yomu:web-owner:v2:' },
+    { owner: 'app/managed-web-storage', kind: 'session', prefix: 'yomu:web-owner:v2:' },
     { owner: 'app/storage local provenance', kind: 'local', key: 'yomu:local-storage-provenance:v1' },
     { owner: 'app/card-state-signal', kind: 'gm', key: 'yomu:card-state-signal' },
     { owner: 'app/storage leases', kind: 'gm', prefix: 'yomu:lease:' },
@@ -67,6 +69,8 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'anki/status-index', kind: 'gm', key: 'yomu:anki-status-index:v1' },
     { owner: 'anki/status-index', kind: 'gm', key: 'yomu:anki-status-index-rebuild:v1' },
     { owner: 'anki/status-index', kind: 'idb', key: 'yomu-anki-status-index' },
+    { owner: 'anki/status-index', kind: 'idb', key: 'yomu-anki-status-index-userscript-v2' },
+    { owner: 'anki/status-index', kind: 'idb', key: 'yomu-anki-status-index-extension-v2' },
 
     // Bunpro vocab SRS-state index for page word colouring.
     { owner: 'bunpro/word-states', kind: 'gm', key: 'yomu:bunpro-word-states:v1' },
@@ -81,6 +85,8 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // store's own deleteDatabase during reset; registered so the invariant test
     // asserts it and the reset sweep nets it as a fallback.
     { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan' },
+    { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan-userscript-v2' },
+    { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan-extension-v2' },
     { owner: 'dictionaries/archive-cache', kind: 'gm', key: 'yomu-dictionary-archives' },
     {
         owner: 'dictionaries/archive-cache',
@@ -133,9 +139,15 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'subtitles/controller', kind: 'session', prefix: 'yomu:subtitle-parse:v' },
 
     // New Tab study surface stores.
+    { owner: 'study/practice-session', kind: 'idb', key: 'yomu-practice-sessions-v1' },
+    { owner: 'study/practice-session', kind: 'idb', key: 'yomu-practice-sessions-v1-userscript-v2' },
+    { owner: 'study/practice-session', kind: 'idb', key: 'yomu-practice-sessions-v1-extension-v2' },
+    { owner: 'study/practice-session', kind: 'session', key: 'yomu:practice-session-tab:v1' },
     { owner: 'newtab/state', kind: 'gm', key: 'jpdb-reader-newtab-ui' },
     { owner: 'newtab/cache', kind: 'gm', key: 'jpdb-reader-newtab-card-cache' },
     { owner: 'newtab/controller-config', kind: 'gm', key: 'jpdb-reader-newtab-grade-queue' },
+    { owner: 'newtab/review-queue-owner', kind: 'gm', key: 'yomu:private:review-delivery:v2' },
+    { owner: 'newtab/packaged-review-queue-client', kind: 'session', key: 'yomu:review-action-draft:v2' },
     { owner: 'newtab/controller-config', kind: 'gm', key: 'jpdb-reader-newtab-current-word' },
     { owner: 'newtab/controller-config', kind: 'session', key: 'jpdb-reader-newtab-current-word' },
     { owner: 'newtab/controller-config', kind: 'gm', key: 'jpdb-reader-newtab-jpdb-stats-history' },

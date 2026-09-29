@@ -1,6 +1,5 @@
 import {
     MANAGED_STORAGE_KEY_PREFIXES,
-    isManagedStorageKey,
     isManagedStorageSlotKey,
     isPrivateManagedStorageKey,
     logicalManagedStorageKey,
@@ -8,6 +7,7 @@ import {
 import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
+import { databaseBelongsToCurrentOwner } from './owned-databases';
 import './managed-state-manifest';
 import {
     MANAGED_STATE_EPOCH_KEY,
@@ -34,7 +34,7 @@ import {
 } from './managed-state-registry';
 import {
     ensureManagedWebStorageEpochCurrent, ensureManagedWebStorageEpochCurrentSync,
-    managedLocalStorage, managedSessionStorage,
+    managedLocalStorage, managedSessionStorage, managedLocalStorageKeys, managedWebStorageResetKeys,
 } from './managed-web-storage';
 import {
     MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId,
@@ -42,11 +42,10 @@ import {
 } from './gm-storage-lease';
 import { isManagedStorageBackupKey } from './managed-storage-backup-policy';
 import {
-    hostedSettingsLocalFallbackValue, hostedStoragePromotionValue,
-    isHostedSettingsStorageKey, isHostedYomuOrigin, pendingHostedSettingsPatch,
+    isHostedSettingsStorageKey, isHostedYomuOrigin,
 } from './hosted-storage-fallback';
 import {
-    localStorageGet, localStorageSet, localStorageSetOrThrow,
+    localStorageGet, localStorageSetOrThrow,
     removeLocalStorageKey, removeSessionStorageKey,
     storageWriteError, webStorageHasKey,
 } from './storage-local-values';
@@ -55,8 +54,8 @@ import {
 } from './extension-legacy-storage';
 import { isSettingsAuthorityStorageKey } from '../settings/settings-authority-storage-keys';
 import {
-    cacheManagedStateEpochForLocalFallback, localMirrorBelongsToEpoch,
-    mirrorLocalManagedValue, removeLocalManagedValue, removeLocalMirrorProvenance,
+    localMirrorBelongsToEpoch,
+    removeLocalManagedValue, removeLocalMirrorProvenance,
     restoreLocalFallbackStoredValueAtEpoch, writeLocalManagedValueOrThrow,
 } from './local-mirror-provenance';
 import {
@@ -67,6 +66,7 @@ import {
     asyncGmDeleteValue, asyncGmGetValue, asyncGmListValues, asyncGmSetValue,
     directGmDeleteValue, directGmGetValue, directGmSetValue,
     extensionStorageChangedEvent, packagedExtensionStorageAdapterMissing,
+    managedStorageOwner,
     type ExtensionStorageChange, type GmAddValueChangeListener, type GmDeleteValue,
     type GmRemoveValueChangeListener, type GmSetValue, type GmValueChangeListener,
 } from './gm-storage-adapters';
@@ -154,7 +154,6 @@ async function assertRealmManagedStateEpoch(getValue: GmGetValue | null): Promis
         }
         : async () => localStorageGet<unknown>(MANAGED_STATE_EPOCH_KEY, undefined);
     const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
-    if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
     return epoch;
 }
 
@@ -212,16 +211,18 @@ async function deleteManagedGmValue(
 
 function managedStateEpochFromSynchronousGetter(getValue: GmGetValue): ManagedStateEpoch | null {
     const stored = getValue<unknown | typeof MISSING>(MANAGED_STATE_EPOCH_KEY, MISSING);
-    if (isPromiseLike(stored)) return null;
+    if (isPromiseLike(stored)) {
+        void Promise.resolve(stored).catch(error => debugStorageError('Synchronous epoch probe could not read async storage', MANAGED_STATE_EPOCH_KEY, error));
+        return null;
+    }
     const shared = parseManagedStateEpoch(isMissingSentinel(stored) ? undefined : stored);
     managedStateEpochSession.assertCurrentSync(shared.generation === 0 ? undefined : shared);
-    cacheManagedStateEpochForLocalFallback(shared);
     return shared;
 }
 
 function managedStateEpochForSynchronousLocalRead(): ManagedStateEpoch | null {
     try {
-        const getValue = directGmGetValue();
+        const getValue = typeof GM_getValue === 'function' ? GM_getValue as GmGetValue : null;
         if (getValue) {
             const synchronous = managedStateEpochFromSynchronousGetter(getValue);
             if (synchronous) return synchronous;
@@ -263,14 +264,14 @@ export const assertManagedStateReadAllowed = (): Promise<ManagedStateEpoch> =>
 /** Reconcile and certify this origin's local/session managed caches before boot. */
 export async function ensureManagedWebStorageCurrent(): Promise<void> {
     const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
-    await ensureManagedWebStorageEpochCurrent(epoch);
+    await ensureManagedWebStorageEpochCurrent(epoch, managedStorageOwner());
 }
 
 /** Fast document-start barrier when the active GM backend is synchronous. */
 export function ensureManagedWebStorageCurrentSync(): boolean {
     const epoch = managedStateEpochForSynchronousLocalRead();
     if (!epoch) return false;
-    ensureManagedWebStorageEpochCurrentSync(epoch);
+    ensureManagedWebStorageEpochCurrentSync(epoch, managedStorageOwner());
     return true;
 }
 
@@ -294,7 +295,7 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
         epoch = await assertRealmManagedStateEpoch(getValue);
         return await sharedManagedValue(getValue, key, fallback, epoch);
     } catch (error) {
-        return failedManagedReadValue(error, key, fallback, epoch);
+        return failedManagedReadValue(error, key, fallback);
     }
 }
 
@@ -362,13 +363,13 @@ export async function gmStorageGetMany<T>(keys: readonly string[], fallback: T):
     try {
         passEpoch = await assertRealmManagedStateEpoch(getValue);
     } catch (error) {
-        return keys.map(key => failedManagedReadValue(error, key, fallback, undefined));
+        return keys.map(key => failedManagedReadValue(error, key, fallback));
     }
     return Promise.all(keys.map(async key => {
         try {
             return await sharedManagedValue(getValue, key, fallback, passEpoch);
         } catch (error) {
-            return failedManagedReadValue(error, key, fallback, passEpoch);
+            return failedManagedReadValue(error, key, fallback);
         }
     }));
 }
@@ -380,55 +381,16 @@ async function localManagedValuesWithoutBackend<T>(keys: readonly string[], fall
 }
 
 async function sharedManagedValue<T>(getValue: GmGetValue, key: string, fallback: T, epoch: ManagedStateEpoch): Promise<T> {
-    const pendingPatch = pendingHostedLocalPatch(key, epoch);
-    return pendingPatch
-        ? reconcilePendingHostedLocalPatch(getValue, key, pendingPatch, epoch)
-        : sharedManagedValueWithoutPendingPatch(getValue, key, fallback, epoch);
-}
-
-async function reconcilePendingHostedLocalPatch<T>(
-    getValue: GmGetValue,
-    key: string,
-    pendingPatch: Record<string, unknown>,
-    epoch: ManagedStateEpoch,
-): Promise<T> {
-    const shared = await managedGmValue(getValue, key, undefined, epoch);
-    const sharedRecord = isPlainRecord(shared) ? shared : {};
-    const reconciled = { ...sharedRecord, ...pendingPatch } as T;
-    await gmStorageSet(key, reconciled);
-    return reconciled;
-}
-
-async function sharedManagedValueWithoutPendingPatch<T>(
-    getValue: GmGetValue,
-    key: string,
-    fallback: T,
-    epoch: ManagedStateEpoch,
-): Promise<T> {
     const read = await readManagedGmValue<T>(getValue, key, epoch);
     if (read.kind === 'found') return read.value;
     if (read.kind === 'deleted') return fallback;
-    return promoteLocalManagedValue(key, fallback, epoch);
-}
-
-async function promoteLocalManagedValue<T>(key: string, fallback: T, epoch: ManagedStateEpoch): Promise<T> {
-    const migrated = localMirrorBelongsToEpoch(key, epoch)
-        ? localStorageGet<T>(key, MISSING as T)
-        : MISSING as T;
-    if (!isMissingSentinel(migrated)) {
-        const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
-        await gmStorageSet(key, promoted);
-        return promoted;
-    }
     return fallback;
 }
 
-function failedManagedReadValue<T>(error: unknown, key: string, fallback: T, epoch?: ManagedStateEpoch): T {
+
+function failedManagedReadValue<T>(error: unknown, key: string, fallback: T): T {
     if (isStaleManagedStateEpochError(error)) throw error;
     debugStorageError('GM storage read failed', key, error);
-    if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
-        return localStorageGet(key, fallback);
-    }
     return fallback;
 }
 
@@ -533,6 +495,7 @@ export function gmStorageGetSync<T>(key: string, fallback: T): T {
     // an await: nothing can run between the read above and this line, so asking
     // the backend again would return the identical byte for the identical
     // instant. Only a getter-less realm still resolves it from the local mirror.
+    if (asyncGmGetValue()) return fallback;
     epoch ??= managedStateEpochForSynchronousLocalRead();
     return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
@@ -581,62 +544,34 @@ function gmStorageSyncRead<T>(key: string, getValue: GmGetValue, epoch: ManagedS
             if (isMissingSentinel(value)) return { kind: 'deleted' };
             return { kind: 'found', value: value as T };
         }
-        return migratedLocalStorageSyncValue(key, epoch);
+        return { kind: 'fallback' };
     } catch (error) {
         debugStorageError('GM storage sync read failed', key, error);
         return { kind: 'fallback' };
     }
 }
 
-function migratedLocalStorageSyncValue<T>(key: string, epoch: ManagedStateEpoch): SyncStorageRead<T> {
-    if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: 'fallback' };
-    const migrated = localStorageGet<T>(key, MISSING as T);
-    if (isMissingSentinel(migrated)) return { kind: 'fallback' };
-    const promoted = hostedStoragePromotionValue(key, migrated, isHostedYomuOrigin());
-    void gmStorageSet(key, promoted);
-    return { kind: 'found', value: promoted };
-}
 
-function pendingHostedLocalPatch(key: string, epoch: ManagedStateEpoch): Record<string, unknown> | undefined {
-    if (!isHostedSettingsStorageKey(key) || !isHostedYomuOrigin()) return undefined;
-    if (!localMirrorBelongsToEpoch(key, epoch)) return undefined;
-    return pendingHostedSettingsPatch(key, localStorageGet<unknown>(key, undefined), true);
-}
-
-function localFallbackValueForWrite(key: string, value: unknown): unknown {
-    if (!isHostedSettingsStorageKey(key)) return value;
-    return hostedSettingsLocalFallbackValue(
-        key,
-        value,
-        isHostedYomuOrigin(),
-        () => localStorageGet<unknown>(key, undefined),
-    );
-}
-
-interface GmStorageSetOptions {
-    readonly localFallbackOnAuthoritativeFailure?: 'write' | 'preserve';
-}
 
 export async function gmStorageSet(
     key: string,
     value: unknown,
-    options: GmStorageSetOptions = {},
 ): Promise<void> {
     if (managedStateWritesSuppressed()) throw new Error('Managed state writes are suppressed during factory reset.');
     const getValue = asyncGmGetValue();
     const setValue = asyncGmSetValue();
-    if (setValue) return setSharedManagedValue(key, value, options, getValue, setValue);
+    if (setValue) return setSharedManagedValue(key, value, getValue, setValue);
+    if (getValue) throw storageWriteError(key, 'Installed storage has no writer');
     if (packagedExtensionStorageAdapterMissing()) {
         throw storageWriteError(key, 'Packaged Study storage adapter is unavailable');
     }
     const epoch = await assertRealmManagedStateEpoch(null);
-    writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+    writeLocalManagedValueOrThrow(key, value, epoch);
 }
 
 async function setSharedManagedValue(
     key: string,
     value: unknown,
-    options: GmStorageSetOptions,
     getValue: GmGetValue | null,
     setValue: GmSetValue,
 ): Promise<void> {
@@ -645,44 +580,13 @@ async function setSharedManagedValue(
         if (!getValue) throw new Error('Managed storage cannot validate its state epoch.');
         epoch = await assertRealmManagedStateEpoch(getValue);
         await writeManagedGmValue(key, value, epoch, getValue, setValue);
-        mirrorManagedValueToHostedStorage(key, value, epoch);
     } catch (error) {
-        await handleSharedManagedWriteFailure(key, value, options, error, epoch);
-    }
-}
-
-async function handleSharedManagedWriteFailure(
-    key: string,
-    value: unknown,
-    options: GmStorageSetOptions,
-    error: unknown,
-    epoch: ManagedStateEpoch | undefined,
-): Promise<never> {
-    if (isStaleManagedStateEpochError(error)) throw error;
-    debugStorageError('GM storage write failed', key, error);
-    if (options.localFallbackOnAuthoritativeFailure === 'preserve') {
+        if (isStaleManagedStateEpochError(error)) throw error;
         throw storageWriteError(key, 'GM storage write failed', error);
     }
-    await writeFailedManagedValueFallback(key, value, error, epoch);
-    throw storageWriteError(key, 'GM storage write failed; saved only to localStorage fallback', error);
 }
 
-async function writeFailedManagedValueFallback(
-    key: string,
-    value: unknown,
-    error: unknown,
-    epoch: ManagedStateEpoch | undefined,
-): Promise<void> {
-    if (packagedExtensionStorageAdapterMissing()) {
-        throw storageWriteError(key, 'Packaged Study storage adapter rejected the authoritative write', error);
-    }
-    try {
-        const fallbackEpoch = epoch ?? await assertRealmManagedStateEpoch(null);
-        writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), fallbackEpoch);
-    } catch (fallbackError) {
-        throw storageWriteError(key, 'GM storage and localStorage fallback writes failed', error, fallbackError);
-    }
-}
+
 
 /** Store secret material fail-closed; page localStorage is never a fallback. */
 export async function gmPrivateStorageSet(key: string, value: unknown): Promise<void> {
@@ -729,14 +633,12 @@ export function gmStorageSetSync(key: string, value: unknown): void {
                 void result
                     .then(async () => {
                         await assertRealmManagedStateEpoch(getValue);
-                        mirrorManagedValueToHostedStorage(key, value, epoch as ManagedStateEpoch);
                     })
                     .catch(error => debugStorageError('GM storage async write failed', key, error));
                 return;
             }
             const after = managedStateEpochFromSynchronousGetter(getValue);
             if (!after || !sameManagedStateEpoch(epoch, after)) return;
-            mirrorManagedValueToHostedStorage(key, value, epoch);
             return;
         } catch (error) {
             if (isStaleManagedStateEpochError(error)) {
@@ -744,16 +646,18 @@ export function gmStorageSetSync(key: string, value: unknown): void {
                 return;
             }
             debugStorageError('GM storage sync write failed', key, error);
+            return;
         }
     }
     if ((!getValue || !setValue) && asyncGmSetValue()) {
         void gmStorageSet(key, value).catch(error => debugStorageError('GM storage async write failed', key, error));
         return;
     }
+    if (asyncGmGetValue()) return;
     try {
         epoch ??= managedStateEpochForSynchronousLocalRead();
         if (!epoch) return;
-        writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+        writeLocalManagedValueOrThrow(key, value, epoch);
     } catch (error) {
         debugStorageError('localStorage sync write failed', key, error);
     }
@@ -782,6 +686,7 @@ export async function gmStorageDelete(key: string): Promise<void> {
     } else {
         await assertRealmManagedStateEpoch(null);
     }
+    if (getValue) return;
     removeLocalStorageKey(key);
     removeSessionStorageKey(key);
     removeLocalMirrorProvenance(key);
@@ -810,9 +715,11 @@ async function deleteManagedStoredValue(key: string): Promise<void> {
             }
         }
     }
-    for (const target of targets) {
-        removeLocalStorageKey(target);
-        removeSessionStorageKey(target);
+    if (!getValue) {
+        for (const target of targets) {
+            removeLocalStorageKey(target);
+            removeSessionStorageKey(target);
+        }
     }
 
     if (getValue) {
@@ -828,10 +735,12 @@ async function deleteManagedStoredValue(key: string): Promise<void> {
             }
         }
     }
-    for (const target of targets) {
-        if (resetWebStorageHasKey(localStorage, target, 'localStorage')
-            || resetWebStorageHasKey(sessionStorage, target, 'sessionStorage')) {
-            throw new ManagedStateResetError(`Web storage still contains "${target}" after deletion.`);
+    if (!getValue) {
+        for (const target of targets) {
+            if (resetWebStorageHasKey(localStorage, target, 'localStorage')
+                || resetWebStorageHasKey(sessionStorage, target, 'sessionStorage')) {
+                throw new ManagedStateResetError(`Web storage still contains "${target}" after deletion.`);
+            }
         }
     }
 }
@@ -888,14 +797,12 @@ export function gmStorageDeleteSync(key: string): void {
                 void result
                     .then(async () => {
                         await assertRealmManagedStateEpoch(getValue);
-                        removeLocalManagedValue(key);
                     })
                     .catch(error => debugStorageError('GM storage async delete failed', key, error));
                 return;
             }
             const after = managedStateEpochFromSynchronousGetter(getValue);
             if (!after || !sameManagedStateEpoch(epoch, after)) return;
-            removeLocalManagedValue(key);
             return;
         } catch (error) {
             debugStorageError('GM storage sync delete failed', key, error);
@@ -906,6 +813,7 @@ export function gmStorageDeleteSync(key: string): void {
         void gmStorageDelete(key).catch(error => debugStorageError('GM storage async delete failed', key, error));
         return;
     }
+    if (asyncGmGetValue()) return;
     try {
         if (!managedStateEpochForSynchronousLocalRead()) return;
         removeLocalManagedValue(key);
@@ -973,11 +881,7 @@ export async function beginStoredValuesImport(values: unknown): Promise<StoredVa
 
 const MANAGED_WRITE_STORAGE: ManagedWriteStorageBoundary = {
     readAuthority: readManagedStoredValueAuthority,
-    writeAuthority: (key, value, preserveLocalFallback) => gmStorageSet(
-        key,
-        value,
-        preserveLocalFallback ? { localFallbackOnAuthoritativeFailure: 'preserve' } : {},
-    ),
+    writeAuthority: (key, value) => gmStorageSet(key, value),
     restoreAuthority: (key, target) =>
         restoreManagedStoredValueAuthority(key, target.value, target.existed),
     readLocalTarget: key => managedStoredValueState(localFallbackStoredValue(key, MISSING)),
@@ -1187,6 +1091,8 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function clearManagedStoredValues(): Promise<number> {
+    const installed = hasAsyncGmStorageBackend();
+    const webKeys = installed ? managedWebStorageResetKeys(managedStorageOwner()) : [];
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
     let count = 0;
@@ -1194,17 +1100,28 @@ export async function clearManagedStoredValues(): Promise<number> {
         await deleteManagedStoredValue(key);
         count++;
     }
+    for (const key of webKeys) {
+        removeLocalStorageKey(key);
+        removeSessionStorageKey(key);
+        if (resetWebStorageHasKey(localStorage, key, 'localStorage') || resetWebStorageHasKey(sessionStorage, key, 'sessionStorage')) {
+            throw new ManagedStateResetError('Factory reset could not clear the selected owner cache.');
+        }
+        count++;
+    }
     count += await clearStrandedExtensionStudyManagedValuesForReset();
     await clearManagedIndexedDatabases();
-    count += await clearManagedBrowserCaches();
-    count += await unregisterManagedServiceWorkers();
+    if (ownsOriginBrowserStorage()) {
+        count += await clearManagedBrowserCaches();
+        count += await unregisterManagedServiceWorkers();
+    }
     return count;
 }
 
 export async function managedStoredKeysStillPresent(): Promise<string[]> {
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
-    return [...new Set([...keys, ...await strandedExtensionStudyManagedKeys()])].sort();
+    const webKeys = hasAsyncGmStorageBackend() ? managedWebStorageResetKeys(managedStorageOwner()) : [];
+    return [...new Set([...keys, ...webKeys, ...await strandedExtensionStudyManagedKeys()])].sort();
 }
 
 async function clearStrandedExtensionStudyManagedValuesForReset(): Promise<number> {
@@ -1223,7 +1140,12 @@ async function strandedExtensionStudyManagedKeys(): Promise<string[]> {
     }
 }
 
+function ownsOriginBrowserStorage(): boolean {
+    return !hasAsyncGmStorageBackend() || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
+}
+
 export async function clearManagedBrowserCaches(): Promise<number> {
+    if (!ownsOriginBrowserStorage()) return 0;
     if (typeof caches === 'undefined') return 0;
     try {
         const keys = await caches.keys();
@@ -1240,6 +1162,7 @@ export async function clearManagedBrowserCaches(): Promise<number> {
 }
 
 export async function unregisterManagedServiceWorkers(): Promise<number> {
+    if (!ownsOriginBrowserStorage()) return 0;
     if (typeof navigator === 'undefined' || !navigator.serviceWorker?.getRegistrations) return 0;
     try {
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -1259,7 +1182,6 @@ async function setRawControlStorageValue(key: string, value: unknown): Promise<v
     const setValue = asyncGmSetValue();
     if (setValue) {
         await setValue(key, value);
-        if (key === MANAGED_STATE_EPOCH_KEY || isHostedYomuOrigin()) localStorageSet(key, value);
         return;
     }
     localStorageSetOrThrow(key, value);
@@ -1274,8 +1196,10 @@ async function deleteRawControlStorageValue(key: string): Promise<void> {
         const stored = await getValue<unknown | typeof MISSING>(key, MISSING);
         if (!isMissingSentinel(stored)) throw new Error(`Managed storage retained control key "${key}".`);
     }
-    removeLocalStorageKey(key);
-    removeSessionStorageKey(key);
+    if (!getValue) {
+        removeLocalStorageKey(key);
+        removeSessionStorageKey(key);
+    }
 }
 
 export async function clearFactoryResetSignal(): Promise<void> {
@@ -1344,6 +1268,7 @@ export async function commitManagedStateResetEpoch(resetId: string): Promise<Man
 
 export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSignal, source: FactoryResetSignalSource) => void): () => void {
     const cleanups: Array<() => void> = [];
+    const owner = managedStorageOwner();
 
     addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
         const signal = parseFactoryResetSignal(newValue);
@@ -1352,9 +1277,10 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
 
     if (typeof BroadcastChannel === 'function') {
         try {
-            const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+            const channel = new BroadcastChannel(`${FACTORY_RESET_CHANNEL_NAME}:${owner}`);
             channel.onmessage = event => {
-                const signal = parseFactoryResetSignal(event.data);
+                if (!isPlainRecord(event.data) || event.data.owner !== owner) return;
+                const signal = parseFactoryResetSignal(event.data.signal);
                 if (signal) onSignal(signal, { remote: true, transport: 'broadcast-channel' });
             };
             cleanups.push(() => channel.close());
@@ -1363,10 +1289,12 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
         }
     }
 
-    addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, event => {
-        const signal = parseFactoryResetSignal(event.newValue);
-        if (signal) onSignal(signal, { remote: true, transport: 'web-storage' });
-    });
+    if (owner === 'standalone') {
+        addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, event => {
+            const signal = parseFactoryResetSignal(event.newValue);
+            if (signal) onSignal(signal, { remote: true, transport: 'web-storage' });
+        });
+    }
 
     return () => runStorageCleanups(cleanups);
 }
@@ -1500,12 +1428,7 @@ async function addPrefixedGmStorageKeys(keys: Set<string>, prefixes: string[]): 
 
 function addLocalStorageKeys(keys: Set<string>, prefixes: string[]): void {
     try {
-        const candidates: string[] = [];
-        for (let index = 0; index < localStorage.length; index++) {
-            const key = localStorage.key(index);
-            if (key) candidates.push(key);
-        }
-        addMatchingStorageKeys(keys, candidates, prefixes);
+        addMatchingStorageKeys(keys, managedLocalStorageKeys(), prefixes);
     } catch {
         // Ignore localStorage enumeration failures.
     }
@@ -1533,8 +1456,9 @@ async function allStorageKeys(): Promise<string[]> {
     const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
     const keys = new Set<string>();
     const gmEnumeration = await addGmStorageKeys(keys);
-    collectWebStorageKeys(localStorage, keys, 'localStorage');
-    collectWebStorageKeys(sessionStorage, keys, 'sessionStorage');
+    if (!hasAsyncGmStorageBackend()) {
+        for (const key of managedWebStorageResetKeys('standalone')) keys.add(key);
+    }
     await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
     if (!gmEnumeration.complete) {
         const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
@@ -1660,17 +1584,6 @@ async function addKnownStoredKeys(keys: Set<string>, bridgePrivateValuesHandledS
     }
 }
 
-function collectWebStorageKeys(storage: Storage, keys: Set<string>, label: string): void {
-    try {
-        for (let index = 0; index < storage.length; index++) {
-            const key = storage.key(index);
-            if (key && isManagedStorageKey(key)) keys.add(key);
-        }
-    } catch (error) {
-        throw new ManagedStateResetError(`Factory reset could not enumerate ${label}.`, { cause: error });
-    }
-}
-
 async function resetStoredValueExists(key: string): Promise<boolean> {
     const getValue = asyncGmGetValue();
     if (getValue) {
@@ -1683,6 +1596,7 @@ async function resetStoredValueExists(key: string): Promise<boolean> {
                 const logical = await getValue<unknown | typeof MISSING>(key, MISSING);
                 if (!isMissingSentinel(logical)) return true;
             }
+            return false;
         } catch (error) {
             throw new ManagedStateResetError(`Factory reset could not inspect "${key}".`, { cause: error });
         }
@@ -1717,36 +1631,17 @@ function resetWebStorageHasKey(storage: Storage, key: string, label: string): bo
     }
 }
 
-function mirrorManagedValueToHostedStorage(key: string, value: unknown, epoch: ManagedStateEpoch): void {
-    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-    mirrorLocalManagedValue(key, value, epoch, error => {
-        debugStorageError('Hosted localStorage mirror failed', key, error);
-    });
-}
-
-export function cacheManagedValueForHostedStartup(key: string, value: unknown): void {
-    const epoch = managedStateEpochForSynchronousLocalRead();
-    if (epoch) mirrorManagedValueToHostedStorage(key, value, epoch);
-}
-
-/** Seed a comparison baseline only when no physical page value can be lost. */
-export function cacheManagedValueForHostedStartupIfAbsent(key: string, value: unknown): void {
-    if (webStorageHasKey(localStorage, key)) return;
-    cacheManagedValueForHostedStartup(key, value);
-}
 
 export function restoreLocalFallbackStoredValue(key: string, value: unknown, existed: boolean): void {
     if (managedStateWritesSuppressed()) return;
     restoreLocalFallbackStoredValueAtEpoch(key, value, existed, managedStateEpochForSynchronousLocalRead());
 }
 
-function shouldMirrorManagedValueToHostedStorage(key: string): boolean {
-    return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
-}
 
 async function clearManagedIndexedDatabases(): Promise<void> {
     // The registry is the single source of truth for managed IndexedDB names.
-    await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
+    const names = registeredManagedIndexedDbNames().filter(databaseBelongsToCurrentOwner);
+    await Promise.all(names.map(deleteIndexedDbDatabase));
 }
 
 function isManagedBrowserCacheName(name: string): boolean {
@@ -1891,8 +1786,9 @@ function parseJsonRecord(value: string): unknown {
 function publishBroadcastFactoryResetSignal(signal: FactoryResetSignal): void {
     if (typeof BroadcastChannel !== 'function') return;
     try {
-        const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
-        channel.postMessage(signal);
+        const owner = managedStorageOwner();
+        const channel = new BroadcastChannel(`${FACTORY_RESET_CHANNEL_NAME}:${owner}`);
+        channel.postMessage({ owner, signal });
         channel.close();
     } catch (error) {
         debugStorageError('Broadcast factory reset publish failed', FACTORY_RESET_CHANNEL_NAME, error);

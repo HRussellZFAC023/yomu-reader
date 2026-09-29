@@ -1,12 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { stubKanjiDoodleBrowserApis } from './new-tab-review/fixtures';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
 import { applyTypeWordSelfCheckAction } from '../../src/reader/newtab/type-word-rendering';
 import { targetSupportsCharacterLookup, targetSupportsHandwriting } from '../../src/reader/languages/character-lookup';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
-import { suggestedStudyGrade } from '../../src/reader/newtab/study-outcomes';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
 import {
@@ -74,7 +75,7 @@ interface TypeWordInternals {
     studyStepStates: Map<string, StepState>;
     renderWord(root: HTMLElement, card: JPDBCard): void;
     bindRootEvents(root: HTMLElement): void;
-    setStudyStepOverrideForCard(card: JPDBCard, id: string): void;
+    setStudyStepOverrideForCard(card: JPDBCard, id: string | null): void;
     submitTypeWordAnswer(root: HTMLElement): void;
     advanceTypeWordHandwriting(answer: HTMLElement, card: JPDBCard, outcome: 'correct' | 'wrong'): void;
 }
@@ -111,15 +112,15 @@ function typeWordController(
         toast: vi.fn(),
         playWordAudio: vi.fn(async () => undefined),
         ...overrides,
-    } as never);
+    } as never, { surface: 'academy' });
     const internals = controller as unknown as TypeWordInternals;
     internals.allWords = cards.slice();
     internals.visibleWords = cards.slice();
     internals.index = 0;
     internals.reviewCountMode = true;
     internals.state = {
-        mode: 'word',
-        listenSubMode: 'perceive',
+        ...DEFAULT_NEW_TAB_UI_STATE,
+        route: 'study',
         sort: 'random',
         filter: 'study',
         source: 'jpdb',
@@ -136,87 +137,36 @@ function renderTypeWordStep(internals: TypeWordInternals, root: HTMLElement, car
     internals.renderWord(root, card);
 }
 
+beforeEach(() => stubKanjiDoodleBrowserApis());
 afterEach(() => {
     resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
     vi.clearAllMocks();
 });
 
-describe('type-word step sequencing and gating', () => {
-    it('places the writing (type-word) step right after the word step', () => {
-        // Single-kanji spelling keeps exactly one kanji-doodle step (a word card
-        // yields one doodle step per distinct kanji), so this asserts ordering.
+describe('writing practice is separate from scheduled review', () => {
+    it('offers writing without inserting it into native recall and reveal', () => {
         const session = createNewTabStudySession(typeCard({ spelling: '水', reading: 'みず', sentence: '水を飲む。' }), {
-            mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
             pitchAvailable: true,
         });
-        expect(session.steps.map(step => step.kind)).toEqual([
-            'kanji-doodle',
-            'word',
-            'type-word',
-            'recall-cloze',
-            'listen-pitch',
-            'speaking',
-            'final-reveal',
-        ]);
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
+        expect(session.practiceSteps.find(step => step.kind === 'type-word')).toMatchObject({ gradeable: false });
     });
 
-    it('keeps Type immediately after Word even when a saved order placed it elsewhere', () => {
-        const session = createNewTabStudySession(typeCard(), {
-            mode: 'word',
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        });
-        const kinds = session.steps.map(step => step.kind);
-        expect(kinds.indexOf('type-word')).toBe(kinds.indexOf('word') + 1);
-    });
-
-    it('is optional: disabling the step removes it from the flow', () => {
-        const session = createNewTabStudySession(typeCard(), {
-            mode: 'word',
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-            disabledSteps: ['type-word'],
-        });
-        expect(session.steps.map(step => step.kind)).not.toContain('type-word');
-    });
-
-    it('does not leave Type in the flow when its preceding Word step is disabled', () => {
-        const session = createNewTabStudySession(typeCard(), {
-            mode: 'word',
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-            disabledSteps: ['word'],
-        });
-        expect(session.steps.map(step => step.kind)).not.toContain('word');
-        expect(session.steps.map(step => step.kind)).not.toContain('type-word');
-    });
-
-    it('keeps the mobile release flow Word to Type while a sourced cloze is unavailable', () => {
+    it('keeps chosen writing ungradeable when a sourced sentence is unavailable', () => {
         const session = createNewTabStudySession(typeCard({ spelling: 'のみもの', reading: 'のみもの', sentence: undefined }), {
-            mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
             pitchAvailable: true,
+            activeStepId: 'type-word',
         });
-        expect(session.steps.map(step => step.kind)).toEqual([
-            'word',
-            'type-word',
-            'listen-pitch',
-            'speaking',
-            'final-reveal',
-        ]);
+        expect(session).toMatchObject({ activity: 'practice', activeStep: { kind: 'type-word', gradeable: false } });
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
+        expect(session.practiceSteps.map(step => step.kind)).not.toContain('recall-cloze');
     });
 });
 
@@ -350,16 +300,14 @@ describe('type-word typed answers', () => {
                 expect(prompt?.textContent).toContain('冷たい');
                 expect(prompt?.textContent).not.toContain('飲み物');
             });
-            const steps = [...root.querySelectorAll<HTMLElement>('[data-study-step-kind]')]
-                .map(step => step.dataset.studyStepKind);
-            expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
-            expect(steps).not.toContain('recall-cloze');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('type-word');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow).toBe('word final-reveal');
         } finally {
             controller.destroy();
         }
     });
 
-    it('grades a typed answer and records the first attempt only', () => {
+    it('checks a typed practice answer and records the first attempt only', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -399,7 +347,7 @@ describe('type-word typed answers', () => {
         }
     });
 
-    it('converts a romaji answer to kana before grading', () => {
+    it('converts a romaji practice answer to kana before checking', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -493,7 +441,7 @@ describe('type-word typed answers', () => {
         }
     });
 
-    it('grades a wrong typed answer as incorrect and shows the result in place', () => {
+    it('marks a wrong typed practice answer as incorrect and shows the result in place', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -510,7 +458,7 @@ describe('type-word typed answers', () => {
         }
     });
 
-    it('skip records a skipped outcome and advances the step', () => {
+    it('skipping records a skipped practice outcome', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -689,8 +637,8 @@ describe('type-word typed answers', () => {
     });
 });
 
-describe('final-reveal suggested grade', () => {
-    it('removes the results pills while retaining the advisory grade suggestion', () => {
+describe('practice does not suggest native review grades', () => {
+    it('does not infer a native pass from successful practice', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -700,17 +648,19 @@ describe('final-reveal suggested grade', () => {
                 pitch: { position: 3, outcome: 'correct' },
                 type: { outcome: 'correct' },
             });
+            internals.setStudyStepOverrideForCard(card, null);
             internals.state.revealAnswer = true;
             internals.renderWord(root, card);
             expect(root.querySelector('[data-newtab-study-summary]')).toBeNull();
             const suggested = root.querySelector<HTMLElement>('[data-grade][data-suggested="true"]');
-            expect(suggested?.dataset.grade).toBe('okay');
+            expect(suggested).toBeNull();
+            expect(root.querySelectorAll('[data-grade]').length).toBeGreaterThan(1);
         } finally {
             controller.destroy();
         }
     });
 
-    it('suggests a fail-side grade when a step went wrong, without auto-grading', () => {
+    it('does not infer a native failure from a different practice task', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -719,39 +669,14 @@ describe('final-reveal suggested grade', () => {
                 pitch: { position: 1, outcome: 'wrong' },
                 type: { outcome: 'correct' },
             });
+            internals.setStudyStepOverrideForCard(card, null);
             internals.state.revealAnswer = true;
             internals.renderWord(root, card);
             const suggested = root.querySelector<HTMLElement>('[data-grade][data-suggested="true"]');
-            expect(suggested?.dataset.grade).toBe('hard');
-            // Suggestion only — no grade was submitted.
+            expect(suggested).toBeNull();
             expect(root.querySelectorAll('[data-grade]').length).toBeGreaterThan(1);
         } finally {
             controller.destroy();
         }
-    });
-});
-
-describe('suggested grade mapping', () => {
-    const fiveButton = ['nothing', 'something', 'hard', 'okay', 'easy'] as const;
-    const twoButton = ['fail', 'pass'] as const;
-
-    it('suggests nothing recorded -> null', () => {
-        expect(suggestedStudyGrade({}, [...fiveButton])).toBeNull();
-        expect(suggestedStudyGrade({ 'type-word': 'skipped' }, [...fiveButton])).toBeNull();
-    });
-
-    it('all correct -> okay / pass', () => {
-        expect(suggestedStudyGrade({ 'recall-cloze': 'correct', 'listen-pitch': 'correct' }, [...fiveButton])).toBe('okay');
-        expect(suggestedStudyGrade({ 'recall-cloze': 'correct' }, [...twoButton])).toBe('pass');
-    });
-
-    it('some wrong -> hard / fail; all wrong -> nothing / fail', () => {
-        expect(suggestedStudyGrade({ 'recall-cloze': 'correct', 'type-word': 'wrong' }, [...fiveButton])).toBe('hard');
-        expect(suggestedStudyGrade({ 'recall-cloze': 'wrong', 'type-word': 'wrong' }, [...fiveButton])).toBe('nothing');
-        expect(suggestedStudyGrade({ 'recall-cloze': 'wrong' }, [...twoButton])).toBe('fail');
-    });
-
-    it('skipped steps do not drag the suggestion down', () => {
-        expect(suggestedStudyGrade({ 'recall-cloze': 'correct', 'type-word': 'skipped' }, [...fiveButton])).toBe('okay');
     });
 });

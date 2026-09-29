@@ -1,6 +1,7 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
+import { assertCompilerStorageContract } from './extension-storage-contract.mjs';
 import {
     extensionStoragePrefixFromBackgroundSource,
     hardenCompilerRuntimeMessageChannel,
@@ -25,6 +26,8 @@ const PACKAGED_READER_CSS_MARKER = 'yomu-extension-packaged-reader-css';
 const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const EXTENSION_STUDY_STORAGE_MARKER = 'yomu-extension-study-storage-runtime';
 const COMPILER_DURABLE_STORAGE_MARKER = 'yomu-extension-durable-storage-runtime:v2';
+const COMPILER_AUTHORITATIVE_READ_MARKER = 'yomu-extension-authoritative-storage-reads:v1';
+const COMPILER_NOTIFICATION_DISPATCH_MARKER = 'yomu-extension-storage-notification-dispatch:v1';
 const LEGACY_COMPILER_DURABLE_STORAGE_MARKER = 'yomu-extension-durable-storage-runtime:v1';
 const COMPILER_CATALOG_VALUES_READY_LEGACY = `const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
     Object.assign(values, response?.values || {});
@@ -78,7 +81,7 @@ export function hardenExtensionBackgroundSource(source, options = {}) {
         (current, [pattern, replacement]) => current.replace(pattern, replacement),
         source,
     );
-    const withCompilerChannelGuard = hardenCompilerRuntimeMessageChannel(guarded);
+    const withCompilerChannelGuard = hardenCompilerStorageBroadcast(hardenCompilerRuntimeMessageChannel(guarded));
     const withScreenshotBridge = installExtensionScreenshotBridgeSource(withCompilerChannelGuard);
     const withPackagedStudySettings = options.target === 'firefox'
         ? installPackagedStudySettingsBridgeSource(withScreenshotBridge)
@@ -87,6 +90,25 @@ export function hardenExtensionBackgroundSource(source, options = {}) {
         ? installGoogleDriveSettingsSyncBridgeSource(withPackagedStudySettings)
         : withPackagedStudySettings;
     return installExtensionDictionaryBackgroundSource(withSettingsSync, options.dictionaryBackgroundSource);
+}
+
+function hardenCompilerStorageBroadcast(source) {
+    if (source.includes(COMPILER_NOTIFICATION_DISPATCH_MARKER)) return source;
+    if (!source.includes('async function broadcastValueChange(')) return source;
+    return replaceGeneratedContractOnce(source, `    const tabs = await queryTabs({});
+    await Promise.all(tabs.map(tab => {
+      if (!tab?.id || !api.tabs?.sendMessage) return Promise.resolve();
+      return Promise.resolve(api.tabs.sendMessage(tab.id, message)).catch(() => {});
+    }));`, `    // ${COMPILER_NOTIFICATION_DISPATCH_MARKER}
+    let tabs;
+    try { tabs = await queryTabs({}); } catch { return; }
+    if (!Array.isArray(tabs)) return;
+    for (const tab of tabs) {
+      if (!tab?.id || !api.tabs?.sendMessage) continue;
+      try {
+        void Promise.resolve(api.tabs.sendMessage(tab.id, message)).catch(() => {});
+      } catch {}
+    }`, 'storage notification dispatch');
 }
 
 export function hardenExtensionContentSource(source) {
@@ -156,7 +178,7 @@ export function hardenExtensionContentSource(source) {
 }
 
 export function hardenCompilerDurableStorage(source) {
-    if (source.includes(COMPILER_DURABLE_STORAGE_MARKER)) return source;
+    if (source.includes(COMPILER_DURABLE_STORAGE_MARKER)) return hardenCompilerAuthoritativeReads(source);
     if (source.includes(LEGACY_COMPILER_DURABLE_STORAGE_MARKER)) {
         throw new Error('Generated content.js contains the retired optimistic durable-storage runtime. Rebuild it from compiler output.');
     }
@@ -213,12 +235,32 @@ export function hardenCompilerDurableStorage(source) {
       notifyValueListeners(name, oldValue, undefined, false);
     }));
   }`, 'GM_deleteValue durable failure handling');
-    return replaceGeneratedContractOnce(
+    return hardenCompilerAuthoritativeReads(replaceGeneratedContractOnce(
         hardened,
         'Promise.resolve(globalThis.__USC_READY).catch(() => {}).then(() => {',
         'Promise.resolve(globalThis.__USC_READY).then(() => {',
         'userscript readiness failure handling',
-    );
+    ));
+}
+
+function hardenCompilerAuthoritativeReads(source) {
+    if (source.includes(COMPILER_AUTHORITATIVE_READ_MARKER)) return source;
+    const withReads = replaceGeneratedContractOnce(source, '  const GM = {', `  // ${COMPILER_AUTHORITATIVE_READ_MARKER}
+  function yomuReadStoredValue(name, defaultValue) {
+    return gmMessage('GM_getValue', { name, defaultValue }).then(response => {
+      if (!response || typeof response !== 'object') throw new Error('Storage background did not respond.');
+      return response.value;
+    });
+  }
+  function yomuListStoredValues() {
+    return gmMessage('GM_listValues', {}).then(response => {
+      if (!Array.isArray(response?.keys)) throw new Error('Storage background did not return its keys.');
+      return response.keys;
+    });
+  }
+  const GM = {`, 'authoritative GM reads');
+    const withGet = replaceGeneratedContractOnce(withReads, '    getValue: GM_getValue,', '    getValue: yomuReadStoredValue,', 'authoritative GM getValue binding');
+    return replaceGeneratedContractOnce(withGet, '    listValues: GM_listValues,', '    listValues: yomuListStoredValues,', 'authoritative GM listValues binding');
 }
 
 function replaceGeneratedContractOnce(source, expected, replacement, label) {
@@ -605,10 +647,16 @@ export async function assertShippedSettingsAuthorityRuntime(entries, target, exp
     assertShippedUserscriptReadiness(content, target);
     const gmRuntime = settingsAuthorityGmRuntime(entries, target, content);
     assertShippedDurableRuntime(gmRuntime, target);
-    await assertRejectingShippedDurableMutations(gmRuntime, target);
     assertShippedStudyStorageAdapter(entries, target);
     if (target.startsWith('firefox')) assertShippedFirefoxSettingsBridge(entries, target);
     assertShippedStudyVersion(entries, target, expectedVersion);
+    await assertRejectingShippedDurableMutations(gmRuntime, target);
+    await assertCompilerStorageContract(
+        extensionEntryText(entries, BACKGROUND_FILE, target),
+        shippedGmRuntimePrelude(gmRuntime),
+        extensionStoragePrefixFromBackgroundSource(extensionEntryText(entries, BACKGROUND_FILE, target)),
+        target,
+    );
 }
 
 function assertShippedManifestVersion(entries, target, expectedVersion) {
@@ -1329,7 +1377,10 @@ function googleDriveSettingsSyncBridgeSource() {
     const file = await findSettingsFile();
     if (!file?.id) return { ok: true, snapshot: null };
     const response = await driveFetch('/drive/v3/files/' + encodeURIComponent(file.id) + '?alt=media');
-    return { ok: true, snapshot: validSettingsSnapshot(await response.json()) };
+    let snapshot;
+    try { snapshot = await response.json(); }
+    catch { throw new Error('Google Drive settings backup contains invalid JSON.'); }
+    return { ok: true, snapshot: validSettingsSnapshot(snapshot) };
   }
 
   async function findSettingsFile() {

@@ -37,7 +37,7 @@ function createLoader(lookupVocabularyInfoForCard: () => Promise<JitenVocabulary
         getSettings: () => ({ ...DEFAULT_SETTINGS, localDictionariesEnabled: false, showPitchAccent: false, ankiEnabled: false, jpdbDefinitionsEnabled: false, jitenDefinitionsEnabled: true }),
         dictionaries: { lookup: vi.fn(async () => []), lookupKanji: vi.fn(async () => []), lookupTermMeta: vi.fn(async () => []) } as any,
         jpdbPublicPitch: { lookup: vi.fn(async () => []) } as any,
-        jpdbVocabulary: { lookup: vi.fn(async () => null) } as any,
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })) } as any,
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() } as any,
         jpdb: { listDecks: vi.fn() } as any,
         jiten: { lookupVocabularyInfoForCard } as any,

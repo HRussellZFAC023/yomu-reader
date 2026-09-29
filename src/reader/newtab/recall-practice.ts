@@ -4,6 +4,8 @@ import type { LearningTargetModule } from '../languages/types';
 import { newTabCardTarget } from './study-queue';
 import { normalizeLearningTargetAnswer } from './typing-input';
 
+type RecallMaterial = Pick<JPDBCard, 'spelling' | 'reading' | 'language' | 'fallbackLookupTerms'>;
+
 export type NewTabRecallOutcome = 'empty' | 'correct' | 'accepted' | 'incorrect';
 
 export interface NewTabRecallEvaluation {
@@ -20,7 +22,7 @@ export interface NewTabRecallCloze {
     hasCloze: boolean;
 }
 
-export function evaluateNewTabRecallAnswer(card: JPDBCard, answer: string, reading = card.reading): NewTabRecallEvaluation {
+export function evaluateNewTabRecallAnswer(card: RecallMaterial, answer: string, reading = card.reading): NewTabRecallEvaluation {
     const target = newTabCardTarget(card);
     const candidates = newTabRecallAnswerCandidates(card, reading, target);
     const normalized = normalizeNewTabRecallAnswer(answer, target);
@@ -36,7 +38,7 @@ export function evaluateNewTabRecallAnswer(card: JPDBCard, answer: string, readi
     return { outcome: 'incorrect', canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
 }
 
-export function buildNewTabRecallCloze(card: JPDBCard, sentence: string, reading = card.reading): NewTabRecallCloze {
+export function buildNewTabRecallCloze(card: RecallMaterial, sentence: string, reading = card.reading): NewTabRecallCloze {
     const learningTarget = newTabCardTarget(card);
     const normalizedSentence = sentence.replace(/\s+/gu, ' ').trim();
     const candidates = newTabRecallAnswerCandidates(card, reading, learningTarget);
@@ -55,7 +57,7 @@ export function buildNewTabRecallCloze(card: JPDBCard, sentence: string, reading
     };
 }
 
-function newTabRecallAnswerCandidates(card: JPDBCard, reading: string, target: LearningTargetModule): {
+function newTabRecallAnswerCandidates(card: RecallMaterial, reading: string, target: LearningTargetModule): {
     primaryAnswers: string[];
     acceptedAnswers: string[];
     canonicalAnswer: string;

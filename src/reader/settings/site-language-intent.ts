@@ -11,23 +11,11 @@ export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanes
 
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = 'prefer-japanese-site-language-setting';
 
-export async function authoritativePreferredJapaneseSiteLanguage(
+export function authoritativePreferredJapaneseSiteLanguage(
     storedValue: unknown,
-    migrationFallback: boolean,
-): Promise<boolean> {
-    if (typeof storedValue === 'boolean') return storedValue;
-    if (isHostedReaderRuntime()) return migrationFallback;
-    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-        // Re-read inside the lease so an explicit change that raced this
-        // one-time migration always wins.
-        const currentValue = await gmStorageGet<unknown>(
-            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-            undefined,
-        );
-        if (typeof currentValue === 'boolean') return currentValue;
-        await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-        return migrationFallback;
-    });
+    currentPreference: boolean,
+): boolean {
+    return typeof storedValue === 'boolean' ? storedValue : currentPreference;
 }
 
 export async function persistPreferredJapaneseSiteLanguageWithSettings(

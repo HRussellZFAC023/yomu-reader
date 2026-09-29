@@ -1,28 +1,20 @@
-import { hasOwn } from './values';
+import type { ReaderSettings } from '../app/types';
+import { gmStorageGetSharedStrict, gmStorageGetStrict, hasAsyncGmStorageBackend, withGmStorageLease } from '../app/storage';
+import { applySettingsIntent, recordSettingsIntent } from './intent-ledger';
+import { persistSettingsStorageTransaction, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE } from './settings-persistence-transaction';
 
-/**
- * Static hosted controls can run before the Reader. Their very first settings
- * write must say that no target was chosen; non-empty unmarked records are left
- * alone because identical partial writers shipped before 1.9.
- */
-export function mergeHostedSettingsPatch(
-    existing: Record<string, unknown>,
-    patch: Record<string, unknown>,
-): Record<string, unknown> {
-    const firstWriteTarget = Object.keys(existing).length === 0 && !hasOwn(patch, 'learningTargetChosen')
-        ? { learningTargetChosen: false }
-        : {};
-    return { ...existing, ...firstWriteTarget, ...patch };
-}
-
-/**
- * The shared GM record is authoritative. Passive hosted appearance state never
- * creates a shared learner profile: an empty shared record stays untouched,
- * while an existing explicit or legacy-unmarked target keeps its provenance.
- */
-export function mergeHostedSharedSettingsPatch(
-    shared: Record<string, unknown>,
-    patch: Record<string, unknown>,
-): Record<string, unknown> | null {
-    return Object.keys(shared).length > 0 ? { ...shared, ...patch } : null;
+export async function persistHostedSharedSettingsPatch(patch: Record<string, unknown>, userChoice: boolean): Promise<void> {
+    await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+        const read = hasAsyncGmStorageBackend() ? gmStorageGetSharedStrict : gmStorageGetStrict;
+        const view = await readSettingsPersistenceViewStrictFrom(read);
+        if (view.settings == null && !userChoice) return;
+        const shared = view.settings ?? { learningTargetChosen: false, onboardingSeen: false };
+        if (typeof shared !== 'object' || Array.isArray(shared)) throw new Error('Invalid hosted settings authority.');
+        const merged = { ...shared, ...patch };
+        const ledger = recordSettingsIntent(view.intentLedger, userChoice ? Object.keys(patch) as (keyof ReaderSettings)[] : [], merged);
+        const settings = applySettingsIntent(merged, ledger);
+        // Storage notifications echo through the hosted appearance listeners.
+        if (ledger === view.intentLedger && JSON.stringify(settings) === JSON.stringify(shared)) return;
+        await persistSettingsStorageTransaction(ledger, settings);
+    });
 }

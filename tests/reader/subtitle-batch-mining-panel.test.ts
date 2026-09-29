@@ -18,6 +18,7 @@ describe('subtitle batch mining panel', () => {
         expect(host.querySelector('.jpdb-subtitle-panel-mode')?.getAttribute('role')).toBe('group');
         expect(host.querySelector('.jpdb-subtitle-panel-options-menu')?.getAttribute('role')).toBe('group');
         expect(host.querySelector('[data-action="panel-options"]')?.getAttribute('aria-haspopup')).toBe('true');
+        expect(host.querySelector('.jpdb-subtitle-batch-actions-help')).toBeNull();
     });
 
     it('shows review actions only after scan candidates exist', () => {
@@ -41,6 +42,13 @@ describe('subtitle batch mining panel', () => {
         expect(host.querySelector('[role="list"]')).not.toBeNull();
         expect(host.querySelectorAll('[role="listitem"]')).toHaveLength(1);
         expect(host.querySelector('.jpdb-subtitle-batch-check')?.getAttribute('aria-label')).toBe('Deselect word: 本');
+        expect(host.querySelector('.jpdb-subtitle-batch-actions-help')?.textContent).toContain('Add selected saves words.');
+    });
+
+    it('explains collection and review separately in Japanese', () => {
+        const host = renderPanel(baseState({ status: 'ready', language: 'ja', candidates: [batchCandidate('本', 'ほん')] }));
+        expect(host.querySelector('.jpdb-subtitle-batch-actions-help')?.textContent)
+            .toBe('「選択を追加」は単語を保存し、評価ボタンは復習結果を記録します。');
     });
 
     it('marks mined TARGET words and sentences with their real direction', () => {
@@ -83,6 +91,7 @@ describe('subtitle batch mining panel', () => {
             status: 'ready',
             candidates: [candidate],
             selectedKeys: new Set([candidate.key]),
+            candidatePlans: new Map([[candidate.key, { token: Symbol(), grades: [['fail', 'Fail'], ['pass', 'Pass']], canCollect: true, uncertain: false }]]),
             reviewGrades: [
                 { grade: 'fail', label: 'Fail' },
                 { grade: 'pass', label: 'Pass' },

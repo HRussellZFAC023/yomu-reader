@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isYomuHostedAppUrl, isYomuPrivilegedHostedAppUrl, isYomuStorageBridgeHostedUrl } from '../../src/reader/app/pages';
 import { isYomuNewTabUrl, isYomuStudyRoutePath } from '../../src/reader/newtab/url';
@@ -132,6 +132,9 @@ describe('trusted Study route', () => {
 });
 
 describe('hosted Study compatibility alias', () => {
+    it('has no parallel static Study implementation or settings writer', () => {
+        expect(existsSync('docs/newtab/index.html')).toBe(false);
+    });
     it('keeps one heavy asset set and a lightweight canonical alias source', () => {
         const canonical = readFileSync('public/newtab/index.html', 'utf8');
         const alias = readFileSync('public/newtab/redirect.html', 'utf8');

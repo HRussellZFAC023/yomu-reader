@@ -1,16 +1,12 @@
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
-import {
-    canonicalExtensionStudySettingsAreChosen,
-    ExtensionStudySettingsRecoveryFailure,
-    isExtensionStudySettingsRecoveryFailure,
-    recoverExtensionStudySettingsAuthority,
-} from '../settings/extension-study-settings-recovery';
+import { packagedExtensionStorageAdapterMissing } from '../app/gm-storage-adapters';
+import { readSettingsPersistenceViewStrict } from '../settings/settings-persistence-transaction';
 
 export interface ExtensionSettingsRecoveryGuardOptions {
     readonly interfaceLanguage?: InterfaceLanguage;
     readonly reload?: () => void;
-    readonly reportFailure?: (failure: ExtensionStudySettingsRecoveryFailure) => void;
+    readonly reportFailure?: () => void;
 }
 
 const activeGuards = new WeakMap<Document, Promise<void>>();
@@ -37,31 +33,23 @@ export function ensureExtensionStudySettingsAuthority(
 async function runExtensionSettingsRecoveryGuard(
     options: ExtensionSettingsRecoveryGuardOptions,
 ): Promise<void> {
-    const attempt = (): Promise<boolean> => attemptSettingsAuthorityRecovery(options.reportFailure);
+    const attempt = (): Promise<boolean> => attemptCurrentSettingsRead(options.reportFailure);
     if (await attempt()) return;
     await waitOnRecoverySurface(attempt, options);
 }
 
-async function attemptSettingsAuthorityRecovery(
+async function attemptCurrentSettingsRead(
     reportFailure: ExtensionSettingsRecoveryGuardOptions['reportFailure'],
 ): Promise<boolean> {
+    if (!/^(?:chrome|moz|safari-web)-extension:$/.test(location.protocol)) return true;
     try {
-        await recoverExtensionStudySettingsAuthority();
+        if (packagedExtensionStorageAdapterMissing()) throw new Error('Storage adapter unavailable');
+        await readSettingsPersistenceViewStrict();
         return true;
-    } catch (error) {
-        reportFailure?.(secretFreeRecoveryFailure(error));
-        try {
-            return await canonicalExtensionStudySettingsAreChosen();
-        } catch {
-            return false;
-        }
+    } catch {
+        reportFailure?.();
+        return false;
     }
-}
-
-function secretFreeRecoveryFailure(error: unknown): ExtensionStudySettingsRecoveryFailure {
-    return isExtensionStudySettingsRecoveryFailure(error)
-        ? error
-        : new ExtensionStudySettingsRecoveryFailure(false);
 }
 
 function waitOnRecoverySurface(
@@ -126,8 +114,6 @@ function recoverySurface(language: InterfaceLanguage): HTMLElement {
     const body = document.createElement('p');
     body.id = 'yomu-extension-settings-recovery-copy';
     body.textContent = uiText(language, 'extensionSettingsRecoveryBody');
-    const guidance = document.createElement('p');
-    guidance.textContent = uiText(language, 'extensionSettingsRecoveryGuidance');
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;';
     actions.append(
@@ -137,7 +123,7 @@ function recoverySurface(language: InterfaceLanguage): HTMLElement {
     const status = document.createElement('p');
     status.dataset.recoveryStatus = '';
     status.setAttribute('aria-live', 'polite');
-    card.append(title, body, guidance, actions, status);
+    card.append(title, body, actions, status);
     surface.append(card);
     return surface;
 }

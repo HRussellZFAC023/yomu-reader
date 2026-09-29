@@ -22,6 +22,7 @@ export const NEW_TAB_ACTIONS = [
     'site-nav',
     'external-link',
     'mode',
+    'practice-sessions',
     // Study: navigation, reveal, grading, step chrome.
     'previous',
     'next',
@@ -29,9 +30,10 @@ export const NEW_TAB_ACTIONS = [
     'grade',
     'empty-fallback',
     'continue-batch',
+    'recover-review-recording',
     'study-step',
     'study-hint',
-    'dismiss-study-tour',
+    'return-to-review',
     'recall-submit',
     'type-word-submit',
     'type-word-handwriting-check',
@@ -63,6 +65,7 @@ export const NEW_TAB_ACTIONS = [
     'browse-page',
     'browse-bulk',
     'browse-card',
+    'browse-start-review',
     // Stats dashboard.
     'stats-source',
     'stats-activity-metric',

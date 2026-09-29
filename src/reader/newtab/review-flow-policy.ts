@@ -1,8 +1,8 @@
 import { isJitenSrsCard } from './review-targets';
 import type { JPDBCard } from '../app/types';
 
-const CONSUMED_REVIEW_SOURCES = new Set<JPDBCard['reviewSource']>(['bunpro-api', 'wanikani-api']);
-const CONSUMED_CARD_SOURCES = new Set<JPDBCard['source']>(['bunpro', 'wanikani']);
+const CONSUMED_REVIEW_SOURCES = new Set<JPDBCard['reviewSource']>(['anki', 'bunpro-api', 'wanikani-api']);
+const CONSUMED_CARD_SOURCES = new Set<JPDBCard['source']>(['anki', 'bunpro', 'wanikani']);
 
 export interface NewTabUndoableReview {
     readonly card: JPDBCard;
@@ -23,7 +23,7 @@ export function newTabUndoableReview(
     canUndoJiten: boolean,
     at = Date.now(),
 ): NewTabUndoableReview | undefined {
-    if (reviewConsumesProviderObligation(card)) return undefined;
+    if (requiresFreshProviderReview(card)) return undefined;
     return {
         card,
         at,
@@ -32,7 +32,7 @@ export function newTabUndoableReview(
     };
 }
 
-function reviewConsumesProviderObligation(card: JPDBCard): boolean {
+export function requiresFreshProviderReview(card: JPDBCard): boolean {
     return CONSUMED_REVIEW_SOURCES.has(card.reviewSource)
         || CONSUMED_CARD_SOURCES.has(card.source);
 }

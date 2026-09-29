@@ -1,4 +1,5 @@
 import type { InviteSession } from '../access/gateway';
+import { missionProgressIsValid, type LessonZeroMissionProgress } from '../domain/lesson-zero-mission-session';
 import {
     authoredWeekProgressRecordIsValid,
     type AuthoredWeekProgressRecord,
@@ -93,6 +94,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly lessonZeroVowelProgress?: LessonZeroVowelSessionState;
     /** Resume state for Rie's five-vowel handwriting and stroke-plan routes. */
     readonly lessonZeroVowelWritingProgress?: LessonZeroVowelWritingSessionState;
+    /** Textual mission drafts and evidence receipts only; never recordings or audio URLs. */
+    readonly lessonZeroMissionProgress?: LessonZeroMissionProgress;
     /** Unaccepted placement work stays a checkpoint draft, never learner evidence. */
     readonly placementProgress?: PlacementMockProgress;
     readonly selectedBand?: JlptBand;
@@ -354,6 +357,9 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.lessonZeroVowelWritingProgress !== undefined
         && !lessonZeroVowelWritingSessionSnapshotShapeIsValid(value.lessonZeroVowelWritingProgress)) {
         throw new TypeError('Academy checkpoint has invalid Lesson Zero vowel-writing progress.');
+    }
+    if (value.lessonZeroMissionProgress !== undefined && !missionProgressIsValid(value.lessonZeroMissionProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero mission progress.');
     }
     if (value.placementProgress !== undefined && !placementMockProgressShapeIsValid(value.placementProgress)) {
         throw new TypeError('Academy checkpoint has invalid placement progress.');

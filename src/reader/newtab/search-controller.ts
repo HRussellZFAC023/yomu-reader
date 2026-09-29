@@ -168,7 +168,7 @@ export interface NewTabSearchControllerDeps {
         details: KanjiDetailBundle,
     ): HTMLElement;
     keywordFromDetails(card: JPDBCard, jpdb: JpdbKanjiInfo | null, jiten: JitenKanjiInfo | null, rtk: RtkInfo | null): string;
-    renderNewTabKanjiImmersion(root: HTMLElement, kanji: string): void;
+    renderNewTabKanjiImmersion(root: HTMLElement, kanji: string, card: JPDBCard): void;
     sourceAttributes(sourceStateKey: string, initiallyExpanded?: boolean): string;
     dictionaryLabel(name: string): string;
     kanjiSourceTitle(sourceId: string): string;
@@ -859,6 +859,7 @@ export class NewTabSearchController {
             NEW_TAB_PUBLIC_SEARCH_TIMEOUT_MS,
             'Public JPDB search timed out.',
         )
+            .then(result => result.cards)
             .catch(error => {
                 log.warn('New tab public JPDB search failed', { query, error });
                 return [];
@@ -1191,7 +1192,7 @@ export class NewTabSearchController {
             jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading),
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
             'JPDB vocabulary lookup timed out.',
-        ).then(info => usesJapaneseProviders() ? info : null).catch(() => null);
+        ).then(result => usesJapaneseProviders() ? result.info : null).catch(() => null);
     }
 
     private loadSearchJitenVocabularyInfo(card: JPDBCard, settings: ReaderSettings): Promise<JitenVocabularyInfo | null> {
@@ -1332,7 +1333,7 @@ export class NewTabSearchController {
             kanjiCard.kanjiKeyword ? el('span', { class: 'jpdb-reader-newtab-search-kanji-item-keyword' }, kanjiCard.kanjiKeyword) : null,
         ),
         kanjiDetail);
-        this.deps.renderNewTabKanjiImmersion(kanjiDetail, item.kanji);
+        this.deps.renderNewTabKanjiImmersion(kanjiDetail, item.kanji, kanjiCard);
         return itemRoot;
     }
 
@@ -1352,7 +1353,7 @@ export class NewTabSearchController {
             const localMeanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
             card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || '';
             replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
-            this.deps.renderNewTabKanjiImmersion(existing, kanji);
+            this.deps.renderNewTabKanjiImmersion(existing, kanji, card);
             void this.deps.getDependencies().parseContent?.(existing);
         }).catch(error => {
             log.warn('New tab search kanji detail failed', { kanji }, error);

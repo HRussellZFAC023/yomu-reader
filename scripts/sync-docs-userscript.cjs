@@ -18,6 +18,7 @@ const {
   userscriptRequireLibraries,
 } = require('./lib/greasyfork-libraries.cjs');
 const { stampAppearanceBoot } = require('./lib/hosted-appearance-boot.cjs');
+const { buildHostedAppearanceSettings } = require('./lib/hosted-appearance-settings.cjs');
 const {
   hostedRuntimeBrowserGraph,
   hostedRuntimeGraph,
@@ -83,10 +84,16 @@ stampStandaloneHostedSurfaces(finalRuntimeGraph);
 pruneContentAddressedAssets();
 
 function stampStandaloneHostedSurfaces(runtimeGraph) {
+  const appearance = buildHostedAppearanceSettings(root);
+  writeFileSync(join(root, 'docs/public/hosted-appearance-settings.js'), appearance.source);
   assertHostedRuntimeAssets(runtimeGraph.pagePaths);
   for (const surface of STANDALONE_HOSTED_SURFACES) {
     stampStandaloneHostedPage(surface.page, runtimeGraph.pagePaths);
     stampStandaloneHostedServiceWorker(surface.serviceWorker, runtimeGraph, surface.cacheNamePrefix);
+    const worker = readFileSync(surface.serviceWorker, 'utf8');
+    const stampedWorker = worker.replace(/const APPEARANCE_REVISION = '[a-f\d]{12}';/u, `const APPEARANCE_REVISION = '${appearance.revision}';`);
+    if (stampedWorker === worker && !worker.includes(`const APPEARANCE_REVISION = '${appearance.revision}';`)) fail('Missing appearance worker revision.');
+    if (stampedWorker !== worker) writeFileSync(surface.serviceWorker, stampedWorker);
     const { page, serviceWorker } = surface;
     console.log(`Stamped appearance, navigation, and runtime graph into ${page} and ${serviceWorker}`);
   }

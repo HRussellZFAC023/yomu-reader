@@ -1,4 +1,4 @@
-import { loadSettingsWithWitnessedAuthority, subscribeToSettingsStorageChanges } from '../settings/index';
+import { loadSettings, subscribeToSettingsStorageChanges } from '../settings/index';
 import type { ReaderSettings } from './types';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
@@ -23,7 +23,7 @@ export function subscribeToReaderSettingsChanges(
     const hostedBridge = isHostedYomuOrigin();
     const reconciliation = createAsyncReconciliation(async () => {
         if (!active) return;
-        receive(await loadSettingsWithWitnessedAuthority());
+        receive(await loadSettings());
     }, () => undefined);
     const onStorageBridgeReady = (): void => reconciliation.request();
     if (hostedBridge) addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
@@ -58,7 +58,7 @@ export function subscribeToFirstPersistedLearningTarget(
     // The target may have been persisted while the chooser was still open,
     // before this dormant subscription existed. Subscribe first, then reconcile
     // a snapshot so a write on either side of this boundary cannot be missed.
-    void loadSettingsWithWitnessedAuthority().then(receive).catch(() => undefined);
+    void loadSettings().then(receive).catch(() => undefined);
     return () => {
         active = false;
         stopPolling();
@@ -74,7 +74,7 @@ function pollForFirstPersistedTarget(receive: (settings: ReaderSettings) => void
     const reconcile = (): void => {
         if (inFlight) return;
         inFlight = true;
-        void loadSettingsWithWitnessedAuthority()
+        void loadSettings()
             .then(receive)
             .catch(() => undefined)
             .finally(() => { inFlight = false; });

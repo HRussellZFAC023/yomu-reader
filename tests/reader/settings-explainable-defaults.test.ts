@@ -29,14 +29,14 @@ describe('A11 furigana default is explainable', () => {
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
     });
 
-    it('migrates legacy automatic mode to every reading regardless of available decks', () => {
+    it('preserves typed automatic mode and resolves it to every reading', () => {
         for (const settings of [
             keyless({ yomuLocalSrsEnabled: false, furiganaMode: 'auto' }),
             keyless({ yomuLocalSrsEnabled: true, furiganaMode: 'auto' }),
             keyless({ apiKey: 'jpdb-key', ankiEnabled: true, furiganaMode: 'auto' }),
         ]) {
             expect(effectiveFuriganaMode(settings)).toBe('all');
-            expect(normalizeReaderSettings(settings).furiganaMode).toBe('all');
+            expect(normalizeReaderSettings(settings).furiganaMode).toBe('auto');
         }
     });
 

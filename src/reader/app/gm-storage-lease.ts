@@ -48,15 +48,22 @@ export async function withGmStorageLeaseCore<T, Epoch>(
     options: GmStorageLeaseOptions,
     environment: GmStorageLeaseEnvironment<Epoch>,
 ): Promise<T> {
+    return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
+}
+
+async function withSharedStorageLease<T, Epoch>(
+    name: string,
+    operation: () => Promise<T>,
+    options: GmStorageLeaseOptions,
+    environment: GmStorageLeaseEnvironment<Epoch>,
+): Promise<T> {
     const { getValue, setValue, deleteValue, listValues } = environment.backend;
     if (!getValue || !setValue || !deleteValue || !listValues) {
-        return withWebStorageLock(name, async () => {
-            const epoch = await environment.captureEpoch(getValue);
-            await environment.assertMutationFence(getValue, epoch);
-            const result = await operation();
-            await environment.assertMutationFence(getValue, epoch);
-            return result;
-        });
+        const epoch = await environment.captureEpoch(getValue);
+        await environment.assertMutationFence(getValue, epoch);
+        const result = await operation();
+        await environment.assertMutationFence(getValue, epoch);
+        return result;
     }
 
     const epoch = await environment.captureEpoch(getValue);

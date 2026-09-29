@@ -205,8 +205,8 @@ describe('app shell social metadata', () => {
     });
 });
 
-describe('language-neutral public product identity', () => {
-    it('keeps root metadata, H1, machine copy, FAQ, README, and reviewer flow aligned', () => {
+describe('Japanese-first positioning with multilingual reading support', () => {
+    it('keeps the homepage focus distinct from supported targets and onboarding choices', () => {
         const homepage = read('docs/index.md');
         const config = read('docs/.vitepress/config.mts');
         const llms = read('docs/public/llms.txt');
@@ -218,7 +218,8 @@ describe('language-neutral public product identity', () => {
             version: { approval_notes: string };
         };
 
-        expect(homepage).toContain("Read the language you're learning with Yomu.</h1>");
+        expect(homepage).toContain('Read Japanese. Stay with the story.</h1>');
+        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
         expect(homepage).not.toContain('A complete system for learning 日本語.</h1>');
         expect(config).toContain("alternateName: 'Yomu Language Reader'");
         expect(config).toContain('Target-aware popup lookup for 33 learning languages');

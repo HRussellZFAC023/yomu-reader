@@ -87,7 +87,7 @@ describe('hosted newtab settings self enhancement', () => {
             expect(openStudyWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('がくしゅう');
             expect(openStudyWord?.dataset.jpdbReaderPassive).toBe('true');
 
-            const importWord = form.querySelector<HTMLElement>('[data-action="import-yomitan-settings"] .jpdb-reader-word[data-expression="設定"]');
+            const importWord = form.querySelector<HTMLElement>('[data-action="import-reader-settings"] .jpdb-reader-word[data-expression="設定"]');
             expect(importWord).toBeTruthy();
             expect(importWord?.closest('.jpdb-reader-btn')).toBeInstanceOf(HTMLButtonElement);
             expect(importWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');

@@ -3,6 +3,8 @@ import 'fake-indexeddb/auto';
 import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
 import { sha256Hex } from '../../src/reader/dictionaries/catalog';
 import { yomitanZipBlob } from './zip-fixture';
+import * as replicaPurge from '../../src/reader/dictionaries/replica-purge';
+import { validateDexieJson } from '../../src/reader/dictionaries/yomitan/import-lifecycle';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 7;
@@ -14,6 +16,125 @@ describe('Yomitan ZIP import performance path', () => {
         for (const store of activeStores.splice(0).reverse()) {
             await store.deleteDatabase({ timeoutMs: 2000 }).catch(() => undefined);
         }
+    });
+
+    it.each(['importZip', 'importJson', 'importDexieJson'] as const)(
+        '%s rejects invalid input before claiming freshness or replacing dictionary content', async method => {
+            const store = createStore();
+            await store.clear();
+            const fresh = vi.spyOn(replicaPurge, 'markDictionaryReplicaFresh');
+            const put = vi.spyOn(IDBObjectStore.prototype, 'put');
+            const clear = vi.spyOn(IDBObjectStore.prototype, 'clear');
+            await expect(store[method](new File(['not a dictionary'], 'candidate.json')))
+                .rejects.toThrow();
+            expect(fresh).not.toHaveBeenCalled();
+            expect(put).not.toHaveBeenCalled();
+            expect(clear).not.toHaveBeenCalled();
+        },
+    );
+
+    it.each(['zip', 'dexie', 'reader'] as const)('retains existing records and freshness when later %s validation fails', async format => {
+        const store = createStore();
+        await store.importZip(new File([yomitanZipBlob({
+            'index.json': { title: 'Retained', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', '', 1, ['read'], 1, '']],
+        })], 'retained.zip'));
+        const fresh = vi.spyOn(replicaPurge, 'markDictionaryReplicaFresh');
+        const clear = vi.spyOn(IDBObjectStore.prototype, 'clear');
+        const file = format === 'zip' ? new File([yomitanZipBlob({
+            'index.json': { title: 'Retained', format: 3 },
+            'term_bank_1.json': [['猫', 'ねこ', '', '', 1, ['cat'], 2, '']],
+            'term_bank_2.json': '[{"broken":',
+        })], 'broken.zip') : new File([format === 'dexie'
+            ? '{"formatName":"dexie","data":{"data":[{"tableName":"terms","rows":[]}]}'
+            : '{"formatName":"yomu-yomitan-dictionaries","terms":['], 'broken.json');
+        await expect(format === 'zip' ? store.importZip(file) : format === 'dexie' ? store.importDexieJson(file) : store.importJson(file)).rejects.toThrow();
+        expect(fresh).not.toHaveBeenCalled();
+        expect(clear).not.toHaveBeenCalled();
+        expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Retained', glossary: ['read'] }]);
+    });
+
+    it.each([
+        {},
+        { 'term_bank_1.json': [] },
+        { 'term_bank_1.json': [null, {}, []] },
+    ])('rejects same-title ZIPs without a normalizable entry before mutation (%#)', async banks => {
+        const store = createStore();
+        const index = { title: 'Retained', format: 3 };
+        await store.importZip(new File([yomitanZipBlob({
+            'index.json': index,
+            'term_bank_1.json': [['読む', 'よむ', '', '', 1, ['read'], 1, '']],
+        })], 'retained.zip'));
+        const before = await dictionaryFreshness();
+        expect(before).toMatchObject({ kind: 'import' });
+        const fresh = vi.spyOn(replicaPurge, 'markDictionaryReplicaFresh');
+        const clear = vi.spyOn(IDBObjectStore.prototype, 'clear');
+        await expect(store.importZip(new File([yomitanZipBlob({ 'index.json': index, ...banks })], 'empty.zip'))).rejects.toThrow();
+        expect(fresh).not.toHaveBeenCalled();
+        expect(clear).not.toHaveBeenCalled();
+        expect(await dictionaryFreshness()).toEqual(before);
+        expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Retained', glossary: ['read'] }]);
+    });
+
+    it('validates Dexie syntax across chunk boundaries and escaped format names', async () => {
+        const json = `{"padding":"${'x'.repeat(262130)}","formatName":"de\\u0078ie","data":{"tables":[{"name":"terms","rowCount":0}],"data":[]}}`;
+        await expect(validateDexieJson(new File([json], 'valid.json'))).resolves.toEqual({ terms: 0 });
+    });
+
+    it.each([false, true])('checks scalar/depth safety boundaries across chunks=%s', async crossing => {
+        for (const [value, accepted] of [
+            ['1'.repeat(128), true], ['1'.repeat(129), false],
+            ['['.repeat(127) + '0' + ']'.repeat(127), true],
+            ['['.repeat(128) + '0' + ']'.repeat(128), false],
+        ] as const) {
+            const json = dexieEnvelope(value, crossing);
+            expect(() => JSON.parse(json)).not.toThrow(); // Limits are not JSON grammar.
+            const pending = validateDexieJson(new File([json], 'limits.json'));
+            if (accepted) await expect(pending).resolves.toEqual({ terms: 0 });
+            else await expect(pending).rejects.toThrow(RangeError);
+        }
+    });
+
+    it('matches JSON.parse syntax acceptance for deterministic small Dexie exports', async () => {
+        const values: unknown[] = [null, true, false, 0, -0, 0.125, 1e100, '', '読む', '"\\\n\t', '\u0000', '\ud800'];
+        const serialized = values.flatMap(value => [value, [value], { nested: [value, { value }] }]).map(value => JSON.stringify(value));
+        const tokens = [...serialized, '1e400', '-1E-400', '"\\u0061"', '{"a":1,"a":2}',
+            '01', '+1', '1.', '1e', 'NaN', 'undefined', '[1,]', '{"a":}', '{"a" 1}',
+            '"\\x41"', '"\\u00xz"', '"unclosed', 'true false', '[}', '"raw\nnewline"'];
+        const valid = dexieEnvelope('null');
+        const documents = [...tokens.map(token => dexieEnvelope(token)), valid.slice(0, -1), valid + ' trailing', valid.replace(',"probe"', ',,"probe"')];
+        for (const json of documents) {
+            let accepted = true;
+            try { JSON.parse(json); } catch { accepted = false; }
+            const actual = await validateDexieJson(new File([json], 'differential.json')).then(() => true, () => false);
+            expect(actual, json).toBe(accepted);
+        }
+    });
+
+    it.each(['1'.repeat(129), '['.repeat(128) + '0' + ']'.repeat(128)])('retains records and freshness on over-limit Dexie input (%#)', async value => {
+        const store = createStore();
+        await store.importZip(new File([yomitanZipBlob({
+            'index.json': { title: 'Retained', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', '', 1, ['read'], 1, '']],
+        })], 'retained.zip'));
+        const before = await dictionaryFreshness();
+        expect(before).toMatchObject({ kind: 'import' });
+        const fresh = vi.spyOn(replicaPurge, 'markDictionaryReplicaFresh');
+        const clear = vi.spyOn(IDBObjectStore.prototype, 'clear');
+        await expect(store.importDexieJson(new File([dexieEnvelope(value, true)], 'unsafe.json'))).rejects.toThrow(RangeError);
+        expect(fresh).not.toHaveBeenCalled();
+        expect(clear).not.toHaveBeenCalled();
+        expect(await dictionaryFreshness()).toEqual(before);
+        expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Retained', glossary: ['read'] }]);
+    });
+
+    it.each([
+        '{"formatName":"dexie","data":{"tables":[{"name":"terms","rowCount":0}]},"formatName":1}',
+        '{"formatName":"dexie","data":{"tables":[{"name":"terms","rowCount":0}]},}',
+        '{"formatName":"dexie","data":{"tables":[{"name":"terms","rowCount":0}]}} trailing',
+        '{"formatName":"dexie","data":{}}',
+    ])('rejects malformed or unsupported Dexie documents before mutation (%#)', async json => {
+        await expect(validateDexieJson(new File([json], 'invalid.json'))).rejects.toThrow();
     });
 
     it('imports ZIP term banks through small Yomitan-style IndexedDB writes', async () => {
@@ -376,6 +497,27 @@ function createStore(): YomitanDictionaryStore {
     const store = new YomitanDictionaryStore();
     activeStores.push(store);
     return store;
+}
+
+function dexieEnvelope(value: string, crossing = false): string {
+    const prefix = '{"formatName":"dexie","data":{"tables":[{"name":"terms","rowCount":0}]},"probe":';
+    return prefix + (crossing ? ' '.repeat(262144 - prefix.length - 64) : '') + value + '}';
+}
+
+async function dictionaryFreshness(): Promise<unknown> {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+    try {
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction('managedState');
+            const request = tx.objectStore('managedState').get('dictionary-replica-purge');
+            tx.oncomplete = () => resolve(request.result);
+            tx.onabort = () => reject(tx.error);
+        });
+    } finally { db.close(); }
 }
 
 function termReadwriteTransactions(calls: Array<Parameters<IDBDatabase['transaction']>>): Array<Parameters<IDBDatabase['transaction']>> {

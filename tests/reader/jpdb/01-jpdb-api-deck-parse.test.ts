@@ -738,10 +738,10 @@ describe('reader helpers', () => {
             meanings: [{ glosses: ['below'], partOfSpeech: ['n'] }],
             sourceCardKey: undefined,
         };
-        const search = vi.fn(async () => [
+        const search = vi.fn(async () => ({ cards: [
             { ...contextualCard, reading: 'もと' },
             exactCard,
-        ]);
+        ], status: 'complete' as const }));
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbVocabulary: { search: typeof search };
@@ -1008,6 +1008,51 @@ describe('reader helpers', () => {
             document.removeEventListener('click', lookup, true);
             pageWord.remove();
             localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        }
+    });
+
+    it('keeps only one trailing-click guard after consecutive sheet dismissals', () => {
+        for (const pointerId of [31, 32]) {
+            const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
+            installSheetHandle(popover, () => popover.remove());
+            handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 120, pointerId }));
+            handle.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 120, pointerId }));
+        }
+        const trailing = new MouseEvent('click', { bubbles: true, cancelable: true });
+        document.body.dispatchEvent(trailing);
+        expect(trailing.defaultPrevented).toBe(true);
+        const later = new MouseEvent('click', { bubbles: true, cancelable: true });
+        document.body.dispatchEvent(later);
+        expect(later.defaultPrevented).toBe(false);
+    });
+
+    it('expires a rearmed trailing-click guard at the new deadline', async () => {
+        vi.useFakeTimers();
+        const added = vi.spyOn(window, 'addEventListener');
+        const removed = vi.spyOn(window, 'removeEventListener');
+        const dismissSheet = (pointerId: number) => {
+            const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
+            installSheetHandle(popover, () => popover.remove());
+            handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 120, pointerId }));
+            handle.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 120, pointerId }));
+            return added.mock.calls.filter(([type]) => type === 'click').at(-1)![1];
+        };
+        try {
+            const first = dismissSheet(41);
+            await vi.advanceTimersByTimeAsync(600);
+            const second = dismissSheet(42);
+            expect(removed).toHaveBeenCalledWith('click', first, true);
+            await vi.advanceTimersByTimeAsync(101);
+            expect(removed).not.toHaveBeenCalledWith('click', second, true);
+            await vi.advanceTimersByTimeAsync(600);
+            expect(removed).toHaveBeenCalledWith('click', second, true);
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+            document.body.dispatchEvent(click);
+            expect(click.defaultPrevented).toBe(false);
+        } finally {
+            added.mockRestore();
+            removed.mockRestore();
+            vi.useRealTimers();
         }
     });
 

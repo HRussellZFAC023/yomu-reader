@@ -1,4 +1,6 @@
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import type { KanjiWritingModel } from '../../src/academy/integration/yomu-bridge';
 
@@ -34,9 +36,11 @@ describe('early lesson plugin integration', () => {
         ['l1-l25', 'academy-katakana-row-switchboard'],
         ['l1-l26', 'academy-katakana-final-row-shelf'],
     ] as const)('makes %s reachable through its registered activity plugin', async (packageId, kind) => {
+        const loaded = ['l1-l09', 'l1-l19', 'l1-l20'].includes(packageId)
+            ? await validateCommittedAuthoredWeek(getAuthoredWeekRegistration(packageId)) : undefined;
         const chapter = await loadLessonActivityChapter(packageId, {
             lookup: async character => character === '一' ? TRACE : null,
-        });
+        }, loaded);
         expect(chapter).not.toBeNull();
         const activity = chapter?.beats.find(beat => beat.activity.kind === kind)?.activity;
         expect(activity).toBeDefined();

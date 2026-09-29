@@ -140,6 +140,29 @@ describe('Yomu Anki note type update plan', () => {
 });
 
 describe('Yomu Anki note type update', () => {
+    it('mines into an existing Yomu note type without rewriting its templates or fields', async () => {
+        const requests = stubAnkiConnect({
+            modelNames: ['よむ Japanese'], modelFieldNames: YOMU_MODEL_FIELDS,
+            canAddNotes: [true], addNote: 88,
+            notesInfo: [{ noteId: 88, modelName: 'よむ Japanese', tags: [], fields: {
+                Expression: { value: '読む' }, Reading: { value: 'よむ' }, Meaning: { value: 'read' },
+            }, cards: [188] }],
+            cardsInfo: [{ cardId: 188, note: 88, deckName: 'QA', queue: 0, type: 0, reps: 0, lapses: 0 }],
+        });
+        const client = ankiClient({ ankiDeck: 'QA' });
+        try {
+            await expect(client.addCard({
+                vid: 1, sid: 0, rid: 0, spelling: '読む', reading: 'よむ', frequencyRank: null,
+                meanings: [{ glosses: ['read'], partOfSpeech: [] }], partOfSpeech: [],
+                cardState: ['new'], pitchAccent: [], wordWithReading: null, source: 'local',
+            }, '本を読む。')).resolves.toBe(88);
+            const actions = requestActions(requests);
+            expect(actions).not.toContain('updateModelTemplates');
+            expect(actions).not.toContain('updateModelStyling');
+            expect(actions).not.toContain('modelFieldAdd');
+        } finally { client.destroy(); }
+    });
+
     it('adds exactly the missing fields and keeps templates and styling', async () => {
         const requests = stubAnkiConnect({
             modelNames: ['よむ Japanese'],

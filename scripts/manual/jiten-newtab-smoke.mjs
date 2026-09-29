@@ -98,7 +98,6 @@ function serveNotFound(response) {
 function createSettings(overrides = {}) {
     return {
         onboardingSeen: true,
-        newTabEnabled: true,
         interfaceLanguage: 'en',
         apiKey: '',
         jitenApiKey: MOCK_JITEN_API_KEY,

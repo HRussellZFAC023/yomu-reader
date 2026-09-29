@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { canRenderAcademyCastPortrait } from '../../src/academy/domain/cast-registry';
+import { ACADEMY_CAST_STANDARDIZATION_MANIFEST } from '../../src/academy/domain/cast-standardization-manifest';
 import { projectWorldPlace, type WorldProgress } from '../../src/academy/domain/world-locations';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
 
@@ -39,14 +40,18 @@ describe('ramen world', () => {
             && activity.relation === 'post-instruction-counter-recognition')).toBe(true);
     });
 
-    it('uses Shin only as consent-safe named presence and never borrows Peter or blocked portraits', () => {
+    it('uses Shin’s configured portrait only after meeting him and never borrows Peter’s portrait', () => {
         const screen = renderRamen({ progress: PROGRESS });
 
         expect(screen.querySelector('[data-world-character="shin"]')).not.toBeNull();
         expect(screen.querySelector('[data-world-character="peter"]')).toBeNull();
-        expect(canRenderAcademyCastPortrait('shin', 'story-runtime')).toBe(false);
-        expect(screen.querySelector('[data-world-character="shin"] img')).toBeNull();
-        expect(screen.querySelector('[data-world-character="shin"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(canRenderAcademyCastPortrait('shin', 'story-runtime')).toBe(true);
+        const portrait = '/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp';
+        expect(screen.querySelector('[data-world-character="shin"] img')?.getAttribute('src')).toBe(portrait);
+        expect(screen.querySelector('[data-world-character="shin"] .academy-world-character-silhouette')).toBeNull();
+        const manifest = ACADEMY_CAST_STANDARDIZATION_MANIFEST.find(asset => asset.assetPath === portrait);
+        expect(manifest).toMatchObject({ castId: 'shin', status: 'approved', runtimePresentation: 'approved-runtime' });
+        expect(manifest?.runtimeHomes).toContain('world:person');
 
         const beforeShin = renderRamen({ progress: { ...PROGRESS, metCharacterIds: ['rie'] } });
         expect(beforeShin.querySelector('[data-world-character="shin"]')).toBeNull();

@@ -71,7 +71,7 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '修繕積立金',
         }));
-        const search = vi.fn(async () => [exactCard]);
+        const search = vi.fn(async () => ({ cards: [exactCard], status: 'complete' as const }));
         const cacheCards = vi.fn();
         const showCard = vi.fn(async () => undefined);
         const parseJapanese = vi.fn(async () => [componentTokens]);

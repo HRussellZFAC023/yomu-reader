@@ -61,7 +61,7 @@ function createLoader(options: {
             lookupTermMeta: vi.fn(async (term: string) => options.metaByTerm[term] ?? []),
         } as unknown as YomitanDictionaryStore,
         jpdbPublicPitch: { lookup: vi.fn(options.publicPitchLookup ?? (async () => [])) } as unknown as JpdbPublicPitchClient,
-        jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })) } as unknown as JpdbVocabularyClient,
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() } as unknown as AnkiConnectClient,
         jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
         jiten: {

@@ -1,0 +1,8 @@
+# Local audit outputs and downloaded tooling are not application source.
+source:
+  exclude:
+    - artifacts/**
+    - qa-artifacts/**
+    - docs/.vitepress/dist/**
+    - docs/.vitepress/cache/**
+    - dist-gaming/**

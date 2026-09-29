@@ -2093,7 +2093,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
-  { owner: "settings/extension-study-settings-recovery", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
+  { owner: "settings (retired promotion marker; purge only)", kind: "gm", key: "yomu:extension-study-legacy-promotion:v1" },
   // Private, one-use cloud settings OAuth handoff. The old page-readable key
   // remains reset-only so upgrades erase a stranded pre-1.9 callback marker.
   { owner: "settings/dialog-controller", kind: "gm", key: "yomu:private:cloud-settings-sync-pending:v1" },
@@ -2182,6 +2182,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
+  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
+  { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
@@ -2449,6 +2451,26 @@ function storageWriteError(key, message, ...causes) {
   const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
   return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
 }
+const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const RETIRED_SETTINGS_STORAGE_KEYS = [
+  "jpdb-reader-settings",
+  "yomu-reader-settings",
+  "yomu-settings",
+  "yomu:explicit-user-settings:v1"
+];
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  SETTINGS_STORAGE_KEY,
+  ...RETIRED_SETTINGS_STORAGE_KEYS,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
+]);
+function isSettingsAuthorityStorageKey(key) {
+  return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
+}
 const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 function captureLocalFallbackStoredState(key) {
   try {
@@ -2588,7 +2610,7 @@ function asyncGmGetValue() {
 }
 function directGmGetValue() {
   if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmGetValue() ?? modernGmGetValue() ?? rawExtensionStorageGetValue();
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
 }
 function legacyGmGetValue() {
   return typeof GM_getValue === "function" ? GM_getValue : null;
@@ -2722,7 +2744,10 @@ async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue)
 }
 function managedStateEpochFromSynchronousGetter(getValue) {
   const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-  if (isPromiseLike(stored)) return null;
+  if (isPromiseLike(stored)) {
+  void Promise.resolve(stored).catch((error) => debugStorageError("Synchronous epoch probe could not read async storage", MANAGED_STATE_EPOCH_KEY, error));
+  return null;
+  }
   const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
   managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
   cacheManagedStateEpochForLocalFallback(shared2);
@@ -2730,7 +2755,7 @@ function managedStateEpochFromSynchronousGetter(getValue) {
 }
 function managedStateEpochForSynchronousLocalRead() {
   try {
-  const getValue = directGmGetValue();
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   if (getValue) {
     const synchronous = managedStateEpochFromSynchronousGetter(getValue);
     if (synchronous) return synchronous;
@@ -2756,6 +2781,7 @@ function gmStorageGetSync(key, fallback) {
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   }
+  if (isSettingsAuthorityStorageKey(key) && asyncGmGetValue()) return fallback;
   epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
@@ -2783,6 +2809,7 @@ function gmStorageSyncRead(key, getValue, epoch) {
   }
 }
 function migratedLocalStorageSyncValue(key, epoch) {
+  if (isSettingsAuthorityStorageKey(key)) return { kind: "fallback" };
   if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
@@ -7893,6 +7920,8 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
   },
   jaSettings: {
+  extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
+  extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
   localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
   clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
@@ -8088,7 +8117,6 @@ importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応辞書バンクがありません。
 dictionaryUnsupportedJson	Dexie、ZIP、出力を使ってください。
 dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
@@ -8132,12 +8160,10 @@ ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
 ankiLapsePlural	回失敗
 gradeNothingLabel	全然
+gradeAgainLabel	もう一度
+gradeGoodLabel	良い
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
-bunproGradeAgainLabel	もう一度
-bunproGradeHardLabel	難しい
-bunproGradeGoodLabel	良い
-bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -8476,7 +8502,6 @@ reading	読解
 sources	ソース
 backupSync	バックアップと同期
 backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
-backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -8538,7 +8563,8 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-fivePoint	5段階: 全然から簡単まで
+fivePoint	サービスの標準評価
+fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 theme	テーマ
@@ -8595,7 +8621,6 @@ newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
-newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
@@ -8607,21 +8632,6 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
-newTabStudySteps	学習ステップ
-newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
-newTabStudyStepHeader	ステップ
-newTabStudyStepKanji	漢字書き取り
-newTabStudyStepWord	単語の意味
-newTabStudyStepRecall	文で書く
-newTabStudyStepListen	ピッチ聞き取り
-newTabStudyStepSpeaking	発音
-newTabStudyStepType	単語を書く
-newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
-newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
-newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
-newTabStudyStepTypeHelp	聞いて発音した単語を書き出します。入力または漢字ごとの手書きで解答できます。セッション中はスキップ可能。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -8976,7 +8986,6 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -9064,7 +9073,6 @@ ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
-helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 versionAndUpdates	バージョン
 currentYomuVersion	Yomu
 updateStatusIdle	現在 {current}。確認待ち。
@@ -10444,15 +10452,6 @@ new Set(
   DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
 );
 Logger.scope("Settings");
-const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-  "kanji-doodle",
-  "word",
-  "type-word",
-  "recall-cloze",
-  "listen-pitch",
-  "speaking"
-];
-new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 ({
   languageProfiles: [createDefaultLanguageProfile()],
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
@@ -10463,6 +10462,9 @@ function privateCommandAttributes(command) {
   return commandCapabilities.attributes(command);
 }
 function immutableCommandSnapshot(command) {
+  if (command.kind === "subtitle-action" && command.batchPlans) {
+  return Object.freeze({ ...command, batchPlans: Object.freeze([...command.batchPlans]) });
+  }
   if (command.kind === "card-action" && command.audioUrls) {
   return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
   }
@@ -10491,9 +10493,9 @@ selectorPairs("control,toggle,player", ["class"]);
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 const KANJI_WANIKANI_SOURCE_ID = "__kanji_wanikani__";
 Logger.scope("DictionaryArchiveCache");
+Logger.scope("DictionaryReplicaPurge");
 Logger.scope("Yomitan");
 new TextDecoder();
-Logger.scope("YomitanSettingsImport");
 Logger.scope("Yomitan");
 function definitionSourceStateKey(sourceId) {
   return `definition-source:${sourceId}`;

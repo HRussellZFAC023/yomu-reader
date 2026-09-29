@@ -28,7 +28,7 @@ import {
     type StoryWrittenResponsePractice,
 } from '../content/n3-story-practice';
 import { STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
-import { ACADEMY_ASSETS } from '../assets';
+import { ACADEMY_ASSETS, defaultCastPortrait } from '../assets';
 import { resolveDirectorSfxCue, type AcademySemanticSfxCue } from '../audio/sfx-catalog';
 import type { StoryVoicePlayback } from '../audio/voice-lines';
 import { canRenderAcademyCastPortrait, displayAcademyCastName } from '../domain/cast-registry';
@@ -748,8 +748,7 @@ function approvedStorySpeakerCastMember(
 ): AcademyVnCastMember | undefined {
     if (!speakerId || speakerId === 'rie' || speakerId === 'learner') return undefined;
     if (!canRenderAcademyCastPortrait(speakerId, 'story-runtime')) return undefined;
-    const approved = ACADEMY_ASSETS.characters.approved as Readonly<Record<string, string | undefined>>;
-    const still = approved[speakerId];
+    const still = defaultCastPortrait(speakerId, `story:cast:${speakerId}`);
     if (!still) return undefined;
     const displayName = displayAcademyCastName(speakerId, language);
     const contextualPerformance = approvedStoryPerformance(speakerId, intent);

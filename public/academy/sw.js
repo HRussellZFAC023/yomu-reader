@@ -2,6 +2,8 @@ importScripts('/hosted-runtime-graph.js?v=__ACADEMY_REVISION__');
 
 const VERSION = 'yomu-academy-shell-__ACADEMY_REVISION__';
 const ACADEMY_REVISION = '__ACADEMY_REVISION__';
+const CODE_ASSETS = __ACADEMY_CODE_ASSETS__;
+const OFFLINE_READY = '/academy/.offline-ready';
 const AUDIO_CACHE = 'yomu-academy-audio-v2-demand';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -453,12 +455,11 @@ const RUNTIME_ART_PRECACHE = [
 ];
 
 const CORE = [
+    ...CODE_ASSETS,
     ...READER_RUNTIME_PRECACHE_REQUESTS,
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=__ACADEMY_REVISION__',
-    '/academy/style.css?v=__ACADEMY_REVISION__',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',
@@ -841,7 +842,24 @@ self.addEventListener('install', event => {
 
 async function installOfflineShell() {
     const cache = await caches.open(VERSION);
+    const previouslyReady = await cache.match(OFFLINE_READY);
+    try {
+        await populateOfflineShell(cache);
+        await cache.put(OFFLINE_READY, new Response(ACADEMY_REVISION));
+    } catch (error) {
+        // A partial candidate must never replace or delete the usable release.
+        if (!previouslyReady) await caches.delete(VERSION);
+        throw error;
+    }
+    // Use the browser's waiting lifecycle. An old page may still request its
+    // lazy Study chunk; activation/old-cache cleanup waits until it is closed.
+}
+
+async function populateOfflineShell(cache) {
+    if (!Array.isArray(CODE_ASSETS) || !CODE_ASSETS.length) throw new Error('Academy code manifest is missing.');
     await cache.addAll(CORE);
+    const index = await cache.match('/academy/index.html');
+    if (!index || !(await index.text()).includes(academyRevisionTag())) throw new Error('Academy HTML does not match this release.');
     const response = await cache.match(STORY_VOICE_CATALOG);
     if (!response) throw new Error('Story voice catalog was not cached.');
     const catalog = await response.json();
@@ -853,18 +871,34 @@ async function installOfflineShell() {
         typeof path !== 'string' || !STORY_VOICE_ASSET.test(path) || path.split('/').includes('..')
     ))) throw new Error('Story voice catalog contains an invalid asset path.');
     await cache.addAll(storyVoicePaths);
-    await self.skipWaiting();
 }
 
 self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys()
-            .then(keys => Promise.all(keys.filter(key => (
-                key.startsWith('yomu-academy-') && key !== VERSION && key !== AUDIO_CACHE
-            )).map(key => caches.delete(key))))
-            .then(() => self.clients.claim()),
-    );
+    event.waitUntil(activateOfflineShell());
 });
+
+async function activateOfflineShell() {
+    const cache = await caches.open(VERSION);
+    const ready = await cache.match(OFFLINE_READY);
+    if (!ready || await ready.text() !== ACADEMY_REVISION) throw new Error('Academy offline installation is incomplete.');
+    for (const asset of CODE_ASSETS) {
+        if (!await cache.match(asset)) throw new Error(`Academy offline code is missing: ${asset}`);
+    }
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith('yomu-academy-') && key !== VERSION && key !== AUDIO_CACHE).map(key => caches.delete(key)));
+    await self.clients.claim();
+}
+
+function academyRevisionTag() {
+    return `<meta name="yomu-academy-revision" content="${ACADEMY_REVISION}"`;
+}
+
+async function cacheMatchingNavigation(response) {
+    const html = await response.clone().text();
+    if (!html.includes(academyRevisionTag())) return;
+    const cache = await caches.open(VERSION);
+    await cache.put('/academy/index.html', response);
+}
 
 self.addEventListener('fetch', event => {
     const request = event.request;
@@ -908,9 +942,9 @@ self.addEventListener('fetch', event => {
         event.respondWith(fetch(request).then(response => {
             if (!response.ok) return response;
             const copy = response.clone();
-            event.waitUntil(caches.open(VERSION).then(cache => cache.put('/academy/index.html', copy)));
+            event.waitUntil(cacheMatchingNavigation(copy));
             return response;
-        }).catch(async () => await caches.match('/academy/index.html')
+        }).catch(async () => await (await caches.open(VERSION)).match('/academy/index.html')
             ?? new Response('よむ Academy is not available offline yet.', { status: 503 })));
         return;
     }
@@ -926,7 +960,7 @@ self.addEventListener('fetch', event => {
     const runtimeCacheKey = isReaderRuntime ? readerRuntimeCacheKey(url.pathname) : undefined;
     const cachedResponse = isReaderRuntime
         ? caches.open(VERSION).then(cache => cache.match(runtimeCacheKey))
-        : caches.match(request);
+        : caches.open(VERSION).then(cache => cache.match(request));
     event.respondWith(cachedResponse.then(cached => cached ?? fetch(request).then(response => {
         if (!response.ok) return response;
         const copy = response.clone();

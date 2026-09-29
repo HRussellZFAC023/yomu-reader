@@ -129,6 +129,8 @@ export interface YomuSrsAdapter {
     verify(): Promise<boolean>;
     stats(): Promise<YomuSrsStatsSnapshot>;
     queue(limit?: number, options?: YomuSrsQueueOptions): Promise<YomuSrsQueueSnapshot>;
+    collection?(limit?: number, options?: YomuSrsQueueOptions): Promise<YomuSrsReviewable[]>;
+    startReview?(cardId: string): Promise<YomuSrsReviewable>;
     review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult>;
     mine(request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult>;
     lookupCards?(items: readonly YomuSrsLookupItem[]): Promise<YomuSrsReviewable[]>;

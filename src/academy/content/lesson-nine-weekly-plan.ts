@@ -1,4 +1,4 @@
-import lessonPackage from '../../../public/academy/content/lessons/010-l1-l09.json';
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from './lesson-content-registry';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import type {
     WeeklyPlanChoiceRound,
@@ -68,8 +68,8 @@ const GENKI_PROBLEMS = [
     ]),
 ] as const;
 
-export function createLessonNineWeeklyPlanModel(): WeeklyPlanWorkbookModel {
-    assertExactPackageSources();
+export function createLessonNineWeeklyPlanModel(loaded: LoadedAuthoredWeekPackage): WeeklyPlanWorkbookModel {
+    assertExactPackageSources(loaded);
     const rounds = Object.freeze([
         pairRound(1, 'monday-today', 'きょう は げつようび です。', 'ka', 'nichi'),
         pairRound(2, 'friday-today', 'きょう は きんようび です。', 'do', 'moku'),
@@ -190,14 +190,14 @@ export function createLessonNineWeeklyPlanModel(): WeeklyPlanWorkbookModel {
     return Object.freeze(model);
 }
 
-export function createLessonNineWeeklyPlanBeat(): LessonActivityBeat {
+export function createLessonNineWeeklyPlanBeat(loaded: LoadedAuthoredWeekPackage): LessonActivityBeat {
     return Object.freeze({
         id: 'weekly-plan-workbook',
         narrative: {
             ja: 'ジェニーとトムが日付カードを並べ、りえ先生の曜日問題を元の順番で確認します。',
             en: 'Jenny and Tom arrange dated cards and work through Rie’s weekday problems in source order.',
         },
-        activity: createLessonNineWeeklyPlanModel(),
+        activity: createLessonNineWeeklyPlanModel(loaded),
     });
 }
 
@@ -314,8 +314,12 @@ function teaching(
     return Object.freeze({ sourceOrder, sourceQuestionId, sourceLabel, pattern, rule: { ja, en }, example });
 }
 
-function assertExactPackageSources(): void {
-    const root = record(lessonPackage, 'l1-l09 package');
+function assertExactPackageSources(loaded: LoadedAuthoredWeekPackage): void {
+    if (loaded.week.id !== PACKAGE_ID
+        || loaded.week.provenance.source.sha256 !== getAuthoredWeekRegistration(PACKAGE_ID).expectedSha256) {
+        throw new TypeError('The activity requires its validated l1-l09 package.');
+    }
+    const root = record(loaded.value, 'l1-l09 package');
     const identity = record(root.identity, 'l1-l09 identity');
     if (root.id !== PACKAGE_ID || identity.moduleId !== MODULE_ID) throw new TypeError('Unexpected l1-l09 package identity.');
     const coverage = record(root.sourceCoverage, 'l1-l09 source coverage');

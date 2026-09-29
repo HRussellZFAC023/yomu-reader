@@ -46,6 +46,7 @@ interface ManagedWriteReceiptRecord extends ManagedWriteReceipt {
     readonly stagedAuthority: unknown[];
     readonly stagedLocal: LocalFallbackStoredState[];
     interrupted: boolean;
+    restoreCapturedLocal: boolean;
     active: boolean;
 }
 
@@ -75,6 +76,7 @@ class ConcreteManagedWriteJournal implements ManagedWriteJournal {
             stagedAuthority: [],
             stagedLocal: [],
             interrupted: false,
+            restoreCapturedLocal: true,
             active: false,
         };
         this.receipts.set(key, receipt);
@@ -90,6 +92,10 @@ class ConcreteManagedWriteJournal implements ManagedWriteJournal {
         record.authorityTarget = previous;
         record.localTarget = localPrevious;
         record.interrupted = true;
+        // A hosted offline pair is independent of an interrupted shared write.
+        // Only a mirror of that interrupted value adopts its older local target.
+        record.restoreCapturedLocal = Boolean(record.localBefore
+            && record.localBefore.serializedValue !== (record.previous.existed ? JSON.stringify(record.previous.value) : null));
         if (record.localBefore) rememberLocalStage(record, record.localBefore, record.previous);
         this.activate(record);
     }
@@ -177,10 +183,19 @@ async function rollbackManagedWrites(
     forceAuthorityRestore: boolean,
 ): Promise<unknown[]> {
     const errors: unknown[] = [];
+    let authorityStopped = false;
     for (let index = receipts.length - 1; index >= 0; index--) {
+        if (authorityStopped) {
+            const receipt = receipts[index]!;
+            if (receipt.restoreCapturedLocal) {
+                const local = captureManagedWriteLocal(receipt, errors);
+                rollbackManagedWriteLocal(storage, receipt, local, errors);
+            }
+            continue;
+        }
         const current = await rollbackManagedWrite(storage, receipts[index]!, forceAuthorityRestore);
         errors.push(...current);
-        if (stopOnError && current.length) break;
+        if (stopOnError && current.length) authorityStopped = true;
     }
     return errors;
 }
@@ -191,8 +206,8 @@ async function rollbackManagedWrite(
     forceAuthorityRestore: boolean,
 ): Promise<unknown[]> {
     const errors: unknown[] = [];
-    const currentLocal = captureManagedWriteLocal(receipt, errors);
     await rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors);
+    const currentLocal = captureManagedWriteLocal(receipt, errors);
     rollbackManagedWriteLocal(storage, receipt, currentLocal, errors);
     return errors;
 }
@@ -289,7 +304,7 @@ function restoreManagedWriteLocal(
     if (!receipt.localBefore) return restoreUntrackedWriteLocal(storage, receipt);
     if (!current) return;
     assertLocalStateCanRollback(storage, receipt, current);
-    if (!receipt.interrupted) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
+    if (receipt.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
     storage.restoreLocalTarget(receipt.key, receipt.localTarget);
 }
 

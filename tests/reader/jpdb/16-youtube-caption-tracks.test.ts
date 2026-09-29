@@ -1462,7 +1462,7 @@ describe('reader helpers', () => {
         const { fallbackCard, publicCard } = fallbackVocabularyUpgradeCards();
         const word = appendRenderedReaderWord(fallbackCard);
 
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const pitch = vi.fn(async () => ['LHHL']);
         const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, { search, pitch });
 
@@ -1516,7 +1516,7 @@ describe('reader helpers', () => {
         });
         const word = appendRenderedReaderWord(fallbackCard);
 
-        const search = vi.fn(async (term: string) => term === '読む' ? [publicCard] : []);
+        const search = vi.fn(async (term: string) => ({ cards: term === '読む' ? [publicCard] : [], status: 'complete' as const }));
         const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { furiganaMode: 'all', showFurigana: true },
@@ -1559,7 +1559,7 @@ describe('reader helpers', () => {
         });
         const firstWord = appendRenderedReaderWord(fallbackCard);
 
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const { internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { furiganaMode: 'all', showFurigana: true },
@@ -1618,7 +1618,7 @@ describe('reader helpers', () => {
         word.dataset.expression = relatedCard.spelling;
         word.dataset.reading = relatedCard.reading;
 
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const pitch = vi.fn(async () => ['HL']);
         const { internals } = configurePublicVocabularyEnrichment(app, { search, pitch });
 
@@ -1658,11 +1658,10 @@ describe('reader helpers', () => {
         const firstWord = appendRenderedReaderWord(firstFallbackCard);
         const secondWord = appendRenderedReaderWord(secondFallbackCard);
 
-        const search = vi.fn(async (term: string) => {
-            if (term === '青空') return [firstPublicCard];
-            if (term === '読む') return [secondPublicCard];
-            return [];
-        });
+        const search = vi.fn(async (term: string) => ({
+            cards: term === '青空' ? [firstPublicCard] : term === '読む' ? [secondPublicCard] : [],
+            status: 'complete' as const,
+        }));
         const { internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { apiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
@@ -1706,7 +1705,7 @@ describe('reader helpers', () => {
         const firstWord = appendRenderedReaderWord(firstFallbackCard);
         const secondWord = appendRenderedReaderWord(secondFallbackCard);
 
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const jitenLookup = vi.fn(async () => null);
         const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(terms.flatMap(term => {
             if (term === '青空') return [[term, firstPublicCard]];
@@ -1756,7 +1755,7 @@ describe('reader helpers', () => {
             pitchAccent: ['HL'],
         });
 
-        const search = vi.fn(async () => []);
+        const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const jitenLookup = vi.fn(async () => null);
         const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
             terms.includes('読む') ? [['読む', publicCard]] : [],

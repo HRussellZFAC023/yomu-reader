@@ -12,8 +12,9 @@ const memoryStorage = {
 };
 
 import { NewTabGradeQueue, type NewTabGradeQueueDeps, type QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
-import { NEW_TAB_GRADE_QUEUE_KEY } from '../../src/reader/newtab/controller-config';
+import { NEW_TAB_GRADE_QUEUE_KEY, NEW_TAB_GRADE_QUEUE_LIMIT } from '../../src/reader/newtab/controller-config';
 import type { JPDBCard } from '../../src/reader/app/types';
+import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 
 function card(spelling: string): JPDBCard {
     return { vid: 1, sid: 0, spelling, reading: spelling } as unknown as JPDBCard;
@@ -47,6 +48,17 @@ describe('NewTabGradeQueue.enqueue', () => {
         expect(stored()).toEqual([]);
     });
 
+    it('refuses a full queue instead of evicting unresolved learner reviews', async () => {
+        const entries = Array.from({ length: NEW_TAB_GRADE_QUEUE_LIMIT }, (_, index): QueuedNewTabGrade => ({
+            id: `held-${index}`, at: index, target: 'anki', card: card(`単語${index}`),
+            grade: 'okay', attempts: 1, providerContext: 'account-a',
+        }));
+        store.set(NEW_TAB_GRADE_QUEUE_KEY, entries);
+        const { queue } = makeQueue();
+        expect(await queue.enqueue(card('追加'), 'easy', ['anki'])).toBe(false);
+        expect(stored()).toEqual(entries);
+    });
+
     it('returns false when no target is queueable', async () => {
         const { queue } = makeQueue();
         expect(await queue.enqueue(card('何'), 'okay', [])).toBe(false);
@@ -75,6 +87,126 @@ describe('NewTabGradeQueue.enqueue', () => {
 describe('NewTabGradeQueue.flush', () => {
     beforeEach(() => store.clear());
 
+    it('persists the Anki attempt before dispatch and holds it after a lost response across restart', async () => {
+        const submit = vi.fn(async () => {
+            expect(stored()[0]?.attempts).toBe(1);
+            throw new Error('response lost after commit');
+        });
+        const { queue, onSubmitted } = makeQueue({ submit });
+        await queue.enqueue(card('読む'), 'okay', ['anki']);
+        expect(await queue.flush()).toBe(1);
+        expect(stored()[0]).toMatchObject({ attempts: 1, lastError: 'response lost after commit' });
+        const restarted = makeQueue({ submit });
+        expect(await restarted.queue.flush()).toBe(1);
+        expect(submit).toHaveBeenCalledOnce();
+        expect(onSubmitted).not.toHaveBeenCalled();
+        expect(await restarted.queue.enqueue(card('読む'), 'easy', ['anki'])).toBe(false);
+        expect(stored()[0]?.grade).toBe('okay');
+    });
+
+    it('does not dispatch when the durable Anki attempt cannot be recorded', async () => {
+        const { queue } = makeQueue();
+        await queue.enqueue(card('読む'), 'okay', ['anki']);
+        const write = vi.fn(async () => { throw new Error('disk full'); });
+        const failing = makeQueue({ storage: { ...memoryStorage, set: write } });
+        await expect(failing.queue.flush()).rejects.toThrow('disk full');
+        expect(failing.submit).not.toHaveBeenCalled();
+        expect(stored()[0]?.attempts).toBe(0);
+    });
+
+    it('does not send an old-account review after the connection changes during attempt persistence', async () => {
+        let account = 'account-a';
+        const { queue, submit, onSubmitted } = makeQueue({
+            providerContextForTarget: () => account,
+            storage: {
+                ...memoryStorage,
+                set: async (key, value) => {
+                    await memoryStorage.set(key, value);
+                    if ((value as QueuedNewTabGrade[]).some(item => item.attempts > 0)) account = 'account-b';
+                },
+            },
+        });
+        await queue.enqueue(card('読む'), 'okay', ['anki']);
+        expect(await queue.flush()).toBe(1);
+        expect(submit).not.toHaveBeenCalled();
+        expect(onSubmitted).not.toHaveBeenCalled();
+        expect(stored()).toMatchObject([{ providerContext: 'account-a', attempts: 1 }]);
+        account = 'account-a';
+        await queue.flush();
+        expect(submit).not.toHaveBeenCalled();
+    });
+
+    it('holds a persisted in-flight attempt when a new queue opens before the response', async () => {
+        let acknowledge!: (value: boolean) => void;
+        let dispatched!: () => void;
+        const response = new Promise<boolean>(resolve => { acknowledge = resolve; });
+        const started = new Promise<void>(resolve => { dispatched = resolve; });
+        const submit = vi.fn(() => { dispatched(); return response; });
+        const { queue } = makeQueue({ submit });
+        await queue.enqueue(card('読む'), 'okay', ['anki']);
+        const flushing = queue.flush();
+        await started;
+        try {
+            const reopened = makeQueue({ submit });
+            expect(await reopened.queue.flush()).toBe(1);
+            expect(await reopened.queue.hasUncertainReviews()).toBe(true);
+            expect(submit).toHaveBeenCalledOnce();
+        } finally {
+            acknowledge(true);
+            await flushing;
+        }
+    });
+
+    it('does not repeat an acknowledged Anki grade if queue cleanup fails', async () => {
+        const failing = makeQueue({ storage: {
+            ...memoryStorage,
+            delete: async () => { throw new Error('cleanup failed'); },
+        } });
+        await failing.queue.enqueue(card('読む'), 'okay', ['anki']);
+        await expect(failing.queue.flush()).rejects.toThrow('cleanup failed');
+        const restarted = makeQueue({ submit: failing.submit });
+        expect(await restarted.queue.flush()).toBe(1);
+        expect(failing.submit).toHaveBeenCalledOnce();
+        expect(stored()[0]?.attempts).toBe(1);
+    });
+
+    it('does not treat an unreadable queue as empty or overwrite its reviews', async () => {
+        const { queue } = makeQueue();
+        await queue.enqueue(card('読む'), 'okay', ['anki']);
+        const original = structuredClone(stored());
+        const failing = makeQueue({ storage: {
+            ...memoryStorage,
+            get: async () => { throw new Error('storage unavailable'); },
+        } });
+        await expect(failing.queue.enqueue(card('書く'), 'easy', ['anki'])).rejects.toThrow('storage unavailable');
+        await expect(failing.queue.flush()).rejects.toThrow('storage unavailable');
+        expect(stored()).toEqual(original);
+        expect(failing.submit).not.toHaveBeenCalled();
+    });
+
+    it('preserves reviews on a backend read failure through the production storage adapter', async () => {
+        const backend = installGmStorageFixture();
+        const submit = vi.fn(async () => true);
+        const queue = new NewTabGradeQueue({
+            offlineEnabled: () => true, providerContextForTarget: () => 'account-a',
+            submit, onSubmitted: vi.fn(),
+        });
+        try {
+            await queue.enqueue(card('読む'), 'okay', ['anki']);
+            backend.setValue.mockClear();
+            backend.deleteValue.mockClear();
+            backend.getValue.mockImplementation(async (key, fallback) => {
+                if (key.includes(NEW_TAB_GRADE_QUEUE_KEY)) throw new Error('backend read failed');
+                return backend.values.has(key) ? backend.values.get(key) : fallback;
+            });
+            await expect(queue.enqueue(card('書く'), 'easy', ['anki'])).rejects.toThrow('backend read failed');
+            await expect(queue.flush()).rejects.toThrow('backend read failed');
+            expect(backend.setValue).not.toHaveBeenCalled();
+            expect(backend.deleteValue).not.toHaveBeenCalled();
+            expect(submit).not.toHaveBeenCalled();
+        } finally { vi.unstubAllGlobals(); }
+    });
+
     it('submits every queued grade, notifies on success, and clears the queue', async () => {
         const { queue, submit, onSubmitted } = makeQueue();
         await queue.enqueue(card('何'), 'okay', ['anki', 'jpdb-api']);
@@ -98,13 +230,13 @@ describe('NewTabGradeQueue.flush', () => {
         expect(onSubmitted).toHaveBeenCalledTimes(1);
     });
 
-    it('drops an item whose submit resolves false instead of re-queuing it (current behavior)', async () => {
+    it('retains a review when the submitter reports that it was not submitted', async () => {
         const { queue, submit, onSubmitted } = makeQueue();
         await queue.enqueue(card('何'), 'okay', ['anki']);
         submit.mockResolvedValue(false);
         await queue.flush();
         expect(onSubmitted).not.toHaveBeenCalled();
-        expect(stored()).toEqual([]);
+        expect(stored()).toMatchObject([{ target: 'anki', attempts: 1 }]);
     });
 
     it('does nothing when the queue is empty', async () => {
@@ -146,7 +278,7 @@ describe('NewTabGradeQueue.flush', () => {
         await queue.flush();
 
         expect(submit).toHaveBeenCalledOnce();
-        expect(submit).toHaveBeenCalledWith(anki);
+        expect(submit).toHaveBeenCalledWith({ ...anki, attempts: 1 });
         expect(stored()).toEqual([]);
     });
 

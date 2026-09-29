@@ -8,11 +8,78 @@ import {
 import { newTabText } from '../../src/reader/newtab/i18n';
 
 afterEach(() => {
+    document.querySelectorAll('.academy-study-mount').forEach(host => host.dispatchEvent(new Event('academy:dispose')));
     vi.useRealTimers();
     document.body.replaceChildren();
 });
 
 describe('Academy shared Study contract', () => {
+    it.each(['en', 'ja'] as const)('keeps a failed chunk load retryable with exit and reload available (%s)', async language => {
+        const dispose = vi.fn();
+        const mount = vi.fn(async (host: HTMLElement) => {
+            host.textContent = 'Reader Study ready';
+            return { dispose };
+        });
+        const loader = vi.fn().mockRejectedValueOnce(new Error('missing chunk')).mockResolvedValue({ mountNewTabStudySurface: mount });
+        const host = document.createElement('section');
+        document.body.append(host);
+        const onExit = vi.fn();
+        const lifetime = await mountAcademyStudyModule(host, createCanonicalAcademyStudyModule(loader), { language, onExit });
+        expect(host.querySelector('[role="alert"]')).not.toBeNull();
+        expect(host.querySelector('a')?.href).toBe(location.href);
+        expect(host.querySelector<HTMLButtonElement>('.academy-study-clock-toggle')?.disabled).toBe(true);
+        expect(mount).not.toHaveBeenCalled();
+        host.querySelector<HTMLButtonElement>('[data-academy-study-retry]')!.click();
+        await vi.waitFor(() => expect(host.textContent).toContain('Reader Study ready'));
+        expect(loader).toHaveBeenCalledTimes(2);
+        expect(mount).toHaveBeenCalledOnce();
+        expect(host.querySelector('[role="alert"]')).toBeNull();
+        expect(host.querySelector<HTMLButtonElement>('.academy-study-clock-toggle')?.disabled).toBe(false);
+        host.querySelector<HTMLButtonElement>('.academy-study-back')!.click();
+        expect(onExit).toHaveBeenCalledOnce();
+        lifetime.dispose();
+        lifetime.dispose();
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+
+    it('does not start Reader Study after leaving during the import', async () => {
+        const mount = vi.fn(async () => ({ dispose() {} }));
+        let resolve!: (value: { mountNewTabStudySurface: typeof mount }) => void;
+        const loader = () => new Promise<{ mountNewTabStudySurface: typeof mount }>(done => { resolve = done; });
+        const host = document.createElement('section');
+        document.body.append(host);
+        const pending = mountAcademyStudyModule(host, createCanonicalAcademyStudyModule(loader), { language: 'en', onExit() {} });
+        host.dispatchEvent(new Event('academy:dispose'));
+        resolve({ mountNewTabStudySurface: mount });
+        const lifetime = await pending;
+        expect(mount).not.toHaveBeenCalled();
+        expect(host.childElementCount).toBe(0);
+        lifetime.dispose();
+    });
+
+    it('disposes a mount which finishes after the screen was left', async () => {
+        let resolve!: (value: { dispose(): void }) => void;
+        const dispose = vi.fn();
+        const host = document.createElement('section');
+        document.body.append(host);
+        const pending = mountAcademyStudyModule(host, { mount: () => new Promise(done => { resolve = done; }) }, { language: 'en', onExit() {} });
+        host.dispatchEvent(new Event('academy:dispose'));
+        resolve({ dispose });
+        await pending;
+        expect(dispose).toHaveBeenCalledOnce();
+        expect(host.classList.contains('academy-study-mount')).toBe(false);
+    });
+
+    it('offers reload rather than mounting over a rejected Reader initialization', async () => {
+        const host = document.createElement('section');
+        document.body.append(host);
+        const lifetime = await mountAcademyStudyModule(host, { mount: async () => { throw new Error('initialization failed'); } }, { language: 'en', onExit() {} });
+        expect(host.querySelector('[role="alert"]')).not.toBeNull();
+        expect(host.querySelector('[data-academy-study-retry]')).toBeNull();
+        expect(host.querySelector('a')?.href).toBe(location.href);
+        lifetime.dispose();
+    });
+
     it('ships explicit English and Japanese clock controls and completion copy', () => {
         expect(newTabText('en', 'sessionPause')).toBe('Pause');
         expect(newTabText('ja', 'sessionPause')).toBe('一時停止');

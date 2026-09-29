@@ -1,5 +1,5 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_ASSETS } from '../assets';
+import { defaultCastPortrait } from '../assets';
 import {
     advancedCurriculumForBand,
     type AdvancedCurriculumBand,
@@ -10,7 +10,6 @@ import { ACADEMY_CLASS_EVENTS } from '../content/class-event-catalog';
 import type { ClassWeekCastPlan, ClassWeekCastPlanEntry } from '../content/class-week-cast-plan';
 import {
     ACADEMY_CAST,
-    canRenderAcademyCastPortrait,
     displayAcademyCastName,
     type AcademyCastMember,
     type AcademyCastMemberId,
@@ -82,9 +81,6 @@ const CLASS_PATH_COPY = {
     eventPlanned: { en: 'Planned', ja: '予定' },
 } as const;
 
-const CLASS_PATH_PORTRAITS = {
-    ...ACADEMY_ASSETS.characters.approved,
-} as const satisfies Readonly<Partial<Record<AcademyCastMemberId, string>>>;
 
 export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElement {
     const screen = element('section', 'academy-screen academy-class-path-screen');
@@ -510,8 +506,7 @@ function renderPerson(
 }
 
 function classPathPortrait(id: string): string | undefined {
-    if (!canRenderAcademyCastPortrait(id, 'story-runtime')) return undefined;
-    return (CLASS_PATH_PORTRAITS as Readonly<Record<string, string>>)[id];
+    return defaultCastPortrait(id, 'class:week-cast');
 }
 
 function classDirectoryPortrait(id: string): string | undefined {

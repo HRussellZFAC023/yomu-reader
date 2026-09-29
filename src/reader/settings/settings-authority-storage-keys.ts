@@ -10,10 +10,12 @@
  * need the classification without importing each other.
  */
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
-const LEGACY_SETTINGS_STORAGE_KEYS = [
+/** Exclusion and explicit purge inventory only; never read as settings donors. */
+export const RETIRED_SETTINGS_STORAGE_KEYS = [
     'jpdb-reader-settings',
     'yomu-reader-settings',
     'yomu-settings',
+    'yomu:explicit-user-settings:v1',
 ] as const;
 const SETTINGS_INTENT_LEDGER_STORAGE_KEY = 'yomu:settings-intent:v2';
 export const EXPLICIT_USER_SETTINGS_STORAGE_KEY = 'yomu:explicit-user-settings:v1';
@@ -22,9 +24,8 @@ const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-la
 
 const SETTINGS_AUTHORITY_STORAGE_KEYS = new Set<string>([
     SETTINGS_STORAGE_KEY,
-    ...LEGACY_SETTINGS_STORAGE_KEYS,
+    ...RETIRED_SETTINGS_STORAGE_KEYS,
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
-    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY,
 ]);

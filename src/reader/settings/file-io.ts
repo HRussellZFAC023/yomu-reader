@@ -2,6 +2,8 @@ import { Logger } from '../app/logger';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import type { ReaderSettings } from '../app/types';
 import { dispatchAuthorizedReaderControlClick } from '../ui/trusted-interaction';
+import { isRecord } from '../core/object-utils';
+import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
 
 const log = Logger.scope('SettingsFileIO');
 
@@ -17,16 +19,26 @@ export function recommendedDictionaryFilename(dictionary: RecommendedDictionary)
     return `${dictionary.id}.zip`;
 }
 
-export function getReaderSettingsExport(value: unknown): ReaderSettings | null {
-    const record = readerSettingsExportRecord(value);
-    return record && isReaderSettingsExport(record) ? record.settings as ReaderSettings : null;
+export const READER_SETTINGS_BACKUP_FORMAT = 'yomu-reader-settings';
+export const READER_SETTINGS_BACKUP_VERSION = 3;
+
+export interface ReaderSettingsBackup {
+    readonly settings: Partial<ReaderSettings>;
+    readonly storage?: Record<string, unknown>;
+    readonly dictionaries?: unknown;
 }
 
-export function getReaderDictionaryExport(value: unknown): unknown {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as { formatName?: string; dictionaries?: unknown; dictionaryData?: unknown };
-    if (record.formatName !== 'yomu-reader-settings' && record.formatName !== 'jpdb-popup-reader-settings') return null;
-    return isReaderDictionaryExport(record.dictionaries) ? record.dictionaries : record.dictionaryData;
+const BACKUP_FIELDS = new Set(['formatName', 'formatVersion', 'exportedAt', 'settings', 'storage', 'dictionaries']);
+
+export function parseReaderSettingsBackup(value: unknown): ReaderSettingsBackup | null {
+    if (!isRecord(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT
+        || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord(value.settings)) return null;
+    if (Object.keys(value).some(key => !BACKUP_FIELDS.has(key))) return null;
+    const storage = value.storage;
+    if (storage !== undefined && !isRecord(storage)) return null;
+    if (storage && RETIRED_SETTINGS_STORAGE_KEYS.some(key => Object.hasOwn(storage, key))) return null;
+    if (value.dictionaries !== undefined && !isReaderDictionaryExport(value.dictionaries)) return null;
+    return { settings: value.settings, storage, dictionaries: value.dictionaries };
 }
 
 export function readerDictionaryExportHasData(value: unknown): boolean {
@@ -45,21 +57,6 @@ export function readerDictionaryExportHasData(value: unknown): boolean {
         || arrayHasItems(record.kanji)
         || arrayHasItems(record.termMeta)
         || arrayHasItems(record.kanjiMeta);
-}
-
-function readerSettingsExportRecord(value: unknown): { formatName?: string; settings?: unknown } | null {
-    return value && typeof value === 'object' ? value as { formatName?: string; settings?: unknown } : null;
-}
-
-function isReaderSettingsExport(record: { formatName?: string; settings?: unknown }): boolean {
-    return isReaderSettingsExportFormat(record.formatName)
-        && Boolean(record.settings)
-        && typeof record.settings === 'object'
-        && !Array.isArray(record.settings);
-}
-
-function isReaderSettingsExportFormat(formatName: string | undefined): boolean {
-    return formatName === 'yomu-reader-settings' || formatName === 'jpdb-popup-reader-settings';
 }
 
 function isReaderDictionaryExport(value: unknown): boolean {

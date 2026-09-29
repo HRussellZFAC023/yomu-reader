@@ -1,3 +1,5 @@
+import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 import { createLessonNineteenListeningGridBeat } from '../../src/academy/content/lesson-nineteen-listening-grid';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import {
@@ -6,8 +8,11 @@ import {
     type MoodleListeningGridModel,
 } from '../../src/academy/minigames';
 
+let loaded: LoadedAuthoredWeekPackage;
+beforeAll(async () => { loaded = await validateCommittedAuthoredWeek(getAuthoredWeekRegistration('l1-l19')); });
+
 function model(): MoodleListeningGridModel {
-    return createLessonNineteenListeningGridBeat().activity as MoodleListeningGridModel;
+    return createLessonNineteenListeningGridBeat(loaded).activity as MoodleListeningGridModel;
 }
 
 function response(activity = model(), incorrect = false) {
@@ -86,7 +91,7 @@ describe('Lesson 19 exact Moodle listening grids', () => {
     });
 
     it('adds the listening grid beside the existing Level 19 food-order beat', async () => {
-        const chapter = await loadLessonActivityChapter('l1-l19', { lookup: async () => null });
+        const chapter = await loadLessonActivityChapter('l1-l19', { lookup: async () => null }, loaded);
         expect(chapter?.beats.map(beat => beat.id)).toEqual(['moodle-ordering-food', 'moodle-listening-grid']);
     });
 });

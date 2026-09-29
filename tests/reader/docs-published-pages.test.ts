@@ -180,15 +180,12 @@ describe('published product claims', () => {
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
         const heroLanguages = heroStudyLanguages();
 
-        // Static markup and the booted rotator state one measured reading claim.
-        // Neither surface may turn Japanese's deeper feature set into default
-        // learner identity before the visitor has made a target choice.
-        expect(homepage).toContain(">Read the language you're learning with Yomu.</h1>");
-        expect(catalogue).toContain("\"Read the language you're learning with Yomu.\": '学んでいる言語を、よむで読む。'");
-        expect(theme).toContain("en: ['Read ', ' with Yomu.']");
-        expect(theme).toContain("ja: ['よむで', 'を読む。']");
-        expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
-        expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
+        // Japanese-first positioning does not remove any supported learning target.
+        expect(homepage).toContain('>Read Japanese. Stay with the story.</h1>');
+        expect(catalogue).toContain("'Read Japanese. Stay with the story.': '日本語を読む。物語の続きを楽しむ。'");
+        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
+        expect(theme).not.toContain('installHostedHeroLanguageRotator');
+        expect(config).not.toContain('__YOMU_HERO_LANGUAGES__');
         expect(heroLanguages.length).toBeGreaterThan(1);
         for (const language of heroLanguages) {
             const target = LEARNING_TARGET_ROSTER.find(candidate => candidate.id === language.id);
@@ -196,7 +193,7 @@ describe('published product claims', () => {
             expect(target?.studyTargetReadiness).not.toBe('planned');
         }
         // COUNTED MEMBERSHIP: every named language must genuinely reach reading
-        // and lookup. This stops a `planned` language entering the rotator.
+        // and lookup. The support statement still requires that same readiness.
         expect(() => assertStudyTargetClaimReadiness(
             heroLanguages.map(language => language.id),
             HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
@@ -292,7 +289,8 @@ describe('one navbar everywhere', () => {
         // anchor with a target, which is the only reason the membership popover
         // gets to open instead of the router navigating away.
         expect(MEMBERSHIP_NAV.target).toBe('_self');
-        expect(docsNav()).toContainEqual({ text: 'Membership', link: '/membership', target: '_self' });
+        const more = docsNav().find(item => (item as { text: string }).text === 'More') as { items: unknown[] };
+        expect(more.items).toContainEqual({ text: 'Membership', link: '/membership', target: '_self' });
 
         const membership = hostedShellNavRoutes('/').find(link => link.text === 'Membership');
         expect(membership?.target).toBe('_self');

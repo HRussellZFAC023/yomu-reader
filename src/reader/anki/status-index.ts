@@ -6,6 +6,7 @@ import {
     gmStorageSetSync,
 } from '../app/storage';
 import { reconcileManagedStateIdbEpoch, runManagedStateIdbWrite } from '../app/managed-indexeddb';
+import { ownedDatabaseName } from '../app/owned-databases';
 import type { ManagedStateEpoch } from '../app/managed-state-epoch';
 import { chunkArray, unique } from '../core/array-utils';
 import { Logger } from '../app/logger';
@@ -103,16 +104,20 @@ export function releaseAnkiStatusIndexRebuildLease(owner: string): void {
 }
 
 export async function saveAnkiStatusIndex(index: AnkiStatusIndex): Promise<void> {
+    const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
     try {
         await saveAnkiStatusIndexToIndexedDb(index);
+        assertAnkiStatusOwner(databaseName);
         await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
+        assertAnkiStatusOwner(databaseName);
         log.warn('Anki status save fell back', error);
         await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: undefined });
     }
 }
 
 export async function saveAnkiStatusIndexCheckedAt(index: AnkiStatusIndex): Promise<void> {
+    const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
     if (index.entryStore !== 'indexeddb') {
         await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: undefined });
         return;
@@ -120,8 +125,10 @@ export async function saveAnkiStatusIndexCheckedAt(index: AnkiStatusIndex): Prom
     const meta = ankiStatusIndexMeta(index);
     try {
         await putStoredAnkiStatusIndexMeta(meta);
+        assertAnkiStatusOwner(databaseName);
         await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
+        assertAnkiStatusOwner(databaseName);
         log.warn('Anki status metadata failed', error);
         await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
@@ -147,6 +154,7 @@ export async function loadAnkiStatusIndexFromIndexedDb(): Promise<AnkiStatusInde
                 .objectStore(ANKI_STATUS_INDEX_META_STORE)
                 .get('current'),
         );
+        assertAnkiStatusOwner(db.name);
         if (!meta) return null;
         return {
             version: meta.version,
@@ -177,6 +185,7 @@ export async function loadAnkiStatusIndexEntriesFromIndexedDb(keys: string[]): P
                 idbRequest<StoredAnkiStatusIndexEntry | undefined>(store.get(key)).then(record => [key, record] as const)
             )));
             await idbTransactionDone(tx);
+            assertAnkiStatusOwner(db.name);
             records.push(...chunkRecords);
         }
         return new Map(records
@@ -238,6 +247,8 @@ export async function putBestAnkiStatusIndexEntries(db: IDBDatabase, entries: St
         entries.forEach(candidate => {
             const request = store.get(candidate.key);
             request.onsuccess = () => {
+                try { assertAnkiStatusOwner(db.name); }
+                catch { tx.abort(); return; }
                 const current = (request.result as StoredAnkiStatusIndexEntry | undefined)?.entry;
                 if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
             };
@@ -251,17 +262,22 @@ export function countAnkiStatusIndexEntries(db: IDBDatabase): Promise<number> {
     const count = idbRequest<number>(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count());
     return count.then(async value => {
         await done;
+        assertAnkiStatusOwner(db.name);
         return value;
     });
 }
 
 export async function openAnkiStatusIndexDb(): Promise<IDBDatabase> {
+    const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
     const epoch = await assertManagedStateMutationAllowed();
+    assertAnkiStatusOwner(databaseName);
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
+        const request = indexedDB.open(databaseName, ANKI_STATUS_INDEX_DB_VERSION);
         request.onerror = () => reject(request.error ?? new Error('Could not open Anki status index database.'));
         request.onblocked = () => reject(new Error('Anki status index database upgrade was blocked.'));
         request.onupgradeneeded = () => {
+            try { assertAnkiStatusOwner(databaseName); }
+            catch (error) { request.transaction?.abort(); reject(error); return; }
             const db = request.result;
             if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)) {
                 db.createObjectStore(ANKI_STATUS_INDEX_META_STORE, { keyPath: 'id' });
@@ -363,6 +379,7 @@ function reconcileAnkiStatusIndexEpoch(db: IDBDatabase, epoch: ManagedStateEpoch
         markerKeyPath: 'id',
         clearedStoreNames: [ANKI_STATUS_INDEX_ENTRY_STORE],
         deletedRecords: [{ storeName: ANKI_STATUS_INDEX_META_STORE, key: 'current' }],
+        beforeMutate: () => assertAnkiStatusOwner(db.name),
     });
 }
 
@@ -371,7 +388,14 @@ function runAnkiStatusIndexWrite(
     storeNames: string | string[],
     mutate: (tx: IDBTransaction) => void,
 ): Promise<void> {
-    return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, mutate);
+    return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, tx => {
+        assertAnkiStatusOwner(db.name);
+        mutate(tx);
+    });
+}
+
+function assertAnkiStatusOwner(databaseName: string): void {
+    if (databaseName !== ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME)) throw new Error('Anki status storage owner changed; reload to reconnect.');
 }
 
 async function putStoredAnkiStatusIndexMeta(meta: StoredAnkiStatusIndexMeta): Promise<void> {

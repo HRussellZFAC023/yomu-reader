@@ -11,14 +11,14 @@ import { describe, expect, it } from 'vitest';
 import academyRevisionModule from '../../scripts/lib/academy-revision.cjs';
 
 const {
-    HOSTED_COUNTERPARTS,
+    academyHostedCounterpart,
     HOSTED_DEPENDENCIES,
     REVISION_PATTERN,
     TEMPLATES,
     academyRevision,
     academyRevisionSourcePaths,
 } = academyRevisionModule as {
-    HOSTED_COUNTERPARTS: Map<string, string>;
+    academyHostedCounterpart: (source: string) => string;
     HOSTED_DEPENDENCIES: string[];
     REVISION_PATTERN: RegExp;
     TEMPLATES: [string, string][];
@@ -31,6 +31,10 @@ const REPOSITORY_ROOT = process.cwd();
 // The source list is built from the two voice catalogs; which revision of them
 // is irrelevant here, so read the checked-out copy rather than shelling to git.
 function readJson(path: string): unknown {
+    if (path === 'dist/academy/manifest.json') return {
+        'src/academy/entrypoint.ts': { file: 'app.js', isEntry: true, dynamicImports: ['study'], css: ['assets/shell-abc.css'] },
+        study: { file: 'chunks/study-abc.js', css: ['assets/study-abc.css'] },
+    };
     return JSON.parse(readFileSync(join(REPOSITORY_ROOT, path), 'utf8'));
 }
 
@@ -49,7 +53,7 @@ describe('academy revision source set', () => {
         // number -- exactly the confusion that made this revision look
         // unverifiable.
         const withoutCommittedBytes = academyRevisionSourcePaths(readJson).filter(source => {
-            if (HOSTED_COUNTERPARTS.has(source)) return false;
+            if (academyHostedCounterpart(source) !== source) return false;
             return !source.startsWith('public/') && !source.startsWith('docs/public/');
         });
 
@@ -59,7 +63,8 @@ describe('academy revision source set', () => {
     it('names every counterpart under the hosted Academy route the sync writes', () => {
         // The counterpart has to be the file the sync copies the source to, or
         // the recomputed hash reads bytes that were never published.
-        for (const [source, counterpart] of HOSTED_COUNTERPARTS) {
+        for (const source of academyRevisionSourcePaths(readJson).filter(source => source.startsWith('dist/academy/'))) {
+            const counterpart = academyHostedCounterpart(source);
             expect(source.startsWith('dist/academy/')).toBe(true);
             expect(counterpart).toBe(source.replace('dist/academy/', 'docs/public/academy/'));
         }
@@ -72,6 +77,9 @@ describe('academy revision source set', () => {
 
         for (const dependency of HOSTED_DEPENDENCIES) expect(sources).toContain(dependency);
         expect(sources).toEqual([...sources].sort());
+        expect(sources).toContain('dist/academy/manifest.json');
+        expect(sources).toContain('dist/academy/chunks/study-abc.js');
+        expect(sources).toContain('dist/academy/assets/study-abc.css');
     });
 
     it('renders both cache-busting templates', () => {

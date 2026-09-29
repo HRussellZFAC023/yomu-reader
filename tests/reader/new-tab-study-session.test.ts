@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
-import { normalizeNewTabUiState } from '../../src/reader/newtab/state';
 
 function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -25,178 +24,77 @@ function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     };
 }
 
-describe('new-tab study session model', () => {
+describe('new-tab review and practice model', () => {
     afterEach(() => { resetActiveLearningTargetLanguage(); });
 
-    it('migrates legacy modes into route-only persisted state', () => {
-        const search = normalizeNewTabUiState({ mode: 'search' });
-        const listen = normalizeNewTabUiState({ mode: 'listen' });
+    const options = { revealAnswer: false, renderAsKanji: false, hasRecallCloze: true, pitchAvailable: true };
 
-        expect(search.route).toBe('search');
-        expect(listen.route).toBe('study');
-        expect(search).not.toHaveProperty('mode');
-        expect(listen).not.toHaveProperty('listenSubMode');
+    it('keeps the normal review to its prompt and answer', () => {
+        const session = createNewTabStudySession(sessionCard(), options);
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
+        expect(session.activeStep.kind).toBe('word');
+        expect(session.activity).toBe('review');
+        expect(session.steps.filter(step => step.gradeable)).toEqual([session.gradeStep]);
     });
 
-    it('expresses the merged learning pipeline with one final grade step', () => {
-        const session = createNewTabStudySession(sessionCard(), {
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-        });
+    it('shows the gradeable answer after reveal', () => {
+        const session = createNewTabStudySession(sessionCard(), { ...options, revealAnswer: true });
+        expect(session.activeStep).toBe(session.gradeStep);
+        expect(session.activity).toBe('review');
+    });
 
-        expect(session.steps.map(step => step.kind)).toEqual([
-            'kanji-doodle',
-            'word',
-            'type-word',
-            'recall-cloze',
-            'listen-pitch',
-            'speaking',
-            'final-reveal',
-        ]);
-        expect(session.steps.filter(step => step.gradeable).map(step => step.kind)).toEqual(['final-reveal']);
-        expect(session.activeStep.kind).toBe('kanji-doodle');
+    it.each([false, true])('keeps selected practice separate when revealed=%s', revealAnswer => {
+        const session = createNewTabStudySession(sessionCard(), { ...options, revealAnswer, activeStepId: 'type-word' });
+        expect(session.activity).toBe('practice');
+        expect(session.activeStep).toMatchObject({ kind: 'type-word', gradeable: false });
+        expect(session.practiceSteps.every(step => !step.gradeable)).toBe(true);
+    });
+
+    it('preserves a native kanji question without adding word exercises to its review', () => {
+        const session = createNewTabStudySession(sessionCard({ spelling: '読' }), { ...options, renderAsKanji: true });
+        expect(session.activity).toBe('review');
+        expect(session.steps.map(step => step.kind)).toEqual(['kanji-doodle', 'final-reveal']);
         expect(session.activeStep.kanji).toBe('読');
     });
 
-    it('omits listen and speak steps for a kana-only card with no resolved pitch', () => {
-        const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
-            revealAnswer: true,
-            renderAsKanji: false,
-            hasRecallCloze: false,
-            pitchAvailable: false,
-        });
-
-        expect(session.steps.map(step => step.kind)).toEqual(['word', 'type-word', 'final-reveal']);
-        expect(session.activeStep.kind).toBe('final-reveal');
-        expect(session.gradeStep.kind).toBe('final-reveal');
-    });
-
-    it('keeps listen and speak steps for a kana-only card once pitch is available', () => {
-        const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: ['LH'] }), {
-            revealAnswer: true,
-            renderAsKanji: false,
-            hasRecallCloze: false,
-            pitchAvailable: true,
-        });
-
-        expect(session.steps.map(step => step.kind)).toEqual(['word', 'type-word', 'listen-pitch', 'speaking', 'final-reveal']);
-        expect(session.activeStep.kind).toBe('final-reveal');
-        expect(session.gradeStep.kind).toBe('final-reveal');
-    });
-
-    it('does not force live kanji cards back to the kanji step after the learner selects word', () => {
-        const session = createNewTabStudySession(sessionCard(), {
-            revealAnswer: false,
-            renderAsKanji: true,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-            activeStepId: 'word',
-        });
-
-        expect(session.steps.map(step => step.kind)).toContain('kanji-doodle');
+    it('offers each distinct Japanese character as practice without revealing it in the identifier', () => {
+        const session = createNewTabStudySession(sessionCard({ spelling: '𠮟る𩸽𠮟' }), options);
+        expect(session.practiceSteps.filter(step => step.kind === 'kanji-doodle')).toEqual([
+            { id: 'kanji-doodle:0', kind: 'kanji-doodle', kanji: '𠮟', gradeable: false },
+            { id: 'kanji-doodle:1', kind: 'kanji-doodle', kanji: '𩸽', gradeable: false },
+        ]);
         expect(session.activeStep.kind).toBe('word');
     });
 
-    it('uses the kanji step when a live kanji card is actually in kanji mode', () => {
-        const session = createNewTabStudySession(sessionCard(), {
-            revealAnswer: false,
-            renderAsKanji: true,
-            hasRecallCloze: true,
-            pitchAvailable: true,
+    it('requires actual pitch and cloze content before offering those exercises', () => {
+        const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
+            ...options, pitchAvailable: false, hasRecallCloze: false,
         });
-
-        expect(session.activeStep.kind).toBe('kanji-doodle');
+        expect(session.practiceSteps.map(step => step.kind)).toEqual(['type-word']);
     });
 
-    it('creates one kanji drawing step for each kanji in a word', () => {
-        const session = createNewTabStudySession(sessionCard({ spelling: '図鑑', reading: 'ずかん', sentence: '図鑑を見る。' }), {
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-        });
-
-        const kanjiSteps = session.steps.filter(step => step.kind === 'kanji-doodle');
-        expect(kanjiSteps.map(step => step.kanji)).toEqual(['図', '鑑']);
-        expect(kanjiSteps.map(step => step.id)).toEqual(['kanji-doodle:0', 'kanji-doodle:1']);
-        expect(session.activeStep).toMatchObject({ kind: 'kanji-doodle', kanji: '図' });
+    it('offers available exercises without adding them to the review path', () => {
+        const session = createNewTabStudySession(sessionCard(), options);
+        expect(session.practiceSteps.map(step => step.kind)).toEqual([
+            'kanji-doodle', 'type-word', 'recall-cloze', 'listen-pitch', 'speaking',
+        ]);
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
     });
 
-    it('does not create Japanese character-study steps for a Han non-character target', () => {
+    it('does not offer Japanese character practice for a different target', () => {
         setActiveLearningTargetLanguage('zh');
-        const session = createNewTabStudySession(sessionCard({
-            language: 'zh',
-            spelling: '学习',
-            reading: 'xuéxí',
-            sentence: '我学习中文。',
-        }), {
-            revealAnswer: false,
-            renderAsKanji: true,
-            hasRecallCloze: true,
-            pitchAvailable: false,
+        const session = createNewTabStudySession(sessionCard({ language: 'zh', spelling: '学习' }), {
+            ...options, renderAsKanji: true, pitchAvailable: false,
         });
-
-        expect(session.steps.map(step => step.kind)).toEqual([
-            'word',
-            'type-word',
-            'recall-cloze',
-            'final-reveal',
-        ]);
-        expect(session.steps.some(step => step.kind === 'kanji-doodle')).toBe(false);
+        expect(session.practiceSteps.some(step => step.kind === 'kanji-doodle')).toBe(false);
         expect(session.activeStep.kind).toBe('word');
     });
 
-    it('creates one doodle step for each supplementary-plane Japanese kanji', () => {
-        const session = createNewTabStudySession(sessionCard({
-            spelling: '𠮟る𩸽𠮟',
-            reading: 'しかるほっけ',
-        }), {
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: false,
-            pitchAvailable: false,
-        });
-
-        expect(session.steps.filter(step => step.kind === 'kanji-doodle')).toMatchObject([
-            { id: 'kanji-doodle:0', kanji: '𠮟' },
-            { id: 'kanji-doodle:1', kanji: '𩸽' },
-        ]);
-    });
-
-    it('uses configured order and disabled steps while keeping reveal last', () => {
+    it('does not activate an unavailable exercise from a stale selection', () => {
         const session = createNewTabStudySession(sessionCard(), {
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: true,
-            pitchAvailable: true,
-            stepOrder: ['word', 'listen-pitch', 'recall-cloze', 'kanji-doodle', 'speaking'],
-            disabledSteps: ['speaking'],
+            ...options, pitchAvailable: false, activeStepId: 'speaking',
         });
-
-        expect(session.steps.map(step => step.kind)).toEqual([
-            'word',
-            'type-word',
-            'listen-pitch',
-            'recall-cloze',
-            'kanji-doodle',
-            'final-reveal',
-        ]);
-        expect(session.gradeStep.kind).toBe('final-reveal');
-    });
-
-    it('honors a disabled word step instead of forcing it back into the flow', () => {
-        const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
-            revealAnswer: false,
-            renderAsKanji: false,
-            hasRecallCloze: false,
-            pitchAvailable: true,
-            disabledSteps: ['word', 'listen-pitch', 'speaking'],
-        });
-
-        expect(session.steps.map(step => step.kind)).toEqual(['final-reveal']);
-        expect(session.activeStep.kind).toBe('final-reveal');
-        expect(session.gradeStep.kind).toBe('final-reveal');
+        expect(session.activity).toBe('review');
+        expect(session.activeStep.kind).toBe('word');
     });
 });

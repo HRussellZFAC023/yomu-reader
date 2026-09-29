@@ -1233,7 +1233,7 @@ describe('reader theme', () => {
         expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'off', text: 'status' });
     });
 
-    it('migrates legacy automatic channel sources using wordHighlightMode only at load time', async () => {
+    it('ignores retired wordHighlightMode and preserves current channel choices', async () => {
         installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             ...DEFAULT_SETTINGS,
             wordHighlightMode: 'status',
@@ -1248,12 +1248,12 @@ describe('reader theme', () => {
         const settings = await loadSettings();
 
         expectLoadedColorChannels(settings, {
-            wordHighlightColorSource: 'jpdb',
+            wordHighlightColorSource: 'auto',
             wordUnderlineColorSource: 'anki',
-            wordTextColorSource: 'anki',
-            subtitleHighlightColorSource: 'jpdb',
+            wordTextColorSource: 'auto',
+            subtitleHighlightColorSource: 'auto',
             subtitleUnderlineColorSource: 'pitch',
-            subtitleTextColorSource: 'jpdb',
+            subtitleTextColorSource: 'auto',
         }, { stripsLegacyHighlightMode: true });
     });
 
@@ -1351,8 +1351,8 @@ describe('reader theme', () => {
         expectPitchUnderlineOnlySettings(settings, applied, { subtitle: false });
     });
 
-    it('promotes appearance settings saved under the previous storage key', async () => {
-        const store = installSharedSettingsStore([[SETTINGS_STORAGE_KEYS[1], {
+    it('ignores appearance settings under retired storage keys', async () => {
+        const store = installSharedSettingsStore([['jpdb-reader-settings', {
             ...DEFAULT_SETTINGS,
             theme: 'dark',
             accentColor: '#ff3366',
@@ -1362,19 +1362,21 @@ describe('reader theme', () => {
         const settings = await loadSettings();
         const stored = store.get(SETTINGS_STORAGE_KEYS[0]) as Record<string, unknown>;
 
-        expectLoadedAndStoredSettings(settings, stored, {
-            theme: 'dark',
-            accentColor: '#ff3366',
-            wordColorKnown: '#123456',
+        expect(settings).toMatchObject({
+            theme: DEFAULT_SETTINGS.theme,
+            accentColor: DEFAULT_SETTINGS.accentColor,
+            wordColorKnown: DEFAULT_SETTINGS.wordColorKnown,
         });
+        expect(stored).toBeUndefined();
+        expect(store.get('jpdb-reader-settings')).toMatchObject({ theme: 'dark' });
     });
 
-    it('recovers legacy appearance settings when the current key was written with defaults', async () => {
+    it('keeps canonical defaults when a retired donor disagrees', async () => {
         const store = installSharedSettingsStore([[SETTINGS_STORAGE_KEYS[0], {
             ...DEFAULT_SETTINGS,
             interfaceLanguage: 'ja',
             popoverWidth: 640,
-        }], [SETTINGS_STORAGE_KEYS[1], {
+        }], ['jpdb-reader-settings', {
             ...DEFAULT_SETTINGS,
             theme: 'dark',
             accentColor: '#ff3366',
@@ -1386,8 +1388,8 @@ describe('reader theme', () => {
         const stored = store.get(SETTINGS_STORAGE_KEYS[0]) as Record<string, unknown>;
 
         expectLoadedAndStoredSettings(settings, stored, {
-            theme: 'dark',
-            accentColor: '#ff3366',
+            theme: DEFAULT_SETTINGS.theme,
+            accentColor: DEFAULT_SETTINGS.accentColor,
             interfaceLanguage: 'ja',
             popoverWidth: 640,
         });
@@ -1440,7 +1442,7 @@ describe('reader theme', () => {
         const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
 
         expect(stored.wordHighlightMode).toBeUndefined();
-        expect(stored.wordHighlightColorSource).toBe('jpdb');
+        expect(stored.wordHighlightColorSource).toBe('pitch');
         expect(stored.wordUnderlineColorSource).toBe('pitch');
     });
 

@@ -12,6 +12,23 @@ import {
 describe('settings help panel', () => {
     registerSettingsFormCleanup();
 
+    it.each(['en', 'ja'] as const)('keeps Help links without an introductory paragraph (%s)', language => {
+        const form = document.createElement('form');
+        form.innerHTML = renderHelpLinksPanel(language);
+        localizeSettingsForm(form, language);
+        const links = form.querySelector('[data-help-links-title]')?.parentElement;
+        expect(links).not.toBeNull();
+        expect(links?.querySelector('.jpdb-reader-help')).toBeNull();
+        for (const key of ['video-player', 'pdf-reader', 'new-tab', 'docs']) {
+            const link = links?.querySelector<HTMLAnchorElement>(`[data-help-link="${key}"]`);
+            expect(link?.href).toMatch(/^https:\/\//);
+            expect(link?.textContent?.trim()).toBeTruthy();
+            expect(link?.textContent).not.toContain('未翻訳');
+        }
+        expect(form.querySelector('[data-help-anki-disclosure]')).not.toBeNull();
+        expect(form.querySelector('[data-action="factory-reset"]')).not.toBeNull();
+    });
+
     it('replaces the hosted Help link with the factory reset action', () => {
         const html = renderHelpLinksPanel();
 

@@ -1,7 +1,7 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_ASSETS } from '../assets';
+import { ACADEMY_ASSETS, defaultCastPortrait } from '../assets';
 import { getAcademyCastIdentityLock } from '../domain/cast-identity-locks';
-import { ACADEMY_CAST, canRenderAcademyCastPortrait, displayAcademyCastName, type AcademyCastMember } from '../domain/cast-registry';
+import { ACADEMY_CAST, displayAcademyCastName, type AcademyCastMember } from '../domain/cast-registry';
 import {
     displayWorldPersonName,
     projectWorldPlace,
@@ -777,7 +777,7 @@ function worldCharacters(
             presence.textContent = parkPresence.label[options.language];
             character.append(presence);
         }
-        const source = canRenderAcademyCastPortrait(id, 'story-runtime') ? WORLD_SPRITES[id] : undefined;
+        const source = defaultCastPortrait(id, 'world:person');
         if (source) {
             character.append(createAcademySprite({
                 characterId: id,
@@ -1045,9 +1045,6 @@ function worldParkPresence(
     return undefined;
 }
 
-const WORLD_SPRITES: Readonly<Partial<Record<string, string>>> = {
-    ...ACADEMY_ASSETS.characters.approved,
-};
 
 function worldExits(options: WorldScreenOptions, exits: readonly WorldPlaceId[]): HTMLElement {
     const section = element('nav', 'academy-world-exits academy-world-spatial-exits');

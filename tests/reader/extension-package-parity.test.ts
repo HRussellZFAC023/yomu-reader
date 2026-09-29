@@ -4,9 +4,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
+import { compilerStorageBackgroundFixture } from './helpers/compiler-storage-background';
 import {
     assertExtensionReleasePackageParity,
     assertShippedSettingsAuthorityRuntime,
+    hardenCompilerDurableStorage,
+    hardenExtensionBackgroundSource,
     PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
 } from '../../scripts/lib/extension-runtime-hardening.mjs';
@@ -37,14 +40,17 @@ function shippedRuntimeFixture(target: string): Record<string, Uint8Array> {
         "void 'yomu.openPackagedStudySettings';",
         "void 'yomu-packaged-study-settings-launcher:v1';",
     ].join('\n');
-    const durableRuntime = `(() => {
+    const durableRuntime = hardenCompilerDurableStorage(`(() => {
   const api = globalThis.browser || globalThis.chrome;
   const values = Object.create(null);
   const listeners = new Map();
   const yomuDurableMutationQueues = new Map();
   let valuesHydrated = false;
   function gmMessage(type, payload) {
-    return api.runtime.sendMessage({ type, payload });
+    return api.runtime.sendMessage({ channel: 'userscript-compiler', type, payload }).then(response => {
+      if (response?.error) throw new Error(response.error);
+      return response;
+    });
   }
   function notifyValueListeners(name, oldValue, newValue, remote) {
     for (const listener of listeners.values()) {
@@ -62,6 +68,7 @@ function shippedRuntimeFixture(target: string): Record<string, Uint8Array> {
   function GM_getValue(name, defaultValue) {
     return Object.prototype.hasOwnProperty.call(values, name) ? values[name] : defaultValue;
   }
+  function GM_listValues() { return Object.keys(values); }
   function GM_setValue(name, value) {
     // yomu-extension-durable-storage-runtime:v2
     return yomuQueueDurableMutation(name, () => gmMessage('GM_setValue', { name, value }).then(() => {
@@ -82,13 +89,19 @@ function shippedRuntimeFixture(target: string): Record<string, Uint8Array> {
     listeners.set(id, { name, callback });
     return id;
   }
-  Object.assign(globalThis, { GM_getValue, GM_setValue, GM_deleteValue, GM_addValueChangeListener });
+  const GM = {
+    getValue: GM_getValue,
+    listValues: GM_listValues,
+    setValue: GM_setValue,
+    deleteValue: GM_deleteValue,
+  };
+  Object.assign(globalThis, { GM, GM_getValue, GM_setValue, GM_deleteValue, GM_addValueChangeListener });
   const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
     Object.assign(values, response?.values || {});
     valuesHydrated = true;
   });
   globalThis.__USC_READY = yomuValuesReady;
-})();`;
+})();`);
     const gatedContent = `Promise.resolve(globalThis.__USC_READY).then(() => {
 ${launcher}
 });`;
@@ -96,10 +109,7 @@ ${launcher}
 ${gatedContent}`;
     return {
         'manifest.json': strToU8(JSON.stringify({ version: '1.9.3' })),
-        'background.js': strToU8(target === 'firefox' ? [
-            '// yomu-packaged-study-settings-bridge',
-            launcher,
-        ].join('\n') : 'background'),
+        'background.js': strToU8(hardenExtensionBackgroundSource(compilerStorageBackgroundFixture(), { target })),
         'content.js': strToU8(target === 'firefox' ? gatedContent : combinedContent),
         [PACKAGED_STUDY_STORAGE_RUNTIME_FILE]: strToU8([
             '// yomu-extension-study-storage-runtime',
@@ -208,6 +218,48 @@ Promise.resolve(globalThis.__USC_READY).then(() => {`,
   });`));
         await expect(assertShippedSettingsAuthorityRuntime(swallowedHydration, 'chrome', '1.9.3'))
             .rejects.toThrow(/strict storage hydration gate is missing/);
+    });
+
+    it('rejects a packaged read cache even when durable-write markers remain', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['gm-runtime.js'] = strToU8(new TextDecoder().decode(entries['gm-runtime.js'])
+            .replace('getValue: yomuReadStoredValue,', 'getValue: GM_getValue,'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/authoritative read used hydration cache/);
+    });
+
+    it('rejects a packaged acknowledgement coupled to recipient completion', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['background.js'] = strToU8(new TextDecoder().decode(entries['background.js'])
+            .replace('void Promise.resolve(api.tabs.sendMessage', 'await Promise.resolve(api.tabs.sendMessage'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/set acknowledgement waits for a recipient/);
+    });
+
+    it('does not let an earlier set notification stand in for a missing delete notification', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['background.js'] = strToU8(new TextDecoder().decode(entries['background.js'])
+            .replace('await broadcastValueChange(payload.name, oldValue, undefined, sender);', ''));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/delete acknowledged before discovery and dispatch|delete notifications were not dispatched/);
+    });
+
+    it('rejects acknowledgement before notification dispatch has started', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['background.js'] = strToU8(new TextDecoder().decode(entries['background.js'])
+            .replace('await broadcastValueChange(payload.name, oldValue, payload.value, sender);', 'void broadcastValueChange(payload.name, oldValue, payload.value, sender);'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/set acknowledged before discovery and dispatch/);
+    });
+
+    it.each(['read', 'enumeration'])('rejects a packaged %s fallback after successful hydration', async kind => {
+        const entries = shippedRuntimeFixture('firefox');
+        const source = new TextDecoder().decode(entries['gm-runtime.js']);
+        entries['gm-runtime.js'] = strToU8(kind === 'read'
+            ? source.replace('return response.value;\n    });', 'return response.value;\n    }).catch(() => values[name]);')
+            : source.replace('return response.keys;\n    });', 'return response.keys;\n    }).catch(() => Object.keys(values));'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/failed authoritative .* fell back/);
     });
 
     it('accepts generated non-durable GM helpers that intentionally ignore auxiliary failures', async () => {

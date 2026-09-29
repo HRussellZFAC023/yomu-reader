@@ -2,7 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it, type Mock } from 'vitest';
+import { generatedCompilerStorageSource } from './helpers/compiler-storage-runtime';
 import {
     assertAmoJavaScriptFiles,
     deterministicExtensionTimestamp,
@@ -29,6 +31,34 @@ type BackgroundMessageListener = (
     sendResponse: (response: unknown) => void,
 ) => unknown;
 
+async function downloadFromGeneratedCloudBridge(media: string | null): Promise<unknown> {
+    const listeners: BackgroundMessageListener[] = [];
+    const fetch = vi.fn(async (url: string) => ({
+        ok: true,
+        json: async () => url.includes('?alt=media') ? JSON.parse(media!)
+            : { files: media === null ? [] : [{ id: 'fixture-backup' }] },
+    }));
+    const chrome = {
+        runtime: {
+            onMessage: { addListener: (listener: BackgroundMessageListener) => listeners.push(listener) },
+            getManifest: () => ({ oauth2: {
+                client_id: 'fixture-client', scopes: ['https://www.googleapis.com/auth/drive.appdata'],
+            } }),
+        },
+        identity: { getAuthToken: (_details: unknown, callback: (token: string) => void) => callback('fixture-token') },
+    };
+    const source = hardenExtensionBackgroundSource('void 0;', {
+        target: 'chrome', googleOAuthClientId: 'fixture-client',
+    });
+    runInNewContext(source, { chrome, fetch, URLSearchParams });
+    return new Promise(resolve => {
+        const handled = listeners.filter(listener => listener({
+            type: 'yomu.googleDriveSettingsSync', command: 'download',
+        }, {}, resolve) === true);
+        expect(handled).toHaveLength(1);
+    });
+}
+
 interface CompilerMessageHarness {
     storagePrefix: string;
     values: Map<string, unknown>;
@@ -51,67 +81,6 @@ function deferred<T>(): {
     return { promise, resolve, reject };
 }
 
-function generatedCompilerStorageSource(): string {
-    return `/* UserScript Compiler GM compatibility runtime. */
-(() => {
-  const api = globalThis.browser || globalThis.chrome;
-  const values = Object.create(null);
-  const listeners = new Map();
-  let valuesHydrated = false;
-  let listenerSeq = 0;
-
-  function gmMessage(type, payload) {
-    return api.runtime.sendMessage({ type, payload });
-  }
-
-  function notifyValueListeners(name, oldValue, newValue, remote) {
-    for (const listener of listeners.values()) {
-      if (listener.name === name) listener.callback(name, oldValue, newValue, Boolean(remote));
-    }
-  }
-
-  function GM_getValue(name, defaultValue) {
-    if (Object.prototype.hasOwnProperty.call(values, name)) return values[name];
-    if (valuesHydrated) return defaultValue;
-    return gmMessage('GM_getValue', { name, defaultValue }).then(response => {
-      values[name] = response?.value;
-      return response?.value;
-    }, () => defaultValue);
-  }
-  function GM_setValue(name, value) {
-    const oldValue = values[name];
-    values[name] = value;
-    notifyValueListeners(name, oldValue, value, false);
-    return gmMessage('GM_setValue', { name, value }).catch(() => {});
-  }
-  function GM_deleteValue(name) {
-    const oldValue = values[name];
-    delete values[name];
-    notifyValueListeners(name, oldValue, undefined, false);
-    return gmMessage('GM_deleteValue', { name }).catch(() => {});
-  }
-  function GM_addValueChangeListener(name, callback) {
-    const id = ++listenerSeq;
-    listeners.set(id, { name, callback });
-    return id;
-  }
-  Object.assign(globalThis, { GM_getValue, GM_setValue, GM_deleteValue, GM_addValueChangeListener });
-  globalThis.__USC_READY = gmMessage('GM_getAllValues', {}).then(response => {
-    Object.assign(values, response?.values || {});
-    valuesHydrated = true;
-  }, () => {
-    valuesHydrated = true;
-  });
-})();
-
-Promise.resolve(globalThis.__USC_READY).catch(() => {}).then(() => {
-  try {
-    globalThis.__YOMU_TEST_BODY_RAN__ = true;
-  } catch (error) {
-    console.error('Userscript failed:', error);
-  }
-});`;
-}
 
 interface CompilerStorageApi {
     getValue: (key: string, fallback: unknown) => unknown;
@@ -870,6 +839,21 @@ line two\`;
             }).match(/yomu-google-drive-settings-sync-bridge/g),
         ).toHaveLength(1);
         expect(hardenExtensionBackgroundSource(source, { target: 'firefox' })).not.toContain('yomu-google-drive-settings-sync-bridge');
+    });
+
+    it('keeps malformed cloud backup contents out of generated background errors', async () => {
+        const response = await downloadFromGeneratedCloudBridge('private-token');
+        expect(response).toEqual({ ok: false, error: 'Google Drive settings backup contains invalid JSON.' });
+        expect(JSON.stringify(response)).not.toContain('private-token');
+    });
+
+    it('distinguishes an absent cloud backup from a current snapshot in the generated background', async () => {
+        expect(await downloadFromGeneratedCloudBridge(null)).toEqual({ ok: true, snapshot: null });
+        const snapshot = {
+            formatName: 'yomu-google-drive-settings-sync', formatVersion: 1,
+            syncedAt: '2026-09-18T00:00:00.000Z', settings: { theme: 'dark' },
+        };
+        expect(await downloadFromGeneratedCloudBridge(JSON.stringify(snapshot))).toEqual({ ok: true, snapshot });
     });
 
     it('uses host access for screenshots without requesting browsing-history tabs access', () => {

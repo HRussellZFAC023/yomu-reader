@@ -266,8 +266,8 @@ describe('parserProvider defaults', () => {
         expect(normalizeReaderSettings(null).parserProvider).toBe('local');
     });
 
-    it('keeps API-first parsing for saved payloads that predate the setting', () => {
-        expect(normalizeReaderSettings({ apiKey: 'jpdb-api-key' } as Partial<ReaderSettings>).parserProvider).toBe('auto');
+    it('uses the current default when parserProvider is absent', () => {
+        expect(normalizeReaderSettings({ apiKey: 'jpdb-api-key' } as Partial<ReaderSettings>).parserProvider).toBe('local');
     });
 
     it('round-trips an explicit choice', () => {

@@ -505,10 +505,10 @@ describe('opening story arc packages', () => {
         const sophie = allNodes(chapter).find(node => node.id === 'line:blank-atlas:sophie-two-gaps')!;
         const ruparna = allNodes(chapter).find(node => node.id === 'line:blank-atlas:ruparna-note-route')!;
 
-        expect(sophie.variants?.n5.japanese).toContain('手掛かりにしません');
-        expect(sophie.variants?.n5.japanese).toContain('意味を比べましょう');
+        expect(sophie.variants?.n5.japanese).toContain('空欄は二つ');
+        expect(sophie.variants?.n5.japanese).toContain('前後のことば');
         expect(ruparna.variants?.n5.japanese).toContain('紙の端');
-        expect(ruparna.variants?.n5.japanese).toContain('道みたい');
+        expect(ruparna.variants?.n5.japanese).toContain('次の道になります');
         expect(sophie.variants?.n5.japanese).not.toBe(ruparna.variants?.n5.japanese);
     });
 
@@ -526,12 +526,10 @@ describe('opening story arc packages', () => {
             .toBeUndefined();
         const speaking = recordingChoices[0]!;
         const transfer = recordingChoices[1]!;
-        expect(speaking.options?.some(option => /pause|return/i.test(option.action))).toBe(true);
-        expect(transfer.options?.some(option => /pause|return/i.test(option.action))).toBe(true);
-        expect(speaking.options?.find(option => /pause/i.test(option.action))?.next)
-            .toBe('checkpoint:blank-atlas:speaking-recording-deferred');
-        expect(transfer.options?.find(option => /pause/i.test(option.action))?.next)
-            .toBe('checkpoint:blank-atlas:transfer-recording-deferred');
+        expect(speaking.options?.find(option => option.id === 'option:blank-atlas:speaking-defer-recording'))
+            .toMatchObject({ next: 'checkpoint:blank-atlas:speaking-recording-deferred', records: ['boundary-heard', 'support-style'] });
+        expect(transfer.options?.find(option => option.id === 'option:blank-atlas:transfer-record-later'))
+            .toMatchObject({ next: 'checkpoint:blank-atlas:transfer-recording-deferred', records: ['boundary-heard', 'support-style'] });
 
         const text = authoredSceneText(chapter);
         expect(text).not.toMatch(/affection|romance|reward for sharing|must share|real name/i);

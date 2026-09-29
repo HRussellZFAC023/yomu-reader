@@ -11,6 +11,7 @@ import {
     resolveN1SoundDiscriminationPackage,
 } from '../../src/academy/content/n1-sound-discrimination';
 import { ACADEMY_ACTIVITY_PLUGINS, createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { expectAcademyAssetSynced, expectAcademyCodeInstalled } from '../helpers/academy-offline';
 
 const LIBRARY_ROOT = process.env.ACADEMY_LIBRARY_ROOT ?? '/Users/heru/Documents/Japanese';
 
@@ -155,7 +156,7 @@ describe('N1 multimodal sound-discrimination package', () => {
         expect(JSON.stringify(lesson.readerSrs)).not.toContain(N1_SOUND_DISCRIMINATION_PROVENANCE.sourceAudioRelativePath);
     });
 
-    it('publishes an honest package manifest that the offline shell precaches', () => {
+    it('publishes an honest package manifest that the offline shell precaches', async () => {
         const manifestPath = path.resolve('public/academy/content/n1-sound-discrimination/package.v1.json');
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
         const worker = readFileSync(path.resolve('public/academy/sw.js'), 'utf8');
@@ -179,7 +180,9 @@ describe('N1 multimodal sound-discrimination package', () => {
         });
         expect(JSON.stringify(manifest)).not.toContain('/Users/');
         expect(worker).toContain("'/academy/content/n1-sound-discrimination/package.v1.json'");
-        expect(worker).toContain("'/academy/app.js?v=__ACADEMY_REVISION__'");
+        const requests = await expectAcademyCodeInstalled('academy-n1-sound-discrimination');
+        expect(requests).toContain('/academy/content/n1-sound-discrimination/package.v1.json');
+        expectAcademyAssetSynced('content/n1-sound-discrimination/package.v1.json');
     });
 });
 

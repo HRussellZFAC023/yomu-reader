@@ -48,7 +48,7 @@ describe('storage reset', () => {
         vi.unstubAllGlobals();
     });
 
-    it('clears local and session mirrors when deleting a GM storage key', async () => {
+    it('preserves standalone local and session values when deleting a GM storage key', async () => {
         const values = new Map<string, unknown>([['jpdb-popup-reader-settings', { apiKey: 'secret' }]]);
         const deleteValue = vi.fn(async (key: string) => { values.delete(key); });
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
@@ -58,12 +58,14 @@ describe('storage reset', () => {
             dictionaryPreferences: [{ name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 }],
         }));
         sessionStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ apiKey: 'session-secret' }));
+        const localBefore = localStorage.getItem('jpdb-popup-reader-settings');
+        const sessionBefore = sessionStorage.getItem('jpdb-popup-reader-settings');
 
         await gmStorageDelete('jpdb-popup-reader-settings');
 
         expect(deleteValue).toHaveBeenCalledWith('jpdb-popup-reader-settings');
-        expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
-        expect(sessionStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
+        expect(localStorage.getItem('jpdb-popup-reader-settings')).toBe(localBefore);
+        expect(sessionStorage.getItem('jpdb-popup-reader-settings')).toBe(sessionBefore);
     });
 
     it('keeps private device credentials out of page storage and DOM bridges', async () => {
@@ -141,7 +143,7 @@ describe('storage reset', () => {
         expect([...values.keys()].filter(key => key.startsWith('yomu:lease:'))).toEqual([]);
     });
 
-    it('mirrors hosted GM settings writes to localStorage for the docs app', async () => {
+    it('does not mirror hosted GM settings writes into standalone storage', async () => {
         const setValue = vi.fn(async () => undefined);
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
@@ -157,10 +159,7 @@ describe('storage reset', () => {
         });
 
         expect(setValue).toHaveBeenCalledWith('jpdb-popup-reader-settings', expect.any(Object));
-        expect(JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? 'null')).toMatchObject({
-            localDictionariesEnabled: true,
-            dictionaryPreferences: [{ name: 'Jitendex' }],
-        });
+        expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
     });
 
     it('factory reset fails closed before deleting when GM_listValues is genuinely unavailable', async () => {
@@ -347,7 +346,7 @@ describe('storage resilience', () => {
         await expect(gmStorageGet('jpdb-popup-reader-settings', null)).resolves.toEqual({ onboardingSeen: true });
     });
 
-    it('falls back to localStorage when a present GM_setValue rejects', async () => {
+    it('rejects an installed write without falling back to localStorage', async () => {
         vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => fallback));
         vi.stubGlobal('GM_setValue', vi.fn(async () => {
             throw new Error('dead bridge');
@@ -356,8 +355,7 @@ describe('storage resilience', () => {
         await expect(gmStorageSet('jpdb-popup-reader-settings', { onboardingSeen: true }))
             .rejects.toThrow('GM storage write failed');
 
-        expect(JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? 'null'))
-            .toEqual({ onboardingSeen: true });
+        expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
     });
 
     it('surfaces a userscript write failure even when the real localStorage fallback is also full', async () => {

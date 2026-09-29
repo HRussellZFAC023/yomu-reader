@@ -316,13 +316,13 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
-    it('detects modern userscript managers that expose GM.getValue without legacy GM_getValue', () => {
+    it('detects modern userscript managers after their asynchronous storage gate', async () => {
         vi.stubGlobal('GM_getValue', undefined);
-        vi.stubGlobal('GM', { getValue: vi.fn() });
+        vi.stubGlobal('GM', { getValue: vi.fn(async (_key: string, fallback: unknown) => fallback) });
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
+        await vi.waitFor(() => expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true }));
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -534,6 +534,26 @@ describe('reader boot', () => {
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
+    });
+
+    it.each([
+        ['page', 'userscript'],
+        ['page', 'extension'],
+        ['userscript', 'extension'],
+    ] as const)('preserves a higher-priority %s → %s claim from an isolated realm', async (current, replacement) => {
+        if (current === 'page') vi.stubGlobal('GM_getValue', undefined);
+        bootReaderApp();
+        const marker = document.getElementById('jpdb-reader-runtime-owner')!;
+        marker.dataset.yomuRuntimeKind = replacement;
+        marker.dataset.yomuRuntimeOwner = 'isolated-replacement';
+        // The new realm shares the DOM, not this realm's window properties or event detail.
+        await vi.waitFor(() => expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true }));
+        expect(marker.isConnected).toBe(true);
+        expect(marker.dataset.yomuRuntimeOwner).toBe('isolated-replacement');
+        appMocks.init.mockClear();
+        bootReaderApp();
+        expect(appMocks.init).not.toHaveBeenCalled();
+        expect(document.getElementById('jpdb-reader-runtime-owner')).toBe(marker);
     });
 
     it('lets the local hosted docs runtime replace a stale installed userscript', () => {

@@ -49,7 +49,6 @@ export type RenderAnkiNewCardPreviewFn = typeof import('../anki/render-impl').re
 export type PruneRedundantAnkiGlyphRepeatsFn = typeof import('../anki/render-impl').pruneRedundantAnkiGlyphRepeats;
 export type RenderAnkiRenderedCardStudyBodyFn = typeof import('../anki/render-impl').renderAnkiRenderedCardStudyBody;
 export type RenderReviewButtonsFn = typeof import('../anki/render-impl').renderReviewButtons;
-export type ReviewButtonGradesFn = typeof import('../anki/render-impl').reviewButtonGrades;
 // Consumed by the registry slot type below and the companion build.
 export type AnkiConnectClientClass = typeof import('../anki/client').AnkiConnectClient;
 // Consumed by the registry slot type below and the companion build.
@@ -189,7 +188,6 @@ interface YomuCompanionRegistry {
         pruneRedundantAnkiGlyphRepeats: PruneRedundantAnkiGlyphRepeatsFn;
         renderAnkiRenderedCardStudyBody: RenderAnkiRenderedCardStudyBodyFn;
         renderReviewButtons: RenderReviewButtonsFn;
-        reviewButtonGrades: ReviewButtonGradesFn;
     };
     settings?: {
         SettingsDialogController?: SettingsDialogControllerClass;

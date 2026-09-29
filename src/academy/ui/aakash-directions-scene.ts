@@ -2,7 +2,7 @@ import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy
 import { constructedResponseActivityPlugin, type ConstructedResponseActivityModel } from '../activities/constructed-response';
 import { ACADEMY_ASSETS } from '../assets';
 import { AAKASH_DIRECTIONS_CONTENT } from '../content/aakash-meet';
-import { canRenderAcademyCastPortrait } from '../domain/cast-registry';
+import { defaultCastPortrait } from '../assets';
 import { createActivityRuntime, type ActivityController, type ActivityEvaluation } from '../domain/activity-runtime';
 import { createAcademyVnStage, type AcademyVnLine, type AcademyVnSlotContent } from './vn-stage';
 
@@ -55,9 +55,7 @@ export function renderAakashMeetScreen(options: AakashMeetScreenOptions): HTMLEl
         transition: 'dissolve',
         focus: { x: 52, y: 48 },
     });
-    const aakashSprite = canRenderAcademyCastPortrait('aakash', 'story-runtime')
-        ? (ACADEMY_ASSETS.characters.approved as Readonly<Record<string, string>>).aakash
-        : undefined;
+    const aakashSprite = defaultCastPortrait('aakash', 'story:cast:aakash');
     if (aakashSprite) {
         stage.setCast([{
             characterId: 'aakash',

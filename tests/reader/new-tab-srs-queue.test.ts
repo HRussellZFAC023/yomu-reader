@@ -262,9 +262,9 @@ describe('multilingual Academy Reader Study loop', () => {
         const adapter = createYomuLocalSrsAdapter(repository);
         const controller = controllerWithAdapters({
             newTabSource: 'yomu-local',
-            newTabStudyStepOrder: ['recall-cloze', 'word', 'type-word', 'listen-pitch', 'speaking', 'kanji-doodle'],
-            newTabStudyDisabledSteps: ['kanji-doodle', 'type-word'],
-            newTabStudyTourSeen: true,
+
+
+
         }, {
             'yomu-local': adapter,
         });
@@ -276,15 +276,17 @@ describe('multilingual Academy Reader Study loop', () => {
             reviewCountMode: boolean;
             renderEnabledContent(): DocumentFragment;
             renderWord(root: HTMLElement, card: JPDBCard): void;
+            bindRootEvents(root: HTMLElement): void;
             setStudyStepOverrideForCurrentCard(id: string): void;
             loadSrsAdapterWords(source: 'yomu-local', limit?: number): Promise<{ cards: JPDBCard[] }>;
-            submitGrade(card: JPDBCard, grade: 'pass'): Promise<unknown>;
+            gradeCurrentCard(grade: 'pass'): Promise<boolean>;
         };
         const root = document.createElement('main');
         root.className = 'jpdb-reader-newtab';
         root.dataset.jpdbReaderRoot = 'true';
         root.append(internals.renderEnabledContent());
         document.body.append(root);
+        internals.bindRootEvents(root);
 
         expect.soft(selectNewTabStudyPool(unscoped.cards.map(card => newTabCardFromSrsReviewable(card)!))
                 .map(cardLanguage)).toEqual(['es']);
@@ -301,7 +303,8 @@ describe('multilingual Academy Reader Study loop', () => {
 
             const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
             const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]')!;
-            expect.soft(study.dataset.newtabStudyFlow?.split(' ')).toContain('recall-cloze');
+            expect.soft(study.dataset.newtabStudyFlow?.split(' ')).toEqual(['word', 'final-reveal']);
+            expect.soft(study.dataset.newtabActivity).toBe('practice');
             expect.soft(study.dataset.newtabStudyStep).toBe('recall-cloze');
             expect.soft(prompt.lang).toBe('es');
             expect.soft(prompt.textContent).toContain('Bebo ');
@@ -318,7 +321,12 @@ describe('multilingual Academy Reader Study loop', () => {
             expect.soft(spanishTarget.audio.recordedWordAudio).toBe(false);
             expect.soft(study.querySelector('[data-study-unavailable-modes]')).toBeNull();
 
-            await internals.submitGrade(spanish, 'pass');
+            const beforePracticeGrade = await repository.snapshot();
+            expect(await internals.gradeCurrentCard('pass')).toBe(false);
+            expect(await repository.snapshot()).toEqual(beforePracticeGrade);
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="return-to-review"]')!.click();
+            root.querySelector<HTMLButtonElement>('[data-newtab-controls] [data-newtab-action="reveal"]')!.click();
+            expect(await internals.gradeCurrentCard('pass')).toBe(true);
 
             const exactKey = canonicalStudyCardKey('agua', 'agua', { partOfSpeech: 'noun', language: 'es' });
             expect(exactKey).toBe('agua\u0000agua\u0000noun\u0000es');

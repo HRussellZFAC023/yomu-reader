@@ -6,9 +6,11 @@ import {
     resetActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import {
+    DEFAULT_SETTINGS,
     endSettingsResetGuard,
     SETTINGS_STORAGE_KEY,
 } from '../../src/reader/settings';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 
 interface StartupInternals {
     dictionaryStyles: {
@@ -81,7 +83,7 @@ describe('ReaderApp core startup', () => {
         await dictionaryStylesFinished;
     });
 
-    it('boots YouTube subtitles without a chooser for pre-1.9 subtitle settings', async () => {
+    it.each(['current', 'retired'] as const)('handles %s YouTube subtitle settings without migration', async format => {
         vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=legacy-video'));
         vi.stubGlobal('ResizeObserver', class {
             observe(): void {}
@@ -91,7 +93,10 @@ describe('ReaderApp core startup', () => {
         vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
             fillStyle: '#ffffff',
         } as never);
-        const stored = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, { subtitleFontSize: 48 }]]);
+        const stored = new Map<string, unknown>(Object.entries(format === 'current'
+            ? serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, learningTargetChosen: true, onboardingSeen: true, subtitleFontSize: 48 }, { revision: 0, records: {} })
+            : { [SETTINGS_STORAGE_KEY]: { subtitleFontSize: 48 } }));
+        const before = structuredClone(stored);
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => stored.get(key) ?? fallback));
         vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { stored.set(key, value); }));
         vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { stored.delete(key); }));
@@ -109,6 +114,13 @@ describe('ReaderApp core startup', () => {
         internals.installStyles = vi.fn();
         const subtitleInit = vi.spyOn(internals.subtitles, 'init');
 
+        if (format === 'retired') {
+            await expect(app.init({ showWelcome: true })).rejects.toThrow('stable committed snapshot');
+            expect(stored).toEqual(before);
+            expect(subtitleInit).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
+            return;
+        }
         await expect(app.init({ showWelcome: true })).resolves.toBeUndefined();
 
         expect(internals.settings.learningTargetChosen).toBe(true);

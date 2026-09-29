@@ -125,7 +125,7 @@ const DEFAULT_GAMING_OCR_PROVIDER: ReaderSettings['ocrProvider'] = 'google-lens'
 const DEFAULT_GAMING_OCR_ENDPOINT = '';
 const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
     'factory-reset',
-    'import-yomitan-settings',
+    'import-reader-settings',
     'export-reader-settings',
     'import-yomitan-dictionary',
     'export-yomitan-dictionary',

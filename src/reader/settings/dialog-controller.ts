@@ -26,7 +26,7 @@ import { publishSettingsChange as publishPrivateSettingsChange } from './setting
 import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { bindAuthorizedReaderFormSubmit, dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
-import { exportSettingsBackupSnapshot } from './settings-persistence-transaction';
+import { exportSettingsBackupSnapshot } from './settings-backup';
 import { reportInvalidSettingsForm } from './settings-form-validation';
 import {
     activateSettingsPanel,
@@ -87,8 +87,9 @@ import {
     clearPendingCloudSettingsAction,
     readPendingCloudSettingsAction,
 } from './cloud-settings-pending-action';
-import { dateStamp, downloadBlob, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
+import { dateStamp, downloadBlob, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from './file-io';
 import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
+import { selectAnkiLibraryChoices } from './anki-library-selection';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { formatUiText, uiText } from '../app/i18n';
 import { isUserFacingError, userFacingCopyKeyOf, userFacingError, userFacingErrorText } from '../app/user-facing-errors';
@@ -104,7 +105,7 @@ import {
 } from './language-profile-live-sync';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, type ImportSummary } from '../dictionaries/yomitan';
-import { markDictionaryReplicaFresh, requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
+import { requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
 import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
@@ -186,11 +187,6 @@ interface AnkiScanFormControls {
     model: AnkiScanSelectableInput | null;
 }
 
-interface AnkiScanSelection {
-    selectedDeck: string;
-    selectedModel: string;
-}
-
 interface JpdbConnectionProbe {
     readonly status: HTMLElement;
     readonly formSettings: ReaderSettings;
@@ -218,9 +214,6 @@ interface DictionaryImportReport {
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
 const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
-const AUTO_REPLACE_ANKI_DECK_NAMES = new Set(['', 'よむ', 'Yomu']);
-// The shipped note-type names. Anything else was named by the learner.
-const AUTO_REPLACE_ANKI_MODEL_NAMES = new Set(['', 'よむ Japanese', 'Yomu Japanese']);
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
@@ -315,36 +308,8 @@ function settingsControlValue(control: AnkiScanSelectableInput | null): string {
     return control?.value.trim() || '';
 }
 
-function shouldUseScannedAnkiDeck(deckNames: string[], currentDeck: string): boolean {
-    return Boolean(
-        deckNames.length
-        && !deckNames.includes(currentDeck)
-        && (deckNames.length === 1 || AUTO_REPLACE_ANKI_DECK_NAMES.has(currentDeck)),
-    );
-}
-
-function selectedAnkiScanDeck(deckNames: string[], currentDeck: string): string {
-    return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? currentDeck : currentDeck;
-}
-
-function selectedAnkiScanModel(scan: AnkiLibraryScanResult, currentModel: string): string {
-    const savedModel = currentModel.trim();
-    if (savedModel && scan.models.some(model => model.modelName === savedModel)) return savedModel;
-    // A configured note type the scan does not list is not proof it is gone: the
-    // wrong Anki profile may be open, or AnkiConnect may have answered before the
-    // collection finished loading. Overwriting it with a suggestion threw away
-    // the learner's note type and its field mapping with it (GitHub #31
-    // residual). Only the shipped default gets replaced, which is the same rule
-    // the deck already follows.
-    if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
-    return scan.suggestedModel?.modelName || savedModel;
-}
-
-function ankiScanSelection(controls: AnkiScanFormControls, scan: AnkiLibraryScanResult): AnkiScanSelection {
-    return {
-        selectedDeck: selectedAnkiScanDeck(scan.deckNames, settingsControlValue(controls.deck)),
-        selectedModel: selectedAnkiScanModel(scan, settingsControlValue(controls.model)),
-    };
+function ankiScanSelection(controls: AnkiScanFormControls, scan: AnkiLibraryScanResult) {
+    return selectAnkiLibraryChoices(scan, settingsControlValue(controls.deck), settingsControlValue(controls.model));
 }
 
 function applySettingsControlValue(control: AnkiScanSelectableInput | null, value: string): void {
@@ -476,6 +441,7 @@ export class SettingsDialogController {
     private dictionarySiteStorageClearPending = false;
     private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
     private currentForm?: HTMLFormElement;
+    private settingsSyncAbort?: AbortController;
     private readonly modal = new LookupModalAccessibility();
     private saveRequestId = 0;
     private ankiConnectionProbeId = 0;
@@ -526,6 +492,7 @@ export class SettingsDialogController {
         }, this.restoreCoordinator);
     }
     open(panel?: string): void {
+        this.settingsSyncAbort?.abort();
         this.previewBaseline.start(this.dependencies.getSettings());
         const trigger = settingsDialogTrigger(document.activeElement);
         const launcher = mountSensitiveSettingsLauncher(
@@ -551,12 +518,13 @@ export class SettingsDialogController {
         form.addEventListener('yomu-catalog-browse-rendered', () => this.onCatalogBrowseRendered(form));
         installCatalogBrowseFilter(form);
         this.bindSettingsTabs(form);
-        this.bindLivePreview(form);
         this.bindEditorControls(form);
         syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
         this.dependencies.mountDialog(backdrop, form);
         // Production mount tears down the old form before returning.
         this.currentForm = form;
+        this.settingsSyncAbort = new AbortController();
+        this.bindLivePreview(form, this.settingsSyncAbort.signal);
         this.modal.activate(form, trigger);
         installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'), () => this.dismissSettings());
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
@@ -792,6 +760,7 @@ export class SettingsDialogController {
     }
 
     private dismissSettings(): void {
+        this.settingsSyncAbort?.abort();
         if (this.settingsJapaneseParseRefreshFrame !== undefined) {
             cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
             this.settingsJapaneseParseRefreshFrame = undefined;
@@ -816,6 +785,7 @@ export class SettingsDialogController {
      * Idempotent: a no-op once the background has been released.
      */
     releaseModalBackground(): void {
+        this.settingsSyncAbort?.abort();
         this.previewBaseline.restoreInterfaceLanguagePreview();
         if (!this.currentForm?.isConnected) this.currentForm = undefined;
         this.modal.release();
@@ -879,7 +849,7 @@ export class SettingsDialogController {
         }
     }
 
-    private bindLivePreview(form: HTMLFormElement): void {
+    private bindLivePreview(form: HTMLFormElement, signal: AbortSignal): void {
         const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.stableSettings));
         let pendingAccentColor: string | undefined;
         let accentPreviewFrame: number | undefined;
@@ -956,7 +926,7 @@ export class SettingsDialogController {
                     this.syncThemeSwitch(form);
                 }
             },
-        });
+        }, signal);
         syncSubtitlePreview(form);
         syncFontFamilyControls(form);
         form.addEventListener('input', event => {
@@ -2054,7 +2024,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsImportExportAction(form: HTMLFormElement, action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (action === 'import-yomitan-settings') {
+        if (action === 'import-reader-settings') {
             await this.importReaderSettingsFromFile(form, setStatus);
             return true;
         }
@@ -2062,8 +2032,8 @@ export class SettingsDialogController {
             const dictionaries = await this.exportReaderDictionaryBackup();
             const backup = await exportSettingsBackupSnapshot(this.stableSettings);
             downloadBlob(new Blob([JSON.stringify({
-                formatName: 'yomu-reader-settings',
-                formatVersion: 3,
+                formatName: READER_SETTINGS_BACKUP_FORMAT,
+                formatVersion: READER_SETTINGS_BACKUP_VERSION,
                 exportedAt: new Date().toISOString(),
                 settings: backup.settings,
                 storage: backup.storage,
@@ -2618,7 +2588,6 @@ export class SettingsDialogController {
             { ...previousSettings, localDictionariesEnabled: true },
             dictionaryPreferences,
         );
-        await markDictionaryReplicaFresh();
         await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();

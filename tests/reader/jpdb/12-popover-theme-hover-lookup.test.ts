@@ -26,7 +26,6 @@ import {
     mockReaderWordRect,
     normalizeAudioSources,
     normalizeOcrProvider,
-    parseYomitanSettingsExport,
     pointerEventLike,
     renderDictionaryScopedStyles,
     renderGrammarHints,
@@ -474,10 +473,7 @@ describe('reader helpers', () => {
 
     it('preserves an intentionally empty Yomitan-style audio source list', () => {
         expect(normalizeAudioSources([])).toEqual([]);
-        expect(normalizeAudioSources(undefined, 'http://localhost:9090/?term={term}')).toMatchObject([
-            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', enabled: true },
-            { type: 'custom-json', url: 'http://localhost:9090/?term={term}', enabled: true },
-        ]);
+        expect(normalizeAudioSources(undefined)).toEqual(DEFAULT_SETTINGS.audioSources);
     });
 
     it('applies test-page URL bootstrap settings without mutating defaults', () => {
@@ -500,10 +496,8 @@ describe('reader helpers', () => {
         expect(normalizeOcrProvider('off')).toBe('off');
         expect(normalizeOcrProvider('auto')).toBe('google-lens');
         expect(normalizeOcrProvider('page-text')).toBe('google-lens');
-        expect(normalizeOcrProvider('custom-json')).toBe('local-service');
+        expect(normalizeOcrProvider('custom-json')).toBe(DEFAULT_SETTINGS.ocrProvider);
         expect(normalizeOcrProvider('old-provider')).toBe('google-lens');
-        expect(normalizeOcrProvider('local-service', { ocrEndpointUrl: '' })).toBe('google-lens');
-        expect(normalizeOcrProvider('local-service', { ocrEndpointUrl: '', ocrCloudVisionApiKey: '' })).toBe('local-service');
     });
 
     it('keeps numeric token counts visible while redacting real secrets in logs', () => {
@@ -1140,104 +1134,6 @@ describe('reader helpers', () => {
         expect(sanitizeAccentColor('#7c3aed')).toBe('#7c3aed');
         expect(sanitizeAccentColor('#abc')).toBe('#aabbcc');
         expect(sanitizeAccentColor('lime')).toBe(DEFAULT_SETTINGS.accentColor);
-    });
-
-    it('imports useful settings from a Yomitan backup', () => {
-        const imported = parseYomitanSettingsExport({
-            options: {
-                profiles: [{
-                    options: {
-                        audio: {
-                            autoPlay: true,
-                            sources: [{ type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}' }],
-                        },
-                        general: { popupTheme: 'dark', maxResults: 20 },
-                        scanning: { selectText: true, scanWithoutMousemove: true },
-                        dictionaries: [{ name: 'Jitendex', enabled: true }],
-                    },
-                }],
-            },
-        });
-        expect(imported.settings.audioSources?.[0]).toMatchObject({
-            type: 'custom-json',
-            url: 'http://localhost:9090/?term={term}&reading={reading}',
-        });
-        expect(imported.settings.audioEnableDefaultSources).toBeUndefined();
-        expect(imported.settings.autoPlayAudio).toBe(true);
-        expect(imported.settings.localDictionaryMaxResults).toBe(20);
-        expect(imported.dictionaryNames).toEqual(['Jitendex']);
-        expect(imported.settings.dictionaryPreferences?.[0]).toMatchObject({ name: 'Jitendex', enabled: true, priority: 0 });
-    });
-
-    it('imports active-profile Yomitan settings beyond the minimal backup fields', () => {
-        const imported = parseYomitanSettingsExport({
-            options: {
-                profileCurrent: 1,
-                profiles: [
-                    { options: { general: { popupTheme: 'light' }, dictionaries: [{ name: 'Ignored', enabled: true }] } },
-                    {
-                        options: {
-                            general: {
-                                language: 'ja',
-                                popupTheme: 'dark',
-                                popupWidth: 640,
-                                popupHeight: 480,
-                                popupVerticalOffset: 16,
-                                showPitchAccentGraph: false,
-                                showPitchAccentDownstepNotation: false,
-                            },
-                            audio: { fallbackSoundType: 'none' },
-                            scanning: {
-                                delay: 125,
-                                hideDelay: 250,
-                                inputs: [{ include: 'alt', options: {} }],
-                            },
-                            dictionaries: [
-                                { name: 'Primary', alias: 'Main', enabled: true, allowSecondarySearches: true },
-                                { name: 'Disabled', alias: 'Off', enabled: false },
-                            ],
-                            anki: {
-                                enable: true,
-                                server: 'http://127.0.0.1:8765',
-                                tags: ['yomitan', 'imported'],
-                                cardFormats: [{ type: 'term', deck: 'Mining', model: 'Japanese' }],
-                                screenshot: { format: 'png', quality: 92 },
-                            },
-                            inputs: {
-                                hotkeys: [
-                                    { action: 'playAudio', key: 'KeyP', modifiers: ['alt'], enabled: true },
-                                    { action: 'close', key: 'Escape', modifiers: [], enabled: true },
-                                ],
-                            },
-                        },
-                    },
-                ],
-            },
-        });
-
-        expect(imported.dictionaryNames).toEqual(['Primary']);
-        expect(imported.settings).toMatchObject({
-            interfaceLanguage: 'ja',
-            theme: 'dark',
-            popoverWidth: 640,
-            popoverHeight: 480,
-            subtitleBottomOffset: 16,
-            showPitchAccent: false,
-            hoverOpenDelayMs: 125,
-            hoverCloseDelayMs: 250,
-            audioFallbackChimeEnabled: false,
-            popupActivationMode: 'modifier',
-            scanModifierKey: 'alt',
-            ankiEnabled: true,
-            ankiDeck: 'Mining',
-            ankiModel: 'Japanese',
-            ankiTags: 'yomitan imported',
-        });
-        expect(imported.settings.shortcuts).toMatchObject({ hoverLookup: 'Alt', playAudio: 'Alt+P', closePopup: 'Escape' });
-        expect(imported.settings.dictionaryPreferences).toEqual([
-            expect.objectContaining({ name: 'Primary', alias: 'Main', enabled: true, priority: 0, allowSecondarySearches: true }),
-            expect.objectContaining({ name: 'Disabled', alias: 'Off', enabled: false, priority: 1 }),
-        ]);
     });
 
     it('keeps sentence translation targeting English when the UI is Japanese', async () => {

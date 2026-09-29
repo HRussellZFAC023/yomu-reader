@@ -8,7 +8,6 @@ import { normalizedLookupText } from '../lookup/text-helpers';
 import type { ActivePointerTextLookup, PointerTextLookup } from '../lookup/pointer-text-lookup';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
 import type { RtkInfo } from '../kanji/rtk';
-import { matchesShortcut } from '../settings/index';
 import { openUrlInNewTab } from '../ui/browser';
 import { rememberOverlaySourceRect } from '../ui/page-scale';
 import { documentLooksLikeImageReadingPage } from './dom-helpers';
@@ -93,39 +92,7 @@ export const SUBTITLE_SURFACE_SELECTOR = [
 ].join(', ');
 export const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
 
-type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
-
-export const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
-    ['gradeFail', 'fail'],
-    ['gradePass', 'pass'],
-];
-
-export const FIVE_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
-    ['gradeNothing', 'nothing'],
-    ['gradeSomething', 'something'],
-    ['gradeHard', 'hard'],
-    ['gradeOkay', 'okay'],
-    ['gradeEasy', 'easy'],
-];
-
-// Bunpro FSRS is a four-outcome surface. Reuse the learner's first four
-// positional grade shortcuts so the default keys remain 1/2/3/4.
-export const BUNPRO_FSRS_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
-    ['gradeNothing', 'nothing'],
-    ['gradeSomething', 'hard'],
-    ['gradeHard', 'okay'],
-    ['gradeOkay', 'easy'],
-];
-
 const JPDB_REVIEW_BLOCKING_STATES = new Set(['blacklisted', 'never-forget', 'locked']);
-
-export function matchedReviewShortcutGrade(
-    event: KeyboardEvent,
-    shortcuts: ReaderSettings['shortcuts'],
-    candidates: Array<[ReviewShortcutKey, JPDBGrade]>,
-): JPDBGrade | null {
-    return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
-}
 
 export function hasBlockedJpdbReviewState(states: ReturnType<typeof normalizeCardStates>): boolean {
     return states.some(state => JPDB_REVIEW_BLOCKING_STATES.has(state));

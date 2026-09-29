@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { scheduler } from 'node:timers/promises';
 import { installFreshManagedStateEpochSessionForTests } from '../../src/reader/app/managed-state-epoch';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 
 const EPOCH_KEY = 'yomu:state-epoch';
 const PREFERENCE_KEY = 'yomu:prefer-japanese-site-language:v1';
@@ -37,7 +40,9 @@ describe('preferred-site-language cache reset epoch', () => {
     it('does not let a pre-reset cache override the factory default on another origin after reboot', async () => {
         const values = new Map<string, unknown>([
             [PREFERENCE_KEY, true],
-            [SETTINGS_KEY, { learningTargetChosen: true, preferJapaneseSiteLanguage: true }],
+            ...Object.entries(serializeSettingsPersistencePair({
+                ...DEFAULT_SETTINGS, learningTargetChosen: true, preferJapaneseSiteLanguage: true,
+            }, { revision: 0, records: {} })),
         ]);
         installGmStore(values);
         vi.stubGlobal('browser', { runtime: { id: 'epoch-cache-proof' } });
@@ -51,6 +56,7 @@ describe('preferred-site-language cache reset epoch', () => {
         // origin's pre-reset local cache and an unrelated host key remain.
         values.delete(PREFERENCE_KEY);
         values.delete(SETTINGS_KEY);
+        values.delete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
         values.set(EPOCH_KEY, epoch(1, 'factory-reset'));
         localStorage.setItem('foreign-site-token', 'keep');
 

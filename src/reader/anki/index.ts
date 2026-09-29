@@ -1,6 +1,7 @@
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { yomuAnkiCompanion } from '../companions/registry';
 import { getUserscriptHttpRequest } from '../userscript/index';
+export { canDirectFetchAnkiConnectFrom } from './connection-origin';
 import type { AnkiWordAudioMedia } from './audio';
 import type {
     AnkiAudioMergeMode,
@@ -130,14 +131,6 @@ export function isAnkiConnectAvailabilityError(error: unknown): boolean {
     return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
 }
 
-export function canDirectFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
-    const current = readAnkiUrl(currentHref);
-    if (!current) return false;
-    const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    return target.origin === current.origin;
-}
-
 export function ankiLookupWithUnavailableDetails(lookup: AnkiLookupResult): AnkiLookupResult {
     return yomuAnkiCompanion()?.ankiLookupWithUnavailableDetails(lookup) ?? localAnkiLookupWithUnavailableDetails(lookup);
 }
@@ -201,16 +194,4 @@ function localAnkiLookupWithUnavailableDetails(lookup: AnkiLookupResult): AnkiLo
 function ankiNoteHasRenderableDetails(note: AnkiExistingNote): boolean {
     if (note.renderedCards?.some(card => card.question.trim() || card.answer.trim())) return true;
     return Object.values(note.fields).some(value => value.trim());
-}
-
-function readAnkiUrl(value: string, base?: string): URL | null {
-    try {
-        return new URL(value, base);
-    } catch {
-        return null;
-    }
-}
-
-function isHttpUrl(url: URL): boolean {
-    return url.protocol === 'http:' || url.protocol === 'https:';
 }

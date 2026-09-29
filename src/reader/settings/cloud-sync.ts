@@ -1,7 +1,8 @@
 import { isPromiseLike } from '../core/async-utils';
 import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthorization } from './cloud-settings-auth-state';
-import { exportSettingsBackupSnapshot } from './settings-persistence-transaction';
+import { exportSettingsBackupSnapshot } from './settings-backup';
+import { validateCloudSettingsEnvelope } from './cloud-settings-envelope';
 
 type ExtensionRuntimeApi = {
     id?: string;
@@ -35,7 +36,7 @@ interface CloudSettingsSyncResponse {
     ok?: boolean;
     error?: string;
     metadata?: CloudSettingsSyncMetadata;
-    snapshot?: CloudSettingsSyncSnapshot;
+    snapshot?: unknown;
 }
 
 const EXTENSION_BUILD_FLAG = typeof __YOMU_EXTENSION_BUILD__ === 'boolean' ? __YOMU_EXTENSION_BUILD__ : false;
@@ -75,7 +76,7 @@ export async function downloadCloudSettingsFromCloud(
     _authorization?: CloudSettingsAuthorization,
 ): Promise<CloudSettingsSyncSnapshot | null> {
     const response = await sendCloudSettingsSyncMessage({ command: 'download' });
-    return response.snapshot ?? null;
+    return response.snapshot === null ? null : validateCloudSettingsEnvelope(response.snapshot);
 }
 
 async function sendCloudSettingsSyncMessage(message: Record<string, unknown>): Promise<CloudSettingsSyncResponse> {

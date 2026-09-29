@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import type { JpdbVocabularySearchResult } from '../../src/reader/jpdb/jpdb-vocabulary';
 import { pointerTextLookupFromTextNode, type PointerTextLookup } from '../../src/reader/lookup/pointer-text-lookup';
 
 interface PointerLookupInternals {
@@ -26,7 +27,7 @@ interface PointerLookupInternals {
 
 interface PublicLookupInternals {
     settings: ReaderSettings;
-    jpdbVocabulary: { search: (term: string, limit: number) => Promise<JPDBCard[]> };
+    jpdbVocabulary: { search: (term: string, limit: number) => Promise<JpdbVocabularySearchResult> };
     publicLookupCard(term: string, exact?: boolean): Promise<JPDBCard | undefined>;
 }
 
@@ -371,7 +372,7 @@ describe('iPad pointer lookup', () => {
             showPitchAccent: false,
         };
         internals.jpdbVocabulary = {
-            search: vi.fn(async () => [card]),
+            search: vi.fn(async () => ({ cards: [card], status: 'complete' as const })),
         };
 
         try {

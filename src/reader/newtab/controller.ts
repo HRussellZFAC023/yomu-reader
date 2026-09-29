@@ -32,20 +32,10 @@ import { bindRenderedWordCardIdentity, preserveRenderedWordSentence, renderedWor
 import { renderedWordCardForLookup } from '../main/rendered-word-lookup';
 import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
-import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
-import { nextImmersionExampleIndex, renderImmersionExampleToolbar } from '../immersion/player-view';
-import { renderImmersionSearchLinks } from '../immersion/search-links';
+import type { ImmersionKitClient, ImmersionKitExample } from '../immersion/kit';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import type { AnkiExistingNote, AnkiLookupResult } from '../anki';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
-import {
-    IMMERSION_FALLBACK_QUERY_LIMIT,
-    immersionFallbackFragments,
-    immersionSentenceContainsQuery,
-    isUsefulImmersionFallbackQuery,
-    shouldFilterImmersionExamplesBySurface,
-    uniqueImmersionQueries,
-} from '../immersion/query';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { OperationTracker } from '../core/operation-token';
 import { BoundedMap } from '../core/bounded-map';
@@ -73,17 +63,19 @@ import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
-import { BUNPRO_FSRS_REVIEW_SHORTCUTS, FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
+import { handleReaderActionPillLink } from '../app/main-helpers';
+import { reviewGradeProfile, reviewGradeScale } from '../cards/grade-scale';
+import { reviewShortcutButton } from '../dom/review-shortcuts';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { installLocalTapActivation } from '../ui/pointer-activation';
+import { dispatchAuthorizedReaderControlClick, isDirectTrustedReaderInteraction } from '../ui/trusted-interaction';
 import { matchesShortcut } from '../settings/index';
 import {
     activeLearningTarget,
     activeLearningTargetGeneration,
     activeLearningTargetLanguage,
 } from '../languages/target-runtime';
-import { languageDisplayName } from '../languages/locale';
 import {
     targetCanLookupCharacter,
     targetSupportsHandwriting,
@@ -93,6 +85,7 @@ import {
 import {
     bindPrivateCommandCapability,
     readCardCommandCapability,
+    privateReviewGradeAllowed,
     readJpdbKanjiCommandCapability,
     type CardCommandCapability,
 } from '../dom/private-command-capabilities';
@@ -111,11 +104,10 @@ import {
     isYomuNewTabUrl,
     kanjiCharacters,
     saveNewTabUiState,
-    type LegacyNewTabStudyIntent,
     type NewTabRoute,
     type NewTabUiState,
 } from './index';
-import { NEW_TAB_FILTERS, normalizeNewTabUiState } from './state';
+import { NEW_TAB_FILTERS, normalizeNewTabUiState, type SharedNewTabViewState } from './state';
 import {
     planStudyCardHistoryUpdate,
     readStudyCardRoute,
@@ -124,16 +116,10 @@ import {
     type StudyCardRoute,
 } from './study-card-route';
 import {
-    newTabImmersionAudioUrls,
-    newTabImmersionImageUrl,
     hiddenNewTabStudySentenceSettings,
     renderNewTabFrontSentence,
-    renderNewTabImmersionImage,
-    renderNewTabImmersionSentence,
-    renderNewTabImmersionTranslation,
     renderNewTabSentenceHtml,
     setNewTabImmersionTranslationBlurred,
-    syncNewTabImmersionFrameSubtitleSize,
 } from './card-view';
 import { renderNewTabKanjiInfoSection } from './kanji-render';
 import {
@@ -158,6 +144,7 @@ import {
     newTabKeyHintsRenderable,
     newTabMainGradeTargetOptions,
     renderNewTabGradeControlButtons,
+    reviewCardForGradeButton,
     selectedNewTabMainGradeTarget,
     summarizeNewTabReviewSources,
     updateNewTabMainGradeTargetLabel,
@@ -178,16 +165,17 @@ import {
     type TypeWordSelfCheckState,
 } from './type-word-rendering';
 import { normalizeLearningTargetInput } from './typing-input';
-import { PitchSrsStore, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
+import { pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
-import { suggestedStudyGrade, type StudyStepOutcome, type StudyStepOutcomes } from './study-outcomes';
+import { renderStudyActivityControls } from './study-activity-controls';
+import { PracticeSessionPanel, practiceSessionTabOpen } from '../study/practice-session-panel';
+import type { PracticeMaterial } from '../study/practice-session';
 import { kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
 import { collectPitchVariants, contextPitchPattern, pitchNumberForReading, splitMorae, validPitchPositions } from '../lookup/pitch-accent';
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction, type NewTabSwipeDirection, type NewTabSwipeProgress } from './swipe-gesture';
 import {
-    newTabCardHighlightTargets,
     newTabCardMatchesActiveTarget,
     newTabCardOptionalReading,
     newTabCardReading,
@@ -196,12 +184,11 @@ import {
     promoteCardByKey,
     sentenceForCard,
 } from './study-queue';
-import { firstStudySentenceTier, isCompleteStudySentence, studySentenceTiers } from './study-sentence-source';
+import { firstStudySentenceTier, studySentenceTiers } from './study-sentence-source';
 import {
     compactFacts,
     doodlePreviewDataUrl,
     fact,
-    fallbackSearchKanjiCard,
     firstTruthy,
     heisigFact,
     isKanjiUnlockStudyCard,
@@ -229,7 +216,8 @@ import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-ca
 import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
 import { NewTabReviewSubmitter } from './review-submitter';
-import { isSessionBunproCard, newTabUndoableReview } from './review-flow-policy';
+import { isSessionBunproCard, newTabUndoableReview, requiresFreshProviderReview } from './review-flow-policy';
+import { ReviewDraftResetError } from './extension-review-queue-client';
 import { renderNewTabShell } from './shell-view';
 import {
     jpdbDeckMembershipName,
@@ -270,7 +258,8 @@ import {
 import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
-import { NewTabImmersionAudioPlayer } from './immersion-audio';
+import { StudyExamples } from './study-examples';
+import { newTabShortParseOptions, normalizePromptContextSentence } from './study-example-policy';
 import {
     ankiCardKindLabel,
     isJitenSrsCard,
@@ -282,7 +271,6 @@ import {
     passingNewTabGrade,
     queueableNewTabReviewTargets,
     reviewTargetsForNewTabCard,
-    usesBunproFsrsGradeScale,
     usesTwoButtonNewTabGradeScale,
     type NewTabGradeFailure,
     type NewTabReviewTarget,
@@ -319,7 +307,8 @@ import type {
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
-import { managedSessionStorage } from '../app/storage';
+import { managedSessionStorage, subscribeToStoredValueChanges } from '../app/storage';
+import { REVIEW_QUEUE_OWNER_KEY } from './review-queue-owner';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
@@ -385,13 +374,6 @@ import { nearestNewTabAction, newTabAction, newTabActionSelector, type NewTabAct
 export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
 
-const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
-const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
-// Immersion Kit applies `limit` per deck (100+ decks), so 48 balloons the
-// response to 1-2 MB and times out; 10 keeps it ~400 KB with hundreds of
-// post-filter candidates. See IMMERSION_POPUP_SEARCH_REQUEST_LIMIT.
-const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
-const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
 const QUEUE_REFRESH_LOW_WATER = 20;
@@ -402,7 +384,6 @@ const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 // realistic single session's working set; they only stop unbounded growth over
 // very long sessions (previously freed only by a factory reset).
 const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
-const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
 const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
@@ -428,19 +409,11 @@ function scheduleIdle(task: () => void): void {
     else setTimeout(task, 60);
 }
 
-function newTabShortParseOptions(): NewTabParseContentOptions {
-    return { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS };
-}
 
 function shouldCacheParsedNewTabSentenceTokens(tokens: JPDBToken[]): boolean {
     return !tokens.length || tokens.some(token => token.card.source !== 'fallback');
 }
 
-function accurateNewTabImmersionExamples(query: string, examples: ImmersionKitExample[]): ImmersionKitExample[] {
-    return shouldFilterImmersionExamplesBySurface(query)
-        ? examples.filter(example => immersionSentenceContainsQuery(example.sentence, query))
-        : examples;
-}
 
 export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
@@ -548,7 +521,7 @@ interface NewTabLoadOptions {
 }
 
 type ConcreteNewTabWordSource = NewTabConcreteSource;
-type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
+type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'collection' | 'startReview' | 'review'>;
 type NavigationExpansionSource = 'dictionary' | 'jpdb' | 'public-jpdb' | 'anki';
 type PointerNavigationDirection = 'next' | 'previous';
 
@@ -624,7 +597,6 @@ interface KanjiPromptKeyword {
 
 interface NewTabStudySlots {
     steps: HTMLElement | null;
-    tour: HTMLElement | null;
     progress: HTMLElement | null;
     timer: HTMLElement | null;
     prompt: HTMLElement | null;
@@ -647,14 +619,6 @@ type PortableStudyCardIdentity = Omit<PortableStudyCardRoute, 'kind'>;
 
 const log = Logger.scope('NewTab');
 type ListenInteractionMode = 'perceive' | 'recall' | 'shadow';
-interface LegacyStudyTransition {
-    stepId: NewTabStudyStepId | null;
-    listenMode?: Exclude<ListenInteractionMode, 'shadow'>;
-}
-const LEGACY_STUDY_STEP_IDS: Readonly<Record<string, NewTabStudyStepId>> = {
-    recall: 'recall-cloze',
-    kanji: 'kanji-doodle:0',
-};
 // Consolidated per-card study-step state (NB-41a). One entry per card key holds
 // every study step's in-progress answer and first-attempt outcome, replacing the
 // former parallel per-mode Maps (recallAnswers/recallOutcomes/pitchOutcomes/
@@ -713,6 +677,7 @@ export class NewTabController {
     private offlineWarmTotal = 0;
     private offlineWarmRetryTimer: number | undefined;
     private syncPendingCount = 0;
+    private syncProblem?: 'syncReviewCheck' | 'syncUnavailable';
     private lastSyncedAt: number | null = null;
     // n+1 sentence selection: once per card the example sentences from every
     // source are scored against the learner's known words and the best one
@@ -723,16 +688,10 @@ export class NewTabController {
     // dialog; later drops in the same outage queue silently. Cleared when the
     // browser reports it is back online so the next outage asks again.
     private offlineReviewingAccepted = false;
-    private immersionCache = new BoundedMap<string, Promise<ImmersionKitExample[]>>(NEW_TAB_IMMERSION_CACHE_LIMIT);
-    // Rotation cursor into immersionCache's examples; bounded with the same limit
-    // so the two stay aligned (a dropped example set simply restarts at index 0).
-    private immersionExampleIndex = new BoundedMap<string, number>(NEW_TAB_IMMERSION_CACHE_LIMIT);
-    private frontSentenceCache = new BoundedMap<string, Promise<string>>(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     private parsedSentenceCache = new Map<string, ParsedTokenCacheEntry>();
     private doodlePreviewCache = new BoundedMap<string, string>(NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT);
-    private immersionPrefetchGeneration = 0;
     private installPrompt: BeforeInstallPromptEvent | null = null;
-    private readonly immersionAudioPlayer: NewTabImmersionAudioPlayer;
+    private readonly studyExamples: StudyExamples;
     private reviewCountMode = false;
     private reviewHistoryCards: JPDBCard[] = [];
     private readonly sessionClock: StudySessionClock;
@@ -761,7 +720,6 @@ export class NewTabController {
     private readonly studyCardsByDomToken = new Map<string, JPDBCard>();
     private readonly studyStepStates = new Map<string, StudyStepState>();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
-    private readonly pitchSrs = new PitchSrsStore();
     // Pool selection (which cards the study surface renders for the current mode/
     // filter) lives in its own module; the controller delegates via thin wrappers.
     private readonly studyPool = new NewTabStudyPool({
@@ -786,7 +744,10 @@ export class NewTabController {
         loadKanjiDetails: character => this.loadKanjiDetails(character),
         renderKanjiDetails: (card, kanji, details) => this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null),
         keywordFromDetails: (card, jpdb, jiten, rtk) => this.keywordFromDetails(card, jpdb, jiten, rtk),
-        renderNewTabKanjiImmersion: (root, kanji) => this.renderNewTabKanjiImmersion(root, kanji),
+        renderNewTabKanjiImmersion: (root, kanji, card) => {
+            const mount = root.matches('[data-newtab-kanji-immersion-mount]') ? root : root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-mount]');
+            if (mount) this.studyExamples.presentSearch({ mount, card, kanji, mode: 'kanji', revealed: true });
+        },
         sourceAttributes: (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
         kanjiSourceTitle: sourceId => this.kanjiSourceTitle(sourceId),
@@ -839,7 +800,12 @@ export class NewTabController {
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
-    private studyStepOverride: { cardKey: string; id: NewTabStudyStepId } | null = null;
+    private studyStepOverride: { cardKey: string; id: NewTabStudyStepId; returnToAnswer?: boolean } | null = null;
+    private studyActivityRevision = 0;
+    private practicePanel?: PracticeSessionPanel;
+    private practiceVisible = false;
+    private practicePausedClock = false;
+    private practiceNavigationRevision = 0;
     // A freshly opened standalone Study page starts at the recognition-first
     // Word step. The preference is consumed once: moving to another card uses
     // the learner's normal configured step order, while rerenders of this first
@@ -865,7 +831,7 @@ export class NewTabController {
         'continue-batch': root => { void this.continueAfterBatch(root); },
         'study-step': (root, target) => this.activateStudyStepFromClick(root, target),
         'study-hint': (root, target) => this.revealStudyHint(root, target),
-        'dismiss-study-tour': root => { void this.dismissStudyTour(root); },
+        'return-to-review': root => this.returnToReview(root),
         'recall-submit': root => this.submitRecallAnswer(root),
         'type-word-submit': root => this.submitTypeWordAnswer(root),
         'type-word-handwriting-check': root => this.handleTypeWordHandwritingSelfCheck(root, 'reveal'),
@@ -975,7 +941,7 @@ export class NewTabController {
         this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
         this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
         this.state = startup.state;
-        if (!options.initialStudyStepId) this.applyLoadedLegacyStudyIntent(startup.legacyStudyIntent);
+        this.practiceVisible = options.surface !== 'academy' && practiceSessionTabOpen();
         if (startup.routeSearchQuery) this.searchController.setInitialQuery(startup.routeSearchQuery);
         this.stateChannel = newTabControllerStateChannel(options.surface, state => { void this.applyExternalState(state); });
         this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate(status => this.applyJpdbBridgeStatus(status));
@@ -1005,13 +971,22 @@ export class NewTabController {
             offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
             providerContextForTarget: target => newTabReviewProviderContext(this.providerContexts, target),
             submit: item => this.submitQueuedGrade(item),
-            onSubmitted: card => this.invalidateReviewSourceCache(card),
+            onSubmitted: card => this.queuedReviewSubmitted(card),
+            onProviderCompleted: target => this.reviewProviderCompleted(target),
         });
-        this.immersionAudioPlayer = new NewTabImmersionAudioPlayer({
+        this.studyExamples = new StudyExamples({
             getSettings: () => this.dependencies.getSettings(),
             immersionKit: this.dependencies.immersionKit,
+            parser: this.dependencies.parser,
+            jpdbVocabulary: this.dependencies.jpdbVocabulary,
+            parseContent: this.dependencies.parseContent,
+            sentences: {
+                peek: text => this.cachedParsedNewTabSentenceTokens(text),
+                prepare: text => this.parsedNewTabSentenceTokens(text),
+                enrich: (node, text, card, isCurrent) => this.parseNewTabSentenceElement(node, text, card, isCurrent),
+                highlight: (root, selector, card) => this.highlightNewTabParsedTarget(root, selector, card),
+            },
         });
-        void this.pitchSrs.load();
     }
 
     isCurrentPage(): boolean {
@@ -1030,6 +1005,10 @@ export class NewTabController {
         root.dataset.newtabBound = 'true';
 
         const shouldRenderContent = this.renderContentShell(root, isNew);
+        if (this.practiceVisible) {
+            await this.showPracticeSessions(root, false);
+            return;
+        }
         this.ensureSessionClock(root);
         this.syncThemeToggle(root);
         this.syncInstallAppButton(root);
@@ -1065,6 +1044,7 @@ export class NewTabController {
     }
 
     private renderNonStudyRoute(root: HTMLElement): boolean {
+        this.studyExamples.activate(this.state.route === 'stats' ? null : this.state.route);
         if (this.state.route === 'search') {
             this.searchController.renderSearch(root);
             return true;
@@ -1110,16 +1090,18 @@ export class NewTabController {
     destroy(): void {
         if (this.destroyed) return;
         this.destroyed = true;
+        this.queueSyncAgain = false;
+        this.loadGeneration++;
+        this.practicePanel?.destroy();
         cancelConnectionLostDialog();
         this.stopSessionClock();
         if (this.ownsSessionClock) this.sessionClock.dispose();
         this.clearListenRecording();
-        this.pitchSrs.flushSync();
         this.stateChannel.close();
         this.unsubscribeJpdbBridge();
         this.rootEventController?.abort();
         this.searchController.destroy();
-        this.frontSentenceCache.clear();
+        this.studyExamples.dispose();
         this.parsedSentenceCache.clear();
         this.studySentenceOverrides.clear();
         this.nPlusOneSentenceRequests.clear();
@@ -1181,6 +1163,7 @@ export class NewTabController {
     }
 
     async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection, expectedCard?: JPDBCard): Promise<{ preserveLookup: boolean }> {
+        if (this.practiceVisible) return { preserveLookup: false };
         if (expectedCard && !this.isCurrentLookupGradeCard(expectedCard)) return { preserveLookup: false };
         const submitted = await this.gradeCurrentCard(grade, target, expectedCard);
         return { preserveLookup: !submitted };
@@ -1190,7 +1173,9 @@ export class NewTabController {
         const current = this.visibleWords[this.index];
         return Boolean(
             current
+            && !this.practiceVisible
             && this.state.revealAnswer
+            && this.studySessionForCard(current).activity === 'review'
             && this.sameGradeCardIdentity(current, card)
             && this.canReviewCard(current),
         );
@@ -1249,6 +1234,7 @@ export class NewTabController {
         this.ankiDeckDueCountsCache = undefined;
         this.lastUndoableReview = undefined;
         this.pendingLiveJpdbGrade = null;
+        this.studyActivityRevision += 1;
         this.studyStepOverride = null;
         this.pinnedStudyPlan = null;
         this.statsStudyFilter = null;
@@ -1289,9 +1275,7 @@ export class NewTabController {
         this.liveCards.clear();
         this.keywordCache.clear();
         this.kanjiDetailSource.clear();
-        this.immersionCache.clear();
-        this.immersionExampleIndex.clear();
-        this.frontSentenceCache.clear();
+        this.studyExamples.reset();
         this.parsedSentenceCache.clear();
         this.targetResources.clear();
         this.studySentenceOverrides.clear();
@@ -1301,7 +1285,6 @@ export class NewTabController {
         this.typeHandwritingProgress.clear();
         this.typeHandwritingSelfCheck.clear();
         this.studyHintDepth.clear();
-        this.immersionAudioPlayer.reset();
     }
 
     invalidateForFactoryReset(): void {
@@ -1320,11 +1303,11 @@ export class NewTabController {
     invalidateForTargetChange(): void {
         this.loadGeneration++;
         this.navigationGeneration++;
-        this.immersionPrefetchGeneration++;
         this.resetLoadedSourceState();
         this.state.revealAnswer = false;
         this.clearTargetBoundState();
         this.pendingLiveJpdbGrade = null;
+        this.studyActivityRevision += 1;
         this.studyStepOverride = null;
         this.pinnedStudyPlan = null;
         this.invalidateBrowsePool();
@@ -1373,6 +1356,55 @@ export class NewTabController {
             appNavigation: showChrome ? this.renderAppNavigation(language) : null,
             showSessionClockControl: this.options.showSessionClockControl !== false,
         });
+    }
+
+    private async showPracticeSessions(root: HTMLElement, navigation = true): Promise<void> {
+        if (this.options.surface === 'academy') return;
+        if (navigation) this.practiceNavigationRevision += 1;
+        this.practiceVisible = true;
+        root.dataset.practiceActive = 'true';
+        root.querySelectorAll<HTMLElement>(`${newTabActionSelector('mode')}, ${newTabActionSelector('practice-sessions')}`).forEach(button => {
+            const active = button.dataset.newtabAction === 'practice-sessions';
+            button.dataset.active = String(active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+        if (this.sessionClock.snapshot().state === 'running') {
+            this.practicePausedClock = true;
+            this.sessionClock.pause();
+        }
+        this.studyExamples.activate(null);
+        this.practicePanel ??= new PracticeSessionPanel({
+            language: () => this.language(),
+            selection: () => this.practiceSelection(),
+            leave: () => { const current = this.currentRoot(); if (current) void this.leavePracticeSessions(current, 'study'); },
+        });
+        await this.practicePanel.show(root.querySelector<HTMLElement>('.jpdb-reader-newtab-shell') ?? root);
+    }
+
+    private practiceSelection(): { title: string; material: PracticeMaterial[] } {
+        const cards = new Map(this.visibleWords.filter(newTabCardMatchesActiveTarget).map(card => [this.cardSelectionKey(card), card]));
+        return {
+            title: this.sourceLabel || uiText(this.language(), 'practiceTitle'),
+            material: [...cards].map(([id, card]) => ({
+                id, language: newTabCardTarget(card).language, spelling: card.spelling, reading: newTabCardReading(card),
+                meaning: firstCardMeaning(card), sentence: this.recallSentenceFromCard(card),
+            })),
+        };
+    }
+
+    private async leavePracticeSessions(root: HTMLElement, route: NewTabRoute): Promise<void> {
+        const revision = ++this.practiceNavigationRevision;
+        const panel = this.practicePanel;
+        if (!panel || !await panel.pause() || revision !== this.practiceNavigationRevision || this.destroyed || !root.isConnected) return;
+        panel.hide();
+        this.practiceVisible = false;
+        delete root.dataset.practiceActive;
+        root.querySelectorAll<HTMLElement>(newTabActionSelector('practice-sessions')).forEach(button => {
+            button.dataset.active = 'false'; button.setAttribute('aria-pressed', 'false');
+        });
+        if (this.practicePausedClock) this.sessionClock.resume();
+        this.practicePausedClock = false;
+        this.setState({ route }, root, { preserveWord: true });
     }
 
     private renderOverflowMenu(language: ReaderSettings['interfaceLanguage']): HTMLElement {
@@ -1486,7 +1518,6 @@ export class NewTabController {
      * surface's event contract instead of 200 lines of inline closures.
      */
     private bindRootEvents(root: HTMLElement): void {
-        this.migrateLegacyState(this.visibleWords[this.index]);
         this.rootEventController?.abort();
         const controller = new AbortController();
         const options = { signal: controller.signal };
@@ -1497,6 +1528,12 @@ export class NewTabController {
         }
         for (const [target, type, handle] of this.pageEventBindings(root)) {
             target.addEventListener(type, handle, options);
+        }
+        if (this.gradeQueue.usesSharedOwner()) {
+            const unsubscribe = subscribeToStoredValueChanges(REVIEW_QUEUE_OWNER_KEY, () => {
+                if (!controller.signal.aborted) void this.flushQueuedGrades().catch(error => log.warn('Review owner refresh failed', error));
+            });
+            controller.signal.addEventListener('abort', unsubscribe, { once: true });
         }
 
         installNewTabSwipeGesture({
@@ -1616,7 +1653,7 @@ export class NewTabController {
         }
         const targetSelect = target?.closest<HTMLSelectElement>('[data-newtab-grade-target-select]');
         if (targetSelect && root.contains(targetSelect)) {
-            this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+            this.updateMainGradeTargetLabel(root, targetSelect.options[targetSelect.selectedIndex] ?? null);
             targetSelect.closest<HTMLDetailsElement>('[data-newtab-grade-target]')?.removeAttribute('open');
             return;
         }
@@ -1784,6 +1821,7 @@ export class NewTabController {
     }
 
     private handleRootClick(root: HTMLElement, event: MouseEvent): void {
+        if (this.practiceVisible && event.target instanceof Node && this.practicePanel?.element.contains(event.target)) return;
         if (handleReaderActionPillLink(event)) return;
         const request = this.rootClickRequest(event);
         if (!request) return;
@@ -1821,7 +1859,9 @@ export class NewTabController {
     }
 
     private handleRootKeydown(root: HTMLElement, event: KeyboardEvent): void {
-        if (!root.isConnected) return;
+        if (!isDirectTrustedReaderInteraction(event) || event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229) return;
+        if (this.practiceVisible) return;
+        if (!root.isConnected || root.closest('[inert]')) return;
         const target = eventTargetElement(event.target);
         if (this.shouldIgnoreRootKeydown(root)) return;
         if (this.handleImmersionTranslationKeydown(root, event, target)) return;
@@ -1860,7 +1900,7 @@ export class NewTabController {
         const direction = this.studyNavigationDirection(event, settings);
         if (direction) {
             event.preventDefault();
-            if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
+            this.showWordInDirection(direction);
             return;
         }
         if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
@@ -1915,28 +1955,24 @@ export class NewTabController {
 
     private handleGradeShortcutKeydown(root: HTMLElement, event: KeyboardEvent, settings: ReaderSettings): void {
         if (!this.state.revealAnswer) return;
-        const card = this.visibleWords[this.index];
-        const candidates = usesBunproFsrsGradeScale(card)
-            ? BUNPRO_FSRS_REVIEW_SHORTCUTS
-            : this.currentStudyUsesTwoButtonGradeScale(root, settings)
-                ? TWO_BUTTON_REVIEW_SHORTCUTS
-                : FIVE_BUTTON_REVIEW_SHORTCUTS;
-        const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
-        if (!grade) return;
-        const button = root.querySelector<HTMLButtonElement>(newTabActionSelector('grade', `[data-grade="${grade}"]:not([disabled])`));
+        const button = reviewShortcutButton(root.querySelector('[data-newtab-controls]') ?? root, event, settings);
         if (!button) return;
         event.preventDefault();
         this.dismissKeyHints(root);
-        button.click();
+        dispatchAuthorizedReaderControlClick(button);
     }
 
     private currentStudyUsesTwoButtonGradeScale(root: HTMLElement, settings: ReaderSettings): boolean {
-        if (usesTwoButtonNewTabGradeScale(settings, this.visibleWords[this.index])) return true;
         // The rendered controls are the authoritative interaction surface. A
         // live queue refresh can replace the backing array while the revealed
         // card is still on screen; keep keyboard/swipe input aligned with the
         // visible Hard/Good row until that render is replaced.
-        return Boolean(root.querySelector(`[data-newtab-study] ${newTabActionSelector('grade', '[data-grade="pass"]')}`));
+        const buttons = root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade'));
+        for (const button of buttons) {
+            const grade = readCardCommandCapability(button)?.grade;
+            if (grade && !button.closest('[hidden]')) return grade === 'fail' || grade === 'pass';
+        }
+        return usesTwoButtonNewTabGradeScale(settings, this.visibleWords[this.index]);
     }
 
     private canRevealFromEnterTarget(root: HTMLElement, target: HTMLElement | null): boolean {
@@ -1956,10 +1992,10 @@ export class NewTabController {
             event.preventDefault();
             const kanjiImmersion = target.closest<HTMLElement>('[data-newtab-kanji-immersion]');
             if (kanjiImmersion && root.contains(kanjiImmersion)) {
-                this.performNewTabKanjiImmersionAction(root, kanjiImmersion, immersionAction);
+                if (immersionAction === 'audio' || immersionAction === 'next' || immersionAction === 'previous') this.studyExamples.act(immersionAction, kanjiImmersion);
             } else {
                 const immersion = target.closest<HTMLElement>('.jpdb-reader-newtab-immersion') ?? root;
-                this.performNewTabImmersionAction(root, immersion, immersionAction);
+                if (immersionAction === 'audio' || immersionAction === 'next' || immersionAction === 'previous') this.studyExamples.act(immersionAction, immersion);
             }
             return true;
         }
@@ -1967,6 +2003,16 @@ export class NewTabController {
     }
 
     private handleRootUtilityClick(root: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
+        if (action === 'recover-review-recording') {
+            event.preventDefault();
+            void this.recoverReviewRecording(root);
+            return true;
+        }
+        if (action === 'practice-sessions') {
+            event.preventDefault();
+            void this.showPracticeSessions(root);
+            return true;
+        }
         if (action === 'settings') {
             event.preventDefault();
             this.dependencies.showSettings('api');
@@ -2147,6 +2193,10 @@ export class NewTabController {
         event.preventDefault();
         const requested = target.closest<HTMLElement>('[data-mode]')?.dataset.mode;
         const route: NewTabRoute = requested === 'search' || requested === 'stats' ? requested : 'study';
+        if (this.practiceVisible) {
+            void this.leavePracticeSessions(root, route);
+            return true;
+        }
         if (route === 'study') {
             const step = requested === 'kanji' ? this.studyStepForKind('kanji-doodle') : null;
             this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
@@ -2173,13 +2223,18 @@ export class NewTabController {
     private activateStudyStep(root: HTMLElement, step: NewTabStudyStep): void {
         if (step.kind === 'final-reveal') {
             const card = this.visibleWords[this.index];
+            this.studyActivityRevision += 1;
             this.studyStepOverride = null;
             if (card?.reviewSource === 'jpdb-live' && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
             this.setState({ route: 'study', revealAnswer: true }, root, { preserveWord: true });
             this.maybeAutoPlayRevealedImmersionAudio(card, true);
             return;
         }
+        const card = this.visibleWords[this.index];
+        const returnToAnswer = this.studyStepOverride?.cardKey === (card && cardKey(card))
+            ? this.studyStepOverride.returnToAnswer ?? this.state.revealAnswer : this.state.revealAnswer;
         this.setStudyStepOverrideForCurrentCard(step.id);
+        if (this.studyStepOverride) this.studyStepOverride.returnToAnswer = returnToAnswer;
         // A kanji-doodle step on a WORD card renders in-session via the step
         // override — switching the old queue mode to 'kanji' here jumped to the kanji
         // QUEUE, re-resolving the visible card to a synthetic per-kanji card
@@ -2192,18 +2247,14 @@ export class NewTabController {
         this.setState({ route: 'study', revealAnswer: false }, root, { preserveWord: true });
     }
 
-    private async dismissStudyTour(root: HTMLElement): Promise<void> {
-        const settings = this.dependencies.getSettings();
-        if (!settings.newTabStudyTourSeen) {
-            settings.newTabStudyTourSeen = true;
-            await this.dependencies.onSettingsChange(['newTabStudyTourSeen']);
-        }
-        const card = this.visibleWords[this.index];
-        if (card) this.renderWord(root, card);
+    private returnToReview(root: HTMLElement): void {
+        const revealAnswer = this.studyStepOverride?.returnToAnswer ?? false;
+        this.studyActivityRevision += 1;
+        this.studyStepOverride = null;
+        this.setState({ route: 'study', revealAnswer }, root, { preserveWord: true });
     }
 
     private navigateFromPointer(direction: PointerNavigationDirection, event: MouseEvent): void {
-        if (this.navigateStudyStep(direction)) return;
         if (!this.acceptPointerNavigation(direction, event)) return;
         this.showWordInDirection(direction);
     }
@@ -2213,39 +2264,30 @@ export class NewTabController {
         else this.showPreviousWord();
     }
 
-    private navigateStudyStep(direction: PointerNavigationDirection): boolean {
-        const root = this.currentRoot();
-        const card = this.visibleWords[this.index];
-        if (!root || !card || this.state.route === 'search' || this.state.route === 'stats') return false;
-        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-        const activeIndex = session.steps.findIndex(step => step.id === session.activeStep.id);
-        if (activeIndex < 0) return false;
-        const nextIndex = direction === 'next' ? activeIndex + 1 : activeIndex - 1;
-        const next = session.steps[nextIndex];
-        if (!next) return false;
-        this.activateStudyStep(root, next);
-        return true;
-    }
 
     private gradeFromStudyClick(root: HTMLElement, target: HTMLElement): void {
-        const command = readCardCommandCapability(target.closest('[data-grade]'));
-        if (command?.grade) void this.gradeCurrentCard(command.grade, this.selectedMainGradeTarget(root));
+        const button = target.closest<HTMLButtonElement>('button');
+        const command = readCardCommandCapability(button);
+        const expectedCard = reviewCardForGradeButton(button);
+        if (button && !button.disabled && command?.grade && expectedCard && privateReviewGradeAllowed(button, command)) {
+            void this.gradeCurrentCard(command.grade, this.selectedMainGradeTarget(root), expectedCard);
+        }
     }
 
     private handleNewTabSwipe(root: HTMLElement, action: NewTabSwipeAction, direction: NewTabSwipeDirection): void {
-        // The final-reveal grade swipe wins whenever it is armed: a horizontal
-        // drag there submits again/good exactly as before. Everywhere else the
-        // same drag walks the study steps instead of grading.
+        if (this.practiceVisible) return;
+        // Grade only a revealed native review; otherwise move between cards.
         if (this.canSwipeCurrentStudyCard()) {
             const settings = this.dependencies.getSettings();
             const grade = newTabSwipeGrade(action, { twoButtonReviews: this.currentStudyUsesTwoButtonGradeScale(root, settings) });
-            void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
+            const button = root.querySelector<HTMLButtonElement>(newTabActionSelector('grade'));
+            const command = readCardCommandCapability(button);
+            const expectedCard = reviewCardForGradeButton(button);
+            if (button && command && expectedCard && privateReviewGradeAllowed(button, command)) void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root), expectedCard);
             return;
         }
         if (!this.swipeStartAllowedForStepNavigation(null)) return;
-        // Carousel physics, matching the drag: swipe LEFT pulls the next step in
-        // (forward), swipe RIGHT brings the previous one back.
-        this.navigateStudyStep(direction === 'left' ? 'next' : 'previous');
+        this.showWordInDirection(direction === 'left' ? 'next' : 'previous');
     }
 
     // Distinguishes the grade swipe (red/green fail/pass edge glow) from a
@@ -2261,6 +2303,7 @@ export class NewTabController {
     }
 
     private canSwipeCurrentStudyCard(): boolean {
+        if (this.practiceVisible) return false;
         if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
         const card = this.visibleWords[this.index];
         // Swipes submit real provider grades, so they obey the same gate as
@@ -2287,6 +2330,7 @@ export class NewTabController {
     // test mirrors isNewTabStudyInteractiveTarget; the engine already drops the
     // gesture on vertical intent, so scrolling stays intact.
     private swipeStartAllowedForStepNavigation(target: HTMLElement | null): boolean {
+        if (this.practiceVisible) return false;
         if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
         const card = this.visibleWords[this.index];
         if (!card || this.state.route === 'search' || this.state.route === 'stats') return false;
@@ -2579,11 +2623,11 @@ export class NewTabController {
 
     private toggleReveal(root: HTMLElement): void {
         const current = this.visibleWords[this.index];
-        if (current && !this.isFinalRevealStep(current)) {
-            if (this.navigateStudyStep('next')) return;
+        const willReveal = this.activeStudyStepIsListen() ? !this.listenRevealed : !this.state.revealAnswer;
+        if (this.activeStudyStepIsListen()) this.listenRevealed = willReveal;
+        if (current?.reviewSource === 'jpdb-live' && willReveal && this.studySessionForCard(current).activity === 'review') {
+            this.dependencies.jpdbReviewBridge.reveal();
         }
-        const willReveal = !this.state.revealAnswer;
-        if (current?.reviewSource === 'jpdb-live' && willReveal) this.dependencies.jpdbReviewBridge.reveal();
         this.setState({ revealAnswer: willReveal }, root, { preserveWord: true });
         this.maybeAutoPlayRevealedImmersionAudio(current, willReveal);
     }
@@ -2594,7 +2638,7 @@ export class NewTabController {
         if (!settings.immersionKitEnabled || !settings.immersionKitAutoPlayAudio) return;
         if (!settings.audioEnabled) return;
         if (!canAttemptAudiblePlayback(true)) return;
-        void this.playCurrentImmersionAudio(card);
+        this.studyExamples.act('audio');
     }
 
     private applyPalette(): void {
@@ -3047,10 +3091,11 @@ export class NewTabController {
         return {
             label,
             load: async () => {
-                const snapshot = await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, {
-                    language: activeLearningTarget().language,
-                });
-                return snapshot.cards
+                const options = { language: activeLearningTarget().language };
+                const cards = adapter.collection
+                    ? await adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)
+                    : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)).cards;
+                return cards
                     .filter(newTabCardMatchesActiveTarget)
                     .map(newTabCardFromSrsReviewable)
                     .filter((card): card is JPDBCard => card !== null);
@@ -3892,7 +3937,7 @@ export class NewTabController {
     }
 
     private isCurrentLoad(loadGeneration: number): boolean {
-        return this.loadGeneration === loadGeneration;
+        return !this.destroyed && this.loadGeneration === loadGeneration;
     }
 
     private persistSourceSettingChange(source: ConcreteNewTabWordSource): Promise<void> {
@@ -4012,11 +4057,12 @@ export class NewTabController {
             || (this.canUseBunproSource() && !isBunproFrontendCredentialExpired(settings));
     }
 
-    private async applyExternalState(state: NewTabUiState): Promise<void> {
-        if (JSON.stringify(this.state) === JSON.stringify(state)) return;
+    private async applyExternalState(state: SharedNewTabViewState): Promise<void> {
+        const nextState = { ...state, revealAnswer: this.state.revealAnswer };
+        if (JSON.stringify(this.state) === JSON.stringify(nextState)) return;
         const preferredCardKey = this.currentVisibleWordKey();
         const sourceChanged = this.state.source !== state.source;
-        this.state = state;
+        this.state = sourceChanged ? { ...nextState, revealAnswer: false } : nextState;
         const root = this.currentRoot();
         if (!root) return;
         this.syncMode(root);
@@ -4048,6 +4094,7 @@ export class NewTabController {
     }
 
     private applyWords(root: HTMLElement, preferStoredWord: boolean, preferredCardKey = '', options: { preserveOrder?: boolean } = {}): void {
+        if (this.practiceVisible) return;
         this.syncMode(root);
         if (this.state.route === 'search') {
             this.ensureStudySurface(root);
@@ -4068,6 +4115,9 @@ export class NewTabController {
         if (!this.ensureVisibleWords(root)) return;
         if (preferredKey || shouldResolveInitialWordIndex(poolChanged, preferStoredWord)) this.index = this.resolveInitialIndex(preferStoredWord, preferredKey);
         this.index = Math.max(0, Math.min(this.index, this.visibleWords.length - 1));
+        if (preferredCardKey && !this.cardMatchesSelectionKey(this.visibleWords[this.index], preferredCardKey)) {
+            this.state = { ...this.state, revealAnswer: false };
+        }
         this.renderWord(root, this.visibleWords[this.index]);
     }
 
@@ -4097,6 +4147,7 @@ export class NewTabController {
     private ensureVisibleWords(root: HTMLElement): boolean {
         if (this.visibleWords.length) return true;
         this.index = 0;
+        this.state = { ...this.state, revealAnswer: false };
         this.renderEmpty(root, APP_NAME, this.text(this.emptyStudyMessageKey()));
         return false;
     }
@@ -4166,7 +4217,7 @@ export class NewTabController {
     }
 
     private rememberReviewHistoryCard(card: JPDBCard): void {
-        if (!this.reviewCountMode || !this.isReviewCard(card)) return;
+        if (!this.reviewCountMode || !this.isReviewCard(card) || requiresFreshProviderReview(card)) return;
         const key = cardKey(card);
         this.reviewHistoryCards = [
             normalizeNewTabCard(card),
@@ -4347,10 +4398,7 @@ export class NewTabController {
     }
 
     private renderWord(root: HTMLElement, card: JPDBCard): void {
-        // Embedded callers and older persisted fixtures can still inject the
-        // pre-NB-40 mode shape. Translate it before any route-owned side
-        // effects (stored position or URL history), not midway through render.
-        this.migrateLegacyState(card);
+        if (this.practiceVisible) return;
         if (this.initialStudyStepIdPending) {
             this.setStudyStepOverrideForCard(card, this.initialStudyStepIdPending);
             this.initialStudyStepIdPending = null;
@@ -4370,6 +4418,7 @@ export class NewTabController {
         root.classList.toggle('jpdb-reader-newtab-review-mode', this.canReviewCard(card));
         if (study) {
             study.dataset.newtabStudyStep = session.activeStep.kind;
+            study.dataset.newtabActivity = session.activity;
             study.dataset.newtabStudyFlow = session.steps.map(step => step.kind).join(' ');
             study.dataset.newtabGradeStep = session.gradeStep.kind;
         }
@@ -4378,7 +4427,6 @@ export class NewTabController {
         const state = primaryCardState(card.cardState);
 
         this.renderStudySteps(slots.steps, session);
-        this.renderStudyTour(slots.tour, session, card);
         this.renderPromptForMode(slots, card, state, renderAsKanji);
         this.renderStudyRevealHintSummary(slots, card);
 
@@ -4386,63 +4434,19 @@ export class NewTabController {
         if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
         this.renderControls(slots, card);
         this.renderStatus(slots.status, card);
-        const prefetchGeneration = ++this.immersionPrefetchGeneration;
         if (!renderAsKanji) this.dependencies.preloadWordAudio?.(card);
         this.prefetchNearbyWordPitch(card);
-        this.prefetchNearbyImmersionExamples(card, prefetchGeneration);
+        const nearby = this.visibleWords[(this.index + 1) % this.visibleWords.length];
+        if (!renderAsKanji) this.studyExamples.prefetch(nearby && cardKey(nearby) !== cardKey(card) ? [card, nearby] : [card]);
     }
 
     private studySessionForCard(card: JPDBCard, renderAsKanji = this.shouldRenderCardAsKanji(card)): NewTabStudySession {
-        this.migrateLegacyState(card);
-        const settings = this.dependencies.getSettings();
         return createNewTabStudySession(card, {
             revealAnswer: this.state.revealAnswer,
             renderAsKanji,
             ...this.pinnedStudyPlanInputs(card),
-            stepOrder: settings.newTabStudyStepOrder,
-            disabledSteps: settings.newTabStudyDisabledSteps,
             activeStepId: this.studyStepOverrideForCard(card),
         });
-    }
-
-    // One compatibility seam replaces the former mode/step reconciliation
-    // sites. Persisted pre-NB-40 state and older embedded callers may still
-    // provide `mode`/`listenSubMode`; consume those fields once, translate them
-    // to the route plus active step, and keep the live state route-only.
-    private migrateLegacyState(card?: JPDBCard): void {
-        const legacy = this.state as NewTabUiState & { mode?: unknown; listenSubMode?: unknown };
-        if (legacy.mode === undefined) return;
-        const mode = legacy.mode;
-        const listenMode = legacy.listenSubMode;
-        const { mode: _mode, listenSubMode: _listenSubMode, ...current } = legacy;
-        void _mode;
-        void _listenSubMode;
-        this.state = {
-            ...normalizeNewTabUiState(current),
-            route: legacyNewTabRoute(mode),
-        };
-        this.applyLegacyStudyTransition(card, legacyStudyTransition(mode, listenMode));
-    }
-
-    private applyLegacyStudyTransition(card: JPDBCard | undefined, transition: LegacyStudyTransition): void {
-        if (transition.listenMode) this.listenInteractionMode = transition.listenMode;
-        if (!transition.stepId) return;
-        if (card) this.setStudyStepOverrideForCard(card, transition.stepId);
-        else this.initialStudyStepIdPending = transition.stepId;
-    }
-
-    private applyLoadedLegacyStudyIntent(intent: LegacyNewTabStudyIntent | null): void {
-        if (!intent) return;
-        if (intent.kind === 'recall') {
-            this.initialStudyStepIdPending = 'recall-cloze';
-            return;
-        }
-        if (intent.kind === 'kanji') {
-            if (usesJapaneseCharacterStudy()) this.initialStudyStepIdPending = 'kanji-doodle:0';
-            return;
-        }
-        this.listenInteractionMode = intent.interaction === 'recall' ? 'recall' : 'perceive';
-        this.initialStudyStepIdPending = intent.interaction === 'shadow' ? 'speaking' : 'listen-pitch';
     }
 
     // The step plan is PINNED per card at first presentation: async sentence or
@@ -4490,6 +4494,7 @@ export class NewTabController {
     }
 
     private setStudyStepOverrideForCard(card: JPDBCard | null, id: NewTabStudyStepId | null): void {
+        this.studyActivityRevision += 1;
         this.studyStepOverride = card && id ? { cardKey: cardKey(card), id } : null;
     }
 
@@ -4505,7 +4510,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return null;
         const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-        return session.steps.find(matches) ?? null;
+        return session.practiceSteps.find(matches) ?? session.steps.find(matches) ?? null;
     }
 
     private studyStepRendersKanji(session: NewTabStudySession): boolean {
@@ -4522,111 +4527,13 @@ export class NewTabController {
 
     private renderStudySteps(slot: HTMLElement | null, session: NewTabStudySession): void {
         if (!slot) return;
-        if (session.steps.length <= 1 || this.state.route === 'search' || this.state.route === 'stats') {
-            slot.replaceChildren();
-            slot.hidden = true;
-            return;
-        }
-        slot.hidden = false;
-        replaceChildrenWith(slot, session.steps.map((step, index) => this.studyStepButton(step, index, session)));
-    }
-
-    private studyStepButton(step: NewTabStudyStep, index: number, session: NewTabStudySession): HTMLButtonElement {
-        const active = step.id === session.activeStep.id;
-        return el('button', {
-            type: 'button',
-            class: 'jpdb-reader-newtab-study-step',
-            dataset: {
-                newtabAction: newTabAction('study-step'),
-                studyStepId: step.id,
-                studyStepKind: step.kind,
-                active: String(active),
-                gradeable: String(step.gradeable),
-            },
-            role: 'listitem',
-            'aria-current': active ? 'step' : undefined,
-            'aria-label': `${index + 1}. ${this.studyStepLabel(step, session)}`,
-            title: step.label,
-        },
-            el('span', { class: 'jpdb-reader-newtab-study-step-index' }, String(index + 1)),
-            el('span', { class: 'jpdb-reader-newtab-study-step-label' }, this.studyStepLabel(step, session)),
-        );
-    }
-
-    // The doodle step tests recall of the kanji, so its chip must not print the
-    // answer character before the reveal — number the kanji steps instead
-    // (Kanji 1 / Kanji 2), unveiling the glyph only once answers are shown.
-    private studyStepLabel(step: NewTabStudyStep, session: NewTabStudySession): string {
-        if (!step.kanji) return step.label;
-        if (this.state.revealAnswer) return `${step.label} ${step.kanji}`;
-        const kanjiSteps = session.steps.filter(candidate => candidate.kind === 'kanji-doodle');
-        return kanjiSteps.length > 1 ? `${step.label} ${kanjiSteps.indexOf(step) + 1}` : step.label;
-    }
-
-    private renderStudyTour(slot: HTMLElement | null, session: NewTabStudySession, card: JPDBCard): void {
-        if (!slot) return;
-        const settings = this.dependencies.getSettings();
-        const audioAvailability = this.studyAudioAvailability(card);
-        const showTour = !settings.newTabStudyTourSeen && this.state.route === 'study' && session.steps.length > 1;
-        if (showTour) {
-            slot.hidden = false;
-            slot.dataset.studyTourMode = 'guide';
-            replaceChildrenWith(slot,
-                el('div', { class: 'jpdb-reader-newtab-study-tour-body' },
-                    el('p', { class: 'jpdb-reader-newtab-study-tour-intro' }, this.text('studyTourIntro')),
-                    el('ol', { class: 'jpdb-reader-newtab-study-tour-list' },
-                        session.steps.map((step, index) => this.studyTourStep(step, index))),
-                    audioAvailability,
-                ),
-                el('button', { type: 'button', dataset: { newtabAction: newTabAction('dismiss-study-tour') } }, this.text('studyTourStart')),
-            );
-            return;
-        }
-        if (audioAvailability && this.state.route === 'study') {
-            slot.hidden = false;
-            slot.dataset.studyTourMode = 'availability';
-            replaceChildrenWith(slot, audioAvailability);
-            return;
-        }
-        slot.hidden = true;
-        delete slot.dataset.studyTourMode;
-        slot.replaceChildren();
-    }
-
-    private studyAudioAvailability(card: JPDBCard): HTMLParagraphElement | null {
-        const target = newTabCardTarget(card);
-        if (target.capabilities.audio) return null;
-        const disabled = new Set(this.dependencies.getSettings().newTabStudyDisabledSteps);
-        const modes = [
-            disabled.has('listen-pitch') ? null : { kind: 'listen-pitch', label: this.text('studySummaryListen') },
-            disabled.has('speaking') ? null : { kind: 'speaking', label: this.text('studySummarySpeaking') },
-        ].filter((mode): mode is { kind: 'listen-pitch' | 'speaking'; label: string } => mode !== null);
-        if (!modes.length) return null;
-        return el('p', {
-            class: 'jpdb-reader-newtab-study-availability',
-            role: 'note',
-            dataset: {
-                studyUnavailableModes: modes.map(mode => mode.kind).join(' '),
-                studyUnavailableReason: 'target-audio',
-            },
-        }, this.formatNewTabText('studyAudioAvailability', {
-            language: languageDisplayName(target.language, this.resolvedLanguage()),
-            modes: modes.map(mode => mode.label).join(' + '),
-        }));
-    }
-
-    private studyTourStep(step: NewTabStudyStep, index: number): HTMLLIElement {
-        return el('li', { class: 'jpdb-reader-newtab-study-tour-step', dataset: { gradeable: String(step.gradeable) } },
-            el('span', { class: 'jpdb-reader-newtab-study-tour-index' }, String(index + 1)),
-            el('span', { class: 'jpdb-reader-newtab-study-tour-copy' },
-                el('span', { class: 'jpdb-reader-newtab-study-tour-label' }, step.label),
-                el('span', { class: 'jpdb-reader-newtab-study-tour-note' }, this.text(studyTourCopyKey(step.kind))),
-            ),
-        );
+        slot.hidden = this.options.surface !== 'academy' || this.state.route !== 'study';
+        replaceChildrenWith(slot, slot.hidden ? null : renderStudyActivityControls(session, this.language()));
     }
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>, renderAsKanji = this.shouldRenderCardAsKanji(card)): void {
         const step = this.studySessionForCard(card, renderAsKanji).activeStep;
+        if (renderAsKanji || step.kind === 'kanji-doodle' || step.kind === 'listen-pitch' || step.kind === 'speaking') this.studyExamples.present(null);
         if (renderAsKanji) this.renderKanjiPrompt(slots, card, step.kanji);
         // A word card's kanji-doodle steps render in-session (the kanji QUEUE
         // is only for real kanji cards) — without this branch the Kanji 2 chip
@@ -4650,7 +4557,7 @@ export class NewTabController {
         prompt.classList.remove('jpdb-reader-newtab-kanji-prompt');
         if (slots.answer) replaceChildrenWith(slots.answer);
         if (slots.meaning) replaceChildrenWith(slots.meaning);
-        const item = this.pitchSrs.ensureFromCard(card, Date.now());
+        const item = pitchSeedFromCard(card, Date.now());
         if (!item) {
             this.listenItem = null;
             // Listen/Speak steps exist for every provider, but SRS-adapter cards
@@ -4793,21 +4700,6 @@ export class NewTabController {
         void this.playListenModelAudio();
     }
 
-    private advanceListen(_root: HTMLElement): void {
-        this.listenItem = null;
-        this.listenSelectedPosition = null;
-        this.listenRevealed = false;
-        this.listenOutcome = null;
-        this.listenContrastCard = null;
-        this.listenAudioGeneration += 1; // invalidate any in-flight model/contrast clip
-        this.clearListenSpeakingScore();
-        this.clearListenRecording();
-        if (this.navigateStudyStep('next')) return;
-        // Legacy standalone listen fallback: if there is no next merged study
-        // step, keep the old pitch-card cycling behavior.
-        this.visibleWords = this.studyPoolForCurrentMode();
-        this.showNextWord();
-    }
 
     // Keyboard for Listen: digits 0-N pick the downstep, configured Study keys
     // advance within the merged session, and configured audio keys replay the model.
@@ -4825,7 +4717,7 @@ export class NewTabController {
         const direction = this.studyNavigationDirection(event, settings);
         if (!direction) return false;
         event.preventDefault();
-        if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
+        this.showWordInDirection(direction);
         return true;
     }
 
@@ -4833,7 +4725,7 @@ export class NewTabController {
         if (!this.matchesStudyRevealShortcut(root, event, target, settings)) return false;
         event.preventDefault();
         this.dismissKeyHints(root);
-        this.advanceListen(root);
+        this.toggleReveal(root);
         return true;
     }
 
@@ -5020,9 +4912,8 @@ export class NewTabController {
     }
 
     private revealButtonLabel(): string {
-        const current = this.visibleWords[this.index];
-        if (current && !this.isFinalRevealStep(current)) return this.text('continueStudying');
-        return this.text(this.state.revealAnswer ? 'hide' : 'reveal');
+        const revealed = this.activeStudyStepIsListen() ? this.listenRevealed : this.state.revealAnswer;
+        return this.text(revealed ? 'hide' : 'reveal');
     }
 
     private newTabCountLabel(card: JPDBCard): string {
@@ -5071,6 +4962,7 @@ export class NewTabController {
     // Eventually-consistent sync status: how many grades are still queued to sync
     // back to the providers, or a synced confirmation once the queue drains.
     private syncStatusSegment(): string {
+        if (this.syncProblem) return this.text(this.syncProblem);
         if (this.syncPendingCount > 0) return `${this.text('syncPending')} ${this.syncPendingCount}`;
         return this.lastSyncedAt != null ? this.text('syncSynced') : '';
     }
@@ -5771,7 +5663,6 @@ export class NewTabController {
     private studySlots(root: HTMLElement): NewTabStudySlots {
         return {
             steps: root.querySelector<HTMLElement>('[data-newtab-study-steps]'),
-            tour: root.querySelector<HTMLElement>('[data-newtab-study-tour]'),
             progress: null,
             timer: null,
             prompt: root.querySelector<HTMLElement>('[data-newtab-prompt]'),
@@ -5979,8 +5870,9 @@ export class NewTabController {
     }
 
     private studyStepIdForKanji(card: JPDBCard, kanji: string): NewTabStudyStepId {
-        return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).steps
-            .find(step => step.kind === 'kanji-doodle' && step.kanji === kanji)?.id ?? 'kanji-doodle';
+        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
+        return session.activeStep.kind === 'kanji-doodle' ? session.activeStep.id
+            : session.practiceSteps.find(step => step.kanji === kanji)?.id ?? 'kanji-doodle';
     }
 
     private revealedKanjiAnswer(card: JPDBCard, kanji: string): HTMLElement {
@@ -6042,7 +5934,7 @@ export class NewTabController {
     }
 
     private renderWordPrompt(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
-        if (this.renderAnkiRenderedWordPrompt(slots, card)) return;
+        if (this.renderAnkiRenderedWordPrompt(slots, card)) { this.studyExamples.present(null); return; }
         if (slots.prompt) {
             const sentence = this.frontSentenceFromCard(card);
             this.renderWordPromptContent(slots.prompt, card, state, sentence);
@@ -6052,14 +5944,14 @@ export class NewTabController {
         }
         this.renderWordAnswer(slots.answer, card);
         this.renderWordMeaning(slots.meaning, card);
-        void this.renderImmersionExample(slots, card);
+        if (slots.meaning) this.studyExamples.present({ mount: slots.meaning, card, mode: 'word', revealed: this.state.revealAnswer });
     }
 
     private renderRecallPrompt(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
         if (slots.prompt) this.renderRecallQuestion(slots.prompt, card);
         this.renderRecallAnswer(slots.answer, card, state);
         this.renderRecallMeaning(slots.meaning, card);
-        if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
+        if (slots.meaning) this.studyExamples.present({ mount: slots.meaning, card, mode: 'word', revealed: this.state.revealAnswer });
     }
 
     private renderRecallQuestion(prompt: HTMLElement, card: JPDBCard): void {
@@ -6225,7 +6117,7 @@ export class NewTabController {
             this.renderWord(root, card);
             return;
         }
-        if (!this.navigateStudyStep('next')) this.renderWord(root, card);
+        this.renderWord(root, card);
     }
 
     private recallOutcomeLabel(outcome: NewTabRecallOutcome, _answer: string): string {
@@ -6243,7 +6135,7 @@ export class NewTabController {
         if (slots.prompt) this.renderTypeWordQuestion(slots.prompt, card);
         this.renderTypeWordAnswer(slots.answer, card);
         this.renderRecallMeaning(slots.meaning, card);
-        if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
+        if (slots.meaning) this.studyExamples.present({ mount: slots.meaning, card, mode: 'word', revealed: this.state.revealAnswer });
     }
 
     private typeWordInputMode(): NewTabTypeWordInputMode {
@@ -6398,7 +6290,7 @@ export class NewTabController {
             // the way never reaches here (grading only advances on a pass).
             this.recordTypeOutcome(card, charOutcome === 'wrong' ? 'incorrect' : 'correct');
             const root = answer.closest<HTMLElement>('.jpdb-reader-newtab');
-            if (root && this.visibleWords[this.index] === card && !this.navigateStudyStep('next')) this.renderWord(root, card);
+            if (root && this.visibleWords[this.index] === card) this.returnToReview(root);
             return;
         }
         const root = answer.closest<HTMLElement>('.jpdb-reader-newtab');
@@ -6440,7 +6332,7 @@ export class NewTabController {
             this.recordTypeOutcome(card, transition.outcome);
             this.renderWord(root, card);
         }
-        if (transition.kind === 'navigate') this.continueTypeWord(root, card);
+        if (transition.kind === 'navigate') this.returnToReview(root);
     }
 
     private typeWordHandwritingProgress(card: JPDBCard, chars = Array.from(this.typeWordTarget(card))): number {
@@ -6478,7 +6370,7 @@ export class NewTabController {
         if (!card || !input) return;
         const state = this.ensureStepState(cardKey(card));
         if (state.type?.feedback === 'correct' || state.type?.feedback === 'accepted') {
-            if (!this.navigateStudyStep('next')) this.renderWord(root, card);
+            this.returnToReview(root);
             return;
         }
         input.value = normalizeLearningTargetInput(newTabCardTarget(card), input.value);
@@ -6499,11 +6391,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return;
         this.recordTypeOutcome(card, 'skipped');
-        this.continueTypeWord(root, card);
-    }
-
-    private continueTypeWord(root: HTMLElement, card: JPDBCard): void {
-        if (!this.navigateStudyStep('next')) this.renderWord(root, card);
+        this.returnToReview(root);
     }
 
     // First attempt counts: once an outcome is recorded for this card it is never
@@ -6881,7 +6769,7 @@ export class NewTabController {
         const key = cardKey(card);
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         prompt.dataset.newtabSentenceRequest = requestId;
-        const sentence = await this.loadFrontSentence(card);
+        const sentence = await this.studyExamples.frontSentence(card);
         if (!sentence || !this.canApplyFrontSentence(prompt, key, requestId)) return;
         this.applyFrontSentence(prompt, card, state, sentence);
     }
@@ -6958,6 +6846,10 @@ export class NewTabController {
                 if (typed?.value) return;
             }
             this.studySentenceOverrides.set(key, sentence);
+            if (this.pinnedStudyPlan?.cardKey === key && !this.pinnedStudyPlan.inputs.hasRecallCloze) {
+                const hasRecallCloze = buildNewTabRecallCloze(card, sentence, newTabCardReading(card)).hasCloze;
+                this.pinnedStudyPlan = { cardKey: key, inputs: { ...this.pinnedStudyPlan.inputs, hasRecallCloze } };
+            }
             if (isCurrent) this.renderWord(root!, active!);
         });
     }
@@ -6975,7 +6867,7 @@ export class NewTabController {
                     ?? Promise.resolve([] as YomitanTermEntry[])
                 : this.targetResources.loadLocalEntries(card),
             this.dependencies.getSettings().immersionKitEnabled
-                ? this.loadImmersionExamples(card).catch(() => [] as ImmersionKitExample[])
+                ? this.studyExamples.examples(card)
                 : Promise.resolve([] as ImmersionKitExample[]),
         ]);
         const tiers = studySentenceTiers(card, localEntries, examples.slice(0, 8));
@@ -7015,138 +6907,18 @@ export class NewTabController {
         return noveltyScore * 10 + knownRatio * 5 + lengthScore;
     }
 
-    private loadFrontSentence(card: JPDBCard): Promise<string> {
-        const key = this.frontSentenceCacheKey(card);
-        const existing = this.frontSentenceCache.get(key);
-        if (existing) return existing;
-        const promise = this.fetchFrontSentence(card).catch(() => '');
-        this.frontSentenceCache.set(key, promise);
-        return promise;
-    }
 
-    private async fetchFrontSentence(card: JPDBCard): Promise<string> {
-        // Provider fidelity (study-hub parity SH-5): a JPDB-backed card fronts
-        // JPDB's own example sentence — exactly what jpdb.io shows on its
-        // review front. Immersion Kit is the superset fallback for cards the
-        // provider gives no sentence, never a replacement.
-        if (card.source === 'jpdb' && !isJitenSrsCard(card)) {
-            const jpdbSentence = await this.loadJpdbFrontSentence(card);
-            if (jpdbSentence) return jpdbSentence;
-            return this.loadImmersionFrontSentence(card);
-        }
-        const immersionSentence = await this.loadImmersionFrontSentence(card);
-        if (immersionSentence) return immersionSentence;
-        return this.loadJpdbFrontSentence(card);
-    }
 
-    private async loadImmersionFrontSentence(card: JPDBCard): Promise<string> {
-        if (!this.canLoadImmersionFrontSentence()) return '';
-        const examples = await this.loadImmersionExamples(card);
-        const example = examples[this.normalizedImmersionExampleIndex(cardKey(card), examples)] ?? examples[0];
-        return normalizePromptContextSentence(example?.sentence, card);
-    }
 
-    private canLoadImmersionFrontSentence(): boolean {
-        return this.dependencies.getSettings().immersionKitEnabled
-            && typeof this.dependencies.immersionKit?.search === 'function';
-    }
 
-    private async loadJpdbFrontSentence(card: JPDBCard): Promise<string> {
-        if (!usesJapaneseProviders()) return '';
-        const settings = this.dependencies.getSettings();
-        if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.jpdbVocabulary) return '';
-        const info = await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, newTabCardReading(card)).catch(() => null);
-        return usesJapaneseProviders() ? jpdbExampleSentenceForPrompt(info, card) : '';
-    }
 
-    private frontSentenceCacheKey(card: JPDBCard): string {
-        const settings = this.dependencies.getSettings();
-        return JSON.stringify({
-            card: cardKey(card),
-            enabled: settings.newTabFrontSentenceEnabled,
-            immersion: settings.immersionKitEnabled ? this.immersionCacheKey(card) : '',
-            jpdbDefinitionsEnabled: settings.jpdbDefinitionsEnabled,
-        });
-    }
 
-    private async renderImmersionExample(slots: NewTabStudySlots, card: JPDBCard): Promise<void> {
-        const meaning = slots.meaning;
-        if (!this.canRenderImmersionExample(meaning)) return;
-        const key = cardKey(card);
-        const requestId = `${key}:${performance.now()}:${Math.random()}`;
-        meaning.dataset.newtabImmersionRequest = requestId;
-        const examples = await this.loadImmersionExamples(card);
-        if (meaning.dataset.newtabImmersionRequest !== requestId) return;
-        if (!this.canAppendImmersionExample(meaning, key, examples)) return;
-        const index = this.normalizedImmersionExampleIndex(key, examples);
-        const immersion = this.renderNewTabImmersionCard(card, examples, index);
-        meaning.querySelectorAll(':scope > .jpdb-reader-newtab-immersion').forEach(element => element.remove());
-        // Immersion Kit sits above the dictionaries regardless of which async
-        // loader finishes first: the reveal reads example → sources.
-        const dictionaries = meaning.querySelector(':scope > .jpdb-reader-newtab-reveal-dictionaries');
-        if (dictionaries) dictionaries.before(immersion);
-        else meaning.append(immersion);
-        this.loadNewTabImmersionImage(immersion, examples[index]);
-        await this.parseNewTabImmersionExample(immersion, card, key);
-    }
 
-    private canRenderImmersionExample(meaning: HTMLElement | null): meaning is HTMLElement {
-        return this.state.revealAnswer
-            && Boolean(meaning)
-            && this.dependencies.getSettings().immersionKitEnabled;
-    }
 
-    private canAppendImmersionExample(meaning: HTMLElement, key: string, examples: ImmersionKitExample[]): boolean {
-        return Boolean(examples.length)
-            && cardKey(this.visibleWords[this.index]) === key
-            && meaning.isConnected
-            && this.isVocabularyStudyRoute()
-            && this.state.revealAnswer;
-    }
 
-    private renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement {
-        return this.renderNewTabImmersionCardVariant(card, examples[index], index, examples.length, 'word');
-    }
 
-    private renderNewTabImmersionCardVariant(
-        card: JPDBCard,
-        example: ImmersionKitExample,
-        index: number,
-        total: number,
-        variant: 'word' | 'kanji',
-    ): HTMLElement {
-        const settings = this.dependencies.getSettings();
-        const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-        const isKanji = variant === 'kanji';
-        const node = el('div', isKanji
-            ? {
-                class: 'jpdb-reader-newtab-immersion jpdb-reader-newtab-kanji-immersion',
-                dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling },
-            }
-            : { class: 'jpdb-reader-newtab-immersion' },
-            this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, isKanji ? { showSource: true } : {}),
-            renderImmersionSearchLinks(card.spelling, settings.interfaceLanguage),
-            this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
-        );
-        if (!isKanji) this.highlightNewTabImmersionTarget(node, card);
-        return node;
-    }
 
-    private async parseNewTabImmersionExample(root: HTMLElement, card: JPDBCard, key: string): Promise<void> {
-        const sentence = root.querySelector<HTMLElement>('[data-immersion-sentence-render]');
-        const sentenceText = this.newTabSentenceText(sentence);
-        if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabImmersionParse(root, key))) return;
-        await this.dependencies.parseContent?.(root, newTabShortParseOptions())?.catch(() => undefined);
-        if (!this.canApplyNewTabImmersionParse(root, key)) return;
-        this.highlightNewTabImmersionTarget(root, card);
-    }
 
-    private canApplyNewTabImmersionParse(root: HTMLElement, key: string): boolean {
-        return root.isConnected
-            && cardKey(this.visibleWords[this.index]) === key
-            && this.isVocabularyStudyRoute()
-            && this.state.revealAnswer;
-    }
 
     private async parseNewTabSentenceElement(sentence: HTMLElement, sentenceText: string, card: JPDBCard, isCurrent: () => boolean): Promise<boolean> {
         const cached = this.cachedParsedNewTabSentenceTokens(sentenceText);
@@ -7198,9 +6970,6 @@ export class NewTabController {
             && typeof this.dependencies.parser.parse === 'function';
     }
 
-    private highlightNewTabImmersionTarget(root: HTMLElement, card: JPDBCard): void {
-        this.highlightNewTabParsedTarget(root, '[data-immersion-sentence-render]', card);
-    }
 
     private highlightNewTabParsedTarget(root: HTMLElement, selector: string, card: JPDBCard): void {
         root.querySelectorAll<HTMLElement>(`${selector} .jpdb-reader-word`).forEach(word => {
@@ -7238,345 +7007,34 @@ export class NewTabController {
         if (!this.state.revealAnswer) this.hidePromptPronunciation(word);
     }
 
-    private renderNewTabImmersionToolbar(
-        example: ImmersionKitExample,
-        index: number,
-        total: number,
-        hasAudio: boolean,
-        options: { showSource?: boolean } = {},
-    ): HTMLElement {
-        return renderImmersionExampleToolbar({
-            example,
-            index,
-            total,
-            hasAudio,
-            language: this.language(),
-            showSource: options.showSource,
-        });
-    }
 
-    private renderNewTabImmersionExampleBody(
-        card: JPDBCard,
-        example: ImmersionKitExample,
-        settings: ReaderSettings,
-        index: number,
-        total: number,
-        audioUrls: string[],
-    ): HTMLElement {
-        const imageUrl = newTabImmersionImageUrl(example, settings, this.dependencies.immersionKit);
-        const sentence = renderNewTabImmersionSentence(card, example, settings, this.cachedParsedNewTabSentenceTokens(example.sentence));
-        if (imageUrl) sentence.classList.add('jpdb-subtitle-primary');
-        return el('div', {
-            class: `jpdb-reader-example-card ${imageUrl ? 'has-image' : ''}`,
-            dataset: {
-                immersionIndex: String(index),
-                immersionTotal: String(total),
-                immersionSentence: example.sentence,
-                immersionSourceTitle: example.sourceTitle,
-                immersionImageUrl: imageUrl,
-                immersionAudioUrls: JSON.stringify(audioUrls),
-            },
-        },
-            el('div', { class: 'jpdb-reader-example-body' },
-                renderNewTabImmersionImage(imageUrl, sentence),
-                imageUrl ? null : sentence,
-                renderNewTabImmersionTranslation(example, settings),
-            ),
-        );
-    }
 
-    private performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void {
-        const current = this.visibleWords[this.index];
-        if (!current) return;
-        if (action === 'audio') {
-            void this.playRenderedOrCurrentImmersionAudio(surface, current);
-            return;
-        }
-        if (action !== 'previous' && action !== 'next') return;
-        const key = cardKey(current);
-        const cached = this.immersionCache.get(this.immersionCacheKey(current));
-        void cached?.then(async examples => {
-            if (!examples.length || cardKey(this.visibleWords[this.index]) !== key) return;
-            const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
-            const nextIndex = nextImmersionExampleIndex(currentIndex, examples.length, action);
-            this.immersionExampleIndex.set(key, nextIndex);
-            const replaced = await this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
-            if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentImmersionAudio(current);
-        });
-    }
 
-    private performNewTabKanjiImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void {
-        const kanji = surface.dataset.newtabKanji ?? '';
-        if (!targetCanLookupCharacter(kanji)) return;
-        const card = this.newTabKanjiImmersionCard(kanji);
-        if (action === 'audio') {
-            void this.playRenderedOrCurrentKanjiImmersionAudio(surface, kanji, card);
-            return;
-        }
-        if (action !== 'previous' && action !== 'next') return;
-        const key = this.newTabKanjiImmersionKey(kanji);
-        void this.loadImmersionExamples(card).then(async examples => {
-            if (!examples.length || !this.isCurrentRevealedKanji(kanji)) return;
-            const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
-            const nextIndex = nextImmersionExampleIndex(currentIndex, examples.length, action);
-            this.immersionExampleIndex.set(key, nextIndex);
-            const replaced = await this.replaceNewTabKanjiImmersionExample(root, kanji, card, examples, nextIndex);
-            if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentKanjiImmersionAudio(kanji, card);
-        });
-    }
 
-    private shouldAutoPlayNewTabImmersionNavigationAudio(): boolean {
-        const settings = this.dependencies.getSettings();
-        return settings.immersionKitEnabled
-            && settings.immersionKitAutoPlayAudio
-            && settings.audioEnabled
-            && canAttemptAudiblePlayback(true);
-    }
 
-    private async replaceNewTabImmersionExample(root: HTMLElement, card: JPDBCard, examples: ImmersionKitExample[], index: number): Promise<boolean> {
-        const slots = this.studySlots(root);
-        const meaning = slots.meaning;
-        const key = cardKey(card);
-        if (!meaning || !this.canAppendImmersionExample(meaning, key, examples)) return false;
-        const requestId = `${key}:${performance.now()}:${Math.random()}`;
-        meaning.dataset.newtabImmersionRequest = requestId;
-        const immersion = this.renderNewTabImmersionCard(card, examples, index);
-        if (meaning.dataset.newtabImmersionRequest !== requestId) return false;
-        if (!this.canAppendImmersionExample(meaning, key, examples)) return false;
-        const existing = meaning.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-immersion');
-        if (existing) existing.replaceWith(immersion);
-        else meaning.append(immersion);
-        this.loadNewTabImmersionImage(immersion, examples[index]);
-        void this.parseNewTabImmersionExample(immersion, card, key);
-        return true;
-    }
 
-    private async replaceNewTabKanjiImmersionExample(
-        root: HTMLElement,
-        kanji: string,
-        card: JPDBCard,
-        examples: ImmersionKitExample[],
-        index: number,
-    ): Promise<boolean> {
-        const body = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
-        if (!body || !this.canApplyNewTabKanjiImmersion(body, kanji)) return false;
-        const requestId = `${kanji}:${performance.now()}:${Math.random()}`;
-        body.dataset.newtabKanjiImmersionRequest = requestId;
-        const immersion = this.renderNewTabKanjiImmersionCard(card, examples[index], index, examples.length);
-        if (body.dataset.newtabKanjiImmersionRequest !== requestId || !this.canApplyNewTabKanjiImmersion(body, kanji)) return false;
-        const existing = body.querySelector<HTMLElement>(':scope > [data-newtab-kanji-immersion]');
-        if (existing) existing.replaceWith(immersion);
-        else replaceChildrenWith(body, immersion);
-        this.loadNewTabImmersionImage(immersion, examples[index]);
-        void this.parseNewTabKanjiImmersionExample(immersion, card);
-        return true;
-    }
 
-    private normalizedImmersionExampleIndex(key: string, examples: ImmersionKitExample[]): number {
-        const index = this.immersionExampleIndex.get(key) ?? 0;
-        if (index >= 0 && index < examples.length) return index;
-        this.immersionExampleIndex.set(key, 0);
-        return 0;
-    }
 
-    private loadNewTabImmersionImage(root: HTMLElement, example: ImmersionKitExample): void {
-        const image = root.querySelector<HTMLImageElement>('.jpdb-reader-newtab-immersion [data-yomu-immersion-image-src]');
-        if (!image) return;
-        const urls = this.dependencies.immersionKit.mediaUrls(example, 'image');
-        if (!urls.length) {
-            this.hideNewTabImmersionImage(root, image);
-            return;
-        }
-        let directIndex = Math.max(0, urls.indexOf(image.getAttribute('src') || image.dataset.yomuImmersionImageSrc || ''));
-        const showNextDirectImage = () => {
-            directIndex += 1;
-            const nextUrl = urls[directIndex];
-            if (!nextUrl) {
-                this.hideNewTabImmersionImage(root, image);
-                return;
-            }
-            if (image.isConnected) image.src = nextUrl;
-        };
-        image.addEventListener('error', showNextDirectImage);
-        image.addEventListener('load', () => syncNewTabImmersionFrameSubtitleSize(root));
-        const settings = this.dependencies.getSettings();
-        void this.dependencies.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-            .then(src => {
-                if (!image.isConnected) return;
-                image.removeEventListener('error', showNextDirectImage);
-                image.src = src;
-                syncNewTabImmersionFrameSubtitleSize(root);
-            })
-            .catch(() => undefined);
-    }
 
-    private hideNewTabImmersionImage(root: HTMLElement, image: HTMLImageElement): void {
-        const media = image.closest('.jpdb-reader-example-media');
-        const sentence = media?.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
-        if (sentence) {
-            sentence.classList.remove('jpdb-subtitle-primary');
-            media?.after(sentence);
-        }
-        media?.remove();
-        root.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
-        syncNewTabImmersionFrameSubtitleSize(root);
-    }
 
-    private async playCurrentImmersionAudio(card: JPDBCard): Promise<void> {
-        const key = cardKey(card);
-        await this.playNewTabImmersionAudio(card, key, () => this.isCurrentRevealedWordCard(key));
-    }
 
-    private async playCurrentKanjiImmersionAudio(kanji: string, card: JPDBCard): Promise<void> {
-        await this.playNewTabImmersionAudio(card, this.newTabKanjiImmersionKey(kanji), () => this.isCurrentRevealedKanji(kanji));
-    }
 
-    private async playRenderedOrCurrentImmersionAudio(surface: HTMLElement, card: JPDBCard): Promise<void> {
-        const key = cardKey(card);
-        await this.playRenderedOrNewTabImmersionAudio(surface, card, key, () => this.isCurrentRevealedWordCard(key));
-    }
 
-    private async playRenderedOrCurrentKanjiImmersionAudio(surface: HTMLElement, kanji: string, card: JPDBCard): Promise<void> {
-        await this.playRenderedOrNewTabImmersionAudio(surface, card, this.newTabKanjiImmersionKey(kanji), () => this.isCurrentRevealedKanji(kanji));
-    }
 
-    private async playRenderedOrNewTabImmersionAudio(surface: HTMLElement, card: JPDBCard, key: string, isCurrent: () => boolean): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) return;
-        const source = this.renderedNewTabImmersionAudioSource(surface);
-        if (source) {
-            await this.immersionAudioPlayer.playSource(source, isCurrent);
-            return;
-        }
-        await this.playNewTabImmersionAudio(card, key, isCurrent);
-    }
 
-    private async playNewTabImmersionAudio(card: JPDBCard, key: string, isCurrent: () => boolean): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) return;
-        const examples = await this.loadImmersionExamples(card);
-        if (!isCurrent()) return;
-        const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
-        if (!example) return;
-        const source = this.newTabImmersionAudioSource(example);
-        if (!source) return;
-        await this.immersionAudioPlayer.playSource(source, isCurrent);
-    }
 
-    private isCurrentRevealedWordCard(key: string): boolean {
-        return this.isVocabularyStudyRoute()
-            && this.state.revealAnswer
-            && cardKey(this.visibleWords[this.index]) === key;
-    }
 
-    private newTabImmersionAudioSource(example: ImmersionKitExample): { urls: string[]; key: string } | null {
-        const urls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-        return this.newTabImmersionAudioSourceFromUrls(urls);
-    }
 
-    private newTabImmersionAudioSourceFromUrls(urls: string[]): { urls: string[]; key: string } | null {
-        const candidates = uniqueStrings(urls);
-        const key = candidates[0] ?? '';
-        return key ? { urls: candidates, key } : null;
-    }
 
-    private renderedNewTabImmersionAudioSource(surface: HTMLElement): { urls: string[]; key: string } | null {
-        const card = surface.classList.contains('jpdb-reader-example-card')
-            ? surface
-            : surface.querySelector<HTMLElement>('.jpdb-reader-example-card');
-        const raw = card?.dataset.immersionAudioUrls;
-        if (!raw) return null;
-        try {
-            const parsed: unknown = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return null;
-            return this.newTabImmersionAudioSourceFromUrls(parsed.filter((value): value is string => typeof value === 'string'));
-        } catch {
-            return null;
-        }
-    }
 
-    private loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> {
-        const key = this.immersionCacheKey(card);
-        const existing = this.immersionCache.get(key);
-        if (existing) return existing;
-        const settings = this.dependencies.getSettings();
-        const promise = promiseWithTimeout(
-            this.fetchNewTabImmersionExamples(card),
-            settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
-            'Immersion Kit examples timed out.',
-        ).catch(() => []);
-        this.immersionCache.set(key, promise);
-        return promise;
-    }
 
-    private async fetchNewTabImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> {
-        const exactQuery = card.spelling.trim();
-        const exactExamples = await this.searchNewTabImmersionQuery(exactQuery);
-        if (exactExamples.length) return exactExamples;
 
-        const cheapFallback = await this.searchFirstNewTabImmersionQuery(this.cheapNewTabImmersionFallbackQueries(card, exactQuery));
-        if (cheapFallback.length) return cheapFallback;
 
-        return this.searchFirstNewTabImmersionQuery(await this.expensiveNewTabImmersionFallbackQueries(card, exactQuery));
-    }
 
-    private async searchFirstNewTabImmersionQuery(queries: string[]): Promise<ImmersionKitExample[]> {
-        for (const query of queries) {
-            const examples = await this.searchNewTabImmersionQuery(query);
-            if (examples.length) return examples;
-        }
-        return [];
-    }
 
-    private searchNewTabImmersionQuery(query: string): Promise<ImmersionKitExample[]> {
-        if (!query) return Promise.resolve([]);
-        const settings = this.dependencies.getSettings();
-        return this.dependencies.immersionKit.search(query, settings, this.newTabImmersionSearchOptions(settings))
-            .then(examples => accurateNewTabImmersionExamples(query, examples))
-            .catch(error => {
-                if (isImmersionKitRateLimitError(error)) throw error;
-                return [];
-            });
-    }
 
-    private newTabImmersionSearchOptions(settings: ReaderSettings): ImmersionKitSearchOptions {
-        const resultLimit = this.newTabImmersionResultLimit(settings);
-        return {
-            requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
-            resultLimit,
-            fastFirst: true,
-        };
-    }
 
-    private newTabImmersionResultLimit(settings: ReaderSettings): number {
-        return settings.immersionKitLimitEnabled
-            ? settings.immersionKitLimit
-            : NEW_TAB_IMMERSION_EXAMPLE_LIMIT;
-    }
 
-    private cheapNewTabImmersionFallbackQueries(card: JPDBCard, exactQuery: string): string[] {
-        const candidates: string[] = [];
-        this.addNewTabImmersionFallbackQuery(candidates, newTabCardOptionalReading(card), exactQuery);
-        this.addNewTabImmersionFallbackQueries(candidates, card.fallbackLookupTerms ?? [], exactQuery);
-        this.addNewTabImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
-        return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-    }
-
-    private async expensiveNewTabImmersionFallbackQueries(card: JPDBCard, exactQuery: string): Promise<string[]> {
-        const candidates: string[] = [];
-        await this.addNewTabParsedImmersionFallbackQueries(candidates, card, exactQuery);
-        await this.addNewTabJpdbImmersionFallbackQueries(candidates, card, exactQuery);
-        return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-    }
-
-    private prefetchNearbyImmersionExamples(card: JPDBCard, generation: number): void {
-        if (!this.shouldPrefetchNewTabImmersion()) return;
-        this.prefetchNewTabImmersionCard(card, { generation, current: true });
-        this.prefetchNearbyCards(card, nearby => {
-            void this.waitForIdle().then(() => {
-                if (!this.isCurrentImmersionPrefetchGeneration(generation)) return;
-                this.prefetchNewTabImmersionCard(nearby, { generation, current: false });
-            });
-        });
-    }
 
     private prefetchNearbyCards(card: JPDBCard, prefetch: (nearby: JPDBCard) => void): void {
         for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
@@ -7586,122 +7044,16 @@ export class NewTabController {
         }
     }
 
-    private shouldPrefetchNewTabImmersion(): boolean {
-        return this.isVocabularyStudyRoute()
-            && this.visibleWords.length > 0
-            && this.dependencies.getSettings().immersionKitEnabled
-            && typeof this.dependencies.immersionKit?.search === 'function';
-    }
 
-    private prefetchNewTabImmersionCard(card: JPDBCard, context: { generation: number; current: boolean }): void {
-        void this.loadImmersionExamples(card)
-            .then(examples => {
-                if (!this.isCurrentImmersionPrefetchGeneration(context.generation)) return;
-                this.prefetchNewTabImmersionSentences(card, examples, context.current);
-                const example = examples[this.normalizedImmersionExampleIndex(cardKey(card), examples)] ?? examples[0];
-                if (!example) return;
-                if (context.current) this.prefetchNewTabImmersionMedia(example);
-            })
-            .catch(() => undefined);
-    }
 
-    private isCurrentImmersionPrefetchGeneration(generation: number): boolean {
-        return generation === this.immersionPrefetchGeneration
-            && this.isVocabularyStudyRoute();
-    }
 
-    private prefetchNewTabParsedSentence(sentence: string): void {
-        const text = sentence.trim();
-        if (!text) return;
-        void this.parsedNewTabSentenceTokens(text).catch(() => undefined);
-    }
 
-    private prefetchNewTabImmersionSentences(card: JPDBCard, examples: ImmersionKitExample[], includeAdjacent: boolean): void {
-        if (!examples.length) return;
-        const key = cardKey(card);
-        const index = this.normalizedImmersionExampleIndex(key, examples);
-        const indexes = includeAdjacent && examples.length > 1
-            ? [index, (index + 1) % examples.length]
-            : [index];
-        uniqueNumbers(indexes).forEach(exampleIndex => {
-            const sentence = normalizePromptContextSentence(examples[exampleIndex]?.sentence, card);
-            if (sentence) this.prefetchNewTabParsedSentence(sentence);
-        });
-    }
 
-    private prefetchNewTabImmersionMedia(example: ImmersionKitExample): void {
-        const settings = this.dependencies.getSettings();
-        const imageUrls = settings.immersionKitShowImages ? this.dependencies.immersionKit.mediaUrls(example, 'image') : [];
-        if (imageUrls.length) {
-            void this.dependencies.immersionKit.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-                .catch(() => undefined);
-        }
-        const audioUrls = this.dependencies.immersionKit.mediaUrls(example, 'sound');
-        if (audioUrls.length) {
-            void this.dependencies.immersionKit.fetchBlobUrl(audioUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-                .catch(() => undefined);
-        }
-    }
 
-    private async addNewTabJpdbImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
-        if (!usesJapaneseProviders()) return;
-        const settings = this.dependencies.getSettings();
-        const jpdbInfo = settings.jpdbDefinitionsEnabled && hasJpdbApiCredential(settings) && this.dependencies.jpdbVocabulary
-            ? await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, newTabCardReading(card)).catch(() => null)
-            : null;
-        if (!usesJapaneseProviders()) return;
-        this.addNewTabImmersionFallbackQueries(
-            candidates,
-            (jpdbInfo?.compounds ?? []).flatMap(compound => [compound.term, compound.reading]),
-            exactQuery,
-        );
-    }
 
-    private async addNewTabParsedImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
-        if (typeof this.dependencies.parser.canParse !== 'function' || !this.dependencies.parser.canParse()) return;
-        const targetLanguage = activeLearningTargetLanguage();
-        const [tokens] = await this.dependencies.parser.parse([card.spelling], {
-            jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS,
-            allowJpdbTimeoutFallback: true,
-            allowSegmentedFallback: true,
-            skipApi: !usesJapaneseProviders(),
-        }).catch(() => [[]]);
-        if (activeLearningTargetLanguage() !== targetLanguage) return;
-        for (const token of tokens ?? []) {
-            this.addNewTabImmersionFallbackQuery(candidates, token.card.spelling, exactQuery);
-            this.addNewTabImmersionFallbackQuery(candidates, card.spelling.slice(token.start, token.end), exactQuery);
-            this.addNewTabImmersionFallbackQuery(candidates, newTabCardOptionalReading(token.card), exactQuery);
-        }
-    }
 
-    private addNewTabImmersionFallbackQueries(candidates: string[], values: Iterable<string>, exactQuery: string): void {
-        for (const value of values) this.addNewTabImmersionFallbackQuery(candidates, value, exactQuery);
-    }
 
-    private addNewTabImmersionFallbackQuery(candidates: string[], value: string, exactQuery: string): void {
-        const query = value.trim();
-        if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
-    }
 
-    private immersionCacheKey(card: JPDBCard): string {
-        const settings = this.dependencies.getSettings();
-        return JSON.stringify({
-            query: card.spelling.trim(),
-            fallback: card.fallbackLookupTerms ?? [],
-            source: settings.immersionKitExampleSource,
-            nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-            requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
-            resultLimit: this.newTabImmersionResultLimit(settings),
-            limitEnabled: settings.immersionKitLimitEnabled,
-            limit: settings.immersionKitLimit,
-            min: settings.immersionKitMinLength,
-            max: settings.immersionKitMaxLength,
-            category: settings.immersionKitCategory,
-            sort: settings.immersionKitSort,
-            exact: settings.immersionKitExactMatch,
-            jpdbDefinitionsEnabled: settings.jpdbDefinitionsEnabled,
-        });
-    }
 
     private kanjiPromptKeywords(card: JPDBCard, kanji: string): KanjiPromptKeyword[] {
         const cachedKeyword = this.keywordCache.get(kanji);
@@ -7822,7 +7174,8 @@ export class NewTabController {
     ): void {
         if (!this.state.revealAnswer || !slots.meaning) return;
         replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null));
-        this.renderNewTabKanjiImmersion(slots.meaning, kanji);
+        const mount = slots.meaning.querySelector<HTMLElement>('[data-newtab-kanji-immersion-mount]');
+        if (mount) this.studyExamples.present({ mount, card, kanji, mode: 'kanji', revealed: this.state.revealAnswer });
         void this.dependencies.parseContent?.(slots.meaning);
     }
 
@@ -7845,73 +7198,12 @@ export class NewTabController {
         );
     }
 
-    private renderNewTabKanjiImmersion(root: HTMLElement, kanji: string): void {
-        if (!targetCanLookupCharacter(kanji)) return;
-        const target = captureActiveTarget();
-        const isCurrentTarget = () => isCurrentActiveTarget(target);
-        const settings = this.dependencies.getSettings();
-        const mount = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-mount]');
-        const details = mount?.querySelector<HTMLDetailsElement>('[data-newtab-kanji-immersion-details]');
-        const body = mount?.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
-        if (!mount || !details || !body || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return;
 
-        const card = this.newTabKanjiImmersionCard(kanji, target.target);
-        const key = this.newTabKanjiImmersionKey(kanji);
-        let started = false;
-        const load = () => {
-            if (!isCurrentTarget() || !targetCanLookupCharacter(kanji) || !details.open || started || !mount.isConnected || !body.isConnected) return;
-            started = true;
-            void this.loadImmersionExamples(card).then(async examples => {
-                if (!isCurrentTarget() || !targetCanLookupCharacter(kanji) || !mount.isConnected || !body.isConnected) return;
-                const index = this.normalizedImmersionExampleIndex(key, examples);
-                const example = examples[index];
-                if (!example) {
-                    replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
-                    details.dataset.immersionEmpty = 'true';
-                    return;
-                }
-                const immersion = this.renderNewTabKanjiImmersionCard(card, example, index, examples.length);
-                replaceChildrenWith(body, immersion);
-                this.loadNewTabImmersionImage(immersion, example);
-                await this.parseNewTabKanjiImmersionExample(immersion, card);
-            }).catch(() => {
-                if (isCurrentTarget() && body.isConnected) replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
-            });
-        };
-        details.addEventListener('toggle', load);
-        load();
-    }
 
-    private newTabKanjiImmersionCard(kanji: string, target = activeLearningTarget()): JPDBCard {
-        return this.dependencies.parser.fallbackCardFromText?.(kanji, target) ?? fallbackSearchKanjiCard(kanji);
-    }
 
-    private newTabKanjiImmersionKey(kanji: string): string {
-        return `kanji:${kanji}`;
-    }
 
-    private isCurrentRevealedKanji(kanji: string): boolean {
-        if (!targetCanLookupCharacter(kanji)) return false;
-        const current = this.visibleWords[this.index];
-        if (!current) return false;
-        const currentKanji = kanjiCharacters(current.spelling)[0] ?? current.spelling[0] ?? '';
-        return this.wordSessionRendersKanji()
-            && this.state.revealAnswer
-            && currentKanji === kanji;
-    }
 
-    private canApplyNewTabKanjiImmersion(body: HTMLElement, kanji: string): boolean {
-        return body.isConnected && this.isCurrentRevealedKanji(kanji);
-    }
 
-    private async parseNewTabKanjiImmersionExample(immersion: HTMLElement, card: JPDBCard): Promise<void> {
-        await this.dependencies.parseContent?.(immersion, newTabShortParseOptions());
-        this.highlightNewTabParsedTarget(immersion, '[data-immersion-sentence-render]', card);
-    }
-
-    private renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement {
-        return this.renderNewTabImmersionCardVariant(card, example, index, total, 'kanji');
-    }
 
     private renderKanjiDetails(
         card: JPDBCard,
@@ -8190,8 +7482,10 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         this.captureDoodlePreview(slots, card);
         if (!settings.newTabKanjiAutogradeEnabled) return;
+        const revision = this.studyActivityRevision;
         const details = await this.loadKanjiDetails(kanji);
-        if (!targetCanLookupCharacter(kanji) || !this.canApplyKanjiEnrichment(slots, card, kanji)) return;
+        if (revision !== this.studyActivityRevision || !targetCanLookupCharacter(kanji)
+            || !this.canApplyKanjiEnrichment(slots, card, kanji)) return;
         const expectedStrokes = details.vg?.strokeCount ?? 0;
         if (shouldWaitForMoreDoodleStrokes(strokes, expectedStrokes)) {
             this.clearDoodleAssessment(slots);
@@ -8201,7 +7495,6 @@ export class NewTabController {
         this.renderDoodleAssessment(slots, assessment);
         // First-attempt pass/fail feeds the reveal summary.
         this.recordDoodleOutcome(card, kanji, assessment.passed);
-        this.autoSubmitDoodleAssessment(settings, assessment.passed, card);
     }
 
     private recordDoodleOutcome(card: JPDBCard, kanji: string, passed: boolean): void {
@@ -8215,15 +7508,6 @@ export class NewTabController {
         // roughest draw wins, so any failed kanji marks the whole card wrong.
         if (doodle.outcome === 'wrong') return;
         doodle.outcome = passed ? 'correct' : 'wrong';
-    }
-
-    private autoSubmitDoodleAssessment(settings: ReaderSettings, passed: boolean, expectedCard: JPDBCard): void {
-        if (settings.enableReviews && settings.newTabKanjiAutoSubmit && this.state.revealAnswer) {
-            const grade: JPDBGrade = usesBunproFsrsGradeScale(expectedCard)
-                ? passed ? 'okay' : 'nothing'
-                : passed ? 'pass' : 'fail';
-            void this.gradeCurrentCard(grade, undefined, expectedCard);
-        }
     }
 
     private captureDoodlePreview(slots: NewTabStudySlots, card: JPDBCard): void {
@@ -8293,6 +7577,10 @@ export class NewTabController {
     private renderEmptyControls(controls: HTMLElement | null): void {
         if (!controls) return;
         controls.hidden = false;
+        if (this.gradeQueue.needsRecordingRecovery()) {
+            replaceChildrenWith(controls, this.recordingRecoveryButton());
+            return;
+        }
         replaceChildrenWith(controls,
             el('button', { type: 'button', dataset: { newtabAction: newTabAction('empty-fallback') } }, this.text('starterWords')),
             el('button', { type: 'button', dataset: { newtabAction: newTabAction('settings') } }, uiText(this.language(), 'settings')),
@@ -8347,6 +7635,10 @@ export class NewTabController {
                 return this.handleBrowseBulkClick(root, target, event);
             case 'browse-card':
                 return this.handleBrowseCardClick(target, event);
+            case 'browse-start-review':
+                event.preventDefault();
+                void this.startBrowseReview(target);
+                return true;
             default:
                 return false;
         }
@@ -8398,6 +7690,23 @@ export class NewTabController {
         const bulkAction = target.closest<HTMLElement>('[data-bulk-action]')?.dataset.bulkAction ?? '';
         if (bulkAction) void this.performBrowseBulkAction(root, bulkAction);
         return true;
+    }
+
+    private async startBrowseReview(target: HTMLElement): Promise<void> {
+        const button = target.closest<HTMLButtonElement>(newTabActionSelector('browse-start-review'));
+        const card = this.browseCardForRow(button ?? null);
+        const adapter = this.dependencies.srsAdapters?.['yomu-local'];
+        if (!button || button.disabled || card?.source !== 'yomu-local' || !card.sourceCardKey || !adapter?.startReview) return;
+        button.disabled = true;
+        try {
+            await adapter.startReview(card.sourceCardKey);
+            if (this.destroyed) return;
+            this.invalidateSourceResultCache('yomu-local');
+            this.refreshBrowseAfterCardMutation(card);
+            this.showToast('browseReviewAdded');
+        } catch {
+            if (!this.destroyed) this.showToast('browseReviewFailed');
+        } finally { button.disabled = false; }
     }
 
     private handleBrowseCardClick(target: HTMLElement, event: MouseEvent): boolean {
@@ -8547,6 +7856,7 @@ export class NewTabController {
             }),
             renderBrowseList(filtered, this.browsePage, language, {
                 empty: this.text('browseNoCards'),
+                startReview: this.dependencies.srsAdapters?.['yomu-local']?.startReview ? this.text('browseStartReview') : undefined,
                 previous: this.text('browsePreviousPage'),
                 next: this.text('browseNextPage'),
                 showing: (from, to, total) => `${from}–${to} / ${total}`,
@@ -8723,7 +8033,13 @@ export class NewTabController {
     }
 
     private controlButtonsForCard(card: JPDBCard): HTMLElement[] {
-        if (!this.isFinalRevealStep(card)) return this.studyStepControlButtons();
+        if (this.gradeQueue.needsRecordingRecovery()) return [this.recordingRecoveryButton()];
+        if (this.studySessionForCard(card).activity === 'practice') {
+            return [
+                el('button', { type: 'button', dataset: { newtabAction: newTabAction('reveal') } }, this.revealButtonLabel()),
+                el('button', { type: 'button', dataset: { newtabAction: newTabAction('return-to-review') } }, this.text('returnToReview')),
+            ];
+        }
         if (!this.canReviewCard(card)) return this.navigationControlButtons(this.text(this.state.revealAnswer ? 'hide' : 'reveal'));
         if (!this.state.revealAnswer) return this.navigationControlButtons(this.text('reveal'));
         return this.gradeControlButtons(card);
@@ -8734,6 +8050,8 @@ export class NewTabController {
     }
 
     private canReviewCard(card: JPDBCard): boolean {
+        if (this.destroyed || this.queuedReviewNeedsRefresh) return false;
+        if (this.gradeQueue.blocksReview(card)) return false;
         if ((this.isOfflineSourceLabel(this.sourceLabel) || typeof navigator !== 'undefined' && navigator.onLine === false)
             && !this.offlineGradeTargets(card).length) return false;
         return this.reviewSourceSummary(card).targets.length > 0;
@@ -8780,22 +8098,21 @@ export class NewTabController {
         ];
     }
 
-    private studyStepControlButtons(): HTMLElement[] {
-        const continueShortcut = this.studyShortcutHint(['studyReveal', 'studyRevealAlternate']);
-        const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
-        return [
-            el('button', { type: 'button', dataset: { newtabAction: newTabAction('previous') }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
-            el('button', { type: 'button', dataset: { newtabAction: newTabAction('next') } }, this.text('continueStudying'),
-                continueShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, continueShortcut) : null),
-        ];
-    }
 
     private gradeControlButtons(card: JPDBCard): HTMLElement[] {
-        const targetOptions = this.mainGradeTargetOptions(card);
-        const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
-        const grades = newTabGradeOptions(this.dependencies.getSettings(), card);
         const sourceSummary = this.reviewSourceSummary(card);
+        const destination = sourceSummary.targets[0] ?? 'standard';
+        const targetOptions = this.mainGradeTargetOptions(card).map(option => ({
+            ...option,
+            gradeProfile: reviewGradeProfile(card, option.kind === 'both' ? destination : option.kind),
+        }));
+        const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
+        const gradeProfile = targetOptions[0]?.gradeProfile ?? reviewGradeProfile(card, destination);
+        const grades = reviewGradeScale(this.dependencies.getSettings(), gradeProfile).grades;
         const buttons = renderNewTabGradeControlButtons({
+            card,
+            settings: this.dependencies.getSettings(),
+            gradeProfile,
             apiShortLabel: this.apiGradeTargetShortLabel(card),
             bothLabel: this.text('gradeTargetBoth'),
             grades,
@@ -8808,10 +8125,6 @@ export class NewTabController {
             targetLabel,
             targetOptions,
         });
-        // Suggestion is advisory only — highlight one button, never grade. The
-        // learner's manual choice always wins (nothing is submitted here).
-        const outcomes = this.studyStepOutcomesForCard(card);
-        this.markSuggestedGradeButton(buttons, suggestedStudyGrade(outcomes, grades.map(([grade]) => grade)));
         if (!sourceSummary.hasWanikani) return buttons;
         return [
             el('p', {
@@ -8820,19 +8133,6 @@ export class NewTabController {
             }, uiText(this.language(), 'wanikaniGradeMappingHelp')),
             ...buttons,
         ];
-    }
-
-    private markSuggestedGradeButton(buttons: HTMLElement[], suggested: JPDBGrade | null): void {
-        if (!suggested) return;
-        for (const button of buttons) {
-            const match = button instanceof HTMLElement && button.dataset.grade === suggested
-                ? button
-                : button.querySelector<HTMLElement>(`[data-grade="${suggested}"]`);
-            if (!match) continue;
-            match.dataset.suggested = 'true';
-            match.setAttribute('aria-label', `${match.getAttribute('aria-label') ?? ''} (${this.text('gradeSuggested')})`.trim());
-            return;
-        }
     }
 
     // Read the consolidated per-card study-step state (NB-41a), or undefined when
@@ -8851,33 +8151,9 @@ export class NewTabController {
         return state;
     }
 
-    // Gather each study step's first-attempt mini-outcome for THIS card, drawing
-    // from the same per-step maps the individual steps write. Steps with no
-    // recorded result are omitted (undefined), so the summary + suggestion only
-    // reflect what the learner actually did.
-    private studyStepOutcomesForCard(card: JPDBCard): StudyStepOutcomes {
-        const state = this.stepState(cardKey(card));
-        const outcomes: StudyStepOutcomes = {};
-        const doodle = state?.doodle?.outcome;
-        if (doodle) outcomes['kanji-doodle'] = doodle;
-        const recall = state?.recall?.outcome;
-        if (recall) outcomes['recall-cloze'] = recallOutcomeToStepOutcome(recall);
-        const pitch = state?.pitch;
-        if (pitch) outcomes['listen-pitch'] = pitch.outcome === 'correct' ? 'correct' : 'wrong';
-        const speaking = state?.speak;
-        if (speaking) outcomes.speaking = speaking;
-        const type = state?.type?.outcome;
-        if (type) outcomes['type-word'] = type === 'skipped' ? 'skipped' : recallOutcomeToStepOutcome(type);
-        return outcomes;
-    }
-
     private studyGradeShortcutHints(card: JPDBCard): Partial<Record<JPDBGrade, string>> {
         const settings = this.dependencies.getSettings();
-        const candidates = usesBunproFsrsGradeScale(card)
-            ? BUNPRO_FSRS_REVIEW_SHORTCUTS
-            : usesTwoButtonNewTabGradeScale(settings, card)
-                ? TWO_BUTTON_REVIEW_SHORTCUTS
-                : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        const candidates = reviewGradeScale(settings, reviewGradeProfile(card, this.reviewTargetsForCard(card)[0] ?? 'standard')).shortcuts;
         return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
     }
 
@@ -9008,31 +8284,39 @@ export class NewTabController {
     }
 
     private gradeSubmissionInFlight = false;
+    private queuedReviewNeedsRefresh = false;
 
     private async gradeCurrentCard(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection, expectedCard?: JPDBCard): Promise<boolean> {
+        if (this.practiceVisible) return false;
         const submittedCard = this.visibleWords[this.index];
         if (!submittedCard || expectedCard && !this.sameGradeCardIdentity(submittedCard, expectedCard) || !this.canReviewCard(submittedCard)) return false;
-        const sessionScopedBunpro = submittedCard.source === 'bunpro' || submittedCard.reviewSource === 'bunpro-api';
-        if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        if (this.studySessionForCard(submittedCard).activity !== 'review') return false;
         if (this.gradeSubmissionInFlight) return false;
         this.gradeSubmissionInFlight = true;
-        const gradeButtons = [
-            ...Array.from(this.currentRoot()?.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade')) ?? []),
-            ...Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-action="grade"][data-grade]')),
-        ];
-        gradeButtons.forEach(button => { button.disabled = true; });
+        const gradeButtons = Array.from(this.currentRoot()?.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade')) ?? [])
+            .map(button => ({ button, disabled: button.disabled }));
+        gradeButtons.forEach(({ button }) => { button.disabled = true; });
         try {
             return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        } catch (error) {
+            if (!this.gradeQueue.needsRecordingRecovery()) throw error;
+            log.warn('Review recording needs recovery', error);
+            const root = this.currentRoot();
+            if (root) this.setStatus(root, this.text('recoverReviewRecording'));
+            return false;
         } finally {
             this.gradeSubmissionInFlight = false;
-            if (submittedCard && this.visibleWords[this.index] === submittedCard) {
-                gradeButtons.filter(button => button.isConnected).forEach(button => { button.disabled = false; });
-            }
+            gradeButtons.filter(({ button }) => button.isConnected).forEach(({ button, disabled }) => { button.disabled = disabled; });
+            const current = this.currentGradeTarget();
+            if (current && this.gradeQueue.needsRecordingRecovery()) this.renderControls(this.studySlots(current.root), current.card);
         }
     }
 
     private sameGradeCardIdentity(current: JPDBCard, expected: JPDBCard): boolean {
         if (cardKey(current) !== cardKey(expected)) return false;
+        for (const field of ['source', 'reviewSource', 'ankiCardId', 'jpdbReviewId', 'jitenWordId', 'jitenReadingIndex'] as const) {
+            if (current[field] !== expected[field]) return false;
+        }
         const bunpro = current.source === 'bunpro'
             || current.reviewSource === 'bunpro-api'
             || expected.source === 'bunpro'
@@ -9156,9 +8440,7 @@ export class NewTabController {
         this.invalidateReviewSourceCache(target.card);
         this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
         this.recordCompletedReview(isCorrection);
-        // Bunpro review ids and WaniKani due assignments are consumed server
-        // obligations. Neither API supports reversing that review, so a local
-        // undo would only resurrect a stale card and allow a duplicate submit.
+        // A local replay cannot undo a consumed native review.
         this.lastUndoableReview = newTabUndoableReview(target.card, isCorrection, this.canUndoJitenReview());
         await this.advanceAfterGrade(target.root, target.card, grade);
         return true;
@@ -9186,12 +8468,13 @@ export class NewTabController {
             this.reportLocalYomuGradeFailure(target.root);
             return false;
         }
-        if (isSessionBunproCard(target.card)) {
-            // A lost response is ambiguous: Bunpro may have accepted the
-            // grade and consumed this session review id. Retire the local
-            // card and wait for a fresh live queue before accepting input,
-            // rather than ever retrying the old id.
-            await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+        if (isSessionBunproCard(target.card)
+            || (error instanceof NewTabGradeSubmissionError && error.failures.some(failure => failure.target === 'anki'))) {
+            // A lost acknowledgement does not prove rejection. Anki may
+            // already have advanced the native schedule, just as Bunpro may
+            // have consumed its session review. Never replay this operation
+            // (including a successful half of a mixed-provider grade).
+            await this.reloadAfterAmbiguousGrade(target.root, target.card);
             return true;
         }
         const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget, error);
@@ -9333,7 +8616,7 @@ export class NewTabController {
         return choice;
     }
 
-    private async reloadAfterAmbiguousBunproGrade(root: HTMLElement, card: JPDBCard): Promise<void> {
+    private async reloadAfterAmbiguousGrade(root: HTMLElement, card: JPDBCard): Promise<void> {
         const key = cardKey(card);
         this.lastUndoableReview = undefined;
         this.invalidateReviewSourceCache(card);
@@ -9389,7 +8672,9 @@ export class NewTabController {
         const target = this.lookupReviewTargetForSelection(card, selectedTarget);
         if (!target) throw new Error(this.text('couldNotSubmitGrade'));
         if (target.kind === 'anki') {
-            const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId);
+            const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId).catch(error => {
+                throw new NewTabGradeSubmissionError([{ target: 'anki', error }]);
+            });
             const state = refreshed ? this.ankiLookupStateForCardId(refreshed, target.ankiCardId) ?? refreshed.state : null;
             return state ? this.lookupReviewTargetWithAnkiState(target, state) : target;
         }
@@ -9680,11 +8965,108 @@ export class NewTabController {
         return this.offlineGradeTargets(card)[0] ?? null;
     }
 
-    private async flushQueuedGrades(): Promise<void> {
-        const remaining = await this.gradeQueue.flush();
-        this.syncPendingCount = remaining;
-        if (remaining === 0) this.lastSyncedAt = Date.now();
+    private queueSync?: Promise<void>;
+    private queueSyncAgain = false;
+
+    private flushQueuedGrades(): Promise<void> {
+        if (this.destroyed) return Promise.resolve();
+        this.queueSyncAgain = true;
+        this.queueSync ??= Promise.resolve().then(async () => {
+            try {
+                while (this.queueSyncAgain && !this.destroyed) {
+                    this.queueSyncAgain = false;
+                    await this.performQueueSync();
+                }
+            } finally { this.queueSync = undefined; }
+        });
+        return this.queueSync;
+    }
+
+    private async performQueueSync(): Promise<void> {
+        try {
+            this.syncPendingCount = await this.gradeQueue.flush();
+            if (this.destroyed) return;
+            this.syncProblem = await this.gradeQueue.hasUncertainReviews() ? 'syncReviewCheck' : undefined;
+            if (this.destroyed) return;
+            if (this.syncPendingCount === 0) this.lastSyncedAt = Date.now();
+            const root = this.currentRoot();
+            if (root && this.queuedReviewNeedsRefresh) {
+                await this.loadWordsInto(root, false, { useOfflineCache: false });
+                if (this.destroyed) return;
+                this.queuedReviewNeedsRefresh = false;
+            }
+        } catch (error) {
+            if (this.destroyed) return;
+            log.warn('Review queue sync failed', error);
+            this.syncProblem = 'syncUnavailable';
+        }
         this.refreshSessionProgressSoon();
+        const current = this.currentGradeTarget();
+        if (current && this.gradeQueue.usesSharedOwner()) {
+            current.root.classList.toggle('jpdb-reader-newtab-review-mode', this.canReviewCard(current.card));
+            this.renderControls(this.studySlots(current.root), current.card);
+        }
+    }
+
+    private queuedReviewSubmitted(card: JPDBCard): void {
+        if (this.destroyed) return;
+        this.invalidateReviewSourceCache(card);
+        if (!this.gradeQueue.usesSharedOwner() || !this.visibleWords.some(item => this.sameGradeCardIdentity(item, card))) return;
+        this.requireFreshReviewView();
+    }
+
+    private reviewProviderCompleted(target: QueuedNewTabGradeTarget): void {
+        if (this.destroyed) return;
+        const source: NewTabConcreteSource = target === 'anki' ? 'anki' : target === 'yomu-local' ? 'yomu-local' : 'jpdb';
+        this.invalidateSourceResultCache(source);
+        const visible = this.visibleWords[this.index];
+        if (this.state.source === 'auto' || this.state.source === source
+            || (visible && this.reviewTargetsForCard(visible).includes(target))) this.requireFreshReviewView();
+    }
+
+    private requireFreshReviewView(): void {
+        this.queuedReviewNeedsRefresh = true;
+        this.allWords = [];
+        this.visibleWords = [];
+        this.visiblePoolSignature = '';
+        this.state.revealAnswer = false;
+        this.lastUndoableReview = undefined;
+        this.clearReviewHistory();
+        const root = this.currentRoot();
+        if (root) {
+            root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade')).forEach(button => { button.disabled = true; });
+            this.setStatus(root, this.text('loading'));
+        }
+    }
+
+    private async recoverReviewRecording(root: HTMLElement): Promise<void> {
+        if (this.destroyed || this.gradeSubmissionInFlight) return;
+        this.gradeSubmissionInFlight = true;
+        root.querySelector<HTMLButtonElement>(newTabActionSelector('recover-review-recording'))?.setAttribute('disabled', '');
+        try {
+            const recovered = await this.gradeQueue.recoverRecording();
+            if (this.destroyed) return;
+            if (recovered?.length) {
+                recovered.forEach(item => this.invalidateReviewSourceCache(item.card));
+                this.requireFreshReviewView();
+            }
+            await this.flushQueuedGrades();
+        } catch (error) {
+            if (this.destroyed) return;
+            if (error instanceof ReviewDraftResetError) this.queuedReviewNeedsRefresh = true;
+            log.warn('Review recording recovery failed', error);
+            this.setStatus(root, this.text(error instanceof ReviewDraftResetError ? 'reviewResetReload' : 'syncUnavailable'));
+        } finally {
+            this.gradeSubmissionInFlight = false;
+            if (this.destroyed) return;
+            const current = this.currentGradeTarget();
+            if (current) this.renderControls(this.studySlots(current.root), current.card);
+            else if (root.isConnected) this.renderEmptyControls(this.studySlots(root).controls);
+        }
+    }
+
+    private recordingRecoveryButton(): HTMLButtonElement {
+        return el('button', { type: 'button', dataset: { newtabAction: newTabAction('recover-review-recording') } }, this.text('recoverReviewRecording'));
     }
 
     // Thin delegation to the same table-driven adapter dispatch the live grade
@@ -9698,17 +9080,10 @@ export class NewTabController {
         const previousIndex = this.index;
         const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
         this.rememberReviewHistoryCard(card);
-        // Auto-seed the pitch deck from normal study: a passing vocab review adds the
-        // word's pitch contour as a Listen SRS item (idempotent — never resets an
-        // existing schedule), so the Listen deck grows as a byproduct of studying,
-        // mirroring how kanji items relate to the vocab you review.
-        if (this.isVocabularyStudyRoute() && grade && !isFailedNewTabGrade(grade)) {
-            this.pitchSrs.ensureFromCard(card, Date.now());
-        }
         // jpdb-style failed-card loop (community ask): a failed grade keeps
         // the card in this session's pool so it comes back around until
         // passed, instead of disappearing until the next batch fetch.
-        if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && card.reviewSource !== 'bunpro-api') {
+        if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && !requiresFreshProviderReview(card)) {
             this.requeueFailedCard(root, key, previousIndex);
             return;
         }
@@ -9717,10 +9092,9 @@ export class NewTabController {
         this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
         this.state.revealAnswer = false;
         this.persistState();
-        if (card.reviewSource === 'bunpro-api') {
-            // Bunpro can immediately create a wrap-up/ghost retry (sometimes
-            // under the same id). The live queue must decide what comes next,
-            // even when this was the last visible card or stop-at-batch is on.
+        if (requiresFreshProviderReview(card)) {
+            // The native scheduler, not a local failed-card loop, decides
+            // whether this card is due again after the submitted answer.
             this.markQueueRefreshed();
             return this.loadWordsInto(root, false, { useOfflineCache: false });
         }
@@ -10037,7 +9411,7 @@ export class NewTabController {
     }
 
     private syncMode(root: HTMLElement): void {
-        this.migrateLegacyState(this.visibleWords[this.index]);
+        if (this.practiceVisible) return;
         this.syncKeyHintVisibility(root);
         root.classList.toggle('jpdb-reader-newtab-search-mode', this.state.route === 'search');
         root.classList.toggle('jpdb-reader-newtab-recall-mode', this.activeStudyStepKind() === 'recall-cloze');
@@ -10366,18 +9740,6 @@ export class NewTabController {
     }
 }
 
-function legacyNewTabRoute(mode: unknown): NewTabRoute {
-    return mode === 'search' || mode === 'stats' ? mode : 'study';
-}
-
-function legacyStudyTransition(mode: unknown, listenMode: unknown): LegacyStudyTransition {
-    if (mode !== 'listen') return { stepId: typeof mode === 'string' ? LEGACY_STUDY_STEP_IDS[mode] ?? null : null };
-    return {
-        stepId: listenMode === 'shadow' ? 'speaking' : 'listen-pitch',
-        listenMode: listenMode === 'recall' ? 'recall' : 'perceive',
-    };
-}
-
 function isPassiveParsedWord(word: HTMLElement): boolean {
     return word.dataset.jpdbReaderPassive === 'true';
 }
@@ -10432,21 +9794,6 @@ function isNewTabStudyInteractiveTarget(target: HTMLElement): boolean {
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
 }
 
-function studyTourCopyKey(kind: NewTabStudyStepKind): NewTabCopyKey {
-    if (kind === 'kanji-doodle') return 'studyTourKanji';
-    if (kind === 'recall-cloze') return 'studyTourRecall';
-    if (kind === 'listen-pitch') return 'studyTourListen';
-    if (kind === 'speaking') return 'studyTourSpeaking';
-    if (kind === 'type-word') return 'studyTourType';
-    if (kind === 'final-reveal') return 'studyTourReveal';
-    return 'studyTourWord';
-}
-
-function recallOutcomeToStepOutcome(outcome: NewTabRecallOutcome): StudyStepOutcome {
-    // 'accepted' (right reading, not the target spelling) still counts as knowing
-    // the word for the reveal summary — only a real miss reads as wrong.
-    return outcome === 'correct' || outcome === 'accepted' ? 'correct' : 'wrong';
-}
 
 function isNewTabKeyboardCaptureBlockedTarget(target: HTMLElement): boolean {
     return Boolean(target.closest([
@@ -10461,23 +9808,8 @@ function isNewTabKeyboardCaptureBlockedTarget(target: HTMLElement): boolean {
     ].join(',')));
 }
 
-function normalizePromptContextSentence(value: string | undefined, card: JPDBCard): string {
-    const sentence = value?.replace(/\s+/g, ' ').trim() ?? '';
-    return isPromptContextSentence(sentence, card) && isCompleteStudySentence(sentence) ? sentence : '';
-}
 
-function isPromptContextSentence(sentence: string, card: JPDBCard): boolean {
-    if (!newTabCardTarget(card).isLookupableText(sentence)) return false;
-    const normalized = normalizedPromptSentenceText(sentence);
-    const identities = newTabCardHighlightTargets(card)
-        .map(normalizedPromptSentenceText)
-        .filter(Boolean);
-    return Boolean(normalized) && !identities.includes(normalized);
-}
 
-function normalizedPromptSentenceText(value: string): string {
-    return value.replace(/\s+/g, '').trim();
-}
 
 function renderDeckSelectorOptions(
     select: HTMLSelectElement,
@@ -10499,12 +9831,6 @@ function jpdbKanjiActionIsCurrent(previousContext: string, currentContext: strin
     return previousContext === currentContext && targetCanLookupCharacter(kanji) && usesJapaneseProviders();
 }
 
-function jpdbExampleSentenceForPrompt(info: JpdbVocabularyInfo | null, card: JPDBCard): string {
-    const examples = info?.examples ?? [];
-    return examples
-        .map(example => normalizePromptContextSentence(example.sentence, card))
-        .find(Boolean) ?? '';
-}
 
 function sentencePromptTarget(card: JPDBCard, sentence: string): string {
     const reading = newTabCardOptionalReading(card);
@@ -10522,9 +9848,6 @@ function capitalizedSessionSource(source: string): string {
     return source ? `${source[0]?.toUpperCase() ?? ''}${source.slice(1)}` : '';
 }
 
-function uniqueNumbers(values: number[]): number[] {
-    return [...new Set(values)];
-}
 
 function isJitenBulkAction(action: string): boolean {
     return action === 'jiten-mining' || action === 'jiten-suspend' || action === 'jiten-forget';

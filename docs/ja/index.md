@@ -4,7 +4,7 @@ pageClass: yomu-home
 sidebar: false
 aside: false
 titleTemplate: false
-title: "よむ — 学習している言語を読む"
+title: "よむ | 日本語を読む。物語の続きを楽しむ。"
 description: "33の学習言語のどれでも、ウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習も使えます。"
 ---
 

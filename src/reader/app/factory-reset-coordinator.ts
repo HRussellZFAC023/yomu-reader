@@ -33,13 +33,13 @@ export interface FactoryResetCoordinatorDependencies {
     isDestroyed: () => boolean;
     getLanguage: () => InterfaceLanguage;
     invalidateRuntimeStores: () => Promise<void>;
-    resetDictionaryDatabase: () => Promise<unknown>;
+    resetDictionaryDatabase: (completedResetId?: string) => Promise<unknown>;
     toast: (message: string) => void;
     reload: () => void;
 }
 
 export interface FactoryResetDictionaryStore {
-    deleteDatabase(options: { timeoutMs: number }): Promise<unknown>;
+    deleteDatabase(options: { timeoutMs: number; completedResetId?: string }): Promise<unknown>;
 }
 
 export interface FactoryResetRuntimeOptions {
@@ -51,8 +51,8 @@ export interface FactoryResetRuntimeOptions {
     toast: (message: string) => void;
 }
 
-function resetFactoryResetDictionaryDatabase(dictionaries: FactoryResetDictionaryStore): Promise<{ deleted: true }> {
-    return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
+function resetFactoryResetDictionaryDatabase(dictionaries: FactoryResetDictionaryStore, completedResetId?: string): Promise<{ deleted: true }> {
+    return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS, ...(completedResetId ? { completedResetId } : {}) })
         .then(() => ({ deleted: true }));
 }
 
@@ -61,7 +61,7 @@ export function createFactoryResetCoordinator(options: FactoryResetRuntimeOption
         isDestroyed: options.isDestroyed,
         getLanguage: options.getLanguage,
         invalidateRuntimeStores: options.invalidateRuntimeStores,
-        resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(options.dictionaries),
+        resetDictionaryDatabase: completedResetId => resetFactoryResetDictionaryDatabase(options.dictionaries, completedResetId),
         toast: options.toast,
         reload: options.reload,
     });
@@ -110,7 +110,7 @@ export class FactoryResetCoordinator {
             // IndexedDB after the first delete but before the epoch advances.
             // A second delete after commit removes that recreation; failure is
             // best-effort because the DB's own epoch marker clears it on reboot.
-            await this.dependencies.resetDictionaryDatabase()
+            await this.dependencies.resetDictionaryDatabase(resetSignal.id)
                 .catch(error => log.warn('Final dictionary reset failed after epoch commit', error));
             await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id))
                 .catch(error => log.warn('Factory reset completion signal failed after epoch commit', error));

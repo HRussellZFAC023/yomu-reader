@@ -63,7 +63,7 @@ describe('lesson overview screen', () => {
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
             .toContain('/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)
-            .toContain('/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp');
+            .toContain('/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.webp');
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)

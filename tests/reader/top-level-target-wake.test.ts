@@ -15,7 +15,6 @@ vi.mock('../../src/reader/settings/index', async importOriginal => {
         ...original,
         subscribeToSettingsStorageChanges: settingsSubscriptionMocks.subscribe,
         loadSettings: loadSnapshot,
-        loadSettingsWithWitnessedAuthority: loadSnapshot,
     };
 });
 

@@ -297,6 +297,15 @@ describe('Academy Story screen', () => {
         expect(learner.dataset.performancePresence).toBe('inactive');
     });
 
+    it('preserves Mika’s existing portrait on a non-listening-intent story line', () => {
+        const { screen } = render(episodeCursor(
+            's1e04-welcome-frequency', 'scene:welcome-frequency:the-loud-room',
+            'line:welcome-frequency:mika-one-more-time',
+        ));
+        expect(screen.querySelector('[data-character="mika"] img')?.getAttribute('src'))
+            .toBe('/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp');
+    });
+
     it('uses the canonical listening performance when Xingyu teaches the sound strategy', () => {
         const { screen } = render(cursor(
             'scene:blank-atlas:mission-sound',

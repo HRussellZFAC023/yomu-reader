@@ -16,7 +16,7 @@ const HARDENED_COMPILER_LISTENER_BODY = `event.addListener((message, sender, sen
       return true;
     });`;
 const STORAGE_PREFIX_DECLARATION = /\bconst storagePrefix = ("(?:\\.|[^"\\])*");/g;
-const ALIAS_IMPORT_CANDIDATE = /(?:^|\/)(?:storage|logger|settings|index|archive-cache)(?:\.[cm]?[jt]s)?$/;
+const ALIAS_IMPORT_CANDIDATE = /(?:^|\/)(?:storage|logger|settings|index|archive-cache|import-ownership)(?:\.[cm]?[jt]s)?$/;
 const CONTENT_GM_STORAGE_IDENTIFIER = /\bgmStorage(?:Get|Set|Delete)(?:ForResetEnumeration|Sync)?\b/;
 
 export async function buildExtensionDictionaryBackgroundSource(root) {
@@ -28,6 +28,7 @@ export async function buildExtensionDictionaryBackgroundSource(root) {
         path.join(root, 'src', 'reader', 'app', 'logger.ts'),
         path.join(root, 'src', 'reader', 'settings', 'index.ts'),
         path.join(root, 'src', 'reader', 'dictionaries', 'archive-cache.ts'),
+        path.join(root, 'src', 'reader', 'dictionaries', 'yomitan', 'import-ownership.ts'),
     ].map(normalizedPath));
     const result = await build({
         absWorkingDir: root,

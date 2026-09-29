@@ -5,7 +5,7 @@ import { pruneExpiringMapEntries } from '../core/expiring-map';
 import { enrichCardFromJitenVocabularyInfo, type JitenApiClient, type JitenVocabularyInfo, type JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
-import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
+import type { JpdbVocabularyClient, JpdbVocabularyInfo, JpdbVocabularyLookupResult } from '../jpdb/jpdb-vocabulary';
 import type { BunproDefinitionInfo, BunproDefinitionStatus } from '../bunpro/definition';
 import { yomuBunproCompanion } from '../companions/registry';
 import type { BunproClient } from '../bunpro/bunpro';
@@ -197,7 +197,10 @@ export class CardRenderDataLoader {
         const cached = this.cache.get(key);
         if (cached && cached.expiresAt > now) return cached.load;
 
-        const load = this.fetch(card, options);
+        const load = this.fetch(card, options, () => {
+            const entry = this.cache.get(key);
+            if (entry?.load === load) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + 1_000);
+        });
         void load.all.catch(() => {
             if (this.cache.get(key)?.load === load) this.cache.delete(key);
         });
@@ -220,7 +223,10 @@ export class CardRenderDataLoader {
         const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
         const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
         const jpdbVocabularyInfo = japaneseProviders && options.includeJpdbDefinition !== false
-            ? this.loadJpdbVocabularyInfo(card)
+            ? this.loadJpdbVocabularyInfo(card, () => {
+                const entry = this.definitionSourceCache.get(key);
+                if (entry?.load === load) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + 1_000);
+            })
             : Promise.resolve(null);
         const jitenVocabularyInfo = japaneseProviders && options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled
             ? this.loadJitenVocabularyInfo(card, true)
@@ -247,7 +253,7 @@ export class CardRenderDataLoader {
         return load;
     }
 
-    private fetch(card: JPDBCard, options: CardRenderDataLoadOptions): CardRenderDataLoad {
+    private fetch(card: JPDBCard, options: CardRenderDataLoadOptions, onIncomplete: () => void): CardRenderDataLoad {
         const settings = this.settings();
         const japaneseProviders = usesJapaneseProviders();
         const providerEpoch = activeLearningTargetGeneration();
@@ -276,7 +282,7 @@ export class CardRenderDataLoader {
             ? this.loadJpdbDeckMembership(card)
             : Promise.resolve(false);
         const jpdbVocabularyInfo = japaneseProviders
-            ? this.loadJpdbVocabularyInfo(card)
+            ? this.loadJpdbVocabularyInfo(card, onIncomplete)
             : Promise.resolve(null);
         const cardRanks = cardFrequencyRanks(card, this.dependencies.isJpdbBackedCard);
         const seededFrequencyRanks: ProviderFrequencyRanks = {};
@@ -331,7 +337,7 @@ export class CardRenderDataLoader {
                 },
             } as BunproDefinitionHydrationResult);
         const frequencyRankLoad = japaneseProviders
-            ? this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup)
+            ? this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup, onIncomplete)
             : {
                 initial: Promise.resolve(seededFrequencyRanks),
                 hydrated: Promise.resolve(seededFrequencyRanks),
@@ -509,7 +515,7 @@ export class CardRenderDataLoader {
         return this.loadPublicPitch(card);
     }
 
-    private loadJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
+    private loadJpdbVocabularyInfo(card: JPDBCard, onIncomplete: () => void): Promise<JpdbVocabularyInfo | null> {
         const settings = this.settings();
         // Keyless like the public pitch path: jpdbVocabulary scrapes the public
         // site (cached + backoff), so gating it on a JPDB API credential left
@@ -522,7 +528,10 @@ export class CardRenderDataLoader {
         return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, 'JPDB vocabulary details', this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch(error => {
             log.warn('JPDB page lookup failed', { term: card.spelling }, error);
             return null;
-        }), null as JpdbVocabularyInfo | null);
+        }), null as JpdbVocabularyLookupResult | null).then(result => {
+            if (!result || result.status === 'partial') onIncomplete();
+            return result?.info ?? null;
+        });
     }
 
     // The raw (uncapped) Jiten lookup. A non-Jiten-backed card needs two or three
@@ -549,6 +558,7 @@ export class CardRenderDataLoader {
         jitenVocabularyLookup: Promise<JitenVocabularyInfo | null>,
         seeded: ProviderFrequencyRanks,
         bunproDefinitionLookup: Promise<BunproDefinitionHydrationResult>,
+        onIncomplete: () => void,
     ): FrequencyRankLoad {
         const settings = this.settings();
         const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
@@ -570,8 +580,12 @@ export class CardRenderDataLoader {
             : Promise.resolve(card);
         const jpdb = liveFrequencyEnabled(settings, 'jpdb') && !seeded.jpdb && searchJpdb
             ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady])
-                .then(([candidates]) => exactJpdbFrequencyRank(card, candidates))
+                .then(([result]) => {
+                    if (result.status === 'partial') onIncomplete();
+                    return exactJpdbFrequencyRank(card, result.cards);
+                })
                 .catch(error => {
+                    onIncomplete();
                     log.warn('JPDB frequency lookup failed', { term: card.spelling }, error);
                     return null;
                 })

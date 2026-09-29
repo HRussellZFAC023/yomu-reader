@@ -214,11 +214,13 @@ function reconcileActiveRuntimeMarker(): void {
     const marker = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
     if (marker?.dataset.yomuRuntimeOwner === runtime.ownerId) return;
     releaseActiveRuntime(runtime);
-    removeOwnerlessDisplacedMarker(marker);
+    removeOwnerlessDisplacedMarker(marker, runtime.kind);
 }
 
-function removeOwnerlessDisplacedMarker(marker: HTMLElement | null): void {
+function removeOwnerlessDisplacedMarker(marker: HTMLElement | null, displacedKind: YomuRuntimeKind): void {
     if (!marker?.isConnected) return;
+    // Installed runtimes can own this shared marker from a different JS realm.
+    if (priority(marker.dataset.yomuRuntimeKind) > priority(displacedKind)) return;
     const bootWindow = window as YomuBootWindow;
     // A live conforming replacement writes both its marker and window owner.
     // If only the marker changed, it was detached or rewritten by the page and
@@ -582,7 +584,7 @@ function observeRuntimeMarker(ownerId: string, kind: YomuRuntimeKind, release: (
         // remain as an ownerless same-priority veto against reinjection. A
         // conforming replacement has already written the same owner to window
         // state, so removeOwnerlessDisplacedMarker deliberately preserves it.
-        removeOwnerlessDisplacedMarker(marker);
+        removeOwnerlessDisplacedMarker(marker, kind);
     });
     observer.observe(marker, RUNTIME_MARKER_OBSERVER_OPTIONS);
     return observer;

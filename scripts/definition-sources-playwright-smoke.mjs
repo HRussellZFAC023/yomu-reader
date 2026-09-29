@@ -1218,7 +1218,6 @@ function popoverHtml() {
 function createSettings(overrides = {}) {
     return {
         onboardingSeen: true,
-        newTabEnabled: true,
         newTabSource: 'dictionary',
         newTabParsingEnabled: false,
         newTabFrontSentenceEnabled: false,

@@ -57,6 +57,13 @@ function repository(): string {
 }
 
 describe('content-addressed artifact retention', () => {
+    it('refuses retention planning when Git cannot read the repository', () => {
+        const root = mkdtempSync(join(tmpdir(), 'yomu-retention-unavailable-'));
+        repositories.push(root);
+        expect(() => isShallowRepository(root)).toThrow('refusing to prune assets');
+        expect(() => contentAddressedRetentionReport(root)).toThrow('refusing to prune assets');
+    });
+
     it('extracts immutable companion and stylesheet pins from a userscript header', () => {
         expect([...pinnedArtifactPaths(header('abcdef123456', '654321fedcba'))]).toEqual([
             'docs/public/greasyfork/yomu-runtime.abcdef123456.user.js',

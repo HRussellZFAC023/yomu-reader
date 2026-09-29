@@ -6,6 +6,7 @@
  * runner never accepts provider tokens or synthesizes an OAuth callback.
  */
 import { execFileSync } from 'node:child_process';
+import academyBuildAssets from './lib/academy-build-manifest.cjs';
 import { createHash, createHmac } from 'node:crypto';
 import {
     existsSync,
@@ -435,6 +436,16 @@ async function reviewedDeploymentIdentity(config) {
     const hostedAppHash = sha256(new Uint8Array(await hostedResponse.arrayBuffer()));
     const localAppHash = sha256(readFileSync(HOSTED_APP_PATH));
     if (hostedAppHash !== localAppHash) throw new Error('Hosted Academy app hash does not match reviewed app.js.');
+    const manifestBytes = readFileSync(resolve('docs/public/academy/manifest.json'));
+    const graph = academyBuildAssets.academyBuildManifest(JSON.parse(manifestBytes.toString('utf8')));
+    const hostedAssetHashes = {};
+    for (const file of ['manifest.json', ...graph.files]) {
+        const remote = await fetch(`${config.origin}/academy/${file}`, { cache: 'no-store' });
+        if (!remote.ok) throw new Error(`Hosted Academy asset ${file} returned HTTP ${remote.status}.`);
+        const actual = sha256(new Uint8Array(await remote.arrayBuffer()));
+        if (actual !== sha256(readFileSync(resolve('docs/public/academy', file)))) throw new Error(`Hosted Academy asset differs: ${file}`);
+        hostedAssetHashes[file] = actual;
+    }
 
     const localMigrations = readdirSync(MIGRATIONS_DIR)
         .filter(file => /^\d{4}_[a-z0-9_]+\.sql$/u.test(file))
@@ -456,6 +467,7 @@ async function reviewedDeploymentIdentity(config) {
         workerConfigSha256: reviewedArtifact.configSha256,
         workerMigrationSetSha256: reviewedArtifact.migrationSetSha256,
         hostedAppSha256: hostedAppHash,
+        hostedAssetHashes,
         schemaMigrations: localMigrations,
         apiBase: health.apiBase,
     });

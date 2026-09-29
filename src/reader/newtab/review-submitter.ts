@@ -3,7 +3,7 @@ import { type UiCopyKey } from '../app/i18n';
 import { type NewTabCopyKey } from './i18n';
 import { cardKey } from '../cards/utils';
 import { newTabCardReading, sentenceForCard } from './study-queue';
-import { isJitenSrsCard, type NewTabReviewTarget } from './review-targets';
+import { isJitenGradableCard, type NewTabReviewTarget } from './review-targets';
 import type { QueuedNewTabGrade } from './grade-queue';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import type { JpdbClient } from '../jpdb/jpdb';
@@ -110,7 +110,7 @@ export class NewTabReviewSubmitter {
                 undo: notReversible,
             },
             'jiten-api': {
-                hasCredential: card => isJitenSrsCard(card)
+                hasCredential: card => isJitenGradableCard(card)
                     && this.deps.getSettings().jpdbMiningEnabled
                     && hasJitenApiCredential(this.deps.getSettings())
                     && typeof this.deps.jiten?.reviewCard === 'function',
@@ -161,7 +161,7 @@ export class NewTabReviewSubmitter {
         const settings = this.deps.getSettings();
         const reviewCard = this.deps.jiten?.reviewCard;
         assertReviewAccess(this.deps, [
-            [isJitenSrsCard(card), 'couldNotSubmitGrade'],
+            [isJitenGradableCard(card), 'couldNotSubmitGrade'],
             [settings.jpdbMiningEnabled, 'apiSrsActionsDisabled'],
             [hasJitenApiCredential(settings), 'addJitenApiKeyReview'],
             [typeof reviewCard === 'function', 'couldNotSubmitGrade'],

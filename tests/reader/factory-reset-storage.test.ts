@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearManagedStoredValues } from '../../src/reader/app/storage';
 import { DEFAULT_SETTINGS, deleteSettingsStorage, endSettingsResetGuard, loadSettings } from '../../src/reader/settings/index';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 
 function installMutableGmStore(store: Map<string, unknown>): void {
     const api = {
@@ -130,10 +131,10 @@ describe('factory reset storage completeness', () => {
 
     it('clears lookup pill selections so settings return to defaults after reset', async () => {
         const customLinks = DEFAULT_SETTINGS.dictionaryLookupLinks.slice(0, 1);
-        const store = new Map<string, unknown>([[
-            'jpdb-popup-reader-settings',
-            { apiKey: 'secret-123', dictionaryLookupLinks: customLinks },
-        ]]);
+        const store = new Map<string, unknown>(Object.entries(serializeSettingsPersistencePair(
+            { ...DEFAULT_SETTINGS, apiKey: 'secret-123', dictionaryLookupLinks: customLinks },
+            { revision: 0, records: {} },
+        )));
         installMutableGmStore(store);
 
         const before = await loadSettings();

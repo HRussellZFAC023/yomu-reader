@@ -257,7 +257,7 @@ export function renderBrowseList(
     cards: JPDBCard[],
     page: number,
     language: ReaderSettings['interfaceLanguage'],
-    copy: { empty: string; previous: string; next: string; showing: (from: number, to: number, total: number) => string; bulk?: BrowseBulkCopy; dueIn?: (card: JPDBCard) => string },
+    copy: { empty: string; previous: string; next: string; showing: (from: number, to: number, total: number) => string; bulk?: BrowseBulkCopy; dueIn?: (card: JPDBCard) => string; startReview?: string },
 ): HTMLElement {
     if (!cards.length) {
         return el('div', { class: 'jpdb-reader-newtab-browse-empty' }, copy.empty);
@@ -270,7 +270,7 @@ export function renderBrowseList(
         el('p', { class: 'jpdb-reader-newtab-browse-meta' }, copy.showing(start + 1, start + visible.length, cards.length)),
         copy.bulk ? renderBrowseBulkBar(copy.bulk) : null,
         el('ol', { class: 'jpdb-reader-newtab-browse-rows' },
-            ...visible.map(card => renderBrowseRow(card, language, Boolean(copy.bulk), copy.dueIn?.(card) ?? '')),
+            ...visible.map(card => renderBrowseRow(card, language, Boolean(copy.bulk), copy.dueIn?.(card) ?? '', copy.startReview)),
         ),
         pageCount > 1
             ? el('div', { class: 'jpdb-reader-newtab-browse-pager' },
@@ -313,7 +313,7 @@ function renderBrowseBulkBar(copy: BrowseBulkCopy): HTMLElement {
     );
 }
 
-function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage'], selectable = false, dueIn = ''): HTMLElement {
+function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage'], selectable = false, dueIn = '', startReview?: string): HTMLElement {
     const state = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
     const reading = browseReading(card);
@@ -344,6 +344,12 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
             cardStateLabel(state, language),
             browseStateDetails(card, dueIn),
         )),
+        startReview && card.source === 'yomu-local' && card.dueAt == null
+            ? el('button', {
+                type: 'button',
+                dataset: { newtabAction: newTabAction('browse-start-review'), browseCardKey: cardKey(card) },
+            }, startReview)
+            : null,
     );
 }
 

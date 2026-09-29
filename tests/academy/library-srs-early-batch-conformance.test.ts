@@ -326,15 +326,33 @@ describe('Library SRS exact linkage for the delivered early source-sheet boundar
             pitchAccent: [],
         });
 
-        const session = createNewTabStudySession(token!.card, {
-            mode: 'word',
+        const options = {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
         });
-        const steps = session.steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
     });
 
     it('carries an l1-l15 review row through dictionary and Jiten fallback', async () => {
@@ -368,17 +386,36 @@ describe('Library SRS exact linkage for the delivered early source-sheet boundar
         }, { concurrency: 1, jpdbPublicLookup: false });
         expect(lookupMany.mock.calls[0]?.[0]).toContain('公園');
 
-        const steps = createNewTabStudySession(token!.card, {
-            mode: 'word',
+        const options = {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        }).steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
     });
 
-    it('carries an l1-l16 review row through dictionary, Jiten fallback, and Word to Type', async () => {
+    it('carries an l1-l16 review row through dictionary, Jiten fallback, and native review with optional writing', async () => {
         const sheet = createLibraryVocabularySheetFromPackage(lessonPackage('017-l1-l16.json'), 'l1-l16');
         const word = sheet.items[4]!;
         const surface = document.createElement('span');
@@ -409,17 +446,36 @@ describe('Library SRS exact linkage for the delivered early source-sheet boundar
         }, { concurrency: 1, jpdbPublicLookup: false });
         expect(lookupMany.mock.calls[0]?.[0]).toContain('自動販売機');
 
-        const steps = createNewTabStudySession(token!.card, {
-            mode: 'word',
+        const options = {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        }).steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
     });
 
-    it('carries an l1-l18 review row through Reader, Jiten fallback, and Word to Type', async () => {
+    it('carries an l1-l18 review row through Reader, Jiten fallback, and native review with optional writing', async () => {
         const sheet = createLibraryVocabularySheetFromPackage(lessonPackage('019-l1-l18.json'), 'l1-l18');
         const word = sheet.items[0]!;
         const surface = document.createElement('span');
@@ -451,17 +507,36 @@ describe('Library SRS exact linkage for the delivered early source-sheet boundar
         }, { concurrency: 1, jpdbPublicLookup: false });
         expect(lookupMany.mock.calls[0]?.[0]).toContain('りんご');
 
-        const steps = createNewTabStudySession(token!.card, {
-            mode: 'word',
+        const options = {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        }).steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
     });
 
-    it('carries an l1-l19 owner row through Reader, Jiten fallback, and Word to Type', async () => {
+    it('carries an l1-l19 owner row through Reader, Jiten fallback, and native review with optional writing', async () => {
         const sheet = createLibraryVocabularySheetFromPackage(lessonPackage('020-l1-l19.json'), 'l1-l19');
         const word = sheet.items[24]!;
         const surface = document.createElement('span');
@@ -493,14 +568,33 @@ describe('Library SRS exact linkage for the delivered early source-sheet boundar
         }, { concurrency: 1, jpdbPublicLookup: false });
         expect(lookupMany.mock.calls[0]?.[0]).toContain('船便');
 
-        const steps = createNewTabStudySession(token!.card, {
-            mode: 'word',
+        const options = {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        }).steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
     });
 
     it('does not author a Reader fallback for the quarantined l1-l18 source ambiguity', () => {

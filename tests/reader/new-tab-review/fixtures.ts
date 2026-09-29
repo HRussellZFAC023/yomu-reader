@@ -17,28 +17,13 @@ import { assessKanjiStrokes, rankKanjiStrokeCandidates } from '../../../src/read
 import { createReaderPopover } from '../../../src/reader/popup/shell';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../../src/reader/settings/index';
 import { testEnSettings } from '../helpers/settings-fixture';
+import { DEFAULT_NEW_TAB_UI_STATE, type NewTabRoute } from '../../../src/reader/newtab/state';
 
-export const WORD_ONLY_STUDY_DISABLED_STEPS: typeof BASE_DEFAULT_SETTINGS.newTabStudyDisabledSteps = [
-    'kanji-doodle',
-    'recall-cloze',
-    'listen-pitch',
-    'speaking',
-    'type-word',
-];
-const REVIEW_SUITE_STUDY_STEP_ORDER: typeof BASE_DEFAULT_SETTINGS.newTabStudyStepOrder = [
-    'word',
-    'recall-cloze',
-    'listen-pitch',
-    'speaking',
-    'kanji-doodle',
-];
-// These tests assert English UI copy and mostly cover the old review/front-card
-// behavior; pin language while dedicated study tests cover the new kanji-first
-// merged flow.
+// Pin only the UI language; exercise selection is a user action, not a fixture default.
 export const DEFAULT_SETTINGS = {
     ...testEnSettings(),
-    newTabStudyStepOrder: REVIEW_SUITE_STUDY_STEP_ORDER,
-    newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+
+
 };
 import { definitionSourceRows } from '../../../src/reader/sources/sections';
 import { renderNewTabGradeControlButtons, summarizeNewTabReviewSources } from '../../../src/reader/newtab/review-controls';
@@ -213,11 +198,11 @@ export function newTabImmersionAudioRevealFixture(
     const played = stubNewTabAudioPlayback();
     const fetchBlobUrl = options.fetchBlobUrl ?? vi.fn(async () => 'blob:http://localhost/line.mp3');
     const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
-        immersionKit: {
-            search,
+        immersionKit: newTabImmersionClient({
+            query: search,
             mediaUrls: vi.fn((_example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/line.mp3'] : []),
             fetchBlobUrl,
-        } as never,
+        } as never),
     });
     const root = renderSeededNewTabWord(controller, card, {
         sourceLabel: 'Dictionaries',
@@ -363,13 +348,13 @@ export function readNewTabGradeQueue(): Array<{
     }>;
 }
 
-export function newTabPromptController(settingsOrGetter: NewTabSettingsSource = DEFAULT_SETTINGS, overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {}): NewTabController {
+export function newTabPromptController(settingsOrGetter: NewTabSettingsSource = DEFAULT_SETTINGS, overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {}, options: ConstructorParameters<typeof NewTabController>[1] = {}): NewTabController {
     return newTabBareController(settingsOrGetter, {
         jpdbKanji: { lookup: vi.fn(async () => null) } as never,
         kanjiVG: { lookup: vi.fn(async () => null) } as never,
         rtk: { lookup: vi.fn(async () => null) } as never,
         ...overrides,
-    });
+    }, options);
 }
 
 export function renderEnabledNewTabRoot(controller: NewTabController, options: { appendToDocument?: boolean } = {}): HTMLElement {
@@ -398,8 +383,8 @@ export function createNewTabKanjiFrontFixture(
         ...DEFAULT_SETTINGS,
         immersionKitEnabled: false,
         newTabKanjiAutogradeEnabled: false,
-        newTabStudyStepOrder: BASE_DEFAULT_SETTINGS.newTabStudyStepOrder,
-        newTabStudyDisabledSteps: [],
+
+
         ...settingsOverrides,
     }, {
         dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
@@ -410,13 +395,14 @@ export function createNewTabKanjiFrontFixture(
         visibleWords: JPDBCard[];
         index: number;
         sourceLabel: string;
-        state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
     }, {
         visibleWords: [card],
         index: 0,
         sourceLabel: 'JPDB',
-        state: { mode: 'kanji', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false, ...stateOverrides },
+        state: { ...DEFAULT_NEW_TAB_UI_STATE, route: 'study', sort: 'frequency', source: 'jpdb', ...stateOverrides },
     });
+    (controller as unknown as { setStudyStepOverrideForCurrentCard(id: string): void }).setStudyStepOverrideForCurrentCard('kanji-doodle:0');
     (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
     return { controller, root };
 }
@@ -430,7 +416,7 @@ export type NewTabRenderedState = {
     index: number;
     reviewCountMode: boolean;
     sourceLabel: string;
-    state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+    state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
 };
 export type AnkiConnectRequest = { action: string; params: Record<string, unknown> };
 export type AnkiConnectRequestContext = { query: string; cards: number[]; notes: number[] };
@@ -467,7 +453,6 @@ export function newTabBareController(
         jpdbKanji: {} as never,
         kanjiVG: {} as never,
         rtk: {} as never,
-        immersionKit: {} as never,
         jpdbReviewBridge: { onUpdate: () => () => {} } as never,
         parser: { isJpdbBackedCard: (card: JPDBCard) => card.source === 'jpdb' || card.reviewSource === 'jpdb-api' } as never,
         dictionaries: {} as never,
@@ -476,7 +461,20 @@ export function newTabBareController(
         showSettings: vi.fn(),
         dismiss: vi.fn(),
         ...overrides,
+        immersionKit: overrides.immersionKit ?? newTabImmersionClient(),
     }, controllerOptions);
+}
+
+/** Current-contract test adapter. Query data is explicitly complete; rejections stay failures. */
+export function newTabImmersionClient(options: Partial<Pick<NewTabControllerOptions['immersionKit'],
+    'searchResult' | 'mediaUrls' | 'fetchBlobUrl'>> & { query?: NewTabControllerOptions['immersionKit']['search'] } = {}): NewTabControllerOptions['immersionKit'] {
+    const query = options.query ?? vi.fn(async () => []);
+    return { mediaUrls: vi.fn(() => []), fetchBlobUrl: vi.fn(async () => ''), ...options,
+        search: query,
+        searchResult: options.searchResult ?? vi.fn(async (...args: Parameters<NewTabControllerOptions['immersionKit']['searchResult']>) => ({
+            examples: await query(...args), status: 'complete' as const,
+        })),
+    } as NewTabControllerOptions['immersionKit'];
 }
 
 export function disconnectedJpdbReviewBridge(): NewTabControllerOptions['jpdbReviewBridge'] {
@@ -539,7 +537,7 @@ export function newTabLocalFallbackController(
     overrides: Partial<NewTabControllerOptions> = {},
 ): NewTabController {
     return newTabBareController(settingsOrGetter, {
-        jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => []) } as never,
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' })), search: vi.fn(async () => ({ cards: [], status: 'complete' })) } as never,
         jpdbReviewBridge: disconnectedJpdbReviewBridge(),
         parser: {
             cacheCards: vi.fn(),
@@ -594,7 +592,7 @@ export function newTabPublicFallbackController(
 ): NewTabController {
     return newTabBareController(settingsOrGetter, {
         anki: { listNewTabCards: vi.fn(async () => []) } as never,
-        jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch } as never,
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' })), search: publicSearch } as never,
         jpdbReviewBridge: disconnectedJpdbReviewBridge(),
         dictionaries: {
             summary: vi.fn(async () => newTabEmptyDictionarySummary()),
@@ -605,7 +603,7 @@ export function newTabPublicFallbackController(
 
 export function newTabBuiltInFallbackFixture(source: 'auto' | 'anki' | 'dictionary', settings: Partial<NewTabSettings> = {}) {
     resetNewTabReviewStorage();
-    const publicSearch = vi.fn(async () => []);
+    const publicSearch = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
     const fallbackCardFromText = vi.fn((text: string) => newTabTestCard({
         spelling: text,
         reading: '',
@@ -781,13 +779,13 @@ export function newTabAnkiClient(overrides: Partial<NewTabSettings> = {}): { set
 }
 
 export function seedNewTabState(controller: NewTabController, state: NewTabRenderedState['state']): void {
-    Object.assign(controller as unknown as { state: NewTabRenderedState['state'] }, { state });
+    Object.assign(controller as unknown as { state: NewTabRenderedState['state'] }, { state: { ...DEFAULT_NEW_TAB_UI_STATE, ...state } });
 }
 
 function renderNewTabSearchRoot(controller: NewTabController, source = 'jpdb'): HTMLElement {
     const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
     seedNewTabState(controller, {
-        mode: 'search',
+        route: 'search',
         sort: 'random',
         filter: 'study',
         source,
@@ -822,7 +820,7 @@ export function renderSeededNewTabRoot(controller: NewTabController, options: {
     const seededState: Partial<NewTabRenderedState> = {
         visibleWords: options.visibleWords,
         sourceLabel: options.sourceLabel,
-        state: options.state,
+        state: { ...DEFAULT_NEW_TAB_UI_STATE, ...options.state },
     };
     if (options.allWords !== undefined) seededState.allWords = options.allWords;
     if (options.index !== undefined) seededState.index = options.index;
@@ -846,7 +844,8 @@ function seedNewTabRenderedState(controller: NewTabController, options: {
         reviewCountMode: options.reviewCountMode ?? false,
         sourceLabel: options.sourceLabel ?? 'JPDB',
         state: {
-            mode: 'word',
+            ...DEFAULT_NEW_TAB_UI_STATE,
+            route: 'study',
             sort: 'random',
             filter: 'study',
             source: 'jpdb',
@@ -940,7 +939,7 @@ export function renderJpdbAnkiReviewWordFixture(options: { bindRootEvents?: bool
         index: 0,
         reviewCountMode: true,
         sourceLabel: 'JPDB + Anki',
-        state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
+        state: { route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
         appendToDocument: true,
     });
     const internals = controller as unknown as {
@@ -1148,7 +1147,7 @@ export function newTabVisibleWordFixture(
         sourceLabel: string;
         source?: string;
         revealAnswer?: boolean;
-        mode?: string;
+        route?: NewTabRoute;
         sort?: string;
         filter?: string;
         allWords?: JPDBCard[];
@@ -1165,7 +1164,7 @@ export function newTabVisibleWordFixture(
         reviewCountMode: options.reviewCountMode,
         sourceLabel: options.sourceLabel,
         state: {
-            mode: options.mode ?? 'word',
+            route: options.route ?? 'study',
             sort: options.sort ?? 'random',
             filter: options.filter ?? 'study',
             source: options.source ?? 'jpdb',
@@ -1327,7 +1326,7 @@ export function newTabLiveReviewController(options: {
     });
 }
 
-export async function renderLoadedLiveReviewFixture(mode: 'kanji' | 'word') {
+export async function renderLoadedLiveReviewFixture() {
     const restoreCanvas = stubKanjiDoodleBrowserApis();
     const grade = vi.fn();
     const reveal = vi.fn();
@@ -1338,12 +1337,12 @@ export async function renderLoadedLiveReviewFixture(mode: 'kanji' | 'word') {
         reveal,
         grade,
         settings: {
-            newTabStudyStepOrder: BASE_DEFAULT_SETTINGS.newTabStudyStepOrder,
-            newTabStudyDisabledSteps: [],
+
+
         },
     });
     const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
-    const state: NewTabRenderedState['state'] = { mode, sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false };
+    const state: NewTabRenderedState['state'] = { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false };
     seedNewTabState(controller, state);
     const result = await (controller as unknown as { loadJpdbWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadJpdbWords();
     (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
@@ -1357,7 +1356,7 @@ export async function renderLoadedLiveReviewFixture(mode: 'kanji' | 'word') {
 }
 
 export function renderNewTabCardFront(controller: NewTabController, card: JPDBCard, options: {
-    mode?: string;
+    route?: NewTabRoute;
     sort?: string;
     filter?: string;
     source?: string;
@@ -1370,7 +1369,7 @@ export function renderNewTabCardFront(controller: NewTabController, card: JPDBCa
         index: 0,
         sourceLabel: options.sourceLabel ?? 'JPDB',
         state: {
-            mode: options.mode ?? 'word',
+            route: options.route ?? 'study',
             sort: options.sort ?? 'frequency',
             filter: options.filter ?? 'study',
             source: options.source ?? 'jpdb',
@@ -1381,9 +1380,7 @@ export function renderNewTabCardFront(controller: NewTabController, card: JPDBCa
         renderWord(root: HTMLElement, card: JPDBCard): void;
         setStudyStepOverrideForCurrentCard(id: string | null): void;
     };
-    if (options.mode !== 'kanji' && !options.revealAnswer) {
-        internals.setStudyStepOverrideForCurrentCard(options.studyStepId === undefined ? 'word' : options.studyStepId);
-    } else if (options.studyStepId !== undefined) {
+    if (options.studyStepId !== undefined) {
         internals.setStudyStepOverrideForCurrentCard(options.studyStepId);
     }
     internals.renderWord(root, card);
@@ -1406,7 +1403,7 @@ export function expectRevealedPromptPitch(controller: NewTabController, card: JP
 }
 
 export function renderNewTabKanjiFront(controller: NewTabController, card: JPDBCard): HTMLElement {
-    return renderNewTabCardFront(controller, card, { mode: 'kanji' });
+    return renderNewTabCardFront(controller, card, { studyStepId: 'kanji-doodle:0' });
 }
 
 export function renderTestKanjiDetails(options: {

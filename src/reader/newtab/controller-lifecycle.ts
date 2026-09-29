@@ -1,12 +1,11 @@
 import {
     createNewTabStateChannel,
-    loadNewTabUiStateWithLegacyIntent,
-    type LegacyNewTabStudyIntent,
+    loadNewTabUiState,
     type NewTabRoute,
 } from './index';
 import { normalizeSearchQuery } from './card-selection';
 import { createStudySessionClock, type StudySessionClock } from './session-clock';
-import type { NewTabUiState } from './state';
+import type { NewTabUiState, SharedNewTabViewState } from './state';
 import type { NewTabStudyStepId } from './study-session';
 
 const NEW_TAB_ROUTE_NAMES = new Set<string>(['study', 'word', 'search', 'stats']);
@@ -19,7 +18,6 @@ interface NewTabControllerStartupOptions {
 
 export interface NewTabControllerStartup {
     readonly state: NewTabUiState;
-    readonly legacyStudyIntent: LegacyNewTabStudyIntent | null;
     readonly routeSearchQuery: string;
     readonly sessionClock: StudySessionClock;
     readonly ownsSessionClock: boolean;
@@ -30,11 +28,10 @@ export type NewTabControllerStateChannel = ReturnType<typeof createNewTabStateCh
 
 /** Owns the persisted/location/session inputs needed to start one controller. */
 export function newTabControllerStartup(options: NewTabControllerStartupOptions): NewTabControllerStartup {
-    const loaded = loadNewTabUiStateWithLegacyIntent();
+    const loaded = loadNewTabUiState();
     const route = currentNewTabRoute();
     return {
-        state: initialNewTabState(loaded.state, options.source, route),
-        legacyStudyIntent: loaded.legacyStudyIntent,
+        state: initialNewTabState(loaded, options.source, route),
         routeSearchQuery: route === 'search' ? currentNewTabSearchQuery() : '',
         ...newTabSessionClock(options.sessionClock),
         initialStudyStepId: options.initialStudyStepId ?? null,
@@ -43,7 +40,7 @@ export function newTabControllerStartup(options: NewTabControllerStartupOptions)
 
 export function newTabControllerStateChannel(
     surface: 'standalone' | 'academy' | undefined,
-    onState: (state: NewTabUiState) => void,
+    onState: (state: SharedNewTabViewState) => void,
 ): NewTabControllerStateChannel {
     if (surface === 'academy') return { publish: () => {}, close: () => {} };
     return createNewTabStateChannel(onState);

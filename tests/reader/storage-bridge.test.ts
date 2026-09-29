@@ -70,6 +70,39 @@ describe('userscript GM storage bridge', () => {
         await expectMissingManagedValueFallback();
     });
 
+    it('reads and enumerates the authoritative API instead of a stale synchronous snapshot', async () => {
+        stubGmStore(new Map([['jpdb-popup-reader-settings', { theme: 'light' }]]));
+        const durable = new Map<string, unknown>([
+            ['jpdb-popup-reader-settings', { theme: 'dark' }],
+            ['yomu:enable-logs', false],
+        ]);
+        vi.stubGlobal('GM', {
+            getValue: async (key: string, fallback: unknown) => durable.has(key) ? durable.get(key) : fallback,
+            listValues: async () => [...durable.keys()],
+        });
+        installUserscriptGmStorageBridge();
+        const bridge = getUserscriptGmStorage()!;
+
+        await expect(bridge.getValue('jpdb-popup-reader-settings', null)).resolves.toEqual({ theme: 'dark' });
+        await expect(bridge.listValues()).resolves.toContain('yomu:enable-logs');
+        durable.delete('jpdb-popup-reader-settings');
+        await expect(bridge.getValue('jpdb-popup-reader-settings', null)).resolves.toBeNull();
+        await expect(bridge.listValues()).resolves.not.toContain('jpdb-popup-reader-settings');
+    });
+
+    it('does not fall back to the synchronous snapshot after authoritative reads fail', async () => {
+        stubGmStore(new Map([['jpdb-popup-reader-settings', { theme: 'light' }]]));
+        vi.stubGlobal('GM', {
+            getValue: async () => { throw new Error('durable read rejected'); },
+            listValues: async () => { throw new Error('durable enumeration rejected'); },
+        });
+        installUserscriptGmStorageBridge();
+        const bridge = getUserscriptGmStorage()!;
+
+        await expect(bridge.getValue('jpdb-popup-reader-settings', null)).rejects.toThrow('durable read rejected');
+        await expect(bridge.listValues()).rejects.toThrow('durable enumeration rejected');
+    });
+
     it('recognizes a missing default cloned by a message-based manager', async () => {
         vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => structuredClone(fallback)));
         vi.stubGlobal('GM_setValue', vi.fn());

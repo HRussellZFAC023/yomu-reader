@@ -158,7 +158,7 @@ describe('new-tab session progress', () => {
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             loadWordsInto(root: HTMLElement, preferStoredWord: boolean, options: unknown): Promise<void>;
         }, {
             allWords: [jpdb, anki],
@@ -166,7 +166,7 @@ describe('new-tab session progress', () => {
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'JPDB + Anki',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
             loadWordsInto: vi.fn(async () => {}),
         });
 
@@ -205,14 +205,14 @@ describe('new-tab session progress', () => {
             index: number;
             reviewCountMode: boolean;
             sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
         }, {
             allWords: [current, next],
             visibleWords: [current, next],
             index: 0,
             reviewCountMode: true,
             sourceLabel: 'JPDB',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+            state: { route: 'study', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
         });
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, current);
 

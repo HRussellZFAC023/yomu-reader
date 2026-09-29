@@ -121,7 +121,7 @@ describe('reader helpers', () => {
             jitenReadingIndex: 0,
             pitchAccent: ['LHHL'],
         };
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => ({ cards: [publicCard], status: 'complete' as const }));
         const jitenLookup = vi.fn(async () => null);
         const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
             terms.includes('青空') ? [['青空', publicCard]] : [],

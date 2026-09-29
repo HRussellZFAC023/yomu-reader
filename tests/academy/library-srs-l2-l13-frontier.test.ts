@@ -141,11 +141,33 @@ describe('Library SRS l2-l13 exact vocabulary frontier', () => {
 
         expect(token?.card).toMatchObject({ spelling: 'それで', reading: 'それで', source: 'fallback' });
         expect(fallbackLookupTermsForCard(token!.card)).toContain('それで');
-        const steps = createNewTabStudySession(token!.card, {
-            mode: 'word', revealAnswer: false, renderAsKanji: false, hasRecallCloze: false,
-            stepOrder: ['type-word', 'speaking', 'word'],
-        }).steps.map(step => step.kind);
-        expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+        const options = {
+            revealAnswer: false,
+            renderAsKanji: false,
+            hasRecallCloze: false,
+        };
+        const session = createNewTabStudySession(token!.card, options);
+        expect(session.activity).toBe('review');
+        expect(session.steps).toEqual([
+            { id: 'review-prompt', kind: 'word', gradeable: false },
+            { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+        ]);
+        expect(session.activeStep).toBe(session.steps[0]);
+        expect(session.practiceSteps).toContainEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+
+        const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+        expect(revealed.activity).toBe('review');
+        expect(revealed.activeStep).toBe(revealed.gradeStep);
+        expect(revealed.steps).toEqual(session.steps);
+
+        const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+        expect(writing.activity).toBe('practice');
+        expect(writing.activeStep).toEqual({
+            id: 'type-word', kind: 'type-word', gradeable: false,
+        });
+        expect(writing.steps).toEqual(session.steps);
 
         for (const unsupported of [sheet.items[0]!, sheet.items[1]!, sheet.items[5]!]) {
             const unsupportedSurface = document.createElement('span');

@@ -63,7 +63,6 @@ function studyCardPayload(card) {
 export function createStudySettings(overrides = {}) {
     return {
         onboardingSeen: true,
-        newTabEnabled: true,
         interfaceLanguage: 'en',
         apiKey: '',
         jitenApiKey: MOCK_JITEN_API_KEY,

@@ -371,9 +371,6 @@ export interface ReaderSettings {
     kanjiImmersionKitEnabled: boolean;
     kanjiImmersionKitAlias: string;
     kanjiImmersionKitPriority: number;
-    uchisenEnabled: boolean;
-    uchisenAlias: string;
-    uchisenPriority: number;
     wanikaniKanjiEnabled: boolean;
     wanikaniKanjiAlias: string;
     wanikaniKanjiPriority: number;
@@ -409,7 +406,6 @@ export interface ReaderSettings {
     immersionKitExampleSource: ImmersionExampleSource;
     nadeshikoApiKey: string;
     immersionKitPriority: number;
-    immersionKitExpandedLimitMigrated20260721: boolean;
     immersionKitLimitEnabled: boolean;
     immersionKitLimit: number;
     immersionKitMinLength: number;
@@ -435,7 +431,6 @@ export interface ReaderSettings {
     // When true, the page is only scanned by shortcut instead of automatically
     // as content streams in.
     manualScanEnabled: boolean;
-    newTabEnabled: boolean;
     newTabAnkiEnabled: boolean;
     newTabAnkiDisabledDecks: string[];
     newTabSource: NewTabWordSource;
@@ -453,11 +448,7 @@ export interface ReaderSettings {
     newTabSwipeReviews: boolean;
     newTabShortcutHintsEnabled: boolean;
     newTabKanjiAutogradeEnabled: boolean;
-    newTabKanjiAutoSubmit: boolean;
-    newTabStudyStepOrder: NewTabStudyChallengeStep[];
-    newTabStudyDisabledSteps: NewTabStudyChallengeStep[];
     newTabTypeWordInputMode: NewTabTypeWordInputMode;
-    newTabStudyTourSeen: boolean;
     puckPositionX?: number;
     puckPositionY?: number;
     // Master pause toggled from the puck radial. While paused, Yomu adds no new
@@ -565,9 +556,6 @@ export interface ReaderSettings {
     /** True once the learner explicitly changes Japanese YouTube filtering. */
     youtubeImmersionEnabledChosen: boolean;
     youtubeShowFilterNotice: boolean;
-    youtubeFilterNoticeRestored20260711: boolean;
-    /** Marks the one-time move of a stored `theme: 'light'` default to 'auto'. */
-    themeAutoRestored20260730: boolean;
     youtubeShowChannelRecommendations: boolean;
     /** True once the learner explicitly changes Japanese channel suggestions. */
     youtubeShowChannelRecommendationsChosen: boolean;
@@ -583,10 +571,6 @@ export interface ReaderSettings {
     ankiMineWithJpdb: boolean;
     ankiCaptureScreenshot: boolean;
     ankiFieldMappings: AnkiFieldMappings;
-    // Marker for the one-time move of sentence-audio field mappings off the
-    // word-audio role (see migrateAnkiSentenceAudioMappings). Deliberate later
-    // choices in the mapping editor must stick, so this only ever runs once.
-    ankiSentenceAudioMappingMigrated: boolean;
     ankiTemplateMode: AnkiTemplateMode;
     ankiFrontReading: boolean;
     ankiFrontSentence: boolean;

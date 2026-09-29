@@ -67,7 +67,6 @@ const baseSettings = createAnkiSmokeSettings({
     ankiModel: 'よむ Japanese',
     jpdbMiningEnabled: true,
     popupActivationMode: 'hover',
-    newTabEnabled: true,
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
     newTabJpdbReviewMode: 'api-vocabulary',
@@ -146,9 +145,9 @@ const NULL_ANKI_ACTIONS = [
     'updateModelStyling',
     'modelFieldAdd',
     'guiBrowse',
-    'answerCards',
 ];
 const DEFAULT_ANKI_HANDLERS = {
+    answerCards: params => arrayParam(params.answers).map(() => true),
     version: () => 6,
     deckNames: () => ['Mining'],
     getDeckStats: () => ({ 1: { name: 'Mining', total_in_deck: 2 } }),

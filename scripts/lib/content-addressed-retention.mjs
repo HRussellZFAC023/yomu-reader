@@ -117,7 +117,11 @@ export function retentionManifestIsCurrent(root) {
 }
 
 export function isShallowRepository(root) {
-    return git(root, ['rev-parse', '--is-shallow-repository']) === 'true';
+    const state = git(root, ['rev-parse', '--is-shallow-repository']);
+    if (state !== 'true' && state !== 'false') {
+        throw new Error('Cannot read Git retention history; refusing to prune assets.');
+    }
+    return state === 'true';
 }
 
 function retainedArtifactPathsFromHistory(root) {

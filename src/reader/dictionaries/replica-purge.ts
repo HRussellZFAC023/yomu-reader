@@ -1,89 +1,155 @@
 import { Logger } from '../app/logger';
-import { ensureManagedWebStorageCurrent, gmStorageGet, gmStorageSet, managedLocalStorage } from '../app/storage';
+import { assertManagedStateMutationAllowed, ensureManagedWebStorageCurrent, gmStorageGet, gmStorageSet, managedLocalStorage } from '../app/storage';
+import { managedStateEpochToken } from '../app/managed-state-epoch';
+import { yomitanDatabaseName } from './yomitan/database-owner';
 
 const log = Logger.scope('DictionaryReplicaPurge');
-
-// TRANSITIONAL — delete this module once the pre-1.8.78 replicas are judged
-// drained (target: the 1.9.x cleanup pass).
-//
-// Earlier releases copied the imported dictionary set into the IndexedDB of
-// every origin that showed Japanese text ("replication"). That mechanism is
-// gone — dictionaries now live only where they are imported — but its copies
-// remain on users' disks, gigabytes per origin, and no single page can reach
-// another origin's storage to remove them.
-//
-// The purge is therefore a shared GM timestamp: clearing dictionary storage
-// (or a factory reset) stamps it, and every origin compares it against its own
-// local marker on the next visit, deleting its copy once. The drain follows
-// the user's ordinary browsing; no origin list is kept anywhere.
 const PURGE_REQUEST_KEY = 'yomu:dictionary-replica-purge:v1';
 const PURGE_HONORED_KEY = 'yomu:dictionary-replica-purged:v1';
-const DICTIONARY_DB_NAME = 'jpdb-popup-reader-yomitan';
+const STATE_STORE = 'managedState';
+const FRESHNESS_KEY = 'dictionary-replica-purge';
 
 export async function requestDictionaryReplicaPurge(now: () => number = Date.now): Promise<void> {
+    // This existing cross-origin GM protocol is wall-clock based. Local IDB
+    // serialization does not make concurrent/global request generation atomic.
     await gmStorageSet(PURGE_REQUEST_KEY, now());
 }
 
-/**
- * Deletes this origin's dictionary database when a purge was requested after
- * this origin last honored one. Returns true when a deletion happened. The
- * honored marker is only written after a successful delete, so a blocked
- * database (another Yomu tab holding a connection) retries on the next visit.
- */
-export async function honorDictionaryReplicaPurge(): Promise<boolean> {
-    const requestedAt = await gmStorageGet<number>(PURGE_REQUEST_KEY, 0);
-    if (requestedAt) await ensureManagedWebStorageCurrent();
-    if (!requestedAt || requestedAt <= honoredAt()) return false;
-    const deleted = await deleteDictionaryDatabase();
-    if (!deleted) return false;
-    try {
-        managedLocalStorage.setItem(PURGE_HONORED_KEY, String(requestedAt));
-    } catch {
-        // Origins without storage simply delete again next visit — harmless,
-        // the database is already gone.
-    }
-    log.info('Removed this origin\'s dictionary copy after an all-sites purge');
-    return true;
+export async function dictionaryReplicaPurgeRequest(): Promise<number> {
+    return timestamp(await gmStorageGet<unknown>(PURGE_REQUEST_KEY, 0));
 }
 
-/**
- * An import on this origin supersedes any earlier purge: without this stamp,
- * a site visited for the first time after a purge would delete a dictionary
- * the learner just imported there.
- */
-export async function markDictionaryReplicaFresh(now: () => number = Date.now): Promise<void> {
-    const requestedAt = await gmStorageGet<number>(PURGE_REQUEST_KEY, 0);
-    if (!requestedAt) return;
-    await ensureManagedWebStorageCurrent();
-    try {
-        managedLocalStorage.setItem(PURGE_HONORED_KEY, String(Math.max(now(), requestedAt)));
-    } catch {
-        // Without the stamp the next visit deletes the import; the learner
-        // can re-import, and origins without storage cannot hold a multi-GB
-        // dictionary database anyway.
-    }
-}
-
-function honoredAt(): number {
-    try {
-        return Number(managedLocalStorage.getItem(PURGE_HONORED_KEY)) || 0;
-    } catch {
-        return 0;
-    }
-}
-
-function deleteDictionaryDatabase(): Promise<boolean> {
-    if (typeof indexedDB === 'undefined') return Promise.resolve(false);
-    return new Promise(resolve => {
+/** Queue ownership and the actual mutation in the same managed IDB transaction. */
+export function markDictionaryReplicaFresh(tx: IDBTransaction, requestedAt: number, mutate: () => void): void {
+    readFreshness(tx, (store, record, token) => {
         try {
-            const request = indexedDB.deleteDatabase(DICTIONARY_DB_NAME);
-            request.onsuccess = () => resolve(true);
-            request.onerror = () => resolve(false);
-            // Blocked means another tab holds the database open; give up for
-            // this visit rather than waiting on it, and retry next load.
-            request.onblocked = () => resolve(false);
-        } catch {
-            resolve(false);
-        }
+            const prior = record?.token === token ? timestamp(record.requestedAt) : 0;
+            if (record?.token === token && record.kind === 'purge' && prior > requestedAt) {
+                throw new Error('A newer dictionary purge superseded this import.');
+            }
+            store.put({ key: FRESHNESS_KEY, token, requestedAt: Math.max(prior, requestedAt), kind: 'import' });
+            mutate();
+        } catch { tx.abort(); }
+    });
+}
+
+/** Never upgrades or deletes a database: no deferred deletion can outlive this call. */
+export async function honorDictionaryReplicaPurge(): Promise<boolean> {
+    const requestedAt = await dictionaryReplicaPurgeRequest();
+    if (!requestedAt || typeof indexedDB === 'undefined') return false;
+    let token: string;
+    try {
+        await ensureManagedWebStorageCurrent();
+        token = managedStateEpochToken(await assertManagedStateMutationAllowed());
+    } catch { return false; }
+    const cleared = await clearDictionaryDatabase(requestedAt, token);
+    if (cleared) log.info('Removed this origin\'s dictionary copy after an all-sites purge');
+    return cleared;
+}
+
+function timestamp(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function legacyHonoredAt(): number {
+    try { return timestamp(managedLocalStorage.getItem(PURGE_HONORED_KEY)); }
+    catch { return 0; }
+}
+
+interface FreshnessRecord { requestedAt?: unknown; token?: unknown; kind?: unknown }
+
+function readFreshness(tx: IDBTransaction, ready: (store: IDBObjectStore, record: FreshnessRecord | undefined, token: string | null) => void): void {
+    const store = tx.objectStore(STATE_STORE);
+    const epoch = store.get('epoch');
+    epoch.onsuccess = () => {
+        const token = typeof epoch.result?.token === 'string' ? epoch.result.token : null;
+        const request = store.get(FRESHNESS_KEY);
+        request.onsuccess = () => ready(store, request.result, token);
+    };
+}
+
+function clearDictionaryDatabase(requestedAt: number, expectedToken: string): Promise<boolean> {
+    return new Promise(resolve => {
+        let settled = false;
+        let acquired = false;
+        let connection: IDBDatabase | undefined;
+        let transaction: IDBTransaction | undefined;
+        const finish = (cleared: boolean): void => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            connection?.close();
+            resolve(cleared);
+        };
+        // Bounds only open/transaction acquisition. Active clears may take much
+        // longer on large databases; aborting those every second prevents drain.
+        const timeout = setTimeout(() => {
+            if (acquired) return;
+            try { transaction?.abort(); } catch { /* already settled */ }
+            finish(false);
+        }, 1_000);
+        try {
+            let absent = false;
+            const request = indexedDB.open(yomitanDatabaseName());
+            request.onupgradeneeded = () => { absent = true; request.transaction?.abort(); };
+            request.onerror = () => finish(absent);
+            request.onblocked = () => finish(false);
+            request.onsuccess = () => {
+                const db = request.result;
+                if (settled) { db.close(); return; }
+                connection = db;
+                const names = Array.from(db.objectStoreNames);
+                if (!names.length) { finish(true); return; }
+                try {
+                    const tx = transaction = db.transaction(names, 'readwrite');
+                    let cleared = false;
+                    tx.oncomplete = () => {
+                        if (cleared && !names.includes(STATE_STORE)) {
+                            try { managedLocalStorage.setItem(PURGE_HONORED_KEY, String(Math.max(legacyHonoredAt(), requestedAt))); } catch { /* legacy hints are optional */ }
+                        }
+                        finish(cleared);
+                    };
+                    tx.onabort = () => finish(false);
+                    tx.onerror = () => { /* abort owns completion and rollback */ };
+                    const run = (store?: IDBObjectStore, record?: FreshnessRecord, token: string | null = null) => {
+                        if (settled) { tx.abort(); return; }
+                        acquired = true;
+                        clearTimeout(timeout);
+                        if (token !== null && token !== expectedToken) { tx.abort(); return; }
+                        // The DB marker is authoritative. The old local marker is
+                        // consulted only when adopting a pre-marker database.
+                        const legacy = record === undefined ? legacyHonoredAt() : 0;
+                        const prior = record ? (record.token === token ? timestamp(record.requestedAt) : 0) : Math.min(legacy, requestedAt);
+                        if (!record && legacy >= requestedAt) {
+                            // Consume a legacy wall-clock exemption once, at the
+                            // actual request being adopted, never at its future date.
+                            if (store) store.put({ key: FRESHNESS_KEY, token, requestedAt, kind: 'import' });
+                            else {
+                                tx.addEventListener('complete', () => {
+                                    try { managedLocalStorage.setItem(PURGE_HONORED_KEY, String(requestedAt)); } catch { /* hint only */ }
+                                });
+                            }
+                        }
+                        if (prior >= requestedAt) return;
+                        try {
+                            for (const name of names) if (name !== STATE_STORE) tx.objectStore(name).clear();
+                            store?.put({ key: FRESHNESS_KEY, token, requestedAt: Math.max(prior, requestedAt), kind: 'purge' });
+                            cleared = true;
+                        } catch { tx.abort(); }
+                    };
+                    // Stop acquisition timing at the first scheduled request,
+                    // rather than counting metadata reads or store.clear work.
+                    const first = tx.objectStore(names[0]!).get(FRESHNESS_KEY);
+                    first.onsuccess = () => {
+                        if (settled) { tx.abort(); return; }
+                        acquired = true;
+                        clearTimeout(timeout);
+                        if (names.includes(STATE_STORE)) readFreshness(tx, run);
+                        else run();
+                    };
+                } catch { finish(false); }
+            };
+        } catch { finish(false); }
     });
 }

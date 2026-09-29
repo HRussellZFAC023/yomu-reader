@@ -6,12 +6,14 @@ import { SUBTITLE_SETTINGS_COPY } from './subtitle-settings-copy';
 import { LOCAL_DICTIONARY_STORAGE_COPY } from './local-dictionary-storage-copy';
 import { TARGET_AWARE_UI_COPY } from './target-aware-copy';
 import { SETTINGS_RECOVERY_COPY } from './settings-recovery-copy';
+import { PRACTICE_SESSION_COPY } from './practice-session-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
 type UiLanguage = 'en' | 'ja';
 const COPY = {
     en: {
+        ...PRACTICE_SESSION_COPY.en,
         settingsTitle: `${APP_NAME} Settings`,
         welcomeLabel: `${APP_NAME} welcome`,
         onboardingEyebrow: '{language}, wherever it appears',
@@ -78,7 +80,6 @@ const COPY = {
         sources: 'Sources',
         backupSync: 'Backup & sync',
         backupSyncHelp: 'Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.',
-        backupMovedHelp: 'Backup, sync, and settings/dictionary import-export live in the Backup & sync section.',
         media: 'Media',
         mining: 'Mining',
         shortcuts: 'Shortcuts',
@@ -143,7 +144,8 @@ const COPY = {
         jpdbPageEnhancementsEnabled: 'Enhance dictionary pages',
         jpdbPageWordEnhancementsEnabled: 'Add sources to word/search pages',
         jpdbPageKanjiEnhancementsEnabled: 'Add sources to kanji pages',
-        fivePoint: 'Five point: NOTHING to EASY',
+        fivePoint: 'Provider default',
+        fourGradeShortcutsHelp: 'Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.',
         twoPoint: 'Two point: FAIL / PASS',
         settingsLanguage: 'Settings language',
         automatic: 'Automatic',
@@ -205,7 +207,6 @@ const COPY = {
         newTabParsingEnabled: 'Enable sentence parsing on Study',
         newTabFrontSentenceEnabled: 'Show sentence on word fronts',
         newTabKanjiAutogradeEnabled: 'Auto-grade kanji drawing',
-        newTabKanjiAutoSubmit: 'Auto-submit kanji grade',
         newTabOfflineEnabled: 'Cache Study for offline use',
         newTabOfflineLimit: 'Offline review cache limit',
         newTabDailyGoalMinutes: 'Daily study goal (minutes, 0 = off)',
@@ -217,21 +218,6 @@ const COPY = {
         newTabOfflineHelp: 'Caches due cards and queued grades.',
         newTabAddressHelp: 'Use as a start page or iPad shortcut.',
         newTabJpdbDeck: 'Study JPDB deck',
-        newTabStudySteps: 'Study steps',
-        newTabStudyStepsHelp: 'Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.',
-        newTabStudyStepHeader: 'Step',
-        newTabStudyStepKanji: 'Kanji drawing',
-        newTabStudyStepWord: 'Word meaning',
-        newTabStudyStepRecall: 'Write in sentence',
-        newTabStudyStepListen: 'Pitch listening',
-        newTabStudyStepSpeaking: 'Speaking',
-        newTabStudyStepType: 'Type the word',
-        newTabStudyStepKanjiHelp: 'Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.',
-        newTabStudyStepWordHelp: '{language} front, meaning and reading on reveal.',
-        newTabStudyStepRecallHelp: 'Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.',
-        newTabStudyStepListenHelp: 'Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.',
-        newTabStudyStepSpeakingHelp: 'Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.',
-        newTabStudyStepTypeHelp: 'Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.',
         openNewTabPage: 'Open Study',
         copyAddress: 'Copy address',
         wordColors: 'Word colors',
@@ -608,7 +594,6 @@ const COPY = {
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
         exportDictionaries: 'Export dictionaries',
-        dictionaryImportHelp: 'Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.',
         lookupPills: 'Lookup pills',
         lookupPillsHelp: 'External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.',
         parserProvider: 'Parsing source',
@@ -696,7 +681,6 @@ const COPY = {
         dictionaryNoSupportedBanks: 'No supported banks found.',
         dictionaryUnsupportedJson: 'Use Dexie, ZIP, or export.',
         dictionaryZipMissingIndex: 'ZIP missing index.json.',
-        yomitanSettingsInvalid: 'Not a Yomitan settings export.',
         localWordSingular: 'entry',
         localWordPlural: 'entries',
         decksLoaded: 'Decks are loaded from your JPDB account.',
@@ -857,7 +841,6 @@ const COPY = {
         gradeFail: 'Pass/fail: FAIL',
         gradePass: 'Pass/fail: PASS',
         helpLinksTitle: 'Useful pages',
-        helpLinksCopy: 'Open reader tools and docs from here.',
         versionAndUpdates: 'Version',
         currentYomuVersion: 'Yomu',
         updateStatusIdle: 'Current {current}. Latest check pending.',
@@ -940,12 +923,10 @@ const COPY = {
         ankiLapseSingular: 'lapse',
         ankiLapsePlural: 'lapses',
         gradeNothingLabel: 'Nothing',
+        gradeAgainLabel: 'Again',
+        gradeGoodLabel: 'Good',
         gradeSomethingLabel: 'Something',
         gradeHardLabel: 'Hard',
-        bunproGradeAgainLabel: 'Again',
-        bunproGradeHardLabel: 'Hard',
-        bunproGradeGoodLabel: 'Good',
-        bunproGradeEasyLabel: 'Easy',
         gradeOkayLabel: 'Okay',
         gradeEasyLabel: 'Easy',
         gradeFailLabel: 'Fail',
@@ -1396,7 +1377,6 @@ importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応辞書バンクがありません。
 dictionaryUnsupportedJson	Dexie、ZIP、出力を使ってください。
 dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
@@ -1440,12 +1420,10 @@ ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
 ankiLapsePlural	回失敗
 gradeNothingLabel	全然
+gradeAgainLabel	もう一度
+gradeGoodLabel	良い
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
-bunproGradeAgainLabel	もう一度
-bunproGradeHardLabel	難しい
-bunproGradeGoodLabel	良い
-bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -1767,7 +1745,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja,
+    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja,
 };
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {
@@ -1787,7 +1765,6 @@ reading	読解
 sources	ソース
 backupSync	バックアップと同期
 backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
-backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -1849,7 +1826,8 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-fivePoint	5段階: 全然から簡単まで
+fivePoint	サービスの標準評価
+fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 theme	テーマ
@@ -1906,7 +1884,6 @@ newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
-newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
@@ -1918,21 +1895,6 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
-newTabStudySteps	学習ステップ
-newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
-newTabStudyStepHeader	ステップ
-newTabStudyStepKanji	漢字書き取り
-newTabStudyStepWord	単語の意味
-newTabStudyStepRecall	文で書く
-newTabStudyStepListen	ピッチ聞き取り
-newTabStudyStepSpeaking	発音
-newTabStudyStepType	単語を書く
-newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
-newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
-newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
-newTabStudyStepTypeHelp	聞いて発音した単語を書き出します。入力または漢字ごとの手書きで解答できます。セッション中はスキップ可能。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -2287,7 +2249,6 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -2375,7 +2336,6 @@ ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
-helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 versionAndUpdates	バージョン
 currentYomuVersion	Yomu
 updateStatusIdle	現在 {current}。確認待ち。

@@ -59,6 +59,8 @@ describe('Lesson Zero repetition-request screen', () => {
 
         expect(screen.element.dataset.academyPresentation).toBe('focus');
         expect(screen.element.textContent).toContain('If I go too fast');
+        expect(screen.element.querySelector('.academy-repeat-request-rie')?.getAttribute('src'))
+            .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp');
         expect(screen.element.textContent).toContain('もう一度お願いします。');
         expect(screen.element.textContent).toContain('You do not need to read kana yet.');
         buttonContaining(screen.element, 'Hear Rie').click();
@@ -77,21 +79,44 @@ describe('Lesson Zero repetition-request screen', () => {
         await vi.waitFor(() => expect(persisted.selectedChunkIds).toEqual(['once-more', 'please']));
         buttonContaining(screen.element, 'Ask Rie').click();
         await vi.waitFor(() => expect(screen.element.textContent).toContain('You asked me to repeat.'));
+        expect(screen.element.querySelector('.academy-repeat-request-transfer-ready-rie')?.getAttribute('src'))
+            .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp');
 
         buttonContaining(screen.element, 'Try it at the cafe').click();
         await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('transfer'));
         expect(screen.element.textContent).toContain('I missed the price too.');
-        expect(screen.element.querySelector<HTMLImageElement>('.academy-repeat-request-aakash')?.src).toContain(
-            '/academy/art/',
-        );
+        expect(screen.element.querySelector('.academy-repeat-request-aakash')?.getAttribute('src'))
+            .toBe('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp');
         expect(screen.element.textContent).not.toContain('もう一度お願いします。');
         chunkButton(screen.element, 'once-more').click();
         await vi.waitFor(() => expect(persisted.selectedChunkIds).toEqual(['once-more']));
         chunkButton(screen.element, 'please').click();
         await vi.waitFor(() => expect(persisted.selectedChunkIds).toEqual(['once-more', 'please']));
         buttonContaining(screen.element, 'Ask at the counter').click();
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('without the example'));
-        expect(screen.element.textContent).toContain('もう一度お願いします。');
+        await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('coverage-teach'));
+        expect(persisted.status).toBe('active');
+        expect(screen.element.querySelector('[data-repeat-action="complete"]')).toBeNull();
+        for (const probe of content.coverageProbes) {
+            expect(screen.element.dataset.probeId).toBe(probe.id);
+            expect(screen.element.dataset.sourceQuestionId).toBe(probe.sourceQuestionId);
+            expect(screen.element.textContent).toContain(probe.prompt.en);
+            expect(screen.element.textContent).toContain(probe.modelAnswer);
+            buttonContaining(screen.element, 'Hide the model').click();
+            await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('coverage-response'));
+            expect(screen.element.querySelector('.academy-repeat-request-target')).toBeNull();
+            for (const index of [0, 1]) {
+                screen.element.querySelector<HTMLButtonElement>(`[data-coverage-piece="${index}"]`)!.click();
+                await vi.waitFor(() => expect(screen.element.querySelector(`[data-coverage-piece="${index}"]`)?.getAttribute('aria-pressed')).toBe('true'));
+            }
+            buttonContaining(screen.element, 'Check my response').click();
+            await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('coverage-feedback'));
+            expect(screen.element.textContent).toContain(probe.modelAnswer);
+            expect(screen.element.textContent).toContain(probe.repair.contrast.en);
+            expect(onComplete).not.toHaveBeenCalled();
+            buttonContaining(screen.element, 'Continue').click();
+            await vi.waitFor(() => expect(screen.element.dataset.sessionStage).not.toBe('coverage-feedback'));
+        }
+        expect(persisted.status).toBe('complete');
         buttonContaining(screen.element, 'Continue your day').click();
         await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
         screen.dispose();

@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { BUILD_MANIFEST, renderAcademyTemplate, academyEmittedFilesMatch } = require('./lib/academy-build-manifest.cjs');
 // The source set and the digest formula live in the shared module so that
 // scripts/check-committed-artifacts.mjs can recompute this exact number from
 // the bytes at HEAD. Two copies of a hash definition is one copy that rots.
@@ -13,13 +14,15 @@ const {
 } = require('./lib/academy-revision.cjs');
 
 const root = path.resolve(__dirname, '..');
-const destination = path.join(root, 'docs', 'public', 'academy');
+const destination = process.env.YOMU_ACADEMY_OUTPUT_DIR ? proofDirectory(process.env.YOMU_ACADEMY_OUTPUT_DIR) : path.join(root, 'docs', 'public', 'academy');
+const buildDirectory = process.env.YOMU_ACADEMY_BUILD_DIR ? proofDirectory(process.env.YOMU_ACADEMY_BUILD_DIR) : path.join(root, 'dist/academy');
 const trackedFilesBySource = new Map();
-const readJson = source => JSON.parse(fs.readFileSync(path.join(root, source), 'utf8'));
+const sourceFile = source => source.startsWith('dist/academy/') ? path.join(buildDirectory, source.slice('dist/academy/'.length)) : path.join(root, source);
+const readJson = source => JSON.parse(fs.readFileSync(sourceFile(source), 'utf8'));
 const runtimeSources = academyRuntimeSources(readJson);
 const sourcePaths = academyRevisionSourcePaths(readJson);
 for (const source of sourcePaths) {
-    if (!fs.existsSync(path.join(root, source))) throw new Error(`Missing Academy runtime file: ${source}`);
+    if (!fs.existsSync(sourceFile(source))) throw new Error(`Missing Academy runtime file: ${source}`);
 }
 assertNoPrivatePaths(trackedFiles('public/academy').map(file => path.join(root, file)));
 
@@ -36,16 +39,16 @@ if (process.env.YOMU_SYNC_ACADEMY_REVISION_ONLY === '1') {
 // The marker lives OUTSIDE the destination so it never ships with the site;
 // the destination-existence check keeps a stale marker from skipping a sync
 // after the destination was deleted.
-const revisionMarker = path.join(root, 'node_modules', '.cache', 'yomu-academy-sync-revision');
+const revisionMarker = process.env.YOMU_ACADEMY_OUTPUT_DIR ? `${destination}.revision` : path.join(root, 'node_modules', '.cache', 'yomu-academy-sync-revision');
 const forceSync = process.env.YOMU_SYNC_ACADEMY_FORCE === '1' || process.env.YOMU_CHECK_RELEASE === '1';
-if (!forceSync && fs.existsSync(destination) && fs.existsSync(revisionMarker) && fs.readFileSync(revisionMarker, 'utf8') === revision) {
+if (!forceSync && fs.existsSync(destination) && fs.existsSync(revisionMarker) && fs.readFileSync(revisionMarker, 'utf8') === revision && generatedDeliveryMatches()) {
     console.log(`Academy runtime already synced at ${revision}; skipping copy.`);
     process.exit(0);
 }
 
 fs.rmSync(destination, { recursive: true, force: true });
 for (const [source, target] of runtimeSources) {
-    const from = path.join(root, source);
+    const from = sourceFile(source);
     const to = path.join(destination, target);
     fs.mkdirSync(path.dirname(to), { recursive: true });
     if (isTrackedPublicDirectory(source)) copyTrackedDirectory(source, target);
@@ -54,7 +57,7 @@ for (const [source, target] of runtimeSources) {
 for (const [source, target] of templates) {
     const template = fs.readFileSync(path.join(root, source), 'utf8');
     if (!template.includes(revisionToken)) throw new Error(`Academy template has no revision token: ${source}`);
-    const rendered = template.replaceAll(revisionToken, revision);
+    const rendered = renderAcademyTemplate(template, revision, readJson(BUILD_MANIFEST));
     const to = path.join(destination, target);
     fs.mkdirSync(path.dirname(to), { recursive: true });
     fs.writeFileSync(to, rendered);
@@ -72,7 +75,7 @@ function* workingTreeEntries(source) {
         for (const file of trackedFiles(source)) yield [file, fs.readFileSync(path.join(root, file))];
         return;
     }
-    yield* walk(source, path.join(root, source));
+    yield* walk(source, sourceFile(source));
 }
 
 function* walk(label, absolutePath) {
@@ -118,4 +121,20 @@ function assertNoPrivatePaths(files) {
             throw new Error(`Academy runtime contains a private workstation path: ${path.relative(root, current)}`);
         }
     }
+}
+
+function proofDirectory(value) {
+    const resolved = path.resolve(root, value);
+    if (!resolved.startsWith(`${path.join(root, 'artifacts')}${path.sep}`)) throw new Error('Academy proof overrides must stay under artifacts/.');
+    return resolved;
+}
+
+function generatedDeliveryMatches() {
+    const read = file => fs.existsSync(file) && fs.statSync(file).isFile() ? fs.readFileSync(file) : null;
+    if (!academyEmittedFilesMatch(readJson(BUILD_MANIFEST), file => read(path.join(buildDirectory, file)), file => read(path.join(destination, file)))) return false;
+    return templates.every(([source, target]) => {
+        const hosted = read(path.join(destination, target));
+        const expected = renderAcademyTemplate(fs.readFileSync(path.join(root, source), 'utf8'), revision, readJson(BUILD_MANIFEST));
+        return hosted !== null && hosted.toString('utf8') === expected;
+    });
 }

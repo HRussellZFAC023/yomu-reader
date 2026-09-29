@@ -1,4 +1,6 @@
 import { activeLearningTarget } from '../languages/target-runtime';
+import { userFacingError } from '../app/user-facing-errors';
+import { managedStateEpochSessionForRealm, type ManagedStateEpoch } from '../app/managed-state-epoch';
 import type { LocalDictionaryStore } from './local-store';
 import {
     DictionaryRpcBinaryReceiver,
@@ -9,6 +11,8 @@ import {
     EXTENSION_DICTIONARY_RPC_PORT,
     EXTENSION_DICTIONARY_RPC_VERSION,
     decodeDictionaryRpcValue,
+    dictionaryRpcEpoch,
+    dictionaryRpcEpochValue,
     isDictionaryRpcBinaryChunk,
     prepareDictionaryRpcValue,
     rebindDictionaryRpcInputReferences,
@@ -47,6 +51,7 @@ interface ExtensionRuntime {
 }
 
 interface DictionaryRpcResponse {
+    readonly epoch?: unknown;
     readonly channel?: string;
     readonly version?: number;
     readonly kind?: string;
@@ -56,6 +61,8 @@ interface DictionaryRpcResponse {
     readonly value?: DictionaryRpcValue;
     readonly error?: DictionaryRpcError;
 }
+
+const CAPABILITY_RETRY_MS = 1_000;
 
 /**
  * One Proxy over the derived store facade. Adding a public Yomitan method adds
@@ -71,11 +78,23 @@ export function extensionDictionaryStoreProxy(
     // Constructing ReaderApp/NewTabRuntime also constructs this proxy, before a
     // fresh learner has chosen a target. Keep transport discovery lazy so that
     // construction/dismissal sends no extension message; the first dictionary
-    // operation owns the one memoized capability probe and its normal fallback.
-    let capability: Promise<boolean> | undefined;
-    const dictionaryBackgroundAvailable = () => (
-        capability ??= probeDictionaryBackground(extension)
-    );
+    // operation owns discovery. A failed probe never changes the storage owner.
+    let capability: { promise: Promise<ManagedStateEpoch>; retryAt: number } | undefined;
+    const requireDictionaryBackground = (): Promise<ManagedStateEpoch> => {
+        if (!capability || capability.retryAt <= performance.now()) {
+            const attempt = {
+                retryAt: Infinity,
+                promise: probeDictionaryBackground(extension).then(epoch => (
+                    managedStateEpochSessionForRealm(root).assertCurrent(async () => dictionaryRpcEpochValue(epoch))
+                )).catch(error => {
+                    attempt.retryAt = performance.now() + CAPABILITY_RETRY_MS;
+                    throw error;
+                }),
+            };
+            capability = attempt;
+        }
+        return capability.promise;
+    };
     const wrappers = new Map<PropertyKey, (...args: unknown[]) => unknown>();
     return new Proxy(directStore, {
         get(target, property, receiver) {
@@ -83,27 +102,19 @@ export function extensionDictionaryStoreProxy(
             if (typeof direct !== 'function') return direct;
             const existing = wrappers.get(property);
             if (existing) return existing;
-            // The store has one synchronous public operation. Preserve its
-            // void/timing contract locally, then mirror the cache invalidation
-            // to the shared host when the capability probe succeeds. This is a
-            // transport policy exception, not a second store-method inventory.
+            // Cache invalidation is synchronous at the interface and best-effort
+            // over the Port. Durable operations below always report failures.
             if (property === 'invalidateCaches') {
                 const invalidate = (...args: unknown[]) => {
-                    const result = Reflect.apply(direct as (...values: unknown[]) => unknown, target, args);
-                    void dictionaryBackgroundAvailable().then(available => {
-                        if (available) return invokeRemote(extension, String(property), args);
-                        return undefined;
-                    }).catch(() => undefined);
-                    return result;
+                    void requireDictionaryBackground()
+                        .then(epoch => invokeRemote(extension, String(property), args, epoch))
+                        .catch(() => undefined);
                 };
                 wrappers.set(property, invalidate);
                 return invalidate;
             }
-            const invoke = (...args: unknown[]) => dictionaryBackgroundAvailable().then(available => (
-                available
-                    ? invokeRemote(extension, String(property), args)
-                    : Reflect.apply(direct as (...values: unknown[]) => unknown, target, args)
-            ));
+            const invoke = (...args: unknown[]) => requireDictionaryBackground()
+                .then(epoch => invokeRemote(extension, String(property), args, epoch));
             wrappers.set(property, invoke);
             return invoke;
         },
@@ -111,33 +122,37 @@ export function extensionDictionaryStoreProxy(
     }) as LocalDictionaryStore;
 }
 
-function probeDictionaryBackground(extension: ExtensionRuntime): Promise<boolean> {
+function probeDictionaryBackground(extension: ExtensionRuntime): Promise<ManagedStateEpoch> {
     return sendExtensionMessage(extension, envelope('ping'), EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS)
         .then(value => {
             const response = dictionaryRpcResponse(value);
-            return Boolean(
-                response?.ok
+            if (response?.error) throw reviveDictionaryRpcError(response.error);
+            if (!(response?.ok
                 && response.kind === 'capability'
-                && response.marker === EXTENSION_DICTIONARY_BACKGROUND_MARKER,
-            );
-        }, () => false);
+                && response.marker === EXTENSION_DICTIONARY_BACKGROUND_MARKER)) {
+                throw userFacingError('extensionDictionaryUnavailable');
+            }
+            try { return dictionaryRpcEpoch(response.epoch); }
+            catch (cause) { throw userFacingError('extensionDictionaryUnavailable', { cause }); }
+        }, cause => { throw userFacingError('extensionDictionaryUnavailable', { cause }); });
 }
 
-function invokeRemote(extension: ExtensionRuntime, method: string, args: unknown[]): Promise<unknown> {
-    return invokeRemoteViaPort(extension, method, args);
+function invokeRemote(extension: ExtensionRuntime, method: string, args: unknown[], epoch: ManagedStateEpoch): Promise<unknown> {
+    return invokeRemoteViaPort(extension, method, args, epoch);
 }
 
 function invokeRemoteViaPort(
     extension: ExtensionRuntime,
     method: string,
     args: unknown[],
+    epoch: ManagedStateEpoch,
 ): Promise<unknown> {
     return new Promise((resolve, reject) => {
         let port: ExtensionPort;
         try {
             port = extension.runtime.connect({ name: EXTENSION_DICTIONARY_RPC_PORT });
         } catch (error) {
-            reject(error);
+            reject(userFacingError('extensionDictionaryUnavailable', { cause: error }));
             return;
         }
 
@@ -158,7 +173,7 @@ function invokeRemoteViaPort(
             },
         });
         const keepalive = globalThis.setInterval(() => {
-            safePortPost(port, { kind: 'keepalive' });
+            post({ kind: 'keepalive' });
         }, EXTENSION_DICTIONARY_KEEPALIVE_MS);
 
         const close = (callback: () => void) => {
@@ -171,6 +186,16 @@ function invokeRemoteViaPort(
         const fail = (error: unknown) => close(() => {
             if (!resultDelivered) reject(error);
         });
+        const post = (message: unknown): boolean => {
+            if (closed) return false;
+            try {
+                port.postMessage(message);
+                return !closed;
+            } catch (cause) {
+                fail(userFacingError('extensionDictionaryConnectionLost', { cause }));
+                return false;
+            }
+        };
         const finishResultIfReady = () => {
             if (resultDelivered) return;
             if (resultBinaryIds === undefined || resultValue === undefined) return;
@@ -193,7 +218,9 @@ function invokeRemoteViaPort(
         };
 
         port.onDisconnect.addListener(() => {
-            if (!closed) fail(new Error('Dictionary background operation disconnected before completion.'));
+            if (!closed) fail(userFacingError('extensionDictionaryConnectionLost', {
+                cause: new Error('Dictionary background operation disconnected before completion.'),
+            }));
         });
         port.onMessage.addListener(message => {
             if (closed) return;
@@ -237,12 +264,15 @@ function invokeRemoteViaPort(
             }
         });
 
-        safePortPost(port, envelope('invoke', {
+        if (!post(envelope('invoke', {
             method,
             args: prepared.value,
             target: currentTarget(),
-        }));
-        void sendDictionaryRpcBinaries(prepared.binaries, message => safePortPost(port, message)).catch(fail);
+            epoch: dictionaryRpcEpochValue(epoch),
+        }))) return;
+        void sendDictionaryRpcBinaries(prepared.binaries, message => {
+            if (!post(message)) throw new Error('Dictionary operation transport closed.');
+        }).catch(fail);
     });
 }
 
@@ -323,10 +353,6 @@ function extensionRuntime(root: typeof globalThis): ExtensionRuntime | null {
         return null;
     }
     return null;
-}
-
-function safePortPost(port: ExtensionPort, message: unknown): void {
-    try { port.postMessage(message); } catch { /* operation port closed */ }
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {

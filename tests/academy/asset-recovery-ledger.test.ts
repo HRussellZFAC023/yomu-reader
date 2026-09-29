@@ -148,7 +148,7 @@ describe('Academy recovery asset ledger', () => {
         )).toBe(true);
     });
 
-    it('never promotes rejected or review-only ledger deliveries to current runtime', () => {
+    it('preserves historical classifications without authorizing rejected or unreviewed deliveries today', () => {
         const runtimeLedger = JSON.parse(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8')) as {
             assets: Array<{ verdict: string; deliveries?: Array<{ sha256: string }> }>;
         };
@@ -157,10 +157,7 @@ describe('Academy recovery asset ledger', () => {
             .flatMap(asset => asset.deliveries ?? [])
             .map(delivery => delivery.sha256));
 
-        for (const asset of ledger.assets.filter((candidate: { runtimeUses: Array<{ worktree: string }> }) =>
-            candidate.runtimeUses.some(use => use.worktree === 'current')) as Array<{ sha256: string }>) {
-            expect(authorizedHashes.has(asset.sha256), `${asset.sha256} is not runtime-authorized`).toBe(true);
-        }
+        expect(ledger.purpose).toContain('not a runtime authorization ledger');
         for (const sha256 of [
             'd66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132',
             'f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d',
@@ -168,6 +165,7 @@ describe('Academy recovery asset ledger', () => {
             const asset = ledger.assets.find((candidate: { sha256: string }) => candidate.sha256 === sha256);
             expect(asset.runtimeUses.some((use: { worktree: string }) => use.worktree === 'current')).toBe(false);
             expect(asset.bindingVerdict).not.toBe('runtime-authorized');
+            expect(authorizedHashes.has(sha256), `${sha256} must not be authorized by the current runtime ledger`).toBe(false);
         }
     });
 });

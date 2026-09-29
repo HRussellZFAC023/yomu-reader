@@ -1,42 +1,63 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { parseReaderSettingsBackup, readerDictionaryExportHasData } from '../../src/reader/settings/file-io';
+import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
-import {
-    getReaderDictionaryExport,
-    getReaderSettingsExport,
-    readerDictionaryExportHasData,
-} from '../../src/reader/settings/file-io';
+const current = { formatName: 'yomu-reader-settings', formatVersion: 3, settings: { theme: 'dark' } };
+const unsupported = [
+    { ...current, formatName: 'jpdb-popup-reader-settings' },
+    { ...current, formatVersion: 1 },
+    { ...current, formatVersion: 2 },
+    { formatName: 'yomu-reader-settings', settings: { theme: 'dark' } },
+    { profiles: [{ options: { general: { popupTheme: 'dark' } } }] },
+    { ...current, settings: ['theme', 'dark'] },
+    { ...current, dictionaryData: { formatName: 'jpdb-reader-yomitan-dictionaries', entries: [] } },
+    { ...current, storage: { 'yomu:explicit-user-settings:v1': { theme: 'dark' } } },
+    { ...current, storage: [] },
+];
 
-describe('settings file IO', () => {
-    it('accepts object settings exports but rejects array-shaped fallback payloads', () => {
-        expect(getReaderSettingsExport({
-            formatName: 'yomu-reader-settings',
-            settings: { theme: 'dark' },
-        })).toEqual({ theme: 'dark' });
-        expect(getReaderSettingsExport({
-            formatName: 'yomu-reader-settings',
-            settings: ['theme', 'dark'],
-        })).toBeNull();
+function file(payload: unknown): File {
+    const text = JSON.stringify(payload);
+    const input = new File([text], 'settings.json', { type: 'application/json' });
+    Object.defineProperty(input, 'text', { value: async () => text, configurable: true });
+    return input;
+}
+
+function restorePort() {
+    return {
+        dictionaries: { exportJson: vi.fn(), importFile: vi.fn(), summary: vi.fn() },
+        setStatus: vi.fn(), persistSettings: vi.fn(), adoptSettings: vi.fn(), dictionaryStateChanged: vi.fn(),
+    };
+}
+
+describe('current settings file contract', () => {
+    it('accepts the current format and its bundled dictionaries', () => {
+        const dictionaries = {
+            formatName: 'yomu-yomitan-dictionaries', formatVersion: 2,
+            terms: [{ expression: '読む', reading: 'よむ', glossary: ['to read'], dictionary: 'Dictionary' }],
+        };
+        const parsed = parseReaderSettingsBackup({ ...current, dictionaries, storage: {} });
+        expect(parsed?.settings).toEqual({ theme: 'dark' });
+        expect(parsed?.dictionaries).toBe(dictionaries);
+        expect(readerDictionaryExportHasData(parsed?.dictionaries)).toBe(true);
     });
 
-    it('detects legacy bundled dictionary backups with entries rows', () => {
-        const dictionaryData = {
-            formatName: 'jpdb-reader-yomitan-dictionaries',
-            entries: [{
-                expression: '読む',
-                reading: 'よむ',
-                glossary: ['to read'],
-                dictionary: 'Legacy Dictionary',
-            }],
-        };
-        const exportJson = {
-            formatName: 'jpdb-popup-reader-settings',
-            settings: { apiKey: 'restored' },
-            dictionaryData,
-        };
+    it.each(unsupported)('rejects unsupported payload %j before touching stores', async payload => {
+        expect(parseReaderSettingsBackup(payload)).toBeNull();
+        const port = restorePort();
+        await expect(restoreReaderSettingsBackup(file(payload), DEFAULT_SETTINGS, port))
+            .rejects.toMatchObject({ yomuUiCopyKey: 'settingsImportUnsupportedFormat' });
+        expect(port.persistSettings).not.toHaveBeenCalled();
+        expect(port.adoptSettings).not.toHaveBeenCalled();
+        expect(port.dictionaries.exportJson).not.toHaveBeenCalled();
+        expect(port.dictionaries.importFile).not.toHaveBeenCalled();
+    });
 
-        const extracted = getReaderDictionaryExport(exportJson);
-
-        expect(extracted).toBe(dictionaryData);
-        expect(readerDictionaryExportHasData(extracted)).toBe(true);
+    it('reports malformed JSON without putting file contents in the error', async () => {
+        const input = file(null);
+        Object.defineProperty(input, 'text', { value: async () => 'private-file-content', configurable: true });
+        const failure = await restoreReaderSettingsBackup(input, DEFAULT_SETTINGS, restorePort()).catch(error => error);
+        expect(failure).toMatchObject({ yomuUiCopyKey: 'settingsImportUnsupportedFormat' });
+        expect(String(failure)).not.toContain('private-file-content');
     });
 });

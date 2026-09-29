@@ -14,6 +14,16 @@ import {
     SETTINGS_STORAGE_KEY,
 } from '../../src/reader/settings/index';
 import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
+
+function installCurrentPreference(preferJapaneseSiteLanguage: boolean): void {
+    const pair = serializeSettingsPersistencePair({
+        ...DEFAULT_SETTINGS, learningTargetChosen: true, preferJapaneseSiteLanguage,
+    }, { revision: 0, records: {} });
+    vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
+        Object.hasOwn(pair, key) ? pair[key] : fallback
+    ));
+}
 
 async function expectTargetlessOptInIgnored(storedSettings: unknown, storedIntentLedger?: unknown): Promise<void> {
     const language = navigator.language;
@@ -105,15 +115,7 @@ describe('preferred Japanese site language', () => {
             geolocation: navigator.geolocation,
         };
         vi.stubGlobal('fetch', fetchMock);
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
-            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
-            if (key === SETTINGS_STORAGE_KEY) return {
-                ...DEFAULT_SETTINGS,
-                learningTargetChosen: true,
-                preferJapaneseSiteLanguage: true,
-            };
-            return fallback;
-        });
+        installCurrentPreference(true);
         vi.stubGlobal('unsafeWindow', window);
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
@@ -497,9 +499,7 @@ describe('preferred Japanese site language', () => {
         const language = navigator.language;
         const replace = vi.fn();
         localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
-            key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
-        ));
+        installCurrentPreference(false);
         vi.stubGlobal('unsafeWindow', window);
         vi.stubGlobal('location', {
             href: 'https://www.reddit.com/r/newsokur/',
@@ -622,11 +622,7 @@ describe('preferred Japanese site language', () => {
     });
 
     it('still applies a stored preference synchronously so an enabled site never flashes English', () => {
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
-            key === SETTINGS_STORAGE_KEY
-                ? { learningTargetChosen: true, preferJapaneseSiteLanguage: true }
-                : fallback
-        ));
+        installCurrentPreference(true);
         vi.stubGlobal('unsafeWindow', window);
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
@@ -654,9 +650,7 @@ describe('preferred Japanese site language', () => {
     it('never treats a stale enabled cache as permission to navigate during an authoritative opt-out', () => {
         const replace = vi.fn();
         localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
-            key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
-        ));
+        installCurrentPreference(false);
         vi.stubGlobal('unsafeWindow', window);
         vi.stubGlobal('location', {
             href: 'https://www.reddit.com/r/LearnJapanese/?locale=ja-JP&after=t3_1',

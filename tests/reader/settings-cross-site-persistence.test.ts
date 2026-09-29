@@ -8,12 +8,11 @@ import {
     loadSettings,
     NO_EXPLICIT_USER_CHOICE,
     normalizeReaderSettings,
-    promoteStrandedHostedSettingsToGmStorage,
     saveSettings,
     subscribeToSettingsStorageChanges,
 } from '../../src/reader/settings/index';
 import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
-import { readSettingsPersistenceView } from '../../src/reader/settings/settings-persistence-transaction';
+import { readSettingsPersistenceViewStrict, serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import { gmStorageGet } from '../../src/reader/app/storage';
 import {
     installUserscriptGmStorageBridge,
@@ -39,6 +38,15 @@ const hostedStudyLocation = {
     pathname: '/study/',
 };
 
+afterEach(() => {
+    uninstallUserscriptGmStorageBridge();
+    localStorage.clear();
+    sessionStorage.clear();
+    delete document.documentElement.dataset.yomuHosted;
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+});
+
 // Simulate a message-based userscript manager (Greasemonkey 4 / Safari
 // Userscripts / FireMonkey): every GM.getValue call structured-clones both the
 // stored value AND the default it hands back, and the store is shared across
@@ -49,12 +57,18 @@ function installSharedMessageBasedGm(store: Map<string, unknown>): void {
     installGmStorageFixture(store, { clone: jsonClone });
 }
 
+function seedSettingsPair(store: Map<string, unknown>, settings: Partial<typeof DEFAULT_SETTINGS>) {
+    const pair = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, ...settings }, { revision: 0, records: {} });
+    for (const [key, value] of Object.entries(pair)) store.set(key, value);
+    return pair;
+}
+
 async function expectUnchosenPersistenceState(
     store: Map<string, unknown>,
-    previousSettings: unknown,
+    previousPair: Record<string, unknown>,
 ): Promise<void> {
-    expect(store.get(SETTINGS_STORAGE_KEY)).toEqual(previousSettings);
-    expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
+    expect(store.get(SETTINGS_STORAGE_KEY)).toEqual(previousPair[SETTINGS_STORAGE_KEY]);
+    expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toEqual(previousPair[SETTINGS_INTENT_LEDGER_STORAGE_KEY]);
     expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
     await expect(loadSettings()).resolves.toMatchObject({
@@ -143,14 +157,6 @@ function installPackagedExtensionStorage(store: Map<string, unknown>): void {
 }
 
 describe('settings persist across sites (message-based GM store)', () => {
-    afterEach(() => {
-        uninstallUserscriptGmStorageBridge();
-        localStorage.clear();
-        sessionStorage.clear();
-        delete document.documentElement.dataset.yomuHosted;
-        vi.unstubAllGlobals();
-    });
-
     it.each([true, false])(
         'keeps installed locale intent %s intact while Study owns page-local behavior',
         async preference => {
@@ -161,13 +167,16 @@ describe('settings persist across sites (message-based GM store)', () => {
                 PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
                 epoch,
             );
+            const pair = serializeSettingsPersistencePair({
+                ...DEFAULT_SETTINGS,
+                theme: 'light',
+                preferJapaneseSiteLanguage: preference,
+            }, { revision: 0, records: {} });
             const store = new Map<string, unknown>([
                 ['yomu:state-epoch', epoch],
-                [settingsSlot, managedStateEnvelope({
-                    ...DEFAULT_SETTINGS,
-                    theme: 'light',
-                    preferJapaneseSiteLanguage: preference,
-                }, epoch)],
+                ...Object.entries(pair).map(([key, value]): [string, unknown] => [
+                    managedStatePhysicalSlot(key, epoch), managedStateEnvelope(value, epoch),
+                ]),
                 [preferenceSlot, managedStateEnvelope(preference, epoch)],
             ]);
             // The Study application is a separate page realm: it has no direct
@@ -209,7 +218,10 @@ describe('settings persist across sites (message-based GM store)', () => {
             onboardingSeen: true,
         }));
         const store = new Map<string, unknown>([
-            [SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, theme: 'light', preferJapaneseSiteLanguage: false }],
+            ...Object.entries(serializeSettingsPersistencePair(
+                { ...DEFAULT_SETTINGS, theme: 'light', preferJapaneseSiteLanguage: false },
+                { revision: 0, records: {} },
+            )),
             [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, false],
         ]);
         enterHostedStudyPageRealm(store);
@@ -217,8 +229,8 @@ describe('settings persist across sites (message-based GM store)', () => {
         const settings = await loadSettings();
         expect(settings).toMatchObject({
             preferJapaneseSiteLanguage: false,
-            subtitleFontSize: 48,
-            onboardingSeen: true,
+            subtitleFontSize: DEFAULT_SETTINGS.subtitleFontSize,
+            onboardingSeen: false,
         });
         await saveSettings({ ...settings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
@@ -231,8 +243,8 @@ describe('settings persist across sites (message-based GM store)', () => {
             records: Record<string, unknown>;
         };
         expect(ledger.records).not.toHaveProperty('preferJapaneseSiteLanguage');
-        expect(ledger.records).toHaveProperty('subtitleFontSize');
-        expect(store.get(EXPLICIT_USER_SETTINGS_STORAGE_KEY)).toEqual({ onboardingSeen: true });
+        expect(ledger.records).not.toHaveProperty('subtitleFontSize');
+        expect(store.get(EXPLICIT_USER_SETTINGS_STORAGE_KEY)).toBeUndefined();
     });
 
     it('does not recover or promote the dedicated scalar after a shared read failure', async () => {
@@ -331,12 +343,12 @@ describe('settings persist across sites (message-based GM store)', () => {
     });
 
     it('rolls back the intent ledger, settings blob, and local fallback when the settings write fails', async () => {
-        const { previousSettings, store } = installRejectedTargetCommit(jsonClone);
+        const { previousSettings, previousPair, store } = installRejectedTargetCommit(jsonClone);
         vi.stubGlobal('location', hostedLocation);
 
         await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/GM storage write failed/);
 
-        await expectUnchosenPersistenceState(store, previousSettings);
+        await expectUnchosenPersistenceState(store, previousPair);
     });
 
     it('rolls back a rejected ledger write before the canonical settings commit can run', async () => {
@@ -345,10 +357,12 @@ describe('settings persist across sites (message-based GM store)', () => {
             learningTargetChosen: false,
             onboardingSeen: false,
         };
-        const store = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
+        const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
+        const store = new Map<string, unknown>(Object.entries(previousPair));
         installSharedMessageBasedGm(store);
         const setValue = vi.fn(async (key: string, value: unknown) => {
-            if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY) throw new Error('ledger rejected');
+            if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY
+                && JSON.stringify(value) !== JSON.stringify(previousPair[key])) throw new Error('ledger rejected');
             store.set(key, JSON.parse(JSON.stringify(value)));
         });
         vi.stubGlobal('GM_setValue', setValue);
@@ -366,15 +380,18 @@ describe('settings persist across sites (message-based GM store)', () => {
             .map(([, value]) => value as { learningTargetChosen?: unknown });
         expect(attemptedSettings.length).toBeGreaterThan(0);
         expect(attemptedSettings.every(value => value.learningTargetChosen === false)).toBe(true);
-        await expectUnchosenPersistenceState(store, previousSettings);
+        await expectUnchosenPersistenceState(store, previousPair);
     });
 
-    it('keeps the safe settings marker published when ledger rollback also fails', async () => {
-        const { previousSettings, store } = installRejectedTargetCommit(jsonClone);
+    it('keeps the shared recovery marker but restores absent local state when ledger rollback also fails', async () => {
+        const { previousSettings, previousPair, store } = installRejectedTargetCommit(jsonClone);
         vi.stubGlobal('location', hostedLocation);
-        vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
-            if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY) throw new Error('ledger rollback rejected');
-            store.delete(key);
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            if (key === SETTINGS_STORAGE_KEY
+                && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) throw new Error('settings blob rejected');
+            if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY
+                && JSON.stringify(value) === JSON.stringify(previousPair[key])) throw new Error('ledger rollback rejected');
+            store.set(key, jsonClone(value));
         }));
 
         await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/rollback operation/);
@@ -387,25 +404,23 @@ describe('settings persist across sites (message-based GM store)', () => {
             onboardingSeen: false,
             __yomuSettingsPersistenceTransactionV1: { version: 1 },
         });
-        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
-            __yomuSettingsPersistenceTransactionV1: { version: 1 },
-        });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
             learningTargetChosen: false,
             onboardingSeen: false,
         });
     });
 
-    it('keeps async loads and the same-origin raw fallback on the previous target until commit', async () => {
+    it('keeps async loads on the previous target until commit without creating a local copy', async () => {
         vi.stubGlobal('location', hostedLocation);
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             learningTargetChosen: false,
             onboardingSeen: false,
         };
-        const store = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, previousSettings]]);
+        const store = new Map<string, unknown>(Object.entries(
+            serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} }),
+        ));
         installSharedMessageBasedGm(store);
         let releaseCommit!: () => void;
         const commitGate = new Promise<void>(resolve => { releaseCommit = resolve; });
@@ -427,18 +442,16 @@ describe('settings persist across sites (message-based GM store)', () => {
         }, {
             explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
         });
-        await reachedCommit;
+        await Promise.race([
+            reachedCommit,
+            saving.then(() => { throw new Error('Save completed without reaching its publication gate'); }),
+        ]);
 
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
             learningTargetChosen: false,
             onboardingSeen: false,
         });
-        const rawFallback = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
-        expect(rawFallback).toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
-        });
-        expect(normalizeReaderSettings(rawFallback).learningTargetChosen).toBe(false);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
             learningTargetChosen: false,
             onboardingSeen: false,
@@ -470,12 +483,14 @@ describe('settings persist across sites (message-based GM store)', () => {
                 onboardingSeen: { seq: 2, value: true },
             },
         };
+        const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
+        const committedPair = serializeSettingsPersistencePair(committedSettings, nextLedger);
         const reads = installSettingsReadSequence(
-            read => read === 0 ? previousSettings : committedSettings,
-            nextLedger,
+            read => (read === 0 ? previousPair : committedPair)[SETTINGS_STORAGE_KEY],
+            committedPair[SETTINGS_INTENT_LEDGER_STORAGE_KEY],
         );
 
-        const view = await readSettingsPersistenceView();
+        const view = await readSettingsPersistenceViewStrict();
         expect(view.settings).toEqual(committedSettings);
         expect(view.intentLedger.records).toMatchObject({
             learningTargetChosen: { value: true },
@@ -502,7 +517,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         };
         installSettingsReadSequence(() => committedSettings, committedLedger);
 
-        const view = await readSettingsPersistenceView();
+        const view = await readSettingsPersistenceViewStrict();
         expect(view.settings).toMatchObject({ learningTargetChosen: true, onboardingSeen: true });
         expect(view.settings).not.toHaveProperty('__yomuSettingsPersistenceCommitV1');
         expect(view.intentLedger.records).toMatchObject({
@@ -518,6 +533,7 @@ describe('settings persist across sites (message-based GM store)', () => {
             onboardingSeen: false,
         };
         const previousLedger = { revision: 1, records: {} };
+        const previousPair = serializeSettingsPersistencePair(previousSettings, previousLedger);
         const rejectedLedger = {
             revision: 2,
             __yomuSettingsPersistenceCommitV1: 'rejected-transaction',
@@ -527,11 +543,11 @@ describe('settings persist across sites (message-based GM store)', () => {
             },
         };
         const reads = installSettingsReadSequence(
-            () => previousSettings,
-            (read: number) => read < 2 ? rejectedLedger : previousLedger,
+            () => previousPair[SETTINGS_STORAGE_KEY],
+            (read: number) => read < 2 ? rejectedLedger : previousPair[SETTINGS_INTENT_LEDGER_STORAGE_KEY],
         );
 
-        const view = await readSettingsPersistenceView();
+        const view = await readSettingsPersistenceViewStrict();
         expect(view.settings).toEqual(previousSettings);
         expect(view.intentLedger.records).toEqual({});
         expect(reads.settings()).toBe(4);
@@ -617,13 +633,14 @@ describe('settings persist across sites (message-based GM store)', () => {
             learningTargetChosen: true,
             onboardingSeen: true,
         };
+        const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
+        const nextPair = serializeSettingsPersistencePair(nextSettings, { revision: 0, records: {} });
         const reads = installSettingsReadSequence(
-            read => read % 2 === 0 ? previousSettings : nextSettings,
+            read => (read % 2 === 0 ? previousPair : nextPair)[SETTINGS_STORAGE_KEY],
+            nextPair[SETTINGS_INTENT_LEDGER_STORAGE_KEY],
         );
 
-        const view = await readSettingsPersistenceView();
-        expect(view.settings).toBeNull();
-        expect(view.intentLedger.records).toEqual({});
+        await expect(readSettingsPersistenceViewStrict()).rejects.toThrow('stable committed snapshot');
         expect(reads.settings()).toBe(6);
     });
 
@@ -636,7 +653,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const store = new Map<string, unknown>();
         // A legacy install that had a dark theme.
         store.set('yomu-reader-settings', { theme: 'dark' });
-        store.set(SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, theme: 'dark' });
+        seedSettingsPair(store, { theme: 'dark' });
         installSharedMessageBasedGm(store);
 
         // The learner puts the theme BACK to its default and saves. The settings
@@ -666,7 +683,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         store.set('yomu-reader-settings', {
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
         });
-        store.set(SETTINGS_STORAGE_KEY, {
+        seedSettingsPair(store, {
             ...DEFAULT_SETTINGS,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
         });
@@ -682,15 +699,15 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect((await loadSettings()).shortcuts.hoverLookup).toBe('');
     });
 
-    it('still fills a field the current store has never stored at all', async () => {
+    it('uses the current default for an absent field, ignoring old donors', async () => {
         const store = new Map<string, unknown>();
-        // The recovery has a real job: a genuinely absent key must still be adopted,
-        // which is what the presence check preserves and the equality check conflated.
         store.set('yomu-reader-settings', { ankiTags: 'legacy-tag' });
-        store.set(SETTINGS_STORAGE_KEY, { theme: 'dark' });
+        seedSettingsPair(store, { theme: 'dark' });
+        delete (store.get(SETTINGS_STORAGE_KEY) as Record<string, unknown>).ankiTags;
         installSharedMessageBasedGm(store);
 
-        expect((await loadSettings()).ankiTags).toBe('legacy-tag');
+        expect((await loadSettings()).ankiTags).toBe(DEFAULT_SETTINGS.ankiTags);
+        expect(store.get('yomu-reader-settings')).toEqual({ ankiTags: 'legacy-tag' });
     });
 
     it('does not let a stale whole-settings save overwrite an explicit annotations choice', async () => {
@@ -857,16 +874,16 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect((await loadSettings()).subtitleFontSize).toBe(32);
     });
 
-    it('adopts the choices an older install pinned in the pre-ledger store', async () => {
+    it('ignores retired pins while honoring current declarations', async () => {
         const store = new Map<string, unknown>();
         // What 1.8.22 through 1.8.78 wrote: a flat key -> value map, no ordering.
         store.set('yomu:explicit-user-settings:v1', { annotationsPaused: false });
-        store.set(SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, annotationsPaused: true });
+        seedSettingsPair(store, { annotationsPaused: true });
         installSharedMessageBasedGm(store);
 
-        expect((await loadSettings()).annotationsPaused).toBe(false);
+        expect((await loadSettings()).annotationsPaused).toBe(true);
 
-        // And a fresh declaration outranks the migrated pin.
+        // A current declaration records intent independently of retired pins.
         await saveSettings({ ...DEFAULT_SETTINGS, annotationsPaused: true }, {
             explicitUserChoiceKeys: ['annotationsPaused'],
         });
@@ -903,9 +920,9 @@ describe('settings persist across sites (message-based GM store)', () => {
 
     it('normalizes malformed Japanese-sites preferences without truthy coercion', async () => {
         const store = new Map<string, unknown>([
-            [SETTINGS_STORAGE_KEY, { preferJapaneseSiteLanguage: 'true' }],
             [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, 'true'],
         ]);
+        seedSettingsPair(store, { preferJapaneseSiteLanguage: 'true' as unknown as boolean });
         installSharedMessageBasedGm(store);
 
         const normalized = normalizeReaderSettings({
@@ -920,14 +937,14 @@ describe('settings persist across sites (message-based GM store)', () => {
         const loaded = await loadSettings();
         expect(loaded.preferJapaneseSiteLanguage).toBe(false);
         expect(typeof loaded.preferJapaneseSiteLanguage).toBe('boolean');
-        expect(store.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+        expect(store.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe('true');
     });
 
     it('reloads authoritative settings when either the blob or scalar changes', async () => {
         const store = new Map<string, unknown>([
-            [SETTINGS_STORAGE_KEY, { preferJapaneseSiteLanguage: true, theme: 'light' }],
             [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, false],
         ]);
+        seedSettingsPair(store, { preferJapaneseSiteLanguage: true, theme: 'light' });
         installSharedMessageBasedGm(store);
         type StoredValueListener = (
             key: string,
@@ -948,8 +965,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const onSettings = vi.fn();
         const unsubscribe = subscribeToSettingsStorageChanges(onSettings);
 
-        const updatedBlob = { preferJapaneseSiteLanguage: true, theme: 'dark' };
-        store.set(SETTINGS_STORAGE_KEY, updatedBlob);
+        const updatedBlob = seedSettingsPair(store, { preferJapaneseSiteLanguage: true, theme: 'dark' })[SETTINGS_STORAGE_KEY];
         listeners.get(SETTINGS_STORAGE_KEY)?.(
             SETTINGS_STORAGE_KEY,
             null,
@@ -973,17 +989,12 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(onSettings.mock.calls[1]?.[0].preferJapaneseSiteLanguage).toBe(true);
 
         unsubscribe();
-        // Blob, Japanese-sites scalar, pre-ledger pin store, intent ledger.
-        expect(removeListener).toHaveBeenCalledTimes(4);
+        // Canonical blob, Japanese-sites scalar, current intent ledger.
+        expect(removeListener).toHaveBeenCalledTimes(3);
     });
 });
 
 describe('settings persist in packaged-extension storage', () => {
-    afterEach(() => {
-        localStorage.clear();
-        vi.unstubAllGlobals();
-    });
-
     it('keeps explicit annotations intent authoritative over a stale extension save', async () => {
         const store = new Map<string, unknown>();
         installPackagedExtensionStorage(store);
@@ -1001,38 +1012,16 @@ describe('settings persist in packaged-extension storage', () => {
     });
 });
 
-// Settings edited on yomureader.com historically fell back to that origin's
-// localStorage (no GM backend on docs pages before the storage bridge covered
-// them), so the jiten key or theme chosen there never followed the user to
-// other sites. Once a GM backend is reachable, loadSettings folds those
-// stranded values into the shared store — except demo-player staging keys the
-// docs theme force-writes, which are not user intent.
-describe('stranded hosted settings recovery (yomureader.com localStorage)', () => {
-    afterEach(() => {
-        localStorage.clear();
-        vi.unstubAllGlobals();
-    });
-
-    it('eagerly promotes a hosted-app jiten key + dark theme into the shared GM store from the userscript sandbox', async () => {
-        // The userscript entry runs this at document-start on yomureader.com;
-        // it must push the key + theme into GM so youtube.com (which reads GM)
-        // no longer falls back to defaults (light theme, no key).
+describe('unsupported hosted settings donors', () => {
+    it('does not promote a hosted-app key or theme into shared storage', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'hosted-key', theme: 'dark' }));
-
-        const promoted = await promoteStrandedHostedSettingsToGmStorage();
-        expect(promoted).toBe(true);
-        const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
-        expect(shared.jitenApiKey).toBe('hosted-key');
-        expect(shared.theme).toBe('dark');
-
-        // A subsequent load on another site (shared store) now sees them.
-        vi.stubGlobal('location', { href: 'https://www.youtube.com/', hostname: 'www.youtube.com', pathname: '/', origin: 'https://www.youtube.com' });
-        const onYouTube = await loadSettings();
-        expect(onYouTube.jitenApiKey).toBe('hosted-key');
-        expect(onYouTube.theme).toBe('dark');
+        const donor = JSON.stringify({ jitenApiKey: 'hosted-key', theme: 'dark' });
+        localStorage.setItem(SETTINGS_STORAGE_KEY, donor);
+        await loadSettings();
+        expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBe(donor);
     });
 
     it('is a no-op on a non-hosted origin and never clobbers an explicit GM choice', async () => {
@@ -1042,23 +1031,23 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'should-not-promote' }));
-        expect(await promoteStrandedHostedSettingsToGmStorage()).toBe(false);
+        await loadSettings();
         expect(store.get('jpdb-popup-reader-settings')).toBeUndefined();
 
         // On the hosted origin, a stale hosted default must not overwrite an
         // explicit GM key set elsewhere.
         vi.stubGlobal('location', hostedLocation);
-        store.set('jpdb-popup-reader-settings', { jitenApiKey: 'real-gm-key' });
+        seedSettingsPair(store, { jitenApiKey: 'real-gm-key' });
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'stale-hosted-key' }));
-        await promoteStrandedHostedSettingsToGmStorage();
+        await loadSettings();
         expect((store.get('jpdb-popup-reader-settings') as Record<string, unknown>).jitenApiKey).toBe('real-gm-key');
     });
 
-    it('folds stranded jiten key and theme into an existing shared store, ignoring demo staging keys', async () => {
+    it('ignores stranded settings alongside an existing canonical store', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        store.set('jpdb-popup-reader-settings', { onboardingSeen: true });
+        const before = seedSettingsPair(store, { onboardingSeen: true });
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
             jitenApiKey: 'stranded-key',
             theme: 'dark',
@@ -1066,13 +1055,12 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         }));
 
         const settings = await loadSettings();
-        expect(settings.jitenApiKey).toBe('stranded-key');
-        expect(settings.theme).toBe('dark');
+        expect(settings.jitenApiKey).toBe('');
+        expect(settings.theme).toBe(DEFAULT_SETTINGS.theme);
         expect(settings.subtitleControlsMode).toBe('auto');
 
         const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
-        expect(shared.jitenApiKey).toBe('stranded-key');
-        expect(shared.theme).toBe('dark');
+        expect(shared).toEqual(before[SETTINGS_STORAGE_KEY]);
         expect(shared.onboardingSeen).toBe(true);
     });
 
@@ -1085,7 +1073,7 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
         // Annotations are OFF in the shared store, i.e. a non-default value.
-        store.set('jpdb-popup-reader-settings', { annotationsPaused: true });
+        const beforePair = seedSettingsPair(store, { annotationsPaused: true });
 
         // The hosted page reads, giving the next write a baseline to diff.
         const beforeToggle = await loadSettings();
@@ -1102,7 +1090,8 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         await expect(saveSettings({ ...beforeToggle, annotationsPaused: false }, {
             explicitUserChoiceKeys: ['annotationsPaused'],
         })).rejects.toThrow(/Settings persistence failed/);
-        expect(store.get('jpdb-popup-reader-settings')).toEqual({ annotationsPaused: true });
+        expect(store.get(SETTINGS_STORAGE_KEY)).toEqual(beforePair[SETTINGS_STORAGE_KEY]);
+        expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toEqual(beforePair[SETTINGS_INTENT_LEDGER_STORAGE_KEY]);
 
         // Reload with the shared store readable again: the rejected choice must
         // not become active merely because the bridge recovered.
@@ -1117,7 +1106,7 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        store.set('jpdb-popup-reader-settings', { annotationsPaused: true });
+        seedSettingsPair(store, { annotationsPaused: true });
         // No preceding read, so no recorded intent: just a blob at the default.
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ annotationsPaused: false }));
 
@@ -1129,7 +1118,7 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        store.set('jpdb-popup-reader-settings', { theme: 'dark', jitenApiKey: 'real-key' });
+        seedSettingsPair(store, { theme: 'dark', jitenApiKey: 'real-key' });
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'stale-old-key' }));
 
         const settings = await loadSettings();
@@ -1137,7 +1126,7 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         expect(settings.jitenApiKey).toBe('real-key');
     });
 
-    it('strips hosted policy keys when promoting a whole stranded blob into an empty shared store', async () => {
+    it('ignores a raw hosted blob when shared settings are absent', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
@@ -1148,17 +1137,14 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         }));
 
         const settings = await loadSettings();
-        expect(settings.jitenApiKey).toBe('stranded-key');
+        expect(settings.jitenApiKey).toBe('');
         expect(settings.subtitleControlsMode).toBe('auto');
         expect(settings.preferJapaneseSiteLanguage).toBe(false);
 
-        const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
-        expect(shared.jitenApiKey).toBe('stranded-key');
-        expect(shared.subtitleControlsMode).not.toBe('always');
-        expect(shared.preferJapaneseSiteLanguage).toBeUndefined();
+        expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
     });
 
-    it('promotes a hosted save made before a late GM bridge and then clears the pending marker', async () => {
+    it('keeps earlier standalone choices separate from a late installed store', async () => {
         vi.stubGlobal('location', hostedLocation);
         const standalone = await loadSettings();
         await saveSettings({ ...standalone, theme: 'dark', lookupOnHover: false, jitenApiKey: 'local-choice' }, {
@@ -1166,38 +1152,36 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         });
 
         const localBeforeBridge = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? '{}');
-        expect(localBeforeBridge.__yomuHostedPendingGmPatch).toMatchObject({
+        expect(localBeforeBridge).toMatchObject({
             theme: 'dark',
             lookupOnHover: false,
             jitenApiKey: 'local-choice',
         });
 
-        const store = new Map<string, unknown>([[
-            'jpdb-popup-reader-settings',
-            { onboardingSeen: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' },
-        ]]);
+        const store = new Map<string, unknown>();
+        seedSettingsPair(store, { onboardingSeen: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' });
         installSharedMessageBasedGm(store);
 
         const reconciled = await loadSettings();
-        expect(reconciled.theme).toBe('dark');
-        expect(reconciled.lookupOnHover).toBe(false);
-        expect(reconciled.jitenApiKey).toBe('local-choice');
+        expect(reconciled.theme).toBe('light');
+        expect(reconciled.lookupOnHover).toBe(true);
+        expect(reconciled.jitenApiKey).toBe('gm-old-choice');
         expect(reconciled.onboardingSeen).toBe(true);
         expect(reconciled.popupMode).toBe('popover');
         expect(store.get('jpdb-popup-reader-settings')).toMatchObject({
             onboardingSeen: true,
-            theme: 'dark',
+            theme: 'light',
             popupMode: 'popover',
-            lookupOnHover: false,
-            jitenApiKey: 'local-choice',
+            lookupOnHover: true,
+            jitenApiKey: 'gm-old-choice',
         });
         expect(store.get('jpdb-popup-reader-settings')).not.toHaveProperty('__yomuHostedPendingGmPatch');
 
         const localAfterBridge = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? '{}');
-        expect(localAfterBridge.__yomuHostedPendingGmPatch).toBeUndefined();
+        expect(localAfterBridge).toEqual(localBeforeBridge);
     });
 
-    it('replays hosted fields without replacing the shared transaction commit witness', async () => {
+    it('does not promote an injected pending object without its local intent witness', async () => {
         vi.stubGlobal('location', hostedLocation);
         const sharedCommit = 'shared-commit';
         const store = new Map<string, unknown>([
@@ -1224,40 +1208,30 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
             },
         }));
 
-        await expect(loadSettings()).resolves.toMatchObject({ theme: 'dark' });
-        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
-            theme: 'dark',
-            __yomuSettingsPersistenceCommitV1: sharedCommit,
-        });
+        await expect(loadSettings()).resolves.toMatchObject({ theme: 'light' });
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({ theme: 'light', __yomuSettingsPersistenceCommitV1: sharedCommit });
         expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({
             __yomuSettingsPersistenceCommitV1: sharedCommit,
         });
     });
 
-    it('merges only the pending hosted fields into newer GM changes from another site', async () => {
+    it('does not merge standalone edits into newer installed settings', async () => {
         vi.stubGlobal('location', hostedLocation);
-        const initialStore = new Map<string, unknown>([[
-            'jpdb-popup-reader-settings',
-            { theme: 'light', popupMode: 'sheet', lookupOnHover: true },
-        ]]);
-        installSharedMessageBasedGm(initialStore);
-        await loadSettings();
-        vi.unstubAllGlobals();
-        vi.stubGlobal('location', hostedLocation);
-
+        await saveSettings({ ...DEFAULT_SETTINGS, theme: 'light', popupMode: 'sheet', lookupOnHover: true }, {
+            explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE,
+        });
         const local = await loadSettings();
         await saveSettings({ ...local, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
-        const currentStore = new Map<string, unknown>([[
-            'jpdb-popup-reader-settings',
-            { theme: 'light', popupMode: 'popover', lookupOnHover: false },
-        ]]);
+        const currentStore = new Map<string, unknown>();
+        seedSettingsPair(currentStore, { theme: 'light', popupMode: 'popover', lookupOnHover: false });
         installSharedMessageBasedGm(currentStore);
         const reconciled = await loadSettings();
 
-        expect(reconciled.theme).toBe('dark');
+        expect(reconciled.theme).toBe('light');
         expect(reconciled.popupMode).toBe('popover');
         expect(reconciled.lookupOnHover).toBe(false);
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!)).toMatchObject({ theme: 'dark', popupMode: 'sheet' });
     });
 
     it('keeps GM settings after the hosted localStorage mirror is cleared', async () => {
@@ -1277,23 +1251,17 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
     });
 });
 
-// Until 1.8.39 the default theme was 'light' and every save persisted it, so a
-// stored 'light' cannot be told apart from a real choice — and because the
-// hosted appearance boot reads settings.theme before its 'auto' fallback, those
-// installs could never follow the operating system. Measured on the live site:
-// a browser that had visited before the fix still carried theme=light and stayed
-// bright with prefers-color-scheme: dark.
-describe('default light theme migration', () => {
-    it('moves a stored light default to auto once, then honors a later choice', async () => {
+describe('current theme preservation', () => {
+    it('preserves a current light choice through reload and an unchanged save', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        store.set('jpdb-popup-reader-settings', { theme: 'light' });
+        await saveSettings({ ...DEFAULT_SETTINGS, theme: 'light' }, { explicitUserChoiceKeys: ['theme'] });
 
         const migrated = await loadSettings();
-        expect(migrated.theme).toBe('auto');
-        expect(migrated.themeAutoRestored20260730).toBe(true);
+        expect(migrated.theme).toBe('light');
+        expect(migrated).not.toHaveProperty('themeAutoRestored20260730');
 
-        // Choosing light AFTER the migration is a real choice and must stick.
+        // Saving the same current choice must also preserve it.
         migrated.theme = 'light';
         await saveSettings(migrated, { explicitUserChoiceKeys: ['theme'] });
         expect((await loadSettings()).theme).toBe('light');
@@ -1302,26 +1270,24 @@ describe('default light theme migration', () => {
     it('leaves a stored dark choice alone', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        store.set('jpdb-popup-reader-settings', { theme: 'dark' });
+        await saveSettings({ ...DEFAULT_SETTINGS, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
         expect((await loadSettings()).theme).toBe('dark');
     });
 });
 
-// Until 1.6.140 the YouTube filter notice's "hide" button silently persisted
-// youtubeShowFilterNotice=false — the only in-page path writing that key.
-// The one-time marker migration restores it; deliberate settings-dialog
-// choices made afterwards stick.
-describe('hidden filter notice restore migration', () => {
-    it('restores a stored notice-off once, then honors later choices', async () => {
+describe('current filter notice preservation', () => {
+    it('preserves a current disabled notice through reload and an unchanged save', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        store.set('jpdb-popup-reader-settings', { youtubeShowFilterNotice: false });
+        await saveSettings({ ...DEFAULT_SETTINGS, youtubeShowFilterNotice: false }, {
+            explicitUserChoiceKeys: ['youtubeShowFilterNotice'],
+        });
 
         const migrated = await loadSettings();
-        expect(migrated.youtubeShowFilterNotice).toBe(true);
-        expect(migrated.youtubeFilterNoticeRestored20260711).toBe(true);
+        expect(migrated.youtubeShowFilterNotice).toBe(false);
+        expect(migrated).not.toHaveProperty('youtubeFilterNoticeRestored20260711');
 
-        // A post-migration deliberate opt-out sticks across loads.
+        // The opt-out also survives a current save.
         migrated.youtubeShowFilterNotice = false;
         await saveSettings(migrated, { explicitUserChoiceKeys: ['youtubeShowFilterNotice'] });
         const reloaded = await loadSettings();

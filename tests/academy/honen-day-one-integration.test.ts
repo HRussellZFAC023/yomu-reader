@@ -160,7 +160,7 @@ describe('Honen Day One curriculum augmentation', () => {
             curriculumRenderOwner: 'yomu',
         });
         expect(screen.element.textContent).toContain('Xingyu');
-        expect(screen.element.textContent).toContain('Five sounds open the language');
+        expect(screen.element.textContent).toContain('Five vowel sounds');
         expect(screen.element.textContent).not.toMatch(/Honen|course builder|curriculum designer/i);
         expect(screen.element.querySelector('iframe')).toBeNull();
         screen.dispose();

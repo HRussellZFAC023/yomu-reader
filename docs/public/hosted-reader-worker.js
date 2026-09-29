@@ -10,14 +10,16 @@ self.registerYomuHostedReaderWorker = function registerYomuHostedReaderWorker(co
   self.addEventListener('fetch', event => handleHostedReaderFetch(event, policy));
 };
 
-function hostedReaderCachePolicy({ cacheName, runtimeGraph, cacheablePathPrefixes = [] } = {}) {
+function hostedReaderCachePolicy({ cacheName, runtimeGraph, appearanceRevision, cacheablePathPrefixes = [] } = {}) {
   const cachePrefix = hostedCachePrefix(cacheName);
+  if (appearanceRevision !== undefined && !/^[a-f\d]{12}$/u.test(appearanceRevision)) throw new Error('Invalid appearance revision');
   const scopePath = hostedScopePath();
   const runtimePaths = immutableRuntimePaths(runtimeGraph);
   const pathPrefixes = hostedPathPrefixes(cacheablePathPrefixes, scopePath);
   const commonAssets = [
     '/yomu.css',
     '/yomu.user.js',
+    ...(appearanceRevision ? ['/hosted-appearance-settings.js'] : []),
     ...runtimePaths,
     '/yomu-icon.svg',
     '/favicon-16x16.png',
@@ -25,7 +27,7 @@ function hostedReaderCachePolicy({ cacheName, runtimeGraph, cacheablePathPrefixe
     '/apple-touch-icon.png',
   ];
   return {
-    cacheName,
+    cacheName: appearanceRevision ? `${cacheName}-${appearanceRevision}` : cacheName,
     cachePrefix,
     shell: [
       './',

@@ -6,24 +6,21 @@ import {
     type SaveSettingsOptions,
 } from './index';
 import {
-    readerStorageRestorePayload,
     runSettingsRestoreTransaction,
     settingsRestoreSaveOptions,
     witnessedSettingsRestoreCandidate,
 } from './settings-restore-transaction';
 import {
-    getReaderDictionaryExport,
-    getReaderSettingsExport,
+    parseReaderSettingsBackup,
     readerDictionaryExportHasData,
 } from './file-io';
 import { uiText } from '../app/i18n';
+import { userFacingError } from '../app/user-facing-errors';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import {
-    parseYomitanSettingsExport,
     type ImportSummary,
     type YomitanDictionaryStore,
 } from '../dictionaries/yomitan';
-import { markDictionaryReplicaFresh } from '../dictionaries/replica-purge';
 
 interface ReaderSettingsRestorePort {
     readonly dictionaries: Pick<YomitanDictionaryStore, 'exportJson' | 'importFile' | 'summary'>;
@@ -43,13 +40,20 @@ export async function restoreReaderSettingsBackup(
     previousSettings: ReaderSettings,
     port: ReaderSettingsRestorePort,
 ): Promise<string> {
-    const json = JSON.parse(await file.text()) as unknown;
-    const hasTopLevelSettings = getReaderSettingsExport(json) !== null;
-    let importedSettings = initialImportedSettings(json, previousSettings);
-    const dictionaries = await BundledDictionaryRestore.prepare(json, port);
+    const text = await file.text();
+    let json: unknown;
+    try { json = JSON.parse(text); }
+    catch { throw userFacingError('settingsImportUnsupportedFormat'); }
+    const backup = parseReaderSettingsBackup(json);
+    if (!backup) throw userFacingError('settingsImportUnsupportedFormat');
+    let importedSettings = normalizeReaderSettings({
+        ...previousSettings,
+        ...backup.settings,
+        shortcuts: { ...previousSettings.shortcuts, ...backup.settings.shortcuts },
+    });
+    const dictionaries = await BundledDictionaryRestore.prepare(backup.dictionaries, port);
     const result = await runSettingsRestoreTransaction({
-        storage: readerStorageRestorePayload(json),
-        allowInvalidSettingsAuthorityFallback: hasTopLevelSettings,
+        storage: backup.storage,
         prepareSettings: importedView => {
             importedSettings = witnessedSettingsRestoreCandidate(
                 previousSettings,
@@ -97,7 +101,6 @@ class BundledDictionaryRestore {
     async rollback(): Promise<void> {
         if (!this.restore || !this.mutationAttempted) return;
         await this.port.dictionaries.importFile(this.restore.previous);
-        await markDictionaryReplicaFresh();
         this.port.dictionaryStateChanged();
     }
 
@@ -108,15 +111,13 @@ class BundledDictionaryRestore {
             file,
             message => this.port.setStatus(message),
         );
-        await markDictionaryReplicaFresh();
     }
 }
 
 async function dictionaryRestoreFiles(
-    json: unknown,
+    dictionaryExport: unknown,
     dictionaries: Pick<YomitanDictionaryStore, 'exportJson'>,
 ): Promise<ReaderDictionaryRestore | null> {
-    const dictionaryExport = getReaderDictionaryExport(json);
     if (!readerDictionaryExportHasData(dictionaryExport)) return null;
     return {
         imported: jsonFile(dictionaryExport, 'yomu-dictionaries-from-settings.json'),
@@ -145,29 +146,6 @@ async function mergeImportedDictionaryPreferences(
         importedTypes,
     );
     return captureActiveLanguageProfileDictionaries(settings, merged);
-}
-
-function initialImportedSettings(json: unknown, current: ReaderSettings): ReaderSettings {
-    const readerSettings = getReaderSettingsExport(json);
-    return readerSettings
-        ? normalizeReaderSettings({
-            ...current,
-            ...readerSettings,
-            shortcuts: { ...current.shortcuts, ...readerSettings.shortcuts },
-        })
-        : importedYomitanSettings(json, current);
-}
-
-function importedYomitanSettings(json: unknown, current: ReaderSettings): ReaderSettings {
-    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
-    return normalizeReaderSettings({
-        ...current,
-        ...imported.settings,
-        shortcuts: {
-            ...current.shortcuts,
-            ...(imported.settings.shortcuts ?? {}),
-        },
-    });
 }
 
 function importSettingsStatus(

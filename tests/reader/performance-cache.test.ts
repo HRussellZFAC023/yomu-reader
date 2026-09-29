@@ -49,7 +49,7 @@ function createCardRenderDataLoader({
             lookupTermMeta,
         } as unknown as YomitanDictionaryStore,
         jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
-        jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })) } as unknown as JpdbVocabularyClient,
         anki: {
             findExistingCards: vi.fn(),
             deckNames: vi.fn(),
@@ -72,8 +72,8 @@ describe('performance cache bounds', () => {
         const lookup = vi.fn(async () => [localEntry]);
         const lookupTermMeta = vi.fn(async () => [ipaEntry]);
         const publicPitch = vi.fn(async () => ['HLL']);
-        const jpdbLookup = vi.fn(async () => ({ meanings: ['Japanese result'] }));
-        const jpdbSearch = vi.fn(async () => []);
+        const jpdbLookup = vi.fn(async () => ({ info: { meanings: ['Japanese result'], compounds: [], examples: [] }, status: 'complete' as const }));
+        const jpdbSearch = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const jitenLookup = vi.fn(async () => ({ meanings: ['Japanese result'] }));
         const jitenSearch = vi.fn(async () => []);
         const bunproSearch = vi.fn(async () => ({}));

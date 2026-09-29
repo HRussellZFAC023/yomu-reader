@@ -45,7 +45,7 @@ describe('hosted overflow menus', () => {
         expect(config).toContain("localizeWebsiteNavigation(siteNav, 'ja')");
     });
 
-    it('keeps one Membership route beside the GitHub and Discord navbar links', () => {
+    it('keeps the main navigation task-focused and moves Membership into More', () => {
         const config = readProjectFile('docs/.vitepress/config.mts');
         const membership = readProjectFile('docs/membership.md');
         const popover = readProjectFile('docs/.vitepress/theme/membership-popover.ts');
@@ -56,8 +56,8 @@ describe('hosted overflow menus', () => {
             link: '/membership',
             target: '_self',
         });
-        expect(config).toContain("{ icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` }");
-        expect(config).toContain("{ icon: 'discord', link: 'https://discord.gg/jD6NPURewD' }");
+        expect(docsNav().map(entry => (entry as { text: string }).text)).toEqual(['Read', 'Watch', 'Study', 'More']);
+        expect(config).toContain('socialLinks: []');
         expect(config).not.toContain('...donationSocialLinks');
         for (const providerUrl of [
             'https://support.yomureader.com/donate',

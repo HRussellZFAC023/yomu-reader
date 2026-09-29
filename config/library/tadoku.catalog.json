@@ -1,0 +1,1839 @@
+{
+  "schemaVersion": 1,
+  "sourceUrl": "https://tadoku.org/japanese/en/free-books-en/",
+  "checkedAt": "2026-09-18T07:52:03.559Z",
+  "sourceItemCount": 141,
+  "genres": [
+    {
+      "id": "020",
+      "label": {
+        "ja": "外国",
+        "en": "World"
+      }
+    },
+    {
+      "id": "040",
+      "label": {
+        "ja": "写真絵本",
+        "en": "Photo books"
+      }
+    },
+    {
+      "id": "050",
+      "label": {
+        "ja": "マンガ／アニメ",
+        "en": "Manga/Anime"
+      }
+    },
+    {
+      "id": "070",
+      "label": {
+        "ja": "文学",
+        "en": "Literature"
+      }
+    },
+    {
+      "id": "080",
+      "label": {
+        "ja": "昔話／伝承",
+        "en": "Folk tales"
+      }
+    },
+    {
+      "id": "085",
+      "label": {
+        "ja": "子どもの生活",
+        "en": "Children’s life"
+      }
+    },
+    {
+      "id": "100",
+      "label": {
+        "ja": "情報",
+        "en": "Informational"
+      }
+    },
+    {
+      "id": "105",
+      "label": {
+        "ja": "地方／地域",
+        "en": "Localities"
+      }
+    },
+    {
+      "id": "110",
+      "label": {
+        "ja": "自然科学",
+        "en": "Science"
+      }
+    },
+    {
+      "id": "120",
+      "label": {
+        "ja": "歴史",
+        "en": "History"
+      }
+    },
+    {
+      "id": "130",
+      "label": {
+        "ja": "人物",
+        "en": "People"
+      }
+    },
+    {
+      "id": "132",
+      "label": {
+        "ja": "食べ物",
+        "en": "Food"
+      }
+    },
+    {
+      "id": "133",
+      "label": {
+        "ja": "ことば",
+        "en": "Words & Phrases"
+      }
+    },
+    {
+      "id": "135",
+      "label": {
+        "ja": "動物",
+        "en": "Animals"
+      }
+    },
+    {
+      "id": "140",
+      "label": {
+        "ja": "推理",
+        "en": "Mystery"
+      }
+    },
+    {
+      "id": "150",
+      "label": {
+        "ja": "恋愛",
+        "en": "Romance"
+      }
+    },
+    {
+      "id": "160",
+      "label": {
+        "ja": "本当の話",
+        "en": "True stories"
+      }
+    },
+    {
+      "id": "170",
+      "label": {
+        "ja": "日常の話",
+        "en": "Slices of Life"
+      }
+    },
+    {
+      "id": "180",
+      "label": {
+        "ja": "笑える話",
+        "en": "Funny"
+      }
+    },
+    {
+      "id": "190",
+      "label": {
+        "ja": "怖い話",
+        "en": "Scary"
+      }
+    },
+    {
+      "id": "200",
+      "label": {
+        "ja": "不思議な話",
+        "en": "Strange"
+      }
+    },
+    {
+      "id": "210",
+      "label": {
+        "ja": "悲しい話",
+        "en": "Sad"
+      }
+    }
+  ],
+  "books": [
+    {
+      "id": "64329",
+      "title": "金の斧銀の斧～イソップ物語より",
+      "level": "l1",
+      "genreIds": [
+        "020",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/64329/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0020t-kinnoonoginnoono-211x300.jpg"
+    },
+    {
+      "id": "64058",
+      "title": "赤い魚と子ども",
+      "level": "l2",
+      "genreIds": [
+        "135",
+        "085",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/64058/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0019t-akaisakanatokodomo-211x300.jpg"
+    },
+    {
+      "id": "64041",
+      "title": "京都のかえると大阪のかえる",
+      "level": "l1",
+      "genreIds": [
+        "135",
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/64041/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0121t-kyotoosakakaeru-211x300.jpg"
+    },
+    {
+      "id": "61371",
+      "title": "鏡のない村",
+      "level": "l2",
+      "genreIds": [
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/61371/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0018t-kagaminonaimura-211x300.jpg"
+    },
+    {
+      "id": "61273",
+      "title": "ちょっと来て！",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/61273/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0120t-chottokite-211x300.jpg"
+    },
+    {
+      "id": "52749",
+      "title": "くるみもち",
+      "level": "l3",
+      "genreIds": [
+        "100",
+        "160",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/52749/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0119t-kurumimoti-211x300.jpg"
+    },
+    {
+      "id": "40182",
+      "title": "犬と肉〜イソップ物語より",
+      "level": "l-start",
+      "genreIds": [
+        "135",
+        "020",
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/40182/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0012t-inutoniku-v2-211x300.jpg"
+    },
+    {
+      "id": "39479",
+      "title": "あっ、まるい",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/39479/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0094t-marui-v2-211x300.jpg"
+    },
+    {
+      "id": "8644",
+      "title": "赤い・・・",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "150"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8644/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0080t-akai-v2-212x300.jpg"
+    },
+    {
+      "id": "8597",
+      "title": "じゃんけん",
+      "level": "l-start",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8597/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0079t-janken-v2-211x300.jpg"
+    },
+    {
+      "id": "8137",
+      "title": "どっち？",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "135",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8137/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0071t-dotchi-v2-212x300.jpg"
+    },
+    {
+      "id": "6812",
+      "title": "どうぞどうも",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "150",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6812/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0056t-douzodoumo-v2-211x300.jpg"
+    },
+    {
+      "id": "6459",
+      "title": "TKG",
+      "level": "l-start",
+      "genreIds": [
+        "040",
+        "100",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6459/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0052t-tkg-v3-211x300.jpg"
+    },
+    {
+      "id": "6447",
+      "title": "何を飲みますか？",
+      "level": "l-start",
+      "genreIds": [
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6447/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0050t-naniwonomimasuka-v2-211x300.jpg"
+    },
+    {
+      "id": "6346",
+      "title": "ありますか？",
+      "level": "l-start",
+      "genreIds": [
+        "040",
+        "100",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6346/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0048t-arimasuka-v2-211x300.jpg"
+    },
+    {
+      "id": "6301",
+      "title": "雨",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "135"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6301/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0047t-ame-v2-211x300.jpg"
+    },
+    {
+      "id": "5509",
+      "title": "すみません",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5509/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0036t-sumimasen-v2-211x300.jpg"
+    },
+    {
+      "id": "5372",
+      "title": "あれは何？",
+      "level": "l-start",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5372/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0032t-arehanani-v2-211x300.jpg"
+    },
+    {
+      "id": "5277",
+      "title": "あった！",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "170",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5277/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0028t-atta-v2-212x300.jpg"
+    },
+    {
+      "id": "5159",
+      "title": "にほんごえほん あいちゃん１（１）",
+      "level": "l-start",
+      "genreIds": [
+        "085",
+        "170",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5159/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0024t-aichan1-1-211x300.jpg"
+    },
+    {
+      "id": "5175",
+      "title": "にほんごえほん あいちゃん２（２）",
+      "level": "l-start",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5175/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0026t-aichan2-212x300.jpg"
+    },
+    {
+      "id": "4982",
+      "title": "白い？黒い？",
+      "level": "l-start",
+      "genreIds": [
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4982/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0023t-shiroikuroi-v2-211x300.jpg"
+    },
+    {
+      "id": "4156",
+      "title": "たいへん！！",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "040",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4156/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0008t-taihen-v2-211x300.jpg"
+    },
+    {
+      "id": "4155",
+      "title": "青い",
+      "level": "l-start",
+      "genreIds": [
+        "133",
+        "040"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4155/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0007t-aoi-v2-211x300.jpg"
+    },
+    {
+      "id": "45891",
+      "title": "キツネとツル～イソップ物語より",
+      "level": "l0",
+      "genreIds": [
+        "135",
+        "020",
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/45891/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0016t-kitunetoturu-211x300.jpg"
+    },
+    {
+      "id": "44963",
+      "title": "ざるそば",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "100",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/44963/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0112t-zarusoba-211x300.jpg"
+    },
+    {
+      "id": "41012",
+      "title": "かんたん！日本のカレーライス",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/41012/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0105t-curryrice-211x300.jpg"
+    },
+    {
+      "id": "40469",
+      "title": "チワワの花すけ〜お花見",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/40469/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0098t-hanasukeohanami-v3-211x300.jpg"
+    },
+    {
+      "id": "40280",
+      "title": "2匹のカエル",
+      "level": "l0",
+      "genreIds": [
+        "135",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/40280/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0097t-nihikinokaeru-211x300.jpg"
+    },
+    {
+      "id": "39413",
+      "title": "畳生活",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/39413/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0010t-tatami-211x300.jpg"
+    },
+    {
+      "id": "38558",
+      "title": "ぼくのお父さん",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "100",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38558/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0007t-bokunootoosan-211x300.jpg"
+    },
+    {
+      "id": "38369",
+      "title": "夜の空で",
+      "level": "l0",
+      "genreIds": [
+        "200"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38369/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0088t-yorunosorade-211x300.jpg"
+    },
+    {
+      "id": "8777",
+      "title": "彼氏がほしい！",
+      "level": "l0",
+      "genreIds": [
+        "050",
+        "200",
+        "150",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8777/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0087t-kareshi-211x300.jpg"
+    },
+    {
+      "id": "8757",
+      "title": "まだ？",
+      "level": "l0",
+      "genreIds": [
+        "133",
+        "170",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8757/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0082t-mada-1-211x300.jpg"
+    },
+    {
+      "id": "8519",
+      "title": "これ、なあに？",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "085",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8519/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0077t-korenaani-1-211x300.jpg"
+    },
+    {
+      "id": "8481",
+      "title": "ゆきだるま",
+      "level": "l0",
+      "genreIds": [
+        "135",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8481/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0076t-yukidaruma-211x300.jpg"
+    },
+    {
+      "id": "8139",
+      "title": "チワワの花すけ～影とお散歩",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8139/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0072t-kagetoosanpo-v4-212x300.jpg"
+    },
+    {
+      "id": "7914",
+      "title": "寒い日は「おなべ」",
+      "level": "l0",
+      "genreIds": [
+        "170",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7914/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0066t-samuihihaonabe-211x300.jpg"
+    },
+    {
+      "id": "7595",
+      "title": "広島・宮島に行きましょう",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "105",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7595/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0064t-hiroshimamiyajima-211x300.jpg"
+    },
+    {
+      "id": "7347",
+      "title": "カラスと水さし ～イソップ物語より～",
+      "level": "l0",
+      "genreIds": [
+        "135",
+        "020",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7347/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0062t-karasutomizusashi-211x300.jpg"
+    },
+    {
+      "id": "7253",
+      "title": "お茶をいれましょう！",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "100",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7253/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0061t-ocha-211x300.jpg"
+    },
+    {
+      "id": "6988",
+      "title": "羊飼いの男の子 ～イソップ物語より",
+      "level": "l0",
+      "genreIds": [
+        "020",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6988/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0006t-hitsujikainootokonoko-v3-211x300.jpg"
+    },
+    {
+      "id": "6973",
+      "title": "あんこちゃん 〜季節のお菓子〜",
+      "level": "l0",
+      "genreIds": [
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6973/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0057t-ankochan-211x300.jpg"
+    },
+    {
+      "id": "6872",
+      "title": "いっぱい",
+      "level": "l0",
+      "genreIds": [
+        "133",
+        "135",
+        "150",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6872/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0055t-ippai-211x300.jpg"
+    },
+    {
+      "id": "6645",
+      "title": "いいです",
+      "level": "l0",
+      "genreIds": [
+        "133",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6645/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0054t-iidesu-v3-211x300.jpg"
+    },
+    {
+      "id": "6469",
+      "title": "いました！",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6469/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0053t-imashita-211x300.jpg"
+    },
+    {
+      "id": "6457",
+      "title": "おでん",
+      "level": "l0",
+      "genreIds": [
+        "100",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6457/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0051t-oden-211x300.jpg"
+    },
+    {
+      "id": "6377",
+      "title": "菊",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "100",
+        "170",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6377/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0049t-kikunohana-212x300.jpg"
+    },
+    {
+      "id": "5998",
+      "title": "入れて",
+      "level": "l0",
+      "genreIds": [
+        "133",
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5998/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0042t-irete-211x300.jpg"
+    },
+    {
+      "id": "5995",
+      "title": "わすれもの",
+      "level": "l0",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5995/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0041t-wasuremono-211x300.jpg"
+    },
+    {
+      "id": "5595",
+      "title": "チワワの花すけ～すごい！",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5595/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0039t-sugoi-211x300.jpg"
+    },
+    {
+      "id": "5370",
+      "title": "チワワの花すけ～おねえさん ごめんなさい",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5370/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0030t-chiwawanohanasuke-211x300.jpg"
+    },
+    {
+      "id": "5281",
+      "title": "ちょっと…",
+      "level": "l0",
+      "genreIds": [
+        "133",
+        "170",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5281/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0029t-chotto-211x300.jpg"
+    },
+    {
+      "id": "5174",
+      "title": "にほんごえほん あいちゃん１（２）",
+      "level": "l0",
+      "genreIds": [
+        "085",
+        "170",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5174/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0024t-aichan1-1-211x300.jpg"
+    },
+    {
+      "id": "5180",
+      "title": "にほんごえほん あいちゃん２（１）",
+      "level": "l0",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5180/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0026t-aichan2-212x300.jpg"
+    },
+    {
+      "id": "4908",
+      "title": "肉じゃが",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4908/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0021t-nikujaga-212x300.jpg"
+    },
+    {
+      "id": "4907",
+      "title": "たまご",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4907/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0020t-tamago-212x300.jpg"
+    },
+    {
+      "id": "4906",
+      "title": "かまきり",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "135",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4906/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0019t-kamakiri-212x300.jpg"
+    },
+    {
+      "id": "4157",
+      "title": "よむ？？？",
+      "level": "l0",
+      "genreIds": [
+        "133",
+        "040",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4157/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0009t-yomu-211x300.jpg"
+    },
+    {
+      "id": "2746",
+      "title": "花と色",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "100",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/2746/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0001t-hanatoiro-211x300.jpg"
+    },
+    {
+      "id": "2747",
+      "title": "野菜の花",
+      "level": "l0",
+      "genreIds": [
+        "040",
+        "100",
+        "110",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/2747/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0002t-yasainohana-212x300.jpg"
+    },
+    {
+      "id": "48395",
+      "title": "おばあちゃんがいない",
+      "level": "l1",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/48395/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0116t-obaachangainai-211x300.jpg"
+    },
+    {
+      "id": "47818",
+      "title": "三まいのおふだ",
+      "level": "l1",
+      "genreIds": [
+        "050",
+        "200",
+        "190",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/47818/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0115t-sanmainoohuda-211x300.jpg"
+    },
+    {
+      "id": "47659",
+      "title": "日下川の猿猴",
+      "level": "l1",
+      "genreIds": [
+        "200",
+        "135",
+        "105",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/47659/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0114t-enko-211x300.jpg"
+    },
+    {
+      "id": "43726",
+      "title": "チワワの花すけ～雪だるま",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/43726/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0109t-hanasukeyukidaruma-211x300.jpg"
+    },
+    {
+      "id": "42390",
+      "title": "ぼくのかぞく",
+      "level": "l1",
+      "genreIds": [
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/42390/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0103t-bokunokazoku-211x300.jpg"
+    },
+    {
+      "id": "41614",
+      "title": "しあわせ",
+      "level": "l1",
+      "genreIds": [
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/41614/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0101t-shiawase-211x300.jpg"
+    },
+    {
+      "id": "41295",
+      "title": "母の日",
+      "level": "l1",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/41295/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0100t-hahanohi-211x300.jpg"
+    },
+    {
+      "id": "38533",
+      "title": "落花生はおもしろい！",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "100",
+        "110",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38533/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0090t-rakkasei-211x300.jpg"
+    },
+    {
+      "id": "38370",
+      "title": "泣く女",
+      "level": "l1",
+      "genreIds": [
+        "020",
+        "190",
+        "150",
+        "210",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38370/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0089t-nakuonna-211x300.jpg"
+    },
+    {
+      "id": "9295",
+      "title": "山に行きました",
+      "level": "l1",
+      "genreIds": [
+        "135",
+        "020"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/9295/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0086t-yamani-211x300.jpg"
+    },
+    {
+      "id": "8964",
+      "title": "メキシコの犬",
+      "level": "l1",
+      "genreIds": [
+        "135",
+        "020",
+        "100",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8964/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0084t-mexico-211x300.jpg"
+    },
+    {
+      "id": "8884",
+      "title": "ディアさんの冬休み",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "105",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8884/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0083t-diasanno-211x300.jpg"
+    },
+    {
+      "id": "8688",
+      "title": "がんばっているみなさんへ",
+      "level": "l1",
+      "genreIds": [
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8688/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0081t-ganbatte-212x300.jpg"
+    },
+    {
+      "id": "8576",
+      "title": "ベトナムの生春巻き",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "020",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8576/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0078t-namaharumaki-211x300.jpg"
+    },
+    {
+      "id": "7957",
+      "title": "ベンジャミンバニーのお話",
+      "level": "l1",
+      "genreIds": [
+        "135",
+        "020",
+        "070",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7957/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0067t-thetaleofbenjaminbunny-211x300.jpg"
+    },
+    {
+      "id": "7787",
+      "title": "デカりんご",
+      "level": "l1",
+      "genreIds": [
+        "200"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7787/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0065t-dekaringo-211x300.jpg"
+    },
+    {
+      "id": "7348",
+      "title": "ピーターラビットのお話",
+      "level": "l1",
+      "genreIds": [
+        "135",
+        "020",
+        "070",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7348/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0063t-peterrabbit-211x300.jpg"
+    },
+    {
+      "id": "6873",
+      "title": "日本の城",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "105",
+        "100",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6873/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0057t-nihonnoshiro-211x300.jpg"
+    },
+    {
+      "id": "5883",
+      "title": "これは何でしょう？",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5883/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0003t-korehanandesyou-211x300.jpg"
+    },
+    {
+      "id": "5371",
+      "title": "チワワの花すけ～帽子とマフラー",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "135",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5371/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0031t-chiwawanohanasuke2-v3-212x300.jpg"
+    },
+    {
+      "id": "4644",
+      "title": "シュモーハウス",
+      "level": "l1",
+      "genreIds": [
+        "130",
+        "105",
+        "100",
+        "160",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4644/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0018t-schmoehouse-212x300.jpg"
+    },
+    {
+      "id": "4159",
+      "title": "かぼちゃん日本の秋へ",
+      "level": "l1",
+      "genreIds": [
+        "040"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4159/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0011t-kabochan-211x300.jpg"
+    },
+    {
+      "id": "4158",
+      "title": "柴犬ディナちゃん、秋の京都へ行く！",
+      "level": "l1",
+      "genreIds": [
+        "040",
+        "135",
+        "105",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4158/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0010t-shibainudinachan-211x300.jpg"
+    },
+    {
+      "id": "48618",
+      "title": "王様の耳はロバの耳",
+      "level": "l2",
+      "genreIds": [
+        "200",
+        "020",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/48618/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0017t-oosamanomimi-211x300.jpg"
+    },
+    {
+      "id": "44313",
+      "title": "夜の図書館",
+      "level": "l2",
+      "genreIds": [
+        "200",
+        "040",
+        "190"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/44313/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0110t-yorunotoshokan-211x300.jpg"
+    },
+    {
+      "id": "43311",
+      "title": "キャラメルとあめ玉",
+      "level": "l2",
+      "genreIds": [
+        "200",
+        "070",
+        "180",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/43311/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0107t-caramel-211x300.jpg"
+    },
+    {
+      "id": "43170",
+      "title": "私の彼氏は油揚げが好き",
+      "level": "l2",
+      "genreIds": [
+        "200",
+        "135",
+        "150",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/43170/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0106t-watasinokaresi-211x300.jpg"
+    },
+    {
+      "id": "42745",
+      "title": "つみっこ",
+      "level": "l2",
+      "genreIds": [
+        "040",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/42745/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0104t-tumikko-211x300.jpg"
+    },
+    {
+      "id": "38919",
+      "title": "山田さんの大問題",
+      "level": "l2",
+      "genreIds": [
+        "200",
+        "085",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38919/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0092t-yamadasan-211x300.jpg"
+    },
+    {
+      "id": "6987",
+      "title": "北海道",
+      "level": "l2",
+      "genreIds": [
+        "133",
+        "040",
+        "135",
+        "105",
+        "100",
+        "110",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6987/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0058t-hokkaido-211x300.jpg"
+    },
+    {
+      "id": "6070",
+      "title": "お母さんヘンシン",
+      "level": "l2",
+      "genreIds": [
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6070/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0045t-okaasanhenshin-211x300.jpg"
+    },
+    {
+      "id": "6069",
+      "title": "明日は遠足",
+      "level": "l2",
+      "genreIds": [
+        "085",
+        "170"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6069/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0043t-ashitahaensoku-211x300.jpg"
+    },
+    {
+      "id": "5494",
+      "title": "ヴィトリアレジア ブラジル先住民のお話から",
+      "level": "l2",
+      "genreIds": [
+        "200",
+        "020",
+        "210",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5494/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0035t-victoriaregia-212x300.jpg"
+    },
+    {
+      "id": "5456",
+      "title": "丸メガネ寮母さん",
+      "level": "l2",
+      "genreIds": [
+        "170",
+        "160"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5456/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0034t-marumegane-212x300.jpg"
+    },
+    {
+      "id": "5451",
+      "title": "怠け者のフウアン",
+      "level": "l2",
+      "genreIds": [
+        "020",
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5451/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0033t-namakemono-212x300.jpg"
+    },
+    {
+      "id": "4914",
+      "title": "わたしとともだちのほしちゃんとねこのどのちゃん",
+      "level": "l2",
+      "genreIds": [
+        "133"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4914/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0022t-hoshichandonochan-212x300.jpg"
+    },
+    {
+      "id": "3149",
+      "title": "ようこそ別府へ",
+      "level": "l2",
+      "genreIds": [
+        "040",
+        "105",
+        "100",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/3149/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0003t-yokosobeppuhe-211x300.jpg"
+    },
+    {
+      "id": "3152",
+      "title": "やせうま",
+      "level": "l2",
+      "genreIds": [
+        "105",
+        "100",
+        "080",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/3152/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0002t-yaseuma-211x300.jpg"
+    },
+    {
+      "id": "3155",
+      "title": "吉四六さんの話 ～舟のお金～",
+      "level": "l2",
+      "genreIds": [
+        "130",
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/3155/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0001t-kicchomu-211x300.jpg"
+    },
+    {
+      "id": "48397",
+      "title": "眠い町",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/48397/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0118t-nemuimachi-211x300.jpg"
+    },
+    {
+      "id": "43312",
+      "title": "蛙",
+      "level": "l3",
+      "genreIds": [
+        "135",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/43312/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0108t-kaeru-211x300.jpg"
+    },
+    {
+      "id": "41209",
+      "title": "秋田の虫",
+      "level": "l3",
+      "genreIds": [
+        "135",
+        "100",
+        "170",
+        "160",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/41209/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0095t-akitanomushi-211x300.jpg"
+    },
+    {
+      "id": "40205",
+      "title": "黒コウモリと白コウモリ",
+      "level": "l3",
+      "genreIds": [
+        "135",
+        "150"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/40205/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0096t-kurokoumori-211x300.jpg"
+    },
+    {
+      "id": "39177",
+      "title": "徒然草",
+      "level": "l3",
+      "genreIds": [
+        "105",
+        "070",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/39177/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0009t-tureduregusa-211x300.jpg"
+    },
+    {
+      "id": "39009",
+      "title": "トマトを育てました",
+      "level": "l3",
+      "genreIds": [
+        "040",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/39009/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0008t-tomato-211x300.jpg"
+    },
+    {
+      "id": "38887",
+      "title": "ポール・ジャクレー",
+      "level": "l3",
+      "genreIds": [
+        "130",
+        "040",
+        "105",
+        "020",
+        "100",
+        "160",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38887/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0091t-pauljacoulet-211x300.jpg"
+    },
+    {
+      "id": "9191",
+      "title": "野ばら",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "210",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/9191/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0085t-nobara-211x300.jpg"
+    },
+    {
+      "id": "8325",
+      "title": "手ぶくろを買いに",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "135",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8325/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0075t-tebukuro-211x300.jpg"
+    },
+    {
+      "id": "8184",
+      "title": "しいたけ",
+      "level": "l3",
+      "genreIds": [
+        "105",
+        "100",
+        "120",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8184/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0074t-shiitake-211x300.jpg"
+    },
+    {
+      "id": "8162",
+      "title": "温泉の科学",
+      "level": "l3",
+      "genreIds": [
+        "100",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8162/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0073t-onsennokagaku-212x300.jpg"
+    },
+    {
+      "id": "8053",
+      "title": "吉四六さんの話 〜「ババクロウ」という魚〜",
+      "level": "l3",
+      "genreIds": [
+        "130",
+        "080",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8053/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0070t-babakuro-211x300.jpg"
+    },
+    {
+      "id": "8026",
+      "title": "湖山長者 ～ちょっとざんねんなお金持ちの話～",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8026/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0069t-koyamachoja-211x300.jpg"
+    },
+    {
+      "id": "8025",
+      "title": "おばあのうちなーぐち 〜おきなわのことば〜",
+      "level": "l3",
+      "genreIds": [
+        "133",
+        "040",
+        "105",
+        "100",
+        "170",
+        "132"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/8025/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0068t-obaanouchinaguchi-211x300.jpg"
+    },
+    {
+      "id": "7029",
+      "title": "Nessy",
+      "level": "l3",
+      "genreIds": [
+        "135",
+        "020",
+        "170",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7029/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0059t-nessy-211x300.jpg"
+    },
+    {
+      "id": "6072",
+      "title": "稲むらの火",
+      "level": "l3",
+      "genreIds": [
+        "130",
+        "105",
+        "160",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6072/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0046t-inamuranohi-211x300.jpg"
+    },
+    {
+      "id": "6071",
+      "title": "正直五兵衛",
+      "level": "l3",
+      "genreIds": [
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6071/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0044t-shojikigohee-211x300.jpg"
+    },
+    {
+      "id": "5871",
+      "title": "弾丸をボールに",
+      "level": "l3",
+      "genreIds": [
+        "105",
+        "020",
+        "100",
+        "160",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5871/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0040t-danganwobaruni-212x300.jpg"
+    },
+    {
+      "id": "5594",
+      "title": "フェリパ",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "020",
+        "190",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5594/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0038t-philippa-211x300.jpg"
+    },
+    {
+      "id": "5593",
+      "title": "涙の力",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "020"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/5593/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0037t-namidanochikara-212x300.jpg"
+    },
+    {
+      "id": "4163",
+      "title": "飯田くん",
+      "level": "l3",
+      "genreIds": [
+        "130",
+        "160",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4163/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0015t-iidakun-211x300.jpg"
+    },
+    {
+      "id": "4162",
+      "title": "天皇の誕生日",
+      "level": "l3",
+      "genreIds": [
+        "130",
+        "040",
+        "105",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4162/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0014t-tennotanjyoubi-211x300.jpg"
+    },
+    {
+      "id": "4161",
+      "title": "ふしぎだな―ぼくが感じた不思議なこと２",
+      "level": "l3",
+      "genreIds": [
+        "040",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4161/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0013t-fushigidana2-211x300.jpg"
+    },
+    {
+      "id": "4160",
+      "title": "ふしぎだな―ぼくが感じた不思議なこと",
+      "level": "l3",
+      "genreIds": [
+        "040",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4160/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0012t-fushigidana1-211x300.jpg"
+    },
+    {
+      "id": "3143",
+      "title": "温泉の町 別府",
+      "level": "l3",
+      "genreIds": [
+        "040",
+        "105",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/3143/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0005t-onsennomatibeppu-211x300.jpg"
+    },
+    {
+      "id": "3146",
+      "title": "キツネ踊り ―姫島の子どもたちがキツネになる日―",
+      "level": "l3",
+      "genreIds": [
+        "200",
+        "040",
+        "135",
+        "105",
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/3146/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0004t-kitsuneodori-211x300.jpg"
+    },
+    {
+      "id": "48396",
+      "title": "私とハムスター",
+      "level": "l4",
+      "genreIds": [
+        "200",
+        "135"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/48396/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0117t-hamster-211x300.jpg"
+    },
+    {
+      "id": "44994",
+      "title": "ロバの皮の女",
+      "level": "l4",
+      "genreIds": [
+        "200",
+        "020",
+        "150",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/44994/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0111t-robanokawa-211x300.jpg"
+    },
+    {
+      "id": "42360",
+      "title": "ポール・ジャクレー～軽井沢を愛したフランス人～［続編］",
+      "level": "l4",
+      "genreIds": [
+        "130",
+        "105",
+        "020",
+        "160",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/42360/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0102t-pauljacoulet2-211x300.jpg"
+    },
+    {
+      "id": "40470",
+      "title": "張り紙にびっくり！",
+      "level": "l4",
+      "genreIds": [
+        "133",
+        "170",
+        "160",
+        "180"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/40470/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0099t-harigami-212x300.jpg"
+    },
+    {
+      "id": "40468",
+      "title": "アリババと40人の泥棒～アラビアン・ナイトより～",
+      "level": "l4",
+      "genreIds": [
+        "020",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/40468/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0013t-alibaba-211x300.jpg"
+    },
+    {
+      "id": "39958",
+      "title": "葉桜と口笛",
+      "level": "l4",
+      "genreIds": [
+        "210",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/39958/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0011t-hazakura-211x300.jpg"
+    },
+    {
+      "id": "38990",
+      "title": "日本のバレンタインデー",
+      "level": "l4",
+      "genreIds": [
+        "100"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/38990/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0093t-valentine-211x300.jpg"
+    },
+    {
+      "id": "7087",
+      "title": "幽霊床屋",
+      "level": "l4",
+      "genreIds": [
+        "200",
+        "190"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/7087/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0060t-yuureitokoya-211x300.jpg"
+    },
+    {
+      "id": "4165",
+      "title": "少女とシロクマ",
+      "level": "l4",
+      "genreIds": [
+        "135",
+        "020"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4165/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0017t-syoujotoshirokuma-212x300.jpg"
+    },
+    {
+      "id": "4164",
+      "title": "カラスとハリネズミ",
+      "level": "l4",
+      "genreIds": [
+        "135",
+        "020",
+        "080"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/4164/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0016t-karasutoharinezumi-211x300.jpg"
+    },
+    {
+      "id": "3134",
+      "title": "別府観光の父 油屋熊八",
+      "level": "l4",
+      "genreIds": [
+        "130",
+        "105",
+        "100",
+        "120"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/3134/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0006t-aburayakumahati-211x300.jpg"
+    },
+    {
+      "id": "47324",
+      "title": "色の世界",
+      "level": "l5",
+      "genreIds": [
+        "200",
+        "110"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/47324/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/f0113t-ironosekai-211x300.jpg"
+    },
+    {
+      "id": "42724",
+      "title": "夢十夜",
+      "level": "l5",
+      "genreIds": [
+        "200",
+        "190",
+        "150",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/42724/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0015t-yumejuuya-211x300.jpg"
+    },
+    {
+      "id": "41615",
+      "title": "まだらの紐",
+      "level": "l5",
+      "genreIds": [
+        "020",
+        "140",
+        "070"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/41615/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0014t-madara-scaled-v2-211x300.jpg"
+    },
+    {
+      "id": "6238",
+      "title": "美知子の星空",
+      "level": "l5",
+      "genreIds": [
+        "150"
+      ],
+      "sourceUrl": "https://tadoku.org/japanese/book/6238/",
+      "coverUrl": "https://tadoku.org/japanese/wp-content/uploads/w0004t-michikonohoshizora-212x300.jpg"
+    }
+  ]
+}

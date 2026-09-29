@@ -238,10 +238,11 @@ async function enterHostedPageWorld() {
 
 function installContentWorldLegacyResetStore(
     values: Map<string, unknown>,
-    options: { removeError?: Error } = {},
+    options: { removeError?: Error; gate?: Promise<void> } = {},
 ) {
     const get = vi.fn(async (key: string | null) => selectedExtensionValues(values, key));
     const remove = vi.fn(async (key: string) => {
+        if (options.gate) await options.gate;
         if (options.removeError) throw options.removeError;
         values.delete(key);
     });
@@ -255,12 +256,14 @@ function installContentWorldLegacyResetStore(
         get: () => exposeContentWorldStorage ? extensionBrowser : undefined,
     });
     const legacyRequestIds: string[] = [];
+    const requests: Record<string, unknown>[] = [];
     const responses: Array<{ ok: boolean; message: string | undefined }> = [];
     const responseSnapshots: Array<Map<string, unknown>> = [];
     const onRequest = (event: Event): void => {
         const requestId = legacyResetRequestId(event);
         if (!requestId) return;
         legacyRequestIds.push(requestId);
+        requests.push(eventDetail(event)!);
         exposeContentWorldStorage = true;
         queueMicrotask(() => { exposeContentWorldStorage = false; });
     };
@@ -277,6 +280,7 @@ function installContentWorldLegacyResetStore(
         get,
         remove,
         legacyRequestIds,
+        requests,
         responses,
         responseSnapshots,
         advertiseWhile: (install: () => void) => {
@@ -295,37 +299,6 @@ function installContentWorldLegacyResetStore(
     };
 }
 
-function installTargetedExtensionResetResponder(
-    values: Map<string, unknown>,
-    options: { error?: Error } = {},
-) {
-    document.documentElement.dataset.yomuExtensionStorageBridge = 'true';
-    const gate = deferred();
-    const requests: Record<string, unknown>[] = [];
-    const responses: Array<{ ok: boolean; message: string | undefined }> = [];
-    const onRequest = (event: Event): void => {
-        const detail = targetedExtensionResetRequest(event);
-        if (!detail) return;
-        requests.push(detail);
-        void gate.promise.then(() => dispatchTargetedExtensionResetResponse(detail.id, values, options.error));
-    };
-    const onResponse = (event: Event): void => {
-        const response = targetedExtensionResetResponse(event, requests.at(-1)?.id);
-        if (response) responses.push(response);
-    };
-    window.addEventListener(BRIDGE_REQUEST_EVENT, onRequest);
-    window.addEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    return {
-        requests,
-        responses,
-        release: gate.resolve,
-        cleanup: () => {
-            window.removeEventListener(BRIDGE_REQUEST_EVENT, onRequest);
-            window.removeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-            delete document.documentElement.dataset.yomuExtensionStorageBridge;
-        },
-    };
-}
 
 async function installMixedAuthorityResetHarness(
     rawValues: Map<string, unknown>,
@@ -335,59 +308,40 @@ async function installMixedAuthorityResetHarness(
     installCompilerBackedGmStore(new Map());
     const bridge = await import('../../src/reader/userscript/storage-bridge');
     bridge.installUserscriptGmStorageBridge();
-    const pageStorage = bridge.getUserscriptGmStorage();
-    if (!pageStorage) throw new Error('Hosted settings bridge was not installed.');
+    const oldClient = bridge.getUserscriptGmStorage();
+    if (!oldClient) throw new Error('Hosted settings bridge was not installed.');
+    vi.resetModules();
+    installCompilerBackedGmStore(rawValues);
+    const gate = deferred();
+    const contentWorld = installContentWorldLegacyResetStore(rawValues, { removeError: options.error, gate: gate.promise });
+    const extensionBridge = await import('../../src/reader/userscript/storage-bridge');
+    contentWorld.advertiseWhile(extensionBridge.installUserscriptGmStorageBridge);
+    await expect(oldClient.listValues()).rejects.toThrow('authority changed');
+    for (const name of ['GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_listValues']) vi.stubGlobal(name, undefined);
+    vi.resetModules();
+    const pageBridge = await import('../../src/reader/userscript/storage-bridge');
+    const pageStorage = pageBridge.getUserscriptGmStorage();
+    if (!pageStorage) throw new Error('Fresh page did not select the extension bridge.');
     return {
         pageStorage,
-        extension: installTargetedExtensionResetResponder(rawValues, options),
+        extension: {
+            requests: contentWorld.requests,
+            responses: contentWorld.responses,
+            release: gate.resolve,
+            cleanup: () => {
+                bridge.uninstallUserscriptGmStorageBridge();
+                extensionBridge.uninstallUserscriptGmStorageBridge();
+                pageBridge.uninstallUserscriptGmStorageBridge();
+                contentWorld.cleanup();
+            },
+        },
     };
 }
 
-function targetedExtensionResetRequest(
-    event: Event,
-): (Record<string, unknown> & { id: string }) | undefined {
-    const detail = eventDetail(event);
-    if (!detail || !isTargetedExtensionReset(detail)) return undefined;
-    return typeof detail.id === 'string'
-        ? detail as Record<string, unknown> & { id: string }
-        : undefined;
-}
 
-function isTargetedExtensionReset(detail: Record<string, unknown>): boolean {
-    return detail.op === 'clear-legacy-extension-managed'
-        && detail.target === 'extension-storage';
-}
 
-function dispatchTargetedExtensionResetResponse(
-    requestId: string,
-    values: Map<string, unknown>,
-    error: Error | undefined,
-): void {
-    if (!error) {
-        values.delete(SETTINGS_KEY);
-        values.delete(INTENT_KEY);
-        values.delete(PRIVATE_KEY);
-    }
-    window.dispatchEvent(new CustomEvent(BRIDGE_RESPONSE_EVENT, {
-        detail: { id: requestId, ok: !error, message: error?.message },
-    }));
-}
 
-function targetedExtensionResetResponse(
-    event: Event,
-    requestId: unknown,
-): { ok: boolean; message: string | undefined } | undefined {
-    const detail = eventDetail(event);
-    if (!detail || detail.id !== requestId) return undefined;
-    return normalizedResetResponse(detail);
-}
 
-function normalizedResetResponse(detail: Record<string, unknown>): { ok: boolean; message: string | undefined } {
-    return {
-        ok: detail.ok === true,
-        message: typeof detail.message === 'string' ? detail.message : undefined,
-    };
-}
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
     let resolve!: () => void;

@@ -174,7 +174,7 @@ export class ReaderCardLookupSession {
         if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;
         const request = publicLookupCardRequest(readingOrOptions, maybeOptions);
         if (!canSearchPublicLookupCard(this.dependencies.getSettings(), request.options)) return undefined;
-        const cards = await this.dependencies.jpdbVocabulary().search(term, publicLookupSearchLimit(request.reading)).catch(error => {
+        const cards = await this.dependencies.jpdbVocabulary().search(term, publicLookupSearchLimit(request.reading)).then(result => result.cards).catch(error => {
             this.dependencies.log.warn('Public JPDB lookup failed', { term }, error);
             return [];
         });
@@ -279,7 +279,7 @@ export class ReaderCardLookupSession {
 
     private async publicLookupSpellingCard(term: string): Promise<JPDBCard | undefined> {
         if (!canSearchPublicLookupCard(this.dependencies.getSettings(), {})) return undefined;
-        const cards = await this.dependencies.jpdbVocabulary().search(term, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).catch(error => {
+        const cards = await this.dependencies.jpdbVocabulary().search(term, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).then(result => result.cards).catch(error => {
             this.dependencies.log.warn('Public JPDB fallback search failed', { term }, error);
             return [];
         });

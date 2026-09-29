@@ -143,10 +143,21 @@ export class LocalYomuSrsRepository {
         });
     }
 
+    async collection(limit = 50, options: YomuSrsQueueOptions = {}): Promise<YomuSrsReviewable[]> {
+        const now = this.now();
+        const language = options.language ? canonicalLanguageTag(options.language) : '';
+        return Object.values((await this.readDeck()).cards)
+            .filter(card => !language || canonicalLanguageTag(card.language ?? 'ja') === language)
+            .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
+            .slice(0, normalizedQueueLimit(limit))
+            .map(card => this.toReviewable(card, now));
+    }
+
     async queue(limit = 50, options: YomuSrsQueueOptions = {}): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
         const language = options.language ? canonicalLanguageTag(options.language) : '';
         const cards = Object.values((await this.readDeck()).cards)
+            .filter(card => card.reviewEnabled !== false)
             .filter(card => !language || canonicalLanguageTag(card.language ?? 'ja') === language);
         const cap = normalizedQueueLimit(limit);
         const byDue = (a: StoredYomuSrsCard, b: StoredYomuSrsCard): number => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
@@ -166,7 +177,7 @@ export class LocalYomuSrsRepository {
 
     async stats(): Promise<YomuSrsStatsSnapshot> {
         const now = this.now();
-        const cards = Object.values((await this.readDeck()).cards);
+        const cards = Object.values((await this.readDeck()).cards).filter(card => card.reviewEnabled !== false);
         const today = startOfLocalDay(now);
         return {
             providerId: 'yomu-local',
@@ -217,6 +228,20 @@ export class LocalYomuSrsRepository {
         return [...cards.values()];
     }
 
+    async startReview(cardId: string): Promise<YomuSrsReviewable> {
+        return this.mutateDeck(deck => {
+            const card = deck.cards[cardId];
+            if (!card) throw new Error('Saved word not found.');
+            const now = this.now();
+            if (card.reviewEnabled === false) {
+                delete card.reviewEnabled;
+                card.dueAt = now;
+                card.updatedAt = now;
+            }
+            return this.toReviewable(card, now);
+        });
+    }
+
     async review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
         return this.mutateDeck(deck => {
             const now = this.now();
@@ -227,6 +252,7 @@ export class LocalYomuSrsRepository {
             const existing = deck.cards[request.card.providerCardId]
                 ?? deck.cards[identity.key]
                 ?? this.cardFromReviewable(request.card, now);
+            if (existing.reviewEnabled === false) throw new Error('Saved word is not enrolled in review.');
             const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
             if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
                 delete deck.cards[request.card.providerCardId];
@@ -251,8 +277,18 @@ export class LocalYomuSrsRepository {
                 sourceUrl: request.sourceUrl,
             }, now);
             if (!candidate) throw new TypeError('Vocabulary expression is required.');
+            candidate.reviewEnabled = false;
             const existing = deck.cards[candidate.id];
-            const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
+            const stored = existing ? {
+                ...mergeStoredYomuSrsCards(existing, candidate),
+                dueAt: existing.dueAt,
+                lastReviewAt: existing.lastReviewAt,
+                reviews: existing.reviews,
+                lapses: existing.lapses,
+                intervalDays: existing.intervalDays,
+                ease: existing.ease,
+                reviewEnabled: existing.reviewEnabled,
+            } : candidate;
             deck.cards[candidate.id] = stored;
             if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
             return {
@@ -376,7 +412,7 @@ export class LocalYomuSrsRepository {
             sentence: card.sentence,
             state: localCardState(card, now),
             srsLevel: localSrsLevel(card),
-            dueAt: card.dueAt,
+            dueAt: card.reviewEnabled === false ? undefined : card.dueAt,
             lastReviewAt: card.lastReviewAt,
             sourceUrl: card.sourceUrl,
             raw: card,
@@ -400,6 +436,8 @@ export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepositor
         verify: async () => true,
         stats: () => repository.stats(),
         queue: (limit, options) => repository.queue(limit, options),
+        collection: (limit, options) => repository.collection(limit, options),
+        startReview: cardId => repository.startReview(cardId),
         review: request => repository.review(request),
         mine: request => repository.mine(request),
         lookupCards: items => repository.lookupCards(items),
@@ -445,6 +483,7 @@ function meaningsFromGlosses(glosses: string[]): JPDBMeaning[] {
 }
 
 function localCardState(card: StoredYomuSrsCard, now: number): CardState[] {
+    if (card.reviewEnabled === false) return [];
     if (card.reviews === 0) return ['new'];
     if (card.dueAt <= now) return ['due'];
     if (card.intervalDays >= 21) return ['known'];
@@ -452,6 +491,7 @@ function localCardState(card: StoredYomuSrsCard, now: number): CardState[] {
 }
 
 function localSrsLevel(card: StoredYomuSrsCard): string {
+    if (card.reviewEnabled === false) return 'Saved';
     if (card.reviews === 0) return 'New';
     if (card.intervalDays >= 21) return 'Known';
     if (card.intervalDays >= 7) return 'Young';

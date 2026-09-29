@@ -126,6 +126,9 @@ export default defineConfig(({ command, mode }) => {
     env,
   );
   return {
+    // Dynamic imports and Vite's CSS preload URLs resolve beside the hosted
+    // module, including when a native host serves the same asset directory.
+    base: command === 'build' ? './' : '/',
     define: {
       __YOMU_VERSION__: JSON.stringify(pkg.version),
     },
@@ -156,22 +159,30 @@ export default defineConfig(({ command, mode }) => {
       emptyOutDir: true,
       target: "es2022",
       // LOAD-BEARING, not an oversight (A35.20, measured 2026-07-31). Provenance
-      // tests grep the SHIPPED bundle for readable source expressions to prove it
+      // tests inspect the SHIPPED manifest's code graph for readable expressions to prove it
       // contains the accepted parser — tests/academy/learning-voice-playback.test.ts
-      // asserts docs/public/academy/app.js contains `value.role ===
+      // asserts the hosted code contains `value.role ===
       // "academy-character"` and `options.invalidEntry === "skip"`, and
       // tests/academy/n3-mock-listening.test.ts diffs the public bundle against
-      // `git show HEAD:`. Minifying renames those identifiers and breaks the checks.
+      // committed code graph. Minifying renames those identifiers and breaks the checks.
       // They are content-governance for a cast with likeness consent, so they are not
       // simply deletable. To enable minification, first move provenance onto a
       // build-time manifest or a source map instead of substring matching.
       minify: false,
       cssMinify: false,
+      manifest: 'manifest.json',
+      cssCodeSplit: true,
       lib: {
         entry: path.join(root, "src/academy/entrypoint.ts"),
         name: "YomuAcademy",
-        formats: ["iife"],
+        formats: ["es"],
         fileName: () => "app.js",
+      },
+      rollupOptions: {
+        output: {
+          chunkFileNames: 'chunks/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
+        },
       },
     },
     test: {

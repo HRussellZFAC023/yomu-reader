@@ -86,7 +86,6 @@ const noApiNewTabSettings = {
     jitenApiKey: '',
     ankiEnabled: false,
     ankiSectionEnabled: false,
-    newTabEnabled: true,
     newTabAnkiEnabled: false,
     newTabSource: 'auto',
     jpdbMiningEnabled: false,

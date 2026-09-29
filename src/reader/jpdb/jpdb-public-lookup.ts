@@ -15,6 +15,10 @@ export class JpdbPublicLookupBackoff {
         return Date.now() < this.requestBackoffUntil;
     }
 
+    retryAfterMs(): number {
+        return Math.max(0, this.requestBackoffUntil - Date.now());
+    }
+
     noteSuccess(): void {
         this.reset();
     }

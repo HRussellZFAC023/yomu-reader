@@ -1,5 +1,6 @@
 const { createHash } = require('node:crypto');
 const { join } = require('node:path');
+const { readAcademyBuildCode } = require('./lib/academy-build-manifest.cjs');
 const {
   BUNDLED_DEPENDENCY_NOTICE_MARKER,
   DIST_READER_CSS_PATH,
@@ -322,7 +323,7 @@ function assertAcademyBuildVersion() {
   const relativePath = 'docs/public/academy/app.js';
   const academyPath = join(ROOT, relativePath);
   if (!fileExists(academyPath)) fail(`${relativePath} is missing. Run npm run build:academy first.`);
-  const academyCode = readText(academyPath);
+  const academyCode = readAcademyBuildCode(join(ROOT, 'docs/public/academy'));
   if (!academyCode.includes(`const CURRENT_YOMU_VERSION = "${packageJson.version}"`)) {
     fail(`${relativePath} does not embed package version ${packageJson.version}; Academy Help would display the dev fallback.`);
   }
@@ -629,7 +630,6 @@ function assertAnkiRenderSplitBoundary() {
     // Match the implementation's first parameter while excluding the core
     // facade, whose generated signature is `renderReviewButtons(...args)`.
     ['renderReviewButtons', /function renderReviewButtons\(settings\d*,/u],
-    ['reviewButtonGrades', /function reviewButtonGrades\(settings\d*\)/u],
   ]);
 }
 

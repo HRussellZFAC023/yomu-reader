@@ -16,9 +16,13 @@ import {
 import type { ActivityEvaluation } from '../../src/academy/domain/activity-runtime';
 import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb';
 import { createLessonFlow } from '../../src/academy/routing/lesson-flow';
+import { transitionAcademyRoute } from '../../src/academy/routing/route-history';
+import type { RepeatRequestCoverageState } from '../../src/academy/content/lesson-zero-repeat-request-coverage';
 import type { AcademyRouteContext } from '../../src/academy/routing/types';
 import type { AcademyShell } from '../../src/academy/ui/shell';
 import { sha256File } from './helpers/hash-memo';
+import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
 const CLASSROOM_PATH = path.resolve('public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json');
@@ -55,7 +59,7 @@ function context(
     projection = projectLearnerRecord([]),
 ) {
     const appShell = shell();
-    const go = vi.fn(async () => undefined);
+    const go = vi.fn(async (..._args: Parameters<AcademyRouteContext['go']>): Promise<void> => undefined);
     const back = vi.fn(async () => undefined);
     const save = vi.fn(async (_update: Partial<AcademyCheckpoint>) => undefined);
     const value: AcademyRouteContext = {
@@ -89,6 +93,41 @@ async function completeSpeakingFork(route: ReturnType<typeof context>): Promise<
 }
 
 describe('Academy lesson flow', () => {
+    it.each(['l1-l09', 'l1-l19', 'l1-l20'].flatMap(packageId =>
+        [true, false].map(validRevision => ({ packageId, validRevision }))))('reuses $packageId and preserves resume revision matching ($validRevision)', async ({ packageId, validRevision }) => {
+        const registration = getAuthoredWeekRegistration(packageId);
+        const loaded = await validateCommittedAuthoredWeek(registration);
+        const activity = loaded.week.activities.find(item => item.kind !== 'academy-source-vocabulary-sheet')!;
+        const fetcher = vi.fn(async (input: string | URL | Request) => {
+            const file = path.resolve('public', String(input).replace(/^\//, ''));
+            return new Response(fs.readFileSync(file), { status: 200 });
+        });
+        vi.stubGlobal('fetch', fetcher);
+        const route = context(`authored-week:${packageId}`, {
+            authoredWeekProgress: { [packageId]: {
+                sourceSha256: validRevision ? registration.expectedSha256 : '0'.repeat(64),
+                savedAt: 1,
+                position: { phase: 'question', activityId: activity.id },
+            } },
+        });
+        const flow = createLessonFlow({
+            evidence: { seedVocabularyPrerequisite: vi.fn(), recordActivity: vi.fn(), recordSupportUse: vi.fn(), recordEncounter: vi.fn() } as never,
+            pronunciation: { play: async () => ({ dispose() {} }) },
+            kanjiWriting: { lookup: async () => null },
+        });
+        await flow.render('lesson-overview', route.value);
+        // Existing route + vocabulary-prerequisite loads remain. The extension
+        // must reuse the route's validated value rather than add a third load.
+        expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith(registration.filename))).toHaveLength(2);
+        if (validRevision) {
+            expect(route.shell.current?.dataset.academyScreen).toBe('authored-week');
+            expect(route.shell.current?.dataset.authoredWeekResumed).toBe('true');
+        } else {
+            expect(route.shell.current?.dataset.academyScreen).toBe('lesson-vocabulary-prerequisite');
+            expect(route.shell.current?.dataset.authoredWeekResumed).not.toBe('true');
+        }
+    });
+
     beforeEach(() => {
         vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
             const requestPath = String(value);
@@ -123,6 +162,118 @@ describe('Academy lesson flow', () => {
         expect(route.back).toHaveBeenCalledOnce();
     });
 
+    it('exposes all nineteen authored activities through overview callbacks after reload', async () => {
+        const data = JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'));
+        const activities = validateLessonZeroPackage(data).lesson.activities;
+        expect(activities).toHaveLength(19);
+        for (const [index, activity] of activities.entries()) {
+            const projection = projectLearnerRecord(activities.slice(0, index).map((prior, at) => ({
+                schemaVersion: 1 as const, kind: 'attempt-recorded' as const,
+                eventId: `test:overview:${prior.id}`, at, activityId: prior.id,
+                conceptIds: prior.conceptIds, responseKind: 'test', outcome: 'pass' as const, score: 1,
+            })));
+            const route = context(undefined, JSON.parse(JSON.stringify(checkpoint())), projection);
+            await createLessonFlow().render('lesson-overview', route.value);
+            route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-section-action[data-action-priority="primary"]')?.click();
+            expect(route.go, activity.id).toHaveBeenCalledWith('source-activity', expect.objectContaining({ activityId: activity.id }));
+        }
+    });
+
+    it.each([false, true])('returns a completed overview-launched task to its saved lesson and exposes the next activity (returnTo=%s)', async useReturnTo => {
+        const data = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8')));
+        const activityId = 'activity:lesson-zero-text-input';
+        const index = data.lesson.activities.findIndex(activity => activity.id === activityId);
+        const events = data.lesson.activities.slice(0, index).map((activity, at) => ({
+            schemaVersion: 1 as const, kind: 'attempt-recorded' as const, eventId: `test:prior:${activity.id}`,
+            at, activityId: activity.id, conceptIds: activity.conceptIds, responseKind: 'test', outcome: 'pass' as const, score: 1,
+        }));
+        const route = context(undefined, {}, projectLearnerRecord(events));
+        route.go.mockImplementation(async (destination, update) => {
+            Object.assign(route.value, { checkpoint: JSON.parse(JSON.stringify(transitionAcademyRoute(route.value.checkpoint,
+                { kind: 'push', route: destination, context: update }))) });
+        });
+        if (useReturnTo) Object.assign(route.value, {
+            returnTo: vi.fn(async (destination: Parameters<NonNullable<AcademyRouteContext['returnTo']>>[0]) => {
+                Object.assign(route.value, { checkpoint: JSON.parse(JSON.stringify(transitionAcademyRoute(route.value.checkpoint,
+                    { kind: 'return', destination }))) });
+            }),
+        });
+        const recordActivity = vi.fn(async (evaluation: ActivityEvaluation) => {
+            Object.assign(route.value, { projection: projectLearnerRecord([...events, {
+                ...evaluation.attempt, schemaVersion: 1 as const,
+                eventId: evaluation.attempt.eventId ?? 'test:completed-mission', at: evaluation.attempt.at ?? 100,
+            }]) });
+        });
+        const flow = createLessonFlow({ evidence: { recordActivity } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never, kanjiWriting: {} as never });
+        await flow.render('lesson-overview', route.value);
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-section-action[data-action-priority="primary"]')?.click();
+        await vi.waitFor(() => expect(route.value.checkpoint.activityId).toBe(activityId));
+        await flow.render('source-activity', route.value);
+        clickButton(route.shell.current!, 'の');
+        clickButton(route.shell.current!, 'も');
+        clickButton(route.shell.current!, 'Check');
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('[data-outcome="pass"]')).not.toBeNull());
+        clickButton(route.shell.current!, 'Back to the story');
+        await vi.waitFor(() => expect(route.value.checkpoint.route).toBe('lesson-overview'));
+        if (useReturnTo) expect(route.value.checkpoint.routeHistory).toEqual([{ route: 'class' }]);
+        const reloaded = context(undefined, JSON.parse(JSON.stringify(route.value.checkpoint)), route.value.projection);
+        await createLessonFlow().render('lesson-overview', reloaded.value);
+        reloaded.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-section-action[data-action-priority="primary"]')?.click();
+        expect(reloaded.go).toHaveBeenCalledWith('source-activity', expect.objectContaining({ activityId: 'activity:lesson-zero-speaking-input' }));
+    });
+
+    it.each([
+        ['Take a short break', 'lesson-overview', 'lesson:foundation-00'],
+        ['Stay with the class', 'lesson-overview', 'lesson:foundation-00'],
+        ['Open the next lesson', 'lesson-overview', 'authored-week:l1-l01'],
+        ['Walk around campus', 'campus', undefined],
+        ['Review at a desk', 'review', undefined],
+        ['Head home', 'day-end', undefined],
+    ] as const)('saves close-room evidence before checkpointing %s', async (label, destination, lessonId) => {
+        const route = context(undefined, { route: 'source-activity', activityId: 'activity:lesson-zero-close-room' });
+        route.go.mockImplementation(async (next, update) => {
+            Object.assign(route.value, { checkpoint: JSON.parse(JSON.stringify(transitionAcademyRoute(route.value.checkpoint,
+                { kind: 'push', route: next, context: update }))) });
+        });
+        let release!: () => void;
+        const saved = new Promise<void>(resolve => { release = resolve; });
+        const recordActivity = vi.fn(() => saved);
+        const flow = createLessonFlow({ evidence: { recordActivity } as never,
+            pronunciation: {} as never, kanjiWriting: {} as never });
+        await flow.render('source-activity', route.value);
+        const choice = [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-mission-room-action')]
+            .find(button => button.textContent?.includes(label))!;
+        expect(choice).toBeDefined();
+        choice.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledOnce());
+        expect(route.go).not.toHaveBeenCalled();
+        release();
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalledOnce());
+        const restored = JSON.parse(JSON.stringify(route.value.checkpoint));
+        expect(restored.route).toBe(destination);
+        expect(restored.lessonId).toBe(lessonId);
+        expect(restored.activityId).toBeUndefined();
+        expect(restored.sectionId).toBeUndefined();
+    });
+
+    it('keeps close-room checkpoint and choice available if evidence cannot save', async () => {
+        const route = context(undefined, { route: 'source-activity', activityId: 'activity:lesson-zero-close-room' });
+        const before = JSON.stringify(route.value.checkpoint);
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        try {
+            const flow = createLessonFlow({ evidence: { recordActivity: vi.fn(async () => { throw new Error('storage unavailable'); }) } as never,
+                pronunciation: {} as never, kanjiWriting: {} as never });
+            await flow.render('source-activity', route.value);
+            [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-mission-room-action')]
+                .find(button => button.textContent?.includes('Head home'))!.click();
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('That did not save'));
+            expect(route.go).not.toHaveBeenCalled();
+            expect(JSON.stringify(route.value.checkpoint)).toBe(before);
+            expect(route.shell.current?.querySelectorAll('.academy-mission-room-action')).toHaveLength(6);
+        } finally { error.mockRestore(); }
+    });
+
     it('saves and leaves the focused repetition request through persisted route history', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
@@ -144,6 +295,66 @@ describe('Academy lesson flow', () => {
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroRepeatRequestProgress: expect.objectContaining({ status: 'paused' }),
         }));
+    });
+
+    it('migrates a phrase-09-only completion and preserves every remaining probe across checkpoint reload', async () => {
+        const oldCompletion: RepeatRequestCoverageState = {
+            schemaVersion: 1, sessionId: 'session:lesson-zero-repeat-request', status: 'complete', stage: 'complete',
+            selectedChunkIds: ['once-more', 'please'], practicePassed: true, transferPassed: true,
+            attempts: [
+                { round: 'practice', chosenChunkIds: ['once-more', 'please'], outcome: 'pass', at: 1 },
+                { round: 'transfer', chosenChunkIds: ['once-more', 'please'], outcome: 'pass', at: 2 },
+            ],
+        };
+        const evidence = { recordActivity: vi.fn(async () => undefined), recordSupportUse: vi.fn(async () => undefined) };
+        const flow = createLessonFlow({ evidence: evidence as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never, kanjiWriting: {} as never });
+        let route = context(undefined, { route: 'source-activity', activityId: 'activity:lesson-zero-reconstruct-repair',
+            lessonZeroRepeatRequestProgress: oldCompletion });
+        const connectSave = () => route.save.mockImplementation(async update => {
+            Object.assign(route.value, { checkpoint: JSON.parse(JSON.stringify({ ...route.value.checkpoint, ...update })) });
+        });
+        const state = () => route.value.checkpoint.lessonZeroRepeatRequestProgress as RepeatRequestCoverageState;
+        const reload = async () => {
+            route.shell.current!.dispatchEvent(new Event('academy:dispose'));
+            route = context(undefined, JSON.parse(JSON.stringify(route.value.checkpoint)));
+            connectSave(); await flow.render('source-activity', route.value);
+        };
+        connectSave(); await flow.render('source-activity', route.value);
+        expect(state().status).toBe('active');
+        expect(state().repairCoverage?.index).toBe(0);
+        expect(state().attempts).toEqual(oldCompletion.attempts);
+        expect(evidence.recordActivity).not.toHaveBeenCalled();
+        for (const [index, probe] of ['08-check', '08-yes', '08-no', '10-good', '11-so', '11-match', '12-wrong'].entries()) {
+            expect(route.shell.current?.dataset.probeId).toBe(`probe:classroom-${probe}`);
+            route.shell.current!.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-begin"]')!.click();
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response'));
+            route.shell.current!.querySelector<HTMLButtonElement>('[data-coverage-piece="0"]')!.click();
+            await vi.waitFor(() => expect(state().repairCoverage?.selected).toEqual([0]));
+            route.shell.current!.querySelector<HTMLButtonElement>('.academy-repeat-request-back')!.click();
+            await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
+            expect(state().status).toBe('paused');
+            await reload();
+            expect(state().status).toBe('active');
+            expect(state().repairCoverage?.index).toBe(index);
+            expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response');
+            expect(route.shell.current?.querySelector('[data-coverage-piece="0"]')?.getAttribute('aria-pressed')).toBe('true');
+            route.shell.current!.querySelector<HTMLButtonElement>('[data-coverage-piece="1"]')!.click();
+            await vi.waitFor(() => expect(state().repairCoverage?.selected).toEqual([0, 1]));
+            route.shell.current!.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-submit"]')!.click();
+            await vi.waitFor(() => expect(state().repairCoverage?.outcome).toBe('pass'));
+            expect(evidence.recordActivity).toHaveBeenCalledTimes(index + 1);
+            await reload();
+            expect(route.shell.current?.dataset.sessionStage).toBe('coverage-feedback');
+            expect(evidence.recordActivity).toHaveBeenCalledTimes(index + 1);
+            route.shell.current!.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-next"]')!.click();
+            await vi.waitFor(() => expect(state().status === 'complete' || state().repairCoverage?.index === index + 1).toBe(true));
+        }
+        expect(state().status).toBe('complete');
+        expect(evidence.recordActivity).toHaveBeenCalledTimes(8);
+        await reload();
+        expect(route.shell.current?.dataset.sessionStatus).toBe('complete');
+        expect(evidence.recordActivity).toHaveBeenCalledTimes(8);
     });
 
     it('routes the repetition request through two chunks, exact evidence, and changed-context transfer', async () => {
@@ -220,6 +431,20 @@ describe('Academy lesson flow', () => {
             undefined,
             expect.objectContaining({ skill: 'transfer', independent: true }),
         ));
+        for (const probe of ['08-check', '08-yes', '08-no', '10-good', '11-so', '11-match', '12-wrong']) {
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-teach'));
+            expect(route.shell.current?.dataset.probeId).toBe(`probe:classroom-${probe}`);
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-begin"]')?.click();
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response'));
+            for (const piece of ['0', '1']) {
+                route.shell.current?.querySelector<HTMLButtonElement>(`[data-coverage-piece="${piece}"]`)?.click();
+                await vi.waitFor(() => expect(route.shell.current?.querySelector(`[data-coverage-piece="${piece}"]`)
+                    ?.getAttribute('aria-pressed')).toBe('true'));
+            }
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-submit"]')?.click();
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-feedback'));
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-next"]')?.click();
+        }
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
@@ -510,6 +735,48 @@ describe('Academy lesson flow', () => {
             'lesson:foundation-00',
         ));
         expect(saveProfile).not.toHaveBeenCalled();
+    });
+
+    it('restores a custom final-card name for written transfer without profile-name inference', async () => {
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1, kind: 'profile-changed', eventId: 'test:custom-name-profile', at: 1,
+            profile: { displayName: 'Henry', learningReason: 'reading', portraitId: 'quality-2' },
+        }]);
+        const route = context(undefined, { route: 'source-activity', activityId: 'activity:lesson-zero-write-name-card' }, projection);
+        route.save.mockImplementation(async update => {
+            Object.assign(route.value, { checkpoint: JSON.parse(JSON.stringify({ ...route.value.checkpoint, ...update })) });
+        });
+        const history: Array<{ eventId: string; kind: string; activityId: string; outcome: string }> = [];
+        const recordActivity = vi.fn(async (evaluation: ActivityEvaluation) => {
+            history.push({ eventId: evaluation.attempt.eventId!, kind: 'attempt-recorded',
+                activityId: evaluation.attempt.activityId, outcome: evaluation.attempt.outcome });
+        });
+        const flow = createLessonFlow({ evidence: { recordActivity, saveProfile: vi.fn(), history: async () => history } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never, kanjiWriting: {} as never });
+        await flow.render('source-activity', route.value);
+        const name = route.shell.current!.querySelector<HTMLInputElement>('.academy-mission-name-edit input')!;
+        name.value = 'ソラ'; name.dispatchEvent(new Event('input', { bubbles: true }));
+        route.shell.current!.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(route.value.checkpoint.lessonZeroMissionProgress?.['activity:lesson-zero-write-name-card']?.receipt?.committed).toBe(true));
+        route.shell.current!.dispatchEvent(new Event('academy:dispose'));
+        const reloaded = context(undefined, { ...JSON.parse(JSON.stringify(route.value.checkpoint)),
+            activityId: 'activity:lesson-zero-written-transfer' }, projection);
+        reloaded.save.mockImplementation(async update => {
+            Object.assign(reloaded.value, { checkpoint: JSON.parse(JSON.stringify({ ...reloaded.value.checkpoint, ...update })) });
+        });
+        await flow.render('source-activity', reloaded.value);
+        const input = reloaded.shell.current!.querySelector<HTMLTextAreaElement>('textarea')!;
+        input.value = 'はじめまして。ソラです。'; input.dispatchEvent(new Event('input', { bubbles: true }));
+        reloaded.shell.current!.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(reloaded.value.checkpoint.lessonZeroMissionProgress?.['activity:lesson-zero-written-transfer']?.receipt?.committed).toBe(true));
+        expect(recordActivity).toHaveBeenLastCalledWith(expect.objectContaining({
+            attempt: expect.objectContaining({ activityId: 'activity:lesson-zero-written-transfer', outcome: 'pass' }),
+        }), 'lesson:foundation-00');
+        reloaded.shell.current!.dispatchEvent(new Event('academy:dispose'));
+        const resumed = context(undefined, JSON.parse(JSON.stringify(reloaded.value.checkpoint)), projection);
+        await flow.render('source-activity', resumed.value);
+        expect(resumed.shell.current?.textContent).toContain('Done.');
+        expect(recordActivity).toHaveBeenCalledTimes(2);
     });
 
     it('routes the first greeting through named, resumable learning evidence', async () => {

@@ -44,7 +44,6 @@ const STATIC_ROUTES = new Map([
 
 const baseSettings = {
     onboardingSeen: true,
-    newTabEnabled: true,
     newTabSource: 'dictionary',
     interfaceLanguage: 'ja',
     apiKey: '',

@@ -84,6 +84,36 @@ function allTrueExcept(fields: string[], omitted?: string): Record<string, boole
 }
 
 describe('Firefox settings-authority browser proof contract', () => {
+    it('seeds current canonical pairs without promoting the raw-only fixture', () => {
+        const seeds = runtimeFunctionWithBindings<(prefix: string) => Record<string, Record<string, Record<string, unknown>>>>('scenarioSeeds', {
+            safeSettings: runtimeFunction('safeSettings'), safeIntent: runtimeFunction('safeIntent'),
+            SETTINGS_KEY: 'SETTINGS', INTENT_KEY: 'INTENT', PRIVATE_KEY: 'PRIVATE', PRIVATE_VALUE: 'fixture',
+            UNRELATED_KEY: 'UNRELATED', UNRELATED_VALUE: 'keep',
+        })('prefix_');
+        for (const name of ['prefixed-only', 'divergent', 'live']) {
+            const settings = seeds[name]!.prefix_SETTINGS!;
+            const intent = seeds[name]!.prefix_INTENT!;
+            expect(settings.__yomuSettingsPersistenceCommitV1).toEqual(expect.any(String));
+            expect(settings.__yomuSettingsPersistenceCommitV1).toBe(intent.__yomuSettingsPersistenceCommitV1);
+        }
+        expect(seeds['raw-only']).not.toHaveProperty('prefix_SETTINGS');
+        expect(seeds['raw-only']).not.toHaveProperty('prefix_INTENT');
+    });
+
+    it('requires an actually visible initial setup surface', () => {
+        let present = true;
+        let rects = 1;
+        let visibility = 'visible';
+        const visible = runtimeFunctionWithBindings<() => boolean>('initialSetupVisible', {
+            document: { querySelector: () => present ? { getClientRects: () => ({ length: rects }) } : null },
+            getComputedStyle: () => ({ visibility }),
+        });
+        expect(visible()).toBe(true);
+        visibility = 'hidden'; expect(visible()).toBe(false);
+        visibility = 'visible'; rects = 0; expect(visible()).toBe(false);
+        rects = 1; present = false; expect(visible()).toBe(false);
+    });
+
     it('refuses stale bytes and runs the packaged extension through Mozilla tooling', () => {
         expect(SOURCE).toContain("const DEFAULT_EXPECTED_VERSION = '1.9.3'");
         expect(SOURCE).toContain('Refusing stale Firefox bytes');
@@ -120,9 +150,9 @@ describe('Firefox settings-authority browser proof contract', () => {
 
     it('covers all namespace, live propagation, import, failure, and reset phases', () => {
         for (const required of [
-            'migration-raw-only',
-            'migration-prefixed-only',
-            'migration-divergent',
+            'authority-raw-only',
+            'authority-prefixed-only',
+            'authority-divergent',
             'study-write-issued',
             'reader-observed-study-write',
             'reader-write-issued',
@@ -532,7 +562,7 @@ describe('Firefox settings-authority browser proof contract', () => {
             'disposableScenarioSeeded',
             'replaceDisposableScenario',
         ]));
-        expect(calledFunctions('advanceMigrationScenario')).toContain('browser.storage.local.set');
+        expect(calledFunctions('advanceAuthorityScenario')).toContain('browser.storage.local.set');
         expect(calledFunctions('openReaderArticleOnce')).toEqual(expect.arrayContaining([
             'claimDisposableFlag',
             'browser.tabs.create',
@@ -1147,9 +1177,11 @@ describe('Firefox settings-authority browser proof contract', () => {
             subtitleFontSize: 37,
             accentColor: '#315d8c',
             nested: { enabled: true, order: ['a', 'b'] },
+            __yomuSettingsPersistenceCommitV1: 'fixture-pair',
         };
         const intent = {
             revision: 8,
+            __yomuSettingsPersistenceCommitV1: 'fixture-pair',
             records: {
                 theme: { seq: 7, value: 'dark' },
                 subtitleFontSize: { seq: 8, value: 37 },
@@ -1158,6 +1190,11 @@ describe('Firefox settings-authority browser proof contract', () => {
         const matches = (values: Record<string, unknown>) =>
             physicalAuthorityPairMatches(values, 'SETTINGS', 'INTENT', settings, intent);
         expect(matches({ SETTINGS: settings, INTENT: intent })).toBe(true);
+        const unmarkedSettings = { ...settings };
+        const unmarkedIntent = { ...intent };
+        Reflect.deleteProperty(unmarkedSettings, '__yomuSettingsPersistenceCommitV1');
+        Reflect.deleteProperty(unmarkedIntent, '__yomuSettingsPersistenceCommitV1');
+        expect(matches({ SETTINGS: unmarkedSettings, INTENT: unmarkedIntent })).toBe(false);
         expect(matches({ SETTINGS: { ...settings, accentColor: '#ffffff' }, INTENT: intent })).toBe(false);
         expect(matches({ SETTINGS: settings })).toBe(false);
         expect(matches({
@@ -1186,36 +1223,35 @@ describe('Firefox settings-authority browser proof contract', () => {
         })).toBe(false);
     });
 
-    it('requires complete SETTINGS and INTENT namespace pairs for every migration verdict', () => {
+    it('requires a current pair or an observed raw-only initial-setup state', () => {
         const raw = runtimeFunction<(current: Record<string, unknown>, presence: Record<string, boolean>) => boolean>(
-            'rawMigrationMatches',
+            'rawOnlyAuthorityMatches',
         );
-        const prefixed = runtimeFunction<typeof raw>('prefixedMigrationMatches');
-        const divergent = runtimeFunction<typeof raw>('divergentMigrationMatches');
+        const prefixed = runtimeFunction<typeof raw>('prefixedAuthorityMatches');
+        const divergent = runtimeFunction<typeof raw>('divergentAuthorityMatches');
         const allPresent = { rawSettings: true, rawIntent: true, canonicalSettings: true, canonicalIntent: true };
-        expect(raw({ theme: 'dark', subtitleFontSize: 47, sentinel: 'v1.9.2-raw-only' }, allPresent)).toBe(true);
+        const rawOnly = { ...allPresent, canonicalSettings: false, canonicalIntent: false };
+        expect(raw({}, rawOnly)).toBe(true);
+        expect(raw({}, allPresent)).toBe(false);
         expect(prefixed(
-            { theme: 'light', subtitleFontSize: 31, sentinel: 'v1.9.2-canonical' },
+            { theme: 'light', subtitleFontSize: 31, sentinel: 'current-canonical' },
             { ...allPresent, rawSettings: false, rawIntent: false },
         )).toBe(true);
         expect(divergent(
-            { theme: 'light', subtitleFontSize: 31, sentinel: 'v1.9.2-divergent-canonical' },
+            { theme: 'light', subtitleFontSize: 31, sentinel: 'current-divergent-canonical' },
             allPresent,
         )).toBe(true);
-        for (const field of Object.keys(allPresent)) {
-            expect(raw(
-                { theme: 'dark', subtitleFontSize: 47, sentinel: 'v1.9.2-raw-only' },
-                { ...allPresent, [field]: false },
-            )).toBe(false);
+        for (const field of Object.keys(rawOnly)) {
+            expect(raw({}, { ...rawOnly, [field]: !rawOnly[field as keyof typeof rawOnly] })).toBe(false);
         }
 
-        const { migrationAuthorityMatches, successfulMigrationEvent } = runtimeFunctions<{
-            migrationAuthorityMatches: (
+        const { scenarioAuthorityMatches, successfulAuthorityEvent } = runtimeFunctions<{
+            scenarioAuthorityMatches: (
                 scenario: string,
                 values: Record<string, unknown>,
                 config: Record<string, unknown>,
             ) => boolean;
-            successfulMigrationEvent: (event: Record<string, unknown>) => boolean;
+            successfulAuthorityEvent: (event: Record<string, unknown>) => boolean;
         }>([
             'canonicalProbeValue',
             'probeValuesMatch',
@@ -1228,17 +1264,17 @@ describe('Firefox settings-authority browser proof contract', () => {
             'authorityPayloadPair',
             'physicalAuthorityPairMatches',
             'studySettingsAuthorityKey',
-            'migrationAuthorityPlan',
-            'migrationAuthorityMatches',
-            'successfulMigrationEvent',
+            'scenarioAuthorityPlan',
+            'scenarioAuthorityMatches',
+            'successfulAuthorityEvent',
         ]);
         const prefix = 'usc_test_';
         const settingsKey = 'SETTINGS';
         const intentKey = 'INTENT';
         const rawSettings = { theme: 'dark', subtitleFontSize: 47, accentColor: '#111111' };
         const rawIntent = { revision: 2, records: { theme: { seq: 1, value: 'dark' } } };
-        const canonicalSettings = { theme: 'light', subtitleFontSize: 31, accentColor: '#222222' };
-        const canonicalIntent = { revision: 4, records: { theme: { seq: 3, value: 'light' } } };
+        const canonicalSettings = { theme: 'light', subtitleFontSize: 31, accentColor: '#222222', __yomuSettingsPersistenceCommitV1: 'fixture' };
+        const canonicalIntent = { revision: 4, records: { theme: { seq: 3, value: 'light' } }, __yomuSettingsPersistenceCommitV1: 'fixture' };
         const divergentRaw = { ...rawSettings, marker: 'divergent-raw' };
         const divergentCanonical = { ...canonicalSettings, marker: 'divergent-canonical' };
         const config = {
@@ -1262,15 +1298,13 @@ describe('Firefox settings-authority browser proof contract', () => {
         const rawPhysical = {
             [settingsKey]: rawSettings,
             [intentKey]: rawIntent,
-            [`${prefix}${settingsKey}`]: rawSettings,
-            [`${prefix}${intentKey}`]: rawIntent,
         };
-        expect(migrationAuthorityMatches('raw-only', rawPhysical, config)).toBe(true);
-        expect(migrationAuthorityMatches('raw-only', {
+        expect(scenarioAuthorityMatches('raw-only', rawPhysical, config)).toBe(true);
+        expect(scenarioAuthorityMatches('raw-only', {
             ...rawPhysical,
             [`${prefix}${settingsKey}`]: { ...rawSettings, accentColor: '#ffffff' },
         }, config)).toBe(false);
-        expect(migrationAuthorityMatches('raw-only', {
+        expect(scenarioAuthorityMatches('raw-only', {
             ...rawPhysical,
             [`${prefix}${settingsKey}`]: {
                 ...rawSettings,
@@ -1281,23 +1315,26 @@ describe('Firefox settings-authority browser proof contract', () => {
                 __yomuSettingsPersistenceCommitV1: 'intent-commit',
             },
         }, config)).toBe(false);
-        expect(migrationAuthorityMatches('prefixed-only', config.scenarios['prefixed-only'], config)).toBe(true);
-        expect(migrationAuthorityMatches('divergent', config.scenarios.divergent, config)).toBe(true);
+        expect(scenarioAuthorityMatches('prefixed-only', config.scenarios['prefixed-only'], config)).toBe(true);
+        expect(scenarioAuthorityMatches('divergent', config.scenarios.divergent, config)).toBe(true);
         const missingIntent = { ...config.scenarios.divergent };
         Reflect.deleteProperty(missingIntent, `${prefix}${intentKey}`);
-        expect(migrationAuthorityMatches('divergent', missingIntent, config)).toBe(false);
+        expect(scenarioAuthorityMatches('divergent', missingIntent, config)).toBe(false);
 
-        expect(successfulMigrationEvent({ surface: 'study', ok: true, authorityPairValid: true })).toBe(true);
-        expect(successfulMigrationEvent({ surface: 'study', ok: true, authorityPairValid: false })).toBe(false);
-        expect(calledFunctions('completeMigrationScenario')).toContain('waitForMigrationScenarioProof');
-        expect(calledFunctions('migrationScenarioProof')).toEqual(expect.arrayContaining([
+        expect(successfulAuthorityEvent({ surface: 'study', ok: true, authorityPairValid: true })).toBe(true);
+        expect(successfulAuthorityEvent({ surface: 'study', scenario: 'raw-only', ok: true, authorityPairValid: true })).toBe(false);
+        expect(successfulAuthorityEvent({ surface: 'study', scenario: 'raw-only', ok: true, authorityAbsent: true, onboardingVisible: true })).toBe(true);
+        expect(successfulAuthorityEvent({ surface: 'study', scenario: 'raw-only', ok: true, authorityAbsent: true, onboardingVisible: false })).toBe(false);
+        expect(successfulAuthorityEvent({ surface: 'study', ok: true, authorityPairValid: false })).toBe(false);
+        expect(calledFunctions('completeAuthorityScenario')).toContain('waitForAuthorityScenarioProof');
+        expect(calledFunctions('authorityScenarioProof')).toEqual(expect.arrayContaining([
             'browser.storage.local.get',
-            'migrationPhysicalObservation',
-            'migrationAuthorityMatches',
+            'authorityPhysicalObservation',
+            'scenarioAuthorityMatches',
             'darkThemeClass',
         ]));
-        expect(calledFunctions('migrationPhysicalObservation')).toContain('authorityPayloadPair');
-        expect(calledFunctions('waitForMigrationScenarioProof').filter(call => call === 'migrationScenarioProof'))
+        expect(calledFunctions('authorityPhysicalObservation')).toContain('authorityPayloadPair');
+        expect(calledFunctions('waitForAuthorityScenarioProof').filter(call => call === 'authorityScenarioProof'))
             .toHaveLength(2);
     });
 

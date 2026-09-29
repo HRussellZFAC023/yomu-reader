@@ -1,7 +1,13 @@
-import { Blob as NodeBlob } from 'node:buffer';
+import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
+import { runInNewContext } from 'node:vm';
+import { webcrypto } from 'node:crypto';
+import { setImmediate as nextEventLoopTurn } from 'node:timers/promises';
+import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { InterfaceLanguage } from '../../src/reader/app/types';
+import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
+import { isStaleManagedStateEpochError, managedStateEpochSessionForRealm, StaleManagedStateEpochError } from '../../src/reader/app/managed-state-epoch';
 import type { LocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
 import {
     installExtensionDictionaryBackgroundHost,
@@ -14,8 +20,10 @@ import {
     EXTENSION_DICTIONARY_RPC_CHANNEL,
     EXTENSION_DICTIONARY_RPC_PORT,
     EXTENSION_DICTIONARY_RPC_VERSION,
+    dictionaryRpcError,
 } from '../../src/reader/dictionaries/extension-rpc-protocol';
 import { extensionDictionaryStoreProxy } from '../../src/reader/dictionaries/extension-store-client';
+import { compiledDictionaryBackgroundSource } from './helpers/compiled-dictionary-background';
 import type {
     ImportSummary,
     YomitanExactTermCandidateRequest,
@@ -43,6 +51,203 @@ afterEach(() => {
 });
 
 describe('extension background dictionary store', () => {
+    it('installs the review owner in compiled output and serializes packaged Study claims', async () => {
+        const harness = compiledBackgroundHarness();
+        const sender = { id: harness.runtime.id, url: harness.runtime.getURL('newtab/index.html'), frameId: 0 };
+        const send = (request: Record<string, unknown>) => new Promise<{ ok: boolean; value?: unknown }>(resolve => {
+            harness.runtime.onMessage.emit({ channel: 'yomu.review-queue.v2', epoch: MANAGED_EPOCH, ...request }, sender, response => resolve(response as never));
+        });
+        const review = { id: 'compiled-review', at: 1, target: 'anki', grade: 'okay', attempts: 0,
+            providerContext: 'account-a', card: { vid: 1, sid: 0, spelling: '読む', reading: 'よむ' } };
+        expect(await send({ kind: 'record', reviews: [review] })).toMatchObject({ ok: true });
+        const request = { kind: 'claim', id: review.id, providerContext: review.providerContext };
+        const claims = await Promise.all([send(request), send(request)]);
+        expect(claims.every(result => result.ok)).toBe(true);
+        expect(claims.filter(result => result.value !== null)).toHaveLength(1);
+        expect(harness.storageReads).toContain(`${STORAGE_PREFIX}yomu:state-slot:v1:${encodeURIComponent(MANAGED_EPOCH_TOKEN)}:${encodeURIComponent('yomu:private:review-delivery:v2')}`);
+        expect(await send({ kind: 'acknowledge', id: review.id, providerContext: review.providerContext })).toMatchObject({ ok: true });
+        await send({ kind: 'record', reviews: [review] });
+        expect(await send(request)).toMatchObject({ ok: true, value: null });
+        const next = { ...MANAGED_EPOCH, generation: 4, resetId: 'review-reset' };
+        harness.setStorageValue('yomu:state-epoch', next);
+        expect(await send({ kind: 'list' })).toMatchObject({ ok: false });
+        expect(await send({ kind: 'list', epoch: next })).toMatchObject({ ok: true, value: [] });
+    });
+
+    it('imports and looks up through the compiled worker and rejects reset-time writes', async () => {
+        let now = 100_000;
+        vi.spyOn(performance, 'now').mockImplementation(() => now);
+        const harness = compiledBackgroundHarness();
+        harness.setStorageValue('yomu:dictionary-replica-purge:v1', Number.MAX_SAFE_INTEGER);
+        vi.spyOn(harness.runtime, 'sendMessage').mockImplementationOnce(() => undefined);
+        const direct = vi.fn(async () => { throw new Error('Direct store must not replace the compiled host'); });
+        const proxy = extensionDictionaryStoreProxy(
+            store({ importFile: direct, lookup: direct, summary: direct }),
+            harness.root as unknown as typeof globalThis,
+        );
+        const dictionaryFile = (expression: string) => portableFile(new TextEncoder().encode(JSON.stringify({
+            formatName: 'yomu-yomitan-dictionaries', formatVersion: 2,
+            terms: [{ expression, reading: expression === '猫' ? 'ねこ' : 'いぬ', glossary: ['fixture'], dictionary: 'Canonical fixture' }],
+        })), 'canonical-fixture.json');
+        await expect(proxy.importFile(dictionaryFile('猫'))).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        expect(direct).not.toHaveBeenCalled();
+        now += 1_001;
+        await expect(proxy.importFile(dictionaryFile('猫'))).resolves.toMatchObject({ terms: 1 });
+        await expect(proxy.lookup('猫', 'ねこ', 10)).resolves.toContainEqual(expect.objectContaining({ expression: '猫', dictionary: 'Canonical fixture' }));
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'prepare' });
+        await expect(proxy.importFile(dictionaryFile('犬'))).rejects.toThrow(/factory reset/);
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'complete' });
+        await expect(proxy.summary()).resolves.toMatchObject({ terms: 1 });
+        await expect(proxy.lookup('犬', 'いぬ', 10)).resolves.toEqual([]);
+        expect(direct).not.toHaveBeenCalled();
+        expect(harness.network).not.toHaveBeenCalled();
+        expect(harness.persist).not.toHaveBeenCalled();
+        expect(harness.storageReads).not.toContain(`${STORAGE_PREFIX}yomu:dictionary-replica-purge:v1`);
+    }, 30_000);
+
+    it('rejects an upload admitted before reset when its bytes arrive after reset', async () => {
+        const harness = compiledBackgroundHarness();
+        const root = harness.root as unknown as typeof globalThis;
+        await managedStateEpochSessionForRealm(root).capture(async () => MANAGED_EPOCH);
+        const direct = vi.fn(async () => { throw new Error('No page-store fallback'); });
+        const directStore = store({ importFile: direct, summary: direct, deleteDatabase: direct });
+        const old = extensionDictionaryStoreProxy(directStore, root);
+        await old.summary();
+        const bytes = new TextEncoder().encode(JSON.stringify({ formatName: 'yomu-yomitan-dictionaries', formatVersion: 2,
+            terms: [{ expression: '猫', reading: 'ねこ', glossary: ['fixture'], dictionary: 'Late upload' }] }));
+        const file = portableFile(bytes, 'late-upload.json');
+        const pending = deferred<ArrayBuffer>();
+        const slice = file.slice.bind(file);
+        vi.spyOn(file, 'slice').mockImplementation((...args) => {
+            const chunk = slice(...args);
+            vi.spyOn(chunk, 'arrayBuffer').mockReturnValue(pending.promise);
+            return chunk;
+        });
+        const outcome = old.importFile(file).catch(error => error);
+        await vi.waitFor(() => expect(file.slice).toHaveBeenCalledTimes(1));
+        // The fixture replies through microtasks; let admission finish while the bytes remain withheld.
+        await nextEventLoopTurn();
+        const resetting = extensionDictionaryStoreProxy(directStore, { chrome: harness.root.chrome } as unknown as typeof globalThis);
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'prepare', id: 'upload-reset' });
+        await resetting.deleteDatabase();
+        const epoch = { ...MANAGED_EPOCH, generation: 4, resetId: 'upload-reset' };
+        harness.setStorageValue('yomu:state-epoch', epoch);
+        harness.emitStorageChange('yomu:state-epoch');
+        await resetting.deleteDatabase({ completedResetId: epoch.resetId });
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'complete' });
+        pending.resolve(bytes.buffer as ArrayBuffer);
+        expect(isStaleManagedStateEpochError(await outcome)).toBe(true);
+        const fresh = extensionDictionaryStoreProxy(directStore, { chrome: harness.root.chrome } as unknown as typeof globalThis);
+        await expect(fresh.summary()).resolves.toMatchObject({ terms: 0 });
+        expect(direct).not.toHaveBeenCalled();
+    }, 30_000);
+
+    it('represents the initial epoch explicitly instead of omitting the caller fence', async () => {
+        const remote = vi.fn(async () => dictionarySummary(0));
+        const harness = backgroundHarness(store({ summary: remote }));
+        harness.setStorageValue('yomu:state-epoch', undefined);
+        const proxy = extensionDictionaryStoreProxy(store({ summary: vi.fn() }), harness.root as unknown as typeof globalThis);
+        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(0));
+        expect(harness.runtime.backgroundResponses[0]).toMatchObject({ epoch: null });
+        expect(harness.runtime.clientPortMessages.find(message => messageKind(message) === 'invoke')).toMatchObject({ epoch: null });
+    });
+
+    it.each([undefined, {}, { version: 1, generation: 0, resetId: 'legacy', committedAt: 0 }])('rejects malformed caller epochs before reaching the store (%j)', async epoch => {
+        const remote = vi.fn(async () => dictionarySummary(7));
+        const harness = backgroundHarness(store({ summary: remote }));
+        const response = await invokePortRequest(harness.runtime, {
+            channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION,
+            kind: 'invoke', method: 'summary', args: [], epoch,
+        });
+        expect(response).toMatchObject({ kind: 'error', error: { message: expect.stringMatching(/epoch/) } });
+        expect(remote).not.toHaveBeenCalled();
+        expect(harness.adoptTarget).not.toHaveBeenCalled();
+    });
+
+    it('rejects an old content realm after a completed reset even when it misses notifications', async () => {
+        const harness = compiledBackgroundHarness();
+        const oldRoot = harness.root as unknown as typeof globalThis;
+        await managedStateEpochSessionForRealm(oldRoot).capture(async () => MANAGED_EPOCH);
+        const direct = vi.fn(async () => { throw new Error('No page-store fallback'); });
+        const directStore = store({ importFile: direct, summary: direct, lookup: direct, deleteDatabase: direct });
+        const old = extensionDictionaryStoreProxy(directStore, oldRoot);
+        const dictionaryFile = (expression: string) => portableFile(new TextEncoder().encode(JSON.stringify({
+            formatName: 'yomu-yomitan-dictionaries', formatVersion: 2,
+            terms: [{ expression, reading: expression === '猫' ? 'ねこ' : 'いぬ', glossary: ['fixture'], dictionary: 'Reset fixture' }],
+        })), 'reset-fixture.json');
+        await expect(old.importFile(dictionaryFile('猫'))).resolves.toMatchObject({ terms: 1 });
+
+        const resetRoot = { chrome: harness.root.chrome } as unknown as typeof globalThis;
+        const resetting = extensionDictionaryStoreProxy(directStore, resetRoot);
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'prepare', id: 'completed-reset' });
+        await resetting.deleteDatabase({ timeoutMs: 2_000 });
+        expect(await harness.database.databases()).toEqual([]);
+        const nextEpoch = { ...MANAGED_EPOCH, generation: 4, resetId: 'completed-reset', committedAt: MANAGED_EPOCH.committedAt + 1 };
+        harness.setStorageValue('yomu:state-epoch', nextEpoch);
+        harness.emitStorageChange('yomu:state-epoch');
+        await expect(old.deleteDatabase({ completedResetId: 'wrong-reset' })).rejects.toMatchObject({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' });
+        for (const method of ['summary', 'clear', 'invalidateCaches']) {
+            const denied = await invokePortRequest(harness.runtime, {
+                channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION,
+                kind: 'invoke', method, args: [{ completedResetId: nextEpoch.resetId }], epoch: MANAGED_EPOCH,
+            });
+            expect(denied).toMatchObject({ kind: 'error', error: { code: 'YOMU_STALE_MANAGED_STATE_EPOCH' } });
+        }
+        const older = await invokePortRequest(harness.runtime, {
+            channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION,
+            kind: 'invoke', method: 'deleteDatabase', args: [{ completedResetId: nextEpoch.resetId }],
+            epoch: { ...MANAGED_EPOCH, generation: 2, resetId: 'older-reset' },
+        });
+        expect(older).toMatchObject({ kind: 'error', error: { code: 'YOMU_STALE_MANAGED_STATE_EPOCH' } });
+        await resetting.deleteDatabase({ timeoutMs: 2_000, completedResetId: nextEpoch.resetId });
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'complete' });
+
+        await expect(old.importFile(dictionaryFile('犬'))).rejects.toMatchObject({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' });
+        const replacementInOldRealm = extensionDictionaryStoreProxy(directStore, oldRoot);
+        await expect(replacementInOldRealm.summary()).rejects.toMatchObject({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' });
+        expect(managedStateEpochSessionForRealm(oldRoot).current()?.generation).toBe(3);
+        const freshRoot = { chrome: harness.root.chrome } as unknown as typeof globalThis;
+        const fresh = extensionDictionaryStoreProxy(directStore, freshRoot);
+        await expect(fresh.summary()).resolves.toMatchObject({ terms: 0 });
+        await expect(fresh.importFile(dictionaryFile('犬'))).resolves.toMatchObject({ terms: 1 });
+        await expect(old.deleteDatabase()).rejects.toMatchObject({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' });
+        await expect(resetting.deleteDatabase({ completedResetId: nextEpoch.resetId })).rejects.toMatchObject({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' });
+        harness.setStorageValue('yomu:factory-reset-signal', undefined);
+        await expect(resetting.deleteDatabase({ completedResetId: nextEpoch.resetId })).rejects.toMatchObject({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' });
+        await expect(fresh.lookup('犬', 'いぬ', 10)).resolves.toContainEqual(expect.objectContaining({ expression: '犬' }));
+        expect(direct).not.toHaveBeenCalled();
+        await fresh.deleteDatabase();
+    }, 30_000);
+
+    it('preserves fresh dictionaries when a cleanup receipt belongs to a different live reset', async () => {
+        const harness = compiledBackgroundHarness();
+        const direct = vi.fn(async () => { throw new Error('No page-store fallback'); });
+        const directStore = store({ importFile: direct, lookup: direct, summary: direct, deleteDatabase: direct });
+        const resetting = extensionDictionaryStoreProxy(directStore, harness.root as unknown as typeof globalThis);
+        await resetting.summary();
+        const nextEpoch = { ...MANAGED_EPOCH, generation: 4, resetId: 'finished-reset' };
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'prepare', id: nextEpoch.resetId });
+        await resetting.deleteDatabase();
+        harness.setStorageValue('yomu:state-epoch', nextEpoch);
+        harness.emitStorageChange('yomu:state-epoch');
+        await resetting.deleteDatabase({ completedResetId: nextEpoch.resetId });
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'complete', id: nextEpoch.resetId });
+        const fresh = extensionDictionaryStoreProxy(directStore, { chrome: harness.root.chrome } as unknown as typeof globalThis);
+        const file = portableFile(new TextEncoder().encode(JSON.stringify({
+            formatName: 'yomu-yomitan-dictionaries', formatVersion: 2,
+            terms: [{ expression: '犬', reading: 'いぬ', glossary: ['dog'], dictionary: 'Fresh dictionary' }],
+        })), 'fresh-dictionary.json');
+        await fresh.importFile(file);
+
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'prepare', id: 'different-live-reset' });
+        const outcome = await resetting.deleteDatabase({ completedResetId: nextEpoch.resetId }).catch(error => error);
+        harness.setStorageValue('yomu:factory-reset-signal', { phase: 'complete', id: 'different-live-reset' });
+
+        await expect(fresh.lookup('犬', 'いぬ', 10)).resolves.toContainEqual(expect.objectContaining({ dictionary: 'Fresh dictionary' }));
+        expect(isStaleManagedStateEpochError(outcome)).toBe(true);
+        expect(direct).not.toHaveBeenCalled();
+    }, 30_000);
+
     it('does not probe the extension transport until the first dictionary operation', async () => {
         const remoteSummary = vi.fn(async () => dictionarySummary(1));
         const harness = backgroundHarness(store({ summary: remoteSummary }));
@@ -258,9 +463,10 @@ describe('extension background dictionary store', () => {
         const importing = proxy.importFile(portableFile(new Uint8Array([1]), 'active.zip'));
         await settleUntil(() => remoteImport.mock.calls.length === 1);
         const deleting = proxy.deleteDatabase();
-        const deletionFailure = expect(deleting).rejects.toThrow(
-            'Dictionary background operation disconnected before completion.',
-        );
+        const deletionFailure = expect(deleting).rejects.toMatchObject({
+            yomuUiCopyKey: 'extensionDictionaryConnectionLost',
+            cause: { message: 'Dictionary background operation disconnected before completion.' },
+        });
         await settleUntil(() => harness.runtime.clientPorts.length === 2);
         harness.runtime.clientPorts[1].disconnect();
         await deletionFailure;
@@ -293,7 +499,7 @@ describe('extension background dictionary store', () => {
         );
 
         await expect(proxy.searchTerms('cat', 5, [])).resolves.toEqual([]);
-        expect(remotePrepare).toHaveBeenCalledTimes(1);
+        await settleUntil(() => remotePrepare.mock.calls.length === 1);
         expect(harness.runtime.clientPorts[0].disconnected).toBe(false);
         const deleting = proxy.deleteDatabase();
         await settleUntil(() => harness.runtime.clientPorts.length === 2);
@@ -391,7 +597,7 @@ describe('extension background dictionary store', () => {
 
         const reloadedProxy = extensionDictionaryStoreProxy(
             store({ summary: directSummary }),
-            harness.root as unknown as typeof globalThis,
+            { chrome: harness.root.chrome } as unknown as typeof globalThis,
         );
         await expect(reloadedProxy.summary()).resolves.toEqual(dictionarySummary(7));
         await settleUntil(() => getInterfaceLanguage?.() === 'en');
@@ -446,10 +652,11 @@ describe('extension background dictionary store', () => {
         expect(directLookup).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to the direct store when the background ping times out', async () => {
+    it('rejects a timed-out extension probe without touching the page store', async () => {
         vi.useFakeTimers();
         const directLookup = vi.fn(async () => true);
         const directInvalidate = vi.fn();
+        const directImport = vi.fn(async () => importSummary('wrong-page-store'));
         const connect = vi.fn(() => {
             throw new Error('A timed-out capability probe must not open an operation Port.');
         });
@@ -463,28 +670,234 @@ describe('extension background dictionary store', () => {
             },
         };
         const proxy = extensionDictionaryStoreProxy(
-            store({ hasDictionaries: directLookup, invalidateCaches: directInvalidate }),
+            store({ hasDictionaries: directLookup, invalidateCaches: directInvalidate, importFile: directImport }),
             root as unknown as typeof globalThis,
         );
 
         expect(proxy.invalidateCaches()).toBeUndefined();
-        expect(directInvalidate).toHaveBeenCalledTimes(1);
-        const lookup = proxy.hasDictionaries();
+        const lookup = expect(proxy.hasDictionaries()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        const importing = expect(proxy.importFile(portableFile(new Uint8Array([1]), 'unsubmitted.zip')))
+            .rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
         await vi.advanceTimersByTimeAsync(EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS + 1);
 
-        await expect(lookup).resolves.toBe(true);
-        expect(directLookup).toHaveBeenCalledTimes(1);
+        await lookup;
+        await importing;
+        expect(directLookup).not.toHaveBeenCalled();
+        expect(directImport).not.toHaveBeenCalled();
+        expect(directInvalidate).not.toHaveBeenCalled();
         expect(connect).not.toHaveBeenCalled();
+    });
+
+    it('shares the failed probe during cooldown and retries the same owner afterward', async () => {
+        vi.useFakeTimers({ toFake: ['Date', 'performance', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+        const remoteSummary = vi.fn(async () => dictionarySummary(7));
+        const harness = backgroundHarness(store({ summary: remoteSummary }));
+        const send = vi.spyOn(harness.runtime, 'sendMessage').mockImplementationOnce(() => undefined);
+        const direct = vi.fn(async () => dictionarySummary(99));
+        const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), harness.root as unknown as typeof globalThis);
+        const first = expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        const concurrent = expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        await vi.advanceTimersByTimeAsync(EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS);
+        await Promise.all([first, concurrent]);
+        expect(send).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(999);
+        await expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        expect(send).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(7));
+        expect(send).toHaveBeenCalledTimes(2);
+        expect(remoteSummary).toHaveBeenCalledTimes(1);
+        expect(direct).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        undefined,
+        { channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION + 1, kind: 'capability', ok: true, marker: EXTENSION_DICTIONARY_BACKGROUND_MARKER },
+        { channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION, kind: 'capability', ok: true, marker: 'another-service' },
+        { channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION, kind: 'capability', ok: true, marker: EXTENSION_DICTIONARY_BACKGROUND_MARKER },
+    ])('rejects an absent or incompatible owner response without choosing a local store (%j)', async response => {
+        const harness = backgroundHarness(store({ summary: vi.fn(async () => dictionarySummary(7)) }));
+        vi.spyOn(harness.runtime, 'sendMessage').mockImplementation((_message, callback) => callback?.(response));
+        const direct = vi.fn(async () => dictionarySummary(99));
+        const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), harness.root as unknown as typeof globalThis);
+        const error = await proxy.summary().catch(failure => failure);
+        expect(error).toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        expect(userFacingErrorText('en', 'dictionaryStatusUnavailable', error)).toContain('Retry');
+        expect(userFacingErrorText('ja', 'dictionaryStatusUnavailable', error)).toContain('再試行');
+        expect(direct).not.toHaveBeenCalled();
+        expect(harness.runtime.connectedPortNames).toEqual([]);
+    });
+
+    it('preserves a recognized owner epoch error instead of converting it to absence', async () => {
+        const harness = backgroundHarness(store({}));
+        const stale = Object.assign(new StaleManagedStateEpochError(MANAGED_EPOCH, { ...MANAGED_EPOCH, generation: 4, resetId: 'new-reset' }), {
+            epochMayHaveCommitted: true, cause: Object.assign(new Error('Underlying failure'), { code: 'UNDERLYING_FAILURE' }),
+        });
+        vi.spyOn(harness.runtime, 'sendMessage').mockImplementation((_message, callback) => callback?.({
+            channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION,
+            kind: 'error', ok: false, error: dictionaryRpcError(stale),
+        }));
+        const direct = vi.fn(async () => dictionarySummary(99));
+        const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), harness.root as unknown as typeof globalThis);
+        const error = await proxy.summary().catch(failure => failure);
+        expect(error).toMatchObject({ name: stale.name, message: stale.message, code: stale.code,
+            epochMayHaveCommitted: true, cause: { code: 'UNDERLYING_FAILURE', message: 'Underlying failure' } });
+        expect(isStaleManagedStateEpochError(error)).toBe(true);
+        expect(direct).not.toHaveBeenCalled();
+    });
+
+    it('handles promise-based browser transport failure without local fallback', async () => {
+        const failure = new Error('Background could not start');
+        const direct = vi.fn(async () => dictionarySummary(99));
+        const connect = vi.fn();
+        const root = { browser: { runtime: { id: 'fixture-extension', sendMessage: vi.fn(async () => { throw failure; }), connect } } };
+        const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), root as unknown as typeof globalThis);
+        await expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable', cause: failure });
+        expect(direct).not.toHaveBeenCalled();
+        expect(connect).not.toHaveBeenCalled();
+    });
+
+    it('does not replay a failed remote mutation or retry it in a page store', async () => {
+        vi.useFakeTimers();
+        const stale = new StaleManagedStateEpochError(MANAGED_EPOCH, { ...MANAGED_EPOCH, generation: 4, resetId: 'next' });
+        const failure = Object.assign(new Error('Import reply failed after mutation'), { code: 'ACK_FAILED', epochMayHaveCommitted: true, cause: stale });
+        const remote = vi.fn(async () => { throw failure; });
+        const harness = backgroundHarness(store({ importFile: remote }));
+        const direct = vi.fn(async () => importSummary('wrong-page-store'));
+        const proxy = extensionDictionaryStoreProxy(store({ importFile: direct }), harness.root as unknown as typeof globalThis);
+        const error = await proxy.importFile(portableFile(new Uint8Array([1]), 'example.zip')).catch(value => value);
+        expect(error).toMatchObject({ message: failure.message, code: 'ACK_FAILED', epochMayHaveCommitted: true, cause: { code: stale.code } });
+        expect(isStaleManagedStateEpochError(error.cause)).toBe(true);
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(remote).toHaveBeenCalledTimes(1);
+        expect(direct).not.toHaveBeenCalled();
+        expect(harness.runtime.clientMessages).toHaveLength(1);
+    });
+
+    it('recovers promise-based Firefox discovery without passing a callback', async () => {
+        vi.useFakeTimers({ toFake: ['Date', 'performance', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+        const remote = vi.fn(async () => dictionarySummary(7));
+        const harness = backgroundHarness(store({ summary: remote }));
+        const sendMessage = vi.fn((message: unknown) => new Promise<unknown>(resolve => harness.runtime.sendMessage(message, resolve)))
+            .mockRejectedValueOnce(new Error('Worker unavailable'));
+        const root = { browser: { runtime: { id: harness.runtime.id, sendMessage, connect: harness.runtime.connect.bind(harness.runtime) } } };
+        const direct = vi.fn(async () => dictionarySummary(99));
+        const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), root as unknown as typeof globalThis);
+        await expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        await vi.advanceTimersByTimeAsync(1_000);
+        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(7));
+        expect(sendMessage.mock.calls.every(args => args.length === 1)).toBe(true);
+        expect(sendMessage).toHaveBeenCalledTimes(2);
+        expect(remote).toHaveBeenCalledTimes(1);
+        expect(direct).not.toHaveBeenCalled();
+    });
+
+    it('retries discovery on elapsed time even when wall time moves backward', async () => {
+        vi.useFakeTimers({ toFake: ['Date', 'performance', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+        const harness = backgroundHarness(store({ summary: vi.fn(async () => dictionarySummary(7)) }));
+        vi.spyOn(harness.runtime, 'sendMessage').mockImplementationOnce(() => undefined);
+        const direct = vi.fn(async () => dictionarySummary(99));
+        const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), harness.root as unknown as typeof globalThis);
+        const rejected = expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
+        await vi.advanceTimersByTimeAsync(EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS);
+        await rejected;
+        vi.setSystemTime(Date.now() - 3_600_000);
+        await vi.advanceTimersByTimeAsync(1_000);
+        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(7));
+        expect(direct).not.toHaveBeenCalled();
+    });
+
+    it('localizes a post-probe connection failure without attempting a local mutation', async () => {
+        const harness = backgroundHarness(store({}));
+        const failure = new Error('Extension context invalidated.');
+        const connect = vi.spyOn(harness.runtime, 'connect').mockImplementation(() => { throw failure; });
+        const direct = vi.fn(async () => importSummary('wrong-page-store'));
+        const proxy = extensionDictionaryStoreProxy(store({ importFile: direct }), harness.root as unknown as typeof globalThis);
+        const error = await proxy.importFile(portableFile(new Uint8Array([1]), 'example.zip')).catch(value => value);
+        expect(error).toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable', cause: failure });
+        expect(userFacingErrorText('ja', 'dictionaryStatusUnavailable', error)).toContain('再試行');
+        expect(connect).toHaveBeenCalledTimes(1);
+        expect(direct).not.toHaveBeenCalled();
+    });
+
+    it('reports an interrupted operation without replaying a possibly completed mutation', async () => {
+        vi.useFakeTimers();
+        const pending = deferred<ImportSummary>();
+        const remote = vi.fn(() => pending.promise);
+        const harness = backgroundHarness(store({ importFile: remote }));
+        const direct = vi.fn(async () => importSummary('wrong-page-store'));
+        const proxy = extensionDictionaryStoreProxy(store({ importFile: direct }), harness.root as unknown as typeof globalThis);
+        const outcome = proxy.importFile(portableFile(new Uint8Array([1]), 'example.zip')).catch(error => error);
+        await settleUntil(() => remote.mock.calls.length === 1);
+        harness.runtime.clientPorts[0]!.disconnect();
+        const error = await outcome;
+        expect(error).toMatchObject({ yomuUiCopyKey: 'extensionDictionaryConnectionLost' });
+        expect(userFacingErrorText('ja', 'dictionaryStatusUnavailable', error)).toContain('完了');
+        pending.resolve(importSummary('remote'));
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(remote).toHaveBeenCalledTimes(1);
+        expect(direct).not.toHaveBeenCalled();
+    });
+
+    it('settles a failed Port write without relying on a disconnect event', async () => {
+        vi.useFakeTimers();
+        const remote = vi.fn(async () => importSummary('remote'));
+        const harness = backgroundHarness(store({ importFile: remote }));
+        const connect = harness.runtime.connect.bind(harness.runtime);
+        const failure = new Error('Port could not send the request');
+        vi.spyOn(harness.runtime, 'connect').mockImplementation(options => {
+            const port = connect(options);
+            vi.spyOn(port, 'postMessage').mockImplementation(() => { throw failure; });
+            return port;
+        });
+        const direct = vi.fn(async () => importSummary('wrong-page-store'));
+        const proxy = extensionDictionaryStoreProxy(store({ importFile: direct }), harness.root as unknown as typeof globalThis);
+        const file = portableFile(new Uint8Array([1]), 'example.zip');
+        const chunks = vi.spyOn(file, 'slice');
+        let outcome: unknown;
+        const result = proxy.importFile(file).then(value => { outcome = value; }, error => { outcome = error; });
+        try {
+            await vi.advanceTimersByTimeAsync(1);
+            expect(outcome).toMatchObject({ yomuUiCopyKey: 'extensionDictionaryConnectionLost', cause: failure });
+            await result;
+            expect(chunks).not.toHaveBeenCalled();
+            expect(remote).not.toHaveBeenCalled();
+            expect(direct).not.toHaveBeenCalled();
+        } finally {
+            harness.runtime.clientPorts.forEach(port => port.disconnect());
+        }
     });
 });
 
 interface HarnessOptions {
+    readonly install?: (root: typeof globalThis) => void;
     readonly createStore?: ExtensionDictionaryBackgroundHostOptions['createStore'];
     readonly adoptTarget?: ExtensionDictionaryBackgroundHostOptions['adoptTarget'];
     readonly rootAdditions?: Record<string, unknown>;
 }
 
-function backgroundHarness(backgroundStore: LocalDictionaryStore, options: HarnessOptions = {}) {
+function compiledBackgroundHarness() {
+    const persist = vi.fn(async () => true);
+    const network = vi.fn(async () => { throw new Error('Unexpected network request'); });
+    const database = new IDBFactory();
+    const source = compiledDictionaryBackgroundSource().replace(
+        JSON.stringify('__YOMU_EXTENSION_STORAGE_PREFIX_PLACEHOLDER__'), JSON.stringify(STORAGE_PREFIX),
+    );
+    const harness = backgroundHarness(undefined, {
+        install: root => runInNewContext(source, {
+            chrome: (root as unknown as { chrome: unknown }).chrome,
+            location: new URL((root as unknown as { chrome: { runtime: FakeExtensionRuntime } }).chrome.runtime.getURL('background.js')),
+            indexedDB: database, IDBKeyRange, Blob: NodeBlob, File: NodeFile,
+            TextEncoder, TextDecoder, URL, URLSearchParams, structuredClone, atob, btoa,
+            setTimeout, clearTimeout, setInterval, clearInterval, queueMicrotask,
+            performance, crypto: webcrypto, console,
+            navigator: { storage: { persist } }, fetch: network,
+        }),
+    });
+    return { ...harness, persist, network, database };
+}
+
+function backgroundHarness(backgroundStore: LocalDictionaryStore | undefined, options: HarnessOptions = {}) {
     const runtime = new FakeExtensionRuntime();
     const storageReads: string[] = [];
     const storageValues: Record<string, unknown> = {
@@ -508,6 +921,10 @@ function backgroundHarness(backgroundStore: LocalDictionaryStore, options: Harne
                             ? { [key]: storageValues[key] }
                             : {};
                         queueMicrotask(() => callback?.(jsonClone(result)));
+                        return Promise.resolve(jsonClone(result));
+                    },
+                    async set(values: Record<string, unknown>) {
+                        Object.assign(storageValues, jsonClone(values));
                     },
                 },
                 onChanged: storageChanged,
@@ -515,14 +932,18 @@ function backgroundHarness(backgroundStore: LocalDictionaryStore, options: Harne
         },
     };
     const adoptTarget = options.adoptTarget ?? vi.fn();
-    const installed = installExtensionDictionaryBackgroundHost({
-        root: root as unknown as typeof globalThis,
-        storagePrefix: STORAGE_PREFIX,
-        createStore: options.createStore ?? (() => backgroundStore),
-        resolveTarget: target => ({ ...target, normalizeText: (text: string) => text }),
-        adoptTarget,
-    });
-    expect(installed).toBe(true);
+    if (options.install) options.install(root as unknown as typeof globalThis);
+    else {
+        if (!backgroundStore) throw new Error('The host fixture requires a store or compiled installer.');
+        const installed = installExtensionDictionaryBackgroundHost({
+            root: root as unknown as typeof globalThis,
+            storagePrefix: STORAGE_PREFIX,
+            createStore: options.createStore ?? (() => backgroundStore),
+            resolveTarget: target => ({ ...target, normalizeText: (text: string) => text }),
+            adoptTarget,
+        });
+        expect(installed).toBe(true);
+    }
     return {
         root,
         runtime,
@@ -551,6 +972,7 @@ class ListenerEvent<T extends (...args: never[]) => unknown> {
 
 class FakeExtensionRuntime {
     readonly id = 'fake-extension';
+    getURL(path: string): string { return `chrome-extension://${this.id}/${path}`; }
     readonly onMessage = new ListenerEvent<(
         message: unknown,
         sender: unknown,
@@ -662,6 +1084,15 @@ function dictionarySummary(terms: number) {
 }
 
 function invokePortSummary(runtime: FakeExtensionRuntime, targetId: string): Promise<unknown> {
+    return invokePortRequest(runtime, {
+        channel: EXTENSION_DICTIONARY_RPC_CHANNEL,
+        version: EXTENSION_DICTIONARY_RPC_VERSION,
+        kind: 'invoke', method: 'summary', args: [], epoch: MANAGED_EPOCH,
+        target: { id: targetId, language: 'ja', interfaceVersion: 1 },
+    });
+}
+
+function invokePortRequest(runtime: FakeExtensionRuntime, request: Record<string, unknown>): Promise<unknown> {
     const port = runtime.connect({ name: EXTENSION_DICTIONARY_RPC_PORT });
     return new Promise(resolve => {
         port.onMessage.addListener(message => {
@@ -669,14 +1100,7 @@ function invokePortSummary(runtime: FakeExtensionRuntime, targetId: string): Pro
             resolve(message);
             port.disconnect();
         });
-        port.postMessage({
-            channel: EXTENSION_DICTIONARY_RPC_CHANNEL,
-            version: EXTENSION_DICTIONARY_RPC_VERSION,
-            kind: 'invoke',
-            method: 'summary',
-            args: [],
-            target: { id: targetId, language: 'ja', interfaceVersion: 1 },
-        });
+        port.postMessage(request);
     });
 }
 
@@ -687,8 +1111,7 @@ function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
 }
 
 async function settleUntil(done: () => boolean): Promise<void> {
-    for (let attempt = 0; attempt < 100 && !done(); attempt += 1) await Promise.resolve();
-    if (!done()) throw new Error('The background operation did not start.');
+    await vi.waitFor(() => expect(done(), 'The background operation did not start.').toBe(true), { timeout: 1_000, interval: 1 });
 }
 
 function messageKind(message: unknown): unknown {

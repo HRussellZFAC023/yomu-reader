@@ -6,7 +6,6 @@ import { installPreferredJapaneseSiteLanguageFromStoredSettings } from '../app/p
 import { applyMokuroReaderOcrDefault, installMokuroOcrToggleNote } from '../app/mokuro-integration';
 import { announceInstalledReaderRuntime, shouldInstallHostedReaderRuntime } from '../app/runtime-presence';
 import { installUserscriptGmStorageBridgeWhenReady, installUserscriptHttpBridgeWhenReady } from './index';
-import { promoteStrandedHostedSettingsToGmStorage } from '../settings/index';
 import { isYomuHostedAcademyPage, isYomuHostedPassivePage } from '../app/pages';
 import { activateTargetOwnedDocumentStartCompanions } from '../app/target-owned-document-start';
 import { installDocumentStartTargetPolicy } from './document-start-target-policy';
@@ -30,7 +29,6 @@ if (installedRuntime || (docEl && shouldInstallHostedReaderRuntime())) {
         });
     }
     installUserscriptGmStorageBridgeWhenReady();
-    void promoteStrandedHostedSettingsToGmStorage();
     installDocumentStartTargetPolicy(pageOwnedLearningTarget, activateTargetOwnedDocumentStart);
     if (!yomuNewTab) {
         bootWhenDocumentIsReady();

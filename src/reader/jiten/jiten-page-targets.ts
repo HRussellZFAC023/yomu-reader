@@ -78,21 +78,29 @@ function jitenContentAnchor(): HTMLElement | null {
 // revealed, the enhancement refresh sees the missing addon and mounts it
 // inside the card.
 function jitenStudyCardAnchor(): HTMLElement | null {
-    if (jitenStudyAnswerHidden()) return null;
+    const answer = jitenStudyAnswerRegion();
+    if (!answer) return null;
+    // Mount inside the native answer, so removing it also removes our addon.
+    // Ignore our existing root when finding the final native section.
+    return Array.from(answer.children).reverse().find((child): child is HTMLElement =>
+        child instanceof HTMLElement && !child.closest(READER_OWNED_SELECTOR),
+    ) ?? null;
+}
+
+function jitenStudyAnswerRegion(): HTMLElement | null {
+    // Jiten SrsStudyCard.vue: v-if="isFlipped", role="region", aria-label="Answer",
+    // inside Transition name="reveal". Write-in fronts omit Show Answer entirely;
+    // its absence is not a reveal signal. A departing answer is not current either.
+    if (Array.from(document.querySelectorAll('button'))
+        .some(button => !button.closest(READER_OWNED_SELECTOR) && /show answer/i.test(button.textContent ?? ''))) return null;
     const wrap = ownedElement(document.querySelector<HTMLElement>('.relative.touch-pan-y'));
-    if (!wrap) return null;
-    const content = Array.from(wrap.children).find(child =>
-        child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className)),
-    ) as HTMLElement | undefined;
-    const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
-    const last = card?.lastElementChild;
-    if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
-    return card ?? null;
+    return Array.from(wrap?.querySelectorAll<HTMLElement>('[role="region"][aria-label="Answer"]') ?? [])
+        .find(answer => !answer.closest(READER_OWNED_SELECTOR)
+            && !Array.from(answer.classList).some(name => name.startsWith('reveal-leave-'))) ?? null;
 }
 
 function jitenStudyAnswerHidden(): boolean {
-    return Array.from(document.querySelectorAll('button'))
-        .some(button => /show answer/i.test(button.textContent ?? ''));
+    return jitenStudyAnswerRegion() === null;
 }
 
 // The study-card front (question phase) shows only the headword; furigana or a
@@ -102,9 +110,7 @@ function jitenStudyAnswerHidden(): boolean {
 // Self-heals on reveal: jitenStudyAnswerHidden() flips false and the re-scan
 // annotates the now-revealed card normally.
 export function isJitenStudyFrontPrompt(element: HTMLElement): boolean {
-    // Cheapest gates first: this runs per element during classifyDecoration, so
-    // the document-wide "Show Answer" button scan only happens for elements that
-    // actually sit inside the study card on the study page.
+    // Only inspect reveal state for elements inside a study card.
     if (!isJitenHost() || !isJitenStudyPage()) return false;
     if (!element.closest('.relative.touch-pan-y')) return false;
     return jitenStudyAnswerHidden();

@@ -53,6 +53,26 @@ afterEach(() => {
 });
 
 describe('managed storage epoch boundary', () => {
+    it('uses the synchronous epoch snapshot without launching an authoritative RPC', async () => {
+        installFreshManagedStateEpochSessionForTests();
+        installGmStore(new Map());
+        const modernRead = vi.fn(async () => { throw new Error('background disconnected'); });
+        vi.stubGlobal('GM', { getValue: modernRead });
+        const storage = await import('../../src/reader/app/storage');
+        expect(storage.ensureManagedWebStorageCurrentSync()).toBe(true);
+        expect(modernRead).not.toHaveBeenCalled();
+    });
+
+    it('does not probe an async-only backend from a synchronous barrier', async () => {
+        installFreshManagedStateEpochSessionForTests();
+        vi.stubGlobal('GM_getValue', undefined);
+        const modernRead = vi.fn(async () => { throw new Error('background disconnected'); });
+        vi.stubGlobal('GM', { getValue: modernRead });
+        const storage = await import('../../src/reader/app/storage');
+        expect(storage.ensureManagedWebStorageCurrentSync()).toBe(false);
+        expect(modernRead).not.toHaveBeenCalled();
+    });
+
     it('does not recreate a transaction fallback after factory-reset deletion starts', async () => {
         const registry = await import('../../src/reader/app/managed-state-registry');
         const storage = await import('../../src/reader/app/storage');
@@ -223,7 +243,7 @@ describe('managed storage epoch boundary', () => {
         await expect(storage.gmStorageGet(SETTINGS_KEY, null)).resolves.toEqual({ theme: 'shared-light' });
         expect(values.get(EPOCH_KEY)).toEqual(sharedEpoch);
         expect(setValue).not.toHaveBeenCalledWith(EPOCH_KEY, expect.anything());
-        expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(sharedEpoch);
+        expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(localEpoch);
     });
 
     it('does not promote an unprovenanced hosted mirror after reset', async () => {
@@ -273,7 +293,6 @@ describe('managed storage epoch boundary', () => {
         vi.stubGlobal('GM_removeValueChangeListener', vi.fn());
         const storage = await import('../../src/reader/app/storage');
         await storage.gmStorageSet(SETTINGS_KEY, { theme: 'fresh-light' });
-
         let resolveNotification!: (value: unknown) => void;
         const notification = new Promise<unknown>(resolve => { resolveNotification = resolve; });
         const unsubscribe = storage.subscribeToStoredValueChanges(SETTINGS_KEY, resolveNotification);
@@ -299,6 +318,8 @@ describe('managed storage epoch boundary', () => {
         });
         const storage = await import('../../src/reader/app/storage');
         await storage.gmStorageSet(SETTINGS_KEY, { theme: 'fresh-light' });
+        const { writeLocalManagedValueOrThrow } = await import('../../src/reader/app/local-mirror-provenance');
+        writeLocalManagedValueOrThrow(SETTINGS_KEY, { theme: 'fresh-light' }, currentEpoch);
         const localMirror = localStorage.getItem(SETTINGS_KEY);
         const provenance = localStorage.getItem('yomu:local-storage-provenance:v1');
         expect(localMirror).not.toBeNull();
@@ -340,7 +361,7 @@ describe('managed storage epoch boundary', () => {
         expect(storage.localFallbackStoredValue(SETTINGS_KEY, null)).toBeNull();
     });
 
-    it('purges old local bytes before a hosted mirror write can fail', async () => {
+    it('preserves standalone bytes when an installed write has a different reset epoch', async () => {
         vi.stubGlobal('location', {
             href: 'https://yomureader.com/newtab/',
             origin: 'https://yomureader.com',
@@ -365,11 +386,11 @@ describe('managed storage epoch boundary', () => {
         await expect(rebootedStorage.gmStorageSet(SETTINGS_KEY, { theme: 'current-light' })).resolves.toBeUndefined();
         setItem.mockRestore();
 
-        expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
-        expect(localStorage.getItem('yomu:local-storage-provenance:v1')).toBeNull();
+        expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ theme: 'legacy-dark' });
+        expect(localStorage.getItem('yomu:local-storage-provenance:v1')).not.toBeNull();
     });
 
-    it('promotes a matching post-reset hosted edit after an explicit save boundary', async () => {
+    it('keeps a standalone post-reset edit separate when installed storage returns', async () => {
         const values = new Map<string, unknown>([[EPOCH_KEY, epoch(1, 'factory-reset')]]);
         installGmStore(values);
         vi.stubGlobal('location', {
@@ -385,19 +406,20 @@ describe('managed storage epoch boundary', () => {
         vi.stubGlobal('GM_setValue', undefined);
         vi.stubGlobal('GM_deleteValue', undefined);
         vi.stubGlobal('GM_listValues', undefined);
-        const baseline = { theme: 'light', lookupOnHover: true };
-        await storage.gmStorageGet(SETTINGS_KEY, baseline);
+        installFreshManagedStateEpochSessionForTests();
+        vi.resetModules();
         expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
-        storage.cacheManagedValueForHostedStartupIfAbsent(SETTINGS_KEY, baseline);
-        await storage.gmStorageSet(SETTINGS_KEY, { ...baseline, theme: 'dark' });
+        const settings = await import('../../src/reader/settings');
+        await settings.saveSettings({ ...settings.DEFAULT_SETTINGS, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
+        const standalone = localStorage.getItem(SETTINGS_KEY);
 
         installGmStore(values);
-        await expect(storage.gmStorageGet(SETTINGS_KEY, baseline)).resolves.toEqual({ theme: 'dark' });
-        expect(values.get(slotKey(SETTINGS_KEY, epoch(1, 'factory-reset')))).toMatchObject({
-            __yomuManagedStateEnvelope: 1,
-            epoch: '1:factory-reset',
-            value: { theme: 'dark' },
-        });
+        installFreshManagedStateEpochSessionForTests();
+        vi.resetModules();
+        const installedSettings = await import('../../src/reader/settings');
+        await expect(installedSettings.loadSettings()).resolves.toMatchObject({ theme: settings.DEFAULT_SETTINGS.theme });
+        expect(values.has(slotKey(SETTINGS_KEY, epoch(1, 'factory-reset')))).toBe(false);
+        expect(localStorage.getItem(SETTINGS_KEY)).toBe(standalone);
     });
 
     it('keeps raw reset controls out of backups and ordinary reset deletion', async () => {

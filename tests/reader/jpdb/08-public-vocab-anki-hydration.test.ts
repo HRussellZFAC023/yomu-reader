@@ -42,10 +42,8 @@ registerReaderHelpersCleanup();
 describe('reader helpers', () => {
     it('uses public JPDB search identity for Jiten-backed cards when a JPDB key is present', async () => {
         const lookup = vi.fn(async () => ({
-            meanings: ['JPDB public meaning'],
-            compounds: [],
-            usedInVocabulary: [],
-            examples: [],
+            info: { meanings: ['JPDB public meaning'], compounds: [], usedInVocabulary: [], examples: [] },
+            status: 'complete' as const,
         }));
         const enabledLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
@@ -66,10 +64,8 @@ describe('reader helpers', () => {
         expect(lookup).toHaveBeenCalledWith(0, '復習', 'ふくしゅう');
 
         const disabledLookup = vi.fn(async () => ({
-            meanings: ['hidden'],
-            compounds: [],
-            usedInVocabulary: [],
-            examples: [],
+            info: { meanings: ['hidden'], compounds: [], usedInVocabulary: [], examples: [] },
+            status: 'complete' as const,
         }));
         const disabledLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
@@ -220,7 +216,7 @@ describe('reader helpers', () => {
         vi.useFakeTimers();
         try {
             const never = new Promise<never>(() => undefined);
-            const lookup = vi.fn(async () => ({ meanings: ['video'], compounds: [], examples: [] }));
+            const lookup = vi.fn(async () => ({ info: { meanings: ['video'], compounds: [], examples: [] }, status: 'complete' as const }));
             const findExistingCards = vi.fn(() => never);
             const settings = {
                 ...DEFAULT_SETTINGS,
@@ -459,7 +455,7 @@ describe('reader helpers', () => {
                 lookupTermMeta: vi.fn(async () => []),
             } as unknown as YomitanDictionaryStore,
             jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
-            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })) } as unknown as JpdbVocabularyClient,
             anki: {
                 findCachedStatusBatch,
                 findExistingCards,
@@ -736,7 +732,7 @@ describe('reader helpers', () => {
     });
 
     it('loads public JPDB vocabulary details for local cards without a JPDB key', async () => {
-        const lookup = vi.fn(async () => ({ meanings: ['to read'], compounds: [], examples: [] }));
+        const lookup = vi.fn(async () => ({ info: { meanings: ['to read'], compounds: [], examples: [] }, status: 'complete' as const }));
         const settings = cardDetailLoaderSettings({
             apiKey: '',
             showPitchAccent: false,
@@ -770,7 +766,7 @@ describe('reader helpers', () => {
     });
 
     it('loads both Jiten and public JPDB details when only a Jiten key is configured', async () => {
-        const lookup = vi.fn(async () => ({ meanings: ['JPDB page definition'], compounds: [], examples: [] }));
+        const lookup = vi.fn(async () => ({ info: { meanings: ['JPDB page definition'], compounds: [], examples: [] }, status: 'complete' as const }));
         const lookupVocabularyInfoForCard = vi.fn(async () => ({
             wordId: 42,
             mainReading: { text: '読む', readingIndex: 2, frequencyRank: 500, usedInMediaAmount: null },

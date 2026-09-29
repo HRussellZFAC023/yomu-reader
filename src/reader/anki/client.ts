@@ -1606,7 +1606,10 @@ export class AnkiConnectClient {
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
         const ease = ankiEaseFromGrade(grade);
         log.info('Answering Anki card', { cardId, grade, ease });
-        await this.invoke<null>('answerCards', { answers: [{ cardId, ease }] });
+        const accepted = await this.invoke<unknown>('answerCards', { answers: [{ cardId, ease }] });
+        if (!Array.isArray(accepted) || accepted.length !== 1 || accepted[0] !== true) {
+            throw new Error(this.text('ankiConnectActionFailed'));
+        }
         this.lookupCache.clear();
         this.statusLookupCache.clear();
         this.markStatusIndexDirtyAfterMutation('review');
@@ -1804,10 +1807,6 @@ export class AnkiConnectClient {
             return note;
         }
         const fieldNames = await this.invokeOrDefault<string[]>('modelFieldNames', { modelName: note.modelName }, []);
-        if (shouldTreatExistingModelAsYomuManaged(note.modelName, settings, fieldNames)) {
-            await this.updateExistingModel(note.modelName, settings);
-            return note;
-        }
         return retargetAnkiNoteToExistingModel(note, fieldNames, settings);
     }
 

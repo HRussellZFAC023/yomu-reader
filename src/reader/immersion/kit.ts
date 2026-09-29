@@ -150,20 +150,31 @@ export interface ImmersionKitSearchOptions {
     signal?: AbortSignal;
 }
 
+/** Complete may be genuinely empty; partial is usable but briefly cached. Transport failures reject. */
+export interface ImmersionSearchResult {
+    examples: ImmersionKitExample[];
+    status: 'complete' | 'partial';
+}
+
 export class ImmersionKitClient {
-    private cache = new Map<string, ImmersionKitExample[]>();
-    private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
+    private cache = new Map<string, { result: ImmersionSearchResult; expiresAt: number }>();
+    private inflight = new Map<string, Promise<ImmersionSearchResult>>();
     private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
     private immersionKitRateLimitedUntil = 0;
     private immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
 
     async search(term: string, settings: ReaderSettings, options: ImmersionKitSearchOptions = {}): Promise<ImmersionKitExample[]> {
+        return (await this.searchResult(term, settings, options)).examples;
+    }
+
+    async searchResult(term: string, settings: ReaderSettings, options: ImmersionKitSearchOptions = {}): Promise<ImmersionSearchResult> {
         const query = term.trim();
-        if (!canSearchImmersionExamples(query, settings)) return [];
+        if (!canSearchImmersionExamples(query, settings)) return { examples: [], status: 'complete' };
 
         const cacheKey = this.searchCacheKey(query, settings, options);
         const cached = this.cache.get(cacheKey);
-        if (cached) return cached;
+        if (cached && cached.expiresAt > Date.now()) return cached.result;
+        this.cache.delete(cacheKey);
         const cacheInflight = !options.signal;
         const inflight = this.inflight.get(cacheKey);
         if (inflight) {
@@ -179,10 +190,10 @@ export class ImmersionKitClient {
 
         const done = log.time('search', { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
         const promise = this.searchEnabledSources(query, settings, options)
-            .then(examples => {
-                const result = applySearchExampleLimit(examples, settings, options);
+            .then(outcome => {
+                const result = { ...outcome, examples: applySearchExampleLimit(outcome.examples, settings, options) };
                 if (!options.signal?.aborted) {
-                    this.cache.set(cacheKey, result);
+                    this.cache.set(cacheKey, { result, expiresAt: Date.now() + (result.status === 'partial' ? 1_000 : result.examples.length ? 300_000 : 10_000) });
                     pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
                 }
                 return result;
@@ -195,17 +206,21 @@ export class ImmersionKitClient {
         return promise;
     }
 
-    private async searchEnabledSources(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
+    private async searchEnabledSources(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionSearchResult> {
         const sources = enabledImmersionExampleSources(settings);
         if (settings.immersionKitExampleSource === 'combined' && options.fastFirst && sources.length > 1) {
             return this.searchCombinedFastFirst(query, settings, options, sources);
         }
-        const resultSets = await Promise.all(sources.map(source =>
-            this.searchSource(source, query, settings, options),
-        ));
-        return settings.immersionKitExampleSource === 'combined'
+        const settled = await Promise.allSettled(sources.map(source => this.searchSource(source, query, settings, options)));
+        const resultSets = settled.map(result => result.status === 'fulfilled' ? result.value : []);
+        const failed = settled.find(result => result.status === 'rejected');
+        const aborted = settled.find(result => result.status === 'rejected' && isAbortError(result.reason));
+        if (aborted?.status === 'rejected') throw aborted.reason;
+        if (failed?.status === 'rejected' && !resultSets.some(result => result.length)) throw failed.reason;
+        const result = settings.immersionKitExampleSource === 'combined'
             ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings))
             : resultSets.flat();
+        return { examples: result, status: failed ? 'partial' : 'complete' };
     }
 
     private searchCombinedFastFirst(
@@ -213,27 +228,37 @@ export class ImmersionKitClient {
         settings: ReaderSettings,
         options: ImmersionKitSearchOptions,
         sources: Array<'immersion-kit' | 'nadeshiko'>,
-    ): Promise<ImmersionKitExample[]> {
+    ): Promise<ImmersionSearchResult> {
         let pending = sources.length;
         const emptyResults: ImmersionKitExample[][] = [];
+        let failure: unknown;
         return new Promise((resolve, reject) => {
             sources.forEach(source => {
                 void this.searchSource(source, query, settings, options)
                     .then(examples => {
                         if (examples.length) {
-                            resolve(examples);
+                            // The other source may still fail or provide more results.
+                            resolve({ examples, status: 'partial' });
                             return;
                         }
                         emptyResults.push(examples);
                         pending -= 1;
-                        if (pending === 0) resolve(emptyResults.flat());
+                        if (pending === 0) {
+                            if (failure) reject(failure);
+                            else resolve({ examples: emptyResults.flat(), status: 'complete' });
+                        }
                     })
-                    .catch(reject);
+                    .catch(error => {
+                        if (isAbortError(error)) { reject(error); return; }
+                        failure = error;
+                        pending -= 1;
+                        if (pending === 0) reject(error);
+                    });
             });
         });
     }
 
-    private searchSource(
+    private async searchSource(
         source: 'immersion-kit' | 'nadeshiko',
         query: string,
         settings: ReaderSettings,
@@ -243,12 +268,12 @@ export class ImmersionKitClient {
             ? this.searchNadeshiko(query, settings, options).catch(error => {
                 if (isAbortError(error)) throw error;
                 log.warn('Nadeshiko examples failed', { query }, error);
-                return [];
+                throw error;
             })
             : this.searchImmersionKit(query, settings, options).catch(error => {
                 if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
                 log.warn('Immersion Kit examples failed', { query }, error);
-                return [];
+                throw error;
             });
     }
 
@@ -309,6 +334,7 @@ export class ImmersionKitClient {
             query,
             source: settings.immersionKitExampleSource,
             nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
+            proxy: sensitiveFingerprint(settings.corsProxyUrl),
             limit: searchRequestLimit(options),
             userLimit: searchResultLimit(settings, options),
             min: this.minimumSentenceLength(settings),

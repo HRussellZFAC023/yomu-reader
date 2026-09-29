@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RETIRED_SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/settings-authority-storage-keys';
 
 const { requestJson, requestText } = vi.hoisted(() => ({
     requestJson: vi.fn(),
@@ -79,6 +80,7 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
     });
 
     afterEach(() => {
+        vi.restoreAllMocks();
         vi.unstubAllGlobals();
         localStorage.clear();
         window.name = '';
@@ -97,7 +99,7 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         localStorage.setItem('yomu:srs-local:v1', JSON.stringify({ version: 1, cards: { local: { expression: '読む' } } }));
         mockEmptyDriveUpload('file-1', '2026-06-25T00:00:00Z');
         const mod = await loadModule();
-        const meta = await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
+        const meta = await mod.uploadCloudSettingsToCloud({ theme: 'dark', apiKey: 'backup-credential', newTabEnabled: false, uchisenEnabled: true } as never);
 
         expect(meta.fileId).toBe('file-1');
         const create = createdUploadRequest();
@@ -106,7 +108,10 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         expect(create.allowDirectCrossOrigin).toBe(true);
         expect(String(create.data)).toContain('appDataFolder');
         expect(String(create.data)).toContain('"theme":"dark"');
+        expect(String(create.data)).toContain('"apiKey":"backup-credential"');
         expect(String(create.data)).toContain('"yomu:srs-local:v1"');
+        expect(String(create.data)).not.toContain('"newTabEnabled"');
+        expect(String(create.data)).not.toContain('"uchisenEnabled"');
     });
 
     it('navigates the current tab to the hosted OAuth broker from userscript contexts', async () => {
@@ -213,24 +218,63 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         requestText.mockResolvedValue(JSON.stringify({
             formatName: 'yomu-google-drive-settings-sync',
             formatVersion: 1,
-            syncedAt: 's',
-            settings: { theme: 'dark' },
+            syncedAt: '2026-06-25T00:00:00.000Z',
+            settings: { theme: 'dark', apiKey: 'backup-credential' },
+            storage: { 'yomu:srs-local:v1': { version: 1, cards: {} } },
         }));
         const mod = await loadModule();
         const snapshot = await mod.downloadCloudSettingsFromCloud();
-        expect(snapshot?.settings).toEqual({ theme: 'dark' });
+        expect(snapshot?.settings).toEqual({ theme: 'dark', apiKey: 'backup-credential' });
+        expect(snapshot?.storage).toEqual({ 'yomu:srs-local:v1': { version: 1, cards: {} } });
     });
 
     it('returns null when no settings file exists', async () => {
         requestJson.mockResolvedValue({ files: [] });
         const mod = await loadModule();
         expect(await mod.downloadCloudSettingsFromCloud()).toBeNull();
+        expect(requestText).not.toHaveBeenCalled();
     });
 
-    it('rejects a snapshot with the wrong format marker', async () => {
+    it.each<[string, Record<string, unknown>]>([
+        ['wrong format', { formatName: 'not-yomu' }],
+        ['old version', { formatVersion: 0 }],
+        ['missing version', { formatVersion: undefined }],
+        ['future version', { formatVersion: 2 }],
+        ['string version', { formatVersion: '1' }],
+        ['array settings', { settings: [] }],
+        ['null settings', { settings: null }],
+        ['missing settings', { settings: undefined }],
+        ['array storage', { storage: [] }],
+        ['null storage', { storage: null }],
+        ['invalid time', { syncedAt: 'secret-do-not-echo' }],
+        ...RETIRED_SETTINGS_STORAGE_KEYS.map<[string, Record<string, unknown>]>(key => [key, { storage: { [key]: null } }]),
+    ])('rejects %s from the Drive media response without writing', async (_label, overrides) => {
         requestJson.mockResolvedValue({ files: [{ id: 'file-1' }] });
-        requestText.mockResolvedValue(JSON.stringify({ formatName: 'not-yomu', settings: {} }));
+        requestText.mockResolvedValue(JSON.stringify({
+            formatName: 'yomu-google-drive-settings-sync', formatVersion: 1,
+            syncedAt: '2026-06-25T00:00:00.000Z', settings: { apiKey: 'secret-do-not-echo' }, ...overrides,
+        }));
         const mod = await loadModule();
-        expect(await mod.downloadCloudSettingsFromCloud()).toBeNull();
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        const remove = vi.spyOn(Storage.prototype, 'removeItem');
+        const clear = vi.spyOn(Storage.prototype, 'clear');
+        const error = await mod.downloadCloudSettingsFromCloud().catch(error => error);
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message).toMatch(/backup/);
+        expect(error.message).not.toContain('secret-do-not-echo');
+        expect(error.yomuUiCopyKey).toMatch(/^settingsImport(UnsupportedFormat|Incomplete)$/);
+        expect(requestJson).toHaveBeenCalledTimes(1);
+        expect(requestText).toHaveBeenCalledTimes(1);
+        for (const [, options] of [...requestJson.mock.calls, ...requestText.mock.calls]) expect(options.method).toBe('GET');
+        expect(write).not.toHaveBeenCalled();
+        expect(remove).not.toHaveBeenCalled();
+        expect(clear).not.toHaveBeenCalled();
+    });
+
+    it.each(['{ "apiKey": "secret-do-not-echo"', 'null', '[]'])('rejects malformed media %s with a secret-free error', async body => {
+        requestJson.mockResolvedValue({ files: [{ id: 'file-1' }] });
+        requestText.mockResolvedValue(body);
+        const mod = await loadModule();
+        await expect(mod.downloadCloudSettingsFromCloud()).rejects.toThrow('This settings backup format is not supported.');
     });
 });

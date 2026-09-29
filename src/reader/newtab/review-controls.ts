@@ -1,6 +1,7 @@
 import { el } from '../dom/builder';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
-import type { JPDBGrade } from '../app/types';
+import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
+import { reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import type { NewTabReviewTarget } from './review-targets';
 import { newTabAction, newTabActionSelector } from './actions';
 import {
@@ -27,6 +28,7 @@ export interface NewTabMainGradeTargetOption {
     label: string;
     shortLabel: string;
     ankiCardId?: number;
+    gradeProfile?: ReviewGradeProfile;
 }
 
 export interface NewTabReviewSourceSummary {
@@ -53,6 +55,10 @@ interface NewTabGradeTargetLabels {
 }
 
 interface RenderNewTabGradeControlsOptions {
+    reviewGroup?: symbol;
+    card?: JPDBCard;
+    settings?: ReaderSettings;
+    gradeProfile?: ReviewGradeProfile;
     apiShortLabel: string;
     bothLabel: string;
     grades: Array<[JPDBGrade, string]>;
@@ -64,6 +70,13 @@ interface RenderNewTabGradeControlsOptions {
     summary: NewTabReviewSourceSummary;
     targetLabel: string;
     targetOptions: NewTabMainGradeTargetOption[];
+}
+
+const gradeControlContexts = new WeakMap<Element, RenderNewTabGradeControlsOptions>();
+const gradeCards = new WeakMap<Element, JPDBCard>();
+
+export function reviewCardForGradeButton(button: Element | null): JPDBCard | undefined {
+    return button ? gradeCards.get(button) : undefined;
 }
 
 export function summarizeNewTabReviewSources(targets: NewTabReviewTarget[]): NewTabReviewSourceSummary {
@@ -108,9 +121,8 @@ export function newTabMainGradeTargetOptions(
     bothLabel: string,
 ): NewTabMainGradeTargetOption[] {
     const hasApi = targets.some(target => target.kind !== 'anki');
-    const ankiTargets = targets.filter(target => target.kind === 'anki' && target.ankiCardId);
     const options = targets.map(newTabMainGradeTargetOptionFromLookupTarget);
-    if (hasApi && ankiTargets.length) {
+    if (hasApi && targets.length > 1) {
         return [
             {
                 id: 'both',
@@ -121,14 +133,37 @@ export function newTabMainGradeTargetOptions(
             ...options,
         ];
     }
-    return ankiTargets.length > 1 ? options.filter(option => option.kind === 'anki') : [];
+    return options.length > 1 ? options : [];
 }
 
 export function renderNewTabGradeControlButtons(options: RenderNewTabGradeControlsOptions): HTMLElement[] {
+    options = { ...options, card: options.card ? { ...options.card } : undefined, reviewGroup: options.targetOptions.length > 1 ? Symbol('review-group') : undefined };
+    const target = renderNewTabGradeTargetControl(options);
+    const select = target.querySelector('select');
+    if (select && options.reviewGroup) {
+        gradeControlContexts.set(select, options);
+        bindPrivateCommandCapability(select, { kind: 'review-selector', reviewGroup: options.reviewGroup });
+        for (const option of select.options) {
+            const command = readReviewTargetCapability(option);
+            if (command) bindPrivateCommandCapability(option, { ...command, reviewGroup: options.reviewGroup });
+        }
+    }
     return [
-        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade], options.showShortcutHints !== false)),
-        renderNewTabGradeTargetControl(options),
+        ...renderGradeButtons(options),
+        target,
     ];
+}
+
+function renderGradeButtons(options: RenderNewTabGradeControlsOptions): HTMLElement[] {
+    const scale = options.settings ? reviewGradeScale(options.settings, options.gradeProfile) : undefined;
+    return (scale?.grades ?? options.grades).map(([grade, label]) => {
+        const shortcut = scale?.shortcuts.find(([, value]) => value === grade)?.[0];
+        const button = renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade],
+            shortcut ? options.settings!.shortcuts[shortcut] : options.keyHints?.[grade], options.showShortcutHints !== false);
+        bindPrivateCommandCapability(button, { kind: 'card-action', action: 'grade', grade, gradeProfile: options.gradeProfile, gradeShortcut: shortcut, reviewGroup: options.reviewGroup });
+        if (options.card) gradeCards.set(button, { ...options.card });
+        return button;
+    });
 }
 
 export function selectedNewTabMainGradeTarget(root: HTMLElement): NewTabLookupReviewTargetSelection | undefined {
@@ -149,7 +184,25 @@ function newTabLookupReviewTargetSelection(target: NonNullable<ReturnType<typeof
 }
 
 export function updateNewTabMainGradeTargetLabel(root: HTMLElement, option: HTMLOptionElement | null, bothLabel: string): void {
+    const select = option?.parentElement;
+    const context = select && gradeControlContexts.get(select);
     const selection = readReviewTargetCapability(option);
+    if (context?.settings && selection) {
+        const previous = [...root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade'))];
+        const next = renderGradeButtons({ ...context, gradeProfile: selection.gradeProfile, targetLabel: selection.label,
+            intervals: selection.gradeProfile === context.gradeProfile && selection.target !== 'anki' ? context.intervals : undefined,
+        });
+        if (previous[0]) {
+            previous[0].before(...next);
+            previous.forEach(button => button.remove());
+            const controls = next[0]?.parentElement;
+            if (controls) {
+                controls.dataset.newtabGradeScale = next.length === 2 ? 'pass-fail' : 'standard';
+                controls.dataset.newtabGradeCount = String(next.length);
+                controls.dataset.newtabControlCount = String(next.length + 1);
+            }
+        }
+    }
     if (!selection) return;
     const label = selection.label;
     const shortLabel = selection.shortLabel || bothLabel;
@@ -236,7 +289,7 @@ function privateReviewTargetOption(option: NewTabMainGradeTargetOption, index: n
     bindPrivateCommandCapability(element, {
         kind: 'review-target',
         target: option.kind,
-        gradeProfile: 'standard',
+        gradeProfile: option.gradeProfile ?? 'standard',
         label: option.label,
         shortLabel: option.shortLabel,
         ankiCardId: option.ankiCardId,

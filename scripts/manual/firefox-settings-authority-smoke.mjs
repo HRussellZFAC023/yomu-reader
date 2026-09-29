@@ -7,7 +7,7 @@
  * runner. The copy gets observation-only content scripts plus a storage-fault
  * wrapper; the original XPI/unpacked package is hashed and never modified.
  *
- * Automated phases prove namespace migration and bidirectional live transport.
+ * Automated phases check raw-data isolation, current authority, and live transport.
  * The remaining phases deliberately require trusted Firefox UI interaction so
  * a synthetic click cannot turn the acceptance run green.
  */
@@ -58,9 +58,9 @@ const LIVE_WRITE_KEY = 'firefox-settings-authority-smoke.live-write-issued';
 const REQUESTED_PANEL_KEY = 'firefox-settings-authority-smoke.requested-panel';
 const LAUNCHER_PROOF_KEY = 'firefox-settings-authority-smoke.launcher-proof';
 const REQUIRED_AUTOMATED_EVENTS = Object.freeze([
-    'migration-raw-only',
-    'migration-prefixed-only',
-    'migration-divergent',
+    'authority-raw-only',
+    'authority-prefixed-only',
+    'authority-divergent',
     'reader-ready',
     'study-write-issued',
     'reader-observed-study-write',
@@ -213,7 +213,7 @@ try {
             'trusted Save proof observes the exact button activation and durable outcome, never DOM submit trust',
             'content probe uses the compiler background channel and observes real Reader DOM',
             'one-shot GM_setValue rejection is armed only by the exact trusted failure-phase Save',
-            'temporary tabs permission opens the deterministic ordinary-page fixture after migration sweeps',
+            'temporary tabs permission opens the deterministic ordinary-page fixture after authority checks',
         ],
     };
     const reportJson = `${JSON.stringify(report, null, 2)}\n`;
@@ -581,10 +581,10 @@ function injectedScript(config, entrypoint, helpers) {
 }
 
 function scenarioSeeds(prefix) {
-    const rawChosen = safeSettings('dark', 47, 'v1.9.2-raw-only');
-    const canonicalChosen = safeSettings('light', 31, 'v1.9.2-canonical');
+    const rawChosen = safeSettings('dark', 47, 'legacy-raw-only');
+    const canonicalChosen = { ...safeSettings('light', 31, 'current-canonical'), __yomuSettingsPersistenceCommitV1: 'current-fixture' };
     const rawIntent = safeIntent('dark', 47, 2);
-    const canonicalIntent = safeIntent('light', 31, 4);
+    const canonicalIntent = { ...safeIntent('light', 31, 4), __yomuSettingsPersistenceCommitV1: 'current-fixture' };
     return {
         'raw-only': {
             [SETTINGS_KEY]: rawChosen,
@@ -599,16 +599,16 @@ function scenarioSeeds(prefix) {
             [UNRELATED_KEY]: UNRELATED_VALUE,
         },
         divergent: {
-            [SETTINGS_KEY]: { ...rawChosen, firefoxSettingsAuthoritySmokeSentinel: 'v1.9.2-divergent-raw' },
+            [SETTINGS_KEY]: { ...rawChosen, firefoxSettingsAuthoritySmokeSentinel: 'legacy-divergent-raw' },
             [INTENT_KEY]: rawIntent,
             [PRIVATE_KEY]: `${PRIVATE_VALUE}-divergent-raw`,
-            [`${prefix}${SETTINGS_KEY}`]: { ...canonicalChosen, firefoxSettingsAuthoritySmokeSentinel: 'v1.9.2-divergent-canonical' },
+            [`${prefix}${SETTINGS_KEY}`]: { ...canonicalChosen, firefoxSettingsAuthoritySmokeSentinel: 'current-divergent-canonical' },
             [`${prefix}${INTENT_KEY}`]: canonicalIntent,
             [`${prefix}${PRIVATE_KEY}`]: `${PRIVATE_VALUE}-divergent-canonical`,
             [UNRELATED_KEY]: UNRELATED_VALUE,
         },
         live: {
-            [SETTINGS_KEY]: { ...rawChosen, firefoxSettingsAuthoritySmokeSentinel: 'v1.9.2-live-raw-retained' },
+            [SETTINGS_KEY]: { ...rawChosen, firefoxSettingsAuthoritySmokeSentinel: 'legacy-live-raw-retained' },
             [INTENT_KEY]: rawIntent,
             [PRIVATE_KEY]: `${PRIVATE_VALUE}-live-raw`,
             [`${prefix}${SETTINGS_KEY}`]: { ...canonicalChosen, firefoxSettingsAuthoritySmokeSentinel: 'live-baseline' },
@@ -778,6 +778,8 @@ function normalizeProbeEvent(value, storagePrefix) {
         failureToastObserved: optionalBoolean(value.failureToastObserved),
         durableUnchanged: optionalBoolean(value.durableUnchanged),
         authorityPairValid: optionalBoolean(value.authorityPairValid),
+        authorityAbsent: optionalBoolean(value.authorityAbsent),
+        onboardingVisible: optionalBoolean(value.onboardingVisible),
         trusted: optionalBoolean(value.trusted),
         exactSave: optionalBoolean(value.exactSave),
         attemptId: optionalAttemptId(value.attemptId),
@@ -788,11 +790,11 @@ function normalizeProbeEvent(value, storagePrefix) {
         launcherActionPresent: optionalBoolean(value.launcherActionPresent),
         panel: optionalEnum(value.panel, ['appearance']),
         sentinel: optionalEnum(value.sentinel, [
-            'v1.9.2-raw-only',
-            'v1.9.2-canonical',
-            'v1.9.2-divergent-raw',
-            'v1.9.2-divergent-canonical',
-            'v1.9.2-live-raw-retained',
+            'legacy-raw-only',
+            'current-canonical',
+            'legacy-divergent-raw',
+            'current-divergent-canonical',
+            'legacy-live-raw-retained',
             'live-baseline',
             'study-live-write',
             'reader-live-write',
@@ -929,9 +931,9 @@ function automatedPhasesComplete() {
 
 function automatedEventPredicate(type) {
     const predicates = {
-        'migration-raw-only': successfulMigrationEvent,
-        'migration-prefixed-only': successfulMigrationEvent,
-        'migration-divergent': successfulMigrationEvent,
+        'authority-raw-only': successfulAuthorityEvent,
+        'authority-prefixed-only': successfulAuthorityEvent,
+        'authority-divergent': successfulAuthorityEvent,
         'study-write-issued': successfulStudyWriteEvent,
         'reader-observed-study-write': successfulReaderObservedStudyWriteEvent,
         'reader-write-issued': successfulReaderWriteIssuedEvent,
@@ -1150,10 +1152,12 @@ function successfulProbeEvent(event) {
     return event.ok === true;
 }
 
-function successfulMigrationEvent(event) {
+function successfulAuthorityEvent(event) {
     return event.surface === 'study'
         && event.ok === true
-        && event.authorityPairValid === true;
+        && (event.scenario === 'raw-only'
+            ? event.authorityAbsent === true && event.onboardingVisible === true
+            : event.authorityPairValid === true);
 }
 
 function successfulStudyWriteEvent(event) {
@@ -1486,18 +1490,19 @@ function studyObserverHelpers() {
         studyRelevantKey,
         studyScenario,
         waitForStudyBoot,
-        completeMigrationScenario,
-        waitForMigrationScenarioProof,
-        migrationScenarioProof,
-        migrationPhysicalObservation,
-        migrationKeyPresence,
-        migrationScenarioMatches,
-        migrationAuthorityMatches,
-        migrationAuthorityPlan,
-        rawMigrationMatches,
-        prefixedMigrationMatches,
-        divergentMigrationMatches,
-        advanceMigrationScenario,
+        initialSetupVisible,
+        completeAuthorityScenario,
+        waitForAuthorityScenarioProof,
+        authorityScenarioProof,
+        authorityPhysicalObservation,
+        authorityKeyPresence,
+        authorityScenarioMatches,
+        scenarioAuthorityMatches,
+        scenarioAuthorityPlan,
+        rawOnlyAuthorityMatches,
+        prefixedAuthorityMatches,
+        divergentAuthorityMatches,
+        advanceAuthorityScenario,
         installStudyStorageObserver,
         handleStudyStorageChange,
         reportStudyReaderWrite,
@@ -1872,7 +1877,7 @@ function authorityCommitWitness(settings, intent, field) {
     const settingsHasCommit = Object.hasOwn(settings, field);
     const intentHasCommit = Object.hasOwn(intent, field);
     if (settingsHasCommit !== intentHasCommit) return false;
-    if (!settingsHasCommit) return true;
+    if (!settingsHasCommit) return false;
     const settingsCommit = settings[field];
     const intentCommit = intent[field];
     return [
@@ -2114,7 +2119,7 @@ async function studyObserver(config) {
     const context = createStudyProbeContext(config);
     const scenario = studyScenario(config);
     await waitForStudyBoot(context, scenario);
-    if (await completeMigrationScenario(context, scenario)) return;
+    if (await completeAuthorityScenario(context, scenario)) return;
     installStudyStorageObserver(context);
     await installStudyFormObserver(context);
     await openReaderArticleOnce(context);
@@ -2172,7 +2177,8 @@ function studyScenario(config) {
 
 async function waitForStudyBoot(context, scenario) {
     await browserWaitFor(() => document.body.childElementCount > 0);
-    await browserWaitFor(async () => (await studyCanonicalSummary(context.config)).theme);
+    if (scenario === 'raw-only') await browserWaitFor(initialSetupVisible);
+    else await browserWaitFor(async () => (await studyCanonicalSummary(context.config)).theme);
     const current = await studyCanonicalSummary(context.config);
     await context.post({
         type: 'surface-boot',
@@ -2183,12 +2189,17 @@ async function waitForStudyBoot(context, scenario) {
     return current;
 }
 
-async function completeMigrationScenario(context, scenario) {
+function initialSetupVisible() {
+    const setup = document.querySelector('.jpdb-reader-onboarding');
+    return Boolean(setup && setup.getClientRects().length && getComputedStyle(setup).visibility !== 'hidden');
+}
+
+async function completeAuthorityScenario(context, scenario) {
     if (scenario === 'live') return false;
-    const proof = await waitForMigrationScenarioProof(context, scenario);
+    const proof = await waitForAuthorityScenarioProof(context, scenario);
     if (!proof) {
         await context.post({
-            type: `migration-${scenario}`,
+            type: `authority-${scenario}`,
             scenario,
             ok: false,
             keyNames: await context.relevantKeyNames(),
@@ -2196,43 +2207,45 @@ async function completeMigrationScenario(context, scenario) {
         return true;
     }
     await context.post({
-        type: `migration-${scenario}`,
+        type: `authority-${scenario}`,
         scenario,
         ok: true,
-        authorityPairValid: true,
+        authorityPairValid: scenario !== 'raw-only',
+        authorityAbsent: scenario === 'raw-only',
+        onboardingVisible: scenario === 'raw-only' && initialSetupVisible(),
         ...proof.current,
         keyNames: proof.keyNames,
     });
-    await advanceMigrationScenario(context.config, scenario);
+    await advanceAuthorityScenario(context.config, scenario);
     return true;
 }
 
-function waitForMigrationScenarioProof(context, scenario, timeout = 10_000) {
+function waitForAuthorityScenarioProof(context, scenario, timeout = 10_000) {
     return browserWaitFor(async () => {
-        const before = await migrationScenarioProof(context, scenario);
+        const before = await authorityScenarioProof(context, scenario);
         if (!before) return null;
         await new Promise(resolve => setTimeout(resolve, 500));
-        return migrationScenarioProof(context, scenario);
+        return authorityScenarioProof(context, scenario);
     }, timeout);
 }
 
-async function migrationScenarioProof(context, scenario) {
+async function authorityScenarioProof(context, scenario) {
     const { config } = context;
     const values = await browser.storage.local.get(null);
-    const observation = migrationPhysicalObservation(values, config);
-    if (!observation) return null;
-    const current = settingsSummary(observation.settings);
+    const observation = authorityPhysicalObservation(values, config);
+    if (!observation && scenario !== 'raw-only') return null;
+    const current = settingsSummary(observation?.settings);
     const keyNames = Object.keys(values).filter(key => studyRelevantKey(key, config)).sort();
-    const presence = migrationKeyPresence(keyNames, config);
+    const presence = authorityKeyPresence(keyNames, config);
     const valid = [
-        migrationScenarioMatches(scenario, current, presence),
-        migrationAuthorityMatches(scenario, values, config),
-        darkThemeClass(current.theme),
+        authorityScenarioMatches(scenario, current, presence),
+        scenarioAuthorityMatches(scenario, values, config),
+        scenario === 'raw-only' ? initialSetupVisible() : darkThemeClass(current.theme),
     ].every(Boolean);
     return valid ? { current, keyNames } : null;
 }
 
-function migrationPhysicalObservation(values, config) {
+function authorityPhysicalObservation(values, config) {
     const settingsKey = `${config.storagePrefix}${config.settingsKey}`;
     const intentKey = `${config.storagePrefix}${config.intentKey}`;
     if (![Object.hasOwn(values, settingsKey), Object.hasOwn(values, intentKey)].every(Boolean)) return null;
@@ -2240,7 +2253,7 @@ function migrationPhysicalObservation(values, config) {
     return pair ? { settings: pair.settings, intent: pair.intent } : null;
 }
 
-function migrationKeyPresence(keys, config) {
+function authorityKeyPresence(keys, config) {
     return {
         rawSettings: keys.includes(config.settingsKey),
         rawIntent: keys.includes(config.intentKey),
@@ -2249,20 +2262,20 @@ function migrationKeyPresence(keys, config) {
     };
 }
 
-function migrationScenarioMatches(scenario, current, presence) {
+function authorityScenarioMatches(scenario, current, presence) {
     const evaluators = {
-        'raw-only': rawMigrationMatches,
-        'prefixed-only': prefixedMigrationMatches,
-        divergent: divergentMigrationMatches,
+        'raw-only': rawOnlyAuthorityMatches,
+        'prefixed-only': prefixedAuthorityMatches,
+        divergent: divergentAuthorityMatches,
     };
     return evaluators[scenario](current, presence);
 }
 
-function migrationAuthorityMatches(scenario, values, config) {
-    const plan = migrationAuthorityPlan(scenario, config);
+function scenarioAuthorityMatches(scenario, values, config) {
+    const plan = scenarioAuthorityPlan(scenario, config);
     const actualNames = Object.keys(values).filter(key => studySettingsAuthorityKey(key, config)).sort();
     if (!probeValuesMatch(actualNames, plan.expectedNames)) return false;
-    const canonicalMatches = physicalAuthorityPairMatches(
+    const canonicalMatches = !plan.canonicalRequired || physicalAuthorityPairMatches(
         values,
         plan.canonicalSettingsKey,
         plan.canonicalIntentKey,
@@ -2270,21 +2283,17 @@ function migrationAuthorityMatches(scenario, values, config) {
         plan.canonicalIntent,
     );
     if (!canonicalMatches) return false;
-    return plan.rawRequired ? physicalAuthorityPairMatches(
-        values,
-        plan.rawSettingsKey,
-        plan.rawIntentKey,
-        plan.rawSettings,
-        plan.rawIntent,
-    ) : true;
+    return !plan.rawRequired || (probeValuesMatch(values[plan.rawSettingsKey], plan.rawSettings)
+        && probeValuesMatch(values[plan.rawIntentKey], plan.rawIntent));
 }
 
-function migrationAuthorityPlan(scenario, config) {
+function scenarioAuthorityPlan(scenario, config) {
     const rawSettingsKey = config.settingsKey;
     const rawIntentKey = config.intentKey;
     const canonicalSettingsKey = `${config.storagePrefix}${config.settingsKey}`;
     const canonicalIntentKey = `${config.storagePrefix}${config.intentKey}`;
     const rawRequired = scenario !== 'prefixed-only';
+    const canonicalRequired = scenario !== 'raw-only';
     const canonicalSeed = config.scenarios[scenario];
     const rawSeed = config.scenarios[scenario];
     const canonicalSourceKeys = {
@@ -2292,10 +2301,11 @@ function migrationAuthorityPlan(scenario, config) {
         'prefixed-only': [canonicalSettingsKey, canonicalIntentKey],
         divergent: [canonicalSettingsKey, canonicalIntentKey],
     }[scenario];
-    const expectedNames = [canonicalSettingsKey, canonicalIntentKey];
+    const expectedNames = canonicalRequired ? [canonicalSettingsKey, canonicalIntentKey] : [];
     if (rawRequired) expectedNames.push(rawSettingsKey, rawIntentKey);
     return {
         rawRequired,
+        canonicalRequired,
         rawSettingsKey,
         rawIntentKey,
         rawSettings: rawSeed[rawSettingsKey],
@@ -2308,27 +2318,27 @@ function migrationAuthorityPlan(scenario, config) {
     };
 }
 
-function rawMigrationMatches(current, presence) {
+function rawOnlyAuthorityMatches(current, presence) {
     const { rawSettings, rawIntent, canonicalSettings, canonicalIntent } = presence;
-    // Namespace contract: rawSettings && rawIntent && canonicalSettings && canonicalIntent
+    // Unprefixed records must not become canonical authority.
     return [
-        current.theme === 'dark',
-        current.subtitleFontSize === 47,
-        current.sentinel === 'v1.9.2-raw-only',
+        current.theme === undefined,
+        current.subtitleFontSize === undefined,
+        current.sentinel === undefined,
         rawSettings,
         rawIntent,
-        canonicalSettings,
-        canonicalIntent,
+        !canonicalSettings,
+        !canonicalIntent,
     ].every(Boolean);
 }
 
-function prefixedMigrationMatches(current, presence) {
+function prefixedAuthorityMatches(current, presence) {
     const { rawSettings, rawIntent, canonicalSettings, canonicalIntent } = presence;
     // Namespace contract: !rawSettings && !rawIntent && canonicalSettings && canonicalIntent
     return [
         current.theme === 'light',
         current.subtitleFontSize === 31,
-        current.sentinel === 'v1.9.2-canonical',
+        current.sentinel === 'current-canonical',
         !rawSettings,
         !rawIntent,
         canonicalSettings,
@@ -2336,12 +2346,12 @@ function prefixedMigrationMatches(current, presence) {
     ].every(Boolean);
 }
 
-function divergentMigrationMatches(current, presence) {
+function divergentAuthorityMatches(current, presence) {
     const { rawSettings, rawIntent, canonicalSettings, canonicalIntent } = presence;
     return [
         current.theme === 'light',
         current.subtitleFontSize === 31,
-        current.sentinel === 'v1.9.2-divergent-canonical',
+        current.sentinel === 'current-divergent-canonical',
         rawSettings,
         rawIntent,
         canonicalSettings,
@@ -2349,7 +2359,7 @@ function divergentMigrationMatches(current, presence) {
     ].every(Boolean);
 }
 
-async function advanceMigrationScenario(config, scenario) {
+async function advanceAuthorityScenario(config, scenario) {
     const nextScenarios = { 'raw-only': 'prefixed-only', 'prefixed-only': 'divergent', divergent: 'live' };
     const nextScenario = nextScenarios[scenario];
     sessionStorage.setItem(config.scenarioKey, nextScenario);
@@ -2483,7 +2493,7 @@ function requestedStudyPanelProof(proof) {
 
 function studyFormState(form) {
     const save = formSaveButton(form);
-    const importButton = form.querySelector('[data-action="import-yomitan-settings"]');
+    const importButton = form.querySelector('[data-action="import-reader-settings"]');
     return {
         saveDisabled: buttonDisabled(save),
         importDisabled: buttonDisabled(importButton),
@@ -2600,6 +2610,7 @@ async function readerSurfaceReady(config) {
 }
 
 async function writeStudyLiveSettings(config) {
+    const commit = crypto.randomUUID();
     const current = await globalThis.GM_getValue(config.settingsKey, {});
     const currentSettings = settingsAuthorityObject(
         current,
@@ -2610,8 +2621,9 @@ async function writeStudyLiveSettings(config) {
         theme: 'dark',
         subtitleFontSize: 37,
         firefoxSettingsAuthoritySmokeSentinel: 'study-live-write',
+        __yomuSettingsPersistenceCommitV1: commit,
     };
-    const intent = config.studyLiveIntent;
+    const intent = { ...config.studyLiveIntent, __yomuSettingsPersistenceCommitV1: commit };
     await globalThis.GM_setValue(config.intentKey, intent);
     await globalThis.GM_setValue(config.settingsKey, settings);
     return { settings, intent };
@@ -2933,6 +2945,7 @@ function shouldIssueReaderWrite(context, next) {
 
 async function issueReaderWrite(context, observedSettings) {
     const { config } = context;
+    const commit = crypto.randomUUID();
     const observedStudyState = requireProbeResult(await waitForExpectedCanonicalAuthoritySurface(
         context,
         observedSettings,
@@ -2957,8 +2970,9 @@ async function issueReaderWrite(context, observedSettings) {
         theme: 'light',
         subtitleFontSize: 39,
         firefoxSettingsAuthoritySmokeSentinel: 'reader-live-write',
+        __yomuSettingsPersistenceCommitV1: commit,
     };
-    const intent = config.readerLiveIntent;
+    const intent = { ...config.readerLiveIntent, __yomuSettingsPersistenceCommitV1: commit };
     await compilerMessage('GM_setValue', {
         name: config.intentKey,
         value: intent,

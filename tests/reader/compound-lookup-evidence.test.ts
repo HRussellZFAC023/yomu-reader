@@ -82,7 +82,7 @@ describe('exact compound evidence', () => {
                 lookupTermMeta: vi.fn(async () => []),
             } as never,
             jpdbPublicPitch: { lookup: publicPitch } as never,
-            jpdbVocabulary: { lookup: vi.fn(async () => null) } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })) } as never,
             anki: { findExistingCards: vi.fn(), deckNames: vi.fn() } as never,
             jpdb: { listDecks: vi.fn() } as never,
             jiten: { lookupVocabularyInfoForCard: vi.fn(async () => jitenCompoundInfo()) } as never,

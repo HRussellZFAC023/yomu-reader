@@ -738,13 +738,13 @@
             <!-- Site navigation, stamped from src/reader/app/site-nav.ts by
                  scripts/sync-docs-userscript.cjs. Edit the list there. -->
             <!-- yomu:site-nav:start -->
-            <a href="../learn/" data-site-nav-item data-nav-ja="学習の道筋">Learning path</a>
-            <a href="../learn/reference#apps" data-site-nav-item data-nav-ja="アプリ">Apps</a>
+            <a href="../library/" data-site-nav-item data-nav-ja="読む">Read</a>
+            <a href="../video-player/" target="_self" data-site-nav-item data-nav-ja="観る">Watch</a>
             <a href="../study/" target="_self" data-site-nav-item data-nav-ja="学習">Study</a>
+            <a href="../learn/" data-site-nav-item data-nav-ja="学習の道筋">Learning path</a>
             <a href="../academy/" target="_self" data-site-nav-item data-nav-ja="アカデミー">Academy</a>
+            <a href="../learn/reference#apps" data-site-nav-item data-nav-ja="アプリ">Apps</a>
             <a href="../support" data-site-nav-item data-nav-ja="ヘルプ">Help</a>
-            <a href="../membership" target="_self" data-site-nav-item data-nav-ja="メンバーシップ">Membership</a>
-            <a href="../video-player/" target="_self" data-site-nav-item data-nav-ja="動画プレイヤー">Video Player</a>
             <a href="../pdf-reader/" target="_self" data-site-nav-item data-nav-ja="PDFリーダー">PDF Reader</a>
             <a href="../study/?mode=stats" target="_self" data-site-nav-item data-nav-ja="統計">Stats</a>
             <a href="../api/" target="_self" data-site-nav-item data-nav-ja="API">API</a>
@@ -753,6 +753,7 @@
             <a href="../faq" data-site-nav-item data-nav-ja="よくある質問">FAQ</a>
             <a href="../changelog" data-site-nav-item data-nav-ja="変更履歴">Changelog</a>
             <a href="../privacy" data-site-nav-item data-nav-ja="プライバシー">Privacy</a>
+            <a href="../membership" target="_self" data-site-nav-item data-nav-ja="メンバーシップ">Membership</a>
             <!-- yomu:site-nav:end -->
             <hr class="overflow-divider">
             <a href="https://github.com/HRussellZFAC023/yomu-reader" target="_blank" rel="noopener" data-menu-github>GitHub</a>
@@ -836,7 +837,7 @@
     const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
     const runtimeCompanionFiles = [
       // yomu:runtime-companions:start
-      'greasyfork/yomu-runtime.7279d3e2af02.user.js',
+      'greasyfork/yomu-runtime.b58b46be9ffe.user.js',
       // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
@@ -989,12 +990,8 @@
         themeToggle.title = label;
       }
     }
-    function saveThemePreference(theme) {
-      const settings = readSettings();
-      stampNeutralHostedTarget(settings);
-      settings.theme = theme;
-      localStorage.setItem(settingsKey, JSON.stringify(settings));
-      localStorage.setItem(themeKey, theme);
+    async function saveThemePreference(theme) {
+      if (!await saveAppearanceChoice("theme", theme)) return;
       window.dispatchEvent(new CustomEvent(settingsChangeEvent, { detail: { settings: { theme } } }));
       applyTheme(theme);
       applyAccent();
@@ -1055,17 +1052,35 @@
     }
 
     /* ---- interface language ---- */
-    function saveInterfaceLanguage(language) {
-      const settings = readSettings();
-      stampNeutralHostedTarget(settings);
-      settings.interfaceLanguage = language;
-      localStorage.setItem(settingsKey, JSON.stringify(settings));
+    async function saveInterfaceLanguage(language) {
+      if (!await saveAppearanceChoice("interfaceLanguage", language)) return;
       window.dispatchEvent(new CustomEvent(languageEvent, { detail: { language } }));
       applyInterfaceLanguage(language);
     }
-    function stampNeutralHostedTarget(settings) {
-      if (!Object.prototype.hasOwnProperty.call(settings, 'learningTargetChosen') && Object.keys(settings).length === 0) {
-        settings.learningTargetChosen = false;
+    let appearanceModule;
+    function loadAppearanceModule() {
+      appearanceModule ||= import("../hosted-appearance-settings.js").catch(error => {
+        appearanceModule = undefined;
+        throw error;
+      });
+      return appearanceModule;
+    }
+    async function saveAppearanceChoice(key, value) {
+      if (themeToggle?.disabled || languageToggle?.disabled) return false;
+      if (themeToggle) themeToggle.disabled = true;
+      if (languageToggle) languageToggle.disabled = true;
+      try {
+        const { saveHostedAppearance } = await loadAppearanceModule();
+        await saveHostedAppearance({ key, value });
+        return true;
+      } catch {
+        setStatus(effectiveInterfaceLanguage() === "ja"
+          ? "設定を保存できませんでした。再試行してください。"
+          : "Settings could not be saved. Please retry.");
+        return false;
+      } finally {
+        if (themeToggle) themeToggle.disabled = false;
+        if (languageToggle) languageToggle.disabled = false;
       }
     }
     function effectiveInterfaceLanguage() {

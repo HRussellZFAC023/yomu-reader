@@ -180,14 +180,14 @@ describe('Anki sentence-audio field role', () => {
             expect(twice.mappings).toEqual(once.mappings);
         });
 
-        it('migrates a saved payload once and then respects a deliberate re-point', () => {
+        it('preserves current audio roles without guessing from field names', () => {
             const migrated = normalizeReaderSettings({
                 ankiFieldMappings: { Lapis: { audio: 'SentenceAudio' } },
             });
-            expect(migrated.ankiFieldMappings.Lapis).toEqual({ sentenceAudio: 'SentenceAudio' });
-            expect(migrated.ankiSentenceAudioMappingMigrated).toBe(true);
+            expect(migrated.ankiFieldMappings.Lapis).toEqual({ audio: 'SentenceAudio' });
+            expect(migrated).not.toHaveProperty('ankiSentenceAudioMappingMigrated');
 
-            // Marker set: a later deliberate choice in the mapping editor sticks.
+            // Repeated normalization preserves the same explicit mapping.
             const repointed = normalizeReaderSettings({
                 ...migrated,
                 ankiFieldMappings: { Lapis: { audio: 'SentenceAudio' } },
@@ -195,8 +195,8 @@ describe('Anki sentence-audio field role', () => {
             expect(repointed.ankiFieldMappings.Lapis).toEqual({ audio: 'SentenceAudio' });
         });
 
-        it('marks fresh installs as already migrated', () => {
-            expect(normalizeReaderSettings(null).ankiSentenceAudioMappingMigrated).toBe(true);
+        it('does not include retired migration markers in fresh settings', () => {
+            expect(normalizeReaderSettings(null)).not.toHaveProperty('ankiSentenceAudioMappingMigrated');
         });
     });
 });

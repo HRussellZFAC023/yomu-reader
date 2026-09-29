@@ -1,5 +1,6 @@
 import { isYomuStorageBridgeHostedUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
+import { detectInstalledReaderRuntime } from '../app/runtime-presence';
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
@@ -33,6 +34,7 @@ const GM_STORAGE_OPS: ReadonlySet<string> = new Set<GmStorageOp>([
 
 interface StorageBridgeRequestDetail {
     id: string;
+    ownerId?: string;
     op: GmStorageOp;
     target?: GmStorageTarget;
     key?: string;
@@ -65,23 +67,30 @@ type GmListValues = () => string[] | Promise<string[]>;
 const BRIDGE_REQUEST_EVENT = 'yomu-userscript-storage-request';
 const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-storage-response';
 const BRIDGE_MARKER = 'yomuUserscriptStorageBridge';
+const BRIDGE_OWNER = 'yomuStorageBridgeOwner';
+const BRIDGE_KIND = 'yomuStorageBridgeKind';
 const EXTENSION_STORAGE_BRIDGE_MARKER = 'yomuExtensionStorageBridge';
 const EXTENSION_STORAGE_TARGET: GmStorageTarget = 'extension-storage';
 const BRIDGE_TIMEOUT_MS = 10000;
 let bridgeRequestListenerCleanup: (() => void) | undefined;
+let bridgeOwnerId: string | undefined;
+let clientOwnerId: string | undefined;
 let extensionStorageBridgeAdvertisedByThisRealm = false;
 
 export function getUserscriptGmStorage(): UserscriptGmStorage | undefined {
-    if (!storageBridgeClientReady()) return undefined;
+    if (!storageBridgeClientReady() && !clientOwnerId) return undefined;
+    clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
+    const ownerId = clientOwnerId;
+    const request = (detail: Omit<StorageBridgeRequestDetail, 'id' | 'ownerId'>) => storageBridgeRequest(detail, ownerId);
     return {
-        getValue: <T>(key: string, fallback: T) => storageBridgeRequest({ op: 'get', key })
+        getValue: <T>(key: string, fallback: T) => request({ op: 'get', key })
             .then(detail => (detail.found ? detail.value as T : fallback)),
-        setValue: (key, value) => storageBridgeRequest({ op: 'set', key, value }).then(() => undefined),
-        deleteValue: key => storageBridgeRequest({ op: 'delete', key }).then(() => undefined),
-        listValues: () => storageBridgeRequest({ op: 'list' }).then(detail => detail.keys ?? []),
-        clearPrivateManagedValues: () => storageBridgeRequest({ op: 'clear-private-managed' }).then(() => undefined),
+        setValue: (key, value) => request({ op: 'set', key, value }).then(() => undefined),
+        deleteValue: key => request({ op: 'delete', key }).then(() => undefined),
+        listValues: () => request({ op: 'list' }).then(detail => detail.keys ?? []),
+        clearPrivateManagedValues: () => request({ op: 'clear-private-managed' }).then(() => undefined),
         clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised()
-            ? storageBridgeRequest({
+            ? request({
                 op: 'clear-legacy-extension-managed',
                 target: EXTENSION_STORAGE_TARGET,
             }).then(() => undefined)
@@ -98,19 +107,33 @@ function storageBridgeClientReady(): boolean {
 export function installUserscriptGmStorageBridge(): void {
     const installation = userscriptStorageBridgeInstallation();
     if (!installation) return;
+    const kind = detectInstalledReaderRuntime() === 'extension' ? 'extension' : 'userscript';
+    const existingOwner = installation.markerDataset[BRIDGE_OWNER];
+    if (existingOwner && existingOwner !== bridgeOwnerId
+        && (kind !== 'extension' || installation.markerDataset[BRIDGE_KIND] === 'extension')) return;
     advertiseExtensionStorageBridge(installation.markerDataset);
     if (hasInstalledUserscriptStorageBridge(installation.markerDataset)) {
         dispatchStorageBridgeReady();
         return;
     }
     bridgeRequestListenerCleanup?.();
+    const ownerId = `yomu-storage-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    bridgeOwnerId = ownerId;
+    installation.markerDataset[BRIDGE_OWNER] = ownerId;
+    installation.markerDataset[BRIDGE_KIND] = kind;
     installation.markerDataset[BRIDGE_MARKER] = 'true';
+    const assertActive = (): void => {
+        if (bridgeOwnerId !== ownerId || bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+            throw new Error('Storage bridge authority changed during the request.');
+        }
+    };
     const handledRequestIds = new Set<string>();
     bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = storageBridgeRequestDetail(event);
-        if (!detail || !storageBridgeResponderAccepts(detail) || handledRequestIds.has(detail.id)) return;
+        if (!detail || detail.ownerId !== ownerId || bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId
+            || !storageBridgeResponderAccepts(detail) || handledRequestIds.has(detail.id)) return;
         rememberBridgeRequestId(handledRequestIds, detail.id);
-        void handleStorageBridgeRequest(detail, installation.accessors);
+        void handleStorageBridgeRequest(detail, installation.accessors, assertActive);
     });
     dispatchStorageBridgeReady();
 }
@@ -158,8 +181,10 @@ export function uninstallUserscriptGmStorageBridge(): void {
     bridgeRequestListenerCleanup?.();
     bridgeRequestListenerCleanup = undefined;
     const markerDataset = bridgeMarkerDataset();
-    if (markerDataset) {
+    if (markerDataset && markerDataset[BRIDGE_OWNER] === bridgeOwnerId) {
         delete markerDataset[BRIDGE_MARKER];
+        delete markerDataset[BRIDGE_OWNER];
+        delete markerDataset[BRIDGE_KIND];
         // In a mixed extension + userscript-manager install, each isolated
         // world owns a separate module instance but shares this DOM marker.
         // A userscript-only teardown must not erase the extension authority.
@@ -168,13 +193,15 @@ export function uninstallUserscriptGmStorageBridge(): void {
         }
     }
     extensionStorageBridgeAdvertisedByThisRealm = false;
+    bridgeOwnerId = undefined;
+    clientOwnerId = undefined;
 }
 
-async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, accessors: GmStorageAccessors): Promise<void> {
+async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, accessors: GmStorageAccessors, assertActive: () => void): Promise<void> {
     const send = (response: Omit<StorageBridgeResponseDetail, 'id'>) =>
         dispatchBridgeEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, ...response });
     try {
-        send(await storageBridgeOperationResponse(detail, accessors));
+        send(await storageBridgeOperationResponse(detail, accessors, assertActive));
     } catch (error) {
         send({ ok: false, found: false, message: error instanceof Error ? error.message : String(error) });
     }
@@ -183,9 +210,11 @@ async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, ac
 async function storageBridgeOperationResponse(
     detail: StorageBridgeRequestDetail,
     accessors: GmStorageAccessors,
+    assertActive: () => void,
 ): Promise<Omit<StorageBridgeResponseDetail, 'id'>> {
-    const maintenanceResponse = await storageBridgeMaintenanceResponse(detail.op, accessors);
+    const maintenanceResponse = await storageBridgeMaintenanceResponse(detail.op, accessors, assertActive);
     if (maintenanceResponse) return maintenanceResponse;
+    assertActive();
     if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
         // Only proxy Yomu-owned keys; never let the page read/write arbitrary GM storage.
         return { ok: false, found: false, message: 'Unmanaged storage key.' };
@@ -196,31 +225,35 @@ async function storageBridgeOperationResponse(
 async function storageBridgeMaintenanceResponse(
     op: GmStorageOp,
     accessors: GmStorageAccessors,
+    assertActive: () => void,
 ): Promise<Omit<StorageBridgeResponseDetail, 'id'> | undefined> {
     if (op === 'list') {
         return { ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) };
     }
     if (op === 'clear-private-managed') {
-        await clearPrivateManagedStorage(accessors);
+        await clearPrivateManagedStorage(accessors, assertActive);
         return { ok: true };
     }
     if (op === 'clear-legacy-extension-managed') {
-        await clearLegacyExtensionStorageFromAuthoritativeResponder();
+        await clearLegacyExtensionStorageFromAuthoritativeResponder(assertActive);
         return { ok: true };
     }
     return undefined;
 }
 
-async function clearLegacyExtensionStorageFromAuthoritativeResponder(): Promise<void> {
+async function clearLegacyExtensionStorageFromAuthoritativeResponder(assertActive: () => void): Promise<void> {
     if (!legacyExtensionManagedStorageAvailable()) {
         throw new Error('Extension storage authority is unavailable.');
     }
-    await clearLegacyExtensionManagedStorage();
+    await clearLegacyExtensionManagedStorage(globalThis, assertActive);
 }
 
-async function clearPrivateManagedStorage(accessors: GmStorageAccessors): Promise<void> {
+async function clearPrivateManagedStorage(accessors: GmStorageAccessors, assertActive: () => void): Promise<void> {
     const privateKeys = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
-    for (const key of privateKeys) await accessors.deleteValue(key);
+    for (const key of privateKeys) {
+        assertActive();
+        await accessors.deleteValue(key);
+    }
     const remaining = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
     if (remaining.length) throw new Error('Private managed storage could not be cleared.');
 }
@@ -250,11 +283,19 @@ async function readStorageBridgeResponse(
         : { ok: true, found: true, value };
 }
 
-function storageBridgeRequest(request: Omit<StorageBridgeRequestDetail, 'id'>): Promise<StorageBridgeResponseDetail> {
+function storageBridgeRequest(request: Omit<StorageBridgeRequestDetail, 'id' | 'ownerId'>, ownerId: string | undefined): Promise<StorageBridgeResponseDetail> {
     return new Promise((resolve, reject) => {
+        if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
+            reject(new Error('Storage bridge authority changed; reload to reconnect.'));
+            return;
+        }
         const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
         const timeout = window.setTimeout(() => {
             cleanup();
+            if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+                reject(new Error('Storage bridge authority changed during the request.'));
+                return;
+            }
             reject(new Error('Storage bridge request timed out.'));
         }, BRIDGE_TIMEOUT_MS);
         let cleanupResponseListener = noop;
@@ -266,11 +307,15 @@ function storageBridgeRequest(request: Omit<StorageBridgeRequestDetail, 'id'>): 
             const detail = storageBridgeResponseDetail(event);
             if (!detail || detail.id !== id) return;
             cleanup();
+            if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
+                reject(new Error('Storage bridge authority changed during the request.'));
+                return;
+            }
             if (detail.ok) resolve(detail);
             else reject(new Error(detail.message || 'Storage bridge request failed.'));
         };
         cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-        dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ...request });
+        dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId, ...request });
     });
 }
 
@@ -301,9 +346,9 @@ function gmStorageAccessors(): GmStorageAccessors | null {
 }
 
 function directGmGetValue(): GmGetValue | null {
-    if (typeof GM_getValue === 'function') return GM_getValue as GmGetValue;
     const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    return typeof GM_getValue === 'function' ? GM_getValue as GmGetValue : null;
 }
 
 function directGmSetValue(): GmSetValue | null {
@@ -319,11 +364,12 @@ function directGmDeleteValue(): GmDeleteValue | null {
 }
 
 function directGmListValues(): GmListValues | null {
+    const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
     if (typeof GM_listValues === 'function') return GM_listValues as GmListValues;
     const direct = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
     if (typeof direct === 'function') return direct;
-    const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    return null;
 }
 
 function shouldInstallUserscriptStorageBridge(): boolean {
@@ -370,6 +416,7 @@ function storageBridgeRequestDetail(event: Event): StorageBridgeRequestDetail | 
     if (!validStorageBridgeTarget(record.target, target)) return undefined;
     return {
         id: record.id,
+        ownerId: typeof record.ownerId === 'string' ? record.ownerId : undefined,
         op: record.op,
         target,
         key: storageBridgeRequestKey(record.key),

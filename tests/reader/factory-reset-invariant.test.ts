@@ -139,10 +139,13 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
             ...seededKeysForKind(['local']),
             ...DYNAMIC_DISCOVERY_KEYS,
         ];
-        for (const key of localSeed) localStorage.setItem(key, JSON.stringify({ sentinel: true }));
-        for (const key of seededKeysForKind(['session'])) {
+        for (const key of localSeed.filter(key => !key.startsWith('yomu:web-owner:v2:'))) localStorage.setItem(key, JSON.stringify({ sentinel: true }));
+        for (const key of seededKeysForKind(['session']).filter(key => !key.startsWith('yomu:web-owner:v2:'))) {
             sessionStorage.setItem(key, JSON.stringify({ sentinel: true }));
         }
+        const installedKey = 'yomu:web-owner:v2:extension:yomu-ocr-cache-v2';
+        localStorage.setItem(installedKey, 'installed-data');
+        sessionStorage.setItem(installedKey, 'installed-session');
         localStorage.setItem('foreign-site-token', 'keep-me');
 
         await clearManagedStoredValues();
@@ -152,8 +155,10 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
             const key = localStorage.key(i);
             if (key) remainingLocal.push(key);
         }
-        expect(remainingLocal).toEqual(['foreign-site-token']);
-        expect(sessionStorage.length).toBe(0);
+        expect(remainingLocal.sort()).toEqual([installedKey, 'foreign-site-token'].sort());
+        expect(localStorage.getItem(installedKey)).toBe('installed-data');
+        expect(sessionStorage.length).toBe(1);
+        expect(sessionStorage.getItem(installedKey)).toBe('installed-session');
     });
 
     it('refuses a partial GM reset when listValues is unavailable', async () => {
@@ -206,7 +211,7 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         ]);
     });
 
-    it('clears the managed IndexedDB databases', async () => {
+    it('clears standalone IndexedDB databases without deleting installed databases', async () => {
         const deleted: string[] = [];
         vi.stubGlobal('indexedDB', {
             deleteDatabase: vi.fn((name: string) => {
@@ -220,7 +225,11 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         await clearManagedStoredValues();
 
         for (const name of registeredManagedIndexedDbNames()) {
-            expect(deleted).toContain(name);
+            if (name.endsWith('-userscript-v2') || name.endsWith('-extension-v2')) {
+                expect(deleted).not.toContain(name);
+            } else {
+                expect(deleted).toContain(name);
+            }
         }
     });
 

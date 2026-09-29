@@ -67,7 +67,7 @@ function bunproLoader(
             lookupTermMeta: vi.fn(async () => []),
         },
         jpdbPublicPitch: { lookup: vi.fn(publicPitch) },
-        jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => []) },
+        jpdbVocabulary: { lookup: vi.fn(async () => ({ info: null, status: 'complete' as const })), search: vi.fn(async () => ({ cards: [], status: 'complete' as const })) },
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() },
         jpdb: { listDecks: vi.fn() },
         bunpro: {

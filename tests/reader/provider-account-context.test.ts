@@ -191,8 +191,8 @@ describe('provider-specific review completion boundary', () => {
 
 describe('Jiten daily stats account boundary', () => {
     it('keeps same-day counters separate by credential and persists no raw credential', () => {
-        const morning = new Date('2026-08-10T08:00:00Z');
-        const evening = new Date('2026-08-10T18:00:00Z');
+        const morning = new Date(2026, 7, 10, 8);
+        const evening = new Date(2026, 7, 10, 18);
         const day = jitenStatsDateKey(morning);
         const accountA = 'jiten-account-a-secret';
         const accountB = 'jiten-account-b-secret';

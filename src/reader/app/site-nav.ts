@@ -58,14 +58,9 @@ export interface NavRoute {
 export const APPS_NAV_LABEL = 'Apps';
 
 export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
-    { text: 'Learning path', ja: '学習の道筋', link: '/learn/' },
-    { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
+    { text: 'Read', ja: '読む', link: '/library/' },
+    { text: 'Watch', ja: '観る', link: '/video-player/', target: '_self' },
     { text: 'Study', ja: '学習', link: '/study/', target: '_self' },
-    { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
-    // 'Help' rather than 'Support'. 'Support' answered two different questions at
-    // once — "get help with Yomu" and "give money to Yomu" — and a visitor could
-    // not tell which one the nav meant. Money now lives under MEMBERSHIP_NAV.
-    { text: 'Help', ja: 'ヘルプ', link: '/support' },
 ]);
 
 /**
@@ -73,7 +68,10 @@ export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
  * simply are not daily: tools you open occasionally, reference, and policy.
  */
 export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
-    { text: 'Video Player', ja: '動画プレイヤー', link: '/video-player/', target: '_self' },
+    { text: 'Learning path', ja: '学習の道筋', link: '/learn/' },
+    { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
+    { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
+    { text: 'Help', ja: 'ヘルプ', link: '/support' },
     { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', target: '_self' },
     { text: 'Stats', ja: '統計', link: '/study/?mode=stats', target: '_self' },
     { text: 'API', ja: 'API', link: '/api/', target: '_self' },
@@ -112,15 +110,14 @@ export const OVERFLOW_LABEL = Object.freeze({ text: 'More', ja: 'その他' });
 
 /** Every site route, in the order every surface shows them. */
 export function siteNavRoutes(): readonly NavRoute[] {
-    return [...PRIMARY_NAV, MEMBERSHIP_NAV, ...OVERFLOW_NAV];
+    return [...PRIMARY_NAV, ...OVERFLOW_NAV, MEMBERSHIP_NAV];
 }
 
 /** The docs nav: primary entries, then Membership, then one 'More' dropdown. */
 export function docsNav(): unknown[] {
     return [
         ...PRIMARY_NAV.map(route => docsEntry(route)),
-        docsEntry(MEMBERSHIP_NAV),
-        { text: OVERFLOW_LABEL.text, items: OVERFLOW_NAV.map(route => docsEntry(route)) },
+        { text: OVERFLOW_LABEL.text, items: [...OVERFLOW_NAV, MEMBERSHIP_NAV].map(route => docsEntry(route)) },
     ];
 }
 

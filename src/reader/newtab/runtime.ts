@@ -1,4 +1,6 @@
 import { subscribeToCardStateSignals } from '../app/card-state-signal';
+import { mountEmbeddedStudyRuntime } from './embedded-study-lifecycle';
+import { installLookupGradeShortcuts } from '../dom/review-shortcuts';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki';
 import { newTabAnkiClient } from '../anki/new-tab';
@@ -87,6 +89,7 @@ import {
     privateCommandAttributes,
     dispatchPrivateCommand,
     readCardCommandCapability,
+    privateReviewGradeAllowed,
     type CardCommandCapability,
 } from '../dom/private-command-capabilities';
 import { trustedReaderEventHandler } from '../ui/trusted-interaction';
@@ -110,7 +113,7 @@ import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProvi
 import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
-    loadSettingsWithWitnessedAuthority,
+    loadSettings,
     NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shouldLookupAnkiStatus,
@@ -246,9 +249,7 @@ export function bootNewTabRuntime(): void { void startNewTabRuntime().catch(erro
 
 export async function startNewTabRuntime(options: NewTabRuntimeStartupOptions = {}): Promise<void> {
     await ensureExtensionStudySettingsAuthority({
-        reportFailure: failure => log.warn('Packaged Study settings recovery failed', {
-            rawChosenSettingsDetected: failure.rawChosenSettingsDetected,
-        }),
+        reportFailure: () => log.warn('Packaged Study settings could not be read'),
     });
     await (options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent)();
     const app = (options.createRuntime ?? (() => new NewTabRuntime()))();
@@ -286,20 +287,13 @@ export async function mountNewTabStudySurface(
     },
 ): Promise<{ dispose(): void }> {
     await ensureManagedWebStorageCurrent();
-    const runtime = new NewTabRuntime({
+    return mountEmbeddedStudyRuntime(host, new NewTabRuntime({
         mountHost: host,
         pageOwnedLearningTarget: 'ja',
         sessionClock: options.sessionClock,
         interfaceLanguage: options.language,
         sessionVocabulary: options.sessionVocabulary,
-    });
-    await runtime.init();
-    return {
-        dispose() {
-            runtime.destroy();
-            host.replaceChildren();
-        },
-    };
+    }));
 }
 
 export class NewTabRuntime {
@@ -558,7 +552,7 @@ export class NewTabRuntime {
         this.installExternalRefreshListener();
         configureLogger({ settingsProvider: () => this.settings });
         this.factoryReset.bind();
-        this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettingsWithWitnessedAuthority(), this.options.interfaceLanguage);
+        this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettings(), this.options.interfaceLanguage);
         // Hosted Study can start before an installed userscript/extension has
         // exposed its shared storage bridge. Listen before target resolution:
         // onboarding waits below, so installing this only after the first
@@ -1328,7 +1322,7 @@ export class NewTabRuntime {
     }
 
     private renderKanjiLookupActionBar(card: JPDBCard): string {
-        const reviewButtons = this.renderKanjiLookupReviewButtons(card);
+        const reviewButtons = this.renderNewTabLookupReviewButtons(card);
         const hasReviewTargetGutter = reviewButtons.includes('data-review-target-gutter');
         return `
             <div class="jpdb-reader-actions${kanjiLookupActionsClass(hasReviewTargetGutter)}" data-kanji-actions${kanjiLookupReviewAttributes(reviewButtons)}>
@@ -1339,14 +1333,10 @@ export class NewTabRuntime {
         `;
     }
 
-    private renderKanjiLookupReviewButtons(card: JPDBCard): string {
-        return this.renderNewTabLookupReviewButtons(card);
-    }
-
     private renderNewTabLookupReviewButtons(card: JPDBCard, data?: CardRenderData | null): string {
         const grades = this.newTab?.lookupGradeOptions(card) ?? [];
         const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
-        return renderNewTabLookupReviewButtonsHtml(grades, targets);
+        return renderNewTabLookupReviewButtonsHtml(grades, targets, { settings: this.settings, card });
     }
 
     private resetLookupHandlers(): AbortSignal {
@@ -1384,6 +1374,7 @@ export class NewTabRuntime {
 
     private installKanjiLookupHandlers(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string): void {
         const signal = this.resetLookupHandlers();
+        installLookupGradeShortcuts(popover, signal, () => this.activeLookupPopover === popover, () => this.settings, button => this.handleKanjiLookupAction(button, card, kanji, sentence));
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleKanjiLookupPopoverClick(event, popover, card, kanji, sentence)), { signal });
         popover.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handleLookupReviewTargetChange(event, popover)), { signal });
@@ -1711,6 +1702,7 @@ export class NewTabRuntime {
 
     private installLookupPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
         const signal = this.resetLookupHandlers();
+        installLookupGradeShortcuts(popover, signal, () => this.activeLookupPopover === popover, () => this.settings, button => this.handleLookupPopoverAction(button, card, sentence, anchor));
         installLookupOutsideDismiss({
             popover,
             anchor,
@@ -1769,6 +1761,7 @@ export class NewTabRuntime {
     }
 
     private gradeLookupFromButton(button: HTMLButtonElement, command: CardCommandCapability, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
+        if (!privateReviewGradeAllowed(button, command)) return;
         if (command.grade) void this.gradeCurrentCardFromLookup(button, command.grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
     }
 

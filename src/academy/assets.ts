@@ -9,6 +9,9 @@ import {
     ACADEMY_STORY_ART_RUNTIME_ASSETS,
 } from './domain/story-art-manifest';
 import { ACADEMY_LEARNING_ART_RUNTIME_ASSETS } from './domain/learning-art-manifest';
+import { ACADEMY_CAST } from './domain/cast-registry';
+import { createDefaultCastPortraitResolver } from './domain/default-cast-portrait';
+import { existingCastPortraitHomes } from './domain/cast-portrait-placements';
 
 export type AcademyRuntimeAssetKind =
     | 'background'
@@ -297,7 +300,7 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
  * review candidates separate so an attractive card cannot accidentally become
  * a story or lesson likeness approval.
  */
-const ACADEMY_APPROVED_CAST_SPRITES = {
+const DEFAULT_CAST_PORTRAIT_OVERRIDES = {
     aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
     xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuNeutral,
     mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
@@ -307,6 +310,30 @@ const ACADEMY_APPROVED_CAST_SPRITES = {
     sam: ACADEMY_APPROVED_CHARACTER_SPRITES.samNeutral,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
 } as const;
+
+export const defaultCastPortrait = createDefaultCastPortraitResolver(
+    ACADEMY_CAST,
+    Object.entries(ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS).flatMap(([id, asset]) => {
+        const coverage = ACADEMY_CAST_STANDARDIZATION_COVERAGE[id as keyof typeof ACADEMY_CAST_STANDARDIZATION_COVERAGE];
+        return Object.values(asset.files).map(path => ({
+            castId: coverage.castId, path, status: asset.status,
+            presentation: coverage.presentation,
+            homes: [...asset.runtimeHomes, ...existingCastPortraitHomes(id, coverage.castId, path)],
+        }));
+    }),
+    Object.fromEntries(Object.entries(ACADEMY_CAST_STANDARDIZATION_GALLERIES).map(([id, gallery]) =>
+        [id, (gallery as Readonly<Record<string, string>>)['neutral:front-near-front']])),
+    DEFAULT_CAST_PORTRAIT_OVERRIDES,
+);
+
+// Compatibility projection for world defaults. Other uses call the resolver
+// with their own home; Journal's separate preview projection is unchanged.
+const ACADEMY_APPROVED_CAST_SPRITES: Readonly<Partial<Record<string, string>>> = Object.fromEntries(
+    ACADEMY_CAST.flatMap(person => {
+        const path = defaultCastPortrait(person.id, 'world:person');
+        return path ? [[person.id, path]] : [];
+    }),
+);
 
 /** Approved expression and angle coverage that may follow a cast member into VN scenes. */
 const ACADEMY_APPROVED_CAST_PERFORMANCES = {
