@@ -6,7 +6,12 @@
 //   - google-lens   : REAL network call to Google Lens -> overlay with real OCR
 // The GM HTTP bridge handler runs in Node: it mocks the configurable endpoints
 // and performs a real fetch (no CORS) for Google Lens, returning raw bytes.
+// The canvas page is the synthetic BookWalker viewer served at the real viewer
+// host, because that host is what makes a text-free canvas page an automatic
+// image-OCR page (shouldAutoScanImageOcr). Opened from file:// it is a generic
+// canvas with no Japanese DOM text, which only OCRs on a tap.
 import { chromium, devices } from 'playwright';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY, gmRequestFetchBody } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
@@ -14,7 +19,8 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
 const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga']
     .map(name => path.join(DIST, 'greasyfork', `${name}.user.js`));
-const BW_FIXTURE = 'file://' + new URL('./fixtures/bookwalker-viewer.html', import.meta.url).pathname;
+const BW_FIXTURE_HTML = readFileSync(new URL('./fixtures/bookwalker-viewer.html', import.meta.url));
+const BW_VIEWER_URL = 'https://viewer.bookwalker.jp/de_ocr-provider-matrix/';
 const BRIDGE = '__yomuOcrMatrixRequest';
 const LENS_REAL = process.env.LENS_REAL !== '0';
 const HAS_JP = /[぀-ヿ㐀-鿿]/;
@@ -55,7 +61,8 @@ async function runProvider({ label, settings, expectUrl, real }) {
         return { status: 503, responseText: '' };
     });
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings, requestBridgeName: BRIDGE });
-    await page.goto(BW_FIXTURE, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await context.route(BW_VIEWER_URL, route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: BW_FIXTURE_HTML }));
+    await page.goto(BW_VIEWER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
     for (const c of COMPANIONS) await addScriptTagWithCspFallback(page, c).catch(() => {});
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
