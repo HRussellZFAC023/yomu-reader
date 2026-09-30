@@ -793,8 +793,10 @@ async function navigateToAcademyShell(page, { assertPreviewTransport = false } =
     // product-readiness signal. The assertions after navigation own readiness:
     // English waits for its visible cold shell; Japanese waits for the hosted
     // runtime health marker, dependency order, and an annotated word.
+    // app.js is a one-line loader; the readable application bundle it imports
+    // is the entry chunk, so that is the response a Brotli encoder would stall.
     const applicationResponse = assertPreviewTransport
-        ? page.waitForResponse(candidate => new URL(candidate.url()).pathname === '/academy/app.js')
+        ? page.waitForResponse(candidate => /^\/academy\/chunks\/entrypoint-[\w-]+\.js$/.test(new URL(candidate.url()).pathname))
         : null;
     const navigation = page.goto(`${ORIGIN}/academy/`, { waitUntil: 'domcontentloaded' });
     const [response, application] = applicationResponse
