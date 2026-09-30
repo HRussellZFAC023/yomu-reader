@@ -4682,6 +4682,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Study's desktop header keeps \"Stats\" on the same row as the other sections now that \"Practice\" has joined them.": '「練習」が加わった後も、Studyのデスクトップ版ヘッダーで「統計」がほかのセクションと同じ行に表示されるようになりました。',
     "Finishing Study's first-run welcome with \"Use without API key\" or \"Add API key\" opens the Dictionaries or API settings as promised, instead of leaving you on Study without them.": 'Studyの初回案内を「APIキーなしで使う」または「APIキーを追加」で終えると、案内どおりに辞書またはAPIの設定が開くようになりました。以前は設定が開かないままStudyが表示されていました。',
     'On canvas-based manga readers that Yomu does not read automatically (pages with no Japanese text, outside BookWalker), Yomu no longer sends every page to your OCR provider in the background while showing a "Scanning..." pill that never shows text. Tap the page to read it.': 'よむが自動で読まないキャンバス型の漫画リーダー（日本語のテキストがなく、BookWalker以外のページ）で、「スキャン中...」の表示を出したまま文字を表示せずに、すべてのページをOCRサービスへバックグラウンドで送ることがなくなりました。読むときはページをタップしてください。',
+    'Your dictionary order in Sources now sticks. A dictionary you move below Jiten, JPDB or the other built-in sources stays there after a reload, in other tabs and through a Save, and newly imported dictionaries join the end of the list instead of jumping in beside Jiten.': '「ソース」で決めた辞書の順番が保たれるようになりました。Jiten、JPDB、そのほかの内蔵ソースより下に移した辞書は、再読み込みしても、別のタブでも、保存しても、その位置のままです。新しくインポートした辞書は、Jitenの隣に割り込まず、一覧の最後に加わります。',
+    'The lookup popup and Study search now show every definition source in the exact order you set, including when you place Jiten or another built-in source between two of your dictionaries.': '検索ポップアップとStudyの検索は、Jitenなどの内蔵ソースを自分の辞書のあいだに置いた場合も含めて、すべての定義ソースを設定したとおりの順番で表示するようになりました。',
+    "A word you add to review from Study's Library now appears straight away when you go back to Study, without reloading the page.": 'Studyの単語帳から復習に追加した単語が、ページを再読み込みしなくても、Studyに戻るとすぐに表示されるようになりました。',
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
