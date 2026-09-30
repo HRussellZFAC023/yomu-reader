@@ -207,7 +207,7 @@ export function mergeApiCredentialValues(jpdbValue: string, jitenValue: string):
     return { apiKey, jitenApiKey };
 }
 
-export function isJitenApiCredential(value: string): boolean {
+function isJitenApiCredential(value: string): boolean {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
 }
 

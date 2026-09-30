@@ -45,8 +45,20 @@ import type {
     JitenApiClient,
 } from './fixtures';
 import { bindPrivateCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+import type { BatchMiningCardCandidate } from '../../../src/reader/cards/prepared-batch-actions';
+import type { JPDBGrade } from '../../../src/reader/app/types';
 
 registerReaderHelpersCleanup();
+
+/** The subtitle word list's path: prepare the candidates, then execute their plans. */
+function batchMine(
+    controller: ReturnType<typeof testCardActionController>,
+    candidates: BatchMiningCardCandidate[],
+    action: 'collect' | 'review',
+    grade?: JPDBGrade,
+) {
+    return controller.batchMining.execute(controller.batchMining.prepare(candidates).map(plan => plan.token), action, grade);
+}
 
 async function performJitenSentenceAudio(controller: ReturnType<typeof testCardActionController>): Promise<void> {
     await expect(controller.perform({
@@ -258,7 +270,7 @@ describe('reader helpers', () => {
         });
         const candidate = { ...card, source: 'jiten' as const, jitenWordId: 42, jitenReadingIndex: 0 };
 
-        await expect(controller.addBatchMiningCards([{ card: candidate, sentence: '本を読む。' }])).resolves.toMatchObject({ items: [{ state: 'completed', completedStages: ['api-collection'] }] });
+        await expect(batchMine(controller, [{ card: candidate, sentence: '本を読む。' }], 'collect')).resolves.toMatchObject({ items: [{ state: 'completed', completedStages: ['api-collection'] }] });
         expect(addToStudyDeck).toHaveBeenCalledOnce();
         expect(addToStudyDeck).toHaveBeenCalledWith('12', candidate, '本を読む。', document.title);
         expect(reviewCard).not.toHaveBeenCalled();
@@ -282,10 +294,10 @@ describe('reader helpers', () => {
         const notInDeckCard: JPDBCard = { ...card, spelling: '読む', reading: 'よむ', cardState: ['not-in-deck'] };
         const newCard: JPDBCard = { ...card, vid: 2, spelling: '書く', reading: 'かく', cardState: ['new'] };
 
-        await expect(controller.reviewBatchMiningCards([
+        await expect(batchMine(controller, [
             { card: notInDeckCard, sentence: '本を読む。' },
             { card: newCard, sentence: '字を書く。' },
-        ], 'pass')).resolves.toMatchObject({ items: [{ state: 'completed' }, { state: 'completed' }] });
+        ], 'review', 'pass')).resolves.toMatchObject({ items: [{ state: 'completed' }, { state: 'completed' }] });
 
         expect(addToDeck).toHaveBeenCalledTimes(1);
         expect(addToDeck).toHaveBeenCalledWith(DEFAULT_SETTINGS.miningDeck, notInDeckCard, '本を読む。');

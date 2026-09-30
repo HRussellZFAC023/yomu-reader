@@ -1,5 +1,5 @@
 import { committedSettingsStoragePair, withCommit, transactionMarker, type SerializedSnapshot, type TransactionMarker } from "./settings-persistence-format";
-export { committedSettingsStoragePair, type CommittedSettingsStoragePair } from "./settings-persistence-format";
+export { committedSettingsStoragePair } from "./settings-persistence-format";
 import type { ReaderSettings } from '../app/types';
 import {
     createManagedWriteJournal,
@@ -40,7 +40,7 @@ export interface SettingsPersistenceView {
     readonly intentLedger: SettingsIntentLedger;
 }
 
-export class InvalidSettingsBackupAuthorityError extends Error {
+class InvalidSettingsBackupAuthorityError extends Error {
     override readonly name = 'InvalidSettingsBackupAuthorityError';
     readonly yomuUiCopyKey = 'settingsImportIncomplete' as const;
 }

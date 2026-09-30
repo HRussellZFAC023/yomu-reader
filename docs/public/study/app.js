@@ -19136,9 +19136,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { type: "text-to-speech", url: "", voice: "", enabled: false }
   ];
   const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-  new Set(
-    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-  );
   function isAudioSourceType(value) {
     return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
   }
@@ -42244,6 +42241,9 @@ ${key}`] = { t: now, v: value };
     isActive() {
       return Date.now() < this.requestBackoffUntil;
     }
+    // Read through the vocabulary scope (request.scope.backoff), which the
+    // member graph does not follow.
+    // fallow-ignore-next-line unused-class-member
     retryAfterMs() {
       return Math.max(0, this.requestBackoffUntil - Date.now());
     }
@@ -69860,6 +69860,9 @@ ${reading}`);
         };
       });
     }
+    // Served through createLocalYomuSrsAdapter below, which the member graph
+    // does not follow.
+    // fallow-ignore-next-line unused-class-member
     async collection(limit = 50, options = {}) {
       const now = this.now();
       const language2 = options.language ? canonicalLanguageTag(options.language) : "";
@@ -132448,12 +132451,6 @@ ${reading}`);
       });
     }
     batchMining;
-    addBatchMiningCards(candidates) {
-      return this.batchMining.execute(this.batchMining.prepare(candidates).map((plan) => plan.token), "collect");
-    }
-    reviewBatchMiningCards(candidates, grade) {
-      return this.batchMining.execute(this.batchMining.prepare(candidates).map((plan) => plan.token), "review", grade);
-    }
     async perform(command, button2, card, sentence, context = {}) {
       const studyAction = this.performStudyAction(command, button2, sentence);
       if (studyAction !== void 0) return await studyAction;
@@ -145290,6 +145287,9 @@ ${entry.url}`),
       if (location2?.sessionId) await this.resume(location2.sessionId);
       else await this.home();
     }
+    // Called through a local alias in NewTabController.leavePracticeSessions,
+    // which the member graph does not follow.
+    // fallow-ignore-next-line unused-class-member
     async pause() {
       const session = this.session;
       if (session && session.view().status !== "complete" && session.view().status !== "paused") {
@@ -145298,6 +145298,7 @@ ${entry.url}`),
       }
       return true;
     }
+    // fallow-ignore-next-line unused-class-member
     hide() {
       this.visible = false;
       this.operation += 1;

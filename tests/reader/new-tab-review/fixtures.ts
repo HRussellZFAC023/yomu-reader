@@ -15,7 +15,6 @@ import { parseJpdbReviewDocument } from '../../../src/reader/jpdb/jpdb-review-br
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT } from '../../../src/reader/kanji/doodle';
 import { assessKanjiStrokes, rankKanjiStrokeCandidates } from '../../../src/reader/kanji/stroke-grader';
 import { createReaderPopover } from '../../../src/reader/popup/shell';
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../../src/reader/settings/index';
 import { testEnSettings } from '../helpers/settings-fixture';
 import { DEFAULT_NEW_TAB_UI_STATE, type NewTabRoute } from '../../../src/reader/newtab/state';
 
@@ -1402,10 +1401,6 @@ export function expectRevealedPromptPitch(controller: NewTabController, card: JP
     }
 }
 
-export function renderNewTabKanjiFront(controller: NewTabController, card: JPDBCard): HTMLElement {
-    return renderNewTabCardFront(controller, card, { studyStepId: 'kanji-doodle:0' });
-}
-
 export function renderTestKanjiDetails(options: {
     settings?: Partial<NewTabSettings>;
     card: JPDBCard;
@@ -1584,7 +1579,6 @@ export {
     assessKanjiStrokes,
     rankKanjiStrokeCandidates,
     createReaderPopover,
-    BASE_DEFAULT_SETTINGS,
     definitionSourceRows,
     renderNewTabGradeControlButtons,
     summarizeNewTabReviewSources,

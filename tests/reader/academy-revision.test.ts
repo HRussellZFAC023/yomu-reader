@@ -9,16 +9,16 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain .cjs script module without type declarations
 import academyRevisionModule from '../../scripts/lib/academy-revision.cjs';
+// @ts-expect-error plain .cjs script module without type declarations
+import { academyHostedCounterpart } from '../../scripts/lib/academy-build-manifest.cjs';
 
 const {
-    academyHostedCounterpart,
     HOSTED_DEPENDENCIES,
     REVISION_PATTERN,
     TEMPLATES,
     academyRevision,
     academyRevisionSourcePaths,
 } = academyRevisionModule as {
-    academyHostedCounterpart: (source: string) => string;
     HOSTED_DEPENDENCIES: string[];
     REVISION_PATTERN: RegExp;
     TEMPLATES: [string, string][];

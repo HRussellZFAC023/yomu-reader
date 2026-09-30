@@ -21,7 +21,7 @@
 // node_modules differs from the one that built dist, which is why the revision
 // looked unreproducible from a local rebuild.
 const crypto = require('node:crypto');
-const { academyBuildSources, academyHostedCounterpart } = require('./academy-build-manifest.cjs');
+const { academyBuildSources } = require('./academy-build-manifest.cjs');
 
 const REVISION_TOKEN = '__ACADEMY_REVISION__';
 const REVISION_PATTERN = /s1-[0-9a-f]{12}/;
@@ -139,7 +139,6 @@ function academyRevision(sourcePaths, entries) {
 }
 
 module.exports = {
-    academyHostedCounterpart,
     HOSTED_DEPENDENCIES,
     REVISION_PATTERN,
     REVISION_TOKEN,

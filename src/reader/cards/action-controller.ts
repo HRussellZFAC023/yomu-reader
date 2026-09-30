@@ -1,8 +1,7 @@
 import { ANKI_NEVER_FORGET_TAG, AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, resolveAnkiWordAudio, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from '../anki/index';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { copyText } from '../ui/browser';
-import { PreparedBatchActions, type BatchMiningCardCandidate, type BatchMutationResult } from './prepared-batch-actions';
-export type { BatchMiningCardCandidate } from './prepared-batch-actions';
+import { PreparedBatchActions } from './prepared-batch-actions';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -117,14 +116,6 @@ export class CardActionController {
             review: (provider, card, grade, sentence, assertCurrent, onReviewed) => this.reviewApiCard(grade, card, sentence, { providerId: provider.id, deckId: defaultJpdbDeckId(this.options.getSettings()), suppressToast: true, assertCurrent, onReviewed }),
             notify: card => this.notifyApiCardStateChanged(card),
         });
-    }
-
-    addBatchMiningCards(candidates: BatchMiningCardCandidate[]): Promise<BatchMutationResult> {
-        return this.batchMining.execute(this.batchMining.prepare(candidates).map(plan => plan.token), 'collect');
-    }
-
-    reviewBatchMiningCards(candidates: BatchMiningCardCandidate[], grade: JPDBGrade): Promise<BatchMutationResult> {
-        return this.batchMining.execute(this.batchMining.prepare(candidates).map(plan => plan.token), 'review', grade);
     }
 
     async perform(command: CardCommandCapability | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {

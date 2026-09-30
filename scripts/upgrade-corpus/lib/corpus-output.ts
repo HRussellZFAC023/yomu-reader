@@ -5,7 +5,7 @@ import path from 'node:path';
 import { vi } from 'vitest';
 import type { RecordedWrite, RecordingStore } from './realm-stubs';
 
-export const CAPTURE_EPOCH_MS = Date.UTC(2026, 8, 20, 9, 0, 0);
+const CAPTURE_EPOCH_MS = Date.UTC(2026, 8, 20, 9, 0, 0);
 
 let uuidCount = 0;
 let clockMs = CAPTURE_EPOCH_MS;

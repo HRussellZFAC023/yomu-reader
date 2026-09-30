@@ -15943,9 +15943,6 @@ const DEFAULT_AUDIO_SOURCES = [
   { type: "text-to-speech", url: "", voice: "", enabled: false }
 ];
 const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
 function isAudioSourceType(value) {
   return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
 }
@@ -62251,6 +62248,9 @@ class LocalYomuSrsRepository {
     };
   });
   }
+  // Served through createLocalYomuSrsAdapter below, which the member graph
+  // does not follow.
+  // fallow-ignore-next-line unused-class-member
   async collection(limit = 50, options = {}) {
   const now = this.now();
   const language2 = options.language ? canonicalLanguageTag(options.language) : "";

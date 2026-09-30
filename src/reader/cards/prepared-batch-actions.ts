@@ -58,7 +58,7 @@ export function commonBatchGrades(plans: readonly PreparedBatchPlan[]): BatchGra
 }
 
 /** Ephemeral plans and stage receipts: no account details escape through the token. */
-export const MAX_BATCH_RECEIPT_KEYS = 4096;
+const MAX_BATCH_RECEIPT_KEYS = 4096;
 
 export class PreparedBatchActions {
     private entries = new Map<symbol, Entry>();

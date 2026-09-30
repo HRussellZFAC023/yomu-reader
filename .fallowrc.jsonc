@@ -92,6 +92,16 @@
     "scripts/measure-check.mjs",
     "scripts/study-flow-stability-smoke.mjs",
     "scripts/manual/bookwalker-live-firefox-smoke.mjs",
+    // The v1.9.3 upgrade-corpus capture runs older releases' writers inside a
+    // read-only reference checkout: capture.mjs and self-check.mjs are run
+    // directly, and they hand the vitest config and stage files to vitest by
+    // path. See scripts/upgrade-corpus/capture.mjs.
+    "scripts/upgrade-corpus/capture.mjs",
+    "scripts/upgrade-corpus/self-check.mjs",
+    "scripts/upgrade-corpus/vitest.capture.config.mjs",
+    "scripts/upgrade-corpus/stages/*.capture.ts",
+    // Spawned by path from tests/reader/hosted-appearance-module-build.test.ts.
+    "tests/reader/helpers/hosted-appearance-module-proof.mjs",
     "tests/reader/**/*.test.ts",
     "tests/academy/**/*.test.ts"
   ],
@@ -103,6 +113,9 @@
     // Both standalone hosted reader workers load this classic-worker Module
     // through importScripts(), which the static module graph cannot follow.
     "docs/public/hosted-reader-worker.js",
+    // Generated hosted appearance module, loaded by a module <script> in the
+    // hosted HTML shells (scripts/sync-docs-userscript.cjs writes it).
+    "docs/public/hosted-appearance-settings.js",
     "scripts/fixtures/jiten-fixtures.mjs",
     "scripts/lib/extension-runtime-hardening.mjs",
     "src/reader/companions/register-empty.ts",

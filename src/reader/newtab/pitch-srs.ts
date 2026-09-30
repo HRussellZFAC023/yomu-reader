@@ -215,18 +215,6 @@ export class PitchSrsStore {
         return count;
     }
 
-    // Idempotent: only seeds an item that does not exist yet, so re-studying a word
-    // never resets its pitch schedule. Returns the (existing or new) item, or null.
-    ensureFromCard(card: JPDBCard, now: number): PitchSrsItem | null {
-        const seeded = pitchSeedFromCard(card, now);
-        if (!seeded) return null;
-        const existing = this.items.get(seeded.key);
-        if (existing) return existing;
-        this.items.set(seeded.key, seeded);
-        this.schedulePersistItems();
-        return seeded;
-    }
-
     // fallow-ignore-next-line unused-class-member
     grade(key: string, grade: JPDBGrade, subMode: PitchSubMode, options: { correct: boolean; now: number }): PitchSrsItem | null {
         const item = this.items.get(key);

@@ -28,10 +28,11 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import academyBuildManifestModule from './lib/academy-build-manifest.cjs';
 import academyRevisionModule from './lib/academy-revision.cjs';
 
+const { academyHostedCounterpart } = academyBuildManifestModule;
 const {
-    academyHostedCounterpart,
     REVISION_PATTERN,
     TEMPLATES: ACADEMY_TEMPLATES,
     academyRevision,

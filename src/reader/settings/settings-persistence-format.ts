@@ -98,6 +98,6 @@ function serializedSnapshot(value: unknown): SerializedSnapshot | null {
         : null;
 }
 
-export function snapshotValue(snapshot: SerializedSnapshot): unknown {
+function snapshotValue(snapshot: SerializedSnapshot): unknown {
     return snapshot.existed ? snapshot.previousValue : null;
 }

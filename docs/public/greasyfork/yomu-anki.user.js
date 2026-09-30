@@ -12699,20 +12699,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     "custom",
     "custom-json"
   ];
-  const DEFAULT_AUDIO_SOURCES = [
-    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-    { type: "jpod101", url: "", voice: "", enabled: false },
-    { type: "language-pod-101", url: "", voice: "", enabled: false },
-    { type: "jisho", url: "", voice: "", enabled: false },
-    { type: "bunpro", url: "", voice: "", enabled: false },
-    { type: "jiten-tts", url: "", voice: "", enabled: false },
-    { type: "jpdb-tts", url: "", voice: "", enabled: false },
-    { type: "text-to-speech", url: "", voice: "", enabled: false }
-  ];
   new Set(AUDIO_SOURCE_TYPE_VALUES);
-  new Set(
-    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-  );
   Logger.scope("Settings");
   ({
     languageProfiles: [createDefaultLanguageProfile()],

@@ -31,7 +31,6 @@ const GITHUB_OWNER = "HRussellZFAC023";
 const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
-const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
@@ -12750,20 +12749,7 @@ const AUDIO_SOURCE_TYPE_VALUES = [
   "custom",
   "custom-json"
 ];
-const DEFAULT_AUDIO_SOURCES = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: false },
-  { type: "language-pod-101", url: "", voice: "", enabled: false },
-  { type: "jisho", url: "", voice: "", enabled: false },
-  { type: "bunpro", url: "", voice: "", enabled: false },
-  { type: "jiten-tts", url: "", voice: "", enabled: false },
-  { type: "jpdb-tts", url: "", voice: "", enabled: false },
-  { type: "text-to-speech", url: "", voice: "", enabled: false }
-];
 new Set(AUDIO_SOURCE_TYPE_VALUES);
-new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
 Logger.scope("Settings");
 const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
 ({

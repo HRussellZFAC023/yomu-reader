@@ -15,6 +15,9 @@ export class JpdbPublicLookupBackoff {
         return Date.now() < this.requestBackoffUntil;
     }
 
+    // Read through the vocabulary scope (request.scope.backoff), which the
+    // member graph does not follow.
+    // fallow-ignore-next-line unused-class-member
     retryAfterMs(): number {
         return Math.max(0, this.requestBackoffUntil - Date.now());
     }

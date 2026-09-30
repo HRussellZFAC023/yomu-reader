@@ -41,22 +41,6 @@ export const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS: AudioSourceSetting[] 
     { type: 'text-to-speech', url: '', voice: '', enabled: true },
 ];
 
-export const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS: AudioSourceSetting[] = [
-    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
-    { type: 'jpod101', url: '', voice: '', enabled: true },
-    { type: 'language-pod-101', url: '', voice: '', enabled: true },
-    { type: 'jisho', url: '', voice: '', enabled: true },
-    { type: 'jiten-tts', url: '', voice: '', enabled: true },
-    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
-    { type: 'text-to-speech', url: '', voice: '', enabled: true },
-];
-
-export const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(
-    DEFAULT_AUDIO_SOURCES
-        .filter(source => source.type !== 'custom-json' || source.url !== YOMU_HOSTED_AUDIO_URL)
-        .map(source => source.type),
-);
-
 export function isAudioSourceType(value: unknown): value is AudioSourceType {
     return typeof value === 'string' && AUDIO_SOURCE_TYPES.has(value as AudioSourceType);
 }

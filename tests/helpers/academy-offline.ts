@@ -18,7 +18,7 @@ export function academyFixtureManifest() {
     };
 }
 
-export function hostedAcademyFile(file: string): string {
+function hostedAcademyFile(file: string): string {
     return path.resolve(process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy', file);
 }
 

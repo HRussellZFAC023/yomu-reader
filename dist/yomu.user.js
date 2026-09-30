@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.dae08bf179f8.user.js#sha256=2uCL8Xn4kJMHc6EgggRufWilQLKNWkrNGcWJaLlacvk=
+// @require https://yomureader.com/greasyfork/yomu-runtime.53c42ff3dd51.user.js#sha256=U8Qv891RxnTsQEXcvfkDYueETgqlqjCQUNu1n9Ya5IQ=
 // @resource yomuCss  https://yomureader.com/yomu.ebfeb8423b4e.css#sha256=6/64QjtOg2TMygyMO9Tmh6tenwid7veJVRohvIbwESM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -16931,12 +16931,6 @@ notify: (card) => this.notifyApiCardStateChanged(card)
 });
 }
 batchMining;
-addBatchMiningCards(candidates) {
-return this.batchMining.execute(this.batchMining.prepare(candidates).map((plan) => plan.token), "collect");
-}
-reviewBatchMiningCards(candidates, grade) {
-return this.batchMining.execute(this.batchMining.prepare(candidates).map((plan) => plan.token), "review", grade);
-}
 async perform(command, button, card, sentence, context = {}) {
 const studyAction = this.performStudyAction(command, button, sentence);
 if (studyAction !== void 0) return await studyAction;

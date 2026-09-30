@@ -136,14 +136,6 @@ export function passingNewTabGrade(grade: JPDBGrade): boolean {
     return grade === 'pass' || grade === 'easy' || grade === 'okay';
 }
 
-function usesBunproGradeScale(card?: JPDBCard): boolean {
-    return card?.source === 'bunpro' || card?.reviewSource === 'bunpro-api';
-}
-
-export function usesBunproFsrsGradeScale(card?: JPDBCard): boolean {
-    return usesBunproGradeScale(card) && card?.bunproReviewInputMode === 'fsrs';
-}
-
 export function usesTwoButtonNewTabGradeScale(settings: ReaderSettings, card?: JPDBCard): boolean {
     return reviewGradeScale(settings, reviewGradeProfile(card)).twoButton;
 }

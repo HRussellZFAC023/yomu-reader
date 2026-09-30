@@ -80,7 +80,7 @@ export function installGmApi(store: RecordingStore, options: GmApiOptions = {}):
 }
 
 /** browser.storage.local for an extension realm, over physical keys. */
-export function installExtensionStorageArea(store: RecordingStore): void {
+function installExtensionStorageArea(store: RecordingStore): void {
     const area = {
         get: async (key: string | string[] | null) => {
             if (key === null) return Object.fromEntries([...store.values].map(([k, v]) => [k, jsonClone(v)]));
@@ -132,7 +132,7 @@ export function setLocation(href: string): URL {
 }
 
 /** Seeds the realm's Web Storage from a recorded snapshot of one origin. */
-export function seedWebStorage(area: Storage, values: Record<string, string>): void {
+function seedWebStorage(area: Storage, values: Record<string, string>): void {
     area.clear();
     for (const [key, value] of Object.entries(values)) area.setItem(key, value);
 }

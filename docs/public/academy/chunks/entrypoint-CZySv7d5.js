@@ -34069,6 +34069,9 @@ class LocalYomuSrsRepository {
       };
     });
   }
+  // Served through createLocalYomuSrsAdapter below, which the member graph
+  // does not follow.
+  // fallow-ignore-next-line unused-class-member
   async collection(limit = 50, options = {}) {
     const now = this.now();
     const language = options.language ? canonicalLanguageTag(options.language) : "";
@@ -44023,9 +44026,6 @@ const DEFAULT_AUDIO_SOURCES = [
   { type: "text-to-speech", url: "", voice: "", enabled: false }
 ];
 const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source2) => source2.type !== "custom-json" || source2.url !== YOMU_HOSTED_AUDIO_URL).map((source2) => source2.type)
-);
 function isAudioSourceType(value) {
   return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
 }
@@ -266730,7 +266730,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-D6QT6sCE.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BP9zNAqr.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

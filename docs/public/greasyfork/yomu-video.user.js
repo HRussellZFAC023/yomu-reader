@@ -12838,9 +12838,6 @@ const DEFAULT_AUDIO_SOURCES = [
   { type: "text-to-speech", url: "", voice: "", enabled: false }
 ];
 new Set(AUDIO_SOURCE_TYPE_VALUES);
-new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
 function matchesShortcut(event, shortcut = "") {
   if (!shortcut) return false;
   const parts = parseShortcut(shortcut);
