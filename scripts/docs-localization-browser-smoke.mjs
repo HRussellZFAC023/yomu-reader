@@ -42,6 +42,14 @@ function productionPolicyPreviewOrigin(value) {
     return url.origin;
 }
 
+// Vue's hydration warnings all name hydration ("Hydration node mismatch",
+// "Hydration completed but contains mismatches"). A bare "mismatch" also
+// matches browser resource notices such as Chrome's unused cross-world
+// service-worker preload, which says nothing about SSR.
+function isVueHydrationWarning(text) {
+    return /hydration/i.test(text) || /\[Vue warn\].*mismatch/i.test(text);
+}
+
 try {
     // VitePress preview dynamically Brotli-compresses eligible large text
     // responses. Its single-process encoder spends tens of seconds on Academy's
@@ -55,11 +63,11 @@ try {
     const hydrationMessages = [];
     const pageErrors = [];
     page.on('console', message => {
-        if (/hydration|mismatch/i.test(message.text())) hydrationMessages.push(message.text());
+        if (isVueHydrationWarning(message.text())) hydrationMessages.push(message.text());
     });
     page.on('pageerror', error => {
         pageErrors.push(error.stack || error.message);
-        if (/hydration|mismatch/i.test(error.message)) hydrationMessages.push(error.message);
+        if (isVueHydrationWarning(error.message)) hydrationMessages.push(error.message);
     });
 
     await Promise.all([
