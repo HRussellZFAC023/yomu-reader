@@ -3143,7 +3143,7 @@ export function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => voi
 export async function deleteAnkiStatusIndexDatabase(): Promise<void> {
     // Tests install a GM transport after setup, selecting the userscript DB.
     // Clean both fixture owners regardless of whether globals were restored.
-    for (const name of ['yomu-anki-status-index', 'yomu-anki-status-index-userscript-v2']) {
+    for (const name of ['yomu-anki-status-index']) {
         await new Promise<void>((resolve, reject) => {
             const request = indexedDB.deleteDatabase(name);
             request.onsuccess = () => resolve();

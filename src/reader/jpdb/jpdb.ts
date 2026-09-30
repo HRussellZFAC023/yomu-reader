@@ -98,7 +98,9 @@ export class JpdbClient {
     async reviewCard(card: JPDBCard, grade: JPDBGrade): Promise<void> {
         log.info('Reviewing card', { term: card.spelling, grade });
         await this.api.request<void>('review', { vid: card.vid, sid: card.sid, grade });
-        await this.refreshCard(card);
+        // The review has landed; a failed read-back must not look like a failed
+        // review, or the queue would resend it and JPDB would record it twice.
+        await this.refreshCard(card).catch(error => log.warn('Card refresh after review failed', { term: card.spelling }, error));
     }
 
     // Used by mining controls to add JPDB-backed cards to selected decks.

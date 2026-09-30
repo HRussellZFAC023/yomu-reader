@@ -5,6 +5,7 @@ import { requestJson, requestText } from '../network/http';
 import { exportSettingsBackupSnapshot } from './settings-backup';
 import { validateCloudSettingsEnvelope } from './cloud-settings-envelope';
 import { userFacingError } from '../app/user-facing-errors';
+import { DEVELOPMENT_BUILD } from '../app/build-mode';
 import {
     cloudSettingsRedirectHandoffRequired,
     isCloudSettingsAuthorizationState,
@@ -339,7 +340,10 @@ function oauthBrokerUrl(returnUrl: string, state: string): string {
 }
 
 function navigateToOAuthBroker(browserWindow: Window, url: string): void {
-    const testNavigate = (globalThis as { __YOMU_TEST_NAVIGATE_TO_OAUTH__?: (url: string) => void }).__YOMU_TEST_NAVIGATE_TO_OAUTH__;
+    // Test-only hook; production bundles never read it.
+    const testNavigate = DEVELOPMENT_BUILD
+        ? (globalThis as { __YOMU_TEST_NAVIGATE_TO_OAUTH__?: (url: string) => void }).__YOMU_TEST_NAVIGATE_TO_OAUTH__
+        : undefined;
     if (testNavigate) {
         testNavigate(url);
         return;

@@ -301,14 +301,12 @@ describe('target-owned document-start activation', () => {
         await vi.waitFor(expectTargetOwnedCanvasActivation);
     });
 
-    it('does not infer a chosen target from old subtitle settings', async () => {
+    it('preserves synchronous document-start activation for pre-1.9 subtitle settings', async () => {
         runtimeMocks.syncStoredSettings = { subtitleFontSize: 48 };
 
         await importUserscriptEntry();
 
-        expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
-        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
-        await dispatchSettingsChoice(true);
+        expectTargetOwnedCanvasActivation();
     });
 
     it('keeps stored-target document-start activation safe before documentElement exists', async () => {
@@ -325,7 +323,7 @@ describe('target-owned document-start activation', () => {
         }
     });
 
-    it('does not infer a chosen target from old JPDB settings', async () => {
+    it('activates pre-1.9 JPDB settings from the async shared store', async () => {
         runtimeMocks.asyncStoredSettings = {
             apiKey: 'legacy-jpdb-key',
             parserProvider: 'jpdb',
@@ -333,9 +331,7 @@ describe('target-owned document-start activation', () => {
 
         await importUserscriptEntry();
 
-        expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
-        expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
-        await dispatchSettingsChoice(true);
+        expectTargetOwnedRuntimeActivation();
     });
 
     it('keeps the untouched compatibility profile neutral without substantive Reader state', async () => {

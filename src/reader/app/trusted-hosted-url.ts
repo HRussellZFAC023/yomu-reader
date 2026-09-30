@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from './build-mode';
 import {
     APP_REPOSITORY_NAME,
     DOCS_ORIGIN,
@@ -29,13 +30,7 @@ const TRUSTED_WEB_HOST_KINDS = new Map<string, 'docs-preview' | 'loopback'>([
     ['localhost', 'loopback'],
     ['[::1]', 'loopback'],
 ]);
-/**
- * Vite replaces MODE at build time, so a production bundle carries no loopback
- * trust at all (and Rollup drops these origins from it). Development builds
- * (`npm run dev:userscript`) and tests keep it; a bundle built without Vite
- * sees an empty import.meta and stays untrusted.
- */
-export const DEVELOPMENT_BUILD = import.meta.env?.MODE === 'development' || import.meta.env?.MODE === 'test';
+/** Production bundles carry no loopback trust at all (see build-mode.ts). */
 const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = new Set(DEVELOPMENT_BUILD ? [
     'http://127.0.0.1:5174',
     'http://localhost:5174',

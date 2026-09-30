@@ -94,6 +94,27 @@ describe('reader helpers', () => {
         }
     });
 
+    it('treats a landed review as done when only the read-back refresh fails', async () => {
+        const client = new JpdbClient(() => 'token');
+        const reviews: string[] = [];
+        vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init?: RequestInit) => {
+            const href = String(url);
+            if (href === 'https://jpdb.io/api/v1/review') {
+                reviews.push(String(init?.body));
+                return { status: 200, ok: true, text: async () => '{}' };
+            }
+            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') throw new TypeError('Failed to fetch');
+            throw new Error(`Unexpected URL: ${href}`);
+        }));
+
+        try {
+            await expect(client.reviewCard({ ...card }, 'okay')).resolves.toBeUndefined();
+            expect(reviews).toHaveLength(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('sends numeric user-deck ids as JSON numbers when adding and removing deck vocabulary', async () => {
         const client = new JpdbClient(() => 'token');
         const deckBodies: string[] = [];

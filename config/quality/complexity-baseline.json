@@ -48,7 +48,7 @@
         "src/academy/minigames/place-and-owner-workbook/index.ts:validateProvenance": 38,
         "src/academy/minigames/state-inspection/engine.ts:validateStateInspection": 57,
         "src/academy/persistence/indexeddb.ts:validateCheckpoint": 42,
-        "src/academy/routing/contract.ts:normalizeResumeCheckpoint": 46,
+        "src/academy/routing/contract.ts:normalizeResumeCheckpoint": 34,
         "src/academy/ui/world-screen.ts:renderWorldPlaceScreen": 75,
         "src/reader/ocr/ocr-overlay-geometry.ts:transformFunctionLinear": 33
     }

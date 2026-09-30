@@ -1,5 +1,6 @@
 const { createHash } = require('node:crypto');
 const { join } = require('node:path');
+const { existsSync } = require('node:fs');
 const { readAcademyBuildCode } = require('./lib/academy-build-manifest.cjs');
 const {
   BUNDLED_DEPENDENCY_NOTICE_MARKER,
@@ -73,6 +74,7 @@ const lines = code.split(/\r?\n/);
 const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
 
 assertNoRetiredUchisenCurrentArtifacts();
+assertNoDevelopmentTrustInShippedArtifacts();
 if (!code.startsWith('// ==UserScript==')) fail(`${USERSCRIPT_RELATIVE_PATH} is missing a userscript metadata block.`);
 if (!hasMetadataValue('version', packageJson.version)) fail('userscript version does not match package.json.');
 if (!hasMetadataValue('icon', 'https://yomureader.com/favicon-32x32.png')) fail('userscript icon metadata must use the raster favicon for userscript manager compatibility.');
@@ -178,6 +180,21 @@ function assertNoRetiredUchisenCurrentArtifacts() {
       'Run the complete build -> docs sync -> Academy build -> docs build sequence before verify.',
       'Retained historical content-addressed assets are intentionally outside this gate.',
     ].join('\n'));
+  }
+}
+
+// Release bundles must not trust local development routes or honour test-only
+// hooks: Vite drops those branches when MODE is production (src/reader/app/build-mode.ts).
+function assertNoDevelopmentTrustInShippedArtifacts() {
+  const markers = ['localhost:5174', '127.0.0.1:5174', '__YOMU_TEST_', 'synthetic-interaction-tests'];
+  const failures = currentUchisenArtifactPaths().flatMap(relativePath => {
+    const absolute = join(ROOT, relativePath);
+    if (!existsSync(absolute)) return [];
+    const text = readText(absolute);
+    return markers.filter(marker => text.includes(marker)).map(marker => `${relativePath} contains ${marker}`);
+  });
+  if (failures.length > 0) {
+    fail(['Shipped artifacts carry development-only trust or test hooks:', ...failures.map(failure => `  - ${failure}`)].join('\n'));
   }
 }
 

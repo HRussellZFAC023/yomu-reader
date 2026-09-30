@@ -69,8 +69,6 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'anki/status-index', kind: 'gm', key: 'yomu:anki-status-index:v1' },
     { owner: 'anki/status-index', kind: 'gm', key: 'yomu:anki-status-index-rebuild:v1' },
     { owner: 'anki/status-index', kind: 'idb', key: 'yomu-anki-status-index' },
-    { owner: 'anki/status-index', kind: 'idb', key: 'yomu-anki-status-index-userscript-v2' },
-    { owner: 'anki/status-index', kind: 'idb', key: 'yomu-anki-status-index-extension-v2' },
 
     // Bunpro vocab SRS-state index for page word colouring.
     { owner: 'bunpro/word-states', kind: 'gm', key: 'yomu:bunpro-word-states:v1' },
@@ -85,8 +83,6 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // store's own deleteDatabase during reset; registered so the invariant test
     // asserts it and the reset sweep nets it as a fallback.
     { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan' },
-    { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan-userscript-v2' },
-    { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan-extension-v2' },
     { owner: 'dictionaries/archive-cache', kind: 'gm', key: 'yomu-dictionary-archives' },
     {
         owner: 'dictionaries/archive-cache',
@@ -140,8 +136,6 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
 
     // New Tab study surface stores.
     { owner: 'study/practice-session', kind: 'idb', key: 'yomu-practice-sessions-v1' },
-    { owner: 'study/practice-session', kind: 'idb', key: 'yomu-practice-sessions-v1-userscript-v2' },
-    { owner: 'study/practice-session', kind: 'idb', key: 'yomu-practice-sessions-v1-extension-v2' },
     { owner: 'study/practice-session', kind: 'session', key: 'yomu:practice-session-tab:v1' },
     { owner: 'newtab/state', kind: 'gm', key: 'jpdb-reader-newtab-ui' },
     { owner: 'newtab/cache', kind: 'gm', key: 'jpdb-reader-newtab-card-cache' },

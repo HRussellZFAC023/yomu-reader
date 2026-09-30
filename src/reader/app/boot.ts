@@ -12,6 +12,9 @@ import { ensureManagedWebStorageCurrent, ensureManagedWebStorageCurrentSync } fr
 import { detectInstalledReaderRuntime } from './runtime-presence';
 import { loadSettings, subscribeToSettingsStorageChanges } from '../settings/index';
 import { adoptLearningTargetFromSettings } from '../languages/target-selection';
+import { offerSettingsRecovery, resetSettingsRecoveryForTests, withdrawSettingsRecovery } from '../ui/fab-settings-recovery';
+import { isYomuHostedAppUrl } from './pages-url';
+import { isReaderSettingsUnavailable } from './settings-unavailable-error';
 import type { ReaderSettings } from './types';
 
 type YomuRuntimeKind = 'page' | 'dev' | 'userscript' | 'extension';
@@ -70,6 +73,7 @@ export function resetReaderBootStateForTests(): void {
     storageBootInFlight = undefined;
     retainedStartupSettings = undefined;
     retainedSettingsSurface = undefined;
+    resetSettingsRecoveryForTests();
 }
 
 export function bootReaderApp(): void {
@@ -120,6 +124,7 @@ function startStorageGatedBoot(): Promise<boolean> {
     storageBootInFlight = bootReaderAppAfterStorageGate()
         .catch(error => {
             console.error('[Yomu Reader] Failed to initialize managed web storage', error);
+            offerSettingsRecoveryAfterStorageGateFailure();
             return false;
         })
         .finally(() => {
@@ -134,6 +139,7 @@ function bootReaderAppThroughSynchronousStorageGate(): Promise<boolean> | null {
         return bootReaderAppAfterStorageBarrier();
     } catch (error) {
         console.error('[Yomu Reader] Failed to initialize managed web storage', error);
+        offerSettingsRecoveryAfterStorageGateFailure();
         return Promise.resolve(false);
     }
 }
@@ -312,10 +318,30 @@ function startRuntime(runtime: ActiveRuntime, embeddedFrame: boolean): Promise<b
         // module-local runtime make a same-priority reinjection look redundant,
         // so a transient startup error leaves Yomu absent until the whole tab
         // is recreated.
-        if (activeRuntime === runtime) releaseActiveRuntime(runtime);
+        const ownedFailure = activeRuntime === runtime;
+        if (ownedFailure) releaseActiveRuntime(runtime);
         console.error('[Yomu Reader] Failed to initialize', error);
+        if (ownedFailure && isReaderSettingsUnavailable(error)) offerContentPageSettingsRecovery(runtimeKind, embeddedFrame);
         return false;
     });
+}
+
+// The managed-storage gate is the first read of the settings backend; when it
+// rejects, no Reader exists yet to say so.
+function offerSettingsRecoveryAfterStorageGateFailure(): void {
+    offerContentPageSettingsRecovery(detectRuntimeKind(), isEmbeddedFrameWindow());
+}
+
+function offerContentPageSettingsRecovery(runtimeKind: YomuRuntimeKind, embeddedFrame: boolean): void {
+    if (contentPageOwnsSettingsRecovery(runtimeKind, embeddedFrame)) offerSettingsRecovery();
+}
+
+// Only an installed Reader on an ordinary top-level site. Packaged surfaces
+// boot from in-memory settings, and Yomu-owned pages run their own recovery
+// guard; an embedded frame would stack a second puck under the top frame's.
+function contentPageOwnsSettingsRecovery(runtimeKind: YomuRuntimeKind, embeddedFrame: boolean): boolean {
+    if (retainedStartupSettings || embeddedFrame) return false;
+    return isInstalledRuntime(runtimeKind) && !isYomuHostedAppUrl(location.href);
 }
 
 function isEmbeddedFrameWindow(): boolean {
@@ -512,6 +538,7 @@ function claimRuntime(kind: YomuRuntimeKind): string | null {
     }
 
     dispatchWindowEvent(createWindowCustomEvent('yomu-reader-runtime-claim', { ownerId, kind, priority: priority(kind) }));
+    withdrawSettingsRecovery();
     const marker = existing ?? document.createElement('meta');
     marker.id = RUNTIME_MARKER_ID;
     clearReaderRuntimeHealth(marker);

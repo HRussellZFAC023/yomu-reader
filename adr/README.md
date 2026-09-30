@@ -21,5 +21,6 @@ Reviewed 18 September 2026. Historical “accepted” labels are not fresh verif
 | 0015: caller reset generation | Retain immutable caller identity and scoped cleanup. | Installed-browser reset proof. |
 | 0016: review ownership | Adopt task-specific destinations and provider-owned schedules; no forced Yomu queue. | Rework connections and action UX; prove each provider workflow end to end. |
 | 0017: hosted page bridges | Adopt one announced installed Reader per page, single-responder bridges and v1.9.3 origin stores. | Installed-browser proof with extension, userscript and both. |
+| 0018: review delivery | Adopt: claim only when deliverable, retry the certainly undelivered, hold only unknown outcomes with Check again/Discard. | Route online grades through the owner; real-provider interruption proof. |
 
 This review changes design guidance, not runtime completion status. Exact local test and package evidence lives in `REBUILD.md`; the full product scope remains open.

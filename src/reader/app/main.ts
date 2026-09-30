@@ -304,6 +304,7 @@ import { canAttemptReaderAutoAudio } from '../audio/activation';
 import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions, type ReaderSettingsSurface } from './startup';
+import { rejectAsReaderSettingsUnavailable } from './settings-unavailable-error';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
 import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
@@ -1189,7 +1190,9 @@ export class ReaderApp {
     }
 
     private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean | null> {
-        const startup = await loadReaderStartupSettings(options);
+        // A rejecting backend or a pair still torn after the strict retries is
+        // typed so boot can offer the content-page recovery affordance.
+        const startup = await loadReaderStartupSettings(options).catch(rejectAsReaderSettingsUnavailable);
         // Ownership can move to another runtime while browser storage is still
         // resolving. Do not bind controllers, restore styles, or publish state
         // after destroy() has already completed its one cleanup pass.

@@ -249,9 +249,9 @@ export function bootNewTabRuntime(): void { void startNewTabRuntime().catch(erro
 
 export async function startNewTabRuntime(options: NewTabRuntimeStartupOptions = {}): Promise<void> {
     await ensureExtensionStudySettingsAuthority({
-        reportFailure: () => log.warn('Packaged Study settings could not be read'),
+        prepareStorage: options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent,
+        reportFailure: () => log.warn('Study settings could not be read'),
     });
-    await (options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent)();
     const app = (options.createRuntime ?? (() => new NewTabRuntime()))();
     await app.init();
     (options.registerPagehide ?? (destroy => {

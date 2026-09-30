@@ -195,6 +195,21 @@ describe('hosted page bridge ownership', () => {
         await expect(result).resolves.toBe('fetched');
     });
 
+    it('serves a request made before a late extension with a Learning Target starts', async () => {
+        runExtensionPrelude();
+        const fetchMock = stubPageFetch();
+        const { requestHttp } = await pageRequests();
+        const extension = gmStore();
+
+        const result = requestHttp(KANJI_URL, { responseType: 'text' });
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await startInstalledRealm('extension', extension);
+
+        await expect(result).resolves.toBe('extension');
+        expect(extension.requests).toEqual([KANJI_URL]);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('uses the request responder a Reader installs once its Learning Target is chosen', async () => {
         const store = gmStore();
         await startInstalledRealm('userscript', store, { targetChosen: false });

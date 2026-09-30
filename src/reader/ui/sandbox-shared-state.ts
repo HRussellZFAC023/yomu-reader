@@ -1,4 +1,4 @@
-import { DEVELOPMENT_BUILD } from '../app/trusted-hosted-url';
+import { DEVELOPMENT_BUILD } from '../app/build-mode';
 
 type SharedStateRealm = typeof globalThis & { [key: symbol]: unknown };
 
