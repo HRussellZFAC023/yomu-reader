@@ -135,17 +135,40 @@ function dictionaryPreferencesForLanguageProfile(
     if (!dictionaries.installed.length) return preferences;
     const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
     const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
-    const order = new Map(dictionaries.order.map((id, index) => [normalizedProfileDictionaryId(id), index]));
+    const priorities = profileOrderedPriorities(preferences, dictionaries.order);
     return preferences
-        .map((preference, index) => {
+        .map(preference => {
             const key = normalizedProfileDictionaryId(preference.name);
             return {
                 ...preference,
                 enabled: installed.has(key) && enabled.has(key),
-                priority: order.get(key) ?? dictionaries.order.length + index,
+                priority: priorities.get(preference.name) ?? preference.priority,
             };
         })
         .sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
+}
+
+/**
+ * The profile decides the ORDER of its dictionaries, not their numbers.
+ *
+ * A preference's priority is its place in the one list the definition-source
+ * editor numbers, shared with the built-in sources (Jiten 0, JPDB 1, ...), so
+ * the profile's indices (0, 1, ...) cannot stand in for it: they tie with the
+ * built-ins, and the name tie-break then moved a dictionary placed after them
+ * back above Jiten on the next load (GitHub #43). The dictionaries' own
+ * priorities are dealt back out in profile order instead, so each keeps its
+ * slot among the built-ins.
+ */
+function profileOrderedPriorities(
+    preferences: ReaderSettings['dictionaryPreferences'],
+    order: string[],
+): Map<string, number> {
+    const rank = new Map(order.map((id, index) => [normalizedProfileDictionaryId(id), index]));
+    const ordered = preferences
+        .filter(preference => rank.has(normalizedProfileDictionaryId(preference.name)))
+        .sort((left, right) => rank.get(normalizedProfileDictionaryId(left.name))! - rank.get(normalizedProfileDictionaryId(right.name))!);
+    const slots = ordered.map(preference => preference.priority).sort((left, right) => left - right);
+    return new Map(ordered.map((preference, index) => [preference.name, slots[index]!]));
 }
 
 function normalizedProfileDictionaryId(value: string): string {

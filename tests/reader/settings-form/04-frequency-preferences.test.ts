@@ -4,7 +4,7 @@ import { updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/f
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS } from '../../../src/reader/settings/dictionary';
 import { renderWordPills } from '../../../src/reader/sources/word-pills';
 import type { JPDBCard, ReaderSettings } from '../../../src/reader/app/types';
-import { UNORDERED_DICTIONARY_PRIORITY_BASE } from '../../../src/reader/settings/dictionary';
+import { captureActiveLanguageProfileDictionaries, UNORDERED_DICTIONARY_PRIORITY_BASE } from '../../../src/reader/settings/dictionary';
 import { mergeDictionaryPreferences } from '../../../src/reader/settings/index';
 import { updateSourceRowEditor } from '../../../src/reader/settings/form-order';
 import {
@@ -305,6 +305,57 @@ describe('frequency dictionary preferences', () => {
         expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, dictionaryPreferences: discovered }, ['Jitendex', 'JMnedict'])
             .filter(id => id === 'Jitendex' || id === JITEN_DEFINITION_SOURCE_ID))
             .toEqual([JITEN_DEFINITION_SOURCE_ID, 'Jitendex']);
+    });
+
+    // GitHub #43 again, through the path every real install takes: the first
+    // import captures the shelf into the active language profile, and from then
+    // on the profile owns the order. Normalization used to write each
+    // dictionary's index in that profile order (0, 1, ...) back as its priority,
+    // which is the same number space the built-in rows use, so a dictionary the
+    // learner had put after every built-in tied with Jiten on reload and jumped
+    // above it alphabetically, and a fresh import tied with Jiten or JPDB
+    // instead of joining the end of the list.
+    it('keeps the learner order among built-ins once a language profile owns the shelf', () => {
+        const names = ['Alpha Dict', 'Beta Dict'];
+        const sourceIds = (settings: ReaderSettings) => orderedDefinitionSourceIds(settings, names);
+        const installed = normalizeReaderSettings(captureActiveLanguageProfileDictionaries(
+            DEFAULT_SETTINGS,
+            mergeDictionaryPreferences(DEFAULT_SETTINGS.dictionaryPreferences, names, {}),
+        ));
+        const builtIns = orderedDefinitionSourceIds(DEFAULT_SETTINGS, []);
+
+        expect(sourceIds(installed)).toEqual([...builtIns, ...names]);
+
+        const form = renderSettingsTestForm(installed);
+        const editor = form.querySelector<HTMLElement>('[data-definition-source-editor]')!;
+        const rowIds = () => Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'))
+            .map(row => row.dataset.sourceId);
+        const row = (id: string) => editor.querySelector<HTMLElement>(`[data-source-row][data-source-id="${id}"]`)!;
+        while (rowIds().indexOf('Beta Dict') > 0) updateSourceRowEditor('dictionary-source-up', row('Beta Dict'));
+        while (rowIds().at(-1) !== 'Alpha Dict') updateSourceRowEditor('dictionary-source-down', row('Alpha Dict'));
+        const chosen = rowIds().filter(id => id === 'Beta Dict' || id === 'Alpha Dict' || builtIns.includes(id!));
+        expect(chosen).toEqual(['Beta Dict', ...builtIns, 'Alpha Dict']);
+
+        const saved = normalizeReaderSettings(readFormSettings(new FormData(form), installed));
+        expect(sourceIds(saved)).toEqual(chosen);
+        expect(saved.languageProfiles[0]?.dictionaries.order).toEqual(['Beta Dict', 'Alpha Dict']);
+
+        // Reopening and saving untouched is a fixed point, byte for byte.
+        const orderState = (settings: ReaderSettings) => JSON.stringify({
+            dictionaryPreferences: settings.dictionaryPreferences,
+            dictionaries: settings.languageProfiles.map(profile => profile.dictionaries),
+            priorities: Object.entries(settings).filter(([key]) => key.endsWith('Priority')),
+        });
+        const reopened = normalizeReaderSettings(readFormSettings(new FormData(renderSettingsTestForm(saved)), saved));
+        expect(sourceIds(reopened)).toEqual(chosen);
+        expect(orderState(reopened)).toBe(orderState(saved));
+
+        // A later import joins the end without moving anything already ordered.
+        const appended = normalizeReaderSettings(captureActiveLanguageProfileDictionaries(
+            saved,
+            mergeDictionaryPreferences(saved.dictionaryPreferences, ['Gamma Dict'], {}),
+        ));
+        expect(orderedDefinitionSourceIds(appended, [...names, 'Gamma Dict'])).toEqual([...chosen, 'Gamma Dict']);
     });
 
     it('localizes combined lookup pill settings', () => {
