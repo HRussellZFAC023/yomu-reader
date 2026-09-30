@@ -4686,6 +4686,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'The lookup popup and Study search now show every definition source in the exact order you set, including when you place Jiten or another built-in source between two of your dictionaries.': '検索ポップアップとStudyの検索は、Jitenなどの内蔵ソースを自分の辞書のあいだに置いた場合も含めて、すべての定義ソースを設定したとおりの順番で表示するようになりました。',
     "A word you add to review from Study's Library now appears straight away when you go back to Study, without reloading the page.": 'Studyの単語帳から復習に追加した単語が、ページを再読み込みしなくても、Studyに戻るとすぐに表示されるようになりました。',
     'Offline, Settings → Sources still shows the dictionaries on your device, their order and your lookup pills, with a note that dictionary availability could not be checked. It used to hide the whole panel.': 'オフラインでも、設定 → ソースに端末内の辞書、その順番、検索ピルが表示され、辞書の提供状況を確認できなかったことが案内されるようになりました。以前はパネル全体が隠れていました。',
+    'Opening Settings and pressing Save without changing anything no longer resets source order numbers, known-card furigana, native-subtitle visibility or other settings, and no longer marks them as your own choices.': '設定を開いて何も変えずに保存しても、ソースの順番の番号、既知カードのふりがな、ネイティブ字幕の表示などの設定がリセットされず、自分で選んだ設定として記録されることもなくなりました。',
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

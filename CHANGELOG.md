@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Opening Settings and pressing Save without changing anything no longer resets source order numbers, known-card furigana, native-subtitle visibility or other settings, and no longer marks them as your own choices.
 - Your dictionary order in Sources now sticks. A dictionary you move below Jiten, JPDB or the other built-in sources stays there after a reload, in other tabs and through a Save, and newly imported dictionaries join the end of the list instead of jumping in beside Jiten.
 - The lookup popup and Study search now show every definition source in the exact order you set, including when you place Jiten or another built-in source between two of your dictionaries.
 - A word you add to review from Study's Library now appears straight away when you go back to Study, without reloading the page.
