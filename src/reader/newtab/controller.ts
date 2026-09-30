@@ -7711,6 +7711,7 @@ export class NewTabController {
             await adapter.startReview(card.sourceCardKey);
             if (this.destroyed) return;
             this.invalidateSourceResultCache('yomu-local');
+            this.allWords = []; // Returning to Study reloads its queue, so the word just added is there to review.
             this.refreshBrowseAfterCardMutation(card);
             this.showToast('browseReviewAdded');
         } catch {

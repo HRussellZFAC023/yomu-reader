@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter } from '../../src/reader/srs/local-yomu';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { setActiveLearningTargetLanguage, resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
-import { newTabPromptController, renderEnabledNewTabRoot } from './new-tab-review/fixtures';
+import { newTabPromptController, newTabTestCard, renderEnabledNewTabRoot } from './new-tab-review/fixtures';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { allowSyntheticReaderInteractionsForTests, dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary } from '../../src/reader/ui/trusted-interaction';
@@ -73,5 +73,45 @@ it.each([false, true])('enrolls only on an explicit collection action and report
             expect((await adapter.queue()).cards).toHaveLength(1);
         }
         else await vi.waitFor(() => expect(root.querySelector('[data-newtab-action="browse-start-review"]')).toBeNull());
+    } finally { controller.destroy(); boundary.abort(); }
+});
+
+it('returns to a Study queue rebuilt with the word just added to review', async () => {
+    setActiveLearningTargetLanguage('ja');
+    allowSyntheticReaderInteractionsForTests(false);
+    const boundary = new AbortController();
+    installTrustedReaderRootBoundary(document, boundary.signal);
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
+    const adapter = createYomuLocalSrsAdapter(repository);
+    const toast = vi.fn();
+    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, { srsAdapters: { 'yomu-local': adapter }, toast });
+    const probe = controller as unknown as {
+        state: typeof DEFAULT_NEW_TAB_UI_STATE;
+        allWords: JPDBCard[];
+        browsePool: JPDBCard[];
+        srsAdapterBrowsePoolProvider(source: 'yomu-local'): { load(): Promise<JPDBCard[]> };
+        bindRootEvents(root: HTMLElement): void;
+        renderBrowseResults(root: HTMLElement): void;
+        loadWordsInto(root: HTMLElement, preferStoredWord: boolean): Promise<void>;
+    };
+    try {
+        // Study already built its queue (a starter word, nothing due) before the learner opened Library.
+        probe.state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'search', source: 'auto' };
+        probe.allWords = [newTabTestCard({ spelling: '電話', reading: 'でんわ' })];
+        probe.browsePool = await probe.srsAdapterBrowsePoolProvider('yomu-local').load();
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        probe.bindRootEvents(root);
+        probe.renderBrowseResults(root.querySelector<HTMLElement>('[data-newtab-search-results]')!);
+        const reload = vi.spyOn(probe, 'loadWordsInto').mockResolvedValue(undefined);
+
+        dispatchAuthorizedReaderControlClick(root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]')!);
+        await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to review.'));
+        expect((await adapter.queue()).cards.map(card => card.expression)).toEqual(['読む']);
+        dispatchAuthorizedReaderControlClick(root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="word"]')!);
+
+        // Reusing the queue built before the word was added would hide it until a reload.
+        expect(probe.state.route).toBe('study');
+        expect(reload).toHaveBeenCalledOnce();
     } finally { controller.destroy(); boundary.abort(); }
 });
