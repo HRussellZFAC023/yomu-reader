@@ -7307,6 +7307,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
     { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
     { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+    { owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
     { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
     { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
     { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
@@ -15902,11 +15903,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   );
   const TOKEN_ATTRIBUTE = "data-yomu-private-token";
   const MAX_PENDING_VALUES = 16384;
-  const valuesByElement = /* @__PURE__ */ new WeakMap();
-  const pendingValues = /* @__PURE__ */ new Map();
-  const replayableBlueprints = /* @__PURE__ */ new Map();
-  function createPrivateElementStateSlot(snapshot, options = {}) {
-    const slot = Symbol("yomu-private-element-state");
+  const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState("yomu.private-element-state.v1", () => ({
+    valuesByElement: /* @__PURE__ */ new WeakMap(),
+    pendingValues: /* @__PURE__ */ new Map(),
+    replayableBlueprints: /* @__PURE__ */ new Map(),
+    domainSlots: /* @__PURE__ */ new Map()
+  }));
+  function createPrivateElementStateSlot(domain, snapshot, options = {}) {
+    const slot = domainSlot(domain);
     return {
       attributes(value) {
         const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -15925,6 +15929,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return element2 ? valuesByElement.get(element2)?.get(slot) : void 0;
       }
     };
+  }
+  function domainSlot(domain) {
+    const existing = domainSlots.get(domain);
+    if (existing) return existing;
+    const slot = Symbol(`yomu-private-element-state:${domain}`);
+    domainSlots.set(domain, slot);
+    return slot;
   }
   function registerPendingValue(slot, value, replayable) {
     const token = privateStateToken();
@@ -20331,7 +20342,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function normalizeAudioSources(value) {
     return Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
   }
-  const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+  const commandCapabilities = createPrivateElementStateSlot("commands", immutableCommandSnapshot);
   function privateCommandAttributes(command) {
     return commandCapabilities.attributes(command);
   }
@@ -20928,6 +20939,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return isUnifiedIdeograph(value);
   }
   const privateStateSlot = createPrivateElementStateSlot(
+    "rendered-word",
     (state2) => Object.freeze({ ...state2 }),
     { replayable: true }
   );
@@ -61479,7 +61491,7 @@ ${spelling}`);
         return;
       }
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
-      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
+      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces().filter(isCanvasOcrOptInSurface), settings, userRequested) : void 0;
       if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
       if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
         this.releaseAllCanvasFrames();
@@ -84064,7 +84076,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.0.0".trim() ? "2.0.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.1".trim() ? "2.0.1".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -130794,8 +130806,7 @@ ${reading}`);
     }
     dismiss() {
       this.close();
-      this.resolveCompletion?.();
-      this.resolveCompletion = void 0;
+      this.finishCompletionWaiter();
     }
     syncYoutubeImmersionChoice(targetLanguage2) {
       if (!targetLanguage2) return;
@@ -130924,16 +130935,20 @@ ${reading}`);
       this.options.onPersistenceFailed?.(previousSettings);
     }
     async commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries) {
+      const finishCompletion = this.takeCompletionWaiter();
       this.close();
       await this.options.onComplete?.(settings);
       if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
       this.openPostOnboardingSettings(openSettings);
-      this.finishCompletionWaiter();
+      finishCompletion();
     }
     finishCompletionWaiter() {
-      const resolve = this.resolveCompletion;
+      this.takeCompletionWaiter()();
+    }
+    takeCompletionWaiter() {
+      const resolve = this.resolveCompletion ?? (() => void 0);
       this.resolveCompletion = void 0;
-      resolve?.();
+      return resolve;
     }
     completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2) {
       const current = this.options.getSettings();
@@ -137930,6 +137945,7 @@ ${component.reading}`;
       hide: "Hide",
       yourDrawing: "Your drawing",
       couldNotSubmitGrade: "Could not submit grade.",
+      reviewedInAnotherTab: "Already reviewed in another Study tab.",
       updatingJpdbKanji: "Updating JPDB kanji...",
       jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
       grading: "Grading...",
@@ -138228,6 +138244,7 @@ ${component.reading}`;
     hide: "隠す",
     yourDrawing: "あなたの手書き",
     couldNotSubmitGrade: "採点を送信できませんでした。",
+    reviewedInAnotherTab: "このカードは別のStudyタブで復習済みです。",
     updatingJpdbKanji: "JPDB漢字を更新中...",
     jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
     grading: "採点中...",
@@ -140443,6 +140460,10 @@ ${entry.url}`),
   function studyCardRouteSignature(route) {
     if (!route) return "";
     return route.kind === "concealed" ? `concealed:${route.token}` : `portable:${route.key}:${route.spelling}:${route.reading}`;
+  }
+  function isOwnStudyCardRoute(href, lastWrittenRouteSignature) {
+    const signature = studyCardRouteSignature(readStudyCardRoute(href));
+    return Boolean(signature) && signature === lastWrittenRouteSignature;
   }
   function planStudyCardHistoryUpdate(input2) {
     const routeSignature = studyCardRouteSignature(input2.route);
@@ -146409,6 +146430,11 @@ ${entry.url}`),
   };
   const GRADE_QUEUE_LEASE = "newtab-grade-queue";
   const HELD_REVIEW_SETTLE_MS = 5 * 6e4;
+  const NEW_TAB_LIVE_REVIEW_KEY = "yomu:newtab-live-review:v1";
+  const LIVE_REVIEW_LEASE = "newtab-live-review";
+  const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5e3, timeoutMs: 5e3 };
+  const LIVE_REVIEW_CLAIM_MS = 60 * 6e4;
+  const LIVE_REVIEW_CLAIM_LIMIT = 500;
   const UNBOUND_PROVIDER_CONTEXT = "legacy";
   class NewTabGradeQueue {
     constructor(deps) {
@@ -146432,6 +146458,9 @@ ${entry.url}`),
     // Claims this tab certainly never sent, whose release reply was lost.
     unsentClaims = /* @__PURE__ */ new Map();
     completionVersions = /* @__PURE__ */ new Map();
+    tab = createStorageCoordinationId();
+    // Other tabs' settled live reviews this tab has already refused a grade for.
+    passedLiveReviews = /* @__PURE__ */ new Set();
     enqueue(card, grade, targets2, providerContextForTarget = this.deps.providerContextForTarget) {
       return this.locked(() => this.enqueueUnlocked(card, grade, targets2, providerContextForTarget));
     }
@@ -146492,6 +146521,47 @@ ${entry.url}`),
     }
     recoverRecording() {
       return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
+    }
+    /**
+     * Claims an online review across Study tabs, or returns null when another
+     * tab is sending this card's review or already sent it, so this tab's copy
+     * is stale. A settled claim (finished, or older than HELD_REVIEW_SETTLE_MS)
+     * refuses each other tab once, so a card the provider shows again can be
+     * graded after a reload. This tab's own claims never block (Undo, corrections,
+     * relearning), and a storage failure proceeds as 1.9 did instead of locking Study.
+     */
+    async claimLiveReview(card, targets2, contextFor) {
+      const claim = { id: createStorageCoordinationId(), keys: targets2.map((target) => `${contextFor(target)}:${target}:${cardKey(card)}`) };
+      try {
+        return await this.liveReviews((records, now) => {
+          const blocking = claim.keys.filter((key) => records[key] && this.liveReviewBlocks(records[key], now));
+          if (blocking.length) return null;
+          for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
+          return claim;
+        });
+      } catch {
+        return claim;
+      }
+    }
+    /** Marks a claimed live review sent, whatever its outcome. */
+    async finishLiveReview(claim) {
+      await this.liveReviews((records) => {
+        for (const key of claim.keys) if (records[key]?.id === claim.id) records[key].done = true;
+      }).catch(() => void 0);
+    }
+    liveReviewBlocks(record2, now) {
+      if (record2.tab === this.tab || this.passedLiveReviews.has(record2.id)) return false;
+      if (record2.done || now - record2.at >= HELD_REVIEW_SETTLE_MS) this.passedLiveReviews.add(record2.id);
+      return true;
+    }
+    liveReviews(update) {
+      return withGmStorageLease(LIVE_REVIEW_LEASE, async () => {
+        const now = Date.now();
+        const records = currentLiveReviews(await this.storage.get(NEW_TAB_LIVE_REVIEW_KEY, null), now);
+        const result = update(records, now);
+        await this.storage.set(NEW_TAB_LIVE_REVIEW_KEY, records);
+        return result;
+      }, LIVE_REVIEW_LEASE_OPTIONS);
     }
     locked(operation) {
       const next = this.serial.then(operation, operation);
@@ -146723,6 +146793,15 @@ ${entry.url}`),
   }
   function queuedGradeProviderBinding(target, providerContextForTarget) {
     return target === "yomu-local" ? {} : { providerContext: providerContextForTarget(target) };
+  }
+  function currentLiveReviews(stored, now) {
+    if (!isObjectRecord(stored) || Array.isArray(stored)) return {};
+    const fresh = Object.entries(stored).filter((entry) => isLiveReviewRecord(entry[1]) && now - entry[1].at < LIVE_REVIEW_CLAIM_MS).sort(([, left], [, right]) => right.at - left.at);
+    return Object.fromEntries(fresh.slice(0, LIVE_REVIEW_CLAIM_LIMIT));
+  }
+  function isLiveReviewRecord(value) {
+    const record2 = value;
+    return isObjectRecord(record2) && typeof record2.id === "string" && typeof record2.tab === "string" && typeof record2.at === "number" && (record2.done === void 0 || record2.done === true);
   }
   function sameClaim(claims, item) {
     return claims.has(item.id) && claims.get(item.id) === item.heldSince;
@@ -151283,7 +151362,7 @@ ${options.version}`;
     }
     async withPortableUrlCard(cards) {
       const identity = this.portableCardIdentityFromLocation();
-      if (!identity?.spelling || !this.isVocabularyStudyRoute()) return cards;
+      if (!identity?.spelling || !this.isVocabularyStudyRoute() || isOwnStudyCardRoute(location.href, this.lastSyncedCardRouteSignature)) return cards;
       if (cards.some((card2) => this.cardMatchesPortableIdentity(card2, identity))) return cards;
       const card = await this.targetResources.lookupPortableCard(
         identity,
@@ -155809,18 +155888,13 @@ ${options.version}`;
     async gradeCurrentCardUnlocked(grade, selectedTarget2) {
       const reviewOp = this.operations.begin("review");
       const providerContexts = this.providerContexts;
-      const target = this.currentReviewableGradeTarget();
-      if (!target) return false;
+      const target = this.currentGradeTarget();
+      if (!target || !this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.shouldQueueCurrentGradeOffline()) {
         return this.gradeOfflineCard(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts);
       }
       return this.submitOnlineCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts);
-    }
-    currentReviewableGradeTarget() {
-      const target = this.currentGradeTarget();
-      if (!target || !this.canReviewCard(target.card)) return null;
-      return target;
     }
     shouldQueueCurrentGradeOffline() {
       return this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false;
@@ -155835,11 +155909,24 @@ ${options.version}`;
       return target ? [target] : [];
     }
     async submitOnlineCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts) {
+      const claim = await this.gradeQueue.claimLiveReview(
+        target.card,
+        this.gradeReviewTargets(target.card, selectedTarget2),
+        (reviewTarget) => newTabReviewProviderContext(providerContexts, reviewTarget)
+      );
+      if (!claim) {
+        if (reviewOp.superseded) return false;
+        this.dependencies.toast?.(this.text("reviewedInAnotherTab"));
+        await this.retireCardAndReload(target.root, target.card, "reviewedInAnotherTab");
+        return true;
+      }
       try {
         return await this.submitCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts);
       } catch (error) {
         if (reviewOp.superseded) return false;
         return this.handleFailedGrade(target, grade, selectedTarget2, isCorrection, error, reviewOp, providerContexts);
+      } finally {
+        await this.gradeQueue.finishLiveReview(claim);
       }
     }
     async gradeOfflineCard(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts) {
@@ -155866,13 +155953,10 @@ ${options.version}`;
       this.offlineReviewingAccepted = false;
       this.invalidateReviewSourceCache(target.card);
       this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-      this.recordCompletedReview(isCorrection);
+      if (!isCorrection) this.sessionProgress.recordReviewCompleted();
       this.lastUndoableReview = newTabUndoableReview(target.card, isCorrection, this.canUndoJitenReview());
       await this.advanceAfterGrade(target.root, target.card, grade);
       return true;
-    }
-    recordCompletedReview(isCorrection) {
-      if (!isCorrection) this.sessionProgress.recordReviewCompleted();
     }
     canUndoJitenReview() {
       return typeof this.dependencies.jiten?.undoReview === "function";
@@ -155884,7 +155968,8 @@ ${options.version}`;
         return false;
       }
       if (isSessionBunproCard(target.card) || error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => failure.target === "anki")) {
-        await this.reloadAfterAmbiguousGrade(target.root, target.card);
+        this.publishGradedCardState(target.card);
+        await this.retireCardAndReload(target.root, target.card, "couldNotSubmitGrade");
         return true;
       }
       const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget2, error);
@@ -155974,7 +156059,8 @@ ${options.version}`;
       if (choice === "stop") this.setStatus(root, this.text("reviewsPausedOffline"));
       return choice;
     }
-    async reloadAfterAmbiguousGrade(root, card) {
+    /** Drops a card this tab must not grade again and reloads the queue from its provider. */
+    async retireCardAndReload(root, card, status) {
       const key = cardKey(card);
       this.lastUndoableReview = void 0;
       this.invalidateReviewSourceCache(card);
@@ -155986,8 +156072,7 @@ ${options.version}`;
       root.querySelectorAll(newTabActionSelector("grade")).forEach((button2) => {
         button2.disabled = true;
       });
-      this.setStatus(root, this.text("couldNotSubmitGrade"));
-      this.publishGradedCardState(card);
+      this.setStatus(root, this.text(status));
       this.markQueueRefreshed();
       await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
@@ -156514,7 +156599,7 @@ ${options.version}`;
         this.playCardEnterTransition(root);
         return;
       }
-      this.index = Math.min(previousIndex, this.visibleWords.length - 1);
+      this.index = previousIndex < pool.length ? previousIndex : 0;
       this.renderWord(root, this.visibleWords[this.index]);
       this.playCardEnterTransition(root);
     }
@@ -156947,8 +157032,7 @@ ${options.version}`;
       if (!this.isVocabularyStudyRoute()) return;
       const key = this.cardKeyFromLocation();
       if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
-      const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
-      if (routeSignature && routeSignature === this.lastSyncedCardRouteSignature) return;
+      if (isOwnStudyCardRoute(location.href, this.lastSyncedCardRouteSignature)) return;
       if (this.undoReviewForPopstate(root, key)) return;
       this.renderCardForPopstate(root, key);
     }

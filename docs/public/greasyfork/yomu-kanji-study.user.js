@@ -914,6 +914,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
   { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
   { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
@@ -3847,11 +3848,14 @@ function formatPercent(value) {
 }
 const TOKEN_ATTRIBUTE = "data-yomu-private-token";
 const MAX_PENDING_VALUES = 16384;
-const valuesByElement = /* @__PURE__ */ new WeakMap();
-const pendingValues = /* @__PURE__ */ new Map();
-const replayableBlueprints = /* @__PURE__ */ new Map();
-function createPrivateElementStateSlot(snapshot, options = {}) {
-  const slot = Symbol("yomu-private-element-state");
+const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState("yomu.private-element-state.v1", () => ({
+  valuesByElement: /* @__PURE__ */ new WeakMap(),
+  pendingValues: /* @__PURE__ */ new Map(),
+  replayableBlueprints: /* @__PURE__ */ new Map(),
+  domainSlots: /* @__PURE__ */ new Map()
+}));
+function createPrivateElementStateSlot(domain, snapshot, options = {}) {
+  const slot = domainSlot(domain);
   return {
   attributes(value) {
     const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -3870,6 +3874,13 @@ function createPrivateElementStateSlot(snapshot, options = {}) {
     return element ? valuesByElement.get(element)?.get(slot) : void 0;
   }
   };
+}
+function domainSlot(domain) {
+  const existing = domainSlots.get(domain);
+  if (existing) return existing;
+  const slot = Symbol(`yomu-private-element-state:${domain}`);
+  domainSlots.set(domain, slot);
+  return slot;
 }
 function registerPendingValue(slot, value, replayable) {
   const token = privateStateToken();
@@ -12765,7 +12776,7 @@ function effectiveFuriganaMode(settings) {
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
-const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+const commandCapabilities = createPrivateElementStateSlot("commands", immutableCommandSnapshot);
 function privateCommandAttributes(command) {
   return commandCapabilities.attributes(command);
 }
@@ -13259,6 +13270,7 @@ function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
 }
 const privateStateSlot = createPrivateElementStateSlot(
+  "rendered-word",
   (state) => Object.freeze({ ...state }),
   { replayable: true }
 );

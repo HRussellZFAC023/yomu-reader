@@ -897,7 +897,10 @@
   width: clamp(260px, 36vw, 372px);
   max-width: 100%;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* One equal column per section: Study, Practice (when offered), Library,
+     Stats. A fixed three-column grid wrapped Stats onto a second row. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--jpdb-reader-border);
@@ -5135,7 +5138,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     max-width: none;
     justify-self: stretch;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 3px;
   }
 
@@ -6775,10 +6777,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 @media (max-width: 760px) {
-  .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-mode {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-topbar {
     grid-template-columns: minmax(0, 1fr) auto;
   }

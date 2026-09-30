@@ -893,6 +893,7 @@ var MANAGED_STATE_MANIFEST = [
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
   { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
   { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },

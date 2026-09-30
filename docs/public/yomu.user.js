@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.0
+// @version 2.0.1
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.53c42ff3dd51.user.js#sha256=U8Qv891RxnTsQEXcvfkDYueETgqlqjCQUNu1n9Ya5IQ=
+// @require https://yomureader.com/greasyfork/yomu-runtime.5b3bc4e9e6e6.user.js#sha256=WzvE6ebmqu1X0piOD7w82HhFGO7TTDt9dz0EAvS5RL8=
 // @resource yomuCss  https://yomureader.com/yomu.ebfeb8423b4e.css#sha256=6/64QjtOg2TMygyMO9Tmh6tenwid7veJVRohvIbwESM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -1479,6 +1479,7 @@ enumerate: enumerateDictionaryArchiveStorageKeys
 { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
 { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
 { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+{ owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
 { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
 { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
 { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
@@ -5204,11 +5205,14 @@ preserveTokenRubies,
 }
 const TOKEN_ATTRIBUTE = "data-yomu-private-token";
 const MAX_PENDING_VALUES = 16384;
-const valuesByElement = new WeakMap();
-const pendingValues = new Map();
-const replayableBlueprints = new Map();
-function createPrivateElementStateSlot(snapshot, options = {}) {
-const slot = Symbol("yomu-private-element-state");
+const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState("yomu.private-element-state.v1", () => ({
+valuesByElement: new WeakMap(),
+pendingValues: new Map(),
+replayableBlueprints: new Map(),
+domainSlots: new Map()
+}));
+function createPrivateElementStateSlot(domain, snapshot, options = {}) {
+const slot = domainSlot(domain);
 return {
 attributes(value) {
 const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -5227,6 +5231,13 @@ read(element) {
 return element ? valuesByElement.get(element)?.get(slot) : void 0;
 }
 };
+}
+function domainSlot(domain) {
+const existing = domainSlots.get(domain);
+if (existing) return existing;
+const slot = Symbol(`yomu-private-element-state:${domain}`);
+domainSlots.set(domain, slot);
+return slot;
 }
 function registerPendingValue(slot, value, replayable) {
 const token = privateStateToken();
@@ -5276,6 +5287,7 @@ return Array.from(bytes, (value) => value.toString(36)).join("-");
 return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 const privateStateSlot = createPrivateElementStateSlot(
+"rendered-word",
 (state) => Object.freeze({ ...state }),
 { replayable: true }
 );
@@ -14079,7 +14091,7 @@ retainedKeys(groups = [...this.unresolved]) {
 return new Set([...this.values.keys(), ...groups.flatMap((group) => [...group.values()].flatMap((item) => item.keys))]);
 }
 }
-const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+const commandCapabilities = createPrivateElementStateSlot("commands", immutableCommandSnapshot);
 function privateCommandAttributes(command) {
 return commandCapabilities.attributes(command);
 }
@@ -33521,8 +33533,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.0"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.0"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.1"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.1"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33665,7 +33677,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.0"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.1"}`;
 } catch {
 return null;
 }

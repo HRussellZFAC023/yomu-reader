@@ -916,6 +916,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
   { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
   { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
@@ -3053,11 +3054,14 @@ function formatPercent(value) {
 }
 const TOKEN_ATTRIBUTE = "data-yomu-private-token";
 const MAX_PENDING_VALUES = 16384;
-const valuesByElement = /* @__PURE__ */ new WeakMap();
-const pendingValues = /* @__PURE__ */ new Map();
-const replayableBlueprints = /* @__PURE__ */ new Map();
-function createPrivateElementStateSlot(snapshot, options = {}) {
-  const slot = Symbol("yomu-private-element-state");
+const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState("yomu.private-element-state.v1", () => ({
+  valuesByElement: /* @__PURE__ */ new WeakMap(),
+  pendingValues: /* @__PURE__ */ new Map(),
+  replayableBlueprints: /* @__PURE__ */ new Map(),
+  domainSlots: /* @__PURE__ */ new Map()
+}));
+function createPrivateElementStateSlot(domain, snapshot, options = {}) {
+  const slot = domainSlot(domain);
   return {
   attributes(value) {
     const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -3076,6 +3080,13 @@ function createPrivateElementStateSlot(snapshot, options = {}) {
     return element ? valuesByElement.get(element)?.get(slot) : void 0;
   }
   };
+}
+function domainSlot(domain) {
+  const existing = domainSlots.get(domain);
+  if (existing) return existing;
+  const slot = Symbol(`yomu-private-element-state:${domain}`);
+  domainSlots.set(domain, slot);
+  return slot;
 }
 function registerPendingValue(slot, value, replayable) {
   const token = privateStateToken();
@@ -12215,6 +12226,16 @@ function effectiveFuriganaMode(settings) {
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
+createPrivateElementStateSlot("commands", immutableCommandSnapshot);
+function immutableCommandSnapshot(command) {
+  if (command.kind === "subtitle-action" && command.batchPlans) {
+  return Object.freeze({ ...command, batchPlans: Object.freeze([...command.batchPlans]) });
+  }
+  if (command.kind === "card-action" && command.audioUrls) {
+  return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
+  }
+  return Object.freeze({ ...command });
+}
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
@@ -12638,6 +12659,7 @@ function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
 }
 const privateStateSlot = createPrivateElementStateSlot(
+  "rendered-word",
   (state2) => Object.freeze({ ...state2 }),
   { replayable: true }
 );
@@ -18111,7 +18133,7 @@ class ImageOcrController {
     return;
   }
   const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
-  const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
+  const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces().filter(isCanvasOcrOptInSurface), settings, userRequested) : void 0;
   if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
   if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
     this.releaseAllCanvasFrames();

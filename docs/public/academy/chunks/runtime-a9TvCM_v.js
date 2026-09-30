@@ -1,4 +1,4 @@
-import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as updateRenderedWordPrivateState, a7 as renderedWordPrivateStateForCard, a8 as renderedWordPrivateValue, a9 as subscribeToStoredValueChanges, aa as currentAccountDataSurfaceIsTrusted, ab as gmPrivateStorageSet, ac as Logger, ad as uiText, ae as overlayViewport, af as overlayViewportBounds, ag as layoutPointToOverlay, ah as sourceRectToOverlay, ai as trustedReaderEventHandler, aj as readCardCommandCapability, ak as privateReviewGradeAllowed, al as normalizeAttemptedAudioUrl, am as audioSubSourceNameKey, an as audioSubSourceProviderName, ao as targetAudioTemplateLanguageToken, ap as disabledAudioSubSourceNameKeys, aq as parseJson, ar as escapeRegExp, as as uniqueStrings, at as getOrderedAudioSources, au as orderAudioSources, av as isTextToSpeechFallbackSource, aw as isBrowserTextToSpeechSource, ax as audioPreloadLimits, ay as preloadableAudioSources, az as cheapCandidatePreloadAudioSources, aA as orderAudioCandidates, aB as getAudioBagKey, aC as audioCandidateSelectionMode, aD as registerAudioAttempt, aE as getJpdbAudioBagKey, aF as preparedAudioCacheKey, aG as getAudioCandidateCacheKey, aH as cloneAudioCandidates, aI as targetSpeechSynthesisLocale, aJ as isApiTextToSpeechSource, aK as canonicalLanguageTag, aL as languageSubtag, aM as hasJitenAudioReference, aN as yomuAnkiCompanion, aO as flattenNoteFields, aP as stablePositiveHashId, aQ as normalizeAnkiFieldName, aR as HAS_JAPANESE, aS as codePointSafePrefix, aT as ANKI_EXPRESSION_FIELD_NAMES, aU as ANKI_READING_FIELD_NAMES, aV as ANKI_MEANING_FIELD_NAMES, aW as ANKI_SENTENCE_FIELD_NAMES, aX as escapeHtml$2, aY as privateCommandAttributes, aZ as ACADEMY_SRS_LABEL, a_ as sharedHexToRgb, a$ as sanitizeAccentColor, b0 as sharedContrastRatio, b1 as CORE_COLOR_TOKENS, b2 as sharedMixHex, b3 as RENDERED_WORD_CONTRAST_VARS, b4 as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, b5 as PAGE_WORD_COLOR_TOKENS, b6 as renderedWordHasAnkiState, b7 as canonicalStudyCardIdentity, b8 as applyLocalYomuSrsStateToRenderedWord, b9 as hasJpdbApiCredential, ba as hasJitenApiCredential, bb as hasBunproFrontendCredential, bc as isBunproFrontendCredentialExpired, bd as hasWanikaniApiCredential, be as isLocalYomuSrsStorageError, bf as activeLearningTargetLanguage, bg as effectiveWanikaniApiToken, bh as effectiveBunproFrontendApiToken, bi as effectiveBunproLegacyApiKey, bj as effectiveJpdbApiKey, bk as effectiveJitenApiKey, bl as yomuKanjiStudyCompanion, bm as activeLearningTarget, bn as isUnifiedIdeograph, bo as readerWordSurfaceText$1, bp as readAnkiAudioMergeCapability, bq as formatUiText, br as uiList, bs as readReviewTargetCapability, bt as renderKanjiNavigationText, bu as shouldRenderRuby, bv as renderRuby, bw as cleanCardHighlightValue, bx as renderHighlightedTextHtml, by as cardHighlightTargets, bz as compactCardHighlightValue, bA as IMMERSION_KIT_SOURCE_ID, bB as JITEN_DEFINITION_SOURCE_ID, bC as JPDB_DEFINITION_SOURCE_ID, bD as BUNPRO_DEFINITION_SOURCE_ID, bE as WANIKANI_DEFINITION_SOURCE_ID, bF as STUDY_TRANSLATION_SOURCE_ID, bG as ANKI_SOURCE_ID, bH as STUDY_GRAMMAR_SOURCE_ID, bI as LOOKUP_PILL_COLOR_TOKENS, bJ as normalizeDictionaryPreferences, bK as genericLookupTextVariants, bL as yomitanDictionaryIdentity, bM as gmStorageGet, bN as gmStorageSet, bO as gmStorageDelete, bP as assertManagedStateMutationAllowed, bQ as managedStateEpochToken, bR as managedStateEpochTokenRelation, bS as assertManagedStateReadAllowed, bT as normalizeZipKanjiMetaRow, bU as normalizeZipTermMetaRow, bV as normalizeZipKanjiRow, bW as normalizeZipTermRow, bX as isRecord$5, bY as isJapaneseKanjiCharacter, bZ as lookupSpansStartingInRange, b_ as normalizeImportedLookupMeta, b$ as normalizeGenericLookupText, c0 as splitTags, c1 as JAPANESE_RE$1, c2 as codePointBoundaryAtOrAfter, c3 as yomitanZipDictionaryName, c4 as yomitanZipVersion, c5 as countYomitanZipBanks, c6 as normalizeImportedLookupTerm, c7 as activeLearningTargetGeneration, c8 as imageMimeType, c9 as bytesToBase64$1, ca as speakerIcon, cb as renderedWordPrivateAttributesForState, cc as gmStorageGetSync, cd as gmStorageSetSync, ce as isNonNullObject, cf as uniqueNonEmptyStrings, cg as pitchNumberForReading, ch as pitchPatternFromPosition, ci as KANA, cj as COMBINING_KANA_MARKS, ck as collectPitchVariants, cl as splitMorae, cm as pitchLevelsForDisplay, cn as pitchClassNameForPattern, co as learningTargetModuleFor, cp as defaultLearningTargetModule, cq as languageDisplayName, cr as resolveUiLanguage, cs as primaryCardState, ct as cardStateLabel, cu as ConcurrencyGate, cv as KANA_ONLY_RUN_RE, cw as ITERATION_MARK, cx as KANA_WITH_PROLONGED, cy as mapLimited, cz as bareFallbackCardFromText, cA as inferredInflectedSurfaceRubies, cB as nonOverlappingTokens, cC as READING_KANA_ONLY_RE, cD as HALFWIDTH_KATAKANA, cE as PROLONGED_SOUND_MARK, cF as KATAKANA_MIDDLE_DOT, cG as fallbackLookupTermsForCard, cH as yomuBunproCompanion, cI as shouldLookupAnkiStatus, cJ as setRenderedWordPitchClass, cK as shouldHideFuriganaForCardState, cL as isPopupLookupEnabled, cM as yomuNormalizeOcrRenderedText, cN as replaceRenderedWordFurigana, cO as htmlToFirstElement, cP as clearRenderedWordAnkiState, cQ as clearRenderedWordFurigana, cR as cardDeckMembershipClassNames, cS as setInnerHtml, cT as gmStorageDeleteSync, cU as appendToDocumentHead, cV as yomuSettingsSurfaceCompanion, cW as subscribeToFactoryResetSignals, cX as APP_NAME, cY as createFactoryResetSignal, cZ as beginSettingsResetGuard, c_ as publishFactoryResetSignal, c$ as delay, d0 as clearManagedStoredValues, d1 as deleteSettingsStorage, d2 as commitManagedStateResetEpoch, d3 as clearFactoryResetSignal, d4 as managedStateResetEpochMayHaveCommitted, d5 as endSettingsResetGuard, d6 as managedStoredKeysStillPresent, d7 as ManagedStateResetError, d8 as stableHash32, d9 as uniqueTrimmedStrings, da as stableHashBase36, db as isTargetLanguageText, dc as KANJI_LIKE_WITH_COUNTERS, dd as HIRAGANA_WITH_PROLONGED, de as KATAKANA_WITH_PROLONGED, df as KANJI_LIKE_RE, dg as applyOverlayPageScale, dh as overlayViewportBottomInset, di as renderImmersionSearchLinksHtml, dj as renderTokensToHtml, dk as readPrivateReviewTarget, dl as runLimited, dm as isManagedStorageKey, dn as managedLocalStorage, dp as readJitenKanjiWordsCommandCapability, dq as bindPrivateCommandCapability, dr as parseHtmlDocument, ds as isCurrentScanTarget, dt as applyTokensToScanTarget, du as unwrapReaderWords, dv as collectFragmentTextTargetsIn, dw as collectFormControlTextTargetsIn, dx as newTabText, dy as CARD_STATE_LABEL_KEYS, dz as readKanjiCommandCapability, dA as DEFAULT_OVERLAY_BACKGROUND_COLOR, dB as dispatchPrivateCommand, dC as claimLocalTapActivation, dD as installControlTapActivation, dE as enabledReaderControl, dF as effectiveFuriganaMode, dG as KANJI_DOODLE_CLEAR_EVENT, dH as installKanjiDoodle, dI as rankKanjiStrokeCandidates, dJ as promiseWithTimeout, dK as isYomuNewTabUrl, dL as convertRomajiToKana, dM as normalizeJapaneseStudyAnswer, dN as isolate, dO as contextPitchPattern, dP as managedStateWritesSuppressed, dQ as createStorageCoordinationId, dR as managedSessionStorage, dS as bindAuthorizedReaderFormSubmit, dT as isDirectTrustedReaderInteraction, dU as normalizedJapaneseCardReading, dV as parseManagedStateEpoch, dW as sameManagedStateEpoch, dX as gmStorageGetStrict, dY as withGmStorageLease, dZ as DEFAULT_SETTINGS, d_ as renderImmersionSearchLinks, d$ as createStudySessionClock, e0 as readJpdbKanjiCommandCapability, e1 as isNewTabCopyKey, e2 as nextExplicitUiLanguage, e3 as GITHUB_REPOSITORY_URL, e4 as DISCORD_INVITE_URL, e5 as dispatchAuthorizedReaderControlClick, e6 as DOCS_BASE_URL, e7 as SUPPORT_STATUS_URL, e8 as validPitchPositions, e9 as mountStudySessionClockControl, ea as combinedApiCredentialLabel, eb as assessKanjiStrokes, ec as SHAPE_PASS_SCORE, ed as activeLanguageProfile, ee as readBackupSettingsPersistenceView, ef as beginStoredValuesImport, eg as settingsIntentKeys, eh as normalizeReaderSettings, ei as mergeDictionaryPreferences, ej as retireStaleDictionaryPreferences, ek as captureActiveLanguageProfileDictionaries, el as saveSettings, em as packagedExtensionStorageAdapterMissing, en as readSettingsPersistenceViewStrict, eo as FURIGANA_HIDE_STATE_GROUPS, ep as WORD_COLOR_HIDE_STATE_GROUPS, eq as accentToRgba, er as effectiveReaderTextColorSource, es as effectiveReaderColorSource, et as effectiveSubtitleTextColorSource, eu as effectiveSubtitleColorSource, ev as accessibleOcrBackgroundOpacity, ew as accessibleOcrBackgroundColor, ex as READER_THEME_COLOR_TOKENS, ey as EXTENSION_STORE_URLS, ez as USERSCRIPT_INSTALL_URL, eA as learnerLanguageById, eB as readApiCredentialsFromFormData, eC as DEFAULT_AUDIO_SOURCES, eD as learningTargetRosterIdForTag, eE as dictionaryLookupLinksForTarget, eF as availableInterfaceLocales, eG as credentialValueFromReader, eH as normalizeOcrProvider, eI as slice1LanguageIdForTag, eJ as canonicalTagForSlice1Language, eK as canonicalTagForLearningTarget, eL as languageProfileDictionariesFromPreferences, eM as activateLanguageProfileForOutputLanguage, eN as normalizeDictionaryLookupLinks, eO as normalizeAudioSource, eP as isLearningTargetRosterId, eQ as MAX_LOOKUP_LINK_ROWS, eR as normalizeAnkiFieldMappings, eS as isLearnerLanguageId, eT as COPY_LOOKUP_LINK, eU as exportManagedStoredValues, eV as RETIRED_SETTINGS_STORAGE_KEYS, eW as SETTINGS_STORAGE_KEY, eX as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eY as applySettingsIntent, eZ as serializeSettingsPersistencePair, e_ as defaultDictionaryLookupLinks, e$ as MAX_EXTRA_LOOKUP_LINKS, f0 as missingLookupComponents, f1 as AUDIO_SOURCE_UI_TYPE_VALUES, f2 as audioSourceLabel, f3 as lookupSiteComponents, f4 as DEFAULT_POPUP_FONT_FAMILY, f5 as DEFAULT_READER_FONT_FAMILY, f6 as isPromiseLike$2, f7 as dispatchAuthorizedReaderControlEvent, f8 as ANKI_CONNECT_ADDON_URL, f9 as redactedApiCredentialsFromForm, fa as LEARNER_LANGUAGE_IDS, fb as externalLinkIcon, fc as LEARNING_TARGET_ROSTER, fd as furiganaModeNeedsDifficultyExplanation, fe as DEFAULT_OVERLAY_TEXT_COLOR, ff as DEFAULT_OVERLAY_OUTLINE_COLOR, fg as storedCredentialClearName, fh as hasStatusColorSource, fi as NEW_TAB_PAGE_URL, fj as AUDIO_GUIDE_URL, fk as NADESHIKO_DEVELOPER_URL, fl as VIDEO_PLAYER_PAGE_URL, fm as PDF_READER_PAGE_URL, fn as DONATE_URL, fo as SUPPORT_COPY, fp as SUPPORT_COPY_EXTRA, fq as LEARNER_LANGUAGES, fr as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fs as gmPrivateStorageDelete, ft as gmPrivateStorageGet, fu as subscribeToSettingsChanges, fv as subscribeLocalYomuSrsMutations, fw as LocalYomuSrsRepository, fx as unwrapProfileKey, fy as parseAcademyPairingTicket, fz as wrapProfileKey, fA as decryptProfileEvent, fB as encryptProfileEvent, fC as mergeStoredYomuSrsDecks, fD as settingsPanelHash, fE as readTrustedYomuUrl, fF as isPrivilegedYomuLocalDevelopmentOrigin, fG as settingsPanelFromHash, fH as SETTINGS_TITLE, fI as learningTargetRosterEntry, fJ as NEW_TAB_VERSION_URL, fK as NO_EXPLICIT_USER_CHOICE, fL as normalizeAudioSubSources, fM as publishSettingsChange$1, fN as mergeApiCredentialValues, fO as configureLogger, fP as localeDirection, fQ as subscribeToSettingsStorageChanges, fR as isHostedYomuOrigin, fS as loadSettings, fT as copyIcon, fU as ankiIcon, fV as createYomuLocalSrsAdapter, fW as yomuOnboardingController, fX as clearManagedBrowserCaches, fY as unregisterManagedServiceWorkers, fZ as setRenderedWordCardIdentity, f_ as renderedWordCardKey, f$ as renderedWordsInRoot, g0 as renderedWordElementKey, g1 as applyInterfaceLocaleToRoot, g2 as applyInterfaceLocaleToDocument, g3 as ensureManagedWebStorageCurrent } from "./entrypoint-CZySv7d5.js";
+import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as updateRenderedWordPrivateState, a7 as renderedWordPrivateStateForCard, a8 as renderedWordPrivateValue, a9 as subscribeToStoredValueChanges, aa as currentAccountDataSurfaceIsTrusted, ab as gmPrivateStorageSet, ac as Logger, ad as uiText, ae as overlayViewport, af as overlayViewportBounds, ag as layoutPointToOverlay, ah as sourceRectToOverlay, ai as trustedReaderEventHandler, aj as readCardCommandCapability, ak as privateReviewGradeAllowed, al as normalizeAttemptedAudioUrl, am as audioSubSourceNameKey, an as audioSubSourceProviderName, ao as targetAudioTemplateLanguageToken, ap as disabledAudioSubSourceNameKeys, aq as parseJson, ar as escapeRegExp, as as uniqueStrings, at as getOrderedAudioSources, au as orderAudioSources, av as isTextToSpeechFallbackSource, aw as isBrowserTextToSpeechSource, ax as audioPreloadLimits, ay as preloadableAudioSources, az as cheapCandidatePreloadAudioSources, aA as orderAudioCandidates, aB as getAudioBagKey, aC as audioCandidateSelectionMode, aD as registerAudioAttempt, aE as getJpdbAudioBagKey, aF as preparedAudioCacheKey, aG as getAudioCandidateCacheKey, aH as cloneAudioCandidates, aI as targetSpeechSynthesisLocale, aJ as isApiTextToSpeechSource, aK as canonicalLanguageTag, aL as languageSubtag, aM as hasJitenAudioReference, aN as yomuAnkiCompanion, aO as flattenNoteFields, aP as stablePositiveHashId, aQ as normalizeAnkiFieldName, aR as HAS_JAPANESE, aS as codePointSafePrefix, aT as ANKI_EXPRESSION_FIELD_NAMES, aU as ANKI_READING_FIELD_NAMES, aV as ANKI_MEANING_FIELD_NAMES, aW as ANKI_SENTENCE_FIELD_NAMES, aX as escapeHtml$2, aY as privateCommandAttributes, aZ as ACADEMY_SRS_LABEL, a_ as sharedHexToRgb, a$ as sanitizeAccentColor, b0 as sharedContrastRatio, b1 as CORE_COLOR_TOKENS, b2 as sharedMixHex, b3 as RENDERED_WORD_CONTRAST_VARS, b4 as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, b5 as PAGE_WORD_COLOR_TOKENS, b6 as renderedWordHasAnkiState, b7 as canonicalStudyCardIdentity, b8 as applyLocalYomuSrsStateToRenderedWord, b9 as hasJpdbApiCredential, ba as hasJitenApiCredential, bb as hasBunproFrontendCredential, bc as isBunproFrontendCredentialExpired, bd as hasWanikaniApiCredential, be as isLocalYomuSrsStorageError, bf as activeLearningTargetLanguage, bg as effectiveWanikaniApiToken, bh as effectiveBunproFrontendApiToken, bi as effectiveBunproLegacyApiKey, bj as effectiveJpdbApiKey, bk as effectiveJitenApiKey, bl as yomuKanjiStudyCompanion, bm as activeLearningTarget, bn as isUnifiedIdeograph, bo as readerWordSurfaceText$1, bp as readAnkiAudioMergeCapability, bq as formatUiText, br as uiList, bs as readReviewTargetCapability, bt as renderKanjiNavigationText, bu as shouldRenderRuby, bv as renderRuby, bw as cleanCardHighlightValue, bx as renderHighlightedTextHtml, by as cardHighlightTargets, bz as compactCardHighlightValue, bA as IMMERSION_KIT_SOURCE_ID, bB as JITEN_DEFINITION_SOURCE_ID, bC as JPDB_DEFINITION_SOURCE_ID, bD as BUNPRO_DEFINITION_SOURCE_ID, bE as WANIKANI_DEFINITION_SOURCE_ID, bF as STUDY_TRANSLATION_SOURCE_ID, bG as ANKI_SOURCE_ID, bH as STUDY_GRAMMAR_SOURCE_ID, bI as LOOKUP_PILL_COLOR_TOKENS, bJ as normalizeDictionaryPreferences, bK as genericLookupTextVariants, bL as yomitanDictionaryIdentity, bM as gmStorageGet, bN as gmStorageSet, bO as gmStorageDelete, bP as assertManagedStateMutationAllowed, bQ as managedStateEpochToken, bR as managedStateEpochTokenRelation, bS as assertManagedStateReadAllowed, bT as normalizeZipKanjiMetaRow, bU as normalizeZipTermMetaRow, bV as normalizeZipKanjiRow, bW as normalizeZipTermRow, bX as isRecord$5, bY as isJapaneseKanjiCharacter, bZ as lookupSpansStartingInRange, b_ as normalizeImportedLookupMeta, b$ as normalizeGenericLookupText, c0 as splitTags, c1 as JAPANESE_RE$1, c2 as codePointBoundaryAtOrAfter, c3 as yomitanZipDictionaryName, c4 as yomitanZipVersion, c5 as countYomitanZipBanks, c6 as normalizeImportedLookupTerm, c7 as activeLearningTargetGeneration, c8 as imageMimeType, c9 as bytesToBase64$1, ca as speakerIcon, cb as renderedWordPrivateAttributesForState, cc as gmStorageGetSync, cd as gmStorageSetSync, ce as isNonNullObject, cf as uniqueNonEmptyStrings, cg as pitchNumberForReading, ch as pitchPatternFromPosition, ci as KANA, cj as COMBINING_KANA_MARKS, ck as collectPitchVariants, cl as splitMorae, cm as pitchLevelsForDisplay, cn as pitchClassNameForPattern, co as learningTargetModuleFor, cp as defaultLearningTargetModule, cq as languageDisplayName, cr as resolveUiLanguage, cs as primaryCardState, ct as cardStateLabel, cu as ConcurrencyGate, cv as KANA_ONLY_RUN_RE, cw as ITERATION_MARK, cx as KANA_WITH_PROLONGED, cy as mapLimited, cz as bareFallbackCardFromText, cA as inferredInflectedSurfaceRubies, cB as nonOverlappingTokens, cC as READING_KANA_ONLY_RE, cD as HALFWIDTH_KATAKANA, cE as PROLONGED_SOUND_MARK, cF as KATAKANA_MIDDLE_DOT, cG as fallbackLookupTermsForCard, cH as yomuBunproCompanion, cI as shouldLookupAnkiStatus, cJ as setRenderedWordPitchClass, cK as shouldHideFuriganaForCardState, cL as isPopupLookupEnabled, cM as yomuNormalizeOcrRenderedText, cN as replaceRenderedWordFurigana, cO as htmlToFirstElement, cP as clearRenderedWordAnkiState, cQ as clearRenderedWordFurigana, cR as cardDeckMembershipClassNames, cS as setInnerHtml, cT as gmStorageDeleteSync, cU as appendToDocumentHead, cV as yomuSettingsSurfaceCompanion, cW as subscribeToFactoryResetSignals, cX as APP_NAME, cY as createFactoryResetSignal, cZ as beginSettingsResetGuard, c_ as publishFactoryResetSignal, c$ as delay, d0 as clearManagedStoredValues, d1 as deleteSettingsStorage, d2 as commitManagedStateResetEpoch, d3 as clearFactoryResetSignal, d4 as managedStateResetEpochMayHaveCommitted, d5 as endSettingsResetGuard, d6 as managedStoredKeysStillPresent, d7 as ManagedStateResetError, d8 as stableHash32, d9 as uniqueTrimmedStrings, da as stableHashBase36, db as isTargetLanguageText, dc as KANJI_LIKE_WITH_COUNTERS, dd as HIRAGANA_WITH_PROLONGED, de as KATAKANA_WITH_PROLONGED, df as KANJI_LIKE_RE, dg as applyOverlayPageScale, dh as overlayViewportBottomInset, di as renderImmersionSearchLinksHtml, dj as renderTokensToHtml, dk as readPrivateReviewTarget, dl as runLimited, dm as isManagedStorageKey, dn as managedLocalStorage, dp as readJitenKanjiWordsCommandCapability, dq as bindPrivateCommandCapability, dr as parseHtmlDocument, ds as isCurrentScanTarget, dt as applyTokensToScanTarget, du as unwrapReaderWords, dv as collectFragmentTextTargetsIn, dw as collectFormControlTextTargetsIn, dx as newTabText, dy as CARD_STATE_LABEL_KEYS, dz as readKanjiCommandCapability, dA as DEFAULT_OVERLAY_BACKGROUND_COLOR, dB as dispatchPrivateCommand, dC as claimLocalTapActivation, dD as installControlTapActivation, dE as enabledReaderControl, dF as effectiveFuriganaMode, dG as KANJI_DOODLE_CLEAR_EVENT, dH as installKanjiDoodle, dI as rankKanjiStrokeCandidates, dJ as promiseWithTimeout, dK as isYomuNewTabUrl, dL as convertRomajiToKana, dM as normalizeJapaneseStudyAnswer, dN as isolate, dO as contextPitchPattern, dP as managedStateWritesSuppressed, dQ as createStorageCoordinationId, dR as managedSessionStorage, dS as bindAuthorizedReaderFormSubmit, dT as isDirectTrustedReaderInteraction, dU as normalizedJapaneseCardReading, dV as parseManagedStateEpoch, dW as sameManagedStateEpoch, dX as gmStorageGetStrict, dY as withGmStorageLease, dZ as DEFAULT_SETTINGS, d_ as renderImmersionSearchLinks, d$ as createStudySessionClock, e0 as readJpdbKanjiCommandCapability, e1 as isNewTabCopyKey, e2 as nextExplicitUiLanguage, e3 as GITHUB_REPOSITORY_URL, e4 as DISCORD_INVITE_URL, e5 as dispatchAuthorizedReaderControlClick, e6 as DOCS_BASE_URL, e7 as SUPPORT_STATUS_URL, e8 as validPitchPositions, e9 as mountStudySessionClockControl, ea as combinedApiCredentialLabel, eb as assessKanjiStrokes, ec as SHAPE_PASS_SCORE, ed as activeLanguageProfile, ee as readBackupSettingsPersistenceView, ef as beginStoredValuesImport, eg as settingsIntentKeys, eh as normalizeReaderSettings, ei as mergeDictionaryPreferences, ej as retireStaleDictionaryPreferences, ek as captureActiveLanguageProfileDictionaries, el as saveSettings, em as packagedExtensionStorageAdapterMissing, en as readSettingsPersistenceViewStrict, eo as FURIGANA_HIDE_STATE_GROUPS, ep as WORD_COLOR_HIDE_STATE_GROUPS, eq as accentToRgba, er as effectiveReaderTextColorSource, es as effectiveReaderColorSource, et as effectiveSubtitleTextColorSource, eu as effectiveSubtitleColorSource, ev as accessibleOcrBackgroundOpacity, ew as accessibleOcrBackgroundColor, ex as READER_THEME_COLOR_TOKENS, ey as EXTENSION_STORE_URLS, ez as USERSCRIPT_INSTALL_URL, eA as learnerLanguageById, eB as readApiCredentialsFromFormData, eC as DEFAULT_AUDIO_SOURCES, eD as learningTargetRosterIdForTag, eE as dictionaryLookupLinksForTarget, eF as availableInterfaceLocales, eG as credentialValueFromReader, eH as normalizeOcrProvider, eI as slice1LanguageIdForTag, eJ as canonicalTagForSlice1Language, eK as canonicalTagForLearningTarget, eL as languageProfileDictionariesFromPreferences, eM as activateLanguageProfileForOutputLanguage, eN as normalizeDictionaryLookupLinks, eO as normalizeAudioSource, eP as isLearningTargetRosterId, eQ as MAX_LOOKUP_LINK_ROWS, eR as normalizeAnkiFieldMappings, eS as isLearnerLanguageId, eT as COPY_LOOKUP_LINK, eU as exportManagedStoredValues, eV as RETIRED_SETTINGS_STORAGE_KEYS, eW as SETTINGS_STORAGE_KEY, eX as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eY as applySettingsIntent, eZ as serializeSettingsPersistencePair, e_ as defaultDictionaryLookupLinks, e$ as MAX_EXTRA_LOOKUP_LINKS, f0 as missingLookupComponents, f1 as AUDIO_SOURCE_UI_TYPE_VALUES, f2 as audioSourceLabel, f3 as lookupSiteComponents, f4 as DEFAULT_POPUP_FONT_FAMILY, f5 as DEFAULT_READER_FONT_FAMILY, f6 as isPromiseLike$2, f7 as dispatchAuthorizedReaderControlEvent, f8 as ANKI_CONNECT_ADDON_URL, f9 as redactedApiCredentialsFromForm, fa as LEARNER_LANGUAGE_IDS, fb as externalLinkIcon, fc as LEARNING_TARGET_ROSTER, fd as furiganaModeNeedsDifficultyExplanation, fe as DEFAULT_OVERLAY_TEXT_COLOR, ff as DEFAULT_OVERLAY_OUTLINE_COLOR, fg as storedCredentialClearName, fh as hasStatusColorSource, fi as NEW_TAB_PAGE_URL, fj as AUDIO_GUIDE_URL, fk as NADESHIKO_DEVELOPER_URL, fl as VIDEO_PLAYER_PAGE_URL, fm as PDF_READER_PAGE_URL, fn as DONATE_URL, fo as SUPPORT_COPY, fp as SUPPORT_COPY_EXTRA, fq as LEARNER_LANGUAGES, fr as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fs as gmPrivateStorageDelete, ft as gmPrivateStorageGet, fu as subscribeToSettingsChanges, fv as subscribeLocalYomuSrsMutations, fw as LocalYomuSrsRepository, fx as unwrapProfileKey, fy as parseAcademyPairingTicket, fz as wrapProfileKey, fA as decryptProfileEvent, fB as encryptProfileEvent, fC as mergeStoredYomuSrsDecks, fD as settingsPanelHash, fE as readTrustedYomuUrl, fF as isPrivilegedYomuLocalDevelopmentOrigin, fG as settingsPanelFromHash, fH as SETTINGS_TITLE, fI as learningTargetRosterEntry, fJ as NEW_TAB_VERSION_URL, fK as NO_EXPLICIT_USER_CHOICE, fL as normalizeAudioSubSources, fM as publishSettingsChange$1, fN as mergeApiCredentialValues, fO as configureLogger, fP as localeDirection, fQ as subscribeToSettingsStorageChanges, fR as isHostedYomuOrigin, fS as loadSettings, fT as copyIcon, fU as ankiIcon, fV as createYomuLocalSrsAdapter, fW as yomuOnboardingController, fX as clearManagedBrowserCaches, fY as unregisterManagedServiceWorkers, fZ as setRenderedWordCardIdentity, f_ as renderedWordCardKey, f$ as renderedWordsInRoot, g0 as renderedWordElementKey, g1 as applyInterfaceLocaleToRoot, g2 as applyInterfaceLocaleToDocument, g3 as ensureManagedWebStorageCurrent } from "./entrypoint-DJbt4BVn.js";
 function assignSentenceInfo(paragraphs, tokens) {
   paragraphs.forEach((paragraph, index) => {
     const tokenData = tokens[index] ?? [];
@@ -30271,6 +30271,10 @@ function studyCardRouteSignature(route) {
   if (!route) return "";
   return route.kind === "concealed" ? `concealed:${route.token}` : `portable:${route.key}:${route.spelling}:${route.reading}`;
 }
+function isOwnStudyCardRoute(href, lastWrittenRouteSignature) {
+  const signature = studyCardRouteSignature(readStudyCardRoute(href));
+  return Boolean(signature) && signature === lastWrittenRouteSignature;
+}
 function planStudyCardHistoryUpdate(input2) {
   const routeSignature = studyCardRouteSignature(input2.route);
   if (routeSignature === input2.previousRouteSignature) return null;
@@ -36010,6 +36014,11 @@ const gmGradeQueueStorage = {
 };
 const GRADE_QUEUE_LEASE = "newtab-grade-queue";
 const HELD_REVIEW_SETTLE_MS = 5 * 6e4;
+const NEW_TAB_LIVE_REVIEW_KEY = "yomu:newtab-live-review:v1";
+const LIVE_REVIEW_LEASE = "newtab-live-review";
+const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5e3, timeoutMs: 5e3 };
+const LIVE_REVIEW_CLAIM_MS = 60 * 6e4;
+const LIVE_REVIEW_CLAIM_LIMIT = 500;
 const UNBOUND_PROVIDER_CONTEXT = "legacy";
 class NewTabGradeQueue {
   constructor(deps) {
@@ -36033,6 +36042,9 @@ class NewTabGradeQueue {
   // Claims this tab certainly never sent, whose release reply was lost.
   unsentClaims = /* @__PURE__ */ new Map();
   completionVersions = /* @__PURE__ */ new Map();
+  tab = createStorageCoordinationId();
+  // Other tabs' settled live reviews this tab has already refused a grade for.
+  passedLiveReviews = /* @__PURE__ */ new Set();
   enqueue(card, grade, targets, providerContextForTarget = this.deps.providerContextForTarget) {
     return this.locked(() => this.enqueueUnlocked(card, grade, targets, providerContextForTarget));
   }
@@ -36093,6 +36105,47 @@ class NewTabGradeQueue {
   }
   recoverRecording() {
     return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
+  }
+  /**
+   * Claims an online review across Study tabs, or returns null when another
+   * tab is sending this card's review or already sent it, so this tab's copy
+   * is stale. A settled claim (finished, or older than HELD_REVIEW_SETTLE_MS)
+   * refuses each other tab once, so a card the provider shows again can be
+   * graded after a reload. This tab's own claims never block (Undo, corrections,
+   * relearning), and a storage failure proceeds as 1.9 did instead of locking Study.
+   */
+  async claimLiveReview(card, targets, contextFor) {
+    const claim = { id: createStorageCoordinationId(), keys: targets.map((target) => `${contextFor(target)}:${target}:${cardKey(card)}`) };
+    try {
+      return await this.liveReviews((records, now) => {
+        const blocking = claim.keys.filter((key) => records[key] && this.liveReviewBlocks(records[key], now));
+        if (blocking.length) return null;
+        for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
+        return claim;
+      });
+    } catch {
+      return claim;
+    }
+  }
+  /** Marks a claimed live review sent, whatever its outcome. */
+  async finishLiveReview(claim) {
+    await this.liveReviews((records) => {
+      for (const key of claim.keys) if (records[key]?.id === claim.id) records[key].done = true;
+    }).catch(() => void 0);
+  }
+  liveReviewBlocks(record2, now) {
+    if (record2.tab === this.tab || this.passedLiveReviews.has(record2.id)) return false;
+    if (record2.done || now - record2.at >= HELD_REVIEW_SETTLE_MS) this.passedLiveReviews.add(record2.id);
+    return true;
+  }
+  liveReviews(update) {
+    return withGmStorageLease(LIVE_REVIEW_LEASE, async () => {
+      const now = Date.now();
+      const records = currentLiveReviews(await this.storage.get(NEW_TAB_LIVE_REVIEW_KEY, null), now);
+      const result = update(records, now);
+      await this.storage.set(NEW_TAB_LIVE_REVIEW_KEY, records);
+      return result;
+    }, LIVE_REVIEW_LEASE_OPTIONS);
   }
   locked(operation) {
     const next = this.serial.then(operation, operation);
@@ -36324,6 +36377,15 @@ class NewTabGradeQueue {
 }
 function queuedGradeProviderBinding(target, providerContextForTarget) {
   return target === "yomu-local" ? {} : { providerContext: providerContextForTarget(target) };
+}
+function currentLiveReviews(stored, now) {
+  if (!isObjectRecord(stored) || Array.isArray(stored)) return {};
+  const fresh = Object.entries(stored).filter((entry) => isLiveReviewRecord(entry[1]) && now - entry[1].at < LIVE_REVIEW_CLAIM_MS).sort(([, left], [, right]) => right.at - left.at);
+  return Object.fromEntries(fresh.slice(0, LIVE_REVIEW_CLAIM_LIMIT));
+}
+function isLiveReviewRecord(value) {
+  const record2 = value;
+  return isObjectRecord(record2) && typeof record2.id === "string" && typeof record2.tab === "string" && typeof record2.at === "number" && (record2.done === void 0 || record2.done === true);
 }
 function sameClaim(claims, item) {
   return claims.has(item.id) && claims.get(item.id) === item.heldSince;
@@ -40699,7 +40761,7 @@ class NewTabController {
   }
   async withPortableUrlCard(cards) {
     const identity = this.portableCardIdentityFromLocation();
-    if (!identity?.spelling || !this.isVocabularyStudyRoute()) return cards;
+    if (!identity?.spelling || !this.isVocabularyStudyRoute() || isOwnStudyCardRoute(location.href, this.lastSyncedCardRouteSignature)) return cards;
     if (cards.some((card2) => this.cardMatchesPortableIdentity(card2, identity))) return cards;
     const card = await this.targetResources.lookupPortableCard(
       identity,
@@ -45225,18 +45287,13 @@ class NewTabController {
   async gradeCurrentCardUnlocked(grade, selectedTarget2) {
     const reviewOp = this.operations.begin("review");
     const providerContexts = this.providerContexts;
-    const target = this.currentReviewableGradeTarget();
-    if (!target) return false;
+    const target = this.currentGradeTarget();
+    if (!target || !this.canReviewCard(target.card)) return false;
     const isCorrection = this.isReviewHistoryCard(target.card);
     if (this.shouldQueueCurrentGradeOffline()) {
       return this.gradeOfflineCard(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts);
     }
     return this.submitOnlineCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts);
-  }
-  currentReviewableGradeTarget() {
-    const target = this.currentGradeTarget();
-    if (!target || !this.canReviewCard(target.card)) return null;
-    return target;
   }
   shouldQueueCurrentGradeOffline() {
     return this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false;
@@ -45251,11 +45308,24 @@ class NewTabController {
     return target ? [target] : [];
   }
   async submitOnlineCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts) {
+    const claim = await this.gradeQueue.claimLiveReview(
+      target.card,
+      this.gradeReviewTargets(target.card, selectedTarget2),
+      (reviewTarget) => newTabReviewProviderContext(providerContexts, reviewTarget)
+    );
+    if (!claim) {
+      if (reviewOp.superseded) return false;
+      this.dependencies.toast?.(this.text("reviewedInAnotherTab"));
+      await this.retireCardAndReload(target.root, target.card, "reviewedInAnotherTab");
+      return true;
+    }
     try {
       return await this.submitCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts);
     } catch (error) {
       if (reviewOp.superseded) return false;
       return this.handleFailedGrade(target, grade, selectedTarget2, isCorrection, error, reviewOp, providerContexts);
+    } finally {
+      await this.gradeQueue.finishLiveReview(claim);
     }
   }
   async gradeOfflineCard(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts) {
@@ -45282,13 +45352,10 @@ class NewTabController {
     this.offlineReviewingAccepted = false;
     this.invalidateReviewSourceCache(target.card);
     this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-    this.recordCompletedReview(isCorrection);
+    if (!isCorrection) this.sessionProgress.recordReviewCompleted();
     this.lastUndoableReview = newTabUndoableReview(target.card, isCorrection, this.canUndoJitenReview());
     await this.advanceAfterGrade(target.root, target.card, grade);
     return true;
-  }
-  recordCompletedReview(isCorrection) {
-    if (!isCorrection) this.sessionProgress.recordReviewCompleted();
   }
   canUndoJitenReview() {
     return typeof this.dependencies.jiten?.undoReview === "function";
@@ -45300,7 +45367,8 @@ class NewTabController {
       return false;
     }
     if (isSessionBunproCard(target.card) || error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => failure.target === "anki")) {
-      await this.reloadAfterAmbiguousGrade(target.root, target.card);
+      this.publishGradedCardState(target.card);
+      await this.retireCardAndReload(target.root, target.card, "couldNotSubmitGrade");
       return true;
     }
     const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget2, error);
@@ -45390,7 +45458,8 @@ class NewTabController {
     if (choice === "stop") this.setStatus(root, this.text("reviewsPausedOffline"));
     return choice;
   }
-  async reloadAfterAmbiguousGrade(root, card) {
+  /** Drops a card this tab must not grade again and reloads the queue from its provider. */
+  async retireCardAndReload(root, card, status) {
     const key = cardKey(card);
     this.lastUndoableReview = void 0;
     this.invalidateReviewSourceCache(card);
@@ -45402,8 +45471,7 @@ class NewTabController {
     root.querySelectorAll(newTabActionSelector("grade")).forEach((button) => {
       button.disabled = true;
     });
-    this.setStatus(root, this.text("couldNotSubmitGrade"));
-    this.publishGradedCardState(card);
+    this.setStatus(root, this.text(status));
     this.markQueueRefreshed();
     await this.loadWordsInto(root, false, { useOfflineCache: false });
   }
@@ -45930,7 +45998,7 @@ class NewTabController {
       this.playCardEnterTransition(root);
       return;
     }
-    this.index = Math.min(previousIndex, this.visibleWords.length - 1);
+    this.index = previousIndex < pool.length ? previousIndex : 0;
     this.renderWord(root, this.visibleWords[this.index]);
     this.playCardEnterTransition(root);
   }
@@ -46363,8 +46431,7 @@ class NewTabController {
     if (!this.isVocabularyStudyRoute()) return;
     const key = this.cardKeyFromLocation();
     if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
-    const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
-    if (routeSignature && routeSignature === this.lastSyncedCardRouteSignature) return;
+    if (isOwnStudyCardRoute(location.href, this.lastSyncedCardRouteSignature)) return;
     if (this.undoReviewForPopstate(root, key)) return;
     this.renderCardForPopstate(root, key);
   }
@@ -47579,7 +47646,7 @@ function updateFlowNoteKey(kind) {
       return "updateHelpNotesManager";
   }
 }
-const CURRENT_YOMU_VERSION = "2.0.0".trim() ? "2.0.0".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.1".trim() ? "2.0.1".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

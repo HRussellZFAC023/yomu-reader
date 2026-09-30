@@ -5606,6 +5606,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
   { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
   { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
@@ -10907,11 +10908,14 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   const TOKEN_ATTRIBUTE = "data-yomu-private-token";
   const MAX_PENDING_VALUES = 16384;
-  const valuesByElement = /* @__PURE__ */ new WeakMap();
-  const pendingValues = /* @__PURE__ */ new Map();
-  const replayableBlueprints = /* @__PURE__ */ new Map();
-  function createPrivateElementStateSlot(snapshot, options = {}) {
-    const slot = Symbol("yomu-private-element-state");
+  const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState("yomu.private-element-state.v1", () => ({
+    valuesByElement: /* @__PURE__ */ new WeakMap(),
+    pendingValues: /* @__PURE__ */ new Map(),
+    replayableBlueprints: /* @__PURE__ */ new Map(),
+    domainSlots: /* @__PURE__ */ new Map()
+  }));
+  function createPrivateElementStateSlot(domain, snapshot, options = {}) {
+    const slot = domainSlot(domain);
     return {
       attributes(value) {
         const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -10930,6 +10934,13 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
         return element ? valuesByElement.get(element)?.get(slot) : void 0;
       }
     };
+  }
+  function domainSlot(domain) {
+    const existing = domainSlots.get(domain);
+    if (existing) return existing;
+    const slot = Symbol(`yomu-private-element-state:${domain}`);
+    domainSlots.set(domain, slot);
+    return slot;
   }
   function registerPendingValue(slot, value, replayable) {
     const token = privateStateToken();
@@ -12706,7 +12717,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
   });
   new Set(FURIGANA_HIDE_STATE_GROUPS);
-  const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+  const commandCapabilities = createPrivateElementStateSlot("commands", immutableCommandSnapshot);
   function privateCommandAttributes(command) {
     return commandCapabilities.attributes(command);
   }
@@ -12726,6 +12737,11 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
   new Set("heiban,atamadaka,nakadaka,odaka".split(","));
+  createPrivateElementStateSlot(
+    "rendered-word",
+    (state) => Object.freeze({ ...state }),
+    { replayable: true }
+  );
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
   `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;

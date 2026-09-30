@@ -28656,6 +28656,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/grade-queue", kind: "gm", key: "yomu:newtab-live-review:v1" },
   { owner: "newtab/review-queue-owner", kind: "gm", key: "yomu:private:review-delivery:v2" },
   { owner: "newtab/packaged-review-queue-client", kind: "session", key: "yomu:review-action-draft:v2" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
@@ -35141,11 +35142,14 @@ const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.f
 );
 const TOKEN_ATTRIBUTE = "data-yomu-private-token";
 const MAX_PENDING_VALUES = 16384;
-const valuesByElement = /* @__PURE__ */ new WeakMap();
-const pendingValues = /* @__PURE__ */ new Map();
-const replayableBlueprints = /* @__PURE__ */ new Map();
-function createPrivateElementStateSlot(snapshot, options = {}) {
-  const slot = Symbol("yomu-private-element-state");
+const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState("yomu.private-element-state.v1", () => ({
+  valuesByElement: /* @__PURE__ */ new WeakMap(),
+  pendingValues: /* @__PURE__ */ new Map(),
+  replayableBlueprints: /* @__PURE__ */ new Map(),
+  domainSlots: /* @__PURE__ */ new Map()
+}));
+function createPrivateElementStateSlot(domain, snapshot, options = {}) {
+  const slot = domainSlot(domain);
   return {
     attributes(value) {
       const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -35164,6 +35168,13 @@ function createPrivateElementStateSlot(snapshot, options = {}) {
       return element2 ? valuesByElement.get(element2)?.get(slot) : void 0;
     }
   };
+}
+function domainSlot(domain) {
+  const existing = domainSlots.get(domain);
+  if (existing) return existing;
+  const slot = Symbol(`yomu-private-element-state:${domain}`);
+  domainSlots.set(domain, slot);
+  return slot;
 }
 function registerPendingValue(slot, value, replayable) {
   const token = privateStateToken();
@@ -45156,7 +45167,7 @@ function audioSourceEnabled(value) {
 function normalizeAudioSources(value) {
   return Array.isArray(value) ? value.map(normalizeAudioSource).filter((source2) => source2 !== null) : DEFAULT_AUDIO_SOURCES.map((source2) => ({ ...source2 }));
 }
-const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+const commandCapabilities = createPrivateElementStateSlot("commands", immutableCommandSnapshot);
 function privateCommandAttributes(command) {
   return commandCapabilities.attributes(command);
 }
@@ -45734,6 +45745,7 @@ function isKanjiForInlineNavigation(value) {
   return isUnifiedIdeograph(value);
 }
 const privateStateSlot = createPrivateElementStateSlot(
+  "rendered-word",
   (state) => Object.freeze({ ...state }),
   { replayable: true }
 );
@@ -266148,6 +266160,7 @@ const NEW_TAB_COPY = {
     hide: "Hide",
     yourDrawing: "Your drawing",
     couldNotSubmitGrade: "Could not submit grade.",
+    reviewedInAnotherTab: "Already reviewed in another Study tab.",
     updatingJpdbKanji: "Updating JPDB kanji...",
     jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
     grading: "Grading...",
@@ -266446,6 +266459,7 @@ const JA_NEW_TAB_COPY = {
   hide: "隠す",
   yourDrawing: "あなたの手書き",
   couldNotSubmitGrade: "採点を送信できませんでした。",
+  reviewedInAnotherTab: "このカードは別のStudyタブで復習済みです。",
   updatingJpdbKanji: "JPDB漢字を更新中...",
   jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
   grading: "採点中...",
@@ -266730,7 +266744,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BP9zNAqr.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-a9TvCM_v.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
