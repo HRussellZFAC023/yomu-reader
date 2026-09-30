@@ -36,7 +36,6 @@ interface DefinitionSourceStackContext {
     sentence?: string;
     sourceIds: string[];
     grouped: Map<string, YomitanTermEntry[]>;
-    dictionarySourceIds: string[];
     extraSections: Record<string, string>;
     includeJpdbSource: boolean;
     includeJitenSource: boolean;
@@ -65,11 +64,6 @@ export interface RenderDefinitionSourcesStackParams {
     renderTranslationSource: (sentence: string | undefined) => string;
     renderGrammarSource: (sentence: string | undefined) => string;
     renderImmersionSource?: () => string;
-}
-
-interface DefinitionSourceSectionRender {
-    html: string;
-    renderedDictionaries: boolean;
 }
 
 const DEFAULT_OPTION_KEYS: DefinitionSourceStackOptionKey[] = ['includeJpdbSource', 'includeJitenSource', 'includeBunproSource', 'includeStudySources', 'includeImmersionSource'];
@@ -120,13 +114,11 @@ function definitionSourceStackContext(params: RenderDefinitionSourcesStackParams
     const { options, extraSections } = normalizedDefinitionSourceStackOptions(params);
     const grouped = groupTermEntriesByDictionary(params.entries);
     const sourceIds = orderedDefinitionSourceIds(params.settings, [...grouped.keys()]);
-    const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
     return {
         card: params.card,
         sentence: params.sentence,
         sourceIds,
         grouped,
-        dictionarySourceIds,
         extraSections,
         // A dictionary's own panel is redundant on its own site (the native
         // jpdb.io / jiten.moe page already shows it), so suppress it there by
@@ -167,30 +159,21 @@ function isDefinitionSourceStackOptions(
 }
 
 function renderDefinitionSourceSections(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string[] {
-    let renderedDictionaries = false;
-    const sections: string[] = [];
-    for (const sourceId of context.sourceIds) {
-        const rendered = renderDefinitionSourceSection(sourceId, context, params, renderedDictionaries);
-        if (rendered.renderedDictionaries) renderedDictionaries = true;
-        if (rendered.html) sections.push(rendered.html);
-    }
-    return sections;
+    return context.sourceIds
+        .map(sourceId => renderDefinitionSourceSection(sourceId, context, params))
+        .filter(Boolean);
 }
 
+// Every source, built-in or imported, renders at its own place in the learner's
+// order; imported dictionaries are not gathered at the first one's slot.
 function renderDefinitionSourceSection(
     sourceId: string,
     context: DefinitionSourceStackContext,
     params: RenderDefinitionSourcesStackParams,
-    renderedDictionaries: boolean,
-): DefinitionSourceSectionRender {
+): string {
     const coreSource = renderCoreDefinitionSourceSection(sourceId, context, params);
-    if (coreSource !== null) return { html: coreSource, renderedDictionaries: false };
-    if (!context.grouped.has(sourceId)) return { html: '', renderedDictionaries: false };
-    if (renderedDictionaries) return { html: '', renderedDictionaries: false };
-    return {
-        html: renderLocalDefinitionDictionarySources(context, params),
-        renderedDictionaries: true,
-    };
+    if (coreSource !== null) return coreSource;
+    return context.grouped.has(sourceId) ? renderLocalDefinitionDictionarySource(sourceId, context, params) : '';
 }
 
 function renderCoreDefinitionSourceSection(
@@ -256,9 +239,9 @@ function renderImmersionDefinitionSourceSection(context: DefinitionSourceStackCo
     return context.includeImmersionSource ? renderImmersionSource(params) : '';
 }
 
-function renderLocalDefinitionDictionarySources(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
+function renderLocalDefinitionDictionarySource(dictionary: string, context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
     return renderLocalDefinitionSourcesSection(
-        context.dictionarySourceIds,
+        [dictionary],
         context.grouped,
         params.settings,
         params.sourceAttributes,

@@ -272,8 +272,6 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
     const settings = context.getSettings();
     const grouped = groupTermEntriesByDictionary(detail.localEntries);
     const sourceIds = orderedDefinitionSourceIds(settings, [...grouped.keys()]);
-    const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
-    let renderedDictionaries = false;
     const definitionSections = sourceIds.map(sourceId => {
         if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
             return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage, definitionSourceLabel(settings, JPDB_DEFINITION_SOURCE_ID, 'JPDB'));
@@ -287,10 +285,9 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
             return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : '';
         }
         if (grouped.has(sourceId)) {
-            if (renderedDictionaries) return '';
-            renderedDictionaries = true;
+            // Each imported dictionary keeps its own place among the built-ins.
             return renderLocalDefinitionSourcesSection(
-                dictionarySourceIds,
+                [sourceId],
                 grouped,
                 settings,
                 (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded),

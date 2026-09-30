@@ -4,6 +4,7 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { testEnSettings } from './helpers/settings-fixture';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
+import { searchWordDetailHtml } from '../../src/reader/newtab/search-view';
 import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
 import type { JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../../src/reader/jpdb/jpdb-vocabulary';
@@ -79,6 +80,21 @@ function jitenInfo(meanings: string[]): JitenVocabularyInfo {
     };
 }
 
+// Beta, then Jiten (priority 1), then Alpha: the learner put Jiten between them.
+function interleavedDictionaryPreferences(): ReaderSettings['dictionaryPreferences'] {
+    return [
+        { name: 'Beta Dict', alias: 'Beta Dict', enabled: true, priority: 0, allowSecondarySearches: false, type: 'terms' },
+        { name: 'Alpha Dict', alias: 'Alpha Dict', enabled: true, priority: 8, allowSecondarySearches: false, type: 'terms' },
+    ];
+}
+
+function interleavedDictionaryEntries(): YomitanTermEntry[] {
+    return [
+        { expression: '大学', reading: 'だいがく', dictionary: 'Alpha Dict', glossary: ['university (Alpha)'] },
+        { expression: '大学', reading: 'だいがく', dictionary: 'Beta Dict', glossary: ['university (Beta)'] },
+    ];
+}
+
 describe('definition source stack', () => {
     it('keeps Jiten and JPDB as separate enabled default source IDs with Jiten first', () => {
         expect(orderedDefinitionSourceIds(DEFAULT_SETTINGS, []).slice(0, 2)).toEqual([
@@ -152,6 +168,56 @@ describe('definition source stack', () => {
             'Jitendex 1 entry',
             'JMdict 1 entry',
         ]);
+    });
+
+    // GitHub #43: the source editor is one list, so a learner can put Jiten
+    // between two imported dictionaries. The stack used to emit every imported
+    // dictionary together at the first one's slot, a leftover of the retired
+    // aggregate dictionaries panel, so Jiten dropped below both.
+    it('renders each imported dictionary at its own place among the built-in sources', () => {
+        const html = renderSources(card({
+            source: 'jpdb',
+            spelling: '大学',
+            reading: 'だいがく',
+        }), {
+            ...testEnSettings(),
+            jitenDefinitionsPriority: 1,
+            jpdbDefinitionsEnabled: false,
+            dictionaryPreferences: interleavedDictionaryPreferences(),
+        }, undefined, jitenInfo(['university; college']), interleavedDictionaryEntries());
+
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        const stack = root.querySelector('.jpdb-reader-definition-stack')!;
+        expect(Array.from(stack.children, source => [source.getAttribute('data-source'), source.getAttribute('data-dictionary')].filter(Boolean).join(':')))
+            .toEqual(['local-dictionary:Beta Dict', 'jiten', 'local-dictionary:Alpha Dict']);
+    });
+
+    it('keeps that per-source order in the Study search fallback renderer', () => {
+        const settings = {
+            ...testEnSettings(),
+            jitenDefinitionsPriority: 1,
+            jpdbDefinitionsEnabled: false,
+            dictionaryPreferences: interleavedDictionaryPreferences(),
+        };
+        const html = searchWordDetailHtml(card({ source: 'jpdb', spelling: '大学', reading: 'だいがく' }), {
+            localEntries: interleavedDictionaryEntries(),
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbVocabularyInfo: null,
+            jitenVocabularyInfo: jitenInfo(['university; college']),
+        }, {
+            getSettings: () => settings,
+            text: key => key,
+            sourceAttributes: key => `data-source-state-key="${key}"`,
+            dictionaryLabel: name => name,
+            kanjiSourceTitle: sourceId => sourceId,
+        });
+
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        expect(Array.from(root.querySelectorAll('[data-source="jiten"], [data-source="local-dictionary"]'), source => [source.getAttribute('data-source'), source.getAttribute('data-dictionary')].filter(Boolean).join(':')))
+            .toEqual(['local-dictionary:Beta Dict', 'jiten', 'local-dictionary:Alpha Dict']);
     });
 
     it('renders keyless-loaded Jiten info with related words, examples, and audio controls', () => {
