@@ -48,6 +48,13 @@ const hostedReaderCoreIntegrity = `sha256-${createHash('sha256')
 
 const repositoryName = 'yomu-reader';
 const base = '/';
+const hostedReaderCorePreload: HeadConfig = ['link', {
+    rel: 'preload',
+    href: `${base}yomu.user.js?v=${encodeURIComponent(pkg.version)}`,
+    as: 'script',
+    integrity: hostedReaderCoreIntegrity,
+    crossorigin: 'anonymous',
+}];
 const origin = 'https://yomureader.com';
 const siteUrl = `${origin}${base}`;
 const socialImage = `${siteUrl}og-image.png`;
@@ -539,13 +546,6 @@ export default defineConfig({
     // so every URL gets accurate metadata instead of the home page's values.
     head: [
         ['link', { rel: 'preload', href: `${base}yomu-icon.svg`, as: 'image', type: 'image/svg+xml', fetchpriority: 'high' }],
-        ['link', {
-            rel: 'preload',
-            href: `${base}yomu.user.js?v=${encodeURIComponent(pkg.version)}`,
-            as: 'script',
-            integrity: hostedReaderCoreIntegrity,
-            crossorigin: 'anonymous',
-        }],
         // Inline the generated final-userscript graph: the theme sees it before
         // hydration without imposing a cold network round-trip on every page.
         ['script', { 'data-yomu-hosted-runtime-graph': 'inline' }, hostedRuntimeGraphSource],
@@ -602,8 +602,12 @@ export default defineConfig({
         pageData.frontmatter.description = publication.description;
         pageData.frontmatter.yomuWebsiteRouteHead = websiteRouteHead(pageData);
     },
-    transformHead({ pageData }) {
-        return websiteRouteHead(pageData);
+    transformHead({ pageData, content }) {
+        // Only a page with a live reading surface (the homepages' Try-me,
+        // demo player and OCR panel) starts the Reader on idle, so only it is
+        // worth preloading 1.8 MB of core for. Prose pages stay cold.
+        const readingSurface = content.includes('data-yomu-runtime-surface');
+        return [...websiteRouteHead(pageData), ...(readingSurface ? [hostedReaderCorePreload] : [])];
     },
     transformHtml(code, id) {
         // VitePress emits `rel="preload stylesheet"` for its main CSS chunks.
