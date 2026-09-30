@@ -27,7 +27,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
-import { assertPopoverHeadwordMatchesLookup, waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const {
     root: ROOT,
@@ -180,8 +180,17 @@ const MULTI_DECK_NEW_TAB_ANKI_HANDLERS = {
         3: { name: 'Mining::Old', total_in_deck: 1 },
         4: { name: 'Archive', total_in_deck: 1 },
     }),
-    findCards: findMultiDeckNewTabCards,
-    areDue: params => arrayParam(params.cards).map(cardId => Number(cardId) !== 7106),
+    // Since 2.0 an Anki grade counts only once Anki confirms it, and Study then
+    // asks Anki for the next card, so the mock answers like Anki: a Good grade
+    // is accepted and schedules that review card out of today's queue.
+    answerCards: (params, { scenario }) => arrayParam(params.answers).map(answer => {
+        scenario.answeredCards.add(Number(answer.cardId));
+        return true;
+    }),
+    findCards: (params, { scenario }) => findMultiDeckNewTabCards(params)
+        .filter(cardId => !scenario.answeredCards.has(cardId)),
+    areDue: (params, { scenario }) => arrayParam(params.cards)
+        .map(cardId => Number(cardId) !== 7106 && !scenario.answeredCards.has(Number(cardId))),
     cardsInfo: params => arrayParam(params.cards).map(cardId => mockMultiDeckNewTabCardInfo(Number(cardId))),
     notesInfo: params => arrayParam(params.notes).map(noteId => mockMultiDeckNewTabNoteInfo(Number(noteId))),
     retrieveMediaFile: params => String(params.filename ?? '') === ANKI_MEDIA_FILENAME ? ANKI_MEDIA_BASE64 : false,
@@ -225,7 +234,9 @@ const FUTURE_MULTI_DECK_CARD_INFO = { note: 7206, deckName: 'Core', due: 999999,
 const READING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="読む"]';
 const WRITING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="書く"][data-reading="かきます"]';
 const VISIBLE_WRITING_POPOVER_SELECTOR = '.jpdb-reader-popover:visible';
-const ACTIVE_ANKI_BUTTON_SELECTOR = '[data-action="anki"]:not([disabled])';
+// Off-host the popover offers one provider-neutral "Add to deck +"; the Anki
+// action row (and its "Send to AnkiMobile" label) renders only on Study.
+const ACTIVE_ADD_BUTTON_SELECTOR = '[data-action="add-default"]:not([disabled])';
 const NEWTAB_VIEWPORT = { width: 1280, height: 820 };
 const MOBILE_NEWTAB_VIEWPORT = { width: 390, height: 844 };
 const READER_FIXTURE_TEXT = '今日は日本語の記事を読みました。明日は例文を書きます。難波を歩きます。';
@@ -236,10 +247,28 @@ const ANKI_MEDIA_BASE64 = Buffer.from('yomu smoke anki audio').toString('base64'
 const WHOLE_COLLECTION_QUERY = 'deck:*';
 const WHOLE_COLLECTION_SEARCH_ACTIONS = new Set(['findCards', 'findNotes']);
 const EXISTING_ANKI_SELECTOR = '.jpdb-reader-popover .jpdb-reader-anki-existing';
-const EXISTING_ANKI_STATUS_TERMS = ['Anki', 'Mining', '12'];
-const EXISTING_ANKI_RENDERED_TERMS = ['to read'];
-const EXISTING_ANKI_RAW_FIELD_TERMS = ['今日は本を読む', 'Sentence'];
+const STUDY_URL = 'https://yomureader.com/study/';
+const STUDY_LAUNCHER_SELECTOR ='.jpdb-reader-popover [data-account-private-launcher] [data-yomu-owned-study-launcher]';
+// Deck, note type, rendered answer, stored sentence and review count of the
+// mocked Anki note: account detail that must stay off an ordinary page.
+const PRIVATE_ANKI_DETAIL_TERMS = ['Mining', 'よむ Japanese', 'to read', '今日は本を読む', '12 reviews'];
+// Anki on an ordinary page (the reader fixtures). Since 1.9.1 the page owns
+// this DOM, so Anki account detail stays off it
+// (tests/reader/offhost-account-data-privacy.test.ts): a word's Anki state is
+// projected into the provider-neutral jpdb-* state family plus
+// yomu-deck-member, the existing-card section is one Study launcher, and one
+// "Add to deck +" reaches the learner's default destination. Merge, edit and
+// the rendered card live on Study.
+const ORDINARY_PAGE_ANKI_SETTINGS = {
+    // Anki is that default destination while JPDB mining is off.
+    jpdbMiningEnabled: false,
+    ankiSectionEnabled: true,
+    // Off-host the Anki colour channel cannot tell Anki state from JPDB state
+    // (both paint through the neutral family), so use the neutral channel.
+    wordTextColorSource: 'status',
+};
 const MOBILE_HANDOFF_SETTINGS = {
+    ...ORDINARY_PAGE_ANKI_SETTINGS,
     ankiMobileHandoff: true,
     wordTextColorSource: 'off',
     wordUnderlineColorSource: 'off',
@@ -566,12 +595,24 @@ async function injectUserscript(page) {
 }
 
 function assertRenderedStatePreserved(before, after, interaction) {
-    assert(before.state === 'due' && after.state === 'due', `${interaction} cleared rendered Anki state`, { before, after });
-    assert(after.classes.includes('anki-due'), `${interaction} removed rendered Anki due class`, { before, after });
+    assert(hasProjectedAnkiDueState(before) && hasProjectedAnkiDueState(after), `${interaction} cleared the rendered Anki due state`, { before, after });
+    assert(!exposesAnkiProvider(after), `${interaction} exposed the Anki provider state to the ordinary page`, { before, after });
     // Hover contrast is deliberately recomputed against the hover wash, so the
-    // accessible RGB may change while the semantic Anki colour remains active.
+    // accessible RGB may change while the semantic state colour remains active.
     assert(after.accessibleColor && after.color !== after.parentColor,
-        `${interaction} replaced the Anki colour with native page text`, { before, after });
+        `${interaction} replaced the Anki state colour with native page text`, { before, after });
+}
+
+// The Anki card is due and in a deck; off-host both are told with the
+// provider-neutral classes only.
+function hasProjectedAnkiDueState(word) {
+    return word.classes.includes('jpdb-due') && word.classes.includes('yomu-deck-member');
+}
+
+function exposesAnkiProvider(word) {
+    return Boolean(word.state)
+        || word.classes.some(className => className.startsWith('anki-'))
+        || word.title.startsWith('Anki');
 }
 
 function assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, interaction) {
@@ -595,21 +636,14 @@ function ankiQueryParam(item) {
     return String(item.params?.query ?? '');
 }
 
-function assertExistingAnkiPopover(popover, requests) {
-    assert(popover.hasExisting, 'Existing Anki section was missing from popover', popover);
-    assert(popover.hasMerge && popover.hasEdit, 'Existing Anki card did not expose merge/edit actions', popover);
-    assert(!popover.hasAdd, 'Known Anki word still showed Add to Anki', popover);
-    assert(hasAnkiStatusDetails(popover.text), 'Popover did not include Anki status details', { existingPopover: popover, requests });
-    assert(popover.text.includes('to read'), 'Popover did not include existing Anki rendered card contents', { existingPopover: popover, requests });
-    assert(!hasRawStoredAnkiFields(popover.text), 'Popover exposed raw stored Anki fields instead of the rendered card', { existingPopover: popover, requests });
-}
-
-function hasAnkiStatusDetails(text) {
-    return /Anki/.test(text) && /Mining/.test(text) && /12/.test(text);
-}
-
-function hasRawStoredAnkiFields(text) {
-    return text.includes('今日は本を読む') || text.includes('Sentence');
+// An existing Anki note on an ordinary page: the section is one launcher that
+// opens Study, where merge, edit and the rendered card live.
+function assertExistingAnkiStudyLauncher(popover, requests) {
+    assert(popover.hasLauncher, 'Existing Anki note did not offer the Study launcher', popover);
+    assert(!popover.hasExisting && !popover.hasMerge && !popover.hasEdit, 'Existing Anki note detail rendered on an ordinary page', popover);
+    assert(!popover.hasAnkiAdd, 'Known Anki word still offered to add it to Anki', popover);
+    const leaked = PRIVATE_ANKI_DETAIL_TERMS.filter(term => popover.text.includes(term));
+    assert(!leaked.length, 'Popover exposed Anki account detail on an ordinary page', { leaked, existingPopover: popover, requests });
 }
 
 async function waitForDueReadingWord(page) {
@@ -623,7 +657,7 @@ async function waitForDueReadingWordState(page) {
     await page.waitForFunction(() => {
         const word = [...document.querySelectorAll('.jpdb-reader-word')]
             .find(element => element.dataset.expression === '読む' && (element.textContent ?? '').includes('読'));
-        return word instanceof HTMLElement && word.dataset.ankiState === 'due' && word.classList.contains('anki-due');
+        return word instanceof HTMLElement && word.classList.contains('jpdb-due') && word.classList.contains('yomu-deck-member');
     }, null, { timeout: 12000 });
 }
 
@@ -648,35 +682,49 @@ function readRenderedWordState(word) {
     }));
 }
 
-async function waitForExistingAnkiStatusText(page) {
-    await waitForSelectorText(page, EXISTING_ANKI_SELECTOR, { includes: EXISTING_ANKI_STATUS_TERMS });
-}
-
-async function waitForRenderedExistingAnkiCardText(page) {
-    await waitForSelectorText(page, EXISTING_ANKI_SELECTOR, {
-        includes: EXISTING_ANKI_RENDERED_TERMS,
-        excludes: EXISTING_ANKI_RAW_FIELD_TERMS,
-    });
-}
-
+// The caller has already asserted the visible headword is 書く. Its ruby
+// splits the popover text into 書(かきます)く, so a hasText filter cannot find it.
 function writingPopoverLocator(page) {
-    return page.locator(VISIBLE_WRITING_POPOVER_SELECTOR).filter({ hasText: '書く' }).first();
+    return page.locator(VISIBLE_WRITING_POPOVER_SELECTOR).filter({ has: page.locator('[data-yomu-headword]') }).first();
 }
 
 function writingAddButtonLocator(page) {
-    return writingPopoverLocator(page).locator(ACTIVE_ANKI_BUTTON_SELECTOR).first();
+    return writingPopoverLocator(page).locator(ACTIVE_ADD_BUTTON_SELECTOR).first();
 }
 
+// "Add to deck +" sits in the popover's mining drawer, which stays closed
+// until its handle is tapped.
+async function openMiningDrawer(popover) {
+    const addButton = popover.locator(ACTIVE_ADD_BUTTON_SELECTOR).first();
+    await addButton.waitFor({ state: 'attached', timeout: 12000 });
+    if (!await addButton.isVisible()) await popover.locator('[data-action="mining-collapse"]').first().click();
+    await addButton.waitFor({ state: 'visible', timeout: 8000 });
+    return addButton;
+}
+
+// A real pointer click: the reader ignores synthetic element.click() events.
 async function clickVisibleWritingAddButton(page) {
-    await writingAddButtonLocator(page).evaluate(element => {
-        if (!(element instanceof HTMLElement)) throw new Error('Visible Add to Anki button was not found.');
-        element.click();
-    });
+    await writingAddButtonLocator(page).click();
+}
+
+// The launcher opens Study in a new tab; Study itself is stubbed so the smoke
+// never leaves its fixtures.
+async function openStudyFromLauncher(page) {
+    const context = page.context();
+    await context.route(`${STUDY_URL}**`, route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>Study</title>' }));
+    const [studyPage] = await Promise.all([
+        context.waitForEvent('page', { timeout: 8000 }),
+        page.locator(STUDY_LAUNCHER_SELECTOR).first().click(),
+    ]);
+    await studyPage.waitForURL(url => url.href.startsWith(STUDY_URL), { timeout: 8000 }).catch(() => undefined);
+    const studyUrl = studyPage.url();
+    await studyPage.close();
+    return studyUrl;
 }
 
 async function runReaderMiningSmoke(browser, baseUrl) {
     const requests = [];
-    const page = await newMockedPage(browser, requests);
+    const page = await newMockedPage(browser, requests, { ...baseSettings, ...ORDINARY_PAGE_ANKI_SETTINGS });
     await page.goto(`${baseUrl}/reader-anki.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     const coloringStartedAt = Date.now();
@@ -695,9 +743,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     await knownWord.hover();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
     await assertPopoverHeadwordMatchesLookup(page, knownWord, { label: 'anki hover' });
-    await page.waitForSelector('.jpdb-reader-popover .jpdb-reader-anki-existing', { timeout: 8000 });
-    await waitForExistingAnkiStatusText(page);
-    await waitForRenderedExistingAnkiCardText(page);
+    await page.waitForSelector(STUDY_LAUNCHER_SELECTOR, { timeout: 8000 });
     const hoverHydrationMs = Date.now() - hoverStartedAt;
     const hoverAnkiActions = ankiActions(requests).slice(initialAnkiActionCount);
     const afterHover = await readRenderedWordState(knownWord);
@@ -712,18 +758,18 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     assert(hoverHydrationMs < 8_000, 'Reader hover Anki hydration was too slow', { hoverHydrationMs, hoverAnkiActions });
     assertAnkiStatusStorage(statusStorage, 2);
 
-    const existingPopover = await page.evaluate(() => ({
-        hasExisting: Boolean(document.querySelector('.jpdb-reader-popover .jpdb-reader-anki-existing')),
+    const existingPopover = await page.evaluate(({ existingSelector, launcherSelector }) => ({
+        hasLauncher: Boolean(document.querySelector(launcherSelector)),
+        hasExisting: Boolean(document.querySelector(existingSelector)),
         hasMerge: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki-merge"]')),
         hasEdit: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki-edit"]')),
-        hasAdd: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
-        text: document.querySelector('.jpdb-reader-popover')?.textContent ?? '',
-    }));
-    assertExistingAnkiPopover(existingPopover, requests);
-
-    await page.locator('.jpdb-reader-popover [data-action="anki-merge"]').click();
-    await page.waitForFunction(() => window.__ankiMergeSeen === true, null, { timeout: 100 }).catch(() => undefined);
-    assert(requests.some(item => item.kind === 'anki-side-effect' && item.action === 'updateNoteFields'), 'Merge did not call updateNoteFields', { requests });
+        hasAnkiAdd: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
+        text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    }), { existingSelector: EXISTING_ANKI_SELECTOR, launcherSelector: STUDY_LAUNCHER_SELECTOR });
+    assertExistingAnkiStudyLauncher(existingPopover, requests);
+    const studyUrl = await openStudyFromLauncher(page);
+    assert(studyUrl.startsWith(STUDY_URL), 'The Anki Study launcher did not open Study', { studyUrl });
+    assert(!requests.some(item => item.kind === 'anki-side-effect'), 'Opening the Anki note in Study changed the Anki note', { requests });
 
     await closeVisiblePopovers(page);
     const missingWord = page.locator(WRITING_WORD_SELECTOR);
@@ -737,7 +783,9 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     await waitForVisibleAddButton(page, requests);
     await clickVisibleWritingAddButton(page);
     await waitForRecordedRequest(requests, item => item.kind === 'anki-side-effect' && item.action === 'addNote', 10000);
-    assert(requests.some(item => item.kind === 'anki-side-effect' && item.action === 'addNote'), 'Add to Anki did not call addNote', { requests });
+    const addedNote = requests.find(item => item.kind === 'anki-side-effect' && item.action === 'addNote')?.note;
+    assert(addedNote, 'Add to deck did not add the note to Anki', { requests });
+    assert(addedNote.deckName === baseSettings.ankiDeck && addedNote.fields?.Expression === '書く', 'Add to deck did not add 書く to the default Anki deck', { addedNote });
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-reader-smoke.png'), fullPage: false });
     await page.close();
@@ -745,6 +793,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         firstAnkiColorMs,
         hoverHydrationMs,
         statusStorage,
+        studyUrl,
         initialAnkiActions,
         hoverAnkiActions,
         ankiActions: ankiActions(requests),
@@ -779,12 +828,14 @@ async function runLocalRootReaderSmoke(browser, baseUrl) {
     };
 }
 
+// The loopback root is an ordinary page to a release build, so the Anki due
+// word carries only the provider-neutral projection.
 function localRootReaderState() {
     return {
         path: location.pathname,
         renderedWords: document.querySelectorAll('main .jpdb-reader-word').length,
-        ankiStateWords: document.querySelectorAll('main .jpdb-reader-word[data-anki-state]').length,
-        dueWords: document.querySelectorAll('main .jpdb-reader-word.anki-due').length,
+        projectedAnkiDueWords: document.querySelectorAll('main .jpdb-reader-word.jpdb-due.yomu-deck-member').length,
+        exposedAnkiWords: document.querySelectorAll('main .jpdb-reader-word:is([data-anki-state], [class*="anki-"])').length,
         reading: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.dataset.reading ?? '',
         surface: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.textContent ?? '',
     };
@@ -803,8 +854,8 @@ function assertWrappedAnkiAwareWords(state, message, details = state) {
 function hasWrappedAnkiAwareWords(state) {
     return [
         state.renderedWords >= 6,
-        state.ankiStateWords >= 1,
-        state.dueWords >= 1,
+        state.projectedAnkiDueWords >= 1,
+        state.exposedAnkiWords === 0,
     ].every(Boolean);
 }
 
@@ -813,9 +864,9 @@ async function runMobileAnkiHandoffSmoke(browser, baseUrl) {
         name: 'mobile-handoff-unavailable',
         viewport: { width: 390, height: 844 },
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-        actionLabel: 'Send to AnkiMobile',
-        buttonMissingMessage: 'Mobile Anki handoff button was missing',
-        actionLabelMessage: 'Mobile handoff action did not name AnkiMobile',
+        appName: 'AnkiMobile',
+        buttonMissingMessage: 'Mobile Add to deck button was missing',
+        handoffMessage: 'Mobile Add to deck did not hand the note to AnkiMobile',
         limitationsMessage: 'Mobile handoff limitations should live in docs/settings help, not the popover',
         addNoteMessage: 'Mobile handoff unexpectedly called AnkiConnect addNote',
         forbiddenTerms: ['existing-card status', 'review queues', 'ankiconnect'],
@@ -829,9 +880,9 @@ async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
         name: 'android-handoff-unavailable',
         viewport: { width: 412, height: 915 },
         userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-        actionLabel: 'Send to AnkiDroid',
-        buttonMissingMessage: 'Android AnkiDroid handoff button was missing',
-        actionLabelMessage: 'Android handoff action did not name AnkiDroid',
+        appName: 'AnkiDroid',
+        buttonMissingMessage: 'Android Add to deck button was missing',
+        handoffMessage: 'Android Add to deck did not hand the note to AnkiDroid',
         limitationsMessage: 'Android handoff limitations should live in docs/settings help, not the popover',
         addNoteMessage: 'Android handoff unexpectedly called AnkiConnect addNote',
         forbiddenTerms: ['ankiconnect', 'review queues'],
@@ -852,30 +903,36 @@ async function runMobileHandoffSmoke(browser, baseUrl, spec) {
             userAgent: spec.userAgent,
         },
     });
-    page.on('dialog', dialog => void dialog.accept());
+    const dialogs = [];
+    page.on('dialog', dialog => {
+        dialogs.push(dialog.message());
+        void dialog.accept();
+    });
     await page.goto(`${baseUrl}/reader-anki.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
 
     const targetWord = page.locator(WRITING_WORD_SELECTOR);
     await targetWord.waitFor({ state: 'visible', timeout: 8000 });
     await targetWord.click({ force: true });
-    await page.waitForFunction(actionLabel => {
-        const popover = document.querySelector('.jpdb-reader-popover');
-        return Boolean(popover?.textContent?.includes(actionLabel));
-    }, spec.actionLabel, { timeout: 12000 });
+    const addButton = await openMiningDrawer(page.locator('.jpdb-reader-popover').first());
 
     const mobilePopover = await page.evaluate(() => ({
-        hasButton: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
+        hasButton: Boolean(document.querySelector('.jpdb-reader-popover [data-action="add-default"]')),
+        hasAnkiActionRow: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
         text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
     }));
     assert(mobilePopover.hasButton, spec.buttonMissingMessage, mobilePopover);
-    assert(mobilePopover.text.includes(spec.actionLabel), spec.actionLabelMessage, mobilePopover);
+    // Off-host the popover stays provider-neutral: the handoff app is named by
+    // the confirmation that follows the tap, not by page-readable controls.
+    assert(!mobilePopover.hasAnkiActionRow && !mobilePopover.text.includes(spec.appName), 'The ordinary-page popover named the Anki handoff', mobilePopover);
     assertHandoffLimitationsStayHidden(mobilePopover, spec);
 
     if (spec.screenshotBeforeClick) await screenshotHandoff(page, spec);
 
     const actionCountBefore = requests.length;
-    await page.locator('.jpdb-reader-popover [data-action="anki"]').click().catch(() => undefined);
+    await addButton.click();
+    await waitForRecordedRequest(dialogs, () => true, 8000);
+    assert(dialogs.some(message => message.includes(`Open ${spec.appName} to add "書く"`)), spec.handoffMessage, { dialogs, requests: requests.slice(actionCountBefore) });
     await page.waitForTimeout(250);
     assertNoMobileAddNote(requests, spec);
     if (!spec.screenshotBeforeClick) await screenshotHandoff(page, spec);
@@ -883,6 +940,7 @@ async function runMobileHandoffSmoke(browser, baseUrl, spec) {
     await page.close();
     return {
         text: mobilePopover.text,
+        dialogs,
         ankiActions: requests.filter(item => item.kind === 'anki').map(item => item.action),
         requestCountAfterClick: requests.length - actionCountBefore,
     };
@@ -912,16 +970,17 @@ async function waitForRecordedRequest(requests, predicate, timeoutMs) {
 
 async function waitForVisibleAddButton(page, requests) {
     try {
+        await openMiningDrawer(writingPopoverLocator(page));
         await page.waitForFunction(hasVisibleWritingAddButton, null, { timeout: 8000 });
     } catch (error) {
         const debug = await collectAddButtonDebug(page);
-        throw new Error(`Visible Add to Anki button did not appear: ${JSON.stringify({ debug, requests: requests.slice(-32) })}: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Visible Add to deck button did not appear: ${JSON.stringify({ debug, requests: requests.slice(-32) })}: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
 function hasVisibleWritingAddButton() {
     const popover = visibleWritingPopover();
-    const button = popover?.querySelector('[data-action="anki"]');
+    const button = popover?.querySelector('[data-action="add-default"]');
     return isActiveSmokeButton(button);
 
     function visibleWritingPopover() {
@@ -929,7 +988,13 @@ function hasVisibleWritingAddButton() {
     }
 
     function isVisibleWritingPopover(element) {
-        return isVisibleSmokeElement(element) && element.textContent?.includes('書く');
+        return isVisibleSmokeElement(element) && headwordText(element) === '書く';
+    }
+
+    function headwordText(popover) {
+        const headword = popover.querySelector('[data-yomu-headword]')?.cloneNode(true);
+        headword?.querySelectorAll('rt, rp').forEach(node => node.remove());
+        return headword?.textContent?.replace(/\s+/g, '') ?? '';
     }
 
     function isActiveSmokeButton(button) {
@@ -965,9 +1030,9 @@ async function collectAddButtonDebug(page) {
         })),
         pageWords: [...document.querySelectorAll('main .jpdb-reader-word')].map(word => ({
             text: word.textContent,
-            ankiState: word.dataset.ankiState,
+            classes: word.className,
         })),
-        addButtons: [...document.querySelectorAll('[data-action="anki"]')].map(button => button.textContent),
+        addButtons: [...document.querySelectorAll('[data-action="add-default"], [data-action="anki"]')].map(button => button.textContent),
     }));
 }
 
@@ -1002,6 +1067,7 @@ async function runNewTabSourceToggleSmoke(browser, baseUrl) {
     assertNewTabToggleLatency(ankiToJpdb.elapsedMs, 'Anki to JPDB source toggle was too slow', { ankiToJpdbMs: ankiToJpdb.elapsedMs, anki, jpdb, requests });
     const layout = await readNewTabModeLayout(page);
     assert(layout.buttonsShareWidth, 'Newtab mode tabs do not take equal space', layout);
+    assert(layout.buttonsShareRow, 'Newtab mode tabs wrapped onto a second row', layout);
     assert(layout.buttonsFillMode, 'Newtab mode tabs leave phantom grid space', layout);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-smoke.png'), fullPage: false });
@@ -1036,6 +1102,7 @@ async function runMobileNewTabLayoutSmoke(browser, baseUrl) {
     assert(!layout.buttonOverlaps.length, 'Mobile newtab mode buttons overlapped each other', layout);
     assert(layout.modeWithinViewport, 'Mobile newtab app navigation overflowed the viewport', layout);
     assert(layout.buttonsShareWidth, 'Mobile newtab mode tabs do not take equal space', layout);
+    assert(layout.buttonsShareRow, 'Mobile newtab mode tabs wrapped onto a second row', layout);
     assert(layout.buttonsFillMode, 'Mobile newtab mode tabs leave phantom grid space', layout);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-mobile-layout-smoke.png'), fullPage: false });
@@ -1058,6 +1125,7 @@ async function runDesktopNewTabLayoutSmoke(browser, baseUrl) {
     assert(!layout.buttonOverlaps.length, 'Desktop newtab mode buttons overlapped each other', layout);
     assert(layout.modeWithinTopbar, 'Desktop newtab tabs overflowed the topbar width', layout);
     assert(layout.buttonsShareWidth, 'Desktop newtab mode tabs do not take equal space', layout);
+    assert(layout.buttonsShareRow, 'Desktop newtab mode tabs wrapped onto a second row', layout);
     assert(layout.buttonsFillMode, 'Desktop newtab mode tabs leave phantom grid space', layout);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-desktop-layout-smoke.png'), fullPage: false });
@@ -1073,7 +1141,7 @@ async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
         newTabSource: 'anki',
         newTabAnkiEnabled: true,
         newTabAnkiDisabledDecks: ['Mining::Old', 'Archive'],
-    }, NEWTAB_VIEWPORT, { name: 'multi-deck-newtab' });
+    }, NEWTAB_VIEWPORT, { name: 'multi-deck-newtab', answeredCards: new Set() });
     await loadNewTabPage(page, baseUrl, '採掘');
 
     const first = await readNewTabState(page);
@@ -1192,7 +1260,6 @@ async function loadNewTabPage(page, baseUrl, initialPrompt) {
 }
 
 async function waitForNewTabPrompt(page, prompt, timeout = 12000) {
-    await showNewTabWordStep(page, timeout);
     try {
         await page.waitForFunction(value => {
             return document.querySelector('[data-newtab-prompt]')?.textContent?.includes(value);
@@ -1223,8 +1290,10 @@ function assertNewTabToggleLatency(elapsedMs, message, details) {
     assert(elapsedMs < 10_000, message, details);
 }
 
+// Study 2.0 is show, reveal, grade: there is no step rail to walk first, the
+// answer opens from the Reveal control and the grade buttons follow it.
 async function revealNewTabCard(page) {
-    await openNewTabFinalReveal(page);
+    await page.locator('[data-newtab-action="reveal"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-newtab')?.classList.contains('jpdb-reader-newtab-revealed'), null, { timeout: 12000 }).catch(async error => {
         const debug = await collectRevealCardDebug(page);
         throw new Error(`Newtab card did not reveal: ${JSON.stringify(debug)}: ${error instanceof Error ? error.message : String(error)}`);
@@ -1257,7 +1326,7 @@ async function collectRevealCardDebug(page) {
 }
 
 async function advanceNewTabCard(page, expectedPrompt) {
-    await openNewTabFinalReveal(page);
+    await revealNewTabCard(page);
     const grade = page.locator('[data-newtab-action="grade"][data-grade="okay"]').first();
     if (await grade.count()) await grade.click();
     else await page.locator('[data-newtab-action="next"]').click();
@@ -1266,7 +1335,7 @@ async function advanceNewTabCard(page, expectedPrompt) {
 
 async function revealDueJpdbCard(page, dueFront) {
     if (!dueFront.gradeButtons.length) {
-        await openNewTabFinalReveal(page);
+        await revealNewTabCard(page);
         await page.waitForFunction(() => document.querySelectorAll('[data-newtab-action="grade"]').length > 0, null, { timeout: 12000 });
     }
     return readNewTabState(page);
@@ -1277,31 +1346,6 @@ async function submitJpdbGrade(page, requests, grade) {
     await page.locator(`[data-newtab-action="grade"][data-grade="${grade}"]`).click();
     await waitForRequest(requests, () => jpdbReviewRequests(requests).length > requestCountBefore);
     return jpdbReviewRequests(requests).slice(requestCountBefore);
-}
-
-async function showNewTabWordStep(page, timeout = 12000) {
-    const wordStep = page.locator('[data-study-step-kind="word"]').first();
-    try {
-        await wordStep.waitFor({ state: 'visible', timeout });
-        if (await wordStep.getAttribute('aria-current') !== 'step') {
-            await wordStep.click();
-            await page.waitForSelector('[data-study-step-kind="word"][aria-current="step"]', { timeout });
-        }
-    } catch {
-        // Some empty/setup states do not render a study stepper.
-    }
-}
-
-async function openNewTabFinalReveal(page) {
-    const finalReveal = page.locator('[data-study-step-kind="final-reveal"]').first();
-    try {
-        await finalReveal.waitFor({ state: 'visible', timeout: 12000 });
-        await finalReveal.click();
-        await page.waitForSelector('[data-study-step-kind="final-reveal"][aria-current="step"]', { timeout: 12000 });
-        return;
-    } catch {
-        await page.locator('[data-newtab-action="reveal"]').click();
-    }
 }
 
 async function collectNewTabDebug(page) {
@@ -1386,10 +1430,11 @@ async function readNewTabState(page) {
     });
 }
 
+// Study, Practice (new in 2.0), Library, Stats.
 async function readNewTabModeLayout(page, {
     modeSelector = '.jpdb-reader-newtab-mode',
     buttonSelector = '.jpdb-reader-newtab-mode button',
-    expectedButtonCount = 3,
+    expectedButtonCount = 4,
 } = {}) {
     return page.evaluate(({ modeSelector: containerSelector, buttonSelector: itemSelector, expectedButtonCount: expectedCount }) => {
         const topbar = rectFor('.jpdb-reader-newtab-topbar');
@@ -1415,6 +1460,7 @@ async function readNewTabModeLayout(page, {
             buttonOverlaps: overlappingPairs(buttons),
             buttonLabels: [...document.querySelectorAll(itemSelector)].map(button => button.textContent?.trim() ?? ''),
             buttonsShareWidth: widths.every(width => Math.abs(width - widths[0]) <= 1),
+            buttonsShareRow: buttons.every(button => Math.abs(button.top - buttons[0].top) <= 1),
             buttonsFillMode: buttons.length === expectedCount && expectedGapWidth <= (buttons.length - 1) * 4 + 14,
             buttonWidths: widths,
             expectedGapWidth,
