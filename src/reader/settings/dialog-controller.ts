@@ -1034,12 +1034,10 @@ export class SettingsDialogController {
         const requestId = ++this.targetDictionaryAvailabilityRequestId;
         const status = form.querySelector<HTMLElement>('[data-target-dictionary-state]');
         const content = form.querySelector<HTMLElement>('[data-target-dictionary-content]');
-        const showAvailability = (message?: string): void => {
-            if (status) {
-                status.hidden = !message;
-                status.textContent = message ?? '';
-            }
-            if (content) content.hidden = Boolean(message);
+        const showAvailability = (message?: string, hideContent = Boolean(message)): void => {
+            if (status) status.hidden = !message;
+            if (status) status.textContent = message ?? '';
+            if (content) content.hidden = hideContent;
         };
         showAvailability(uiText(this.settings.interfaceLanguage, 'checkingDictionaries'));
 
@@ -1062,8 +1060,10 @@ export class SettingsDialogController {
             ));
         } catch (error) {
             log.warn('Published dictionary coverage check failed', error);
+            this.publishedDictionaryLanguagesPromise = undefined;
             if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-            showAvailability(uiText(this.settings.interfaceLanguage, 'targetDictionaryAvailabilityUnavailable'));
+            // Catalogue unknown (offline): this device's dictionaries, order and pills still work; retry later.
+            showAvailability(uiText(this.settings.interfaceLanguage, 'targetDictionaryAvailabilityUnavailable'), false);
         }
     }
 

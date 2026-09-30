@@ -585,6 +585,27 @@ describe('settings dialog keyboard dismissal', () => {
         expect(document.activeElement).toBe(last);
     });
 
+    it('keeps installed dictionaries and source order reachable when the catalogue cannot be checked', async () => {
+        // Offline, the published catalogue is unreachable, but everything in
+        // Sources that is already on this device still works.
+        const publishedDictionaryLanguages = vi.fn()
+            .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+            .mockResolvedValue(new Set(['ja']));
+        const { form } = createSettingsDialog({ publishedDictionaryLanguages });
+
+        await waitForCondition(() =>
+            form.querySelector<HTMLElement>('[data-target-dictionary-state]')?.textContent
+                === 'Dictionary availability could not be checked.');
+        expect(form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden).toBe(false);
+        expect(form.querySelector('[data-definition-source-editor]')).not.toBeNull();
+
+        const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+        await waitForCondition(() =>
+            form.querySelector<HTMLElement>('[data-target-dictionary-state]')?.hidden === true);
+        expect(publishedDictionaryLanguages).toHaveBeenCalledTimes(2);
+    });
+
     it('shows the live-catalogue empty state and restores target-family controls', async () => {
         const publishedDictionaryLanguages = vi.fn().mockResolvedValue(new Set(['ja']));
         const { form } = createSettingsDialog({ publishedDictionaryLanguages });
