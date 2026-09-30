@@ -51,7 +51,21 @@ export function miniLookupDictionarySettings() {
 
 /** Writes the fixture store on the page's origin. Call before Yomu boots there. */
 export async function seedMiniLookupDictionary(page) {
-    await page.evaluate(async ({ dbName, title, fixtureTerms }) => {
+    await seedPageLocalDictionaries(page, [{
+        title: MINI_LOOKUP_DICTIONARY_TITLE,
+        terms: FIXTURE_TERMS.map(([expression, reading, rules, glossary, sequence]) => [expression, reading, '', rules, 10, glossary, sequence, '']),
+        pitch: true,
+    }]);
+}
+
+/**
+ * Replaces the origin's dictionary database with the page-local store an older
+ * import left there: one `{ title, terms, pitch? }` per dictionary, in shelf
+ * order. `terms` are Yomitan term-bank rows, so a smoke can seed exactly the
+ * rows it imports elsewhere; `pitch` adds a flat pitch entry per term.
+ */
+export async function seedPageLocalDictionaries(page, dictionaries) {
+    await page.evaluate(async ({ dbName, dictionaries }) => {
         await requestResult(indexedDB.deleteDatabase(dbName), 'Fixture dictionary database deletion was blocked');
         const openRequest = indexedDB.open(dbName, 1);
         openRequest.addEventListener('upgradeneeded', () => createVersionOneSchema(openRequest.result), { once: true });
@@ -62,22 +76,25 @@ export async function seedMiniLookupDictionary(page) {
             transaction.onerror = () => reject(transaction.error);
             transaction.onabort = () => reject(transaction.error);
         });
-        transaction.objectStore('dictionaryInfo').put({
-            title,
-            alias: title,
-            enabled: true,
-            priority: 0,
-            type: 'terms',
-            counts: { terms: fixtureTerms.length, termMeta: fixtureTerms.length },
+        dictionaries.forEach(({ title, terms, pitch = false }, priority) => {
+            transaction.objectStore('dictionaryInfo').put({
+                title,
+                alias: title,
+                enabled: true,
+                priority,
+                type: 'terms',
+                counts: { terms: terms.length, termMeta: pitch ? terms.length : 0 },
+            });
+            for (const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] of terms) {
+                transaction.objectStore('terms').add({
+                    expression, reading, definitionTags, rules, score, glossary, sequence, termTags, dictionary: title,
+                });
+                if (!pitch) continue;
+                transaction.objectStore('termMeta').add({
+                    expression, mode: 'pitch', data: { reading, pitches: [{ position: 0 }] }, dictionary: title,
+                });
+            }
         });
-        for (const [expression, reading, rules, glossary, sequence] of fixtureTerms) {
-            transaction.objectStore('terms').add({
-                expression, reading, definitionTags: '', rules, score: 10, glossary, sequence, termTags: '', dictionary: title,
-            });
-            transaction.objectStore('termMeta').add({
-                expression, mode: 'pitch', data: { reading, pitches: [{ position: 0 }] }, dictionary: title,
-            });
-        }
         await complete;
         database.close();
 
@@ -96,5 +113,5 @@ export async function seedMiniLookupDictionary(page) {
                 if (blockedMessage) request.addEventListener('blocked', () => reject(new Error(blockedMessage)), { once: true });
             });
         }
-    }, { dbName: yomitanDatabaseName(), title: MINI_LOOKUP_DICTIONARY_TITLE, fixtureTerms: FIXTURE_TERMS });
+    }, { dbName: yomitanDatabaseName(), dictionaries });
 }

@@ -12,9 +12,14 @@
 // URL) with the userscript installed, opened through a #settings= link as the
 // off-site Settings launcher opens it. A userscript's dictionary lives on the
 // origin that imported it, so the upgraded revision is looked up in Study too.
+//
+// The same run then proves the learner's dictionary order (GitHub #43; see
+// lib/dictionary-order-proof.mjs): it decides the popup's sections and which
+// dictionary answers a word, and survives a reload, a second tab, an untouched
+// Save and a later import.
 // Runs in Firefox by default (the report came from Firefox);
 // YOMU_SMOKE_BROWSER=chromium switches engines.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, firefox } from 'playwright';
 import {
@@ -35,12 +40,20 @@ import {
     userscriptCompanionPaths,
 } from './lib/smoke-test-helpers.mjs';
 import { yomitanDatabaseName } from './lib/yomitan-database-name.mjs';
-import { yomitanZipBuffer } from './lib/yomitan-zip.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
+import {
+    attachSmokeDebugLogging as attachDebugLogging,
+    fulfillHostedStudyAsset,
+    HOSTED_STUDY_ORIGIN as STUDY_ORIGIN,
+    HOSTED_STUDY_URL as STUDY_URL,
+    importYomitanDictionaryThroughSettings,
+    readDictionaryStoreTitles as readDictionaryStore,
+    readPrefixedGmValues,
+    writePrefixedGmValues,
+} from './lib/hosted-study-harness.mjs';
+import { proveDictionaryOrder } from './lib/dictionary-order-proof.mjs';
 
-const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
-const STUDY_URL = 'https://yomureader.com/study/';
-const STUDY_ORIGIN = new URL(STUDY_URL).origin;
+const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/local-dictionary-upgrade.html';
 const SENTENCE = '図書館で漢字を調べています。';
 const LOOKUP_WORD = '図書館';
@@ -99,7 +112,8 @@ const browser = await launchSmokeBrowser(BROWSER_NAME === 'chromium' ? chromium 
 try {
     const study = await importRevisionsOnStudy();
     const offSite = await verifyOrdinarySiteHasNoCopy(study.gmValues);
-    const report = { ok: true, browser: BROWSER_NAME, preferences: study.preferences, dom: study.dom, screenshot: study.screenshot, offSite };
+    const dictionaryOrder = await proveDictionaryOrder(browser);
+    const report = { ok: true, browser: BROWSER_NAME, preferences: study.preferences, dom: study.dom, screenshot: study.screenshot, offSite, dictionaryOrder };
     writeFileSync(path.join(ARTIFACTS, `local-dictionary-upgrade-${BROWSER_NAME}.json`), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     console.log('local-dictionary-upgrade smoke passed');
@@ -112,7 +126,7 @@ async function importRevisionsOnStudy() {
     // Deterministic and offline: Study's own files come from the build, every
     // other host answers 503.
     await context.route(url => url.origin !== STUDY_ORIGIN, route => route.fulfill({ status: 503, contentType: 'text/plain', body: '' }));
-    await context.route(`${STUDY_ORIGIN}/**`, route => fulfillStudyAsset(route));
+    await context.route(`${STUDY_ORIGIN}/**`, route => fulfillHostedStudyAsset(route));
     const page = await context.newPage();
     attachDebugLogging(page, 'study');
     await page.exposeFunction(REQUEST_BRIDGE_NAME, () => ({ status: 503, responseText: '' }));
@@ -132,7 +146,7 @@ async function importRevisionsOnStudy() {
     await importDictionary(page, JUNE_TITLE, 'library (June)');
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 400)));
 
-    const gmValues = await readGmValues(page);
+    const gmValues = await readPrefixedGmValues(page, GM_STORAGE_PREFIX);
     const preferences = JSON.parse(gmValues[YOMU_SETTINGS_KEY] ?? '{}').dictionaryPreferences ?? [];
     const jitendexRows = preferences.filter(row => /^Jitendex\.org /.test(row.name));
     assert(jitendexRows.length === 1, 'Revision upgrade left more than one Jitendex settings row', preferences);
@@ -172,36 +186,15 @@ async function importRevisionsOnStudy() {
     return { gmValues, preferences, dom, screenshot };
 }
 
-async function importDictionary(page, title, gloss) {
-    const importButton = page.locator('.jpdb-reader-settings [data-action="import-yomitan-dictionary"]');
-    await importButton.scrollIntoViewIfNeeded();
-    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 10_000 });
-    await importButton.click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({
-        name: `${title}.zip`,
-        mimeType: 'application/zip',
-        buffer: yomitanZipBuffer({
-            'index.json': { title, format: 3, revision: 'smoke-1' },
-            'term_bank_1.json': [
-                ['図書館', 'としょかん', '', '', 10, [gloss], 1, ''],
-                ['漢字', 'かんじ', '', '', 10, ['kanji'], 2, ''],
-            ],
-        }),
+function importDictionary(page, title, gloss) {
+    return importYomitanDictionaryThroughSettings(page, {
+        title,
+        gmStoragePrefix: GM_STORAGE_PREFIX,
+        terms: [
+            ['図書館', 'としょかん', '', '', 10, [gloss], 1, ''],
+            ['漢字', 'かんじ', '', '', 10, ['kanji'], 2, ''],
+        ],
     });
-    // The durable postcondition: the import merged a preference row for this
-    // title into the installed Reader's saved settings.
-    await page.waitForFunction(({ storageKey, expected }) => {
-        const raw = localStorage.getItem(storageKey);
-        const parsed = raw == null ? null : JSON.parse(raw);
-        return Boolean(parsed?.dictionaryPreferences?.some(row => row.name === expected));
-    }, { storageKey: `${GM_STORAGE_PREFIX}${YOMU_SETTINGS_KEY}`, expected: title }, { timeout: 30_000 });
-}
-
-async function readGmValues(page) {
-    return page.evaluate(prefix => Object.fromEntries(Object.keys(localStorage)
-        .filter(key => key.startsWith(prefix))
-        .map(key => [key.slice(prefix.length), localStorage.getItem(key)])), GM_STORAGE_PREFIX);
 }
 
 // Phase 2 — dictionaries stay where they were imported: GM values (settings +
@@ -217,9 +210,7 @@ async function verifyOrdinarySiteHasNoCopy(gmValues) {
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     // One program, in order: the shared GM values first, then the bridge that
     // serves them, then the Reader.
-    await page.evaluate(({ prefix, values }) => {
-        for (const [key, value] of Object.entries(values)) localStorage.setItem(`${prefix}${key}`, value);
-    }, { prefix: GM_STORAGE_PREFIX, values: gmValues });
+    await writePrefixedGmValues(page, GM_STORAGE_PREFIX, gmValues);
     await installGmStorageBridgeOnCurrentPage(page, gmBridgeOptions);
     await installUserscriptCssResource(page, CSS_PATH);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
@@ -229,6 +220,8 @@ async function verifyOrdinarySiteHasNoCopy(gmValues) {
     // gained a store the dictionary could have been rebuilt into.
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 30_000, polling: 250 });
     await page.waitForTimeout(5_000);
+    // The rendered word no longer exposes its card source off-site (1.9.1
+    // privacy hardening), so ask the origin's storage directly.
     const store = await readDictionaryStore(page, yomitanDatabaseName());
     assert(store.dictionaries.length === 0, 'A dictionary copy appeared on an origin it was never imported on', store);
     const lookupWord = page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: LOOKUP_WORD }).first();
@@ -249,56 +242,4 @@ async function verifyOrdinarySiteHasNoCopy(gmValues) {
     await page.screenshot({ path: screenshot, fullPage: true });
     await context.close();
     return { origin: server.origin, store, dom, screenshot };
-}
-
-// The rendered word no longer exposes its card source off-site (1.9.1 privacy
-// hardening), so ask the origin's storage directly.
-async function readDictionaryStore(page, dbName) {
-    return page.evaluate(async name => {
-        const listed = (await indexedDB.databases()).some(database => database.name === name);
-        if (!listed) return { database: false, dictionaries: [] };
-        const database = await new Promise((resolve, reject) => {
-            const request = indexedDB.open(name);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-        try {
-            if (!database.objectStoreNames.contains('dictionaryInfo')) return { database: true, dictionaries: [] };
-            const titles = await new Promise((resolve, reject) => {
-                const request = database.transaction('dictionaryInfo', 'readonly').objectStore('dictionaryInfo').getAllKeys();
-                request.onsuccess = () => resolve(request.result.map(String));
-                request.onerror = () => reject(request.error);
-            });
-            return { database: true, dictionaries: titles };
-        } finally {
-            database.close();
-        }
-    }, dbName);
-}
-
-async function fulfillStudyAsset(route) {
-    const filePath = studyAssetPath(new URL(route.request().url()).pathname);
-    if (!filePath) return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
-    return route.fulfill({ status: 200, contentType: contentTypeFor(filePath), body: readFileSync(filePath) });
-}
-
-function studyAssetPath(pathname) {
-    if (pathname === '/study/' || pathname === '/study/index.html') return path.join(NEWTAB_DIR, 'index.html');
-    const [base, relative] = pathname.startsWith('/study/')
-        ? [NEWTAB_DIR, pathname.slice('/study/'.length)]
-        : [DIST, pathname.slice(1)];
-    const candidate = path.resolve(base, relative);
-    if (!candidate.startsWith(`${path.resolve(base)}${path.sep}`)) return null;
-    return existsSync(candidate) ? candidate : null;
-}
-
-function contentTypeFor(filePath) {
-    const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
-    return types[path.extname(filePath)] ?? 'application/octet-stream';
-}
-
-function attachDebugLogging(page, label) {
-    if (!process.env.SMOKE_DEBUG) return;
-    page.on('console', message => console.error(`[${label}:console]`, message.type(), message.text().slice(0, 300)));
-    page.on('pageerror', error => console.error(`[${label}:pageerror]`, error.message.slice(0, 300)));
 }
