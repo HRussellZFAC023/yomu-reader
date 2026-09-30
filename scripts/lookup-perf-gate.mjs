@@ -25,13 +25,16 @@
 //                    attribute-substring [style*="background-image"] census that
 //                    ran per pointermove would show up again.
 //
-// Ceilings are the numbers this gate measured after the 1.8.82 lookup-path work,
-// plus 50% headroom, rounded up. They are a RATCHET, not a target: if the real
-// counts drop further, tighten them. If a change genuinely needs more work per
-// lookup, raise the ceiling in the same commit and say why in the message.
+// Ceilings are the numbers this gate measured on 2.0.0, plus 50% headroom,
+// rounded up. They are a RATCHET, not a target: if the real counts drop
+// further, tighten them. If a change genuinely needs more work per lookup,
+// raise the ceiling in the same commit and say why in the message.
+//
+// The dictionary is seeded as a page-local store rather than imported: an
+// ordinary page never shows the import control (see lookup-perf-fixture.mjs).
 //
 // Nightly, not check:release: it needs a Playwright browser and a full build.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -45,7 +48,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
-import { miniLookupDictionaryZip } from './lib/lookup-perf-fixture.mjs';
+import { MINI_LOOKUP_DICTIONARY_TITLE, miniLookupDictionarySettings, seedMiniLookupDictionary } from './lib/lookup-perf-fixture.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
@@ -58,31 +61,32 @@ const HOVER_WORD = '漢字';
 // The window each counter is attributed over, used for BOTH the idle baseline
 // and the post-hover tail.
 const IDLE_WINDOW_MS = 800;
+// Every scan re-runs its document-wide geometry sweep once, this long after it
+// applies. Settling for less put that one-shot sweep in the idle baseline, whose
+// seven selector sweeps then cancelled the hover's own out of the count.
+const SETTLE_AFTER_SCAN_MS = scannerDelayedSweepMs() + 500;
 
-// Measured, +50%, rounded up. Across local runs: gmReads 31-33, the other three
-// exactly 12 / 6 / 4 every time. The GM count drifts by a couple because the
-// study panel re-renders its grammar hints a variable number of times depending
-// on when the popover body resolves, and each render re-reads its preferences
-// key, so the headroom covers that plus host and build variation.
+// Measured, +50%, rounded up. On 2.0.0 every local run gave the same counts,
+// also with three gates running at once: gmReads 8 (5 `yomu:state-epoch`, 2
+// grammar preferences, 1 mining context), idbTransactions 12, elementFromPoint 4,
+// readerQuerySelectorAll 5. The selector count includes a recurring asbplayer
+// overlay probe that lands in the hover window once or twice, so that ceiling
+// stays at 6 rather than growing to 5 * 1.5.
 //
-// gmReads was 43-46 before the epoch-read work, with 33-35 of those on
-// `yomu:state-epoch`: every managed value read was bracketed by an epoch read on
-// BOTH sides, so ~10 real value reads cost four times that in round trips. The
-// after-fence is gone for reads (a read cannot observe a newer epoch — see
-// src/reader/app/managed-read-path.ts), a read pass now takes one fence for N
-// keys instead of one each, and the synchronous path no longer asks for the same
-// epoch twice in one turn. 21 of the remaining 33 are still `yomu:state-epoch`.
-//
-// The next two bites are both CALLER-side, not storage-side: the study grammar
-// panel renders 4x per hover (4 epoch + 4 value reads for one preferences key),
-// and the parser sweeps the dictionary 7x per hover, each sweep taking its own
-// handle fence. Fix those in their own callers, not by weakening a fence.
+// History: gmReads was 43-46 before the 1.8.x epoch-read work, 33-35 of them on
+// `yomu:state-epoch`, because every managed value read was bracketed by an epoch
+// read on BOTH sides. Reads lost the after-fence (a read cannot observe a newer
+// epoch — see src/reader/app/managed-read-path.ts) and a read pass takes one
+// fence for N keys, which left 31-33. That gate named two caller-side bites: the
+// study grammar panel rendering 4x per hover, and the parser taking a handle
+// fence on each of its 7 dictionary sweeps. Fix such costs in their callers, not
+// by weakening a fence.
 //
 // Update deliberately, never to make a red gate green.
 const CEILINGS = {
-    gmReads: 47,
+    gmReads: 12,
     idbTransactions: 18,
-    elementFromPoint: 9,
+    elementFromPoint: 6,
     readerQuerySelectorAll: 6,
 };
 
@@ -98,6 +102,7 @@ const settings = {
     lookupOnHover: true,
     popupActivationMode: 'hover',
     hoverOpenDelayMs: 0,
+    ...miniLookupDictionarySettings(),
     enableLogging: Boolean(process.env.SMOKE_DEBUG),
 };
 
@@ -132,6 +137,9 @@ try {
         key: YOMU_SETTINGS_KEY,
         value: settings,
         requestBridgeName: '__yomuLookupPerfGateRequest',
+        // The Reader commits settings with its intent ledger; re-seeding only
+        // the settings value on the second load would tear that pair.
+        initialize: 'ifMissing',
     });
 
     const inject = async () => {
@@ -145,22 +153,24 @@ try {
         );
     };
 
-    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-    await inject();
-    await importGateDictionary(page);
-
-    // Fresh load so the measured lookup runs against a settled, already-annotated
-    // page rather than through the first-import path.
-    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-    await inject();
-    await page.waitForFunction(
+    const waitForAnnotatedSentence = () => page.waitForFunction(
         () => document.querySelectorAll('[data-gate-sentence] .jpdb-reader-word').length >= 4,
         null,
         { timeout: 30_000 },
     );
+    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await seedMiniLookupDictionary(page);
+    await inject();
+    await waitForAnnotatedSentence();
+
+    // Fresh load so the measured lookup runs against a settled store that the
+    // first load already migrated, rather than through that first open.
+    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await inject();
+    await waitForAnnotatedSentence();
     // Let the annotation pass and its follow-up sweeps go quiet, so the counters
     // attribute their work to the hover and not to a scan still in flight.
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(SETTLE_AFTER_SCAN_MS);
 
     await installCounters(page);
     const word = page.locator('[data-gate-sentence] .jpdb-reader-word', { hasText: HOVER_WORD }).first();
@@ -180,6 +190,15 @@ try {
     // remaining reads a moment so they are counted rather than missed.
     await page.waitForTimeout(IDLE_WINDOW_MS);
     const observed = await page.evaluate(() => window.__yomuLookupPerfCounters.read());
+    // Read after the counters: the counts only mean something if the hover was
+    // the local-dictionary lookup this gate prices, not a failed or online one.
+    const localCard = await page.evaluate(({ title, gloss }) => {
+        const card = [...document.querySelectorAll('.jpdb-reader-popover [data-source="local-dictionary"]')]
+            .find(candidate => candidate.getAttribute('data-dictionary') === title);
+        const text = (card?.querySelector('[data-definition-translation-text]')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+        return { rendered: Boolean(card), hasGloss: text.includes(gloss), text };
+    }, { title: MINI_LOOKUP_DICTIONARY_TITLE, gloss: 'kanji' });
+    assert(localCard.rendered && localCard.hasGloss, `The hover on "${HOVER_WORD}" did not render the seeded local dictionary.`, localCard);
     const counts = Object.fromEntries(Object.keys(CEILINGS)
         .map(name => [name, Math.max(0, observed[name] - idle[name])]));
 
@@ -230,30 +249,11 @@ try {
     await closeSmokeBrowserAndServer(browser, server.server);
 }
 
-// Import the mini dictionary the way onboarding does, through the settings
-// surface, so the store the gate measures is one a real install produces.
-async function importGateDictionary(page) {
-    await page.waitForFunction(() => {
-        if (document.querySelector('.jpdb-reader-settings')) return true;
-        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'backup' } }));
-        return false;
-    }, null, { timeout: 45_000, polling: 500 });
-    const importButton = page.locator('[data-action="import-yomitan-dictionary"]');
-    await importButton.scrollIntoViewIfNeeded();
-    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 15_000 });
-    await importButton.click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({
-        name: 'mini-lookup-perf.zip',
-        mimeType: 'application/zip',
-        buffer: miniLookupDictionaryZip(),
-    });
-    await page.waitForFunction(() => {
-        const statusText = [...document.querySelectorAll('.jpdb-reader-settings [data-import-status], .jpdb-reader-settings [data-dictionary-status], .jpdb-reader-settings [role="status"]')]
-            .map(element => element.textContent ?? '')
-            .join(' ');
-        return /Imported [\d,]+|インポートしました/.test(statusText);
-    }, null, { timeout: 45_000 });
+function scannerDelayedSweepMs() {
+    const source = path.join(ROOT, 'src', 'reader', 'app', 'visible-page-scanner.ts');
+    const delay = Number(readFileSync(source, 'utf8').match(/^const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = (\d+);/m)?.[1]);
+    if (!Number.isFinite(delay) || delay <= 0) throw new Error(`Could not read the delayed scan sweep from ${source}`);
+    return delay;
 }
 
 // Wrapper injection rather than a source-level counter: the gate must measure

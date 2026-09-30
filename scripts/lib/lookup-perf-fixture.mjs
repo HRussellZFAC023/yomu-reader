@@ -1,80 +1,108 @@
-// A minimal Yomitan-format ZIP (stored entries) for the lookup-perf gate.
+// The mini local dictionary the lookup-perf gate hovers against.
 //
-// Deliberately its own module rather than a copy inside the gate: the ZIP writer
-// is the same one furigana-local-default-smoke.mjs needs, and a second inline
-// copy is how two fixtures drift apart.
+// Since 1.9.1 an ordinary page never shows the settings form or its dictionary
+// import (sensitive setup opens on Study; see sensitive-settings-surface.ts), so
+// the gate cannot import through the page it measures. It seeds the page-local
+// store an older import left on that origin instead: ADR-0010 keeps those
+// readable under the one v1.9.3 database name. The schema is created at
+// version 1 on purpose, so production still runs every later migration, derived
+// index and managed-state stamp itself before the gate measures anything.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+export const MINI_LOOKUP_DICTIONARY_TITLE = 'Mini Lookup Perf';
+
+const DATABASE_NAME_SOURCE = path.resolve(import.meta.dirname, '../../src/reader/dictionaries/yomitan/database-name.ts');
 const FIXTURE_TERMS = [
-    ['図書館', 'としょかん', '', '', 10, ['library'], 1, ''],
-    ['漢字', 'かんじ', '', '', 10, ['Chinese character', 'kanji'], 2, ''],
-    ['調べる', 'しらべる', '', 'v1', 10, ['to look up'], 3, ''],
-    ['練習', 'れんしゅう', '', 'vs', 10, ['practice'], 4, ''],
-    ['静か', 'しずか', '', 'adj-na', 10, ['quiet'], 5, ''],
+    ['図書館', 'としょかん', '', ['library'], 1],
+    ['漢字', 'かんじ', '', ['Chinese character', 'kanji'], 2],
+    ['調べる', 'しらべる', 'v1', ['to look up'], 3],
+    ['練習', 'れんしゅう', 'vs', ['practice'], 4],
+    ['静か', 'しずか', 'adj-na', ['quiet'], 5],
 ];
 
-export function miniLookupDictionaryZip() {
-    return zipBuffer({
-        'index.json': { title: 'Mini Lookup Perf', format: 3, revision: 'lookup-perf-1' },
-        'term_bank_1.json': FIXTURE_TERMS,
-        'term_meta_bank_1.json': FIXTURE_TERMS.map(([expression, reading]) => [
-            expression,
-            'pitch',
-            { reading, pitches: [{ position: 0 }] },
-        ]),
-    });
+/** The settings rows a Study import of this dictionary writes (1.9.1+). */
+export function miniLookupDictionarySettings() {
+    const title = MINI_LOOKUP_DICTIONARY_TITLE;
+    return {
+        learningTargetChosen: true,
+        activeLanguageProfileId: 'lookup-perf-ja',
+        languageProfiles: [{
+            schemaVersion: 2,
+            id: 'lookup-perf-ja',
+            outputLanguage: 'en',
+            learnerLanguage: 'en',
+            targetLanguage: 'ja',
+            uiLocale: 'en',
+            parserProvider: 'local',
+            dictionaries: { installed: [title], enabled: [title], order: [title] },
+            definitionTranslationProviderIds: [],
+        }],
+        parserProvider: 'local',
+        localDictionariesEnabled: true,
+        dictionaryPreferences: [{
+            name: title,
+            alias: title,
+            enabled: true,
+            priority: 0,
+            allowSecondarySearches: false,
+            type: 'terms',
+        }],
+    };
 }
 
-function zipBuffer(files) {
-    const encoder = new TextEncoder();
-    const localParts = [];
-    const centralParts = [];
-    let offset = 0;
-    for (const [name, value] of Object.entries(files)) {
-        const nameBytes = Buffer.from(encoder.encode(name));
-        const data = Buffer.from(encoder.encode(typeof value === 'string' ? value : JSON.stringify(value)));
-        const crc = crc32(data);
-        const local = Buffer.alloc(30 + nameBytes.length);
-        local.writeUInt32LE(0x04034b50, 0);
-        local.writeUInt16LE(20, 4);
-        local.writeUInt16LE(0x0800, 6);
-        local.writeUInt16LE(0, 8); // stored
-        local.writeUInt32LE(crc, 14);
-        local.writeUInt32LE(data.length, 18);
-        local.writeUInt32LE(data.length, 22);
-        local.writeUInt16LE(nameBytes.length, 26);
-        nameBytes.copy(local, 30);
-        localParts.push(local, data);
-        const central = Buffer.alloc(46 + nameBytes.length);
-        central.writeUInt32LE(0x02014b50, 0);
-        central.writeUInt16LE(20, 4);
-        central.writeUInt16LE(20, 6);
-        central.writeUInt16LE(0x0800, 8);
-        central.writeUInt16LE(0, 10);
-        central.writeUInt32LE(crc, 16);
-        central.writeUInt32LE(data.length, 20);
-        central.writeUInt32LE(data.length, 24);
-        central.writeUInt16LE(nameBytes.length, 28);
-        central.writeUInt32LE(offset, 42);
-        nameBytes.copy(central, 46);
-        centralParts.push(central);
-        offset += local.length + data.length;
-    }
-    const centralSize = centralParts.reduce((size, part) => size + part.length, 0);
-    const end = Buffer.alloc(22);
-    end.writeUInt32LE(0x06054b50, 0);
-    end.writeUInt16LE(Object.keys(files).length, 8);
-    end.writeUInt16LE(Object.keys(files).length, 10);
-    end.writeUInt32LE(centralSize, 12);
-    end.writeUInt32LE(offset, 16);
-    return Buffer.concat([...localParts, ...centralParts, end]);
-}
-
-function crc32(buffer) {
-    let crc = 0xffffffff;
-    for (const byte of buffer) {
-        crc ^= byte;
-        for (let bit = 0; bit < 8; bit += 1) {
-            crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+/** Writes the fixture store on the page's origin. Call before Yomu boots there. */
+export async function seedMiniLookupDictionary(page) {
+    await page.evaluate(async ({ dbName, title, fixtureTerms }) => {
+        await requestResult(indexedDB.deleteDatabase(dbName), 'Fixture dictionary database deletion was blocked');
+        const openRequest = indexedDB.open(dbName, 1);
+        openRequest.addEventListener('upgradeneeded', () => createVersionOneSchema(openRequest.result), { once: true });
+        const database = await requestResult(openRequest);
+        const transaction = database.transaction(['dictionaryInfo', 'terms', 'termMeta'], 'readwrite');
+        const complete = new Promise((resolve, reject) => {
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+        transaction.objectStore('dictionaryInfo').put({
+            title,
+            alias: title,
+            enabled: true,
+            priority: 0,
+            type: 'terms',
+            counts: { terms: fixtureTerms.length, termMeta: fixtureTerms.length },
+        });
+        for (const [expression, reading, rules, glossary, sequence] of fixtureTerms) {
+            transaction.objectStore('terms').add({
+                expression, reading, definitionTags: '', rules, score: 10, glossary, sequence, termTags: '', dictionary: title,
+            });
+            transaction.objectStore('termMeta').add({
+                expression, mode: 'pitch', data: { reading, pitches: [{ position: 0 }] }, dictionary: title,
+            });
         }
-    }
-    return (crc ^ 0xffffffff) >>> 0;
+        await complete;
+        database.close();
+
+        function createVersionOneSchema(db) {
+            for (const [storeName, indexes] of [['terms', ['expression', 'reading', 'dictionary']], ['termMeta', ['expression', 'dictionary']]]) {
+                const store = db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+                indexes.forEach(index => store.createIndex(index, index));
+            }
+            db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
+        }
+
+        function requestResult(request, blockedMessage = '') {
+            return new Promise((resolve, reject) => {
+                request.addEventListener('success', () => resolve(request.result), { once: true });
+                request.addEventListener('error', () => reject(request.error), { once: true });
+                if (blockedMessage) request.addEventListener('blocked', () => reject(new Error(blockedMessage)), { once: true });
+            });
+        }
+    }, { dbName: yomitanDatabaseName(), title: MINI_LOOKUP_DICTIONARY_TITLE, fixtureTerms: FIXTURE_TERMS });
+}
+
+function yomitanDatabaseName() {
+    const name = readFileSync(DATABASE_NAME_SOURCE, 'utf8').match(/^export const YOMITAN_DATABASE_NAME = '([^']+)';/m)?.[1];
+    if (!name) throw new Error(`Could not read the Yomitan database name from ${DATABASE_NAME_SOURCE}`);
+    return name;
 }
