@@ -30,6 +30,10 @@ const SETTINGS_KEY = YOMU_SETTINGS_KEY;
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 const DOCS_PATH = '/docs-try-me.html';
+// The launcher hands settings to the one hosted Study origin; the smoke serves
+// the built Study app there so the handoff never reaches the network.
+const HOSTED_STUDY_ORIGIN = 'https://yomureader.com';
+const HOSTED_STUDY_PATH = '/study/';
 const MOBILE_CONTEXT_OPTIONS = { ...devices['iPhone 13'] };
 const MOBILE_VIEWPORT = MOBILE_CONTEXT_OPTIONS.viewport;
 const TRY_ME_LABEL = 'Try me';
@@ -253,8 +257,14 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
 
 async function runMobileSettingsSmoke(browser, fixtureServer) {
     const requests = [];
-    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, MOBILE_CONTEXT_OPTIONS);
+    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, {
+        ...MOBILE_CONTEXT_OPTIONS,
+        // The routed Study document must not install its real service worker,
+        // which would answer later requests outside Playwright's routes.
+        serviceWorkers: 'block',
+    });
     try {
+        await context.route(`${HOSTED_STUDY_ORIGIN}/**`, fulfillHostedStudyRoute);
         await loadDocsPageWithYomu(page, fixtureServer, '?mobile-settings=1');
         await page.waitForSelector('.jpdb-reader-fab', { timeout: 8_000 });
         const puck = await page.evaluate(visiblePuckSnapshotFromDom);
@@ -266,16 +276,51 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
         await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
         assert(await page.locator('.jpdb-reader-quick').count() === 0, 'Mobile puck settings action opened removed quick controls instead of settings');
 
-        const form = await page.evaluate(mobileSettingsSnapshotFromDom);
+        // Since 1.9.1 a host page owns its DOM and could read or rewrite form
+        // controls, so it only gets the no-input Study launcher; the editable
+        // settings form lives on the Yomu-owned Study surface.
+        const launcher = await page.evaluate(settingsLauncherSnapshotFromDom);
+        assert(launcher.isLauncher && launcher.pageWritableControls === 0, 'Host-page settings exposed editable controls instead of the Study launcher', launcher);
+        assert(launcher.openButton.withinViewport, 'Study settings launcher is not fully visible on iPhone', launcher);
+        await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-settings-launcher-smoke.png'), fullPage: false });
+
+        const [studyPage] = await Promise.all([
+            context.waitForEvent('page', { timeout: 8_000 }),
+            page.locator('[data-trusted-settings-launcher]').tap(),
+        ]);
+        await studyPage.waitForSelector('form.jpdb-reader-settings', { state: 'visible', timeout: 12_000 });
+        await studyPage.waitForFunction(() => document.querySelector('form.jpdb-reader-settings .jpdb-reader-word'), null, { timeout: 8_000 })
+            .catch(() => undefined);
+        const studyUrl = new URL(studyPage.url());
+        assert(studyUrl.origin === HOSTED_STUDY_ORIGIN && studyUrl.pathname === HOSTED_STUDY_PATH, 'Study settings launcher did not open hosted Study', { url: studyPage.url() });
+
+        const form = await studyPage.evaluate(mobileSettingsSnapshotFromDom);
+        assert(form.controlCount >= 1, 'Study settings opened from the launcher showed no editable controls', form);
         assert(form.riskyControls.length === 0, 'Mobile settings have controls below 16px and may trigger iOS zoom', form);
         assert(form.parsedSettingsWords >= 1, 'Settings dialog no longer exposes parseable reader-word content for AJATT-style ruby', form);
         assert(form.visualViewportScaleStable, 'Focusing a settings input changed visual viewport scale in mobile smoke', form);
 
-        await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-settings-puck-smoke.png'), fullPage: false });
-        return { puck, controlCount: form.controlCount, parsedSettingsWords: form.parsedSettingsWords };
+        await studyPage.screenshot({ path: path.join(ARTIFACTS, 'mobile-settings-puck-smoke.png'), fullPage: false });
+        return {
+            puck,
+            launcher: { pageWritableControls: launcher.pageWritableControls, openButton: launcher.openButton },
+            studySettingsPath: studyUrl.pathname,
+            controlCount: form.controlCount,
+            parsedSettingsWords: form.parsedSettingsWords,
+        };
     } finally {
         await context.close();
     }
+}
+
+function fulfillHostedStudyRoute(route) {
+    const { pathname } = new URL(route.request().url());
+    const relative = pathname === HOSTED_STUDY_PATH ? 'index.html' : pathname.slice(HOSTED_STUDY_PATH.length);
+    const filePath = path.join(NEWTAB_DIR, relative);
+    if (!pathname.startsWith(HOSTED_STUDY_PATH) || !existsSync(filePath)) {
+        return route.fulfill({ status: 404, contentType: 'text/plain; charset=utf-8', body: 'Not found' });
+    }
+    return route.fulfill({ status: 200, path: filePath });
 }
 
 async function loadDocsPageWithYomu(page, fixtureServer, search = '') {
@@ -334,19 +379,21 @@ async function newSmokeContextPage(browser, settings, viewport, requests, contex
         deviceScaleFactor: contextOptions.isMobile ? 2 : 1,
         ...contextOptions,
     });
-    const page = await context.newPage();
-    await routeMockedHttpRequests(page, {
+    // Context-wide, so a Study tab opened by the settings launcher shares the
+    // same mocked network and userscript-manager store as the reading page.
+    await routeMockedHttpRequests(context, {
         requests,
         mockHttpRequest: mockedDocsRequest,
         isMockedApiOrigin: url => url.origin === JPDB_API_ORIGIN && url.pathname.startsWith(JPDB_API_PREFIX),
     });
-    await page.exposeFunction('__yomuMobileDocsSmokeRequest', request => mockedDocsRequest(request, requests));
-    await addGmStorageBridgeInitScript(page, {
+    await context.exposeFunction('__yomuMobileDocsSmokeRequest', request => mockedDocsRequest(request, requests));
+    await addGmStorageBridgeInitScript(context, {
         key: SETTINGS_KEY,
         value: settings,
         css: readFileSync(CSS_PATH, 'utf8'),
         requestBridgeName: '__yomuMobileDocsSmokeRequest',
     });
+    const page = await context.newPage();
     return { context, page };
 }
 
@@ -655,6 +702,28 @@ function visiblePuckSnapshotFromDom() {
     function roundRectValue(value) {
         return Math.round(value * 100) / 100;
     }
+}
+
+// Browser-serialized DOM snapshot must stay self-contained for page.evaluate.
+function settingsLauncherSnapshotFromDom() {
+    const button = document.querySelector('.jpdb-reader-settings [data-trusted-settings-launcher]');
+    const rect = button?.getBoundingClientRect() ?? new DOMRect();
+    return {
+        isLauncher: Boolean(document.querySelector('.jpdb-reader-settings[data-sensitive-settings-launcher="true"]')),
+        pageWritableControls: document.querySelectorAll('.jpdb-reader-settings :is(form, input, select, textarea, output, [contenteditable])').length,
+        openButton: {
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            withinViewport: [
+                rect.width > 0,
+                rect.height > 0,
+                rect.left >= 0,
+                rect.top >= 0,
+                rect.right <= innerWidth,
+                rect.bottom <= innerHeight,
+            ].every(Boolean),
+        },
+    };
 }
 
 // Browser-serialized DOM snapshot must stay self-contained for page.evaluate.
