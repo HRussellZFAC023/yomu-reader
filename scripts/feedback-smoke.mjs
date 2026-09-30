@@ -1916,13 +1916,12 @@ async function enableHostedPausePanel(page) {
 }
 
 async function readHostedAutoHideState(page) {
-    return page.evaluate(() => {
-        const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
-        return {
-            saved: settings.subtitlePausePanel,
-            pressed: document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed'),
-        };
-    });
+    // The toggle saves to the installed Reader's store asynchronously.
+    const settings = await waitForSharedSettings(page, value => value.subtitlePausePanel === true).catch(() => null);
+    return {
+        saved: settings?.subtitlePausePanel === true,
+        pressed: await page.evaluate(() => document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed')),
+    };
 }
 
 async function assertHostedPausePanelOnPause(page) {
