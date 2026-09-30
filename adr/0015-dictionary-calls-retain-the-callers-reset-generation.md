@@ -4,6 +4,8 @@ The shared extension host outlives pages and can adopt a new Managed State Epoch
 
 The host checks admission and queued execution, including asynchronous store acquisition and result/index completion. Host-only checks were insufficient: a page that missed reset notifications could import into the freshly reset database through the host's newer session.
 
+Admission compares the caller with the epoch the host session already captured, without a storage read; `storage.onChanged` starts a new session when the epoch key changes. Queued execution re-reads the epoch once after store acquisition, before the store is called, and once after the result. Per-word lookups therefore cost two epoch reads rather than four. The pre-call read is the load-bearing one: it rejects a request admitted before a reset.
+
 The existing reset coordinator deletes before committing the epoch and once afterward to clear a concurrent recreation. Only that second `deleteDatabase` may carry a cleanup receipt: the caller must be exactly one generation behind, and the committed reset ID and live `prepare` signal must both match the receipt. The exception does not renew the caller or authorize other methods. It expires when the reset completes. Removing it breaks final cleanup; broadening it lets stale pages erase new dictionaries.
 
 Compiled-host tests exercise real RPC and IndexedDB for stale callers, replacement proxies, delayed uploads, fresh-realm access and receipt rejection. The different-live-reset test loses newly imported records when only the signal-ID guard is removed. Installed-browser proof remains separate; no release is authorized.

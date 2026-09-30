@@ -1,0 +1,1137 @@
+{
+  "scenario": "g-indexeddb-per-channel",
+  "producedBy": {
+    "tag": "v1.9.3",
+    "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+    "stage": "v1.9.3-indexeddb"
+  },
+  "channel": "indexeddb",
+  "story": "v1.9.3 imports a three-term Yomitan dictionary in each realm; practice sessions had no database in v1.9.3.",
+  "dictionaryTitle": "Yomu Upgrade Corpus Mini",
+  "channels": {
+    "userscript-site": {
+      "location": "https://www.example.com/articles/yomu-upgrade",
+      "databasesOpened": [
+        "jpdb-popup-reader-yomitan",
+        "yomu-anki-status-index"
+      ],
+      "dictionaries": "jpdb-popup-reader-yomitan",
+      "ankiStatusIndex": "yomu-anki-status-index",
+      "practiceSessions": null,
+      "imported": {
+        "dictionaries": [
+          "Yomu Upgrade Corpus Mini"
+        ],
+        "replacedDictionaries": [],
+        "dictionaryTypes": {
+          "Yomu Upgrade Corpus Mini": "terms"
+        },
+        "entries": 3,
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "summary": {
+        "dictionaries": [
+          {
+            "title": "Yomu Upgrade Corpus Mini",
+            "alias": "Yomu Upgrade Corpus Mini",
+            "enabled": true,
+            "priority": 0,
+            "styles": "",
+            "revision": "corpus-1",
+            "importDate": 1789894860000,
+            "counts": {
+              "terms": 3,
+              "kanji": 0,
+              "termMeta": 0,
+              "kanjiMeta": 0,
+              "ipa": 0
+            },
+            "type": "terms"
+          }
+        ],
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "lookupGlossary": [
+        [
+          "to read"
+        ]
+      ],
+      "dictionaryDatabase": {
+        "name": "jpdb-popup-reader-yomitan",
+        "version": 7,
+        "stores": [
+          {
+            "name": "dictionaryInfo",
+            "keyPath": "title",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "Yomu Upgrade Corpus Mini",
+                "value": {
+                  "title": "Yomu Upgrade Corpus Mini",
+                  "alias": "Yomu Upgrade Corpus Mini",
+                  "enabled": true,
+                  "priority": 0,
+                  "styles": "",
+                  "revision": "corpus-1",
+                  "importDate": 1789894860000,
+                  "counts": {
+                    "terms": 3,
+                    "kanji": 0,
+                    "termMeta": 0,
+                    "kanjiMeta": 0,
+                    "ipa": 0
+                  },
+                  "type": "terms"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "kanjiMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "managedState",
+            "keyPath": "key",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "epoch",
+                "value": {
+                  "key": "epoch",
+                  "token": "0:legacy"
+                }
+              }
+            ]
+          },
+          {
+            "name": "termKanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termSearch",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "token",
+                "keyPath": "token",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "terms",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "reading",
+                "keyPath": "reading",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": [
+              {
+                "key": 1,
+                "value": {
+                  "expression": "読む",
+                  "reading": "よむ",
+                  "definitionTags": "",
+                  "rules": "v5m",
+                  "score": 10,
+                  "glossary": [
+                    "to read"
+                  ],
+                  "sequence": 1,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 1
+                }
+              },
+              {
+                "key": 2,
+                "value": {
+                  "expression": "書く",
+                  "reading": "かく",
+                  "definitionTags": "",
+                  "rules": "v5k",
+                  "score": 9,
+                  "glossary": [
+                    "to write"
+                  ],
+                  "sequence": 2,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 2
+                }
+              },
+              {
+                "key": 3,
+                "value": {
+                  "expression": "猫",
+                  "reading": "ねこ",
+                  "definitionTags": "",
+                  "rules": "",
+                  "score": 8,
+                  "glossary": [
+                    "cat"
+                  ],
+                  "sequence": 3,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 3
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "userscript-hosted-study": {
+      "location": "https://yomureader.com/study/",
+      "databasesOpened": [
+        "jpdb-popup-reader-yomitan",
+        "yomu-anki-status-index"
+      ],
+      "dictionaries": "jpdb-popup-reader-yomitan",
+      "ankiStatusIndex": "yomu-anki-status-index",
+      "practiceSessions": null,
+      "imported": {
+        "dictionaries": [
+          "Yomu Upgrade Corpus Mini"
+        ],
+        "replacedDictionaries": [],
+        "dictionaryTypes": {
+          "Yomu Upgrade Corpus Mini": "terms"
+        },
+        "entries": 3,
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "summary": {
+        "dictionaries": [
+          {
+            "title": "Yomu Upgrade Corpus Mini",
+            "alias": "Yomu Upgrade Corpus Mini",
+            "enabled": true,
+            "priority": 0,
+            "styles": "",
+            "revision": "corpus-1",
+            "importDate": 1789894920000,
+            "counts": {
+              "terms": 3,
+              "kanji": 0,
+              "termMeta": 0,
+              "kanjiMeta": 0,
+              "ipa": 0
+            },
+            "type": "terms"
+          }
+        ],
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "lookupGlossary": [
+        [
+          "to read"
+        ]
+      ],
+      "dictionaryDatabase": {
+        "name": "jpdb-popup-reader-yomitan",
+        "version": 7,
+        "stores": [
+          {
+            "name": "dictionaryInfo",
+            "keyPath": "title",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "Yomu Upgrade Corpus Mini",
+                "value": {
+                  "title": "Yomu Upgrade Corpus Mini",
+                  "alias": "Yomu Upgrade Corpus Mini",
+                  "enabled": true,
+                  "priority": 0,
+                  "styles": "",
+                  "revision": "corpus-1",
+                  "importDate": 1789894920000,
+                  "counts": {
+                    "terms": 3,
+                    "kanji": 0,
+                    "termMeta": 0,
+                    "kanjiMeta": 0,
+                    "ipa": 0
+                  },
+                  "type": "terms"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "kanjiMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "managedState",
+            "keyPath": "key",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "epoch",
+                "value": {
+                  "key": "epoch",
+                  "token": "0:legacy"
+                }
+              }
+            ]
+          },
+          {
+            "name": "termKanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termSearch",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "token",
+                "keyPath": "token",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "terms",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "reading",
+                "keyPath": "reading",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": [
+              {
+                "key": 1,
+                "value": {
+                  "expression": "読む",
+                  "reading": "よむ",
+                  "definitionTags": "",
+                  "rules": "v5m",
+                  "score": 10,
+                  "glossary": [
+                    "to read"
+                  ],
+                  "sequence": 1,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 1
+                }
+              },
+              {
+                "key": 2,
+                "value": {
+                  "expression": "書く",
+                  "reading": "かく",
+                  "definitionTags": "",
+                  "rules": "v5k",
+                  "score": 9,
+                  "glossary": [
+                    "to write"
+                  ],
+                  "sequence": 2,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 2
+                }
+              },
+              {
+                "key": 3,
+                "value": {
+                  "expression": "猫",
+                  "reading": "ねこ",
+                  "definitionTags": "",
+                  "rules": "",
+                  "score": 8,
+                  "glossary": [
+                    "cat"
+                  ],
+                  "sequence": 3,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 3
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "hosted-standalone-study": {
+      "location": "https://yomureader.com/study/",
+      "databasesOpened": [
+        "jpdb-popup-reader-yomitan",
+        "yomu-anki-status-index"
+      ],
+      "dictionaries": "jpdb-popup-reader-yomitan",
+      "ankiStatusIndex": "yomu-anki-status-index",
+      "practiceSessions": null,
+      "imported": {
+        "dictionaries": [
+          "Yomu Upgrade Corpus Mini"
+        ],
+        "replacedDictionaries": [],
+        "dictionaryTypes": {
+          "Yomu Upgrade Corpus Mini": "terms"
+        },
+        "entries": 3,
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "summary": {
+        "dictionaries": [
+          {
+            "title": "Yomu Upgrade Corpus Mini",
+            "alias": "Yomu Upgrade Corpus Mini",
+            "enabled": true,
+            "priority": 0,
+            "styles": "",
+            "revision": "corpus-1",
+            "importDate": 1789894980000,
+            "counts": {
+              "terms": 3,
+              "kanji": 0,
+              "termMeta": 0,
+              "kanjiMeta": 0,
+              "ipa": 0
+            },
+            "type": "terms"
+          }
+        ],
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "lookupGlossary": [
+        [
+          "to read"
+        ]
+      ],
+      "dictionaryDatabase": {
+        "name": "jpdb-popup-reader-yomitan",
+        "version": 7,
+        "stores": [
+          {
+            "name": "dictionaryInfo",
+            "keyPath": "title",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "Yomu Upgrade Corpus Mini",
+                "value": {
+                  "title": "Yomu Upgrade Corpus Mini",
+                  "alias": "Yomu Upgrade Corpus Mini",
+                  "enabled": true,
+                  "priority": 0,
+                  "styles": "",
+                  "revision": "corpus-1",
+                  "importDate": 1789894980000,
+                  "counts": {
+                    "terms": 3,
+                    "kanji": 0,
+                    "termMeta": 0,
+                    "kanjiMeta": 0,
+                    "ipa": 0
+                  },
+                  "type": "terms"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "kanjiMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "managedState",
+            "keyPath": "key",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "epoch",
+                "value": {
+                  "key": "epoch",
+                  "token": "0:legacy"
+                }
+              }
+            ]
+          },
+          {
+            "name": "termKanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termSearch",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "token",
+                "keyPath": "token",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "terms",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "reading",
+                "keyPath": "reading",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": [
+              {
+                "key": 1,
+                "value": {
+                  "expression": "読む",
+                  "reading": "よむ",
+                  "definitionTags": "",
+                  "rules": "v5m",
+                  "score": 10,
+                  "glossary": [
+                    "to read"
+                  ],
+                  "sequence": 1,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 1
+                }
+              },
+              {
+                "key": 2,
+                "value": {
+                  "expression": "書く",
+                  "reading": "かく",
+                  "definitionTags": "",
+                  "rules": "v5k",
+                  "score": 9,
+                  "glossary": [
+                    "to write"
+                  ],
+                  "sequence": 2,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 2
+                }
+              },
+              {
+                "key": 3,
+                "value": {
+                  "expression": "猫",
+                  "reading": "ねこ",
+                  "definitionTags": "",
+                  "rules": "",
+                  "score": 8,
+                  "glossary": [
+                    "cat"
+                  ],
+                  "sequence": 3,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 3
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "extension-origin": {
+      "location": "moz-extension://2d7c0b8e-0000-4000-8000-00000000c0de/newtab/index.html",
+      "databasesOpened": [
+        "jpdb-popup-reader-yomitan",
+        "yomu-anki-status-index"
+      ],
+      "dictionaries": "jpdb-popup-reader-yomitan",
+      "ankiStatusIndex": "yomu-anki-status-index",
+      "practiceSessions": null,
+      "imported": {
+        "dictionaries": [
+          "Yomu Upgrade Corpus Mini"
+        ],
+        "replacedDictionaries": [],
+        "dictionaryTypes": {
+          "Yomu Upgrade Corpus Mini": "terms"
+        },
+        "entries": 3,
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "summary": {
+        "dictionaries": [
+          {
+            "title": "Yomu Upgrade Corpus Mini",
+            "alias": "Yomu Upgrade Corpus Mini",
+            "enabled": true,
+            "priority": 0,
+            "styles": "",
+            "revision": "corpus-1",
+            "importDate": 1789895040000,
+            "counts": {
+              "terms": 3,
+              "kanji": 0,
+              "termMeta": 0,
+              "kanjiMeta": 0,
+              "ipa": 0
+            },
+            "type": "terms"
+          }
+        ],
+        "terms": 3,
+        "kanji": 0,
+        "termMeta": 0,
+        "kanjiMeta": 0
+      },
+      "lookupGlossary": [
+        [
+          "to read"
+        ]
+      ],
+      "dictionaryDatabase": {
+        "name": "jpdb-popup-reader-yomitan",
+        "version": 7,
+        "stores": [
+          {
+            "name": "dictionaryInfo",
+            "keyPath": "title",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "Yomu Upgrade Corpus Mini",
+                "value": {
+                  "title": "Yomu Upgrade Corpus Mini",
+                  "alias": "Yomu Upgrade Corpus Mini",
+                  "enabled": true,
+                  "priority": 0,
+                  "styles": "",
+                  "revision": "corpus-1",
+                  "importDate": 1789895040000,
+                  "counts": {
+                    "terms": 3,
+                    "kanji": 0,
+                    "termMeta": 0,
+                    "kanjiMeta": 0,
+                    "ipa": 0
+                  },
+                  "type": "terms"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "kanjiMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "managedState",
+            "keyPath": "key",
+            "autoIncrement": false,
+            "indexes": [],
+            "records": [
+              {
+                "key": "epoch",
+                "value": {
+                  "key": "epoch",
+                  "token": "0:legacy"
+                }
+              }
+            ]
+          },
+          {
+            "name": "termKanji",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "character",
+                "keyPath": "character",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termMeta",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "termSearch",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "token",
+                "keyPath": "token",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": []
+          },
+          {
+            "name": "terms",
+            "keyPath": "id",
+            "autoIncrement": true,
+            "indexes": [
+              {
+                "name": "dictionary",
+                "keyPath": "dictionary",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "expression",
+                "keyPath": "expression",
+                "unique": false,
+                "multiEntry": false
+              },
+              {
+                "name": "reading",
+                "keyPath": "reading",
+                "unique": false,
+                "multiEntry": false
+              }
+            ],
+            "records": [
+              {
+                "key": 1,
+                "value": {
+                  "expression": "読む",
+                  "reading": "よむ",
+                  "definitionTags": "",
+                  "rules": "v5m",
+                  "score": 10,
+                  "glossary": [
+                    "to read"
+                  ],
+                  "sequence": 1,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 1
+                }
+              },
+              {
+                "key": 2,
+                "value": {
+                  "expression": "書く",
+                  "reading": "かく",
+                  "definitionTags": "",
+                  "rules": "v5k",
+                  "score": 9,
+                  "glossary": [
+                    "to write"
+                  ],
+                  "sequence": 2,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 2
+                }
+              },
+              {
+                "key": 3,
+                "value": {
+                  "expression": "猫",
+                  "reading": "ねこ",
+                  "definitionTags": "",
+                  "rules": "",
+                  "score": 8,
+                  "glossary": [
+                    "cat"
+                  ],
+                  "sequence": 3,
+                  "termTags": "",
+                  "dictionary": "Yomu Upgrade Corpus Mini",
+                  "id": 3
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -76,7 +76,7 @@ it('does not repaint a replacement view when an old queue read completes after d
     const root = renderSeededNewTabWord(controller, newTabTestCard(), { appendToDocument: true });
     let release!: (count: number) => void;
     const suspended = new Promise<number>(resolve => { release = resolve; });
-    const queue = { flush: vi.fn(() => suspended), hasUncertainReviews: vi.fn(async () => false), usesSharedOwner: () => true,
+    const queue = { flush: vi.fn(() => suspended), heldReviews: vi.fn(async () => []), usesSharedOwner: () => true,
         blocksReview: () => false, needsRecordingRecovery: () => false };
     Object.assign(controller, { gradeQueue: queue, queuedReviewNeedsRefresh: true });
     const probe = controller as unknown as {
@@ -94,7 +94,7 @@ it('does not repaint a replacement view when an old queue read completes after d
     release(0);
     await syncing;
     expect(load).not.toHaveBeenCalled();
-    expect(queue.hasUncertainReviews).not.toHaveBeenCalled();
+    expect(queue.heldReviews).not.toHaveBeenCalled();
     expect(progress).not.toHaveBeenCalled();
     expect(root.textContent).toBe('Replacement view');
     root.remove();

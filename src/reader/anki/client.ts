@@ -243,7 +243,6 @@ export class AnkiConnectClient {
     }
 
     // Companion lifecycle API consumed by page and newtab runtimes through the structural Anki client.
-    // fallow-ignore-next-line unused-class-member
     destroy(): void {
         this.isDestroyed = true;
         this.clearAccountContext();
@@ -1602,7 +1601,6 @@ export class AnkiConnectClient {
     }
 
     // Public review action used by card and newtab controls to answer rendered Anki review cards.
-    // fallow-ignore-next-line unused-class-member
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
         const ease = ankiEaseFromGrade(grade);
         log.info('Answering Anki card', { cardId, grade, ease });

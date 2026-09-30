@@ -7,6 +7,7 @@ import type { SubtitleBatchMiningCandidate } from '../../src/reader/subtitles/su
 import { readSubtitleCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { allowSyntheticReaderInteractionsForTests, trustedReaderEventHandler } from '../../src/reader/ui/trusted-interaction';
 import { waitForExpect } from './test-utils';
+import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 
 const cleanups: Array<() => void> = [];
 afterEach(() => { cleanups.splice(0).forEach(cleanup => cleanup()); document.body.replaceChildren(); vi.unstubAllGlobals(); });
@@ -16,7 +17,7 @@ function candidate(vid: number, source: JPDBCard['source'] = 'jiten'): SubtitleB
     return { key: `private-key-${vid}`, card, sentence: '単語を読む。', rowIndex: vid, cueIndex: vid,
         start: vid, end: vid + 1, occurrences: 1, sentenceCardCount: 3, unknownCardCount: 1, iPlusOne: true, selected: true, state: 'new' };
 }
-function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> = {}) {
+function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> = {}, controllerOverrides: Parameters<typeof testCardActionController>[0] = {}) {
     allowSyntheticReaderInteractionsForTests(true);
     vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=fixture'));
     const settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-private-key', jitenApiKey: 'jiten-private-key', ankiEnabled: false, localDictionariesEnabled: false, audioEnabled: false, ...overrides };
@@ -32,6 +33,7 @@ function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> 
         anki: { findExistingCards: ankiFind, addCard: ankiAdd } as never,
         resolveMiningContext: async (card, sentence) => ({ term: card.spelling, sentence: sentence ?? '', sourceKind: 'page', sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 }),
         isJpdbBackedCard: card => card.source === 'jpdb',
+        ...controllerOverrides,
     });
     const controller = new SubtitlePlayerController({ getSettings: () => settings, parseJapanese: async () => [], onSettingsChange: () => {}, toast,
         prepareBatchMiningCandidates: candidates => actions.batchMining.prepare(candidates),
@@ -141,6 +143,26 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.panel.textContent).toContain('選択した単語は評価段階が異なるか、一部の単語を復習できません。復習できる単語を個別に評価してください。');
         expect(f.panel.textContent).toContain('「選択を追加」は単語を保存し、評価ボタンは復習結果を記録します。');
         expect(f.panel.textContent).not.toContain('未翻訳');
+    });
+
+    it('grades a word just added to the local deck from the subtitle batch', async () => {
+        localStorage.clear();
+        const repository = new LocalYomuSrsRepository();
+        const word = candidate(42);
+        const f = setup([word], { apiKey: '', jitenApiKey: '', yomuLocalSrsEnabled: true },
+            { srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(repository) } });
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
+        await waitForExpect(() => expect(f.selected.size).toBe(0));
+        const [saved] = await repository.lookupCards([{ expression: '語42', reading: 'ご' }]);
+        expect(saved).toMatchObject({ state: ['in-deck'], srsLevel: 'Saved' });
+
+        f.selected.add(word.key);
+        f.internals.renderBatchMiningPanel();
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-grade"][data-grade="okay"]')!.click();
+        await waitForExpect(() => expect(f.selected.size).toBe(0));
+        const [graded] = await repository.lookupCards([{ expression: '語42', reading: 'ご' }]);
+        expect(graded).toMatchObject({ state: ['learning'], srsLevel: 'Learning' });
+        expect(f.toast).not.toHaveBeenCalledWith(expect.stringContaining('not enrolled'));
     });
 
     it('consults Anki again in a new generation, preserving word dedupe and allowing a deleted note to be mined', async () => {

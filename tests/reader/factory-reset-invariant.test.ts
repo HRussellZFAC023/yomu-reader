@@ -3,6 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearManagedStoredValues,
+    managedStoredKeysStillPresent,
     unregisteredManagedStorageKeys,
 } from '../../src/reader/app/storage';
 import {
@@ -133,16 +134,16 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
 
     it('clears hosted web storage when no shared GM backend exists', async () => {
         // A standalone hosted app has only per-origin web storage. This remains a
-        // complete inventory because there is no hidden shared GM store.
+        // complete inventory because there is no hidden shared GM store. Like
+        // v1.9.3, reset erases every Yomu key on the origin, including a cache an
+        // installed Reader left here.
         const localSeed = [
             ...seededKeysForKind(['gm']),
             ...seededKeysForKind(['local']),
             ...DYNAMIC_DISCOVERY_KEYS,
         ];
-        for (const key of localSeed.filter(key => !key.startsWith('yomu:web-owner:v2:'))) localStorage.setItem(key, JSON.stringify({ sentinel: true }));
-        for (const key of seededKeysForKind(['session']).filter(key => !key.startsWith('yomu:web-owner:v2:'))) {
-            sessionStorage.setItem(key, JSON.stringify({ sentinel: true }));
-        }
+        for (const key of localSeed) localStorage.setItem(key, JSON.stringify({ sentinel: true }));
+        for (const key of seededKeysForKind(['session'])) sessionStorage.setItem(key, JSON.stringify({ sentinel: true }));
         const installedKey = 'yomu:web-owner:v2:extension:yomu-ocr-cache-v2';
         localStorage.setItem(installedKey, 'installed-data');
         sessionStorage.setItem(installedKey, 'installed-session');
@@ -155,10 +156,39 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
             const key = localStorage.key(i);
             if (key) remainingLocal.push(key);
         }
-        expect(remainingLocal.sort()).toEqual([installedKey, 'foreign-site-token'].sort());
-        expect(localStorage.getItem(installedKey)).toBe('installed-data');
-        expect(sessionStorage.length).toBe(1);
-        expect(sessionStorage.getItem(installedKey)).toBe('installed-session');
+        expect(remainingLocal).toEqual(['foreign-site-token']);
+        expect(sessionStorage.length).toBe(0);
+    });
+
+    it('reaches the v1.9.3 page records and databases an installed Reader left on a site', async () => {
+        const store = new Map<string, unknown>();
+        vi.stubGlobal('location', new URL('https://www.example.com/articles/yomu-upgrade'));
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => (store.has(key) ? store.get(key) : fallback)));
+        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { store.set(key, value); }));
+        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { store.delete(key); }));
+        vi.stubGlobal('GM_listValues', vi.fn(() => [...store.keys()]));
+        const deleted: string[] = [];
+        vi.stubGlobal('indexedDB', {
+            deleteDatabase: vi.fn((name: string) => {
+                deleted.push(name);
+                const request: Partial<IDBOpenDBRequest> = {};
+                queueMicrotask(() => (request as { onsuccess?: () => void }).onsuccess?.());
+                return request as IDBOpenDBRequest;
+            }),
+        });
+        // v1.9.3 wrote an installed Reader's page records under the raw keys.
+        localStorage.setItem('yomu:web-storage-epoch:v1:local', '0:legacy');
+        localStorage.setItem('yomu-ocr-cache-v2', '{"entries":[]}');
+        localStorage.setItem('yomu:jpdb-cache:v1', '{}');
+        localStorage.setItem('foreign-site-token', 'keep-me');
+
+        await clearManagedStoredValues();
+
+        expect(deleted).toEqual(expect.arrayContaining(['jpdb-popup-reader-yomitan', 'yomu-anki-status-index']));
+        expect(localStorage.getItem('yomu-ocr-cache-v2')).toBeNull();
+        expect(localStorage.getItem('yomu:jpdb-cache:v1')).toBeNull();
+        expect(localStorage.getItem('foreign-site-token')).toBe('keep-me');
+        await expect(managedStoredKeysStillPresent()).resolves.toEqual([]);
     });
 
     it('refuses a partial GM reset when listValues is unavailable', async () => {
@@ -211,7 +241,7 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         ]);
     });
 
-    it('clears standalone IndexedDB databases without deleting installed databases', async () => {
+    it('clears every registered IndexedDB database on this origin', async () => {
         const deleted: string[] = [];
         vi.stubGlobal('indexedDB', {
             deleteDatabase: vi.fn((name: string) => {
@@ -224,13 +254,7 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
 
         await clearManagedStoredValues();
 
-        for (const name of registeredManagedIndexedDbNames()) {
-            if (name.endsWith('-userscript-v2') || name.endsWith('-extension-v2')) {
-                expect(deleted).not.toContain(name);
-            } else {
-                expect(deleted).toContain(name);
-            }
-        }
+        expect(deleted.sort()).toEqual([...registeredManagedIndexedDbNames()].sort());
     });
 
     it('registers managed storage targets discovered from writer source', () => {

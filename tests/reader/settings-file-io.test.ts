@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseReaderSettingsBackup, readerDictionaryExportHasData } from '../../src/reader/settings/file-io';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { v193BackupFile } from './helpers/upgrade-v193-corpus';
 
 const current = { formatName: 'yomu-reader-settings', formatVersion: 3, settings: { theme: 'dark' } };
 const unsupported = [
@@ -12,7 +13,6 @@ const unsupported = [
     { profiles: [{ options: { general: { popupTheme: 'dark' } } }] },
     { ...current, settings: ['theme', 'dark'] },
     { ...current, dictionaryData: { formatName: 'jpdb-reader-yomitan-dictionaries', entries: [] } },
-    { ...current, storage: { 'yomu:explicit-user-settings:v1': { theme: 'dark' } } },
     { ...current, storage: [] },
 ];
 
@@ -39,6 +39,14 @@ describe('current settings file contract', () => {
         const parsed = parseReaderSettingsBackup({ ...current, dictionaries, storage: {} });
         expect(parsed?.settings).toEqual({ theme: 'dark' });
         expect(parsed?.dictionaries).toBe(dictionaries);
+        expect(readerDictionaryExportHasData(parsed?.dictionaries)).toBe(true);
+    });
+
+    it('accepts the file v1.9.3 exported, ignoring the retired pin key it carries', () => {
+        const exported = v193BackupFile();
+        const parsed = parseReaderSettingsBackup(exported);
+        expect(parsed?.settings).toEqual(exported.settings);
+        expect(parsed?.storage).toHaveProperty('yomu:explicit-user-settings:v1');
         expect(readerDictionaryExportHasData(parsed?.dictionaries)).toBe(true);
     });
 

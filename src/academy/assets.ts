@@ -298,9 +298,11 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
 /**
  * Cutouts with likeness clearance for learner-facing runtime surfaces. Keep
  * review candidates separate so an attractive card cannot accidentally become
- * a story or lesson likeness approval.
+ * a story or lesson likeness approval. Only these people get a runtime
+ * portrait: registry and manifest approval choose which image, never who
+ * appears. Everyone else stays a named silhouette until clearance is recorded.
  */
-const DEFAULT_CAST_PORTRAIT_OVERRIDES = {
+const LIKENESS_CLEARED_CAST_CUTOUTS = {
     aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
     xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuNeutral,
     mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
@@ -311,8 +313,11 @@ const DEFAULT_CAST_PORTRAIT_OVERRIDES = {
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
 } as const;
 
+export const ACADEMY_LIKENESS_CLEARED_CAST_IDS: ReadonlySet<string> =
+    new Set(Object.keys(LIKENESS_CLEARED_CAST_CUTOUTS));
+
 export const defaultCastPortrait = createDefaultCastPortraitResolver(
-    ACADEMY_CAST,
+    ACADEMY_CAST.filter(person => ACADEMY_LIKENESS_CLEARED_CAST_IDS.has(person.id)),
     Object.entries(ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS).flatMap(([id, asset]) => {
         const coverage = ACADEMY_CAST_STANDARDIZATION_COVERAGE[id as keyof typeof ACADEMY_CAST_STANDARDIZATION_COVERAGE];
         return Object.values(asset.files).map(path => ({
@@ -323,16 +328,7 @@ export const defaultCastPortrait = createDefaultCastPortraitResolver(
     }),
     Object.fromEntries(Object.entries(ACADEMY_CAST_STANDARDIZATION_GALLERIES).map(([id, gallery]) =>
         [id, (gallery as Readonly<Record<string, string>>)['neutral:front-near-front']])),
-    DEFAULT_CAST_PORTRAIT_OVERRIDES,
-);
-
-// Compatibility projection for world defaults. Other uses call the resolver
-// with their own home; Journal's separate preview projection is unchanged.
-const ACADEMY_APPROVED_CAST_SPRITES: Readonly<Partial<Record<string, string>>> = Object.fromEntries(
-    ACADEMY_CAST.flatMap(person => {
-        const path = defaultCastPortrait(person.id, 'world:person');
-        return path ? [[person.id, path]] : [];
-    }),
+    LIKENESS_CLEARED_CAST_CUTOUTS,
 );
 
 /** Approved expression and angle coverage that may follow a cast member into VN scenes. */
@@ -412,7 +408,7 @@ export const ACADEMY_ASSETS = {
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
     mikaSound: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
     characters: {
-        approved: ACADEMY_APPROVED_CAST_SPRITES,
+        approved: LIKENESS_CLEARED_CAST_CUTOUTS,
         approvedPerformances: ACADEMY_APPROVED_CAST_PERFORMANCES,
         journalReview: ACADEMY_JOURNAL_REVIEW_CAST_SPRITES,
     },

@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
 import { writeLocalManagedValueOrThrow } from '../../src/reader/app/local-mirror-provenance';
+import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
+import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
 import { subscribeToReaderSettingsChanges } from '../../src/reader/app/settings-storage-subscription';
+import { loadReaderStartupSettings } from '../../src/reader/app/startup';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import {
     DEFAULT_SETTINGS,
@@ -10,10 +14,14 @@ import {
     loadSettings,
     saveSettings,
 } from '../../src/reader/settings';
+import { saveHostedAppearance } from '../../src/reader/settings/hosted-appearance-settings';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import { readSettingsPersistenceViewStrictFrom } from '../../src/reader/settings/settings-persistence-transaction';
+import { v193Corpus } from './helpers/upgrade-v193-corpus';
 
 const HOSTED_STUDY = new URL('https://yomureader.com/study/');
 const LOCAL_PROVENANCE_KEY = 'yomu:local-storage-provenance:v1';
+const COMMIT_FIELD = '__yomuSettingsPersistenceCommitV1';
 
 function storedSettingsBytes(): string | null {
     return localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -88,7 +96,10 @@ describe('hosted settings authority availability', () => {
         expect(storedSettingsBytes()).toBeNull();
     });
 
-    it('preserves physically present bytes when their provenance cannot attest them', async () => {
+    it.each([
+        { epoch: '0:legacy', loads: true },
+        { epoch: '1:an-earlier-reset', loads: false },
+    ])('reads same-epoch bytes a v1.9.3 raw toggle rewrote, never another epoch\'s ($epoch)', async ({ epoch, loads }) => {
         vi.stubGlobal('location', HOSTED_STUDY);
         const chosen = {
             ...DEFAULT_SETTINGS,
@@ -98,24 +109,22 @@ describe('hosted settings authority availability', () => {
         } satisfies ReaderSettings;
         const before = JSON.stringify(chosen);
         localStorage.setItem(SETTINGS_STORAGE_KEY, before);
+        // v1.9.3's docs theme toggle rewrote this record in place, so the bytes
+        // no longer match the fingerprint its managed write recorded.
         localStorage.setItem(LOCAL_PROVENANCE_KEY, JSON.stringify({
             version: 1,
             values: {
                 [SETTINGS_STORAGE_KEY]: {
-                    epoch: '0:legacy',
+                    epoch,
                     fingerprint: 'mismatched-even-when-the-value-bytes-are-stable',
                 },
             },
         }));
 
-        await expect(loadSettings()).rejects.toThrow();
+        if (loads) await expect(loadSettings()).resolves.toMatchObject({ learningTargetChosen: true, onboardingSeen: true, theme: 'dark' });
+        else await expect(loadSettings()).rejects.toThrow('without matching provenance');
 
         expect(storedSettingsBytes()).toBe(before);
-        expect(JSON.parse(storedSettingsBytes() ?? 'null')).toMatchObject({
-            learningTargetChosen: true,
-            onboardingSeen: true,
-            theme: 'dark',
-        });
     });
 
     it('does not publish a default remote snapshot after a chosen tab loses authority', async () => {
@@ -146,6 +155,96 @@ describe('hosted settings authority availability', () => {
         await Promise.resolve();
         expect(onSettings).toHaveBeenCalledTimes(1);
         unsubscribe();
+    });
+});
+
+// A v1.9.x factory reset on yomureader.com certified the page at generation 1
+// and purged the settings record. Only that release's hosted raw writers could
+// recreate it (Academy seed, homepage demo, theme and language toggles), and
+// they wrote no provenance entry.
+describe('yomureader.com after a v1.9.x factory reset', () => {
+    const RESET = { version: 1, generation: 1, resetId: 'efbac998-0000-4000-8000-0000000000e5', committedAt: 1789895040000 };
+    const RAW_WRITER_SCENARIOS = [
+        'e1-hosted-homepage-demo',
+        'e2-hosted-academy-seed',
+        'e3-hosted-appearance-toggles',
+    ].flatMap(scenario => ['https://yomureader.com/study/', 'https://yomureader.com/academy/'].map(href => ({ scenario, href })));
+
+    afterEach(() => {
+        localStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    function afterV193HostedReset(href: string, settingsBytes: string): void {
+        resetManagedStateEpochSessionsForTests();
+        resetManagedWebStorageForTests();
+        vi.stubGlobal('location', new URL(href));
+        localStorage.setItem('yomu:state-epoch', JSON.stringify(RESET));
+        localStorage.setItem('yomu:web-storage-epoch:v1:local', `1:${RESET.resetId}`);
+        localStorage.setItem(SETTINGS_STORAGE_KEY, settingsBytes);
+    }
+
+    function rawWriterFixture(scenario: string): { bytes: string; expected: Record<string, unknown> } {
+        const fixture = v193Corpus<{
+            webStorage: Record<string, Record<string, string>>;
+            expected: Record<string, { settings: Record<string, unknown> }>;
+        }>(`${scenario}.json`);
+        return {
+            bytes: fixture.webStorage['https://yomureader.com'][SETTINGS_STORAGE_KEY],
+            expected: fixture.expected['https://yomureader.com/study/'].settings,
+        };
+    }
+
+    function expectCommittedPair(): Record<string, unknown> {
+        const settings = JSON.parse(storedSettingsBytes()!) as Record<string, unknown>;
+        const ledger = JSON.parse(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)!) as Record<string, unknown>;
+        expect(settings[COMMIT_FIELD]).toEqual(expect.any(String));
+        expect(ledger[COMMIT_FIELD]).toBe(settings[COMMIT_FIELD]);
+        return settings;
+    }
+
+    it.each(RAW_WRITER_SCENARIOS)('boots $href from the record a v1.9.3 raw writer recreated ($scenario)', async ({ scenario, href }) => {
+        const { bytes, expected } = rawWriterFixture(scenario);
+        afterV193HostedReset(href, bytes);
+
+        await ensureManagedWebStorageCurrent();
+        await expect(loadReaderStartupSettings()).resolves.toMatchObject({ settings: expected });
+
+        expect(storedSettingsBytes()).toBe(bytes);
+    });
+
+    it.each(RAW_WRITER_SCENARIOS)('saves a theme toggle and a Settings Save over it on $href ($scenario)', async ({ scenario, href }) => {
+        const { bytes } = rawWriterFixture(scenario);
+        afterV193HostedReset(href, bytes);
+        await ensureManagedWebStorageCurrent();
+
+        await expect(saveHostedAppearance({ key: 'theme', value: 'dark' })).resolves.toBeUndefined();
+        expect(expectCommittedPair()).toMatchObject({ theme: 'dark' });
+
+        const current = await loadSettings();
+        await expect(saveSettings({ ...current, subtitleFontSize: 44 }, { explicitUserChoiceKeys: ['subtitleFontSize'] })).resolves.toBeUndefined();
+        expect(expectCommittedPair()).toMatchObject({ theme: 'dark', subtitleFontSize: 44 });
+    });
+
+    it.each([
+        { case: 'an unattested record that carries learner data', settings: { learningTargetChosen: false, theme: 'dark', apiKey: 'another-epoch-key' }, attestedTo: null },
+        { case: 'a raw-writer record attested to another epoch', settings: { learningTargetChosen: false, theme: 'dark' }, attestedTo: '0:legacy' },
+    ])('still refuses $case, bytes unchanged', async ({ settings, attestedTo }) => {
+        const bytes = JSON.stringify(settings);
+        afterV193HostedReset('https://yomureader.com/study/', bytes);
+        if (attestedTo) {
+            localStorage.setItem(LOCAL_PROVENANCE_KEY, JSON.stringify({
+                version: 1,
+                values: { [SETTINGS_STORAGE_KEY]: { epoch: attestedTo, fingerprint: 'from-before-the-reset' } },
+            }));
+        }
+        await ensureManagedWebStorageCurrent();
+
+        await expect(loadReaderStartupSettings()).rejects.toThrow('without matching provenance');
+        await expect(saveHostedAppearance({ key: 'theme', value: 'light' })).rejects.toThrow('without matching provenance');
+
+        expect(storedSettingsBytes()).toBe(bytes);
+        expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
     });
 });
 

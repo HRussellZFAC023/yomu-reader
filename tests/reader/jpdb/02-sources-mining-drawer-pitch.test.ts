@@ -798,6 +798,12 @@ describe('reader helpers', () => {
         selectPopoverReviewTarget('anki:777');
         expectJpdbAndAnkiGradeRows('anki', 'anki', '777');
         expect(popoverGradeTargetText()).toBe('Grades Anki card: Anime::Mining #777');
+        // The dropdown must still offer every destination after an Anki pick.
+        expect([...document.querySelectorAll<HTMLOptionElement>('[data-review-target-select] option')].map(option => option.hidden))
+            .toEqual([false, false, false]);
+        // Anki's four buttons take keys by position; each button says which.
+        expect([...document.querySelectorAll<HTMLButtonElement>('[data-review-target-row][data-review-grade-profile="anki"] [data-action="grade"]')]
+            .map(button => [button.textContent?.trim(), button.dataset.gradeKey])).toEqual([['Again', '1'], ['Hard', '2'], ['Good', '3'], ['Easy', '4']]);
         selectPopoverReviewTarget('jpdb');
         expectJpdbAndAnkiGradeRows('standard', 'jpdb', undefined);
         expect(popoverGradeTargetText()).toBe('Grades JPDB');

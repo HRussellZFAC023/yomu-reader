@@ -83,7 +83,7 @@ describe('ReaderApp core startup', () => {
         await dictionaryStylesFinished;
     });
 
-    it.each(['current', 'retired'] as const)('handles %s YouTube subtitle settings without migration', async format => {
+    it.each(['current', 'unmarked v1.9.3'] as const)('handles %s YouTube subtitle settings without migration', async format => {
         vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=legacy-video'));
         vi.stubGlobal('ResizeObserver', class {
             observe(): void {}
@@ -114,15 +114,11 @@ describe('ReaderApp core startup', () => {
         internals.installStyles = vi.fn();
         const subtitleInit = vi.spyOn(internals.subtitles, 'init');
 
-        if (format === 'retired') {
-            await expect(app.init({ showWelcome: true })).rejects.toThrow('stable committed snapshot');
-            expect(stored).toEqual(before);
-            expect(subtitleInit).not.toHaveBeenCalled();
-            expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
-            return;
-        }
         await expect(app.init({ showWelcome: true })).resolves.toBeUndefined();
 
+        // An unmarked record is the committed pair v1.9.3 read; nothing is rewritten on read.
+        if (format !== 'current') expect(stored).toEqual(before);
+        expect(internals.settings.subtitleFontSize).toBe(48);
         expect(internals.settings.learningTargetChosen).toBe(true);
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
         expect(subtitleInit).toHaveBeenCalledOnce();

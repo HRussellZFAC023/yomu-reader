@@ -54,3 +54,16 @@ function addAnkiReviewTargetLabel(
     const template = cardName.trim();
     candidates.set(id, template ? [deck, `${template} #${id}`].join(' · ') : [deck, `#${id}`].join(' '));
 }
+
+type AnkiInvoke = <T>(action: string, params?: Record<string, unknown>) => Promise<T>;
+
+/**
+ * Reads Anki's own review log: true when the card has an answer at or after
+ * `since` (epoch ms), i.e. an answer whose reply was lost did land, or the
+ * learner has reviewed the card in Anki since.
+ */
+export async function ankiCardReviewedSince(invoke: AnkiInvoke, cardId: number, since: number): Promise<boolean> {
+    const log = await invoke<Record<string, Array<{ id?: unknown }> | undefined>>('getReviewsOfCards', { cards: [cardId] });
+    const reviews = log?.[String(cardId)];
+    return Array.isArray(reviews) && reviews.some(review => typeof review?.id === 'number' && review.id >= since);
+}

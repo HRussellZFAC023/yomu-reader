@@ -5,7 +5,7 @@ import {
     nextManagedStateEpoch, parseManagedStateEpoch,
 } from '../../src/reader/app/managed-state-epoch';
 
-const DATABASE = 'yomu-practice-sessions-v1-userscript-v2';
+const DATABASE = 'yomu-practice-sessions-v1';
 const TAB_KEY = 'yomu:practice-session-tab:v1';
 const selection = {
     purpose: 'writing' as const, title: 'Reset fence',

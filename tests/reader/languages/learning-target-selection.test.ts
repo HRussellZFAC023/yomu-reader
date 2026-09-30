@@ -116,7 +116,7 @@ describe('a stored learning target survives normalization', () => {
         expect(normalized.profiles[0]?.targetLanguage).toBe('ja');
     });
 
-    it('does not infer a confirmed target from unmarked settings', () => {
+    it('preserves the historical Japanese target for pre-1.9 settings records', () => {
         const {
             learningTargetChosen: _learningTargetChosen,
             ...legacyDefaultSettings
@@ -126,12 +126,12 @@ describe('a stored learning target survives normalization', () => {
         expect(normalizeReaderSettings({}).learningTargetChosen).toBe(false);
         expect(_learningTargetChosen).toBe(false);
         expect(legacyDefaultSettings.languageProfiles[0]?.targetLanguage).toBe('ja');
-        expect(normalizeReaderSettings(legacyDefaultSettings).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ subtitleFontSize: 48 }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings(legacyDefaultSettings).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ subtitleFontSize: 48 }).learningTargetChosen).toBe(true);
         expect(normalizeReaderSettings({
             apiKey: 'legacy-jpdb-key',
             parserProvider: 'jpdb',
-        }).learningTargetChosen).toBe(false);
+        }).learningTargetChosen).toBe(true);
         expect(normalizeReaderSettings({ onboardingSeen: true }).learningTargetChosen).toBe(false);
         expect(normalizeReaderSettings({
             learningTargetChosen: false,
@@ -141,7 +141,7 @@ describe('a stored learning target survives normalization', () => {
         expect(normalizeReaderSettings({ learningTargetChosen: true }).learningTargetChosen).toBe(true);
     });
 
-    it('does not infer a confirmed target from hosted policy or Reader preferences', () => {
+    it('keeps passive hosted policy neutral while preserving actual legacy Reader settings', () => {
         expect(normalizeReaderSettings({
             showFurigana: true,
             furiganaMode: 'all',
@@ -175,20 +175,20 @@ describe('a stored learning target survives normalization', () => {
             theme: 'dark',
         }).learningTargetChosen).toBe(false);
 
-        expect(normalizeReaderSettings({ subtitleFontSize: 48 }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ subtitlePlayerEnabled: true }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ apiKey: 'legacy-jpdb-key' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ subtitleFontSize: 48 }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ subtitlePlayerEnabled: true }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ apiKey: 'legacy-jpdb-key' }).learningTargetChosen).toBe(true);
         expect(normalizeReaderSettings({
             showFurigana: true,
             furiganaMode: 'all',
             showPitchAccent: true,
             subtitleFontSize: 48,
-        }).learningTargetChosen).toBe(false);
-        expect(normalizeReaderSettings({ interfaceLanguage: 'auto', subtitleFontSize: 48 }).learningTargetChosen).toBe(false);
+        }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({ interfaceLanguage: 'auto', subtitleFontSize: 48 }).learningTargetChosen).toBe(true);
         expect(normalizeReaderSettings({ theme: 'sepia' as 'dark' }).learningTargetChosen).toBe(false);
     });
 
-    it('requires an explicit choice even when a profile or retired marker exists', () => {
+    it('requires positive Reader, subtitle, or independent-profile evidence for unmarked legacy records', () => {
         const defaultProfile = createDefaultLanguageProfile();
         expect(normalizeReaderSettings({
             onboardingSeen: true,
@@ -206,7 +206,7 @@ describe('a stored learning target survives normalization', () => {
 
         expect(normalizeReaderSettings({
             languageProfiles: [{ ...defaultProfile, targetLanguage: 'ko' }],
-        }).learningTargetChosen).toBe(false);
+        }).learningTargetChosen).toBe(true);
     });
 
     it('lets an explicit boolean choice override both passive and substantive legacy evidence', () => {

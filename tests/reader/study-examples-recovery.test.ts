@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, newTabTestCard } from './new-tab-review/fixtures';
 afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); });
 
 describe('Study examples transport recovery', () => {
-    it('keeps usable partial results separate from a complete empty response', async () => {
+    it('keeps usable partial results for the normal lifetime and separate from a complete empty response', async () => {
         let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
         const transport = vi.spyOn(http, 'requestJson').mockImplementation(async url => {
             if (String(url).includes('nadeshiko')) throw new Error('Temporary Nadeshiko failure');
@@ -19,11 +19,33 @@ describe('Study examples transport recovery', () => {
         const partial = await client.searchResult('中学生', settings);
         expect(partial.status).toBe('partial'); expect(partial.examples).toHaveLength(1);
         const firstCalls = transport.mock.calls.length;
-        await client.searchResult('中学生', settings); expect(transport).toHaveBeenCalledTimes(firstCalls);
-        now += 1_001;
+        now += 2_000;
+        expect(await client.searchResult('中学生', settings)).toBe(partial);
+        expect(transport).toHaveBeenCalledTimes(firstCalls);
+        now += 298_001;
         transport.mockResolvedValue({ examples: [] });
         expect(await client.searchResult('中学生', settings)).toEqual({ examples: [], status: 'complete' });
         expect(transport.mock.calls.length).toBeGreaterThan(firstCalls);
+    });
+
+    it('caches a combined fast-first winner instead of re-querying both providers a second later', async () => {
+        let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const transport = vi.spyOn(http, 'requestJson').mockImplementation(async url => String(url).includes('nadeshiko')
+            ? { segments: [{ publicId: 'n', textJa: { content: '妹は中学生になりました。' } }] }
+            : { examples: [{ id: 'one', sentence: '私は中学生です。' }] });
+        const client = new ImmersionKitClient();
+        const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitExampleSource: 'combined' as const,
+            nadeshikoApiKey: 'test-key', immersionKitMinLength: 0 };
+        const providerCalls = () => {
+            const nadeshiko = transport.mock.calls.filter(([url]) => String(url).includes('nadeshiko')).length;
+            return { immersionKit: transport.mock.calls.length - nadeshiko, nadeshiko };
+        };
+        const first = await client.searchResult('中学生', settings, { fastFirst: true });
+        expect(first).toMatchObject({ status: 'complete', examples: [expect.anything()] });
+        expect(providerCalls()).toEqual({ immersionKit: 1, nadeshiko: 1 });
+        now += 2_000;
+        expect(await client.searchResult('中学生', settings, { fastFirst: true })).toBe(first);
+        expect(providerCalls()).toEqual({ immersionKit: 1, nadeshiko: 1 });
     });
 
     it('retains client rate-limit backoff while allowing a later successful retry', async () => {

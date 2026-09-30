@@ -101,16 +101,16 @@ describe('Bunpro pronunciation audio source', () => {
         expect(await getAudioCandidates(bunproSource(), card('abc', 'abc'), 1000, '')).toEqual([]);
     });
 
-    it('is seeded OPT-IN (disabled) in defaults and into existing saved source lists', () => {
+    // A saved list is the learner's: v2 no longer re-inserts a Bunpro row they
+    // removed (every list written since 1.6.218 carries one; ADR-0012).
+    it('is seeded OPT-IN (disabled) in defaults and a saved source list is kept as saved', () => {
         const seeded = DEFAULT_SETTINGS.audioSources.find(source => source.type === 'bunpro');
         expect(seeded?.enabled).toBe(false);
-        const migrated = normalizeAudioSources([
-            { type: 'jpod101', url: '', voice: '', enabled: true },
-            { type: 'text-to-speech', url: '', voice: '', enabled: true },
-        ]);
-        const added = migrated.find(source => source.type === 'bunpro');
-        expect(added).toBeTruthy();
-        expect(added?.enabled).toBe(false);
+        const saved = [
+            { type: 'jpod101' as const, url: '', voice: '', enabled: true },
+            { type: 'text-to-speech' as const, url: '', voice: '', enabled: true },
+        ];
+        expect(normalizeAudioSources(saved)).toEqual(saved);
     });
 
     it('routes CDN blob fetches through the worker proxy (no CORS headers on the CDN)', () => {

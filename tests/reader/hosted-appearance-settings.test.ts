@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { saveHostedAppearance } from '../../src/reader/settings/hosted-appearance-settings';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { readBackupSettingsPersistenceView, serializeSettingsPersistencePair, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/settings-persistence-transaction';
-import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
+import { HOSTED_STUDY_LOCATION, installGmStorageFixture } from './helpers/settings-persistence-fixture';
+import { v193Corpus } from './helpers/upgrade-v193-corpus';
+import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
+import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
 
 afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear(); });
 
@@ -18,6 +21,29 @@ describe('standalone appearance transaction', () => {
             intentLedger: { revision: 8, records: { theme: { value: 'dark', seq: 8 } } },
         });
         expect(values.get(SETTINGS_STORAGE_KEY)).not.toEqual(initial[SETTINGS_STORAGE_KEY]);
+    });
+
+    it.each([
+        'e1-hosted-homepage-demo',
+        'e2-hosted-academy-seed',
+        'e3-hosted-appearance-toggles',
+    ])('saves over the page-local record v1.9.3 wrote for a no-install visitor (%s)', async scenario => {
+        const fixture = v193Corpus<{ webStorage: Record<string, Record<string, string>> }>(`${scenario}.json`);
+        resetManagedStateEpochSessionsForTests();
+        resetManagedWebStorageForTests();
+        vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
+        for (const [key, value] of Object.entries(fixture.webStorage['https://yomureader.com'])) localStorage.setItem(key, value);
+        const before = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!) as Record<string, unknown>;
+
+        await saveHostedAppearance({ key: 'theme', value: 'dark' });
+
+        const view = await readBackupSettingsPersistenceView({
+            [SETTINGS_STORAGE_KEY]: JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!),
+            'yomu:settings-intent:v2': JSON.parse(localStorage.getItem('yomu:settings-intent:v2')!),
+        });
+        expect(view?.settings).toEqual({ ...before, theme: 'dark' });
+        expect(view?.intentLedger.records).toMatchObject({ theme: { value: 'dark' } });
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!).__yomuSettingsPersistenceCommitV1).toEqual(expect.any(String));
     });
 
     it('serializes concurrent theme and language choices into one witnessed authority', async () => {

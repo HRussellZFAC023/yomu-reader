@@ -306,6 +306,32 @@ describe('Academy resume route contract', () => {
         });
     });
 
+    it('keeps Lesson 0 mission drafts, pass receipts and sound progress when the session cannot resume', () => {
+        const lessonZeroMissionProgress: NonNullable<AcademyCheckpoint['lessonZeroMissionProgress']> = {
+            'activity:lesson-zero-write-name-card': {
+                schemaVersion: 1, activityId: 'activity:lesson-zero-write-name-card', revision: `${'a'.repeat(64)}:mission-v1`,
+                writtenDraft: 'ミナです。', particles: ['', ''], checks: [], spokeWithoutRecording: false,
+                selectedCardName: 'ミナ', editedKatakana: 'ミナ', nameEntryMode: 'katakana-choice', repairing: false,
+                receipt: {
+                    eventId: 'activity:lesson-zero-write-name-card:attempt:1', at: 900, outcome: 'pass', committed: true,
+                    reviewEventIds: [], feedback: { explanation: { en: 'Your card reads naturally.', ja: '自然なカードです。' } },
+                },
+            },
+        };
+        const lessonZeroSoundProgress = {
+            schemaVersion: 1, sessionId: 'session:lesson-zero-sound-input', status: 'paused', stage: 'attempt',
+            introduced: true, heardLineIds: [], selections: [], repairedLineIds: [], attempts: [],
+        } as unknown as NonNullable<AcademyCheckpoint['lessonZeroSoundProgress']>;
+        const saved = { ...checkpoint('source-activity'), lessonZeroMissionProgress, lessonZeroSoundProgress };
+        for (const online of [true, false]) {
+            const expired = normalizeResumeCheckpoint(saved, projectLearnerRecord([]), 4_000, online, true);
+            expect(expired.route).toBe('access');
+            expect(expired.session).toBeUndefined();
+            expect(expired.lessonZeroMissionProgress).toEqual(lessonZeroMissionProgress);
+            expect(expired.lessonZeroSoundProgress).toEqual(lessonZeroSoundProgress);
+        }
+    });
+
     it('resumes the day-end pause without inventing lesson completion evidence', () => {
         const profile = event({
             kind: 'profile-changed',

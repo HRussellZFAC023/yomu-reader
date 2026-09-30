@@ -149,8 +149,12 @@ describe('Academy offline shell', () => {
             '/yomu.css',
         ]) expect(coreRequests).not.toContain(bareMutablePath);
         expect(harness.cacheAddAll.mock.calls[1]?.[0]).toEqual([harness.storyVoicePath]);
-        expect(harness.worker.skipWaiting).not.toHaveBeenCalled();
         expect(harness.cachePut).toHaveBeenCalledWith('/academy/.offline-ready', expect.any(Response));
+        // A complete release takes over immediately so no older worker keeps
+        // answering its pages from a stale cache.
+        expect(harness.worker.skipWaiting).toHaveBeenCalledOnce();
+        expect(harness.worker.skipWaiting.mock.invocationCallOrder[0])
+            .toBeGreaterThan(harness.cachePut.mock.invocationCallOrder.at(-1)!);
     });
 
     it.each(['/academy/chunks/lesson-test.js', '/academy/assets/study.css'])('rejects installation when a lazy asset cannot be cached: %s', async missing => {

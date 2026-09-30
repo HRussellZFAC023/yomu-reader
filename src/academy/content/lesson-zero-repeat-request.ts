@@ -97,7 +97,9 @@ export function lessonZeroRepeatRequestCompletionEvaluation(
     return {
         attempt: {
             kind: 'attempt-recorded',
-            eventId: `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:complete`,
+            // v1.9.3 stored `:complete` with only the phrase-09 concepts. The
+            // all-source completion is new evidence, so it has its own key.
+            eventId: `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:complete:classroom-coverage-v1`,
             at,
             activityId: activity.id,
             conceptIds: [...new Set([...definition.conceptIds, ...definition.coverageProbes.flatMap(probe => probe.conceptIds)])],

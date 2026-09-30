@@ -6,7 +6,7 @@ import {
     requestDictionaryReplicaPurge,
 } from '../../src/reader/dictionaries/replica-purge';
 
-const DB_NAME = 'jpdb-popup-reader-yomitan-userscript-v2';
+const DB_NAME = 'jpdb-popup-reader-yomitan';
 const gmValues = new Map<string, unknown>();
 
 function installGmShim(): void {
@@ -171,6 +171,29 @@ describe('dictionary replica purge', () => {
         expect(await freshness()).toBeUndefined();
         await expect(honorDictionaryReplicaPurge()).resolves.toBe(true);
         await expect(termCount()).resolves.toBe(0);
+    });
+
+    it('checks an origin once per request even when it has no dictionary database', async () => {
+        await requestDictionaryReplicaPurge(() => 1_000);
+        const open = vi.spyOn(indexedDB, 'open');
+        try {
+            await expect(honorDictionaryReplicaPurge()).resolves.toBe(true);
+            await expect(honorDictionaryReplicaPurge()).resolves.toBe(false);
+            await expect(honorDictionaryReplicaPurge()).resolves.toBe(false);
+            expect(open).toHaveBeenCalledOnce();
+        } finally { open.mockRestore(); }
+        await expect(databaseExists()).resolves.toBe(false);
+    });
+
+    it('keeps a dictionary v1.9.3 imported here after this origin honoured the purge', async () => {
+        await requestDictionaryReplicaPurge(() => 1_000);
+        // v1.9.3 certified this origin's raw area, honoured the purge and then
+        // stamped its import past it, all under the raw logical key.
+        localStorage.setItem('yomu:web-storage-epoch:v1:local', '0:legacy');
+        localStorage.setItem('yomu:dictionary-replica-purged:v1', '5000');
+        await createDictionaryDatabase();
+        await expect(honorDictionaryReplicaPurge()).resolves.toBe(false);
+        await expect(termCount()).resolves.toBe(1);
     });
 
     it('does nothing when no purge was requested', async () => {

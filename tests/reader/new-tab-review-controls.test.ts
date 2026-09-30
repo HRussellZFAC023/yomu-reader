@@ -69,8 +69,10 @@ describe('new-tab review controls', () => {
         select.selectedIndex = 1;
         updatePopoverReviewTargetSelection(select);
 
-        expect(document.querySelector<HTMLElement>('[data-review-grade-profile="standard"]')?.hidden).toBe(true);
-        expect(document.querySelector<HTMLElement>('[data-review-grade-profile="bunpro-regular"]')?.hidden).toBe(false);
+        expect(document.querySelector<HTMLElement>('[data-review-target-row][data-review-grade-profile="standard"]')?.hidden).toBe(true);
+        expect(document.querySelector<HTMLElement>('[data-review-target-row][data-review-grade-profile="bunpro-regular"]')?.hidden).toBe(false);
+        // The target options stay selectable; only grade rows switch.
+        expect([...select.options].map(option => option.hidden)).toEqual([false, false]);
         expect(readReviewTargetCapability(select.options[select.selectedIndex])?.gradeProfile).toBe('bunpro-regular');
         expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('Bunpro');
         expect(document.querySelector('[data-review-grade-profile="bunpro-regular"] button')?.getAttribute('data-review-target')).toBe('bunpro');

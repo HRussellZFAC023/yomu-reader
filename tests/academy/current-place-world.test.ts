@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ACADEMY_ASSETS } from '../../src/academy/assets';
+import { ACADEMY_ASSETS, ACADEMY_LIKENESS_CLEARED_CAST_IDS } from '../../src/academy/assets';
 import { canRenderAcademyCastPortrait } from '../../src/academy/domain/cast-registry';
 import {
     displayWorldPersonName,
@@ -614,8 +614,7 @@ describe('Academy current-place world', () => {
         expect(screen.querySelector('[data-world-character="rie"] .academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
-        expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).toBeNull();
-        expect(screen.querySelector('[data-world-character="felix"] img')?.getAttribute('src')).toContain('/characters/felix/felix__neutral-');
+        expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).not.toBeNull();
 
         const leadPerson = projection.people[0]!;
         const personAction = screen.querySelector<HTMLButtonElement>(`[data-world-person-action="${leadPerson}"]`)!;
@@ -741,8 +740,7 @@ describe('Academy current-place world', () => {
         });
         expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
-        expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).toBeNull();
-        expect(screen.querySelector('[data-world-character="felix"] img')?.getAttribute('src')).toContain('/characters/felix/felix__neutral-');
+        expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).not.toBeNull();
 
         const purpose = screen.querySelector<HTMLElement>('[data-purpose-surface="cafe-menu"]')!;
         expect(purpose.dataset.worldActivity).toBe('story:aakash-meet');
@@ -1351,11 +1349,7 @@ describe('Academy current-place world', () => {
         expect(purpose.hidden).toBe(true);
         expect(firstVisit.querySelector<HTMLElement>('[data-world-character="felix"]')?.dataset.presence).toBe('comparing-sky-paper');
         expect(firstVisit.querySelector<HTMLElement>('[data-world-character="peter"]')?.dataset.presence).toBe('collecting-leaf');
-        expect(firstVisit.querySelectorAll('[data-world-character] img')).toHaveLength(2);
-        for (const id of ['peter', 'felix']) {
-            expect(firstVisit.querySelector(`[data-world-character="${id}"] img`)?.getAttribute('src'))
-                .toContain(`/characters/${id}/${id}__neutral-`);
-        }
+        expect(firstVisit.querySelectorAll('[data-world-character] img')).toHaveLength(0);
 
         arrival.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')?.click();
         expect(onIntroductionComplete).toHaveBeenCalledWith('place:park');
@@ -1397,10 +1391,8 @@ describe('Academy current-place world', () => {
         expect(returnVisit.querySelector<HTMLElement>('[data-world-character="felix"]')?.dataset.presence).toBe('holding-page-to-light');
         expect(returnVisit.querySelector<HTMLElement>('[data-world-character="peter"]')?.dataset.presence).toBe('watching-cloud-break');
         expect(returnVisit.querySelector('[data-world-practice="park-hyde-description"]')).not.toBeNull();
-        for (const id of ['felix', 'peter']) {
-            expect(returnVisit.querySelector(`[data-world-character="${id}"] img`)?.getAttribute('src'))
-                .toContain(`/characters/${id}/${id}__neutral-`);
-        }
+        expect(returnVisit.querySelector('[data-world-character="felix"] img')).toBeNull();
+        expect(returnVisit.querySelector('[data-world-character="peter"] img')).toBeNull();
 
         const parkStyles = fs.readFileSync(path.resolve('src/academy/styles/park-world.css'), 'utf8');
         expect(parkStyles).toContain('academy-park-sketchbook');
@@ -1745,7 +1737,9 @@ describe('Academy current-place world', () => {
                 onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
             });
             const character = screen.querySelector(`[data-world-character="${characterId}"]`)!;
-            if (canRenderAcademyCastPortrait(characterId, 'story-runtime')) {
+            // Registry approval alone is not likeness clearance (Nanako has the
+            // former but not the latter), so she stays a named silhouette.
+            if (canRenderAcademyCastPortrait(characterId, 'story-runtime') && ACADEMY_LIKENESS_CLEARED_CAST_IDS.has(characterId)) {
                 expect(character.querySelector('.academy-sprite')).not.toBeNull();
                 expect(character.querySelector('.academy-world-character-silhouette')).toBeNull();
             } else {

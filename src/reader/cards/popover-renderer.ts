@@ -1,7 +1,7 @@
 import { ACADEMY_SRS_LABEL, ANKI_SOURCE_ID } from '../app/constants';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
 import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons } from '../anki/render';
-import { reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from './grade-scale';
+import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from './grade-scale';
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
@@ -564,7 +564,7 @@ export class CardPopoverRenderer {
         const reviewGroup = canSwitchTarget ? Symbol('review-group') : undefined;
         const profiles = new Set((canSwitchTarget ? targets : [selected]).map(target => target.gradeProfile));
         const gradeRows = [...profiles].map(profile => renderTargetedGradeRow(
-            reviewGradeScale(settings, profile), selected, profile, selected.gradeProfile !== profile, reviewGroup,
+            reviewGradeScale(settings, profile), selected, profile, selected.gradeProfile !== profile, settings, reviewGroup,
         )).join('');
         if (!gradeRows) return '';
         const selector = reviewGroup ? renderReviewTargetSelector(targets, language, reviewGroup) : '';
@@ -700,7 +700,9 @@ function updatePopoverReviewTargetLabels(actions: HTMLElement, label: string, sh
 }
 
 function updatePopoverReviewGradeProfile(actions: HTMLElement, gradeProfile: string): void {
-    actions.querySelectorAll<HTMLElement>('[data-review-grade-profile]').forEach(row => {
+    // Rows only: the target <option>s carry the same attribute, and hiding them
+    // would strip Both/JPDB/Jiten from the dropdown after an Anki pick.
+    actions.querySelectorAll<HTMLElement>('[data-review-target-row][data-review-grade-profile]').forEach(row => {
         row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
     });
 }
@@ -733,6 +735,7 @@ function renderTargetedGradeRow(
     selected: PopoverReviewTarget,
     profile: PopoverReviewTarget['gradeProfile'],
     hidden: boolean,
+    settings: Pick<ReaderSettings, 'shortcuts'>,
     reviewGroup?: symbol,
 ): string {
     const { grades, shortcuts } = scale;
@@ -742,7 +745,8 @@ function renderTargetedGradeRow(
         ${targetLabel}
         ${grades.map(([grade, label]) => {
             const title = selected.label ? ` title="${escapeHtml(selected.label)}" aria-label="${escapeHtml(`${label}: ${selected.label}`)}"` : '';
-            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade, gradeProfile: profile, gradeShortcut: shortcuts.find(([, value]) => value === grade)?.[0], reviewGroup, reviewTarget: selected.kind === 'wanikani' ? undefined : selected.kind, ankiCardId: selected.ankiCardId })}${title}>${escapeHtml(label)}</button>`;
+            const gradeShortcut = shortcuts.find(([, value]) => value === grade)?.[0];
+            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade, gradeProfile: profile, gradeShortcut, reviewGroup, reviewTarget: selected.kind === 'wanikani' ? undefined : selected.kind, ankiCardId: selected.ankiCardId })}${title}${gradeKeyHintAttributes(settings, gradeShortcut)}>${escapeHtml(label)}</button>`;
         }).join('')}
     </div>`;
 }

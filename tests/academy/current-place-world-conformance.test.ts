@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ACADEMY_LIKENESS_CLEARED_CAST_IDS } from '../../src/academy/assets';
 import { canRenderAcademyCastPortrait } from '../../src/academy/domain/cast-registry';
 import { completedWorldPracticeEvaluation } from '../../src/academy/domain/world-practice-evidence';
 import {
@@ -99,7 +100,10 @@ describe('current-place world conformance gate', () => {
             expect(returning.querySelector('details, .academy-utility')).toBeNull();
             returning.querySelectorAll<HTMLElement>('[data-world-character]').forEach(character => {
                 const id = character.dataset.worldCharacter!;
-                const portraitAllowed = canRenderAcademyCastPortrait(id, 'story-runtime');
+                // Registry eligibility is necessary but not sufficient: the
+                // person also needs recorded likeness clearance.
+                const portraitAllowed = canRenderAcademyCastPortrait(id, 'story-runtime')
+                    && ACADEMY_LIKENESS_CLEARED_CAST_IDS.has(id);
                 expect(Boolean(character.querySelector('.academy-sprite')), `${place}: ${id} portrait`).toBe(portraitAllowed);
                 expect(Boolean(character.querySelector('.academy-world-character-silhouette')), `${place}: ${id} silhouette`).toBe(!portraitAllowed);
             });

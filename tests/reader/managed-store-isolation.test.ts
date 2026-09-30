@@ -33,23 +33,35 @@ it.each([false, true])('keeps synchronous entry points isolated with async delet
     expect(localStorage.getItem(key)).toBe(standalone);
 });
 
-it('keeps website caches and service workers when installed runtime invalidation calls cleanup directly', async () => {
+it('clears only Yomu page caches and service workers when an installed runtime resets', async () => {
     vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
     installGmStorageFixture();
-    const listCaches = vi.fn(async () => ['yomu-newtab-old']);
-    const listWorkers = vi.fn(async () => []);
-    vi.stubGlobal('caches', { keys: listCaches, delete: vi.fn(async () => true) });
-    vi.stubGlobal('navigator', { serviceWorker: { getRegistrations: listWorkers } });
-    await expect(clearManagedBrowserCaches()).resolves.toBe(0);
-    await expect(unregisterManagedServiceWorkers()).resolves.toBe(0);
-    expect(listCaches).not.toHaveBeenCalled();
-    expect(listWorkers).not.toHaveBeenCalled();
+    const deleteCache = vi.fn(async () => true);
+    const unregister = vi.fn(async () => true);
+    vi.stubGlobal('caches', { keys: vi.fn(async () => ['yomu-newtab-old', 'foreign-cache']), delete: deleteCache });
+    vi.stubGlobal('navigator', { serviceWorker: { getRegistrations: vi.fn(async () => [
+        { scope: 'https://yomureader.com/study/', unregister },
+    ]) } });
+    await expect(clearManagedBrowserCaches()).resolves.toBe(1);
+    await expect(unregisterManagedServiceWorkers()).resolves.toBe(1);
+    expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-old');
+    expect(deleteCache).not.toHaveBeenCalledWith('foreign-cache');
 });
 
-it.each(['missing', 'failed'] as const)('does not adopt standalone learner records on a %s installed read', async mode => {
+it('adopts a website-only learner record into an installed store without a chosen target', async () => {
     vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
     localStorage.setItem(key, standalone);
-    const { getValue, setValue } = installGmStorageFixture();
+    const { values } = installGmStorageFixture();
+    await expect(gmStorageGet(key, null)).resolves.toEqual(JSON.parse(standalone));
+    expect(values.get(key)).toEqual(JSON.parse(standalone));
+    expect(localStorage.getItem(key)).toBe(standalone);
+});
+
+it.each(['chosen', 'failed'] as const)('does not adopt website-only learner records into a %s installed store', async mode => {
+    vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
+    localStorage.setItem(key, standalone);
+    const chosen = mode === 'chosen' ? [['jpdb-popup-reader-settings', { learningTargetChosen: true }]] as const : [];
+    const { getValue, setValue } = installGmStorageFixture(new Map(chosen));
     if (mode === 'failed') getValue.mockImplementation(async (requested, fallback) => {
         if (requested === key) throw new Error('unavailable');
         return fallback;

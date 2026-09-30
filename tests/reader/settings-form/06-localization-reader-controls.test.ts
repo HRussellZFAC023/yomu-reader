@@ -597,8 +597,10 @@ describe('settings form localization', () => {
         expect(saved.shortcuts.toggleSubtitleOverlay).toBe('Ctrl+H');
     });
 
-    it('migrates the old default subtitle line shortcuts to A and D only when still default-looking', () => {
-        const migrated = normalizeReaderSettings({
+    // Alt+Arrow was the default before 0.7.36; every record written since holds
+    // A/D or the learner's own keys, so a saved pair is never rewritten (ADR-0012).
+    it('keeps saved subtitle line shortcuts as chosen', () => {
+        const altArrows = normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
             shortcuts: {
                 ...DEFAULT_SETTINGS.shortcuts,
@@ -607,8 +609,8 @@ describe('settings form localization', () => {
             },
         });
 
-        expect(migrated.shortcuts.previousSubtitle).toBe('A');
-        expect(migrated.shortcuts.nextSubtitle).toBe('D');
+        expect(altArrows.shortcuts.previousSubtitle).toBe('Alt+ArrowLeft');
+        expect(altArrows.shortcuts.nextSubtitle).toBe('Alt+ArrowRight');
 
         const customized = normalizeReaderSettings({
             ...DEFAULT_SETTINGS,

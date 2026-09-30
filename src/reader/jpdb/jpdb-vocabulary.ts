@@ -121,9 +121,8 @@ export class JpdbVocabularyClient {
                 this.assertCurrent(request);
                 entry.result = result;
                 const hasData = usable(result);
-                entry.expiresAt = Date.now() + (result.status === 'partial'
-                    ? request.scope.backoff.retryAfterMs() || INCOMPLETE_QUERY_TTL_MS
-                    : hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
+                // Usable partial data keeps the normal lifetime but is never persisted (ADR-0013).
+                entry.expiresAt = Date.now() + (hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
                 if (!cached && result.status === 'complete' && hasData) writePublicJpdbCache(kind, key, result);
                 return result;
             }).catch(error => {

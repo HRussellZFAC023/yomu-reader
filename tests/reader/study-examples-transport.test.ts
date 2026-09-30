@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe('StudyExamples with the real example client', () => {
-    it('recovers partial fast-first results through both caches on the same card', async () => {
+    it('reveals the fast-first example prepared on the front even when providers later answer differently', async () => {
         let now = 100_000;
         vi.spyOn(Date, 'now').mockImplementation(() => now);
         let recovered = false;
@@ -52,21 +52,21 @@ describe('StudyExamples with the real example client', () => {
         });
         const f = fixture('combined');
         const search = vi.spyOn(f.client, 'searchResult');
+        f.module.present({ card: f.card, mount: f.mount, mode: 'word', revealed: false });
+        f.module.prefetch([f.card]);
+        expect((await f.module.examples(f.card)).map(example => example.sentence)).toEqual([firstSentence]);
+        expect(search.mock.calls[0]?.[2]).toMatchObject({ fastFirst: true });
+        const preparedCalls = transport.mock.calls.length;
+        expect(preparedCalls).toBe(2);
+        recovered = true;
+        now += 2_000;
         f.reveal();
         await f.expectSentence(firstSentence);
-        expect(search.mock.calls[0]?.[2]).toMatchObject({ fastFirst: true });
-        const initialCalls = transport.mock.calls.length;
-        expect(initialCalls).toBe(2);
-        now += 500;
+        now += 600_000;
         f.reveal();
-        await f.module.examples(f.card);
-        expect(transport).toHaveBeenCalledTimes(initialCalls);
-        recovered = true;
-        now += 501;
-        f.reveal();
-        await f.expectSentence(nextSentence);
-        expect(transport).toHaveBeenCalledTimes(initialCalls + 2);
-        expect(f.mount.textContent).not.toContain(firstSentence);
+        await f.expectSentence(firstSentence);
+        expect(transport).toHaveBeenCalledTimes(preparedCalls);
+        expect(f.mount.textContent).not.toContain(nextSentence);
     });
 
     it('does not retry a rate-limited card until expiry, then renders recovered results', async () => {
@@ -89,28 +89,28 @@ describe('StudyExamples with the real example client', () => {
         expect(transport).toHaveBeenCalledTimes(2);
     });
 
-    it('keeps Nadeshiko available while Immersion Kit is still in its longer backoff', async () => {
+    it('keeps Nadeshiko available while Immersion Kit is still in its backoff', async () => {
         let now = 100_000;
         vi.spyOn(Date, 'now').mockImplementation(() => now);
-        let nadeshikoCalls = 0;
-        const transport = vi.spyOn(http, 'requestJson').mockImplementation(async url => {
+        const transport = vi.spyOn(http, 'requestJson').mockImplementation(async (url, options) => {
             if (!url.includes('nadeshiko')) throw new Error('Immersion Kit failed (429)');
-            nadeshikoCalls++;
-            return nadeshikoResponse(nadeshikoCalls === 3 ? nextSentence : firstSentence);
+            const query = (JSON.parse(String(options?.data)) as { query: { search: string } }).query.search;
+            return nadeshikoResponse(query === '中学生' ? firstSentence : '兄は高校生になりました。');
         });
         const f = fixture('combined');
         f.reveal();
         await f.expectSentence(firstSentence);
+        const immersionKitCalls = () => transport.mock.calls.filter(([url]) => !url.includes('nadeshiko')).length;
+        expect(immersionKitCalls()).toBe(1);
+        now += 500;
+        const other = newTabTestCard({ spelling: '高校生', reading: 'こうこうせい' });
+        f.module.present({ card: other, mount: f.mount, mode: 'word', revealed: true });
+        await f.expectSentence('兄は高校生になりました。');
+        expect(immersionKitCalls()).toBe(1);
         now += 1_001;
         f.reveal();
-        expect(await f.module.examples(f.card)).toHaveLength(1);
-        expect(nadeshikoCalls).toBe(2);
-        now += 1_001;
-        f.reveal();
-        expect(await f.module.examples(f.card)).toHaveLength(1);
-        await f.expectSentence(nextSentence);
-        expect(nadeshikoCalls).toBe(3);
-        expect(transport.mock.calls.filter(([url]) => !url.includes('nadeshiko'))).toHaveLength(2);
+        await f.expectSentence(firstSentence);
+        expect(transport.mock.calls.filter(([url]) => url.includes('nadeshiko'))).toHaveLength(2);
     });
 
     it('uses the replacement credential and rejects the late result from the old credential', async () => {

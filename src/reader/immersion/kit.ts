@@ -150,7 +150,10 @@ export interface ImmersionKitSearchOptions {
     signal?: AbortSignal;
 }
 
-/** Complete may be genuinely empty; partial is usable but briefly cached. Transport failures reject. */
+/**
+ * Complete may be genuinely empty; partial is usable data from the sources that answered while another failed.
+ * A combined fast-first answer is complete: the slower source is discarded by design. Transport failures reject.
+ */
 export interface ImmersionSearchResult {
     examples: ImmersionKitExample[];
     status: 'complete' | 'partial';
@@ -193,7 +196,7 @@ export class ImmersionKitClient {
             .then(outcome => {
                 const result = { ...outcome, examples: applySearchExampleLimit(outcome.examples, settings, options) };
                 if (!options.signal?.aborted) {
-                    this.cache.set(cacheKey, { result, expiresAt: Date.now() + (result.status === 'partial' ? 1_000 : result.examples.length ? 300_000 : 10_000) });
+                    this.cache.set(cacheKey, { result, expiresAt: Date.now() + searchResultTtlMs(result) });
                     pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
                 }
                 return result;
@@ -237,8 +240,9 @@ export class ImmersionKitClient {
                 void this.searchSource(source, query, settings, options)
                     .then(examples => {
                         if (examples.length) {
-                            // The other source may still fail or provide more results.
-                            resolve({ examples, status: 'partial' });
+                            // The first non-empty source is the whole fast-first answer;
+                            // the other source's later result is discarded either way.
+                            resolve({ examples, status: 'complete' });
                             return;
                         }
                         emptyResults.push(examples);
@@ -405,6 +409,13 @@ export class ImmersionKitClient {
         const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
         return readBlobAsDataUrl(blob);
     }
+}
+
+// Usable examples keep the normal lifetime whether or not a source failed (ADR-0013);
+// only an empty answer that a failure may explain is retried a second later.
+function searchResultTtlMs(result: ImmersionSearchResult): number {
+    if (result.examples.length) return 300_000;
+    return result.status === 'partial' ? 1_000 : 10_000;
 }
 
 function raceSharedImmersionSearchAgainstAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {

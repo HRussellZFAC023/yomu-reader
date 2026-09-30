@@ -1,0 +1,201 @@
+{
+  "description": "Bytes persisted by shipped releases, captured by scripts/upgrade-corpus/capture.mjs.",
+  "compilerStoragePrefix": "usc_https_github_com_HRussellZFAC023_yomu_reader_",
+  "stages": [
+    {
+      "stage": "v1.8.80",
+      "tag": "v1.8.80",
+      "commit": "2e201b6312aa06791faee619a83895c034e8809a"
+    },
+    {
+      "stage": "v1.8.90",
+      "tag": "v1.8.90",
+      "commit": "656a895d8084d50e32ed7844383471da91735b22"
+    },
+    {
+      "stage": "v1.9.3-userscript",
+      "tag": "v1.9.3",
+      "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409"
+    },
+    {
+      "stage": "v1.9.3-extension",
+      "tag": "v1.9.3",
+      "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409"
+    },
+    {
+      "stage": "v1.9.3-hosted",
+      "tag": "v1.9.3",
+      "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409"
+    },
+    {
+      "stage": "v1.9.3-indexeddb",
+      "tag": "v1.9.3",
+      "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409"
+    },
+    {
+      "stage": "v1.9.3-backup",
+      "tag": "v1.9.3",
+      "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409"
+    }
+  ],
+  "scenarios": [
+    {
+      "file": "a-userscript-explicit-save.json",
+      "scenario": "a-userscript-explicit-save",
+      "channel": "userscript",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-userscript"
+      }
+    },
+    {
+      "file": "a2-userscript-after-factory-reset.json",
+      "scenario": "a2-userscript-after-factory-reset",
+      "channel": "userscript",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-userscript"
+      }
+    },
+    {
+      "file": "b-userscript-machine-only-unmarked.json",
+      "scenario": "b-userscript-machine-only-unmarked",
+      "channel": "userscript",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-userscript",
+        "inputs": [
+          "inputs/v1.8.80-undeclared.json"
+        ]
+      }
+    },
+    {
+      "file": "b0-userscript-untouched-pre-ledger.json",
+      "scenario": "b0-userscript-untouched-pre-ledger",
+      "channel": "userscript",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-userscript",
+        "inputs": [
+          "inputs/v1.8.80-undeclared.json"
+        ]
+      }
+    },
+    {
+      "file": "c1-userscript-folded-pins-explicit.json",
+      "scenario": "c1-userscript-folded-pins-explicit",
+      "channel": "userscript",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-userscript",
+        "inputs": [
+          "inputs/v1.8.90-ledger.json"
+        ]
+      }
+    },
+    {
+      "file": "c2-userscript-folded-pins-machine.json",
+      "scenario": "c2-userscript-folded-pins-machine",
+      "channel": "userscript",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-userscript",
+        "inputs": [
+          "inputs/v1.8.90-ledger.json"
+        ]
+      }
+    },
+    {
+      "file": "d-extension-study-and-content-script.json",
+      "scenario": "d-extension-study-and-content-script",
+      "channel": "extension",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-extension"
+      }
+    },
+    {
+      "file": "e1-hosted-homepage-demo.json",
+      "scenario": "e1-hosted-homepage-demo",
+      "channel": "hosted",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-hosted"
+      }
+    },
+    {
+      "file": "e2-hosted-academy-seed.json",
+      "scenario": "e2-hosted-academy-seed",
+      "channel": "hosted",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-hosted"
+      }
+    },
+    {
+      "file": "e3-hosted-appearance-toggles.json",
+      "scenario": "e3-hosted-appearance-toggles",
+      "channel": "hosted",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-hosted"
+      }
+    },
+    {
+      "file": "e4-hosted-study-website-only.json",
+      "scenario": "e4-hosted-study-website-only",
+      "channel": "hosted",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-hosted"
+      }
+    },
+    {
+      "file": "f-backup-file-v1.9.3.json",
+      "scenario": "f-backup-file-v1.9.3",
+      "channel": "backup",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-backup",
+        "inputs": [
+          "c1-userscript-folded-pins-explicit.json"
+        ]
+      }
+    },
+    {
+      "file": "f2-cloud-snapshot-v1.9.3.json",
+      "scenario": "f2-cloud-snapshot-v1.9.3",
+      "channel": "backup",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-backup",
+        "inputs": [
+          "c1-userscript-folded-pins-explicit.json"
+        ]
+      }
+    },
+    {
+      "file": "g-indexeddb-per-channel.json",
+      "scenario": "g-indexeddb-per-channel",
+      "channel": "indexeddb",
+      "producedBy": {
+        "tag": "v1.9.3",
+        "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+        "stage": "v1.9.3-indexeddb"
+      }
+    }
+  ]
+}

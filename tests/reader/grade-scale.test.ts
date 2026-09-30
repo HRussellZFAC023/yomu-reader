@@ -60,6 +60,29 @@ describe('shared provider grade scale', () => {
             .toEqual(['nothing', 'hard', 'okay', 'easy', undefined]);
     });
 
+    it.each([
+        ['jiten', ['Again', 'Hard', 'Good', 'Easy'], ['1', '2', '3', '4']],
+        ['anki', ['Again', 'Hard', 'Good', 'Easy'], ['1', '2', '3', '4']],
+        ['standard', ['Nothing', 'Something', 'Hard', 'Okay', 'Easy'], ['1', '2', '3', '4', '5']],
+    ] as const)('shows on each %s popover grade button the key that actually grades it', (gradeProfile, labels, keys) => {
+        const root = document.createElement('div');
+        setInnerHtml(root, renderReviewButtons(settings, null, { gradeProfile }));
+        const buttons = [...root.querySelectorAll<HTMLButtonElement>('button')];
+        expect(buttons.map(button => button.textContent)).toEqual(labels);
+        expect(buttons.map(button => button.dataset.gradeKey)).toEqual(keys);
+        expect(buttons.map(button => button.getAttribute('aria-keyshortcuts'))).toEqual(keys);
+        for (const [index, value] of keys.entries()) {
+            expect(readCardCommandCapability(reviewShortcutButton(root, key(value), settings))).toEqual(readCardCommandCapability(buttons[index]!));
+        }
+    });
+
+    it('labels a custom grade key on the popover and omits a hint for a cleared shortcut', () => {
+        const custom = { ...settings, shortcuts: { ...settings.shortcuts, gradeNothing: 'a', gradeSomething: 'b', gradeHard: '', gradeOkay: '"', gradeEasy: 'e' } };
+        const root = document.createElement('div');
+        setInnerHtml(root, renderReviewButtons(custom, null, { gradeProfile: 'jiten' }));
+        expect([...root.querySelectorAll<HTMLButtonElement>('button')].map(button => button.dataset.gradeKey)).toEqual(['a', 'b', undefined, '"']);
+    });
+
     it('sends four distinct ratings and keeps Hard out of the failure loop while retaining queued aliases', () => {
         const grades = reviewGradeScale(settings, 'jiten').grades.map(([grade]) => grade);
         expect(grades.map(jitenRatingForGrade)).toEqual([1, 2, 3, 4]);
@@ -99,6 +122,7 @@ describe('shared provider grade scale', () => {
         select.options[0]!.dataset.reviewGradeProfile = 'standard';
         select.options[0]!.dataset.reviewTarget = 'anki';
         expect(outcome(root, '2')).toBe('hard');
+        expect(reviewShortcutButton(root, key('3'), settings)?.dataset.gradeKey).toBe('3');
         expect(readPrivateReviewTarget(reviewShortcutButton(root, key('2'), settings)!)).toEqual({ target: 'jiten', ankiCardId: undefined });
         expect(outcome(root, '5')).toBeUndefined();
         select.selectedIndex = 1;

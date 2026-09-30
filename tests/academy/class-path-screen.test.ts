@@ -240,9 +240,7 @@ describe('Class path', () => {
         const lessonZeroHost = screen.querySelector('[data-week-id="orientation"] [data-week-cast-id="rie"]');
         expect(lessonZeroHost?.querySelector('picture.academy-sprite img')?.getAttribute('src')).toContain('/characters/rie/');
         const peterAppearance = screen.querySelector('[data-week-id="l1-l04"] [data-week-cast-id="peter"]');
-        expect(peterAppearance?.classList.contains('is-name-only')).toBe(false);
-        expect(peterAppearance?.querySelector('img')?.getAttribute('src'))
-            .toContain('/characters/peter/peter__neutral-');
+        expect(peterAppearance?.classList.contains('is-name-only')).toBe(true);
         const xingyuAppearance = screen.querySelector('[data-week-id="l1-l03"] [data-week-cast-id="xingyu"]');
         expect(xingyuAppearance?.classList.contains('is-name-only')).toBe(false);
         expect(xingyuAppearance?.querySelector('picture.academy-sprite img')?.getAttribute('src'))

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { ACADEMY_ASSETS, ACADEMY_APPROVED_CHARACTER_SPRITES, defaultCastPortrait } from '../../src/academy/assets';
+import { ACADEMY_ASSETS, ACADEMY_APPROVED_CHARACTER_SPRITES, ACADEMY_LIKENESS_CLEARED_CAST_IDS, defaultCastPortrait } from '../../src/academy/assets';
 import { ACADEMY_CAST } from '../../src/academy/domain/cast-registry';
 import { ACADEMY_CAST_STANDARDIZATION_MANIFEST } from '../../src/academy/domain/cast-standardization-manifest';
 import { createDefaultCastPortraitResolver, type DefaultCastPortraitAsset } from '../../src/academy/domain/default-cast-portrait';
@@ -10,16 +10,32 @@ import { worldRouteForPlace } from '../../src/academy/domain/world-locations';
 import { CURRENT_WORLD_AUDIO_PLACE_IDS } from '../../src/academy/vn/world-location-audio';
 import { EXISTING_CAST_PORTRAIT_PLACEMENTS, existingCastPortraitHomes } from '../../src/academy/domain/cast-portrait-placements';
 
+// v1.9.3's cutouts with recorded likeness clearance. Registry or manifest
+// approval alone never adds a person here; clearance must be recorded first.
+const LIKENESS_CLEARED = ['aakash', 'mika', 'rie', 'ruparna', 'sam', 'sophie', 'steve', 'xingyu'];
+const RUNTIME_USES = ['world:person', 'class:week-cast', 'lesson-overview:roster',
+    'lesson:foundation-00:mission-host', 'lesson:foundation-00:sentence-frame-host',
+    'lesson:foundation-00:repeat-request-host'] as const;
+
 describe('default cast portraits', () => {
-    it.each(ACADEMY_CAST.filter(member => member.eligibility.story && member.eligibility.likenessRuntime))(
+    it('renders runtime likenesses only for people with recorded likeness clearance', () => {
+        expect([...ACADEMY_LIKENESS_CLEARED_CAST_IDS].sort()).toEqual(LIKENESS_CLEARED);
+        for (const member of ACADEMY_CAST) {
+            const uses = [...RUNTIME_USES, `story:cast:${member.id}` as const];
+            const rendered = uses.filter(use => defaultCastPortrait(member.id, use));
+            if (!LIKENESS_CLEARED.includes(member.id)) expect(rendered, member.id).toEqual([]);
+        }
+        expect(Object.keys(ACADEMY_ASSETS.characters.approved).sort()).toEqual(LIKENESS_CLEARED);
+    });
+
+    it.each(ACADEMY_CAST.filter(member => LIKENESS_CLEARED.includes(member.id)))(
         'provides the authorized world portrait for $id', member => {
             const neutral = ACADEMY_CAST_STANDARDIZATION_MANIFEST.find(asset => asset.castId === member.id
                 && asset.expression === 'neutral' && asset.angle === 'front-near-front'
                 && asset.status === 'approved' && asset.runtimePresentation === 'approved-runtime'
                 && (asset.runtimeHomes as readonly string[]).includes('world:person'));
             expect(neutral).toBeDefined();
-            expect((ACADEMY_ASSETS.characters.approved as Readonly<Record<string, string>>)[member.id])
-                .toBe(neutral!.assetPath);
+            expect(defaultCastPortrait(member.id, 'world:person')).toBe(neutral!.assetPath);
         },
     );
 
@@ -36,8 +52,8 @@ describe('default cast portraits', () => {
         expect(defaultCastPortrait(id, use)).toBe(expected);
     });
 
-    it('denies lesson-ineligible Shaun without changing story eligibility or Journal art', () => {
-        expect(defaultCastPortrait('shaun', 'world:person')).toBeDefined();
+    it('denies uncleared, lesson-ineligible Shaun a runtime portrait without removing Journal art', () => {
+        expect(defaultCastPortrait('shaun', 'world:person')).toBeUndefined();
         expect(defaultCastPortrait('shaun', 'lesson-overview:roster')).toBeUndefined();
         expect(defaultCastPortrait('shaun', 'class:week-cast')).toBeUndefined();
         expect(ACADEMY_ASSETS.characters.journalReview.shaun).toBeDefined();
@@ -54,6 +70,11 @@ describe('default cast portraits', () => {
             });
             for (const actor of root.querySelectorAll<HTMLElement>('[data-world-character]')) {
                 const id = actor.dataset.worldCharacter!;
+                if (!LIKENESS_CLEARED.includes(id)) {
+                    expect(actor.querySelector('img'), `${place}/${id}`).toBeNull();
+                    expect(actor.querySelector('.academy-world-character-silhouette'), `${place}/${id}`).not.toBeNull();
+                    continue;
+                }
                 const neutral = ACADEMY_CAST_STANDARDIZATION_MANIFEST.find(asset => asset.castId === id
                     && asset.expression === 'neutral' && asset.angle === 'front-near-front');
                 expect(neutral, `${place}/${id}`).toBeDefined();

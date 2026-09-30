@@ -21,6 +21,14 @@ interface QueueStorage {
 interface QueueExtensionApi { runtime: QueueRuntime; storage: { local: QueueStorage } }
 export interface ReviewQueueExtensionRoot { browser?: QueueExtensionApi; chrome?: QueueExtensionApi }
 
+type ClaimOperation = (owner: ReviewQueueOwner, id: string, providerContext: string, heldSince: number | undefined) => Promise<unknown>;
+const CLAIM_OPERATIONS = new Map<unknown, ClaimOperation>([
+    ['claim', (owner, id, context) => owner.claim(id, context)],
+    ['release', (owner, id, context, heldSince) => owner.release(id, context, heldSince)],
+    ['acknowledge', (owner, id, context) => owner.acknowledge(id, context)],
+    ['discard', (owner, id, context) => owner.discard(id, context)],
+]);
+
 export function installExtensionReviewQueueHost(root: ReviewQueueExtensionRoot, prefix: string): void {
     const api = root.browser ?? root.chrome;
     if (!api?.runtime?.onMessage || !api.storage?.local || !prefix) return;
@@ -58,15 +66,17 @@ export function installExtensionReviewQueueHost(root: ReviewQueueExtensionRoot, 
             }
             return owner.snapshot(request.ids, request.scopes);
         }
-        if (request.kind === 'record') {
-            if (!Array.isArray(request.reviews) || !request.reviews.length || request.reviews.length > 4
+        if (request.kind === 'record' || request.kind === 'adopt') {
+            const limit = request.kind === 'adopt' ? NEW_TAB_GRADE_QUEUE_LIMIT : 4;
+            if (!Array.isArray(request.reviews) || !request.reviews.length || request.reviews.length > limit
                 || !request.reviews.every(item => validReview(item) && item.attempts === 0)) throw new Error('Invalid review record.');
-            return owner.record(request.reviews);
+            return owner.record(request.reviews, request.kind === 'adopt');
         }
-        if (!shortString(request.id) || typeof request.providerContext !== 'string' || request.providerContext.length > 256) throw new Error('Invalid review identity.');
-        if (request.kind === 'claim') return owner.claim(request.id, request.providerContext);
-        if (request.kind === 'acknowledge') return owner.acknowledge(request.id, request.providerContext);
-        throw new Error('Unsupported review queue operation.');
+        if (!shortString(request.id) || typeof request.providerContext !== 'string' || request.providerContext.length > 256
+            || (request.heldSince !== undefined && !Number.isFinite(request.heldSince))) throw new Error('Invalid review identity.');
+        const operation = CLAIM_OPERATIONS.get(request.kind);
+        if (!operation) throw new Error('Unsupported review queue operation.');
+        return operation(owner, request.id, request.providerContext, request.heldSince as number | undefined);
     }
 }
 

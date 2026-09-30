@@ -11,7 +11,7 @@ const memoryStorage = {
     delete: async (key: string): Promise<void> => { store.delete(key); },
 };
 
-import { NewTabGradeQueue, type NewTabGradeQueueDeps, type QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
+import { HELD_REVIEW_SETTLE_MS, NewTabGradeQueue, type NewTabGradeQueueDeps, type QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
 import { NEW_TAB_GRADE_QUEUE_KEY, NEW_TAB_GRADE_QUEUE_LIMIT } from '../../src/reader/newtab/controller-config';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
@@ -89,13 +89,14 @@ describe('NewTabGradeQueue.flush', () => {
 
     it('persists the Anki attempt before dispatch and holds it after a lost response across restart', async () => {
         const submit = vi.fn(async () => {
-            expect(stored()[0]?.attempts).toBe(1);
+            expect(stored()[0]?.heldSince).toEqual(expect.any(Number));
             throw new Error('response lost after commit');
         });
         const { queue, onSubmitted } = makeQueue({ submit });
         await queue.enqueue(card('読む'), 'okay', ['anki']);
         expect(await queue.flush()).toBe(1);
-        expect(stored()[0]).toMatchObject({ attempts: 1, lastError: 'response lost after commit' });
+        expect(stored()[0]).toMatchObject({ attempts: 0, heldSince: expect.any(Number), lastError: 'response lost after commit' });
+        expect(await queue.heldReviews()).not.toHaveLength(0);
         const restarted = makeQueue({ submit });
         expect(await restarted.queue.flush()).toBe(1);
         expect(submit).toHaveBeenCalledOnce();
@@ -111,18 +112,23 @@ describe('NewTabGradeQueue.flush', () => {
         const failing = makeQueue({ storage: { ...memoryStorage, set: write } });
         await expect(failing.queue.flush()).rejects.toThrow('disk full');
         expect(failing.submit).not.toHaveBeenCalled();
-        expect(stored()[0]?.attempts).toBe(0);
+        expect(stored()[0]).toMatchObject({ attempts: 0 });
+        expect(stored()[0]?.heldSince).toBeUndefined();
     });
 
     it('does not send an old-account review after the connection changes during attempt persistence', async () => {
         let account = 'account-a';
+        let switchOnHold = true;
         const { queue, submit, onSubmitted } = makeQueue({
             providerContextForTarget: () => account,
             storage: {
                 ...memoryStorage,
                 set: async (key, value) => {
                     await memoryStorage.set(key, value);
-                    if ((value as QueuedNewTabGrade[]).some(item => item.attempts > 0)) account = 'account-b';
+                    if (switchOnHold && (value as QueuedNewTabGrade[]).some(item => item.heldSince !== undefined)) {
+                        switchOnHold = false;
+                        account = 'account-b';
+                    }
                 },
             },
         });
@@ -130,13 +136,20 @@ describe('NewTabGradeQueue.flush', () => {
         expect(await queue.flush()).toBe(1);
         expect(submit).not.toHaveBeenCalled();
         expect(onSubmitted).not.toHaveBeenCalled();
-        expect(stored()).toMatchObject([{ providerContext: 'account-a', attempts: 1 }]);
-        account = 'account-a';
-        await queue.flush();
+        // Never dispatched, so it is pending again rather than held.
+        expect(stored()).toMatchObject([{ providerContext: 'account-a', attempts: 0 }]);
+        expect(stored()[0]?.heldSince).toBeUndefined();
+        expect(await queue.flush()).toBe(1);
         expect(submit).not.toHaveBeenCalled();
+        account = 'account-a';
+        expect(await queue.flush()).toBe(0);
+        expect(submit).toHaveBeenCalledOnce();
+        expect(submit).toHaveBeenCalledWith(expect.objectContaining({ providerContext: 'account-a' }));
     });
 
-    it('holds a persisted in-flight attempt when a new queue opens before the response', async () => {
+    it('never resends a persisted in-flight attempt a new queue sees before the response, and holds it once it outlives any request', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(1_000_000);
         let acknowledge!: (value: boolean) => void;
         let dispatched!: () => void;
         const response = new Promise<boolean>(resolve => { acknowledge = resolve; });
@@ -147,13 +160,18 @@ describe('NewTabGradeQueue.flush', () => {
         const flushing = queue.flush();
         await started;
         try {
-            const reopened = makeQueue({ submit });
+            const reopened = makeQueue({ submit, confirmDelivered: async () => false });
             expect(await reopened.queue.flush()).toBe(1);
-            expect(await reopened.queue.hasUncertainReviews()).toBe(true);
+            // Another tab may still be sending it: not held, so Check again cannot resend it.
+            expect(await reopened.queue.heldReviews()).toEqual([]);
+            expect(await reopened.queue.recheckHeld()).toBe(1);
             expect(submit).toHaveBeenCalledOnce();
+            vi.setSystemTime(1_000_000 + HELD_REVIEW_SETTLE_MS);
+            expect(await reopened.queue.heldReviews()).toHaveLength(1);
         } finally {
             acknowledge(true);
             await flushing;
+            vi.useRealTimers();
         }
     });
 
@@ -167,7 +185,7 @@ describe('NewTabGradeQueue.flush', () => {
         const restarted = makeQueue({ submit: failing.submit });
         expect(await restarted.queue.flush()).toBe(1);
         expect(failing.submit).toHaveBeenCalledOnce();
-        expect(stored()[0]?.attempts).toBe(1);
+        expect(stored()[0]?.heldSince).toEqual(expect.any(Number));
     });
 
     it('does not treat an unreadable queue as empty or overwrite its reviews', async () => {
@@ -220,14 +238,18 @@ describe('NewTabGradeQueue.flush', () => {
         const { queue, submit, onSubmitted } = makeQueue();
         await queue.enqueue(card('何'), 'okay', ['anki', 'jpdb-api']);
         submit.mockImplementation(async (item: QueuedNewTabGrade) => {
-            if (item.target === 'anki') throw new Error('anki offline');
+            if (item.target === 'jpdb-api') throw new Error('jpdb offline');
             return true;
         });
         await queue.flush();
         const remaining = stored();
         expect(remaining).toHaveLength(1);
-        expect(remaining[0]).toMatchObject({ target: 'anki', attempts: 1, lastError: 'anki offline' });
+        expect(remaining[0]).toMatchObject({ target: 'jpdb-api', attempts: 1, lastError: 'jpdb offline' });
+        expect(remaining[0]?.heldSince).toBeUndefined();
         expect(onSubmitted).toHaveBeenCalledTimes(1);
+        submit.mockResolvedValue(true);
+        expect(await queue.flush()).toBe(0);
+        expect(onSubmitted).toHaveBeenCalledTimes(2);
     });
 
     it('retains a review when the submitter reports that it was not submitted', async () => {
@@ -237,6 +259,7 @@ describe('NewTabGradeQueue.flush', () => {
         await queue.flush();
         expect(onSubmitted).not.toHaveBeenCalled();
         expect(stored()).toMatchObject([{ target: 'anki', attempts: 1 }]);
+        expect(stored()[0]?.heldSince).toBeUndefined();
     });
 
     it('does nothing when the queue is empty', async () => {
@@ -278,7 +301,7 @@ describe('NewTabGradeQueue.flush', () => {
         await queue.flush();
 
         expect(submit).toHaveBeenCalledOnce();
-        expect(submit).toHaveBeenCalledWith({ ...anki, attempts: 1 });
+        expect(submit).toHaveBeenCalledWith({ ...anki, heldSince: expect.any(Number) });
         expect(stored()).toEqual([]);
     });
 

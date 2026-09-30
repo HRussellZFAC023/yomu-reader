@@ -42,3 +42,17 @@ export function reviewGradeScale(settings: Pick<ReaderSettings, 'twoButtonReview
         twoButton: entries.length === 2,
     };
 }
+
+/**
+ * The key that grades this button, for the button to show: four-button
+ * Jiten/Anki scales map keys by position (1 Again, 2 Hard, 3 Good, 4 Easy), not
+ * by the five-button meaning, so the popover must say which key does what.
+ * The stylesheet draws `data-grade-key` (and hides it on touch screens);
+ * `aria-keyshortcuts` announces it without changing the button's name.
+ */
+export function gradeKeyHintAttributes(settings: Pick<ReaderSettings, 'shortcuts'>, shortcut: ReviewShortcutKey | undefined): string {
+    const key = shortcut ? settings.shortcuts[shortcut]?.trim() ?? '' : '';
+    if (!key) return '';
+    const escaped = key.replace(/[&<>"']/gu, character => `&#${character.charCodeAt(0)};`);
+    return ` data-grade-key="${escaped}" aria-keyshortcuts="${escaped}"`;
+}

@@ -3,7 +3,6 @@ import type { RecommendedDictionary } from '../dictionaries/recommended';
 import type { ReaderSettings } from '../app/types';
 import { dispatchAuthorizedReaderControlClick } from '../ui/trusted-interaction';
 import { isRecord } from '../core/object-utils';
-import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
 
 const log = Logger.scope('SettingsFileIO');
 
@@ -36,7 +35,6 @@ export function parseReaderSettingsBackup(value: unknown): ReaderSettingsBackup 
     if (Object.keys(value).some(key => !BACKUP_FIELDS.has(key))) return null;
     const storage = value.storage;
     if (storage !== undefined && !isRecord(storage)) return null;
-    if (storage && RETIRED_SETTINGS_STORAGE_KEYS.some(key => Object.hasOwn(storage, key))) return null;
     if (value.dictionaries !== undefined && !isReaderDictionaryExport(value.dictionaries)) return null;
     return { settings: value.settings, storage, dictionaries: value.dictionaries };
 }

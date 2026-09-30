@@ -39,6 +39,12 @@ export function announceInstalledReaderRuntime(
     return kind;
 }
 
+/**
+ * The installed extension outranks a userscript manager on the same page. Its
+ * packaged content script announces itself synchronously at document start
+ * (scripts/lib/extension-runtime-hardening.mjs), so a userscript that runs
+ * later never demotes that announcement.
+ */
 export function markInstalledReaderRuntime(
     kind: InstalledReaderRuntimeKind,
     root: Document = document,
@@ -46,8 +52,14 @@ export function markInstalledReaderRuntime(
     const existing = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
     const marker = existing instanceof HTMLElement ? existing : root.createElement('meta');
     marker.id = INSTALLED_READER_RUNTIME_MARKER_ID;
-    marker.dataset.yomuInstalledRuntimeKind = kind;
+    if (marker.dataset.yomuInstalledRuntimeKind !== 'extension') marker.dataset.yomuInstalledRuntimeKind = kind;
     if (!marker.isConnected) appendInstalledRuntimeMarker(marker, root);
+}
+
+/** The highest-priority installed Reader announced in this document, if any. */
+export function announcedInstalledReaderRuntime(root: Pick<Document, 'getElementById'> = document): InstalledReaderRuntimeKind | null {
+    const kind = (root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID) as HTMLElement | null)?.dataset?.yomuInstalledRuntimeKind;
+    return kind === 'extension' || kind === 'userscript' ? kind : null;
 }
 
 export function isHostedReaderRuntime(): boolean {

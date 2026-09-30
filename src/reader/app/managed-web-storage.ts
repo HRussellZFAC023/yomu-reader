@@ -4,6 +4,7 @@ import {
     isManagedStorageSlotKey,
     logicalManagedStorageKey,
 } from './managed-storage-keys';
+import { isHostedYomuOrigin } from './hosted-storage-fallback';
 import {
     MANAGED_STATE_EPOCH_KEY,
     managedStateEpochToken,
@@ -181,70 +182,66 @@ export function managedLocalStorageKeys(): string[] {
         .filter((key): key is string => key !== null && managedLocalStorage.getItem(key) !== null);
 }
 
-export function managedWebStorageResetKeys(owner: ManagedWebStorageOwner): string[] {
-    selectOwner(owner);
+/** Every Yomu key in this origin's page storage, in both areas and every owner's namespace. */
+export function managedWebStorageResetKeys(): string[] {
     return [...new Set([
         ...enumerateStorageKeys(storageArea('local'), 'localStorage'),
         ...enumerateStorageKeys(storageArea('session'), 'sessionStorage'),
-    ])].filter(belongsToOwner);
+    ])].filter(isManagedStorageKey);
 }
 
 function managedStorageFacade(area: ManagedWebStorageArea): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
     return {
         getItem(key: string): string | null {
             const { storage, epoch } = certifiedArea(area);
-            return logicalItem(readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
+            const own = logicalItem(readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
+            if (own !== null) return own;
+            const earlier = earlierLocalRecordKey(area, key, epoch);
+            return earlier ? logicalItem(readStorageValue(storage, earlier, `localStorage key "${key}"`), epoch) : null;
         },
         setItem(key: string, value: string): void {
             assertManagedLogicalKey(key);
             const { storage, epoch } = certifiedArea(area);
             const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
             writeAndVerify(storage, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+            removeEarlierLocalRecord(area, key, epoch);
             assertAreaCertificate(area, epoch);
         },
         removeItem(key: string): void {
             assertManagedLogicalKey(key);
             const { storage, epoch } = certifiedArea(area);
-            const physicalKey = physicalStorageKey(key, epoch);
-            removeStorageValue(storage, physicalKey, `${area}Storage key "${key}"`);
-            if (readStorageValue(storage, physicalKey, `${area}Storage key "${key}"`) !== null) {
-                throw new Error(`${area}Storage retained managed key "${key}".`);
-            }
+            removeVerified(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`, `${area}Storage retained managed key "${key}".`);
+            removeEarlierLocalRecord(area, key, epoch);
             assertAreaCertificate(area, epoch);
         },
     };
 }
 
 /**
- * v1.9.3 kept installed runtimes' page caches under raw logical keys, before
- * owner scoping. An installed owner may still need such a record (the
- * site-language cache is the provenance for undoing Yomu's own site cookies).
- * It counts only while v1.9.3 certified that raw area for this session's epoch,
- * so a record from before a reset never does. Standalone already owns the raw
- * layout through the managed facade, so it has no separate earlier record.
+ * v1.9.3 kept every runtime's per-origin records (site-language provenance, the
+ * dictionary purge marker, UI state, caches) under the raw logical key. An
+ * installed owner that has not written a key yet reads that record. It counts
+ * only while the raw area is certified for this realm's epoch, so nothing from
+ * before a reset returns. On an ordinary site the raw record is that owner's
+ * own v1.9.3 copy, and its first write or removal supersedes it; on a Yomu
+ * website it belongs to the website's store, which an installed owner never
+ * changes. Standalone already reads the raw layout directly.
  */
-export const preOwnerLocalStorage: Pick<Storage, 'getItem' | 'removeItem'> = {
-    getItem(key: string): string | null {
-        const area = preOwnerLocalArea();
-        if (!area) return null;
-        return logicalItem(readStorageValue(area.storage, epochSlotKey(key, area.epoch), `localStorage key "${key}"`), area.epoch);
-    },
-    removeItem(key: string): void {
-        const area = preOwnerLocalArea();
-        if (!area) return;
-        const slotKey = epochSlotKey(key, area.epoch);
-        removeStorageValue(area.storage, slotKey, `localStorage key "${key}"`);
-        if (readStorageValue(area.storage, slotKey, `localStorage key "${key}"`) !== null) {
-            throw new Error(`localStorage retained earlier managed key "${key}".`);
-        }
-    },
-};
+function earlierLocalRecordKey(area: ManagedWebStorageArea, key: string, epoch: ManagedStateEpoch): string | null {
+    if (area !== 'local' || !selectedOwner || selectedOwner === 'standalone') return null;
+    const storage = storageArea('local');
+    const marker = readStorageValue(storage, AREA_MARKER_KEYS.local, 'localStorage earlier epoch marker');
+    return marker === managedStateEpochToken(epoch) ? epochSlotKey(key, epoch) : null;
+}
 
-function preOwnerLocalArea(): { storage: Storage; epoch: ManagedStateEpoch } | null {
-    const certified = certifiedArea('local');
-    if (!selectedOwner || selectedOwner === 'standalone') return null;
-    const marker = readStorageValue(certified.storage, AREA_MARKER_KEYS.local, 'localStorage earlier epoch marker');
-    return marker === managedStateEpochToken(certified.epoch) ? certified : null;
+function removeEarlierLocalRecord(area: ManagedWebStorageArea, key: string, epoch: ManagedStateEpoch): void {
+    const earlier = isHostedYomuOrigin() ? null : earlierLocalRecordKey(area, key, epoch);
+    if (earlier) removeVerified(storageArea('local'), earlier, `localStorage key "${key}"`, `localStorage retained earlier managed key "${key}".`);
+}
+
+function removeVerified(storage: Storage, key: string, label: string, retained: string): void {
+    removeStorageValue(storage, key, label);
+    if (readStorageValue(storage, key, label) !== null) throw new Error(retained);
 }
 
 function logicalItem(raw: string | null, epoch: ManagedStateEpoch): string | null {

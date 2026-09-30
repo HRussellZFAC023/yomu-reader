@@ -149,6 +149,8 @@ describe('Lesson Zero repetition-request session', () => {
             [...LESSON_ZERO_REPEAT_REQUEST_CHILD_ACTIVITY_IDS],
         ));
         expect(lessonZeroRepeatRequestCompletionEvaluation(activity, definition, 40).attempt).toMatchObject({
+            // Never the v1.9.3 phrase-09-only `:complete` id, whose payload differs.
+            eventId: `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:complete:classroom-coverage-v1`,
             activityId: LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
             conceptIds: [...new Set([...definition.conceptIds, ...definition.coverageProbes.flatMap(probe => probe.conceptIds)])],
             outcome: 'pass',

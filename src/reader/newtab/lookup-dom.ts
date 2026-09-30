@@ -6,7 +6,7 @@ import type { ApiSrsProviderView } from '../cards/srs-providers';
 import { isTargetLanguageText } from '../lookup/target-text';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
-import { reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
+import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import {
     privateCommandAttributes,
     readPrivateReviewTarget,
@@ -179,7 +179,9 @@ function renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grade
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
                 const title = targetLabel ? ` title="${escapeHtml(targetLabel)}" aria-label="${escapeHtml(`${buttonLabel}: ${targetLabel}`)}"` : '';
-                return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade, gradeProfile: context?.profile, gradeShortcut: context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : undefined, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}>${escapeHtml(buttonLabel)}</button>`;
+                const gradeShortcut = context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : undefined;
+                const keyHint = context ? gradeKeyHintAttributes(context.settings, gradeShortcut) : '';
+                return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: 'card-action', action: 'grade', grade, gradeProfile: context?.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${keyHint}>${escapeHtml(buttonLabel)}</button>`;
             }).join('')}
         </div>
     `;

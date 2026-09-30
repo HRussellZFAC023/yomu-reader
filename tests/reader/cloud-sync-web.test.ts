@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/settings-authority-storage-keys';
+import { v193CloudSnapshot } from './helpers/upgrade-v193-corpus';
 
 const { requestJson, requestText } = vi.hoisted(() => ({
     requestJson: vi.fn(),
@@ -228,6 +229,16 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         expect(snapshot?.storage).toEqual({ 'yomu:srs-local:v1': { version: 1, cards: {} } });
     });
 
+    it('accepts the Drive snapshot v1.9.3 uploaded, retired storage keys included', async () => {
+        const uploaded = v193CloudSnapshot();
+        requestJson.mockResolvedValue({ files: [{ id: 'file-1' }] });
+        requestText.mockResolvedValue(JSON.stringify(uploaded));
+        const mod = await loadModule();
+        const snapshot = await mod.downloadCloudSettingsFromCloud();
+        expect(snapshot?.settings).toEqual(uploaded.settings);
+        expect(Object.keys(snapshot?.storage ?? {})).toEqual(expect.arrayContaining([...RETIRED_SETTINGS_STORAGE_KEYS].filter(key => Object.hasOwn(uploaded.storage as object, key))));
+    });
+
     it('returns null when no settings file exists', async () => {
         requestJson.mockResolvedValue({ files: [] });
         const mod = await loadModule();
@@ -247,7 +258,6 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         ['array storage', { storage: [] }],
         ['null storage', { storage: null }],
         ['invalid time', { syncedAt: 'secret-do-not-echo' }],
-        ...RETIRED_SETTINGS_STORAGE_KEYS.map<[string, Record<string, unknown>]>(key => [key, { storage: { [key]: null } }]),
     ])('rejects %s from the Drive media response without writing', async (_label, overrides) => {
         requestJson.mockResolvedValue({ files: [{ id: 'file-1' }] });
         requestText.mockResolvedValue(JSON.stringify({

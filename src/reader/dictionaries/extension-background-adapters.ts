@@ -183,6 +183,19 @@ export class DirectExtensionDictionaryStorage {
         return value === unreadable ? fallback : value as T;
     }
 
+    /**
+     * Admission only decides whether a request may queue: an epoch this session
+     * already captured answers it without a storage read. Queued execution
+     * re-reads the epoch before and after the store call, so a reset committed
+     * in between still rejects the request before it can touch the store.
+     */
+    async assertCallerEpochAdmission(expected: ManagedStateEpoch, completedResetId?: string): Promise<void> {
+        if (this.settingsPromise) await this.settingsPromise;
+        const captured = this.epochSession.current();
+        if (captured && sameManagedStateEpoch(expected, captured)) return;
+        await this.assertCallerEpoch(expected, completedResetId);
+    }
+
     async assertCallerEpoch(expected: ManagedStateEpoch, completedResetId?: string): Promise<void> {
         if (this.settingsPromise) await this.settingsPromise;
         const actual = await this.assertAllowed();

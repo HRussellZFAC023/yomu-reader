@@ -1,0 +1,36 @@
+{
+  "scenario": "f2-cloud-snapshot-v1.9.3",
+  "producedBy": {
+    "tag": "v1.9.3",
+    "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+    "stage": "v1.9.3-backup",
+    "inputs": [
+      "c1-userscript-folded-pins-explicit.json"
+    ]
+  },
+  "channel": "backup",
+  "story": "The same learner on the extension uploads to Google Drive in v1.9.3, then restores it into a fresh packaged Study.",
+  "file": "files/google-drive-settings-sync.json",
+  "storageKeys": [
+    "jpdb-popup-reader-settings",
+    "yomu:explicit-user-settings:v1",
+    "yomu:prefer-japanese-site-language:v1",
+    "yomu:settings-intent:v2"
+  ],
+  "expected": {
+    "settings": {
+      "theme": "dark",
+      "apiKey": "corpus0000000000000000000000jpdb",
+      "subtitleFontSize": 40,
+      "showFurigana": false,
+      "interfaceLanguage": "ja",
+      "onboardingSeen": true,
+      "learningTargetChosen": true,
+      "activeLanguageProfileId": "default-ja",
+      "accentColor": "#2563eb",
+      "localDictionariesEnabled": true
+    },
+    "targetLanguage": "ja",
+    "onboardingShown": false
+  }
+}

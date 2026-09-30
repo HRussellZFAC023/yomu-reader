@@ -143,8 +143,10 @@ The service worker still downloads the full required code/content set and story
 voices before marking a release ready offline. Splitting Study reduces initial
 JavaScript parsing and loading, not that background download requirement. CSS
 currently remains eager. A failed install discards only its incomplete candidate;
-a complete update waits for old controlled pages to close before activation and
-old-cache cleanup. Navigation HTML from another revision never replaces the
+a complete update calls skipWaiting only after its ready marker is written, then
+activates, claims open pages and deletes the older shell caches, so an older
+worker never answers a newer page from its cache. An already-open page from the
+previous release recovers with Reload. Navigation HTML from another revision never replaces the
 current release's offline page.
 
 ## File-size and ownership guardrails

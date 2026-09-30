@@ -4,7 +4,7 @@ import { yomitanZipBlob } from './zip-fixture';
 import type { YomitanTermEntry } from '../../src/reader/dictionaries/yomitan/types';
 import { installFreshManagedStateEpochSessionForTests } from '../../src/reader/app/managed-state-epoch';
 
-const DB_NAME = 'jpdb-popup-reader-yomitan-userscript-v2';
+const DB_NAME = 'jpdb-popup-reader-yomitan';
 const EPOCH_KEY = 'yomu:state-epoch';
 const activeStores: Array<{ invalidateForFactoryReset(): Promise<void> }> = [];
 

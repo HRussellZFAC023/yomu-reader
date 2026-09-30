@@ -41,7 +41,7 @@ export function missionProgressIsValid(value: unknown): value is LessonZeroMissi
         && Object.entries(value).every(([id, state]) => missionSessionIsValid(state) && state.activityId === id);
 }
 
-export function missionSessionIsValid(value: unknown): value is LessonZeroMissionSession {
+function missionSessionIsValid(value: unknown): value is LessonZeroMissionSession {
     if (!isRecord(value) || !onlyKeys(value, ['schemaVersion', 'activityId', 'revision', 'writtenDraft', 'particles',
         'checks', 'spokeWithoutRecording', 'selectedCardName', 'editedKatakana', 'nameEntryMode', 'repairing', 'receipt', 'closeAction', 'unassessedFeedback'])) return false;
     return value.schemaVersion === 1 && text(value.activityId, 100) && value.activityId.startsWith('activity:lesson-zero-')

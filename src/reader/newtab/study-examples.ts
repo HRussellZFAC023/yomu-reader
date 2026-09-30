@@ -240,7 +240,7 @@ class StudyExamplesPresentation {
         const context = this.queries.searchContext();
         entry.promise = this.fetchFrontSentence(card).then(({ sentence, status }) => {
             this.queries.assertSearchContext(context);
-            entry.expiresAt = Math.min(Date.now() + (status === 'partial' ? 1_000 : 30_000), this.queries.validUntil(card));
+            entry.expiresAt = Math.min(Date.now() + (sentence || status === 'complete' ? 30_000 : 1_000), this.queries.validUntil(card));
             return sentence;
         }).catch(error => { entry.expiresAt = Date.now() + 1_000; throw error; });
         this.frontSentenceCache.set(key, entry);
@@ -761,6 +761,15 @@ class StudyExamplesPresentation {
     }
 }
 
+// A card's usable examples stay fixed for the session (bounded, and cleared on reset,
+// context change or online recovery), as in v1.9.3: the example revealed on the back
+// is the one prepared and prefetched for the front. Only an empty answer expires,
+// quickly when a failure may explain it (ADR-0013).
+function acquisitionExpiry(result: ImmersionSearchResult): number {
+    if (result.examples.length) return Infinity;
+    return Date.now() + (result.status === 'partial' ? 1_000 : 10_000);
+}
+
 /** Shared acquisition only: no mount, cursor, listeners or media ownership. */
 class StudyExampleQueries {
     private disposed = false;
@@ -780,7 +789,7 @@ class StudyExampleQueries {
             this.fetchNewTabImmersionExamples(card),
             settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
             'Immersion Kit examples timed out.',
-        ).then(result => { entry.expiresAt = Date.now() + (result.status === 'partial' ? 1_000 : result.examples.length ? 300_000 : 10_000); return result; })
+        ).then(result => { entry.expiresAt = acquisitionExpiry(result); return result; })
             .catch(error => { entry.expiresAt = Date.now() + 1_000; throw error; });
         this.immersionCache.set(key, entry);
         return entry.promise;

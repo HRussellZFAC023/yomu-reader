@@ -5,15 +5,14 @@ import { HOSTED_STUDY_LOCATION } from './helpers/settings-persistence-fixture';
 import { yomitanZipBlob } from './zip-fixture';
 
 // Hosted Study constructs its dictionary store (a NewTabRuntime field) before
-// an installed userscript's storage bridge may be ready; the runtime then waits
-// for that late authority before touching dictionaries. The store must belong
-// to whichever owner is current at its first storage use, and to no other.
+// an installed userscript's storage bridge may be ready. An origin has one
+// dictionary database whichever runtime reaches it, as in v1.9.3; the reset
+// epoch, not a per-owner database name, decides whether a realm may use it.
 
 type Store = import('../../src/reader/dictionaries/yomitan').YomitanDictionaryStore;
 type Bridge = typeof import('../../src/reader/userscript/storage-bridge');
 
-const STANDALONE_DB = 'jpdb-popup-reader-yomitan';
-const USERSCRIPT_DB = 'jpdb-popup-reader-yomitan-userscript-v2';
+const DICTIONARY_DB = 'jpdb-popup-reader-yomitan';
 const stores: Store[] = [];
 let bridge: Bridge | undefined;
 
@@ -27,30 +26,43 @@ afterEach(async () => {
     for (const store of stores.splice(0)) await store.invalidateForFactoryReset();
     bridge?.uninstallUserscriptGmStorageBridge();
     bridge = undefined;
+    document.getElementById('jpdb-reader-installed-runtime')?.remove();
     vi.unstubAllGlobals();
     localStorage.clear();
     sessionStorage.clear();
 });
 
-it('binds a store built before a late storage bridge to the bridge owner at first use', async () => {
+it('serves a store built before an announced userscript bridge from the origin database', async () => {
+    const { markInstalledReaderRuntime } = await import('../../src/reader/app/runtime-presence');
+    markInstalledReaderRuntime('userscript');
     const store = await pageWorldStore();
+    const imported = store.importZip(dictionaryZip('Late bridge', '読む', 'read'));
     await installLateUserscriptBridge();
-
-    await store.importZip(dictionaryZip('Late bridge', '読む', 'read'));
+    await imported;
 
     expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Late bridge' }]);
-    expect(await databaseNames()).toEqual([USERSCRIPT_DB]);
+    expect(await databaseNames()).toEqual([DICTIONARY_DB]);
 });
 
-it('keeps a store used before the bridge on its first owner and fails closed after', async () => {
+it('keeps using the origin database when a bridge appears after first use', async () => {
     const store = await pageWorldStore();
-    await store.importZip(dictionaryZip('Standalone', '読む', 'read'));
+    await store.importZip(dictionaryZip('Before', '読む', 'read'));
     await installLateUserscriptBridge();
 
-    await expect(store.importZip(dictionaryZip('Standalone', '書く', 'write'))).rejects.toThrow('owner changed');
-    await expect(store.clear()).rejects.toThrow('owner changed');
+    await store.importZip(dictionaryZip('After', '書く', 'write'));
 
-    expect(await databaseNames()).toEqual([STANDALONE_DB]);
+    expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Before' }]);
+    expect(await store.lookup('書く', 'かく', 5)).toMatchObject([{ dictionary: 'After' }]);
+    expect(await databaseNames()).toEqual([DICTIONARY_DB]);
+});
+
+it('fails closed when a late bridge belongs to a newer reset', async () => {
+    const store = await pageWorldStore();
+    await store.importZip(dictionaryZip('Before', '読む', 'read'));
+    await installLateUserscriptBridge({ 'yomu:state-epoch': { version: 1, generation: 1, resetId: 'reset', committedAt: 1 } });
+
+    await expect(store.clear()).rejects.toThrow('current epoch is 1:reset');
+    expect(await databaseNames()).toEqual([DICTIONARY_DB]);
 });
 
 async function pageWorldStore(): Promise<Store> {
@@ -61,8 +73,8 @@ async function pageWorldStore(): Promise<Store> {
 }
 
 /** Content world exposes its GM store through the DOM bridge, then the page world resumes without GM. */
-async function installLateUserscriptBridge(): Promise<void> {
-    const values = new Map<string, unknown>();
+async function installLateUserscriptBridge(initial: Record<string, unknown> = {}): Promise<void> {
+    const values = new Map<string, unknown>(Object.entries(initial));
     vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (values.has(key) ? values.get(key) : fallback));
     vi.stubGlobal('GM_setValue', (key: string, value: unknown) => { values.set(key, value); });
     vi.stubGlobal('GM_deleteValue', (key: string) => { values.delete(key); });

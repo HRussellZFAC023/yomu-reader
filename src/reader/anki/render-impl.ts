@@ -1,6 +1,6 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiNoteFieldTargetPlan, type AnkiRenderedCard } from './index';
 import { ANKI_SOURCE_ID } from '../app/constants';
-import { reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
+import { gradeKeyHintAttributes, reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import { escapeHtml, parseHtmlDocument, setInnerHtml } from '../dom';
 import { definitionSourceLabel } from '../sources/sections';
 import { speakerIcon } from '../ui/icons';
@@ -882,7 +882,7 @@ export function renderReviewButtons(
     return `
         ${renderAnkiReviewTarget(options.targetLabel)}
         <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join('')}
+            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join('')}
         </div>
     `;
 }
@@ -909,7 +909,7 @@ function renderAnkiReviewButton(
     ankiCardId: number | undefined,
     intervals: ReviewGradeIntervals | undefined,
     options: { disabled?: boolean; title?: string; targetLabel?: string },
-    language: InterfaceLanguage,
+    settings: Pick<ReaderSettings, 'interfaceLanguage' | 'shortcuts'>,
     gradeShortcut?: keyof ReaderSettings['shortcuts'],
 ): string {
     const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
@@ -921,7 +921,7 @@ function renderAnkiReviewButton(
         reviewTarget: ankiReviewTarget(ankiCardId),
         ankiCardId,
     });
-    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, language)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
+    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}${gradeKeyHintAttributes(settings, gradeShortcut)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
 }
 
 function ankiReviewCardAttributes(ankiCardId: number | undefined): string {

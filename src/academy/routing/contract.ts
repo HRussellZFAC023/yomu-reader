@@ -20,6 +20,15 @@ export const UNGROUNDED_ACTIVITY_ROUTES: ReadonlySet<AcademyRoute> = new Set(
     ACADEMY_ROUTES.filter(route => academyRouteKind(route) === 'legacy-ungrounded-activity'),
 );
 
+/**
+ * Drafts and resume cursors are the learner's own work; an ended session drops
+ * only credentials and route state. Every `*Progress` field is progress.
+ */
+function learnerProgress(checkpoint: AcademyCheckpoint): Partial<AcademyCheckpoint> {
+    return Object.fromEntries(Object.entries(checkpoint)
+        .filter(([key, value]) => key.endsWith('Progress') && Boolean(value)));
+}
+
 export function normalizeResumeCheckpoint(
     checkpoint: AcademyCheckpoint,
     projection: LearnerProjection,
@@ -34,42 +43,7 @@ export function normalizeResumeCheckpoint(
             route: 'access',
             routeHistory: [],
             presentationMode: checkpoint.presentationMode,
-            ...(checkpoint.authoredWeekProgress
-                ? { authoredWeekProgress: checkpoint.authoredWeekProgress }
-                : {}),
-            ...(checkpoint.classroomExpressionProgress
-                ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress }
-                : {}),
-            ...(checkpoint.classroomInstructionProgress
-                ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress }
-                : {}),
-            ...(checkpoint.lessonZeroRepeatRequestProgress
-                ? { lessonZeroRepeatRequestProgress: checkpoint.lessonZeroRepeatRequestProgress }
-                : {}),
-            ...(checkpoint.lessonZeroDeskLanguageProgress
-                ? { lessonZeroDeskLanguageProgress: checkpoint.lessonZeroDeskLanguageProgress }
-                : {}),
-            ...(checkpoint.lessonZeroGreetingProgress
-                ? { lessonZeroGreetingProgress: checkpoint.lessonZeroGreetingProgress }
-                : {}),
-            ...(checkpoint.lessonZeroHiraganaProgress
-                ? { lessonZeroHiraganaProgress: checkpoint.lessonZeroHiraganaProgress }
-                : {}),
-            ...(checkpoint.lessonZeroSentenceFrameProgress
-                ? { lessonZeroSentenceFrameProgress: checkpoint.lessonZeroSentenceFrameProgress }
-                : {}),
-            ...(checkpoint.lessonZeroNameCardProgress
-                ? { lessonZeroNameCardProgress: checkpoint.lessonZeroNameCardProgress }
-                : {}),
-            ...(checkpoint.lessonZeroVowelProgress
-                ? { lessonZeroVowelProgress: checkpoint.lessonZeroVowelProgress }
-                : {}),
-            ...(checkpoint.lessonZeroVowelWritingProgress
-                ? { lessonZeroVowelWritingProgress: checkpoint.lessonZeroVowelWritingProgress }
-                : {}),
-            ...(checkpoint.placementProgress
-                ? { placementProgress: checkpoint.placementProgress }
-                : {}),
+            ...learnerProgress(checkpoint),
             updatedAt: now,
         };
     }

@@ -1,4 +1,4 @@
-import { committedSettingsStoragePair, commitId, withCommit, transactionMarker, type SerializedSnapshot, type TransactionMarker } from "./settings-persistence-format";
+import { committedSettingsStoragePair, withCommit, transactionMarker, type SerializedSnapshot, type TransactionMarker } from "./settings-persistence-format";
 export { committedSettingsStoragePair, type CommittedSettingsStoragePair } from "./settings-persistence-format";
 import type { ReaderSettings } from '../app/types';
 import {
@@ -49,6 +49,24 @@ export type SettingsStorageRead = <T>(key: string, fallback: T) => Promise<T>;
 
 export function readSettingsPersistenceViewStrict(): Promise<SettingsPersistenceView> {
     return readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
+}
+
+/**
+ * The ledger a Save builds on. A Save, import or onboarding is a full
+ * replacement, so it does not need to witness the pair it replaces: a pair
+ * that stays torn under the persistence lease is written over with a fresh
+ * committed one, as v1.9.3 did, instead of wedging every later Save. A failing
+ * backend, or a pair that is not torn but still unreadable (unstable samples,
+ * a malformed ledger), rejects the Save exactly as it rejects the loader.
+ */
+export async function readSettingsIntentLedgerForWrite(): Promise<SettingsIntentLedger> {
+    const read = readSettingsStorageValueStrict;
+    const view = await stableSettingsPersistenceView(read);
+    if (view) return view.intentLedger;
+    if (committedSettingsStoragePair(await read(SETTINGS_STORAGE_KEY, null), await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null))) {
+        throw new Error('Settings storage did not provide a stable committed snapshot.');
+    }
+    return { revision: 0, records: {} };
 }
 
 export function serializeSettingsPersistencePair(
@@ -129,23 +147,25 @@ function backupAuthority(values: unknown): Record<string, unknown> | null {
     return record;
 }
 
+/** A backup pair is read by the same v1.9.3 rule as stored settings (ADR-0012). */
 function validateBackupAuthority(record: Record<string, unknown>): void {
-    const settings = objectRecord(record[SETTINGS_STORAGE_KEY]);
-    if (!settings) {
+    const committed = committedSettingsStoragePair(
+        record[SETTINGS_STORAGE_KEY] ?? null,
+        record[SETTINGS_INTENT_LEDGER_STORAGE_KEY] ?? null,
+    );
+    if (!committed) {
+        throw new InvalidSettingsBackupAuthorityError(
+            'Settings backup contains an incomplete settings persistence transaction.',
+        );
+    }
+    if (!objectRecord(committed.settings)) {
         throw new InvalidSettingsBackupAuthorityError(
             'Settings backup contains a malformed canonical settings value.',
         );
     }
-    const ledger = record[SETTINGS_INTENT_LEDGER_STORAGE_KEY];
-    if (!parseSettingsIntentLedger(ledger)) {
+    if (committed.intentLedger != null && !parseSettingsIntentLedger(committed.intentLedger)) {
         throw new InvalidSettingsBackupAuthorityError(
             'Settings backup contains a malformed settings intent ledger.',
-        );
-    }
-    if (!commitId(settings) || !commitId(ledger) || Object.hasOwn(settings, TRANSACTION_FIELD)
-        || !committedSettingsStoragePair(settings, ledger)) {
-        throw new InvalidSettingsBackupAuthorityError(
-            'Settings backup contains an incomplete settings persistence transaction.',
         );
     }
 }

@@ -11,7 +11,10 @@ export interface DefaultCastPortraitAsset {
     readonly homes: readonly string[];
 }
 
-/** Defaults are delivery choices, never permission grants or review previews. */
+/**
+ * Defaults are delivery choices, never permission grants or review previews.
+ * `people` is the likeness-cleared cast only; anyone absent resolves to nothing.
+ */
 export function createDefaultCastPortraitResolver(
     people: readonly Pick<AcademyCastMember, 'id' | 'eligibility'>[],
     assets: readonly DefaultCastPortraitAsset[],

@@ -602,6 +602,8 @@ describe('settings dialog restore and save interlocks', () => {
                         records: { accentColor: { seq: 3, value: importedAccent } },
                         __yomuSettingsPersistenceCommitV1: commit,
                     },
+                    // v1.9.3 exports carry the retired pin store; it is ignored, never a rejection.
+                    'yomu:explicit-user-settings:v1': {},
                     'yomu:prefer-japanese-site-language:v1': true,
                 },
             },
@@ -704,12 +706,12 @@ describe('settings dialog restore and save interlocks', () => {
         expect(options.clearExplicitUserChoiceKeys).toBeUndefined();
     });
 
-    it('rejects retired flat pins without changing settings or leaving import and Save locked', async () => {
+    it('restores a pre-ledger v3 backup and ignores the retired flat pins it carries', async () => {
         const fixture = createSettingsRestoreFixture({
             ...DEFAULT_SETTINGS,
-            annotationsPaused: false,
+            annotationsPaused: true,
         });
-        const { importButton, saveButton } = await beginSettingsFileImport(
+        await beginSettingsFileImport(
             fixture.form,
             { ...DEFAULT_SETTINGS, annotationsPaused: true },
             {
@@ -719,13 +721,12 @@ describe('settings dialog restore and save interlocks', () => {
                 },
             },
         );
-        await waitForCondition(() => fixture.dependencies.toast.mock.calls.length > 0);
+        await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
 
-        expect(fixture.dependencies.toast).toHaveBeenCalledWith('This settings backup format is not supported.');
-        expect(fixture.saveSettings).not.toHaveBeenCalled();
-        expect(fixture.state.settings.annotationsPaused).toBe(false);
-        expect(importButton.disabled).toBe(false);
-        expect(saveButton.disabled).toBe(false);
+        expect(fixture.saveSettings.mock.calls[0]?.[0]).toMatchObject({ annotationsPaused: false });
+        const options = restoreSaveOptions(fixture.saveSettings);
+        expect(options.explicitUserChoiceKeys).toEqual([]);
+        expect(options.clearExplicitUserChoiceKeys).toBeDefined();
     });
 
     it('does not roll back durable restore stages when the post-persistence host notification throws', async () => {

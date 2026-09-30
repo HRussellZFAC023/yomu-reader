@@ -31,16 +31,22 @@ export function committedSettingsStoragePair(
     return matchingCommittedPair(settings, intentLedger);
 }
 
+/**
+ * The v1.9.3 contract (ADR-0012): a matching commit id is one committed pair,
+ * and so are two values with no id at all. Before 1.9.1 no writer stamped ids,
+ * and a 1.9.x machine write over an unmarked ledger kept both sides unmarked,
+ * so an absent id on both sides is a committed pair, not a torn one. The next
+ * Save stamps both sides; nothing is rewritten on read. One side marked, two
+ * different ids or an empty id is a torn pair and never matches.
+ */
 function matchingCommittedPair(settings: unknown, intentLedger: unknown): CommittedSettingsStoragePair | null {
-    if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
     const settingsId = commitId(settings);
-    const ledgerId = commitId(intentLedger);
-    return typeof settingsId === 'string' && settingsId === ledgerId
+    return settingsId !== null && settingsId === commitId(intentLedger)
         ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) }
         : null;
 }
 
-export function commitId(value: unknown): string | null | undefined {
+function commitId(value: unknown): string | null | undefined {
     const record = objectRecord(value);
     if (!record) return undefined;
     return recordCommitId(record);

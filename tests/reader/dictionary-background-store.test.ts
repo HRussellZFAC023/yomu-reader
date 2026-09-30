@@ -369,6 +369,23 @@ describe('extension background dictionary store', () => {
         }));
     });
 
+    it('reads the reset epoch at most twice for a warm per-word lookup', async () => {
+        const remoteLookup = vi.fn(async () => []);
+        const harness = backgroundHarness(store({ lookupTermMeta: remoteLookup }));
+        const proxy = extensionDictionaryStoreProxy(
+            store({ lookupTermMeta: vi.fn(async () => []) }),
+            harness.root as unknown as typeof globalThis,
+        );
+        await proxy.lookupTermMeta('読む', 5);
+        const warm = harness.storageReads.length;
+
+        await proxy.lookupTermMeta('書く', 5);
+
+        expect(remoteLookup).toHaveBeenCalledTimes(2);
+        const epochReads = harness.storageReads.slice(warm).filter(key => key === `${STORAGE_PREFIX}yomu:state-epoch`);
+        expect(epochReads.length).toBeLessThanOrEqual(2);
+    });
+
     it('streams a File import over a Port and sends keepalive traffic until the import settles', async () => {
         vi.useFakeTimers();
         const pending = deferred<ImportSummary>();

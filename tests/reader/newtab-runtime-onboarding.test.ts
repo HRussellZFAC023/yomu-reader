@@ -13,6 +13,7 @@ import {
 } from '../../src/reader/settings';
 import { installUserscriptGmStorageBridge, uninstallUserscriptGmStorageBridge } from '../../src/reader/userscript/storage-bridge';
 import { rejectOnboardingTargetPersistence } from './helpers/rejected-onboarding-target';
+import { v193UserscriptStore } from './helpers/upgrade-v193-corpus';
 
 const COMPILER_STORAGE_PREFIX = 'usc_https_github_com_HRussellZFAC023_yomu_reader_';
 const SETTINGS_INTENT_KEY = 'yomu:settings-intent:v2';
@@ -377,6 +378,28 @@ describe('packaged Study welcome integration', () => {
         expectRawSettingsUntouched(harness, rawBefore);
     });
 
+    it('starts straight into Study on the unmarked store v1.9.3 left', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        const store = v193UserscriptStore('b-userscript-machine-only-unmarked');
+        const before = structuredClone(Object.fromEntries(store));
+        stubClonedGmValueReader(store);
+        const renderPage = vi.fn(async () => undefined);
+        const runtime = new NewTabRuntime();
+        const internals = prepareRenderingRuntime(runtime, renderPage);
+
+        await runtime.init();
+
+        expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
+        expect(renderPage).toHaveBeenCalledOnce();
+        expect(internals.settings).toMatchObject({
+            apiKey: 'corpus0000000000000000000000jpdb',
+            theme: 'dark',
+            learningTargetChosen: true,
+        });
+        expect(Object.fromEntries(store)).toEqual(before);
+        runtime.destroy();
+    });
+
     it('renders the packaged Study recovery block in Japanese for a Japanese interface locale', async () => {
         vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['ja-JP']);
         const harness = installSettingsStartupHarness(false);
@@ -719,23 +742,22 @@ describe('packaged Study welcome integration', () => {
             theme: 'dark',
             popupMode: 'sheet',
         }, { explicitUserChoiceKeys: ['theme'] });
-        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
-            theme: 'dark',
-            __yomuHostedPendingGmPatch: { theme: 'dark' },
-        });
-        const shared = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, theme: 'light', popupMode: 'popover' }]]);
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({ theme: 'dark' });
+        const sharedSettings = { ...DEFAULT_SETTINGS, theme: 'light', popupMode: 'popover' };
+        const shared = new Map<string, unknown>([[SETTINGS_STORAGE_KEY, structuredClone(sharedSettings)]]);
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => shared.has(key) ? shared.get(key) : fallback));
         vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { shared.set(key, value); }));
 
         internals.installSettingsStorageSubscription();
         installUserscriptGmStorageBridge();
 
+        // The installed store is the one authority (ADR-0012): page-local hosted
+        // storage is not merged into it when the bridge arrives.
         await vi.waitFor(
-            () => expect(applyRemoteSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark', popupMode: 'popover' })),
+            () => expect(applyRemoteSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'light', popupMode: 'popover' })),
             { timeout: 10_000 },
         );
-        expect(shared.get(SETTINGS_STORAGE_KEY)).toMatchObject({ theme: 'dark', popupMode: 'popover' });
-        expect(shared.get(SETTINGS_STORAGE_KEY)).not.toHaveProperty('__yomuHostedPendingGmPatch');
+        expect(shared.get(SETTINGS_STORAGE_KEY)).toEqual(sharedSettings);
         runtime.destroy();
     }, 15_000);
 

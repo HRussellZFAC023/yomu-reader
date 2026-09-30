@@ -8,6 +8,7 @@ import { generatedCompilerStorageSource } from './helpers/compiler-storage-runti
 import {
     assertAmoJavaScriptFiles,
     deterministicExtensionTimestamp,
+    EXTENSION_INSTALLED_RUNTIME_PRELUDE,
     extensionStudyStorageRuntimeSource,
     hardenExtensionBackgroundSource,
     hardenCompilerDurableStorage,
@@ -445,6 +446,44 @@ describe('extension runtime hardening', () => {
         const staleHardened = hardened.replace(strictValuesReady, staleCatalogValuesReady);
         expect(staleHardened).not.toBe(hardened);
         expect(hardenExtensionContentSource(staleHardened)).toBe(hardened);
+    });
+
+    it('announces the extension to hosted pages before storage hydration lets the userscript body start', () => {
+        const source = generatedCompilerStorageSource().replace(
+            '  function GM_getValue(name, defaultValue) {',
+            `  function GM_getResourceURL(name) {
+    return name;
+  }
+  const READER_CSS_RESOURCE_URL = \`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=\${"1.2.3"}\`;
+  function readerCssFallbackUrls(href = safeLocationHref()) {
+    const hostedUrl = hostedReaderCssUrl(href);
+    return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];
+  }
+  function GM_getValue(name, defaultValue) {`,
+        );
+        const hardened = hardenExtensionContentSource(source);
+        expect(hardenExtensionContentSource(hardened)).toBe(hardened);
+        const { runtime } = splitCompilerContentScript(hardened);
+        expect(runtime.startsWith(EXTENSION_INSTALLED_RUNTIME_PRELUDE)).toBe(true);
+        document.getElementById('jpdb-reader-installed-runtime')?.remove();
+        const sandbox: Record<string, unknown> = {
+            document,
+            browser: {
+                runtime: {
+                    getURL: (file: string) => `moz-extension://owned/${file}`,
+                    // The worker is asleep: storage never hydrates during this test.
+                    sendMessage: vi.fn(() => new Promise(() => undefined)),
+                },
+            },
+        };
+        try {
+            new Function('globalThis', 'fetch', hardened)(sandbox, vi.fn(() => new Promise(() => undefined)));
+            const marker = document.getElementById('jpdb-reader-installed-runtime');
+            expect(marker?.dataset.yomuInstalledRuntimeKind).toBe('extension');
+            expect(sandbox.__YOMU_TEST_BODY_RAN__).toBeUndefined();
+        } finally {
+            document.getElementById('jpdb-reader-installed-runtime')?.remove();
+        }
     });
 
     it('keeps the generated userscript body closed when initial background hydration rejects', async () => {

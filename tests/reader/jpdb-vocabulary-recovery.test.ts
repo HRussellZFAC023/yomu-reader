@@ -9,6 +9,15 @@ const vocabularyHtml = `<link rel="canonical" href="https://jpdb.io${vocabularyP
         <div class="spelling"><a href="${vocabularyPath}"><ruby>読む<rt>よむ</rt></ruby></a></div>
         <div class="subsection-meanings"><div class="description">to read</div></div>
     </div>`;
+const compoundPath = '/vocabulary/1311110/%E6%9C%AC/%E3%81%BB%E3%82%93';
+const vocabularyWithCompoundHtml = `<link rel="canonical" href="https://jpdb.io${vocabularyPath}">
+    <div class="result vocabulary">
+        <div class="spelling"><a href="${vocabularyPath}"><ruby>読む<rt>よむ</rt></ruby></a></div>
+        <div class="subsection-meanings"><div class="description">to read</div></div>
+        <div class="subsection-composed-of-vocabulary"><div class="subsection">
+            <div><a href="${compoundPath}"><span class="spelling">本</span></a><div class="description">book</div></div>
+        </div></div>
+    </div>`;
 const examplesHtml = `<link rel="canonical" href="https://jpdb.io${vocabularyPath}">
     <div class="subsection-examples"><div class="example"><span class="sentence">本を読みます。</span>
     <span class="translation">I read a book.</span></div></div>`;
@@ -52,10 +61,47 @@ describe('real JPDB vocabulary client recovery', () => {
         expect(transport).toHaveBeenCalledTimes(3);
         now = 161_001;
         recovered = true;
+        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ status: 'partial', info: { meanings: ['to read'] } });
+        expect(transport).toHaveBeenCalledTimes(3);
+        expect(publicCache.writePublicJpdbCache).not.toHaveBeenCalled();
+        now = 400_001;
         expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ status: 'complete', info: {
             examples: [expect.objectContaining({ sentence: '本を読みます。' })],
         } });
         expect(transport).toHaveBeenCalledTimes(5);
+        expect(publicCache.writePublicJpdbCache).toHaveBeenCalledTimes(1);
+        expect(publicCache.writePublicJpdbCache).toHaveBeenCalledWith('vocabulary-complete-v2', expect.any(String),
+            expect.objectContaining({ status: 'complete' }));
+    });
+
+    it('keeps serving usable partial data past its lifetime while provider backoff is active', async () => {
+        let now = 100_000;
+        let recovered = false;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const transport = vi.spyOn(http, 'requestText').mockImplementation(async url => {
+            if (url.includes('/1456361/')) throw new Error('JPDB request failed (429)');
+            if (url.includes('expand=e')) {
+                if (!recovered) throw new Error('JPDB request failed (503)');
+                return examplesHtml;
+            }
+            return `${vocabularyHtml}<a href="${vocabularyPath}?expand=e">More examples</a>`;
+        });
+        const client = new JpdbVocabularyClient();
+        const first = await client.lookup(1456360, '読む', 'よむ');
+        expect(first).toMatchObject({ status: 'partial', info: { meanings: ['to read'] } });
+        now = 399_000;
+        await expect(client.lookup(1456361, '本', 'ほん')).rejects.toThrow(/429/);
+        expect(transport).toHaveBeenCalledTimes(3);
+        recovered = true;
+        now = 400_001;
+        expect(await client.lookup(1456360, '読む', 'よむ')).toBe(first);
+        expect(transport).toHaveBeenCalledTimes(3);
+        now = 429_001;
+        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ status: 'complete', info: {
+            examples: [expect.objectContaining({ sentence: '本を読みます。' })],
+        } });
+        expect(transport).toHaveBeenCalledTimes(5);
+        expect(publicCache.writePublicJpdbCache).toHaveBeenCalledTimes(1);
     });
 
     it('deduplicates pending requests and keeps complete results cached', async () => {
@@ -90,7 +136,7 @@ describe('real JPDB vocabulary client recovery', () => {
         expect(transport).toHaveBeenCalledTimes(calls + 1);
     });
 
-    it.each([false, true])('retries partial supplements without discarding usable data (rate limited: %s)', async rateLimited => {
+    it.each([false, true])('keeps usable partial data for the normal lifetime, then refetches the missing supplement (rate limited: %s)', async rateLimited => {
         let now = 100_000;
         vi.spyOn(Date, 'now').mockImplementation(() => now);
         let recovered = false;
@@ -100,18 +146,44 @@ describe('real JPDB vocabulary client recovery', () => {
             return examplesHtml;
         });
         const client = new JpdbVocabularyClient();
-        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ info: { meanings: ['to read'], examples: [] }, status: 'partial' });
-        expect(publicCache.writePublicJpdbCache).not.toHaveBeenCalled();
-        now += rateLimited ? 29_999 : 999;
-        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ status: 'partial' });
+        const first = await client.lookup(1456360, '読む', 'よむ');
+        expect(first).toMatchObject({ info: { meanings: ['to read'], examples: [] }, status: 'partial' });
         expect(transport).toHaveBeenCalledTimes(2);
+        expect(publicCache.writePublicJpdbCache).not.toHaveBeenCalled();
         recovered = true;
+        now += 299_999;
+        expect(await client.lookup(1456360, '読む', 'よむ')).toBe(first);
+        expect(transport).toHaveBeenCalledTimes(2);
+        expect(publicCache.writePublicJpdbCache).not.toHaveBeenCalled();
         now += 2;
         expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({
             status: 'complete', info: { examples: [expect.objectContaining({ sentence: '本を読みます。' })] },
         });
         expect(transport).toHaveBeenCalledTimes(4);
         expect(publicCache.writePublicJpdbCache).toHaveBeenCalledTimes(1);
+        expect(publicCache.writePublicJpdbCache).toHaveBeenCalledWith('vocabulary-complete-v2', expect.any(String),
+            expect.objectContaining({ status: 'complete' }));
+    });
+
+    it('keeps a word whose linked-audio enrichment timed out cached instead of re-fetching every page', async () => {
+        let now = 100_000;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const transport = vi.spyOn(http, 'requestText').mockImplementation(async url => {
+            if (url.includes('/1311110/')) throw new Error('JPDB vocabulary request timed out.');
+            return vocabularyWithCompoundHtml;
+        });
+        const client = new JpdbVocabularyClient();
+        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({
+            status: 'partial', info: { meanings: ['to read'], compounds: [expect.objectContaining({ term: '本' })] },
+        });
+        expect(transport).toHaveBeenCalledTimes(2);
+        now += 2_000;
+        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ status: 'partial', info: { meanings: ['to read'] } });
+        expect(transport).toHaveBeenCalledTimes(2);
+        now = 399_000;
+        expect(await client.lookup(1456360, '読む', 'よむ')).toMatchObject({ status: 'partial', info: { meanings: ['to read'] } });
+        expect(transport).toHaveBeenCalledTimes(2);
+        expect(publicCache.writePublicJpdbCache).not.toHaveBeenCalled();
     });
 
     it('does not let clear bypass an active provider backoff', async () => {

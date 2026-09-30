@@ -60,14 +60,11 @@ it('does not purge standalone data when a freshly connected installation has a n
     expect(keys.map(key => localStorage.getItem(key))).toEqual(before);
 });
 
-it('resets installed values without deleting standalone settings or learner records', async () => {
+it('resets installed values and, as v1.9.3 did, every Yomu record this site kept', async () => {
     vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
     await saveSettings({ ...DEFAULT_SETTINGS, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
     const learnerKey = 'yomu:srs-local:v1';
-    const learnerBytes = JSON.stringify({ version: 1, cards: { retained: { expression: '読む', reviews: 7 } } });
-    localStorage.setItem(learnerKey, learnerBytes);
-    const keys = [SETTINGS_STORAGE_KEY, SETTINGS_INTENT_LEDGER_STORAGE_KEY, learnerKey];
-    const before = keys.map(key => localStorage.getItem(key));
+    localStorage.setItem(learnerKey, JSON.stringify({ version: 1, cards: { retained: { expression: '読む', reviews: 7 } } }));
     const pair = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, theme: 'light' }, { revision: 0, records: {} });
     const { values } = installGmStorageFixture(new Map(Object.entries(pair)));
     vi.stubGlobal('GM_listValues', async () => [...values.keys()]);
@@ -76,16 +73,19 @@ it('resets installed values without deleting standalone settings or learner reco
     storage.managedLocalStorage.setItem('yomu-ocr-cache-v2', JSON.stringify({ disposable: true }));
     const otherCache = 'yomu:web-owner:v2:extension:yomu-ocr-cache-v2';
     localStorage.setItem(otherCache, 'another-owner');
+    localStorage.setItem('foreign-site-token', 'keep');
     const listCaches = vi.fn(async () => ['yomu-website-cache']);
     vi.stubGlobal('caches', { keys: listCaches, delete: vi.fn(async () => true) });
     await storage.clearManagedStoredValues();
     expect(values.has(SETTINGS_STORAGE_KEY)).toBe(false);
     expect(values.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
-    expect(keys.map(key => localStorage.getItem(key))).toEqual(before);
-    expect(localStorage.getItem(otherCache)).toBe('another-owner');
-    expect(listCaches).not.toHaveBeenCalled();
+    for (const key of [SETTINGS_STORAGE_KEY, SETTINGS_INTENT_LEDGER_STORAGE_KEY, learnerKey, otherCache]) {
+        expect(localStorage.getItem(key)).toBeNull();
+    }
+    expect(localStorage.getItem('foreign-site-token')).toBe('keep');
+    expect(listCaches).toHaveBeenCalled();
     await expect(storage.managedStoredKeysStillPresent()).resolves.toEqual([]);
     await storage.commitManagedStateResetEpoch('installed-only-reset');
+    // The website's own reset counter is never overwritten by the installation's.
     expect(localStorage.getItem('yomu:state-epoch')).toBeNull();
-    expect(keys.map(key => localStorage.getItem(key))).toEqual(before);
 });

@@ -7,7 +7,6 @@ import {
 import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
-import { databaseBelongsToCurrentOwner } from './owned-databases';
 import './managed-state-manifest';
 import {
     MANAGED_STATE_EPOCH_KEY,
@@ -53,8 +52,10 @@ import {
     clearLegacyExtensionManagedStorage, legacyExtensionManagedStorageKeys,
 } from './extension-legacy-storage';
 import { isSettingsAuthorityStorageKey } from '../settings/settings-authority-storage-keys';
+import { isPassiveHostedSettingsJson } from '../settings/passive-hosted-settings-record';
+import { adoptWebsiteOnlyStore, websiteOnlyValuePresent } from './website-store-adoption';
 import {
-    localMirrorBelongsToEpoch,
+    localMirrorBelongsToEpoch, localMirrorEpochMatches,
     removeLocalManagedValue, removeLocalMirrorProvenance,
     restoreLocalFallbackStoredValueAtEpoch, writeLocalManagedValueOrThrow,
 } from './local-mirror-provenance';
@@ -383,8 +384,11 @@ async function localManagedValuesWithoutBackend<T>(keys: readonly string[], fall
 async function sharedManagedValue<T>(getValue: GmGetValue, key: string, fallback: T, epoch: ManagedStateEpoch): Promise<T> {
     const read = await readManagedGmValue<T>(getValue, key, epoch);
     if (read.kind === 'found') return read.value;
-    if (read.kind === 'deleted') return fallback;
-    return fallback;
+    if (read.kind === 'deleted' || !websiteOnlyValuePresent(key, epoch)) return fallback;
+    await adoptWebsiteOnlyStore(getValue, epoch, gmStorageSet)
+        .catch(error => debugStorageError('Website-only store adoption failed', key, error));
+    const adopted = await readManagedGmValue<T>(getValue, key, epoch);
+    return adopted.kind === 'found' ? adopted.value : fallback;
 }
 
 
@@ -401,10 +405,11 @@ function localOnlyManagedValue<T>(key: string, fallback: T, epoch: ManagedStateE
 }
 
 function localOnlyManagedValueStrict<T>(key: string, fallback: T, epoch: ManagedStateEpoch): T {
-    if (hostedSettingsLocalValuePresent(key) && !localMirrorBelongsToEpoch(key, epoch)) {
+    if (!hostedSettingsLocalValuePresent(key)) return localOnlyManagedValue(key, fallback, epoch);
+    if (!localMirrorEpochMatches(key, epoch, isPassiveHostedSettingsJson)) {
         throw storageWriteError(key, 'Hosted settings localStorage is present without matching provenance');
     }
-    return localOnlyManagedValue(key, fallback, epoch);
+    return localStorageGet(key, fallback);
 }
 
 function hostedSettingsLocalValuePresent(key: string): boolean {
@@ -827,14 +832,24 @@ async function exportStoredValues(prefixes: string[]): Promise<Record<string, un
     // tab-scoped sessionStorage. Certify the local area before projecting any
     // generation-specific web-storage slots back to their logical keys.
     await ensureManagedWebStorageCurrent();
+    await adoptWebsiteOnlyStoreBeforeExport();
+    const localKeys = new Set<string>();
+    addLocalStorageKeys(localKeys, prefixes);
     const keys = (await storageKeys(prefixes)).filter(isManagedStorageBackupKey);
-    const entries = await Promise.all(keys.map(async key => [key, await storedBackupValue(key)] as const));
+    const entries = await Promise.all(keys.map(async key => [key, await storedBackupValue(key, localKeys.has(key))] as const));
     return Object.fromEntries(entries.filter(([, value]) => !isMissingSentinel(value)));
 }
 
-async function storedBackupValue(key: string): Promise<unknown | typeof MISSING> {
+/** A backup taken on a Yomu website right after installing still carries what the website held. */
+async function adoptWebsiteOnlyStoreBeforeExport(): Promise<void> {
+    const getValue = asyncGmGetValue();
+    if (!getValue || !isHostedYomuOrigin()) return;
+    await adoptWebsiteOnlyStore(getValue, await assertRealmManagedStateEpoch(getValue), gmStorageSet);
+}
+
+async function storedBackupValue(key: string, pageRecord: boolean): Promise<unknown | typeof MISSING> {
     const shared = await gmStorageGet<unknown | typeof MISSING>(key, MISSING);
-    if (!isMissingSentinel(shared)) return shared;
+    if (!isMissingSentinel(shared) || !pageRecord) return shared;
     try {
         const serialized = managedLocalStorage.getItem(key);
         return serialized === null ? MISSING : JSON.parse(serialized) as unknown;
@@ -1091,8 +1106,6 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function clearManagedStoredValues(): Promise<number> {
-    const installed = hasAsyncGmStorageBackend();
-    const webKeys = installed ? managedWebStorageResetKeys(managedStorageOwner()) : [];
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
     let count = 0;
@@ -1100,28 +1113,39 @@ export async function clearManagedStoredValues(): Promise<number> {
         await deleteManagedStoredValue(key);
         count++;
     }
-    for (const key of webKeys) {
+    for (const key of originWebStorageResetKeys()) {
         removeLocalStorageKey(key);
         removeSessionStorageKey(key);
         if (resetWebStorageHasKey(localStorage, key, 'localStorage') || resetWebStorageHasKey(sessionStorage, key, 'sessionStorage')) {
-            throw new ManagedStateResetError('Factory reset could not clear the selected owner cache.');
+            throw new ManagedStateResetError(`Web storage still contains "${key}" after deletion.`);
         }
         count++;
     }
     count += await clearStrandedExtensionStudyManagedValuesForReset();
     await clearManagedIndexedDatabases();
-    if (ownsOriginBrowserStorage()) {
-        count += await clearManagedBrowserCaches();
-        count += await unregisterManagedServiceWorkers();
-    }
+    count += await clearManagedBrowserCaches();
+    count += await unregisterManagedServiceWorkers();
     return count;
 }
 
 export async function managedStoredKeysStillPresent(): Promise<string[]> {
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
-    const webKeys = hasAsyncGmStorageBackend() ? managedWebStorageResetKeys(managedStorageOwner()) : [];
-    return [...new Set([...keys, ...webKeys, ...await strandedExtensionStudyManagedKeys()])].sort();
+    return [...new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+}
+
+/**
+ * Every Yomu key in this origin's page storage, whichever runtime wrote it:
+ * the v1.9.3 layout, the website's own store and each installed owner's cache.
+ * Factory reset is the learner asking to erase Yomu here, as it did in v1.9.3.
+ * The reset control keys stay; the epoch commit owns them.
+ */
+function originWebStorageResetKeys(): string[] {
+    try {
+        return managedWebStorageResetKeys().filter(key => !isFactoryResetControlStorageKey(key));
+    } catch (error) {
+        throw new ManagedStateResetError('Factory reset could not enumerate this site\'s web storage.', { cause: error });
+    }
 }
 
 async function clearStrandedExtensionStudyManagedValuesForReset(): Promise<number> {
@@ -1140,12 +1164,7 @@ async function strandedExtensionStudyManagedKeys(): Promise<string[]> {
     }
 }
 
-function ownsOriginBrowserStorage(): boolean {
-    return !hasAsyncGmStorageBackend() || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
-}
-
 export async function clearManagedBrowserCaches(): Promise<number> {
-    if (!ownsOriginBrowserStorage()) return 0;
     if (typeof caches === 'undefined') return 0;
     try {
         const keys = await caches.keys();
@@ -1162,7 +1181,6 @@ export async function clearManagedBrowserCaches(): Promise<number> {
 }
 
 export async function unregisterManagedServiceWorkers(): Promise<number> {
-    if (!ownsOriginBrowserStorage()) return 0;
     if (typeof navigator === 'undefined' || !navigator.serviceWorker?.getRegistrations) return 0;
     try {
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -1456,9 +1474,6 @@ async function allStorageKeys(): Promise<string[]> {
     const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
     const keys = new Set<string>();
     const gmEnumeration = await addGmStorageKeys(keys);
-    if (!hasAsyncGmStorageBackend()) {
-        for (const key of managedWebStorageResetKeys('standalone')) keys.add(key);
-    }
     await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
     if (!gmEnumeration.complete) {
         const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
@@ -1640,8 +1655,7 @@ export function restoreLocalFallbackStoredValue(key: string, value: unknown, exi
 
 async function clearManagedIndexedDatabases(): Promise<void> {
     // The registry is the single source of truth for managed IndexedDB names.
-    const names = registeredManagedIndexedDbNames().filter(databaseBelongsToCurrentOwner);
-    await Promise.all(names.map(deleteIndexedDbDatabase));
+    await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
 }
 
 function isManagedBrowserCacheName(name: string): boolean {

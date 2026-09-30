@@ -1,6 +1,10 @@
 {
-  "reason": "These 4 entries remain from the 26-assertion origin/main baseline recorded on 2026-07-29. Twenty-two entries were removed after focused verification on 2026-09-14, including obsolete names whose replacement tests pass. CI runs every Academy file and rejects any failure outside this exact baseline; the remaining baseline stays loud until the owning Academy work fixes it.",
+  "reason": "Four entries remain from the 26-assertion origin/main baseline recorded on 2026-07-29 after focused verification on 2026-09-14. Three likeness-status assertions from that same baseline were restored on 2026-09-30, each isolated in its own registry-state test so the surrounding story, roster and silhouette assertions stay active: the cast registry marks Shaun, the second Tom, Shin and Felix as approved, but no recorded likeness clearance backs that flip, so the runtime renders them as named silhouettes and these three tests stay red until the owning Academy work records clearance or corrects the registry. CI runs every Academy file and rejects any failure outside this exact baseline.",
   "failures": [
+    {
+      "file": "tests/academy/cast-registry.test.ts",
+      "name": "Academy canonical cast registry keeps Shaun and the second Tom likenesses pending until clearance is recorded"
+    },
     {
       "file": "tests/academy/cast-standardization-manifest.test.ts",
       "name": "Academy cast standardization manifest keeps rejected and superseded sprite candidates outside production"
@@ -16,6 +20,14 @@
     {
       "file": "tests/academy/learning-voice-provenance.test.ts",
       "name": "learning voice reproducible provenance separates immutable local expectations from observed output and keeps production pending"
+    },
+    {
+      "file": "tests/academy/ramen-world.test.ts",
+      "name": "ramen world keeps Shin's likeness pending until clearance is recorded"
+    },
+    {
+      "file": "tests/academy/season-one-fiction.test.ts",
+      "name": "Season One fiction spine keeps Felix's likeness pending until clearance is recorded"
     }
   ]
 }

@@ -22,7 +22,7 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         expect((await reloaded.snapshot()).cards[id]).toMatchObject({ sentence: '本を読む。', reviews: 0 });
         expect((await reloaded.queue()).cards).toEqual([]);
         expect((await reloaded.stats()).reviewsDue).toBe(0);
-        await expect(reloaded.review({ card: saved.card!, grade: 'good' })).rejects.toThrow('not enrolled');
+        expect(saved.card).toMatchObject({ state: ['in-deck'], srsLevel: 'Saved' });
 
         now += 1000;
         const enrolled = await reloaded.startReview(id);
@@ -34,6 +34,16 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         await reloaded.startReview(id);
         expect((await reloaded.snapshot()).cards[id]).toEqual(reviewed);
         expect((await reloaded.queue()).cards).toEqual([]);
+    });
+
+    it('starts review of a saved-only word when the learner grades it', async () => {
+        const now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const saved = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
+        const graded = await repository.review({ card: saved.card!, grade: 'good' });
+        expect(graded.card).toMatchObject({ state: ['learning'], srsLevel: 'Learning' });
+        expect((await repository.snapshot()).cards[saved.card!.providerCardId]).toMatchObject({ reviews: 1, sentence: '本を読む。' });
+        expect((await repository.snapshot()).cards[saved.card!.providerCardId]).not.toHaveProperty('reviewEnabled');
     });
 
     it('migrates raw and source-card ids into one canonical semantic card without losing review state', async () => {
@@ -247,7 +257,7 @@ describe('LocalYomuSrsRepository semantic collection', () => {
 
         expect(cards).toHaveLength(2);
         expect(cards.find(card => card.reading === 'なま')).toMatchObject({ state: ['learning'], dueAt: now + 2 * 86_400_000 });
-        expect(cards.find(card => card.expression === '読む')).toMatchObject({ state: [], dueAt: undefined, srsLevel: 'Saved' });
+        expect(cards.find(card => card.expression === '読む')).toMatchObject({ state: ['in-deck'], dueAt: undefined, srsLevel: 'Saved' });
     });
 
     it('returns the authoritative stored schedule when an existing card is mined again', async () => {

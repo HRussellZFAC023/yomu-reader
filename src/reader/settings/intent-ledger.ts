@@ -88,21 +88,30 @@ export function coupledIntentKeys(
     return [...expanded];
 }
 
+/**
+ * Reads a ledger the way v1.9.3 did (ADR-0012). v1.8.90–1.9.3 folded the
+ * 1.8.37–1.8.80 flat pin store into the ledger at `seq: 0`, so a seq-0 record
+ * is a real, older declaration that every later one outranks; a revision below
+ * the highest seq is lifted to it so the next declaration still sorts last.
+ */
 export function parseSettingsIntentLedger(value: unknown): SettingsIntentLedger | null {
     const record = objectRecord(value);
-    if (!record || typeof record.revision !== 'number' || !Number.isSafeInteger(record.revision)
-        || record.revision < 0) return null;
-    const records = objectRecord(record.records);
-    if (!records) return null;
+    const records = record && objectRecord(record.records);
+    if (!records || !nonNegativeNumber(record.revision)) return null;
     const parsed: Record<string, SettingsIntentRecord> = {};
+    let revision = record.revision as number;
     for (const [key, entry] of Object.entries(records)) {
         const item = objectRecord(entry);
-        if (!item || typeof item.seq !== 'number' || !Number.isSafeInteger(item.seq)
-            || item.seq <= 0 || item.seq > record.revision) return null;
-        const seq = item.seq;
+        if (!item || !nonNegativeNumber(item.seq)) return null;
+        const seq = item.seq as number;
         parsed[key] = hasOwn(item, 'value') ? { seq, value: item.value } : { seq };
+        revision = Math.max(revision, seq);
     }
-    return { revision: record.revision, records: parsed };
+    return { revision, records: parsed };
+}
+
+function nonNegativeNumber(value: unknown): boolean {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {

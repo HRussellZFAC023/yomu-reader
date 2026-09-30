@@ -1,0 +1,204 @@
+{
+  "description": "Raw GM value of jpdb-reader-newtab-grade-queue written by the released v1.9.3 NewTabGradeQueue (captured by running v1.9.3 source).",
+  "producedBy": {
+    "tag": "v1.9.3",
+    "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409"
+  },
+  "key": "jpdb-reader-newtab-grade-queue",
+  "providerContexts": {
+    "current": {
+      "jpdb": "7c8c038bdbc0dd77:24",
+      "jiten": "24a6ce0a3137a0e6:25",
+      "anki": "22660947016ec373:38"
+    },
+    "staleJpdb": "8641e6e873230484:24"
+  },
+  "settings": {
+    "apiKey": "corpus-jpdb-key-b",
+    "jitenApiKey": "corpus-jiten-key-a",
+    "ankiEnabled": true,
+    "newTabAnkiEnabled": true
+  },
+  "value": [
+    {
+      "id": "jpdb-api:1000001:2345678:昔:むかし:1790748631177:xfgywntf2x",
+      "at": 1790748631177,
+      "target": "jpdb-api",
+      "card": {
+        "vid": 1000001,
+        "sid": 2345678,
+        "rid": 0,
+        "spelling": "昔",
+        "reading": "むかし",
+        "frequencyRank": 120,
+        "partOfSpeech": [
+          "v5m"
+        ],
+        "meanings": [
+          {
+            "glosses": [
+              "to read"
+            ],
+            "partOfSpeech": [
+              "v5m"
+            ]
+          }
+        ],
+        "cardState": [
+          "due"
+        ],
+        "pitchAccent": [],
+        "source": "jpdb",
+        "reviewSource": "jpdb-api"
+      },
+      "grade": "hard",
+      "attempts": 0,
+      "providerContext": "8641e6e873230484:24"
+    },
+    {
+      "id": "jpdb-api:1234567:2345678:読む:よむ:1790748631178:tlune45qfak",
+      "at": 1790748631178,
+      "target": "jpdb-api",
+      "card": {
+        "vid": 1234567,
+        "sid": 2345678,
+        "rid": 0,
+        "spelling": "読む",
+        "reading": "よむ",
+        "frequencyRank": 120,
+        "partOfSpeech": [
+          "v5m"
+        ],
+        "meanings": [
+          {
+            "glosses": [
+              "to read"
+            ],
+            "partOfSpeech": [
+              "v5m"
+            ]
+          }
+        ],
+        "cardState": [
+          "due"
+        ],
+        "pitchAccent": [],
+        "source": "jpdb",
+        "reviewSource": "jpdb-api"
+      },
+      "grade": "okay",
+      "attempts": 2,
+      "providerContext": "7c8c038bdbc0dd77:24",
+      "lastError": "Failed to fetch"
+    },
+    {
+      "id": "jiten-api:1000004:2345678:見る:みる:1790748631178:pnw86vpmupj",
+      "at": 1790748631178,
+      "target": "jiten-api",
+      "card": {
+        "vid": 1000004,
+        "sid": 2345678,
+        "rid": 0,
+        "spelling": "見る",
+        "reading": "みる",
+        "frequencyRank": 120,
+        "partOfSpeech": [
+          "v5m"
+        ],
+        "meanings": [
+          {
+            "glosses": [
+              "to read"
+            ],
+            "partOfSpeech": [
+              "v5m"
+            ]
+          }
+        ],
+        "cardState": [
+          "due"
+        ],
+        "pitchAccent": [],
+        "source": "jiten",
+        "reviewSource": "jiten-api",
+        "jitenWordId": 42,
+        "jitenReadingIndex": 0
+      },
+      "grade": "easy",
+      "attempts": 2,
+      "providerContext": "24a6ce0a3137a0e6:25",
+      "lastError": "Jiten request failed (503)."
+    },
+    {
+      "id": "anki:1000003:2345678:書く:かく:1790748631179:cjai443flfv",
+      "at": 1790748631179,
+      "target": "anki",
+      "card": {
+        "vid": 1000003,
+        "sid": 2345678,
+        "rid": 0,
+        "spelling": "書く",
+        "reading": "かく",
+        "frequencyRank": 120,
+        "partOfSpeech": [
+          "v5m"
+        ],
+        "meanings": [
+          {
+            "glosses": [
+              "to read"
+            ],
+            "partOfSpeech": [
+              "v5m"
+            ]
+          }
+        ],
+        "cardState": [
+          "due"
+        ],
+        "pitchAccent": [],
+        "source": "anki",
+        "reviewSource": "anki",
+        "ankiCardId": 1700000000123
+      },
+      "grade": "okay",
+      "attempts": 1,
+      "providerContext": "22660947016ec373:38",
+      "lastError": "Failed to fetch"
+    },
+    {
+      "id": "yomu-local:1000005:2345678:話す:はなす:1790748631179:uouatiy7ie",
+      "at": 1790748631179,
+      "target": "yomu-local",
+      "card": {
+        "vid": 1000005,
+        "sid": 2345678,
+        "rid": 0,
+        "spelling": "話す",
+        "reading": "はなす",
+        "frequencyRank": 120,
+        "partOfSpeech": [
+          "v5m"
+        ],
+        "meanings": [
+          {
+            "glosses": [
+              "to read"
+            ],
+            "partOfSpeech": [
+              "v5m"
+            ]
+          }
+        ],
+        "cardState": [
+          "due"
+        ],
+        "pitchAccent": [],
+        "source": "yomu-local",
+        "reviewSource": "yomu-local"
+      },
+      "grade": "okay",
+      "attempts": 0
+    }
+  ]
+}

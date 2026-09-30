@@ -13,7 +13,6 @@ import {
     managedLocalStorage,
     managedSessionStorage,
 } from './storage';
-import { preOwnerLocalStorage } from './managed-web-storage';
 import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 import { targetLanguageOf } from '../languages/selection';
@@ -359,11 +358,10 @@ function storedSettingsChooseLearningTarget(settings: StoredSettings | undefined
 
 function readCachedPreferenceEnabled(): boolean | undefined {
     try {
-        // An upgraded installed Reader still finds this origin's record under
-        // v1.9.3's raw key. Without it, an opt-out could not undo the Japanese
-        // cookies that version set, and the site would stay Japanese.
-        const value = managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)
-            ?? preOwnerLocalStorage.getItem(PREFERENCE_CACHE_KEY);
+        // An upgraded installed Reader still inherits this origin's v1.9.3
+        // record here: it is the provenance an opt-out needs to undo the
+        // Japanese cookies that version set.
+        const value = managedLocalStorage.getItem(PREFERENCE_CACHE_KEY);
         if (value === 'true') return true;
         if (value === 'false') return false;
     } catch {
@@ -374,8 +372,6 @@ function readCachedPreferenceEnabled(): boolean | undefined {
 function writeCachedPreferenceEnabled(enabled: boolean): void {
     try {
         managedLocalStorage.setItem(PREFERENCE_CACHE_KEY, String(enabled));
-        // The owner-scoped record now supersedes the earlier raw copy.
-        preOwnerLocalStorage.removeItem(PREFERENCE_CACHE_KEY);
     } catch {
         // Best effort; the canonical setting is still stored with the rest of Yomu settings.
     }

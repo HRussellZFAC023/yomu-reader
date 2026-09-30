@@ -10,6 +10,7 @@ export function isReviewQueueRecord(value: unknown): value is QueuedNewTabGrade 
         || !(shortString(record.providerContext) || (record.target === 'yomu-local' && record.providerContext === ''))
         || typeof record.at !== 'number' || !Number.isFinite(record.at)
         || typeof record.attempts !== 'number' || !Number.isSafeInteger(record.attempts) || record.attempts < 0
+        || (record.heldSince !== undefined && !Number.isFinite(record.heldSince))
         || typeof record.target !== 'string' || !['anki', 'jpdb-api', 'jiten-api', 'yomu-local'].includes(record.target)
         || typeof record.grade !== 'string' || !['nothing', 'something', 'hard', 'okay', 'easy', 'fail', 'pass'].includes(record.grade)
         || !record.card || typeof record.card !== 'object' || Array.isArray(record.card)) return false;

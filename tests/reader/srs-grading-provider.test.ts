@@ -9,7 +9,8 @@ import {
     isBunproGradeableCard,
 } from '../../src/reader/cards/srs-providers';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
-import { LocalYomuSrsStorageError } from '../../src/reader/srs/local-yomu';
+import { createYomuLocalSrsAdapter, LocalYomuSrsRepository, LocalYomuSrsStorageError } from '../../src/reader/srs/local-yomu';
+import { normalizeCardStates } from '../../src/reader/cards/state';
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 
 function settings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
@@ -234,6 +235,28 @@ describe('Academy provider mutation state', () => {
 
         await provider!.reviewCard(target, 'okay');
         expect(target).toMatchObject({ cardState: ['learning'], reviewSource: 'yomu-local', dueAt: 2_000, lastReviewAt: 1_000 });
+    });
+
+    it('shows a saved word as in the deck and lets a popover grade start its review in the real repository', async () => {
+        localStorage.clear();
+        const repository = new LocalYomuSrsRepository();
+        const [provider] = createApiSrsProviderAdapters({
+            jpdb: {} as never,
+            yomuLocal: createYomuLocalSrsAdapter(repository),
+            isJpdbBackedCard,
+        }, settings({ apiKey: '', yomuLocalSrsEnabled: true })).filter(candidate => candidate.id === 'yomu-local');
+        const saved: JPDBCard = { ...baseCard, cardState: ['not-in-deck'] };
+
+        await provider!.addToDeck('yomu-local', saved, '毎日ご飯を食べる。');
+        expect(normalizeCardStates(saved.cardState)).not.toEqual(['not-in-deck']);
+        expect(normalizeCardStates(saved.cardState)).toEqual(['in-deck']);
+        expect((await repository.queue()).cards).toEqual([]);
+
+        await expect(provider!.reviewCard(saved, 'okay')).resolves.toBeDefined();
+        expect(saved.cardState).toEqual(['learning']);
+        const [reviewed] = await repository.lookupCards([{ expression: '食べる', reading: 'たべる' }]);
+        expect(reviewed).toMatchObject({ state: ['learning'], srsLevel: 'Learning' });
+        expect(reviewed?.dueAt).toBeGreaterThan(Date.now());
     });
 
     it('marks storage failures for localized learner-facing actions', async () => {

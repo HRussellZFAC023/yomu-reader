@@ -56,8 +56,10 @@ describe('recommended dictionary settings buttons', () => {
         expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('通常の定義文は追加しません');
         expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('ピッチアクセント専用');
         expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('頻度バッジ');
-        expect(settingsText(form, '#jpdb-reader-settings-panel-backup [data-import-status]'))
-            .toContain('語句/発音（IPA）/日本語ピッチ/頻度辞書');
+        // The backup panel's import line is a live status region now, not help copy.
+        const importStatus = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup [data-import-status]');
+        expect(importStatus?.getAttribute('role')).toBe('status');
+        expect(importStatus?.hidden).toBe(true);
     });
 
     it('does not treat Jitendex as the Jiten frequency dictionary', () => {

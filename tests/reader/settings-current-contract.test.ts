@@ -4,6 +4,7 @@ import { readBackupSettingsPersistenceView, readSettingsPersistenceViewStrictFro
 import { exportSettingsBackupSnapshot } from '../../src/reader/settings/settings-backup';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/settings-authority-storage-keys';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
+import { v193UserscriptStore } from './helpers/upgrade-v193-corpus';
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -75,7 +76,7 @@ describe('current settings contract', () => {
         await expect(readBackupSettingsPersistenceView({
             [SETTINGS_STORAGE_KEY]: { theme: 'light' },
             'yomu:explicit-user-settings:v1': { theme: 'dark' },
-        })).rejects.toMatchObject({ yomuUiCopyKey: 'settingsImportIncomplete' });
+        })).resolves.toEqual({ settings: { theme: 'light' }, intentLedger: { revision: 0, records: {} } });
     });
 
     it('excludes retired keys from backup output without deleting stored values', async () => {
@@ -107,9 +108,8 @@ describe('current settings contract', () => {
 
     it.each([
         { revision: 1, records: { theme: { value: 'dark' } } },
-        { revision: 1, records: { theme: { seq: 0, value: 'dark' } } },
         { revision: 1, records: { theme: { seq: 0.5, value: 'dark' } } },
-        { revision: 1, records: { theme: { seq: 2, value: 'dark' } } },
+        { revision: 1, records: { theme: { seq: -1, value: 'dark' } } },
     ])('rejects export of malformed durable intent without repairing it: %j', async ledger => {
         const pair = {
             [SETTINGS_STORAGE_KEY]: { ...DEFAULT_SETTINGS, __yomuSettingsPersistenceCommitV1: 'current' },
@@ -121,6 +121,19 @@ describe('current settings contract', () => {
         expect(Object.fromEntries(storage.values)).toEqual(pair);
         expect(storage.setValue).not.toHaveBeenCalled();
         expect(storage.deleteValue).not.toHaveBeenCalled();
+    });
+
+    it('exports the seq-0 records v1.9.3 folded from the 1.8.x pin store', async () => {
+        const storage = installGmStorageFixture(v193UserscriptStore('c1-userscript-folded-pins-explicit'));
+        vi.stubGlobal('GM_listValues', vi.fn(async () => [...storage.values.keys()]));
+        const backup = await exportSettingsBackupSnapshot(DEFAULT_SETTINGS);
+        expect(backup.settings).toMatchObject({ theme: 'dark', interfaceLanguage: 'ja' });
+        expect(backup.storage['yomu:settings-intent:v2']).toMatchObject({
+            revision: 2,
+            records: { theme: { seq: 0, value: 'dark' }, interfaceLanguage: { seq: 2, value: 'ja' } },
+        });
+        expect(backup.storage).not.toHaveProperty('yomu:explicit-user-settings:v1');
+        expect(storage.setValue).not.toHaveBeenCalled();
     });
 
     it('does not overwrite a valid choice when another stored intent record is corrupt', async () => {

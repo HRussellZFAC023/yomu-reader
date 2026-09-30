@@ -8,8 +8,7 @@ import {
     ACADEMY_PURPOSEFUL_ASSET_COVERAGE,
     ACADEMY_RUNTIME_ASSET_REGISTRY,
 } from '../../src/academy/assets';
-import { ACADEMY_CAST, getAcademyCastMember } from '../../src/academy/domain/cast-registry';
-import { ACADEMY_CAST_STANDARDIZATION_MANIFEST } from '../../src/academy/domain/cast-standardization-manifest';
+import { getAcademyCastMember } from '../../src/academy/domain/cast-registry';
 import { filesHaveSameContent } from './helpers/hash-memo';
 
 interface RuntimeLedgerAsset {
@@ -111,21 +110,16 @@ describe('Academy runtime asset registry', () => {
             steveHappy: '/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp',
             steveDetermined: '/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp',
         });
-        const worldEligible = ACADEMY_CAST.filter(person => person.eligibility.story && person.eligibility.likenessRuntime);
-        expect(Object.keys(ACADEMY_ASSETS.characters.approved).sort()).toEqual(worldEligible.map(person => person.id).sort());
-        for (const person of worldEligible) {
-            const neutral = ACADEMY_CAST_STANDARDIZATION_MANIFEST.filter(asset => asset.castId === person.id
-                && asset.expression === 'neutral' && asset.angle === 'front-near-front'
-                && asset.status === 'approved' && asset.runtimePresentation === 'approved-runtime'
-                && (asset.runtimeHomes as readonly string[]).includes('world:person'));
-            expect(neutral, person.id).toHaveLength(1);
-            const actual = ACADEMY_ASSETS.characters.approved[person.id];
-            expect(actual, person.id).toBe(neutral[0]!.assetPath);
-            const owners = ACADEMY_CAST_STANDARDIZATION_MANIFEST.filter(asset => asset.assetPath === actual);
-            expect(owners, person.id).toHaveLength(1);
-            expect(owners[0]).toMatchObject({ castId: person.id, status: 'approved', runtimePresentation: 'approved-runtime' });
-            expect(owners[0]!.runtimeHomes).toContain('world:person');
-        }
+        expect(ACADEMY_ASSETS.characters.approved).toEqual({
+            aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
+            xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuNeutral,
+            mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
+            rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
+            sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
+            ruparna: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNeutral,
+            sam: ACADEMY_APPROVED_CHARACTER_SPRITES.samNeutral,
+            steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
+        });
         for (const id of [
             'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
             'character.aakash.encouraging-listening-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010',

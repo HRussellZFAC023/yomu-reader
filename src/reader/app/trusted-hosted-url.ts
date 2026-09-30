@@ -29,11 +29,18 @@ const TRUSTED_WEB_HOST_KINDS = new Map<string, 'docs-preview' | 'loopback'>([
     ['localhost', 'loopback'],
     ['[::1]', 'loopback'],
 ]);
-const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = new Set([
+/**
+ * Vite replaces MODE at build time, so a production bundle carries no loopback
+ * trust at all (and Rollup drops these origins from it). Development builds
+ * (`npm run dev:userscript`) and tests keep it; a bundle built without Vite
+ * sees an empty import.meta and stays untrusted.
+ */
+export const DEVELOPMENT_BUILD = import.meta.env?.MODE === 'development' || import.meta.env?.MODE === 'test';
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = new Set(DEVELOPMENT_BUILD ? [
     'http://127.0.0.1:5174',
     'http://localhost:5174',
     'http://[::1]:5174',
-]);
+] : []);
 
 /** Exact local origin allowed to proxy privileged Yomu storage in development. */
 export function isPrivilegedYomuLocalDevelopmentOrigin(origin: string): boolean {

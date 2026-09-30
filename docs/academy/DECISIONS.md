@@ -160,3 +160,11 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Why:** A separate entry-task or audio registry would duplicate active source ownership and could drift from the reviewed recording, question order, answer gate, and packaging digest. Plot progression must remain based on authored story evidence rather than placement convenience.
 
 **Consequence:** N3 entrants receive a real, source-owned task with honest exact audio and adaptive support before campus entry. N2/N1 receive no fabricated source mapping, and Genki audio remains unclaimed until an exact task binding exists.
+
+## D-027 — Runtime portraits need recorded likeness clearance
+
+**Decision:** World, Class, lesson roster, story-speaker and Lesson 0 host portraits render only for the cutouts with recorded likeness clearance in `src/academy/assets.ts`: Aakash, Xingyu, Mika, Rie, Sophie, Ruparna, Sam and Steve. Everyone else appears as a named silhouette. The cast registry's eligibility flags still apply and the standardization manifest chooses which approved image a cleared person uses, but neither adds a person. This restores the v1.9.3 gate and reverses the September 2026 rebuild widening, which derived portraits from those flags for 22 more people.
+
+**Why:** The registry flips for Shaun, the second Tom, Shin and Felix (28 July 2026) have no recorded approval authority, and metadata agreement is not consent. A real classmate's face must not ship because an asset exists or a flag says approved.
+
+**Consequence:** The pending-likeness assertions for those four stay in `config/ci/academy-known-failures.json` until clearance is recorded or the registry is corrected. Adding a person means recording their clearance and adding their cleared cutout, not editing a test or a flag.

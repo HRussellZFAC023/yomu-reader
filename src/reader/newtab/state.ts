@@ -28,7 +28,6 @@ export interface NewTabUiState {
 
 export type SharedNewTabViewState = Omit<NewTabUiState, 'revealAnswer'>;
 
-// fallow-ignore-next-line unused-export
 export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     route: 'study',
     sort: 'random',

@@ -851,8 +851,11 @@ async function installOfflineShell() {
         if (!previouslyReady) await caches.delete(VERSION);
         throw error;
     }
-    // Use the browser's waiting lifecycle. An old page may still request its
-    // lazy Study chunk; activation/old-cache cleanup waits until it is closed.
+    // Take over as soon as this release is complete. A waiting worker would
+    // leave the previous release answering this release's pages from its
+    // cache (stale lesson bytes fail their hash checks) until every Academy
+    // tab closed. An already-open old page recovers with Reload.
+    await self.skipWaiting();
 }
 
 async function populateOfflineShell(cache) {

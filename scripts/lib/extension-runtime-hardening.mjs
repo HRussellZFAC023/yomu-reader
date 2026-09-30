@@ -40,6 +40,33 @@ const COMPILER_CATALOG_VALUES_READY_STRICT = `const yomuValuesReady = gmMessage(
     valuesHydrated = true;
   });`;
 const RELEASE_ARCHIVE_TARGETS = new Set(['chrome', 'firefox']);
+const INSTALLED_RUNTIME_PRELUDE_MARKER = 'yomu-extension-installed-runtime-prelude:v1';
+// Mirrors INSTALLED_READER_RUNTIME_MARKER_ID in src/reader/app/runtime-presence.ts.
+const INSTALLED_RUNTIME_MARKER_ID = 'jpdb-reader-installed-runtime';
+// The generated userscript body waits for storage hydration (__USC_READY), so
+// hosted Yomu pages would otherwise start before the extension exists and pick
+// a userscript responder or their own website store. This runs synchronously at
+// document_start, before any page script, and only announces the extension.
+export const EXTENSION_INSTALLED_RUNTIME_PRELUDE = `/* ${INSTALLED_RUNTIME_PRELUDE_MARKER} */
+(() => {
+  const doc = globalThis.document;
+  if (!doc) return;
+  const announce = () => {
+    const parent = doc.head || doc.documentElement;
+    if (!parent) return false;
+    const marker = doc.getElementById('${INSTALLED_RUNTIME_MARKER_ID}') || doc.createElement('meta');
+    marker.id = '${INSTALLED_RUNTIME_MARKER_ID}';
+    marker.dataset.yomuInstalledRuntimeKind = 'extension';
+    if (!marker.isConnected) parent.append(marker);
+    return true;
+  };
+  try {
+    if (announce()) return;
+    const observer = new MutationObserver(() => { if (announce()) observer.disconnect(); });
+    observer.observe(doc, { childList: true, subtree: true });
+  } catch {}
+})();
+`;
 
 // addons.mozilla.org refuses to parse any file over 5 MB and reports
 // FILE_TOO_LARGE as a hard lint error, so a Firefox content.js above this never
@@ -112,6 +139,14 @@ function hardenCompilerStorageBroadcast(source) {
 }
 
 export function hardenExtensionContentSource(source) {
+    return installInstalledRuntimePrelude(hardenGeneratedContentSource(source));
+}
+
+function installInstalledRuntimePrelude(source) {
+    return source.includes(INSTALLED_RUNTIME_PRELUDE_MARKER) ? source : `${EXTENSION_INSTALLED_RUNTIME_PRELUDE}${source}`;
+}
+
+function hardenGeneratedContentSource(source) {
     if (source.includes(PACKAGED_READER_CSS_MARKER)) {
         return installRuntimeCatalogPreload(hardenCompilerDurableStorage(source));
     }
@@ -678,6 +713,7 @@ function settingsAuthorityGmRuntime(entries, target, content) {
 }
 
 function assertShippedDurableRuntime(gmRuntime, target) {
+    requireRuntimeContract(gmRuntime, EXTENSION_INSTALLED_RUNTIME_PRELUDE, `${target} synchronous installed-runtime announcement`);
     requireRuntimeContract(gmRuntime, COMPILER_DURABLE_STORAGE_MARKER, `${target} durable GM storage marker`);
     rejectRuntimeContract(
         gmRuntime,

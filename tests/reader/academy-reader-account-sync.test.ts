@@ -157,14 +157,15 @@ describe('Reader Academy account sync', () => {
         };
 
         await academy.addToDeck('yomu-local', word, '手紙を書く。');
-        expect(word).toMatchObject({ cardState: [], reviewSource: 'yomu-local', dueAt: undefined });
+        // Saved to the collection, not yet scheduled: shown as in the deck.
+        expect(word).toMatchObject({ cardState: ['in-deck'], reviewSource: 'yomu-local', dueAt: undefined });
         expect((await repository.queue()).cards).toEqual([]);
         await vi.waitFor(() => expect(transport.pushed).toHaveLength(1));
         await expect(pushedCard(transport, 0)).resolves.toMatchObject({ expression: '書く', reviews: 0, reviewEnabled: false });
 
         // Grading is the learner's explicit review: it enrols the saved word
-        // (reported as added before review) and records the grade.
-        await expect(academy.reviewCard(word, 'okay', { sentence: '手紙を書く。' })).resolves.toEqual({ addedBeforeReview: true });
+        // (already in the collection, so not reported as newly added) and records the grade.
+        await expect(academy.reviewCard(word, 'okay', { sentence: '手紙を書く。' })).resolves.toEqual({ addedBeforeReview: false });
         expect(word).toMatchObject({ cardState: ['learning'], reviewSource: 'yomu-local', lastReviewAt: 5_000, dueAt: 5_000 + 2 * 86_400_000 });
         await vi.waitFor(() => expect(transport.pushed).toHaveLength(2));
         const reviewed = await pushedCard(transport, 1);

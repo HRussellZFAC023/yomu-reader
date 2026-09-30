@@ -189,7 +189,7 @@ function installOperationPort(
         request = envelope;
         try { callerEpoch = dictionaryRpcEpoch(envelope.epoch); }
         catch (error) { rejectRequest(error); return; }
-        void storage.assertCallerEpoch(callerEpoch, completedResetId(envelope)).then(() => {
+        void storage.assertCallerEpochAdmission(callerEpoch, completedResetId(envelope)).then(() => {
             admitted = true;
             return startWhenReady();
         }).catch(rejectRequest);
@@ -204,9 +204,9 @@ function installOperationPort(
             let resultDelivered = false;
             const result = await operations.run(async () => {
                 if (disconnected) throw new Error('Dictionary background operation disconnected while queued.');
-                await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                 const dictionaryStore = await store();
                 if (disconnected) throw new Error('Dictionary background operation disconnected while queued.');
+                // The one queued check: after the store is acquired, before it is used.
                 await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                 if (request!.target) adoptTarget(request!.target);
                 const args = decodeArguments(request!.args, resolveTarget, receiver, port);

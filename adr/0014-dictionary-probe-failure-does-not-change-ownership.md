@@ -16,7 +16,7 @@ Recognized host errors, including reset/epoch errors, retain their identity and 
 
 Cold background startup can cause a visible, recoverable failure, but cannot silently create a second dictionary database. An incompatible extension needs updating instead of a per-site fallback.
 
-This change does not delete old page databases. Explicit recovery of dictionaries left in those databases remains a separate requirement; their bytes must not be purged merely because the canonical host is unavailable. This decision does not solve userscript-manager cross-site storage, which has no native extension runtime.
+This change does not delete old page databases, and their bytes must not be purged merely because the canonical host is unavailable. Page databases keep their v1.9.3 name (ADR-0010), so a userscript or hosted Study still reads the dictionaries an origin imported before 2.0. This decision does not solve userscript-manager cross-site storage, which has no native extension runtime.
 
 ## Verification
 

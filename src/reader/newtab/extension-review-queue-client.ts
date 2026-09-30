@@ -18,6 +18,17 @@ export class ReviewDraftResetError extends Error {
     constructor() { super('The previous answer was cleared by factory reset. Reload Study.'); }
 }
 
+/**
+ * The owner answered and refused the operation, so nothing was written. Unlike a
+ * lost or timed-out reply, this outcome is certain.
+ */
+export class ReviewQueueRejectedError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'ReviewQueueRejectedError';
+    }
+}
+
 export class ExtensionReviewQueueClient {
     private epoch?: ManagedStateEpoch;
 
@@ -54,14 +65,40 @@ export class ExtensionReviewQueueClient {
         const epoch = parseManagedStateEpoch(value.epoch);
         const current = await this.currentEpoch();
         if (current.generation > epoch.generation) {
-            if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+            this.clearDraftIfUnchanged(draft);
             throw new ReviewDraftResetError();
         }
         this.epoch ??= epoch;
         if (!sameManagedStateEpoch(this.epoch, epoch)) throw new Error('Review draft belongs to a different reset generation.');
-        await this.request({ kind: 'record', reviews: structuredClone(value.reviews) });
-        if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+        try {
+            await this.request({ kind: 'record', reviews: structuredClone(value.reviews) });
+        } catch (error) {
+            // Record is atomic: a definitive refusal wrote nothing, so the draft
+            // must not keep replacing Grade with a recovery that can never land.
+            if (error instanceof ReviewQueueRejectedError) this.clearDraftIfUnchanged(draft);
+            throw error;
+        }
+        this.clearDraftIfUnchanged(draft);
         return structuredClone(value.reviews);
+    }
+
+    /** Hands an earlier release's durable offline queue to the owner (idempotent by id). */
+    async adopt(reviews: readonly QueuedNewTabGrade[]): Promise<void> {
+        if (!reviews.length) return;
+        await this.request({ kind: 'adopt', reviews: structuredClone([...reviews]) });
+    }
+
+    /** `heldSince` names the claim to release, so a late retry cannot free a newer claim. */
+    async release(id: string, providerContext: string, heldSince?: number): Promise<void> {
+        await this.request({ kind: 'release', id, providerContext, ...(heldSince === undefined ? {} : { heldSince }) });
+    }
+
+    async discard(id: string, providerContext: string): Promise<void> {
+        await this.request({ kind: 'discard', id, providerContext });
+    }
+
+    private clearDraftIfUnchanged(draft: unknown): void {
+        if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
     }
 
     async claim(id: string, providerContext: string): Promise<QueuedNewTabGrade | null> {
@@ -114,7 +151,7 @@ export class ExtensionReviewQueueClient {
             if (!sameManagedStateEpoch(before, await this.currentEpoch())) throw new Error('Review queue reset generation changed; reload Study.');
             if (!response || typeof response !== 'object' || Array.isArray(response)) throw new Error('Invalid review queue response.');
             const result = response as { ok?: unknown; value?: unknown; error?: unknown };
-            if (result.ok !== true) throw new Error(typeof result.error === 'string' ? result.error : 'Review queue request failed.');
+            if (result.ok !== true) throw new ReviewQueueRejectedError(typeof result.error === 'string' ? result.error : 'Review queue request failed.');
             return result.value;
         } finally {
             if (timer !== undefined) clearTimeout(timer);

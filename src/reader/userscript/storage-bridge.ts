@@ -1,6 +1,10 @@
 import { isYomuStorageBridgeHostedUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
-import { detectInstalledReaderRuntime } from '../app/runtime-presence';
+import { detectInstalledReaderRuntime, type InstalledReaderRuntimeKind } from '../app/runtime-presence';
+import {
+    bridgeRequestAddressedTo, createBridgeOwnerId, expectedBridgeKind, mayClaimBridge, readyBridgeOwner,
+    type BridgeDatasetKeys, type BridgeOwner,
+} from './bridge-authority';
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
@@ -69,19 +73,25 @@ const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-storage-response';
 const BRIDGE_MARKER = 'yomuUserscriptStorageBridge';
 const BRIDGE_OWNER = 'yomuStorageBridgeOwner';
 const BRIDGE_KIND = 'yomuStorageBridgeKind';
+const BRIDGE_KEYS: BridgeDatasetKeys = { ready: BRIDGE_MARKER, owner: BRIDGE_OWNER, kind: BRIDGE_KIND };
 const EXTENSION_STORAGE_BRIDGE_MARKER = 'yomuExtensionStorageBridge';
 const EXTENSION_STORAGE_TARGET: GmStorageTarget = 'extension-storage';
 const BRIDGE_TIMEOUT_MS = 10000;
 let bridgeRequestListenerCleanup: (() => void) | undefined;
 let bridgeOwnerId: string | undefined;
-let clientOwnerId: string | undefined;
+let clientOwner: BridgeOwner | undefined;
 let extensionStorageBridgeAdvertisedByThisRealm = false;
 
+/**
+ * The page-world client of the installed Reader's GM store. Once an installed
+ * Reader has announced itself on a trusted hosted page the client exists even
+ * before its responder is ready: requests wait for it rather than falling back
+ * to the website's own store, and the first ready responder stays pinned.
+ */
 export function getUserscriptGmStorage(): UserscriptGmStorage | undefined {
-    if (!storageBridgeClientReady() && !clientOwnerId) return undefined;
-    clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
-    const ownerId = clientOwnerId;
-    const request = (detail: Omit<StorageBridgeRequestDetail, 'id' | 'ownerId'>) => storageBridgeRequest(detail, ownerId);
+    if (!storageBridgeClientAvailable()) return undefined;
+    clientOwner ??= pinnableOwner(readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind()));
+    const request = (detail: Omit<StorageBridgeRequestDetail, 'id' | 'ownerId'>) => storageBridgeRequest(detail);
     return {
         getValue: <T>(key: string, fallback: T) => request({ op: 'get', key })
             .then(detail => (detail.found ? detail.value as T : fallback)),
@@ -98,26 +108,40 @@ export function getUserscriptGmStorage(): UserscriptGmStorage | undefined {
     };
 }
 
-function storageBridgeClientReady(): boolean {
-    if (typeof window === 'undefined') return false;
-    if (typeof document === 'undefined') return false;
-    return bridgeMarkerDataset()?.[BRIDGE_MARKER] === 'true';
+function storageBridgeClientAvailable(): boolean {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+    return Boolean(clientOwner || expectedStorageBridgeKind() || readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, null));
+}
+
+function expectedStorageBridgeKind(): InstalledReaderRuntimeKind | null {
+    return expectedBridgeKind(shouldInstallUserscriptStorageBridge);
+}
+
+/** The installed Reader this page's storage belongs to, once a client exists. */
+export function userscriptGmStorageOwnerKind(): InstalledReaderRuntimeKind | undefined {
+    if (!storageBridgeClientAvailable()) return undefined;
+    return clientOwner?.kind
+        ?? expectedStorageBridgeKind()
+        ?? readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, null)?.kind;
+}
+
+/** Whether the installed Reader this page expects has started: its storage responder, or the extension's, is ready. */
+export function installedStorageResponderReady(): boolean {
+    return readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind()) !== null;
 }
 
 export function installUserscriptGmStorageBridge(): void {
     const installation = userscriptStorageBridgeInstallation();
     if (!installation) return;
     const kind = detectInstalledReaderRuntime() === 'extension' ? 'extension' : 'userscript';
-    const existingOwner = installation.markerDataset[BRIDGE_OWNER];
-    if (existingOwner && existingOwner !== bridgeOwnerId
-        && (kind !== 'extension' || installation.markerDataset[BRIDGE_KIND] === 'extension')) return;
+    if (!mayClaimBridge(installation.markerDataset, BRIDGE_KEYS, kind, bridgeOwnerId)) return;
     advertiseExtensionStorageBridge(installation.markerDataset);
     if (hasInstalledUserscriptStorageBridge(installation.markerDataset)) {
         dispatchStorageBridgeReady();
         return;
     }
     bridgeRequestListenerCleanup?.();
-    const ownerId = `yomu-storage-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const ownerId = createBridgeOwnerId('yomu-storage');
     bridgeOwnerId = ownerId;
     installation.markerDataset[BRIDGE_OWNER] = ownerId;
     installation.markerDataset[BRIDGE_KIND] = kind;
@@ -130,7 +154,7 @@ export function installUserscriptGmStorageBridge(): void {
     const handledRequestIds = new Set<string>();
     bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = storageBridgeRequestDetail(event);
-        if (!detail || detail.ownerId !== ownerId || bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId
+        if (!detail || !bridgeRequestAddressedTo(bridgeMarkerDataset(), BRIDGE_KEYS, ownerId, detail.ownerId)
             || !storageBridgeResponderAccepts(detail) || handledRequestIds.has(detail.id)) return;
         rememberBridgeRequestId(handledRequestIds, detail.id);
         void handleStorageBridgeRequest(detail, installation.accessors, assertActive);
@@ -194,7 +218,7 @@ export function uninstallUserscriptGmStorageBridge(): void {
     }
     extensionStorageBridgeAdvertisedByThisRealm = false;
     bridgeOwnerId = undefined;
-    clientOwnerId = undefined;
+    clientOwner = undefined;
 }
 
 async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, accessors: GmStorageAccessors, assertActive: () => void): Promise<void> {
@@ -283,40 +307,64 @@ async function readStorageBridgeResponse(
         : { ok: true, found: true, value };
 }
 
-function storageBridgeRequest(request: Omit<StorageBridgeRequestDetail, 'id' | 'ownerId'>, ownerId: string | undefined): Promise<StorageBridgeResponseDetail> {
+function storageBridgeRequest(request: Omit<StorageBridgeRequestDetail, 'id' | 'ownerId'>): Promise<StorageBridgeResponseDetail> {
     return new Promise((resolve, reject) => {
-        if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
-            reject(new Error('Storage bridge authority changed; reload to reconnect.'));
-            return;
-        }
         const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-        const timeout = window.setTimeout(() => {
-            cleanup();
-            if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-                reject(new Error('Storage bridge authority changed during the request.'));
-                return;
-            }
-            reject(new Error('Storage bridge request timed out.'));
-        }, BRIDGE_TIMEOUT_MS);
-        let cleanupResponseListener = noop;
+        let pinned: BridgeOwner | undefined;
+        let cleanupListeners = noop;
         const cleanup = () => {
             window.clearTimeout(timeout);
-            cleanupResponseListener();
+            cleanupListeners();
         };
+        const fail = (message: string) => {
+            cleanup();
+            reject(new Error(message));
+        };
+        const timeout = window.setTimeout(() => {
+            if (!pinned) fail('Installed Yomu storage did not connect; reload to reconnect.');
+            else if (!pinnedOwnerCurrent(pinned)) fail('Storage bridge authority changed during the request.');
+            else fail('Storage bridge request timed out.');
+        }, BRIDGE_TIMEOUT_MS);
         const onResponse = (event: Event) => {
             const detail = storageBridgeResponseDetail(event);
             if (!detail || detail.id !== id) return;
+            if (!pinned || !pinnedOwnerCurrent(pinned)) return fail('Storage bridge authority changed during the request.');
             cleanup();
-            if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-                reject(new Error('Storage bridge authority changed during the request.'));
-                return;
-            }
             if (detail.ok) resolve(detail);
             else reject(new Error(detail.message || 'Storage bridge request failed.'));
         };
-        cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-        dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId, ...request });
+        const send = (owner: BridgeOwner) => {
+            pinned = owner;
+            cleanupListeners();
+            cleanupListeners = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+            dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, ...request });
+        };
+        const connect = (): boolean => {
+            if (clientOwner) {
+                if (pinnedOwnerCurrent(clientOwner)) send(clientOwner);
+                else fail('Storage bridge authority changed; reload to reconnect.');
+                return true;
+            }
+            const owner = readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind());
+            if (!owner) return false;
+            clientOwner = pinnableOwner(owner);
+            send(owner);
+            return true;
+        };
+        if (connect()) return;
+        // The announced Reader has not finished starting: wait for its responder.
+        cleanupListeners = addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => { if (!pinned) connect(); });
     });
+}
+
+/** A v1.9.3 responder publishes no owner, so there is nothing to pin; it is resolved per request as before. */
+function pinnableOwner(owner: BridgeOwner | null): BridgeOwner | undefined {
+    return owner?.ownerId === undefined ? undefined : owner;
+}
+
+function pinnedOwnerCurrent(owner: BridgeOwner): boolean {
+    const dataset = bridgeMarkerDataset();
+    return dataset?.[BRIDGE_MARKER] === 'true' && dataset[BRIDGE_OWNER] === owner.ownerId;
 }
 
 // A sentinel that survives the JSON round-trip across the world boundary only by

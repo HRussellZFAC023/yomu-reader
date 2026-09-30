@@ -105,13 +105,6 @@ describe('Academy canonical cast registry', () => {
             eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
         expect(canRenderAcademyCastPortrait('jodi', 'story-runtime')).toBe(true);
-        expect(getAcademyCastMember('shaun')).toMatchObject({
-            firstName: 'Shaun',
-            category: 'classmate',
-            visualEvidence: 'approved',
-            nameEvidence: 'owner-named',
-            eligibility: { story: true, lessons: false, likenessRuntime: true },
-        });
         expect(getAcademyCastMember('nanako')).toMatchObject({
             firstName: 'Nanako',
             category: 'extended-member',
@@ -126,7 +119,6 @@ describe('Academy canonical cast registry', () => {
             eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
         expect(canRenderAcademyCastPortrait('shaun', 'journal-review-preview')).toBe(true);
-        expect(canRenderAcademyCastPortrait('shaun', 'story-runtime')).toBe(true);
         expect(defaultCastPortrait('shaun', 'class:week-cast')).toBeUndefined();
         expect(defaultCastPortrait('shaun', 'lesson:foundation-00:mission-host')).toBeUndefined();
         expect(canRenderAcademyCastPortrait('peter', 'story-runtime')).toBe(true);
@@ -147,11 +139,22 @@ describe('Academy canonical cast registry', () => {
             visualEvidence: 'approved',
             eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
+    });
+
+    it('keeps Shaun and the second Tom likenesses pending until clearance is recorded', () => {
+        expect(getAcademyCastMember('shaun')).toMatchObject({
+            firstName: 'Shaun',
+            category: 'classmate',
+            visualEvidence: 'reference-confirmed-neutral-pending',
+            nameEvidence: 'owner-named',
+            eligibility: { story: true, lessons: false, likenessRuntime: false },
+        });
+        expect(canRenderAcademyCastPortrait('shaun', 'story-runtime')).toBe(false);
         expect(getAcademyCastMember('tom2')).toMatchObject({
             firstName: 'Tom',
             category: 'classmate',
-            visualEvidence: 'approved',
-            eligibility: { story: true, lessons: true, likenessRuntime: true },
+            visualEvidence: 'reference-confirmed-neutral-pending',
+            eligibility: { story: true, lessons: true, likenessRuntime: false },
         });
     });
 

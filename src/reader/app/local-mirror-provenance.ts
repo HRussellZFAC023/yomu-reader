@@ -116,6 +116,26 @@ export function localMirrorBelongsToEpoch(key: string, epoch: ManagedStateEpoch)
         : epoch.generation === 0;
 }
 
+/**
+ * v1.9.3's hosted raw writers (docs theme and shell toggles, homepage demo,
+ * Academy seed) wrote the hosted settings record without provenance (ADR-0012).
+ * Bytes rewritten in place under an entry are that entry's epoch; another
+ * epoch's are not. Unattested bytes belong to generation 0, or to a later
+ * epoch only when `rawWriterRecord` recognises what those writers recreated
+ * after a reset purged the key.
+ */
+export function localMirrorEpochMatches(
+    key: string,
+    epoch: ManagedStateEpoch,
+    rawWriterRecord: (serialized: string) => boolean,
+): boolean {
+    const serialized = recoverableSerializedValue(key);
+    if (serialized === null) return false;
+    const entry = provenanceValues()[key];
+    if (entry) return entry.epoch === managedStateEpochToken(epoch);
+    return epoch.generation === 0 || rawWriterRecord(serialized);
+}
+
 export function removeLocalMirrorProvenance(key: string): void {
     updateProvenance(key, null);
 }

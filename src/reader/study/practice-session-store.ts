@@ -2,7 +2,6 @@ import { assertManagedStateMutationAllowed, assertManagedStateReadAllowed } from
 import { managedStateEpochToken } from '../app/managed-state-epoch';
 import { managedStateWritesSuppressed } from '../app/managed-state-registry';
 import type { PracticeSessionRecord } from './practice-session';
-import { ownedDatabaseName } from '../app/owned-databases';
 
 export const PRACTICE_SESSION_DATABASE = 'yomu-practice-sessions-v1';
 
@@ -12,15 +11,9 @@ export class PracticeSessionConflict extends Error {
 
 /** One transaction compares the saved revision and publishes the whole checkpoint. */
 export class PracticeSessionStore {
-    private readonly databaseName = ownedDatabaseName(PRACTICE_SESSION_DATABASE);
     constructor(private readonly factory: IDBFactory = indexedDB) {}
 
-    private assertOwner(): void {
-        if (this.databaseName !== ownedDatabaseName(PRACTICE_SESSION_DATABASE)) throw new Error('Practice storage owner changed; reload to reconnect.');
-    }
-
     async read(id: string): Promise<unknown> {
-        this.assertOwner();
         const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
         return this.transaction('readonly', async (store, material) => {
             const checkpoint = await requestValue(store.get([epoch, id]));
@@ -35,18 +28,15 @@ export class PracticeSessionStore {
     }
 
     async list(): Promise<unknown[]> {
-        this.assertOwner();
         const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
         return this.transaction('readonly', store => requestValue(store.index('epoch').getAll(epoch)));
     }
 
     async write(record: PracticeSessionRecord, previousRevision: number | null): Promise<void> {
-        this.assertOwner();
         const epoch = managedStateEpochToken(await assertManagedStateMutationAllowed());
         await this.transaction('readwrite', async (store, material) => {
             if (managedStateWritesSuppressed()) throw new Error('Practice saving is paused during reset.');
             const previous = await requestValue(store.get([epoch, record.id]));
-            this.assertOwner();
             if (previousRevision === null ? previous !== undefined
                 : previous?.revision !== previousRevision || previous?.version !== record.version || previous?.purpose !== record.purpose) {
                 throw new PracticeSessionConflict();
@@ -54,9 +44,7 @@ export class PracticeSessionStore {
             if (managedStateWritesSuppressed()) throw new Error('Practice saving is paused during reset.');
             const { items, material: original, ...checkpoint } = record;
             if (previousRevision === null) await requestValue(material.put({ epoch, id: record.id, items, material: original }));
-            this.assertOwner();
             await requestValue(store.put({ ...checkpoint, epoch, itemCount: items.length, materialCount: original.length }));
-            this.assertOwner();
         });
     }
 
@@ -65,7 +53,6 @@ export class PracticeSessionStore {
         try {
             if (mode === 'readwrite') await assertManagedStateMutationAllowed();
             else await assertManagedStateReadAllowed();
-            this.assertOwner();
             const transaction = db.transaction(['sessions', 'material'], mode);
             let result: T;
             let failure: unknown;
@@ -82,12 +69,10 @@ export class PracticeSessionStore {
     }
 
     private open(): Promise<IDBDatabase> {
-        this.assertOwner();
         return new Promise((resolve, reject) => {
             let settled = false;
-            const request = this.factory.open(this.databaseName, 1);
+            const request = this.factory.open(PRACTICE_SESSION_DATABASE, 1);
             request.onupgradeneeded = () => {
-                try { this.assertOwner(); } catch (error) { request.transaction?.abort(); reject(error); return; }
                 const store = request.result.createObjectStore('sessions', { keyPath: ['epoch', 'id'] });
                 store.createIndex('epoch', 'epoch');
                 request.result.createObjectStore('material', { keyPath: ['epoch', 'id'] });

@@ -6,12 +6,12 @@ import { localBytesFromBlob } from '../platform/binary-realm';
 
 const log = Logger.scope('DictionaryArchiveCache');
 
-// Imported dictionaries live in page IndexedDB, which is per-origin for a
-// userscript: an import on one site is invisible everywhere else. The archive
-// cache keeps the source of each imported dictionary in GM storage — which IS
-// shared across origins — so any origin can rebuild its local store without
-// user action (see replication.ts). URL imports store only the URL (the
-// download is HTTP-cached); file imports persist the ZIP bytes in chunks.
+// Imported dictionaries live in the importing origin's one IndexedDB database
+// (jpdb-popup-reader-yomitan). The archive cache keeps the source of each
+// imported dictionary in GM storage, which is shared across origins. Nothing
+// rebuilds another origin's store from it: cross-origin replication was
+// removed in 1.8.78. URL imports store only the URL; file imports persist the
+// ZIP bytes in chunks, which factory reset enumerates and removes.
 const ARCHIVE_INDEX_KEY = 'yomu-dictionary-archives';
 const ARCHIVE_CHUNK_PREFIX = 'yomu-dictionary-archive:';
 // GM values are strings in every manager; 4MB of decoded bytes per chunk keeps

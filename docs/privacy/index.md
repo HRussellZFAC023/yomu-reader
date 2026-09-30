@@ -5,7 +5,7 @@ description: What Yomu keeps on your device, which services it talks to and when
 
 # Yomu privacy policy
 
-Last updated: 15 August 2026
+Last updated: 30 September 2026
 
 **The short version.** Your settings, dictionaries, saved words, and review history stay on your device. Yomu talks to an outside service only when you use a feature that needs one — a lookup service you connected, an audio source, a translation — and the page below says exactly which, and when. There is no advertising and no analytics tracking, and your data is not sold.
 
@@ -44,6 +44,7 @@ Core dictionary imports, local parsing, annotations, settings, and local study p
 - OCR sends an image only when you invoke or enable the selected OCR route. That can be Google Lens, Google Cloud Vision with your key, a local OCR server, or another endpoint you configure.
 - Recommended dictionaries and optional kanji data are downloaded from the publisher named in the interface, such as GitHub, Hugging Face, KanjiVG, or Yomu's static site.
 - AnkiConnect normally receives card or review data on your own computer. A custom proxy, LAN, or Tailscale address receives only the requests you configure it to handle.
+- The website's **Read** page (`/library/`) lists free books from NPO Tadoku Supporters as plain links. It loads no covers, images, or data from `tadoku.org`. Your browser contacts `tadoku.org` only when you open a book, and Tadoku's own privacy policy then applies.
 
 Some public data requests that a website would otherwise block can pass through Yomu's narrow public relay at `edge.yomureader.com` or its legacy Workers address. The relay receives the same lookup, audio, or public-resource request needed for that feature. Hosting-provider server logs and each third-party service's own privacy policy may apply.
 

@@ -7,7 +7,8 @@ import { serializeStoryCursor } from '../../src/academy/content/story-runner';
 import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
 import { createLessonZeroVowelSoundMap } from '../../src/academy/content/lesson-zero-vowel-sound-map';
 import { createLessonZeroVowelWritingDefinition } from '../../src/academy/content/lesson-zero-vowel-writing';
-import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
+import { createLearnerRecord, createMemoryLearnerEventRepository, projectLearnerRecord,
+    type LearnerEvent } from '../../src/academy/domain/learner-record';
 import { LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER } from '../../src/academy/domain/lesson-zero-vowel-writing-session';
 import {
     startLessonZeroVowelSession,
@@ -306,7 +307,19 @@ describe('Academy lesson flow', () => {
                 { round: 'transfer', chosenChunkIds: ['once-more', 'please'], outcome: 'pass', at: 2 },
             ],
         };
-        const evidence = { recordActivity: vi.fn(async () => undefined), recordSupportUse: vi.fn(async () => undefined) };
+        // The exact completion event v1.9.3 stored for this activity. Event ids
+        // are idempotency keys, so the all-source completion must not reuse it.
+        const v193Completion: LearnerEvent = {
+            kind: 'attempt-recorded', eventId: 'activity:lesson-zero-reconstruct-repair:complete', at: 1_760_000_000_000,
+            activityId: 'activity:lesson-zero-reconstruct-repair',
+            conceptIds: ['concept:classroom-repair-repeat', 'concept:polite-request'],
+            responseKind: 'constructed-japanese', outcome: 'pass', score: 1, schemaVersion: 1,
+        };
+        const record = createLearnerRecord({ repository: createMemoryLearnerEventRepository([v193Completion]) });
+        const evidence = {
+            recordActivity: vi.fn(async (evaluation: ActivityEvaluation) => { await record.record(evaluation.attempt); }),
+            recordSupportUse: vi.fn(async () => undefined),
+        };
         const flow = createLessonFlow({ evidence: evidence as never,
             pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never, kanjiWriting: {} as never });
         let route = context(undefined, { route: 'source-activity', activityId: 'activity:lesson-zero-reconstruct-repair',
@@ -352,6 +365,10 @@ describe('Academy lesson flow', () => {
         }
         expect(state().status).toBe('complete');
         expect(evidence.recordActivity).toHaveBeenCalledTimes(8);
+        const history = await record.history();
+        expect(history.find(event => event.eventId === v193Completion.eventId)).toEqual(v193Completion);
+        expect(history.filter(event => event.kind === 'attempt-recorded'
+            && event.activityId === 'activity:lesson-zero-reconstruct-repair')).toHaveLength(2);
         await reload();
         expect(route.shell.current?.dataset.sessionStatus).toBe('complete');
         expect(evidence.recordActivity).toHaveBeenCalledTimes(8);

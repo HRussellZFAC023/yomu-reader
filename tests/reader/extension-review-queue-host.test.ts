@@ -1,8 +1,8 @@
 import { expect, it, vi } from 'vitest';
-import { installExtensionReviewQueueHost, REVIEW_QUEUE_CHANNEL, type ReviewQueueExtensionRoot } from '../../src/reader/newtab/extension-review-queue-host';
+import { draftStorage, packagedStudySender, reviewQueueHostFixture, reviewQueueHostPrefix } from './helpers/review-queue-host-fixture';
 import { REVIEW_QUEUE_OWNER_KEY as NEW_TAB_GRADE_QUEUE_KEY } from '../../src/reader/newtab/review-queue-owner';
 import { nextManagedStateEpoch, parseManagedStateEpoch } from '../../src/reader/app/managed-state-epoch';
-import { ExtensionReviewQueueClient, type ReviewActionDraft, type ReviewActionDraftStorage } from '../../src/reader/newtab/extension-review-queue-client';
+import { ExtensionReviewQueueClient } from '../../src/reader/newtab/extension-review-queue-client';
 import type { QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
 import { createPackagedReviewQueueClient, REVIEW_ACTION_DRAFT_KEY, type PackagedReviewEnvironment } from '../../src/reader/newtab/packaged-review-queue-client';
 import { NewTabGradeQueue, type NewTabGradeQueueStorage, type NewTabGradeQueueDeps } from '../../src/reader/newtab/grade-queue';
@@ -12,35 +12,11 @@ import { allowSyntheticReaderInteractionsForTests, dispatchAuthorizedReaderContr
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 
-type Listener = Parameters<NonNullable<ReviewQueueExtensionRoot['browser']>['runtime']['onMessage']['addListener']>[0];
-const prefix = 'compiler.test.';
-const sender = { id: 'owned-extension', url: 'moz-extension://owned/newtab/index.html#review', frameId: 0 };
+const prefix = reviewQueueHostPrefix;
+const sender = packagedStudySender;
 const review = { id: 'review-1', at: 1, target: 'anki', grade: 'okay', attempts: 0, providerContext: 'account-a',
     card: { vid: 1, sid: 0, spelling: '読む', reading: 'よむ' } };
-
-function draftStorage(): ReviewActionDraftStorage {
-    let value: ReviewActionDraft | null = null;
-    return { read: () => structuredClone(value), write: draft => { value = structuredClone(draft); }, clear: () => { value = null; } };
-}
-
-function fixture() {
-    let listener!: Listener;
-    const data = new Map<string, unknown>();
-    const get = vi.fn(async (key: string) => data.has(key) ? { [key]: structuredClone(data.get(key)) } : {});
-    const set = vi.fn(async (values: Record<string, unknown>) => {
-        for (const [key, value] of Object.entries(values)) data.set(key, structuredClone(value));
-    });
-    installExtensionReviewQueueHost({ browser: {
-        runtime: { id: sender.id, getURL: path => `moz-extension://owned/${path}`, onMessage: { addListener: fn => { listener = fn; } } },
-        storage: { local: { get, set } },
-    } }, prefix);
-    const send = (request: Record<string, unknown>, from = sender) => new Promise<{ ok: boolean; value?: unknown; error?: string }>(resolve => {
-        listener({ channel: REVIEW_QUEUE_CHANNEL, epoch: null, ...request }, from, value => resolve(value as never));
-    });
-    const client = (transport = send, drafts = draftStorage()) => new ExtensionReviewQueueClient(transport,
-        async () => parseManagedStateEpoch(data.get(`${prefix}yomu:state-epoch`)), drafts);
-    return { data, get, set, send, client };
-}
+const fixture = reviewQueueHostFixture;
 
 const unusedLegacyStorage: NewTabGradeQueueStorage = {
     get: async <T>(_key: string, fallback: T) => fallback,
@@ -110,6 +86,36 @@ it('replaces Grade with trusted recording recovery and retires the old prompt', 
         expect(submit).toHaveBeenCalledOnce();
     } finally {
         allowSyntheticReaderInteractionsForTests(true);
+        controller.destroy();
+        root.remove();
+    }
+});
+
+it('shows a clear error and keeps Grade usable when the owner definitively refuses an answer', async () => {
+    const { client, send } = fixture();
+    const drafts = draftStorage();
+    const owner = client(async request => request.kind === 'record' ? { ok: false, error: 'Review queue is full.' } : send(request), drafts);
+    const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true };
+    const queue = ownedQueue(owner, vi.fn(async () => true), unusedLegacyStorage, target => newTabReviewProviderContext(newTabProviderContexts(settings), target));
+    await queue.flush();
+    const card = newTabTestCard({ source: 'anki', reviewSource: 'anki', ankiCardId: 404, cardState: ['due'] });
+    const other = newTabTestCard({ source: 'anki', reviewSource: 'anki', ankiCardId: 405, spelling: '別', reading: 'べつ', cardState: ['due'] });
+    const controller = newTabPromptController(settings);
+    Object.assign(controller, { gradeQueue: queue });
+    const probe = controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<boolean> };
+    const root = renderSeededNewTabWord(controller, card, {
+        allWords: [card, other], visibleWords: [card, other], sourceLabel: 'Anki (offline)', reviewCountMode: true,
+        state: { source: 'anki', revealAnswer: true }, appendToDocument: true, bindRootEvents: true,
+    });
+    try {
+        expect(await probe.gradeCurrentCard('okay')).toBe(false);
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Too many answers are waiting to sync. Reconnect, then grade again.');
+        expect(drafts.read()).toBeNull();
+        expect(queue.needsRecordingRecovery()).toBe(false);
+        expect(queue.blocksReview(other)).toBe(false);
+        expect(root.querySelector('[data-newtab-action="recover-review-recording"]')).toBeNull();
+        expect(root.querySelector('[data-newtab-action="grade"]')).not.toBeNull();
+    } finally {
         controller.destroy();
         root.remove();
     }
@@ -346,18 +352,6 @@ it('holds an uncertain native result across new queue clients without deleting t
     expect(await second.flush()).toBe(1);
     expect(submit).toHaveBeenCalledOnce();
     expect(second.blocksReview(review.card as QueuedNewTabGrade['card'])).toBe(true);
-});
-
-it('leaves old offline reviews untouched and does not dispatch around them', async () => {
-    const { client } = fixture();
-    const submit = vi.fn(async () => true);
-    const legacy = [review];
-    const queue = ownedQueue(client(), submit, { ...unusedLegacyStorage, get: async <T>() => legacy as T });
-    await queue.enqueue(review.card as QueuedNewTabGrade['card'], 'okay', ['anki']);
-    await queue.flush();
-    expect(submit).not.toHaveBeenCalled();
-    expect(legacy).toEqual([review]);
-    expect(queue.blocksReview(review.card as QueuedNewTabGrade['card'])).toBe(true);
 });
 
 it('coordinates two typed clients and atomically records a multi-provider answer', async () => {

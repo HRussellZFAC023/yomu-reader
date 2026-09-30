@@ -31,6 +31,8 @@ export const NEW_TAB_ACTIONS = [
     'empty-fallback',
     'continue-batch',
     'recover-review-recording',
+    'check-held-reviews',
+    'discard-held-reviews',
     'study-step',
     'study-hint',
     'return-to-review',

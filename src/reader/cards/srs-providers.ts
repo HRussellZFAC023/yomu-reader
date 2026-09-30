@@ -411,12 +411,11 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         reviewCard: async (card, grade, reviewOptions = {}) => {
             const wasNotInDeck = normalizeCardStates(card.cardState).includes('not-in-deck')
                 || card.reviewSource !== 'yomu-local';
-            // The learner pressed a grade: that explicitly starts review of a saved word.
+            // The learner pressed a grade: the repository starts review of a saved word.
             const result = await localYomuMutation(() => adapter.review({
                 card: yomuLocalReviewableFromCard(card),
                 grade,
                 sentence: reviewOptions.sentence,
-                enrolSaved: true,
             }));
             if (result.card) applyYomuLocalReviewableToCard(card, result.card);
             return { addedBeforeReview: wasNotInDeck };

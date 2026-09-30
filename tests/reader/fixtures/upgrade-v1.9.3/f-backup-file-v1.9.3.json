@@ -1,0 +1,41 @@
+{
+  "scenario": "f-backup-file-v1.9.3",
+  "producedBy": {
+    "tag": "v1.9.3",
+    "commit": "60e18c8f0cd9c2ec9b5ccb7702245781830f1409",
+    "stage": "v1.9.3-backup",
+    "inputs": [
+      "c1-userscript-folded-pins-explicit.json"
+    ]
+  },
+  "channel": "backup",
+  "story": "The c1 learner exports a settings file in v1.9.3 (it carries the retired pin key, seq-0 ledger records and one dictionary), then imports it on a fresh v1.9.3 install.",
+  "file": "files/yomu-settings-2026-09-20T09-01-00-000Z.json",
+  "storageKeys": [
+    "jpdb-popup-reader-settings",
+    "yomu-dictionary-archive:yomu upgrade corpus mini:0",
+    "yomu-dictionary-archives",
+    "yomu:explicit-user-settings:v1",
+    "yomu:prefer-japanese-site-language:v1",
+    "yomu:settings-intent:v2"
+  ],
+  "expected": {
+    "settings": {
+      "theme": "dark",
+      "apiKey": "corpus0000000000000000000000jpdb",
+      "subtitleFontSize": 40,
+      "showFurigana": false,
+      "interfaceLanguage": "ja",
+      "onboardingSeen": true,
+      "learningTargetChosen": true,
+      "activeLanguageProfileId": "default-ja",
+      "accentColor": "#2563eb",
+      "localDictionariesEnabled": true
+    },
+    "targetLanguage": "ja",
+    "onboardingShown": false,
+    "dictionaries": [
+      "Yomu Upgrade Corpus Mini"
+    ]
+  }
+}

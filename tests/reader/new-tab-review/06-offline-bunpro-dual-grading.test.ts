@@ -198,33 +198,164 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         expect(queue[0]).toMatchObject({ target: 'jpdb-api', grade: 'hard', attempts: 1, lastError: 'offline' });
     });
 
-    it('does not let a failed Anki sync block a reachable JPDB queued grade', async () => {
+    it('keeps a queued Anki grade pending (not held) while Anki is closed and still delivers JPDB', async () => {
         const ankiCard = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
         const jpdbCard = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
         queueNewTabGrades(
             { id: 'anki:404', target: 'anki', card: ankiCard, grade: 'fail' },
             { id: 'jpdb-api:1:1:安定:あんてい', target: 'jpdb-api', card: jpdbCard, grade: 'easy' },
         );
-        const answerCard = vi.fn(async () => { throw new Error('anki offline'); });
+        let ankiOpen = false;
+        const invoke = vi.fn(async () => {
+            if (!ankiOpen) throw new TypeError('Failed to fetch');
+            return 6;
+        });
+        const answerCard = vi.fn(async () => {});
         const reviewCard = vi.fn(async () => {});
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, ankiEnabled: true }), {
-            anki: { answerCard } as never,
+            anki: { answerCard, invoke } as never,
             jpdb: { reviewCard } as never,
         });
         scopeQueuedNetworkGradesTo(controller);
+        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; syncStatusSegment(): string };
 
-        await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
+        await probe.flushQueuedGrades();
 
-        expect(answerCard).toHaveBeenCalledWith(404, 'fail');
+        expect(invoke).toHaveBeenCalledWith('version');
+        expect(answerCard).not.toHaveBeenCalled();
         expect(reviewCard).toHaveBeenCalledWith(jpdbCard, 'easy');
         const queue = readNewTabGradeQueue();
         expect(queue).toHaveLength(1);
-        expect(queue[0]).toMatchObject({ target: 'anki', grade: 'fail', attempts: 1, lastError: 'anki offline' });
-        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; syncStatusSegment(): string };
-        expect(probe.syncStatusSegment()).toBe('Review outcome unknown — check your SRS');
+        expect(queue[0]).toMatchObject({ target: 'anki', grade: 'fail', attempts: 0 });
+        expect(queue[0]).not.toHaveProperty('heldSince');
+        expect(probe.syncStatusSegment()).toBe('⟳ To sync 1');
+        ankiOpen = true;
         await probe.flushQueuedGrades();
         expect(answerCard).toHaveBeenCalledOnce();
+        expect(answerCard).toHaveBeenCalledWith(404, 'fail');
         expect(reviewCard).toHaveBeenCalledOnce();
+        expect(readNewTabGradeQueue()).toEqual([]);
+    });
+
+    it('holds an Anki answer whose reply was lost until Check again finds no native review and resends it', async () => {
+        const ankiCard = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
+        queueNewTabGrades({ id: 'anki:404', target: 'anki', card: ankiCard, grade: 'fail', at: 5_000 });
+        const invoke = vi.fn(async (action: string) => action === 'getReviewsOfCards' ? { 404: [{ id: 4_000, ease: 3 }] } : 6);
+        const answerCard = vi.fn(async () => {});
+        answerCard.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+        const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }), {
+            anki: { answerCard, invoke } as never,
+        });
+        scopeQueuedNetworkGradesTo(controller);
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; syncStatusSegment(): string };
+        try {
+            await probe.flushQueuedGrades();
+            expect(readNewTabGradeQueue()[0]).toMatchObject({ target: 'anki', heldSince: expect.any(Number), lastError: 'Failed to fetch' });
+            expect(probe.syncStatusSegment()).toBe('Review outcome unknown — check your SRS');
+            await probe.flushQueuedGrades();
+            expect(answerCard).toHaveBeenCalledOnce();
+            const notice = root.querySelector<HTMLElement>('[data-newtab-held-reviews]')!;
+            expect(notice.textContent).toContain('Answers not confirmed: 1');
+            notice.querySelector<HTMLButtonElement>('[data-newtab-action="check-held-reviews"]')!.click();
+            await waitForExpect(() => expect(answerCard).toHaveBeenCalledTimes(2));
+            // Anki's review log only had an answer from before the queued grade.
+            expect(invoke).toHaveBeenCalledWith('getReviewsOfCards', { cards: [404] });
+            await waitForExpect(() => expect(root.querySelector('[data-newtab-held-reviews]')).toBeNull());
+            expect(readNewTabGradeQueue()).toEqual([]);
+            expect(probe.syncStatusSegment()).toBe('✓ Synced');
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('acknowledges a held Anki answer that Anki\'s review log shows landed, and discards on request', async () => {
+        const landed = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
+        const dropped = newTabTestCard({ spelling: '次回', reading: 'じかい', source: 'anki', reviewSource: 'anki', ankiCardId: 405 });
+        queueNewTabGrades(
+            { id: 'anki:404', target: 'anki', card: landed, grade: 'okay', at: 5_000, heldSince: 5_001 } as never,
+            { id: 'anki:405', target: 'anki', card: dropped, grade: 'okay', at: 5_000, heldSince: 5_001 } as never,
+        );
+        const invoke = vi.fn(async (action: string, params?: { cards?: number[] }) => action === 'getReviewsOfCards'
+            ? params?.cards?.[0] === 404 ? { 404: [{ id: 5_002 }] } : Promise.reject(new TypeError('Failed to fetch'))
+            : 6);
+        const answerCard = vi.fn(async () => {});
+        const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }), {
+            anki: { answerCard, invoke } as never,
+        });
+        scopeQueuedNetworkGradesTo(controller);
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        const probe = controller as unknown as { flushQueuedGrades(): Promise<void> };
+        const status = () => root.querySelector('[data-newtab-status]')?.textContent;
+        try {
+            await probe.flushQueuedGrades();
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="check-held-reviews"]')!.click();
+            await waitForExpect(() => expect(status()).toBe('Still not confirmed. Open Anki, then check again.'));
+            expect(answerCard).not.toHaveBeenCalled();
+            expect(readNewTabGradeQueue().map(item => item.card.spelling)).toEqual(['次回']);
+            expect(root.querySelector('[data-newtab-held-reviews]')?.textContent).toContain('Answers not confirmed: 1');
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="discard-held-reviews"]')!.click();
+            await waitForExpect(() => expect(status()).toBe('Unconfirmed answers discarded'));
+            expect(readNewTabGradeQueue()).toEqual([]);
+            expect(root.querySelector('[data-newtab-held-reviews]')).toBeNull();
+            expect(answerCard).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('continues an offline Anki session through its cached cards after a queued grade', async () => {
+        const first = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404, cardState: ['due'] });
+        const second = newTabTestCard({ spelling: '次回', reading: 'じかい', source: 'anki', reviewSource: 'anki', ankiCardId: 405, cardState: ['due'] });
+        const answerCard = vi.fn(async () => {});
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }, {
+            anki: { answerCard, invoke: vi.fn(async () => { throw new TypeError('Failed to fetch'); }) } as never,
+        });
+        const probe = controller as unknown as {
+            gradeCurrentCard(grade: JPDBGrade): Promise<boolean>;
+            loadWordsInto(root: HTMLElement, prefer: boolean, options: { useOfflineCache?: boolean }): Promise<void>;
+            visibleWords: JPDBCard[];
+            index: number;
+        };
+        const reload = vi.spyOn(probe, 'loadWordsInto').mockResolvedValue(undefined);
+        const root = renderSeededNewTabWord(controller, first, {
+            allWords: [first, second], visibleWords: [first, second], sourceLabel: 'Anki (offline)', reviewCountMode: true,
+            state: { source: 'anki', revealAnswer: true }, appendToDocument: true,
+        });
+        try {
+            expect(await probe.gradeCurrentCard('okay')).toBe(true);
+            expect(answerCard).not.toHaveBeenCalled();
+            expect(readNewTabGradeQueue()).toMatchObject([{ target: 'anki', card: { spelling: '復習' } }]);
+            expect(reload).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ useOfflineCache: false }));
+            expect(probe.visibleWords[probe.index]?.spelling).toBe('次回');
+            expect(newTabPromptText(root)).toContain('次回');
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('treats a queued Anki answer that landed as delivered even when the card read-back fails', async () => {
+        const card = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
+        queueNewTabGrades({ id: 'anki:404', target: 'anki', card, grade: 'okay' });
+        const answerCard = vi.fn(async () => {});
+        const findExistingCards = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
+        const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }), {
+            anki: { answerCard, findExistingCards, invoke: vi.fn(async () => 6) } as never,
+        });
+        scopeQueuedNetworkGradesTo(controller);
+        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; syncStatusSegment(): string };
+
+        await probe.flushQueuedGrades();
+
+        expect(answerCard).toHaveBeenCalledOnce();
+        expect(findExistingCards).toHaveBeenCalled();
+        expect(readNewTabGradeQueue()).toEqual([]);
+        expect(probe.syncStatusSegment()).toBe('✓ Synced');
     });
 
     it('flushes queued Anki grades through AnkiConnect', async () => {
@@ -237,7 +368,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         });
         const answerCard = vi.fn(async () => {});
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }), {
-            anki: { answerCard } as never,
+            anki: { answerCard, invoke: vi.fn(async () => 6) } as never,
         });
         scopeQueuedNetworkGradesTo(controller);
 
@@ -260,7 +391,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         listNewTabCards.mockResolvedValueOnce([stale]).mockResolvedValueOnce([fresh]);
         const answerCard = vi.fn(async () => {});
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }), {
-            anki: { answerCard, listNewTabCards } as never,
+            anki: { answerCard, listNewTabCards, invoke: vi.fn(async () => 6) } as never,
         });
         scopeQueuedNetworkGradesTo(controller);
         const internals = controller as unknown as {

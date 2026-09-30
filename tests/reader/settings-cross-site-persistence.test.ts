@@ -1012,15 +1012,18 @@ describe('settings persist in packaged-extension storage', () => {
     });
 });
 
-describe('unsupported hosted settings donors', () => {
-    it('does not promote a hosted-app key or theme into shared storage', async () => {
+// v1.9.3 carried a website-only visitor's settings into a freshly installed
+// Reader (ADR-0017). Only an empty installed store adopts them; an existing
+// canonical store is never merged with the website's copy.
+describe('hosted settings donors', () => {
+    it('adopts a website-only key and theme into an empty installed store', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
         const donor = JSON.stringify({ jitenApiKey: 'hosted-key', theme: 'dark' });
         localStorage.setItem(SETTINGS_STORAGE_KEY, donor);
-        await loadSettings();
-        expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        await expect(loadSettings()).resolves.toMatchObject({ jitenApiKey: 'hosted-key', theme: 'dark' });
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({ jitenApiKey: 'hosted-key', theme: 'dark' });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBe(donor);
     });
 
@@ -1126,7 +1129,7 @@ describe('unsupported hosted settings donors', () => {
         expect(settings.jitenApiKey).toBe('real-key');
     });
 
-    it('ignores a raw hosted blob when shared settings are absent', async () => {
+    it('strips the website demo policy when adopting a whole blob into an empty installed store', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
@@ -1137,11 +1140,14 @@ describe('unsupported hosted settings donors', () => {
         }));
 
         const settings = await loadSettings();
-        expect(settings.jitenApiKey).toBe('');
+        expect(settings.jitenApiKey).toBe('stranded-key');
         expect(settings.subtitleControlsMode).toBe('auto');
         expect(settings.preferJapaneseSiteLanguage).toBe(false);
 
-        expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        const shared = store.get(SETTINGS_STORAGE_KEY) as Record<string, unknown>;
+        expect(shared.jitenApiKey).toBe('stranded-key');
+        expect(shared).not.toHaveProperty('subtitleControlsMode');
+        expect(shared).not.toHaveProperty('preferJapaneseSiteLanguage');
     });
 
     it('keeps earlier standalone choices separate from a late installed store', async () => {

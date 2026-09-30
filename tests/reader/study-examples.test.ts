@@ -69,42 +69,60 @@ describe('StudyExamples Interface', () => {
         expect(disconnect).toHaveBeenCalledTimes(2);
     });
 
-    it('expires a partial JPDB front even when it supplies a usable sentence', async () => {
+    it('keeps a usable partial JPDB front for the normal lifetime, then refreshes it', async () => {
         let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
         const lookup = vi.fn(async () => ({ info: { meanings: [], compounds: [], examples: [{ sentence: '私は中学生でした。', translation: '' }] }, status: 'partial' as 'partial' | 'complete' }));
         const f = fixture({ jpdbVocabulary: { lookup } });
         f.settings.apiKey = 'jpdb-key'; f.settings.jpdbDefinitionsEnabled = true;
         const card = { ...f.card, source: 'jpdb' as const };
         expect(await f.module.frontSentence(card)).toBe('私は中学生でした。');
-        await f.module.frontSentence(card); expect(lookup).toHaveBeenCalledOnce();
-        now += 1_001;
         lookup.mockResolvedValue({ info: { meanings: [], compounds: [], examples: [{ sentence: '私は中学生になります。', translation: '' }] }, status: 'complete' });
+        now += 2_000;
+        expect(await f.module.frontSentence(card)).toBe('私は中学生でした。');
+        now += 27_999;
+        expect(await f.module.frontSentence(card)).toBe('私は中学生でした。');
+        expect(lookup).toHaveBeenCalledOnce();
+        now += 2;
         expect(await f.module.frontSentence(card)).toBe('私は中学生になります。');
         expect(lookup).toHaveBeenCalledTimes(2);
     });
 
-    it('keeps a fallback front briefly cached when JPDB has incomplete empty examples', async () => {
+    it('keeps a usable fallback front for the normal lifetime when JPDB examples are incomplete', async () => {
         let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
         const lookup = vi.fn(async () => ({ info: { meanings: [], compounds: [], examples: [] }, status: 'partial' as const }));
         const f = fixture({ jpdbVocabulary: { lookup } });
         f.settings.apiKey = 'jpdb-key'; f.settings.jpdbDefinitionsEnabled = true;
         const card = { ...f.card, source: 'jpdb' as const };
         expect(await f.module.frontSentence(card)).toBe('私は中学生です。');
-        await f.module.frontSentence(card); expect(lookup).toHaveBeenCalledOnce();
-        now += 1_001; await f.module.frontSentence(card); expect(lookup).toHaveBeenCalledTimes(2);
+        now += 29_999; expect(await f.module.frontSentence(card)).toBe('私は中学生です。'); expect(lookup).toHaveBeenCalledOnce();
+        now += 2; await f.module.frontSentence(card); expect(lookup).toHaveBeenCalledTimes(2);
     });
 
-    it('preserves incomplete JPDB discovery status when a compound query supplies examples', async () => {
+    it('still retries an empty partial JPDB front a second later', async () => {
+        let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const lookup = vi.fn(async () => ({ info: { meanings: [], compounds: [], examples: [] }, status: 'partial' as const }));
+        const f = fixture({ jpdbVocabulary: { lookup } });
+        f.settings.apiKey = 'jpdb-key'; f.settings.jpdbDefinitionsEnabled = true; f.settings.immersionKitEnabled = false;
+        const card = { ...f.card, source: 'jpdb' as const };
+        expect(await f.module.frontSentence(card)).toBe('');
+        now += 999; await f.module.frontSentence(card); expect(lookup).toHaveBeenCalledOnce();
+        now += 2; await f.module.frontSentence(card); expect(lookup).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps compound-query examples stable for the session when JPDB discovery was partial', async () => {
         let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
         const lookup = vi.fn(async () => ({ info: { meanings: [], compounds: [{ term: '中学生', reading: 'ちゅうがくせい', meaning: '', url: '' }], examples: [] }, status: 'partial' as const }));
         const f = fixture({ jpdbVocabulary: { lookup } });
         f.settings.apiKey = 'jpdb-key'; f.settings.jpdbDefinitionsEnabled = true;
         f.search.mockImplementation(async query => query === '中学生' ? [example('私は中学生です。')] : []);
         const card = newTabTestCard({ spelling: '学生', reading: 'がくせい' });
-        expect(await f.module.examples(card)).toHaveLength(1);
-        await f.module.examples(card); expect(lookup).toHaveBeenCalledOnce();
-        now += 1_001; expect(await f.module.examples(card)).toHaveLength(1);
-        expect(lookup).toHaveBeenCalledTimes(2);
+        const first = await f.module.examples(card);
+        expect(first.map(value => value.sentence)).toEqual(['私は中学生です。']);
+        const searches = f.search.mock.calls.length;
+        now += 2_000; expect(await f.module.examples(card)).toBe(first);
+        now += 600_000; expect(await f.module.examples(card)).toBe(first);
+        expect(lookup).toHaveBeenCalledOnce();
+        expect(f.search).toHaveBeenCalledTimes(searches);
     });
 
     it('retries failed fallback discovery instead of caching it as complete emptiness', async () => {
@@ -172,19 +190,19 @@ describe('StudyExamples Interface', () => {
         expect(f.mount.childElementCount).toBe(0);
     });
 
-    it('retains partial TTL when accuracy filtering empties the first query and a fallback succeeds', async () => {
+    it('keeps usable fallback examples when accuracy filtering empties an earlier partial query', async () => {
         vi.useFakeTimers();
         const searchResult = vi.fn(async (query: string) => query === '多'
             ? { examples: [example('私は中学生です。')], status: 'partial' as const }
             : { examples: [example('たくさんあります。')], status: 'complete' as const });
         const f = fixture({ immersionKit: { searchResult, mediaUrls: () => [], fetchBlobUrl: async () => '' } });
         const card = newTabTestCard({ spelling: '多', reading: 'たくさん' });
-        expect(await f.module.examples(card)).toHaveLength(1);
+        const first = await f.module.examples(card);
+        expect(first.map(value => value.sentence)).toEqual(['たくさんあります。']);
         const calls = searchResult.mock.calls.length;
-        await f.module.examples(card); expect(searchResult).toHaveBeenCalledTimes(calls);
-        await vi.advanceTimersByTimeAsync(1_001);
-        expect(await f.module.examples(card)).toHaveLength(1);
-        expect(searchResult.mock.calls.length).toBeGreaterThan(calls);
+        await vi.advanceTimersByTimeAsync(2_000);
+        expect(await f.module.examples(card)).toBe(first);
+        expect(searchResult).toHaveBeenCalledTimes(calls);
     });
 
     it('keeps the acquisition cache bounded at 160 entries', async () => {

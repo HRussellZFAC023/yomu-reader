@@ -8,6 +8,7 @@ import { compilerStorageBackgroundFixture } from './helpers/compiler-storage-bac
 import {
     assertExtensionReleasePackageParity,
     assertShippedSettingsAuthorityRuntime,
+    EXTENSION_INSTALLED_RUNTIME_PRELUDE,
     hardenCompilerDurableStorage,
     hardenExtensionBackgroundSource,
     PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
@@ -40,7 +41,7 @@ function shippedRuntimeFixture(target: string): Record<string, Uint8Array> {
         "void 'yomu.openPackagedStudySettings';",
         "void 'yomu-packaged-study-settings-launcher:v1';",
     ].join('\n');
-    const durableRuntime = hardenCompilerDurableStorage(`(() => {
+    const durableRuntime = EXTENSION_INSTALLED_RUNTIME_PRELUDE + hardenCompilerDurableStorage(`(() => {
   const api = globalThis.browser || globalThis.chrome;
   const values = Object.create(null);
   const listeners = new Map();
@@ -185,6 +186,15 @@ describe('extension package parity', () => {
         );
         await expect(assertShippedSettingsAuthorityRuntime(swallowedFirefoxReadiness, 'firefox', '1.9.3'))
             .rejects.toThrow(/strict userscript readiness gate is missing/);
+
+        for (const target of ['chrome', 'firefox']) {
+            const lateAnnouncement = shippedRuntimeFixture(target);
+            const runtimeFile = target === 'firefox' ? 'gm-runtime.js' : 'content.js';
+            lateAnnouncement[runtimeFile] = strToU8(new TextDecoder().decode(lateAnnouncement[runtimeFile])
+                .replace(EXTENSION_INSTALLED_RUNTIME_PRELUDE, ''));
+            await expect(assertShippedSettingsAuthorityRuntime(lateAnnouncement, target, '1.9.3'))
+                .rejects.toThrow(/synchronous installed-runtime announcement is missing/);
+        }
 
         const staleAdapter = shippedRuntimeFixture('chrome');
         staleAdapter[PACKAGED_STUDY_STORAGE_RUNTIME_FILE] = strToU8('placeholder');

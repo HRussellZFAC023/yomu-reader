@@ -6,6 +6,11 @@ export function bridgeEventId(event: Event): string | undefined {
     return safeReadString(normalizedBridgeEventDetail(event), 'id');
 }
 
+/** The responder a page addressed; absent only in a request from a v1.9.3 page. */
+export function bridgeEventOwnerId(event: Event): string | undefined {
+    return safeReadString(normalizedBridgeEventDetail(event), 'ownerId');
+}
+
 export function bridgeRequestDetail(event: Event): BridgeRequestDetail | undefined {
     const detail = normalizedBridgeEventDetail(event);
     const id = bridgeEventId(event);

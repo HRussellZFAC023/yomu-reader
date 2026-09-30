@@ -529,7 +529,10 @@ export class CardRenderDataLoader {
             log.warn('JPDB page lookup failed', { term: card.spelling }, error);
             return null;
         }), null as JpdbVocabularyLookupResult | null).then(result => {
-            if (!result || result.status === 'partial') onIncomplete();
+            // Only a failed or timed-out lookup shortens the render cache. Usable
+            // partial data keeps the normal lifetime; the client refreshes it when
+            // its own five-minute lifetime ends (ADR-0013).
+            if (!result) onIncomplete();
             return result?.info ?? null;
         });
     }
@@ -580,10 +583,7 @@ export class CardRenderDataLoader {
             : Promise.resolve(card);
         const jpdb = liveFrequencyEnabled(settings, 'jpdb') && !seeded.jpdb && searchJpdb
             ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady])
-                .then(([result]) => {
-                    if (result.status === 'partial') onIncomplete();
-                    return exactJpdbFrequencyRank(card, result.cards);
-                })
+                .then(([result]) => exactJpdbFrequencyRank(card, result.cards))
                 .catch(error => {
                     onIncomplete();
                     log.warn('JPDB frequency lookup failed', { term: card.spelling }, error);

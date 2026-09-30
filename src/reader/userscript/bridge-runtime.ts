@@ -1,7 +1,8 @@
 import { isYomuPrivilegedHostedAppUrl } from '../app/pages';
-import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
+import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import {
     bridgeEventId,
+    bridgeEventOwnerId,
     bridgeEventDetail,
     bridgeRequestDetail,
     bridgeRequestOptions,
@@ -12,6 +13,12 @@ import {
 } from './bridge-detail';
 import { asUserscriptRequest, isPromiseLike, userscriptRequestCandidates } from './request-source';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
+import { detectInstalledReaderRuntime } from '../app/runtime-presence';
+import {
+    bridgeRequestAddressedTo, createBridgeOwnerId, expectedBridgeKind, mayClaimBridge, readyBridgeOwner,
+    type BridgeDatasetKeys, type BridgeOwner,
+} from './bridge-authority';
+import { installedStorageResponderReady } from './storage-bridge';
 
 type DatasetEventTarget = EventTarget & { dataset?: DOMStringMap };
 type UserscriptBridgeResolve = (response: UserscriptHttpResponse) => void;
@@ -22,9 +29,15 @@ const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-http-response';
 const BRIDGE_PROBE_EVENT = 'yomu-userscript-http-probe';
 const BRIDGE_PROBE_RESPONSE_EVENT = 'yomu-userscript-http-probe-response';
 const BRIDGE_MARKER = 'yomuUserscriptHttpBridge';
+const BRIDGE_KEYS: BridgeDatasetKeys = { ready: BRIDGE_MARKER, owner: 'yomuHttpBridgeOwner', kind: 'yomuHttpBridgeKind' };
 const BRIDGE_TIMEOUT_MS = 30000;
+// How long an announced Reader may take to install its responder before a
+// request falls back to fetch; the same bound the storage bridge waits.
+const BRIDGE_READY_TIMEOUT_MS = 10000;
 export const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
 let bridgeListenerCleanup: (() => void) | undefined;
+let bridgeOwnerId: string | undefined;
+let clientOwner: BridgeOwner | undefined;
 let eventBridgeProbeInFlight: Promise<boolean> | undefined;
 
 export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
@@ -46,6 +59,8 @@ export function installUserscriptHttpBridge(): void {
     if (!bridgeCandidate?.request) return;
     const markerDataset = bridgeMarkerDataset();
     if (!markerDataset) return;
+    const kind = detectInstalledReaderRuntime() === 'extension' ? 'extension' : 'userscript';
+    if (!mayClaimBridge(markerDataset, BRIDGE_KEYS, kind, bridgeOwnerId)) return;
     if (hasInstalledUserscriptHttpBridge(markerDataset)) {
         dispatchUserscriptBridgeReady();
         return;
@@ -54,10 +69,15 @@ export function installUserscriptHttpBridge(): void {
     bridgeListenerCleanup = undefined;
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     const handledRequestIds = new Set<string>();
+    const ownerId = createBridgeOwnerId('yomu-http');
+    bridgeOwnerId = ownerId;
+    markerDataset[BRIDGE_KEYS.owner] = ownerId;
+    markerDataset[BRIDGE_KEYS.kind] = kind;
     markerDataset[BRIDGE_MARKER] = 'true';
+    const addressedHere = (event: Event) => bridgeRequestAddressedTo(bridgeMarkerDataset(), BRIDGE_KEYS, ownerId, bridgeEventOwnerId(event));
     const requestCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = bridgeRequestDetail(event);
-        if (!detail) return;
+        if (!detail || !addressedHere(event)) return;
         if (handledRequestIds.has(detail.id)) return;
         rememberBridgeRequestId(handledRequestIds, detail.id);
         const send = (kind: 'load' | 'error' | 'timeout', response?: UserscriptHttpResponse, message?: string) => {
@@ -80,7 +100,7 @@ export function installUserscriptHttpBridge(): void {
     });
     const probeCleanup = addBridgeEventListener(BRIDGE_PROBE_EVENT, event => {
         const id = bridgeEventId(event);
-        if (id) dispatchBridgeEvent(BRIDGE_PROBE_RESPONSE_EVENT, { id });
+        if (id && addressedHere(event)) dispatchBridgeEvent(BRIDGE_PROBE_RESPONSE_EVENT, { id });
     });
     bridgeListenerCleanup = () => {
         requestCleanup();
@@ -101,7 +121,13 @@ export function uninstallUserscriptHttpBridge(): void {
     bridgeListenerCleanup?.();
     bridgeListenerCleanup = undefined;
     const markerDataset = bridgeMarkerDataset();
-    if (markerDataset) delete markerDataset[BRIDGE_MARKER];
+    if (markerDataset && markerDataset[BRIDGE_KEYS.owner] === bridgeOwnerId) {
+        delete markerDataset[BRIDGE_MARKER];
+        delete markerDataset[BRIDGE_KEYS.owner];
+        delete markerDataset[BRIDGE_KEYS.kind];
+    }
+    bridgeOwnerId = undefined;
+    clientOwner = undefined;
 }
 
 function shouldInstallUserscriptHttpBridge(): boolean {
@@ -152,17 +178,28 @@ export function probeUserscriptEventBridge(request: unknown): Promise<boolean> {
     if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
     if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
     if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-    const probe = new Promise<boolean>(resolve => {
+    // Probe in this call when the owner is known; wait only while an announced Reader starts.
+    const current = currentHttpBridgeOwner();
+    const probe = current !== undefined
+        ? (current ? probeHttpBridgeOwner(current) : Promise.resolve(false))
+        : httpBridgeOwner().then(owner => owner ? probeHttpBridgeOwner(owner) : false);
+    eventBridgeProbeInFlight = probe;
+    void probe.then(() => {
+        if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = undefined;
+    });
+    return probe;
+}
+
+function probeHttpBridgeOwner(owner: BridgeOwner): Promise<boolean> {
+    return new Promise<boolean>(resolve => {
         const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
         let settled = false;
         let responseCleanup = noop;
-        let bridgeReadyCleanup = noop;
         const finish = (alive: boolean) => {
             if (settled) return;
             settled = true;
             window.clearTimeout(timeout);
             responseCleanup();
-            bridgeReadyCleanup();
             if (!alive) {
                 const markerDataset = bridgeMarkerDataset();
                 if (markerDataset?.[BRIDGE_MARKER] === 'true') delete markerDataset[BRIDGE_MARKER];
@@ -173,19 +210,64 @@ export function probeUserscriptEventBridge(request: unknown): Promise<boolean> {
         responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, event => {
             if (bridgeEventId(event) === id) finish(true);
         });
-        bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-        dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+        dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id, ownerId: owner.ownerId });
     });
-    eventBridgeProbeInFlight = probe;
-    void probe.then(() => {
-        if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = undefined;
+}
+
+/** The pinned responder, or the one an announced Reader installs as it starts, within the bound. */
+function httpBridgeOwner(): Promise<BridgeOwner | null> {
+    const current = currentHttpBridgeOwner();
+    if (current !== undefined) return Promise.resolve(current);
+    return new Promise(resolve => {
+        const cleanups: Array<() => void> = [];
+        const settle = (owner: BridgeOwner | null) => {
+            for (const cleanup of cleanups.splice(0)) cleanup();
+            resolve(owner);
+        };
+        const recheck = () => {
+            const owner = currentHttpBridgeOwner();
+            if (owner !== undefined) settle(owner);
+        };
+        const timeout = window.setTimeout(() => settle(null), BRIDGE_READY_TIMEOUT_MS);
+        cleanups.push(() => window.clearTimeout(timeout));
+        cleanups.push(addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, recheck));
+        // A Reader with a chosen target installs its HTTP responder in the same
+        // task as its storage responder, so look once that task has finished.
+        cleanups.push(addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+            const later = window.setTimeout(recheck, 0);
+            cleanups.push(() => window.clearTimeout(later));
+        }));
     });
-    return probe;
+}
+
+/**
+ * The responder this page's requests go to. undefined while an announced
+ * Reader is still starting, which is until its storage responder is ready.
+ * null when there is none: no Reader is announced, the pinned responder is
+ * gone, or the Reader has started without one because it has no Learning
+ * Target yet. Requests then use fetch, as in v1.9.3, until a responder
+ * announces itself ready.
+ */
+function currentHttpBridgeOwner(): BridgeOwner | null | undefined {
+    const dataset = bridgeMarkerDataset();
+    if (clientOwner) {
+        return dataset?.[BRIDGE_MARKER] === 'true' && dataset[BRIDGE_KEYS.owner] === clientOwner.ownerId ? clientOwner : null;
+    }
+    const expected = expectedHttpBridgeKind();
+    const owner = readyBridgeOwner(dataset, BRIDGE_KEYS, expected);
+    // A v1.9.3 responder publishes no owner, so there is nothing to pin.
+    if (owner?.ownerId) clientOwner = owner;
+    if (owner) return owner;
+    return expected && !installedStorageResponderReady() ? undefined : null;
+}
+
+function expectedHttpBridgeKind() {
+    return expectedBridgeKind(shouldInstallUserscriptHttpBridge);
 }
 
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
     if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== 'true') return undefined;
+    if (currentHttpBridgeOwner() === null) return undefined;
     return tagEventBridgeRequest((options: UserscriptHttpRequestOptions) => new Promise<UserscriptHttpResponse>((resolve, reject) => {
         const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
         const timeout = window.setTimeout(() => {
@@ -201,9 +283,18 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
         const onResponse = (event: CustomEvent) => {
             handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
         };
-        cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
-        const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-        dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+        void httpBridgeOwner().then(owner => {
+            if (!owner) {
+                cleanup();
+                const error = new Error('Installed Yomu request bridge is unavailable; reload to reconnect.');
+                options.onerror?.(error);
+                reject(error);
+                return;
+            }
+            cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
+            const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+            dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+        });
     }));
 }
 

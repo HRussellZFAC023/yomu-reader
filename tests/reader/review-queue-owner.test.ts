@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { ReviewQueueOwner, reviewDeliveryScope, type ReviewQueueState } from '../../src/reader/newtab/review-queue-owner';
+import { REVIEW_RECEIPT_LIMIT, ReviewQueueOwner, reviewDeliveryScope, type ReviewQueueState } from '../../src/reader/newtab/review-queue-owner';
 import type { QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
 import type { JPDBCard } from '../../src/reader/app/types';
 
@@ -138,4 +138,82 @@ it('returns atomic receipt/revision snapshots and does not increment on duplicat
     expect(snapshot.revisions[scope]).toBe(1);
     expect(Object.hasOwn(snapshot.revisions, 'toString')).toBe(true);
     expect(snapshot.revisions.toString).toBe(0);
+});
+
+it('bounds completion receipts across thousands of reviews while still deduplicating recent replays', async () => {
+    let data: ReviewQueueState = { reviews: [], completed: {} };
+    // Plain storage: a vi.fn would retain every multi-kilobyte state it was called with.
+    const owner = new ReviewQueueOwner({
+        read: async () => structuredClone(data),
+        write: async next => { data = structuredClone(next); },
+    }, 200);
+    const stored = () => data;
+    for (let index = 0; index < 2_000; index++) {
+        const id = `review-${index}`;
+        await owner.record(review(id));
+        await owner.claim(id, 'account-a');
+        await owner.acknowledge(id, 'account-a');
+    }
+    expect(Object.keys(stored().completed)).toHaveLength(REVIEW_RECEIPT_LIMIT);
+    expect(REVIEW_RECEIPT_LIMIT).toBeLessThanOrEqual(500);
+    await owner.record(review('review-1999'));
+    await owner.record(review(`review-${2_000 - REVIEW_RECEIPT_LIMIT}`));
+    expect(await owner.list()).toEqual([]);
+    expect((await owner.snapshot(['review-1999'], [])).statuses['review-1999']).toBe('completed');
+});
+
+it('releases a certainly-undelivered claim back to pending and discards a held one with a receipt', async () => {
+    const { owner } = fixture();
+    await owner.record([review(), review('review-2')]);
+    await owner.claim('review-1', 'account-a');
+    await owner.release('review-1', 'account-b');
+    expect(await owner.list()).toMatchObject([{ id: 'review-1', attempts: 1 }, { id: 'review-2', attempts: 0 }]);
+    await owner.release('review-1', 'account-a');
+    await owner.release('review-1', 'account-a');
+    expect(await owner.claim('review-1', 'account-a')).toMatchObject({ attempts: 1 });
+    await owner.discard('review-1', 'account-a');
+    await owner.record(review());
+    expect(await owner.list()).toMatchObject([{ id: 'review-2' }]);
+    await expect(owner.discard('review-2', 'account-a')).rejects.toThrow('does not match');
+});
+
+it('adopts an earlier release\'s backlog only while there is room, idempotently by id', async () => {
+    const { storage } = fixture();
+    const owner = new ReviewQueueOwner(storage, 2);
+    await owner.record(review('new-1'));
+    const backlog = [review('legacy-1'), review('legacy-2'), review('legacy-3')];
+    await owner.record(backlog, true);
+    await owner.record(backlog, true);
+    // The overflow is not recorded (it waits in its old queue), and the owner never exceeds capacity.
+    expect((await owner.list()).map(item => item.id)).toEqual(['new-1', 'legacy-1']);
+    await expect(owner.record(review('new-2'))).rejects.toThrow('queue is full');
+    await expect(owner.record({ ...review('legacy-1'), grade: 'easy' }, true)).rejects.toThrow('identity was reused');
+    await owner.claim('legacy-1', 'account-a');
+    await owner.acknowledge('legacy-1', 'account-a');
+    await owner.record(backlog, true);
+    expect((await owner.list()).map(item => item.id)).toEqual(['new-1', 'legacy-2']);
+    expect((await owner.snapshot(['legacy-1', 'legacy-3'], [])).statuses).toEqual({ 'legacy-1': 'completed', 'legacy-3': 'unknown' });
+});
+
+it('stamps each claim and releases only the claim a release names', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+        vi.setSystemTime(1_000);
+        const { owner } = fixture();
+        await owner.record(review());
+        expect(await owner.claim('review-1', 'account-a')).toMatchObject({ attempts: 1, heldSince: 1_000 });
+        await owner.release('review-1', 'account-a', 1_000);
+        const [released] = await owner.list();
+        expect(released).toMatchObject({ attempts: 0 });
+        expect(released).not.toHaveProperty('heldSince');
+        vi.setSystemTime(2_000);
+        await owner.claim('review-1', 'account-a');
+        // A late retry of the first claim's release must not free the newer claim another tab is sending.
+        await owner.release('review-1', 'account-a', 1_000);
+        expect(await owner.list()).toMatchObject([{ attempts: 1, heldSince: 2_000 }]);
+        await owner.release('review-1', 'account-a');
+        expect(await owner.list()).toMatchObject([{ attempts: 0 }]);
+    } finally {
+        vi.useRealTimers();
+    }
 });

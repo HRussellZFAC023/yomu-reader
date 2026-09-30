@@ -1,12 +1,9 @@
 import type { GmGetValue } from './managed-read-path';
-import { getUserscriptGmStorage } from '../userscript/storage-bridge';
+import { getUserscriptGmStorage, userscriptGmStorageOwnerKind } from '../userscript/storage-bridge';
 import { detectInstalledReaderRuntime } from './runtime-presence';
 
 export function managedStorageOwner(): 'standalone' | 'userscript' | 'extension' {
-    const installed = detectInstalledReaderRuntime();
-    if (installed) return installed;
-    if (!getUserscriptGmStorage()) return 'standalone';
-    return document.documentElement?.dataset.yomuStorageBridgeKind === 'extension' ? 'extension' : 'userscript';
+    return detectInstalledReaderRuntime() ?? userscriptGmStorageOwnerKind() ?? 'standalone';
 }
 
 export type GmSetValue = (key: string, value: unknown) => void | Promise<void>;

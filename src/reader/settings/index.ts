@@ -13,12 +13,12 @@ import {
     NO_EXPLICIT_USER_CHOICE,
     recordSettingsIntent,
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
-    type SettingsIntentLedger,
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
-import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsPersistenceViewStrict, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
+import { normalizeLearningTargetChosen } from './learning-target-choice';
+import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsIntentLedgerForWrite, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
 import { gmStorageDelete, gmStorageGetSharedStrict, gmStorageGetStrict, isHostedYomuOrigin, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguageWithSettings, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
@@ -36,6 +36,7 @@ import {
     DEFAULT_LANGUAGE_PROFILE_ID,
 } from '../languages/profiles';
 import { learningTargetRosterIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages/roster';
+import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
@@ -519,10 +520,19 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
             activeTargetRosterId(languageProfileSettings),
         ),
         ...languageProfileSettings,
-        learningTargetChosen: booleanSetting(value, 'learningTargetChosen'),
+        // v1.9.3 contract: a record that predates the field keeps the choice
+        // its own Reader state implies (learning-target-choice.ts).
+        learningTargetChosen: normalizeLearningTargetChosen(value),
+        ...unpinnedOcrLanguage(settingsValue),
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
+}
+
+// The hidden OCR field was once pinned to the target's default tag on every
+// save; v1.9.3 still read such a tag as "follow the study target".
+function unpinnedOcrLanguage(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return isTargetDefaultOcrLanguageTag(value?.ocrLanguage) ? { ocrLanguage: '' } : {};
 }
 
 function normalizePreferredJapaneseSiteLanguage(value: Partial<ReaderSettings> | null): boolean {
@@ -1401,10 +1411,6 @@ export function coupledSettingsIntentKeys(
     return coupledIntentKeys(keys, key => hasOwn(DEFAULT_SETTINGS, key));
 }
 
-async function readSettingsIntentLedger(): Promise<SettingsIntentLedger> {
-    return (await readSettingsPersistenceViewStrict()).intentLedger;
-}
-
 async function persistSettings(
     settings: ReaderSettings,
     explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
@@ -1416,7 +1422,7 @@ async function persistSettings(
         // Only the CALLER can say what the learner touched. A save may carry a stale
         // whole-object snapshot, so differences against the stored record are not
         // intent -- inferring them here clobbers another context's explicit choice.
-        const ledger = await readSettingsIntentLedger();
+        const ledger = await readSettingsIntentLedgerForWrite();
         const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
         const nextLedger = recordSettingsIntent(
             withdrawn,

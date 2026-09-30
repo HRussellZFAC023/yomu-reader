@@ -1,14 +1,18 @@
+import { DEVELOPMENT_BUILD } from '../app/trusted-hosted-url';
+
 type SharedStateRealm = typeof globalThis & { [key: symbol]: unknown };
 
-const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for('yomu.reader.synthetic-interaction-tests');
+// A test seam only: production bundles neither ship nor honour it.
+const SYNTHETIC_INTERACTION_TEST_SLOT = DEVELOPMENT_BUILD ? Symbol.for('yomu.reader.synthetic-interaction-tests') : undefined;
 
 /** Unit tests exercise DOM handlers with synthetic jsdom events. */
 export function allowSyntheticReaderInteractionsForTests(allowed: boolean): void {
-    (globalThis as SharedStateRealm)[SYNTHETIC_INTERACTION_TEST_SLOT] = allowed;
+    if (SYNTHETIC_INTERACTION_TEST_SLOT) (globalThis as SharedStateRealm)[SYNTHETIC_INTERACTION_TEST_SLOT] = allowed;
 }
 
 export function syntheticEventsAllowed(): boolean {
-    return (globalThis as SharedStateRealm)[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+    return SYNTHETIC_INTERACTION_TEST_SLOT !== undefined
+        && (globalThis as SharedStateRealm)[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
 }
 
 /**

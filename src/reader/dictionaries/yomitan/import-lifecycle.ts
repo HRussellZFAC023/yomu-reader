@@ -1,4 +1,4 @@
-import { assertYomitanDatabaseOwner, runYomitanManagedStateWrite } from './managed-state';
+import { runYomitanManagedStateWrite } from './managed-state';
 import type { ManagedStateIdbWriteOptions } from '../../app/managed-indexeddb';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexie-stream';
 import { DexieSyntaxPreflight, failInvalidDexieJson } from './dexie-syntax';
@@ -13,9 +13,8 @@ export function runDictionaryImportWrite(
     options?: ManagedStateIdbWriteOptions, importing?: DictionaryImportMutation,
 ): Promise<void> {
     return runYomitanManagedStateWrite(db, stores, tx => {
-        const apply = () => { assertYomitanDatabaseOwner(db); mutate(tx); };
-        if (importing) importing(tx, apply);
-        else apply();
+        if (importing) importing(tx, () => mutate(tx));
+        else mutate(tx);
     }, options);
 }
 

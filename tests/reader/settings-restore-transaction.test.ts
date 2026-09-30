@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     beginStoredValuesImport,
     ensureManagedWebStorageCurrent,
-    managedLocalStorage,
 } from '../../src/reader/app/storage';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings';
 import { subscribeToSettingsChanges } from '../../src/reader/settings/settings-change-bus';
@@ -16,6 +15,7 @@ import {
     installGmStorageFixture,
     type GmStorageFixture,
 } from './helpers/settings-persistence-fixture';
+import { v193BackupFile } from './helpers/upgrade-v193-corpus';
 
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const INTENT_KEY = 'yomu:settings-intent:v2';
@@ -329,11 +329,20 @@ describe('settings restore durability transaction', () => {
         expect(setValue).not.toHaveBeenCalled();
     });
 
+    it('restores a v3 backup whose unmarked settings predate the intent ledger', async () => {
+        const { values } = stubManagedStorage({ [GENERIC_KEY]: { width: 240 } });
+        const publishSettings = vi.fn().mockResolvedValue(undefined);
+
+        await expect(runSettingsRestoreTransaction({
+            storage: { [SETTINGS_KEY]: { theme: 'dark' }, [GENERIC_KEY]: { width: 420 } },
+            publishSettings,
+        })).resolves.toEqual({ restoredValues: 1 });
+
+        expect(publishSettings).toHaveBeenCalledWith({ settings: { theme: 'dark' }, intentLedger: { revision: 0, records: {} } });
+        expect(values.get(GENERIC_KEY)).toEqual({ width: 420 });
+    });
+
     it.each([
-        {
-            name: 'a canonical settings value with no ledger',
-            storage: { [SETTINGS_KEY]: { theme: 'dark' } },
-        },
         {
             name: 'null canonical settings and intent values',
             storage: { [SETTINGS_KEY]: null, [INTENT_KEY]: null },
@@ -372,7 +381,7 @@ describe('settings restore durability transaction', () => {
                 [GENERIC_KEY]: { width: 420 },
             },
             publishSettings,
-        })).rejects.toThrow('malformed settings intent ledger');
+        })).rejects.toThrow('incomplete settings persistence transaction');
 
         expect(setValue).not.toHaveBeenCalled();
         expect(publishSettings).not.toHaveBeenCalled();
@@ -384,8 +393,7 @@ describe('settings restore durability transaction', () => {
         { revision: 0.5, records: {} },
         { revision: Number.MAX_SAFE_INTEGER + 1, records: {} },
         { revision: 1, records: { theme: { value: 'dark' } } },
-        { revision: 1, records: { theme: { seq: 0, value: 'dark' } } },
-        { revision: 1, records: { theme: { seq: 2, value: 'dark' } } },
+        { revision: 1, records: { theme: { seq: -1, value: 'dark' } } },
     ])('rejects malformed sequenced intent before any restore writes: %j', async ledger => {
         const { setValue } = stubManagedStorage({ [GENERIC_KEY]: { width: 240 } });
         const publishSettings = vi.fn();
@@ -399,6 +407,25 @@ describe('settings restore durability transaction', () => {
         })).rejects.toMatchObject({ yomuUiCopyKey: 'settingsImportIncomplete' });
         expect(setValue).not.toHaveBeenCalled();
         expect(publishSettings).not.toHaveBeenCalled();
+    });
+
+    it('restores the seq-0 ledger records a v1.9.3 backup carries without writing its retired key', async () => {
+        const { setValue } = stubManagedStorage();
+        const backup = v193BackupFile() as { storage: Record<string, unknown> };
+        const publishSettings = vi.fn().mockResolvedValue(undefined);
+
+        await runSettingsRestoreTransaction({ storage: backup.storage, publishSettings });
+
+        expect(backup.storage).toHaveProperty('yomu:explicit-user-settings:v1');
+        expect(setValue.mock.calls.map(([key]) => key)).not.toContain('yomu:explicit-user-settings:v1');
+        expect(setValue.mock.calls.map(([key]) => key)).toContain('yomu-dictionary-archives');
+
+        expect(publishSettings).toHaveBeenCalledWith(expect.objectContaining({
+            intentLedger: expect.objectContaining({
+                revision: 2,
+                records: expect.objectContaining({ theme: { seq: 0, value: 'dark' }, interfaceLanguage: { seq: 2, value: 'ja' } }),
+            }),
+        }));
     });
 
     it('does not clobber a concurrent post-stage value during rollback', async () => {
@@ -416,7 +443,9 @@ describe('settings restore durability transaction', () => {
         const key = 'jpdb-reader-newtab-daily-study-time';
         const values = await installHostedManagedFallback(key);
         const transaction = await beginStoredValuesImport({ [key]: { minutes: 7 } });
-        managedLocalStorage.setItem(key, JSON.stringify({ minutes: 9 }));
+        // A website-only tab on the same origin writes the raw page-local value;
+        // this realm's managed facade is owner-prefixed and never touches it.
+        localStorage.setItem(key, JSON.stringify({ minutes: 9 }));
         const concurrentRaw = localStorage.getItem(key);
         const concurrentProvenance = localStorage.getItem(LOCAL_PROVENANCE_KEY);
 

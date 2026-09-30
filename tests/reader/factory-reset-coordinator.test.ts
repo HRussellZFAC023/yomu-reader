@@ -56,8 +56,9 @@ describe('FactoryResetCoordinator', () => {
             generation: 1,
             resetId: expect.any(String),
         });
-        expect(deleteCache).not.toHaveBeenCalled();
-        expect(caches.has('yomu-newtab-old')).toBe(true);
+        // As in v1.9.3, reset removes Yomu's page caches on this origin and nothing else.
+        expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-old');
+        expect(caches.has('yomu-newtab-old')).toBe(false);
         expect(caches.has('foreign-cache')).toBe(true);
         expect(resetDictionaryDatabase).toHaveBeenCalledTimes(2);
         expect(resetDictionaryDatabase).toHaveBeenNthCalledWith(1);

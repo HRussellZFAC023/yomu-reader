@@ -35,7 +35,7 @@ import { eventTargetElement } from '../dom/target';
 import type { ImmersionKitClient, ImmersionKitExample } from '../immersion/kit';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import type { AnkiExistingNote, AnkiLookupResult } from '../anki';
-import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
+import { ankiCardReviewedSince, collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { OperationTracker } from '../core/operation-token';
 import { BoundedMap } from '../core/bounded-map';
@@ -217,7 +217,8 @@ import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
 import { NewTabReviewSubmitter } from './review-submitter';
 import { isSessionBunproCard, newTabUndoableReview, requiresFreshProviderReview } from './review-flow-policy';
-import { ReviewDraftResetError } from './extension-review-queue-client';
+import { ReviewDraftResetError, ReviewQueueRejectedError } from './extension-review-queue-client';
+import { syncHeldReviewNotice } from './held-review-notice';
 import { renderNewTabShell } from './shell-view';
 import {
     jpdbDeckMembershipName,
@@ -308,7 +309,7 @@ import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { managedSessionStorage, subscribeToStoredValueChanges } from '../app/storage';
-import { REVIEW_QUEUE_OWNER_KEY } from './review-queue-owner';
+import { REVIEW_QUEUE_FULL_ERROR, REVIEW_QUEUE_OWNER_KEY } from './review-queue-owner';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
@@ -973,6 +974,8 @@ export class NewTabController {
             submit: item => this.submitQueuedGrade(item),
             onSubmitted: card => this.queuedReviewSubmitted(card),
             onProviderCompleted: target => this.reviewProviderCompleted(target),
+            canDeliver: target => this.canDeliverQueuedReview(target),
+            confirmDelivered: item => this.confirmQueuedReviewDelivered(item),
         });
         this.studyExamples = new StudyExamples({
             getSettings: () => this.dependencies.getSettings(),
@@ -2006,6 +2009,11 @@ export class NewTabController {
         if (action === 'recover-review-recording') {
             event.preventDefault();
             void this.recoverReviewRecording(root);
+            return true;
+        }
+        if (action === 'check-held-reviews' || action === 'discard-held-reviews') {
+            event.preventDefault();
+            void this.resolveHeldReviews(root, action === 'discard-held-reviews');
             return true;
         }
         if (action === 'practice-sessions') {
@@ -8432,6 +8440,10 @@ export class NewTabController {
         providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
         this.setStatus(target.root, this.text('grading'));
+        // Known limit (as in 1.9.3): an online grade goes straight to the
+        // provider; only queued grades pass through the review owner. The
+        // card-state broadcast recolours other tabs but does not retire this
+        // card there, so two tabs showing the same card can each grade it once.
         const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
         if (reviewOp.superseded || !this.gradeProvidersAreCurrent(providerContexts, target.card, selectedTarget)) return false;
         // A landed submit proves the connection is back even if no
@@ -8550,7 +8562,16 @@ export class NewTabController {
         isCorrection: boolean,
         providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
-        if (!await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts)) {
+        let queued: boolean;
+        try {
+            queued = await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts);
+        } catch (error) {
+            if (!(error instanceof ReviewQueueRejectedError)) throw error;
+            log.warn('Review owner refused the answer', error);
+            this.setStatus(target.root, this.reviewRejectionText(error));
+            return false;
+        }
+        if (!queued) {
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
             return false;
         }
@@ -8558,7 +8579,7 @@ export class NewTabController {
         this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
         this.setStatus(target.root, this.text('offlineGradeReconnect'));
         if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-        this.advanceAfterGrade(target.root, target.card, grade);
+        this.advanceAfterGrade(target.root, target.card, grade, false);
         return true;
     }
 
@@ -8863,6 +8884,10 @@ export class NewTabController {
         if (providerContext !== this.providerContexts.anki) return null;
         try {
             return await this.refreshAnkiReviewCardState(card, cardId, providerContext);
+        } catch (error) {
+            // The answer landed; a failed read-back must not make it look failed (and resent).
+            log.warn('Anki card state refresh after a review failed', error);
+            return null;
         } finally {
             this.publishAnkiGradeIfCurrent(card, providerContext);
         }
@@ -8986,7 +9011,8 @@ export class NewTabController {
         try {
             this.syncPendingCount = await this.gradeQueue.flush();
             if (this.destroyed) return;
-            this.syncProblem = await this.gradeQueue.hasUncertainReviews() ? 'syncReviewCheck' : undefined;
+            this.heldReviewCount = (await this.gradeQueue.heldReviews()).length;
+            this.syncProblem = this.heldReviewCount ? 'syncReviewCheck' : undefined;
             if (this.destroyed) return;
             if (this.syncPendingCount === 0) this.lastSyncedAt = Date.now();
             const root = this.currentRoot();
@@ -9001,6 +9027,7 @@ export class NewTabController {
             this.syncProblem = 'syncUnavailable';
         }
         this.refreshSessionProgressSoon();
+        this.syncHeldReviewNotice();
         const current = this.currentGradeTarget();
         if (current && this.gradeQueue.usesSharedOwner()) {
             current.root.classList.toggle('jpdb-reader-newtab-review-mode', this.canReviewCard(current.card));
@@ -9055,7 +9082,8 @@ export class NewTabController {
             if (this.destroyed) return;
             if (error instanceof ReviewDraftResetError) this.queuedReviewNeedsRefresh = true;
             log.warn('Review recording recovery failed', error);
-            this.setStatus(root, this.text(error instanceof ReviewDraftResetError ? 'reviewResetReload' : 'syncUnavailable'));
+            this.setStatus(root, error instanceof ReviewQueueRejectedError ? this.reviewRejectionText(error)
+                : this.text(error instanceof ReviewDraftResetError ? 'reviewResetReload' : 'syncUnavailable'));
         } finally {
             this.gradeSubmissionInFlight = false;
             if (this.destroyed) return;
@@ -9069,13 +9097,65 @@ export class NewTabController {
         return el('button', { type: 'button', dataset: { newtabAction: newTabAction('recover-review-recording') } }, this.text('recoverReviewRecording'));
     }
 
+    private reviewRejectionText(error: ReviewQueueRejectedError): string {
+        return this.text(error.message === REVIEW_QUEUE_FULL_ERROR ? 'reviewQueueFull' : 'reviewQueueRejected');
+    }
+
+    private heldReviewCount = 0;
+
+    private syncHeldReviewNotice(): void {
+        const root = this.currentRoot();
+        if (!root) return;
+        syncHeldReviewNotice(root, this.heldReviewCount, {
+            message: this.formatNewTabText('heldReviewsNotice', { count: String(this.heldReviewCount) }),
+            check: this.text('heldReviewsCheck'),
+            discard: this.text('heldReviewsDiscard'),
+        });
+    }
+
+    // "Check again" reads the provider's own review history; "Discard" drops
+    // answers the learner has decided not to resend.
+    private async resolveHeldReviews(root: HTMLElement, discard: boolean): Promise<void> {
+        root.querySelectorAll<HTMLButtonElement>('[data-newtab-held-reviews] button').forEach(button => { button.disabled = true; });
+        try {
+            if (discard) await this.gradeQueue.discardHeld();
+            else await this.gradeQueue.recheckHeld();
+            await this.flushQueuedGrades();
+            if (this.destroyed) return;
+            this.setStatus(root, this.text(discard ? 'heldReviewsDiscarded' : this.heldReviewCount ? 'heldReviewsStillUnknown' : 'syncSynced'));
+        } catch (error) {
+            if (this.destroyed) return;
+            log.warn('Held review resolution failed', error);
+            this.setStatus(root, this.text('syncUnavailable'));
+            this.syncHeldReviewNotice();
+        }
+    }
+
+    // AnkiConnect is local: probe it before a queued answer is claimed, so a
+    // closed Anki leaves the answer pending instead of holding it.
+    private async canDeliverQueuedReview(target: QueuedNewTabGradeTarget): Promise<boolean> {
+        if (target === 'anki') await this.dependencies.anki.invoke<number>('version');
+        return true;
+    }
+
+    // Only Anki exposes the review log needed to tell whether a held answer
+    // landed; other providers resend, as 1.9.3 retried them.
+    private async confirmQueuedReviewDelivered(item: QueuedNewTabGrade): Promise<boolean | undefined> {
+        if (item.target !== 'anki') return false;
+        const cardId = this.ankiCardIdForReview(item.card);
+        return cardId ? ankiCardReviewedSince((action, params) => this.dependencies.anki.invoke(action, params), cardId, item.at) : undefined;
+    }
+
     // Thin delegation to the same table-driven adapter dispatch the live grade
     // path uses; the Bunpro migration guard is handled inside the submitter.
     private submitQueuedGrade(item: QueuedNewTabGrade): Promise<boolean> {
         return this.reviewSubmitter.submitQueued(item);
     }
 
-    private advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: JPDBGrade): void | Promise<void> {
+    // `delivered` is false for an answer only queued for later: the native
+    // scheduler has not seen it, so there is nothing fresh to reload (and an
+    // offline session must keep going through its cached cards).
+    private advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: JPDBGrade, delivered = true): void | Promise<void> {
         const key = cardKey(card);
         const previousIndex = this.index;
         const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
@@ -9092,7 +9172,7 @@ export class NewTabController {
         this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
         this.state.revealAnswer = false;
         this.persistState();
-        if (requiresFreshProviderReview(card)) {
+        if (delivered && requiresFreshProviderReview(card)) {
             // The native scheduler, not a local failed-card loop, decides
             // whether this card is due again after the submitted answer.
             this.markQueueRefreshed();

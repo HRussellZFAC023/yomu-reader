@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
-import { RETIRED_SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/settings-authority-storage-keys';
 
 async function importCloudSyncModule() {
     vi.resetModules();
@@ -29,7 +28,6 @@ describe('Google Drive settings sync client', () => {
         ['array storage', { storage: [] }],
         ['null storage', { storage: null }],
         ['invalid time', { syncedAt: 'secret-do-not-echo' }],
-        ...RETIRED_SETTINGS_STORAGE_KEYS.map<[string, Record<string, unknown>]>(key => [key, { storage: { [key]: null } }]),
     ])('rejects %s on actual extension download before restore effects', async (_label, overrides) => {
         vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
         vi.stubGlobal('__YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__', true);

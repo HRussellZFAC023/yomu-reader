@@ -242,8 +242,6 @@ describe('Season One fiction spine', () => {
         expect(felix?.visualBrief).toBe(
             'White; glasses; longer curly dark-blond to light-brown hair; likes cats.',
         );
-        expect(felix?.visualEvidence).toBe('approved');
-        expect(felix?.eligibility).toEqual({ story: true, lessons: true, likenessRuntime: true });
         expect(unlockEpisode?.eventArt.brief.toLowerCase())
             .toContain('white classmate with glasses and longer curly dark-blond to light-brown hair');
         expect(unlockEpisode?.eventArt.safety.toLowerCase()).toContain('no approved visual evidence');
@@ -253,6 +251,11 @@ describe('Season One fiction spine', () => {
         expect(thread?.episodeIds.length).toBeGreaterThanOrEqual(4);
         expect(thread?.episodeIds.every(id => felixEpisodes.some(episode => episode.id === id))).toBe(true);
         expect(story.endlessCalendar.castRotation.felixRule.toLowerCase()).toContain('cat comedy');
+    });
+
+    it('keeps Felix\'s likeness pending until clearance is recorded', () => {
+        const felix = ACADEMY_CAST.find(member => member.id === 'felix');
+        expect(felix?.visualEvidence).toBe('candidate-needs-owner');
     });
 
     it('uses original-only interests and excludes private or affirmative real-event claims', () => {

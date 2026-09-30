@@ -249,10 +249,10 @@ export class LocalYomuSrsRepository {
                 partOfSpeech: request.card.partOfSpeech,
                 language: request.card.language,
             });
-            const { reviewEnabled, ...existing } = deck.cards[request.card.providerCardId]
+            // A grade is the learner's explicit act, so it also starts review of a saved-only word.
+            const { reviewEnabled: _saved, ...existing } = deck.cards[request.card.providerCardId]
                 ?? deck.cards[identity.key]
                 ?? this.cardFromReviewable(request.card, now);
-            if (reviewEnabled === false && request.enrolSaved !== true) throw new Error('Saved word is not enrolled in review.');
             const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
             if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
                 delete deck.cards[request.card.providerCardId];
@@ -484,7 +484,8 @@ function meaningsFromGlosses(glosses: string[]): JPDBMeaning[] {
 }
 
 function localCardState(card: StoredYomuSrsCard, now: number): CardState[] {
-    if (card.reviewEnabled === false) return [];
+    // Saved to the collection but not yet scheduled: shown as in the deck, never as not-in-deck.
+    if (card.reviewEnabled === false) return ['in-deck'];
     if (card.reviews === 0) return ['new'];
     if (card.dueAt <= now) return ['due'];
     if (card.intervalDays >= 21) return ['known'];
