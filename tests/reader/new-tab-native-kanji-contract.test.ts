@@ -79,10 +79,11 @@ describe('native kanji review contract', () => {
         expect(f.study.dataset.newtabActivity).toBe('review');
         expect(f.prompt.textContent).toContain('記');
         f.click('[data-newtab-action="grade"][data-grade="okay"]');
+        // The grade asks the bridge for the next card, and so does the reload of the emptied queue.
         await vi.waitFor(() => {
             expect(f.grade).toHaveBeenCalledOnce();
             expect(f.grade).toHaveBeenCalledWith('okay');
-            expect(f.requestCurrent).toHaveBeenCalledOnce();
+            expect(f.requestCurrent).toHaveBeenCalledTimes(2);
         });
     });
 

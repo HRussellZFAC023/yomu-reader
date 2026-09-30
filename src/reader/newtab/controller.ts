@@ -8339,8 +8339,8 @@ export class NewTabController {
     private async gradeCurrentCardUnlocked(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<boolean> {
         const reviewOp = this.operations.begin('review');
         const providerContexts = this.providerContexts;
-        const target = this.currentReviewableGradeTarget();
-        if (!target) return false;
+        const target = this.currentGradeTarget();
+        if (!target || !this.canReviewCard(target.card)) return false;
         const isCorrection = this.isReviewHistoryCard(target.card);
         // Offline-first: when the browser is definitely offline, queue the grade
         // straight away instead of attempting a doomed submit. The queue syncs on
@@ -8349,12 +8349,6 @@ export class NewTabController {
             return this.gradeOfflineCard(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts);
         }
         return this.submitOnlineCurrentGrade(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts);
-    }
-
-    private currentReviewableGradeTarget(): NewTabGradeTarget | null {
-        const target = this.currentGradeTarget();
-        if (!target || !this.canReviewCard(target.card)) return null;
-        return target;
     }
 
     private shouldQueueCurrentGradeOffline(): boolean {
@@ -8384,11 +8378,22 @@ export class NewTabController {
         reviewOp: ReturnType<OperationTracker['begin']>,
         providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
+        const claim = await this.gradeQueue.claimLiveReview(target.card, this.gradeReviewTargets(target.card, selectedTarget),
+            reviewTarget => newTabReviewProviderContext(providerContexts, reviewTarget));
+        if (!claim) {
+            if (reviewOp.superseded) return false;
+            // Another Study tab is sending, or already sent, this review: this copy is stale.
+            this.dependencies.toast?.(this.text('reviewedInAnotherTab'));
+            await this.retireCardAndReload(target.root, target.card, 'reviewedInAnotherTab');
+            return true;
+        }
         try {
             return await this.submitCurrentGrade(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts);
         } catch (error) {
             if (reviewOp.superseded) return false;
             return this.handleFailedGrade(target, grade, selectedTarget, isCorrection, error, reviewOp, providerContexts);
+        } finally {
+            await this.gradeQueue.finishLiveReview(claim);
         }
     }
 
@@ -8440,10 +8445,6 @@ export class NewTabController {
         providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
         this.setStatus(target.root, this.text('grading'));
-        // Known limit (as in 1.9.3): an online grade goes straight to the
-        // provider; only queued grades pass through the review owner. The
-        // card-state broadcast recolours other tabs but does not retire this
-        // card there, so two tabs showing the same card can each grade it once.
         const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
         if (reviewOp.superseded || !this.gradeProvidersAreCurrent(providerContexts, target.card, selectedTarget)) return false;
         // A landed submit proves the connection is back even if no
@@ -8451,15 +8452,11 @@ export class NewTabController {
         this.offlineReviewingAccepted = false;
         this.invalidateReviewSourceCache(target.card);
         this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-        this.recordCompletedReview(isCorrection);
+        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
         // A local replay cannot undo a consumed native review.
         this.lastUndoableReview = newTabUndoableReview(target.card, isCorrection, this.canUndoJitenReview());
         await this.advanceAfterGrade(target.root, target.card, grade);
         return true;
-    }
-
-    private recordCompletedReview(isCorrection: boolean): void {
-        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
     }
 
     private canUndoJitenReview(): boolean {
@@ -8485,8 +8482,10 @@ export class NewTabController {
             // A lost acknowledgement does not prove rejection. Anki may
             // already have advanced the native schedule, just as Bunpro may
             // have consumed its session review. Never replay this operation
-            // (including a successful half of a mixed-provider grade).
-            await this.reloadAfterAmbiguousGrade(target.root, target.card);
+            // (including a successful half of a mixed-provider grade). The
+            // outcome is unknown, so other Study tabs retire their copies too.
+            this.publishGradedCardState(target.card);
+            await this.retireCardAndReload(target.root, target.card, 'couldNotSubmitGrade');
             return true;
         }
         const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget, error);
@@ -8637,7 +8636,8 @@ export class NewTabController {
         return choice;
     }
 
-    private async reloadAfterAmbiguousGrade(root: HTMLElement, card: JPDBCard): Promise<void> {
+    /** Drops a card this tab must not grade again and reloads the queue from its provider. */
+    private async retireCardAndReload(root: HTMLElement, card: JPDBCard, status: NewTabTextKey): Promise<void> {
         const key = cardKey(card);
         this.lastUndoableReview = undefined;
         this.invalidateReviewSourceCache(card);
@@ -8647,10 +8647,7 @@ export class NewTabController {
         this.state.revealAnswer = false;
         this.persistState();
         root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade')).forEach(button => { button.disabled = true; });
-        this.setStatus(root, this.text('couldNotSubmitGrade'));
-        // The provider outcome is unknown, so other Study tabs must retire
-        // their copies just as they would after a confirmed grade.
-        this.publishGradedCardState(card);
+        this.setStatus(root, this.text(status));
         this.markQueueRefreshed();
         await this.loadWordsInto(root, false, { useOfflineCache: false });
     }

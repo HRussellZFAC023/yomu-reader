@@ -11,6 +11,8 @@ Decisions:
 5. Packaged Study adopts the 1.9.3 offline queue, and anything hosted Study writes through the storage bridge, under stable ids and only up to owner capacity. It retires from the old key only what an owner snapshot confirms; overflow waits in the key. One leftover entry never disables grading.
 6. The shared userscript/hosted queue flushes inside `withGmStorageLease('newtab-grade-queue')`, so two tabs cannot send one review twice.
 
-Known limitation: online grades still go directly to the provider, so two online tabs showing the same card can each grade it once. That matches 1.9.3; routing online grades through the owner is follow-up work.
+7. Online grades still go straight to the provider, not through the owner (2.0.1). Before sending, a Study tab takes a short Live Review Claim in GM storage under its own `withGmStorageLease('newtab-live-review')`, keyed by provider account, target and card. Another tab's claim refuses the grade: that tab retires its stale copy, says "Already reviewed in another Study tab." and reloads. A finished claim, or one older than five minutes, refuses each other tab only once; claims lapse after an hour. A tab's own claims never block it, and a storage failure lets the grade through, as in 1.9.3. The claim cannot use the grade-queue lease, which a flush holds across provider requests. Routing online grades through the owner would make each grade wait on the background, which the userscript does not have.
+
+Known limitation: the userscript and the browser extension keep separate storage, so a Study tab in each does not see the other's claims.
 
 This amends ADR-0016's delivery wording; review ownership stays with the destination.

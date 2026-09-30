@@ -1,8 +1,9 @@
+import { createStorageCoordinationId } from '../app/gm-storage-lease';
 import { gmStorageDelete, gmStorageGetStrict, gmStorageSet, withGmStorageLease } from '../app/storage';
 import type { JPDBCard, JPDBGrade } from '../app/types';
 import { cardKey } from '../cards/utils';
 import { NEW_TAB_GRADE_QUEUE_KEY, NEW_TAB_GRADE_QUEUE_LIMIT } from './controller-config';
-import { queueableNewTabReviewTargets, type QueuedNewTabGradeTarget } from './review-targets';
+import { queueableNewTabReviewTargets, type NewTabReviewTarget, type QueuedNewTabGradeTarget } from './review-targets';
 import { createPackagedReviewQueueClient } from './packaged-review-queue-client';
 import type { ExtensionReviewQueueClient } from './extension-review-queue-client';
 import { reviewDeliveryScope } from './review-queue-owner';
@@ -51,6 +52,19 @@ export interface NewTabGradeQueueDeps {
     exclusive?: <T>(operation: () => Promise<T>) => Promise<T>;
 }
 
+/** One tab's hold on an online review, by `${providerContext}:${target}:${cardKey}`. */
+export interface LiveReviewClaim {
+    readonly id: string;
+    readonly keys: readonly string[];
+}
+
+interface LiveReviewRecord {
+    id: string;
+    tab: string;
+    at: number;
+    done?: true;
+}
+
 type DeliveryOutcome = { status: 'delivered' } | { status: 'not-delivered' | 'unknown'; error?: string };
 /** One flush's view of which providers can take a review right now. */
 interface DeliveryProbe {
@@ -72,6 +86,17 @@ const GRADE_QUEUE_LEASE = 'newtab-grade-queue';
  * plus the 10 s owner round trip, is about three minutes.
  */
 export const HELD_REVIEW_SETTLE_MS = 5 * 60_000;
+const NEW_TAB_LIVE_REVIEW_KEY = 'yomu:newtab-live-review:v1';
+// Its own lease: the grade-queue lease is held across provider requests.
+const LIVE_REVIEW_LEASE = 'newtab-live-review';
+const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5_000, timeoutMs: 5_000 };
+/**
+ * How long a live review keeps other Study tabs from grading their copy: long
+ * enough for a tab left open behind another, short enough that a card due
+ * again the next day is never refused.
+ */
+const LIVE_REVIEW_CLAIM_MS = 60 * 60_000;
+const LIVE_REVIEW_CLAIM_LIMIT = 500;
 // 1.9.3 accepted network grades queued before provider contexts existed but
 // never delivered them. They keep that inert status after adoption.
 const UNBOUND_PROVIDER_CONTEXT = 'legacy';
@@ -99,6 +124,9 @@ export class NewTabGradeQueue {
     // Claims this tab certainly never sent, whose release reply was lost.
     private readonly unsentClaims = new Map<string, number | undefined>();
     private readonly completionVersions = new Map<string, number>();
+    private readonly tab = createStorageCoordinationId();
+    // Other tabs' settled live reviews this tab has already refused a grade for.
+    private readonly passedLiveReviews = new Set<string>();
 
     constructor(private readonly deps: NewTabGradeQueueDeps) {
         this.storage = deps.storage ?? gmGradeQueueStorage;
@@ -177,6 +205,56 @@ export class NewTabGradeQueue {
 
     recoverRecording(): Promise<QueuedNewTabGrade[] | null> {
         return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
+    }
+
+    /**
+     * Claims an online review across Study tabs, or returns null when another
+     * tab is sending this card's review or already sent it, so this tab's copy
+     * is stale. A settled claim (finished, or older than HELD_REVIEW_SETTLE_MS)
+     * refuses each other tab once, so a card the provider shows again can be
+     * graded after a reload. This tab's own claims never block (Undo, corrections,
+     * relearning), and a storage failure proceeds as 1.9 did instead of locking Study.
+     */
+    async claimLiveReview(
+        card: JPDBCard,
+        targets: readonly NewTabReviewTarget[],
+        contextFor: (target: NewTabReviewTarget) => string,
+    ): Promise<LiveReviewClaim | null> {
+        const claim = { id: createStorageCoordinationId(), keys: targets.map(target => `${contextFor(target)}:${target}:${cardKey(card)}`) };
+        try {
+            return await this.liveReviews((records, now) => {
+                // Check every key, so each settled claim this refusal answers is passed.
+                const blocking = claim.keys.filter(key => records[key] && this.liveReviewBlocks(records[key], now));
+                if (blocking.length) return null;
+                for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
+                return claim;
+            });
+        } catch {
+            return claim;
+        }
+    }
+
+    /** Marks a claimed live review sent, whatever its outcome. */
+    async finishLiveReview(claim: LiveReviewClaim): Promise<void> {
+        await this.liveReviews(records => {
+            for (const key of claim.keys) if (records[key]?.id === claim.id) records[key].done = true;
+        }).catch(() => undefined);
+    }
+
+    private liveReviewBlocks(record: LiveReviewRecord, now: number): boolean {
+        if (record.tab === this.tab || this.passedLiveReviews.has(record.id)) return false;
+        if (record.done || now - record.at >= HELD_REVIEW_SETTLE_MS) this.passedLiveReviews.add(record.id);
+        return true;
+    }
+
+    private liveReviews<T>(update: (records: Record<string, LiveReviewRecord>, now: number) => T): Promise<T> {
+        return withGmStorageLease(LIVE_REVIEW_LEASE, async () => {
+            const now = Date.now();
+            const records = currentLiveReviews(await this.storage.get<unknown>(NEW_TAB_LIVE_REVIEW_KEY, null), now);
+            const result = update(records, now);
+            await this.storage.set(NEW_TAB_LIVE_REVIEW_KEY, records);
+            return result;
+        }, LIVE_REVIEW_LEASE_OPTIONS);
     }
 
     private locked<T>(operation: () => Promise<T>): Promise<T> {
@@ -461,6 +539,21 @@ function queuedGradeProviderBinding(
     providerContextForTarget: NewTabGradeQueueDeps['providerContextForTarget'],
 ): Pick<QueuedNewTabGrade, 'providerContext'> | Record<string, never> {
     return target === 'yomu-local' ? {} : { providerContext: providerContextForTarget(target) };
+}
+
+/** The newest live reviews still inside their claim window. */
+function currentLiveReviews(stored: unknown, now: number): Record<string, LiveReviewRecord> {
+    if (!isObjectRecord(stored) || Array.isArray(stored)) return {};
+    const fresh = Object.entries(stored)
+        .filter((entry): entry is [string, LiveReviewRecord] => isLiveReviewRecord(entry[1]) && now - entry[1].at < LIVE_REVIEW_CLAIM_MS)
+        .sort(([, left], [, right]) => right.at - left.at);
+    return Object.fromEntries(fresh.slice(0, LIVE_REVIEW_CLAIM_LIMIT));
+}
+
+function isLiveReviewRecord(value: unknown): value is LiveReviewRecord {
+    const record = value as Partial<LiveReviewRecord> | null;
+    return isObjectRecord(record) && typeof record.id === 'string' && typeof record.tab === 'string'
+        && typeof record.at === 'number' && (record.done === undefined || record.done === true);
 }
 
 /** True when `item` is still the very claim (or dispatch) recorded for its id. */

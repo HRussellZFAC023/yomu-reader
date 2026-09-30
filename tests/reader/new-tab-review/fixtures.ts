@@ -32,6 +32,8 @@ import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } fro
 import { waitForExpect } from '../test-utils';
 
 export const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
+// Each controller is its own Study tab: a claim left by an earlier case would refuse the next one's grade.
+const NEW_TAB_LIVE_REVIEW_KEY = 'yomu:newtab-live-review:v1';
 export const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 export const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 export const NEW_TAB_CURRENT_WORD_KEY = 'jpdb-reader-newtab-current-word';
@@ -1550,6 +1552,7 @@ export function registerNewTabReviewCleanup(): void {
         vi.useRealTimers();
         vi.unstubAllGlobals();
         localStorage.removeItem(NEW_TAB_GRADE_QUEUE_KEY);
+        localStorage.removeItem(NEW_TAB_LIVE_REVIEW_KEY);
         localStorage.removeItem(NEW_TAB_CACHE_KEY);
         localStorage.removeItem(NEW_TAB_UI_KEY);
         window.history.replaceState(null, '', '/');

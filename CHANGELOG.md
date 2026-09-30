@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.1] - 2026-09-30
+
+### Fixed
+
+- If two Study tabs show the same card while you are online, only the first grade is sent. The other tab says "Already reviewed in another Study tab." and loads its next card instead of reviewing the card a second time. This covers grades made in the last hour.
+
 ## [2.0.0] - 2026-09-30
 
 Yomu 2 rebuilds how settings, dictionaries and reviews are stored and delivered, so they survive updates, reloads and lost connections, and hold up better with more than one tab open. It also simplifies Study: a review is now show, reveal, grade. Updating from 1.9.x, or from 1.8.80 or later, keeps your settings, dictionaries, saved words and queued reviews.

@@ -573,7 +573,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
 
                 expect(root.dataset.newtabSwipeDirection).toBe(deltaX < 0 ? 'left' : 'right');
                 expect(root.dataset.newtabSwipeAction).toBe(deltaX < 0 ? 'again' : 'good');
-                expect(reviewCard).toHaveBeenCalledWith(current, expectedGrade);
+                await waitForExpect(() => expect(reviewCard).toHaveBeenCalledWith(current, expectedGrade));
             } finally {
                 controller.destroy();
                 root.remove();
@@ -1142,7 +1142,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         try {
             Object.assign(controller, { visibleWords: [replacement], allWords: [replacement], index: 0 });
             dispatchNewTabKeyboard(root, '2');
-            await Promise.resolve();
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(reviewCard).not.toHaveBeenCalled();
         } finally { controller.destroy(); root.remove(); }
     });
@@ -1158,7 +1158,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         try {
             Object.assign(controller, { visibleWords: [replacement], allWords: [replacement], index: 0 });
             dispatchNewTabKeyboard(root, '2');
-            await Promise.resolve();
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(answerCard).not.toHaveBeenCalled();
         } finally { controller.destroy(); root.remove(); }
     });
@@ -1174,7 +1174,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             dispatchNewTabKeyboard(root, '2');
             dispatchNewTabKeyboard(root, '3');
             root.querySelector<HTMLButtonElement>('[data-grade="easy"]')!.click();
-            await Promise.resolve();
+            await waitForExpect(() => expect(reviewCard).toHaveBeenCalled());
             expect(reviewCard).toHaveBeenCalledTimes(1);
         } finally { pending.resolve(); controller.destroy(); root.remove(); }
     });
@@ -1260,7 +1260,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                     ? ['Again', 'Hard', 'Good', 'Easy'] : ['Nothing', 'Something', 'Hard', 'Okay', 'Easy']);
                 if (target === 'anki') {
                     dispatchNewTabKeyboard(root, '5');
-                    await Promise.resolve();
+                    await new Promise(resolve => setTimeout(resolve, 0));
                     expect(answerCard).not.toHaveBeenCalled();
                     expect(reviewCard).not.toHaveBeenCalled();
                 }
@@ -1317,7 +1317,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             root.querySelector<HTMLButtonElement>('[data-grade="hard"]')!.click();
             dispatchNewTabKeyboard(root, '2');
             (controller as unknown as { handleNewTabSwipe(root: HTMLElement, action: string, direction: string): void }).handleNewTabSwipe(root, 'good', 'left');
-            await Promise.resolve();
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(reviewCard).not.toHaveBeenCalled();
             expect(answerCard).not.toHaveBeenCalled();
             parent.append(select);

@@ -866,7 +866,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             expect((controller as unknown as { reviewTargetsForCard(card: JPDBCard): string[] }).reviewTargetsForCard(card)).toEqual(['bunpro-api']);
             const firstGrade = internals.gradeCurrentCard('pass');
             await expect(internals.gradeCurrentCard('pass')).resolves.toBe(false);
-            expect(review).toHaveBeenCalledOnce();
+            await waitForExpect(() => expect(review).toHaveBeenCalledOnce());
             response.resolve(true);
             await expect(firstGrade).resolves.toBe(true);
             await expect(internals.gradeCurrentCard('pass')).resolves.toBe(false);
