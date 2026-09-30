@@ -2004,11 +2004,7 @@
     ["localhost", "loopback"],
     ["[::1]", "loopback"]
   ]);
-  const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
-    "http://127.0.0.1:5174",
-    "http://localhost:5174",
-    "http://[::1]:5174"
-  ]);
+  const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([]);
   function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
     return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
   }
@@ -2095,6 +2091,35 @@
   }
   function isRepositoryStudyRoutePath(path) {
     return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+  }
+  const PRIVILEGED_APP_POLICIES = {
+    docs: isYomuActiveAppRoute,
+    "github-pages": isYomuActiveAppRoute,
+    extension: () => false,
+    loopback: isPrivilegedLocalAppRoute,
+    "docs-preview": isPrivilegedLocalAppRoute
+  };
+  function isYomuPrivilegedHostedAppUrl(value) {
+    const appUrl = readTrustedYomuUrl(value);
+    return appUrl ? PRIVILEGED_APP_POLICIES[appUrl.originKind](value, appUrl) : false;
+  }
+  function isYomuStorageBridgeHostedUrl(value) {
+    const appUrl = readTrustedYomuUrl(value);
+    if (!appUrl) return false;
+    if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+    return isYomuPrivilegedHostedAppUrl(value);
+  }
+  function isYomuActiveAppRoute(value, appUrl) {
+    return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+  }
+  function isPrivilegedLocalAppRoute(value, appUrl) {
+    return isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin) && isYomuActiveAppRoute(value, appUrl);
+  }
+  function isExactHostedAppPath(appUrl, route) {
+    if (appUrl.originKind === "github-pages") {
+      return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+    }
+    return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
   }
   function bridgeEventId(event) {
     return safeReadString(normalizedBridgeEventDetail(event), "id");
@@ -2512,159 +2537,7 @@
       };
     }
   }
-  const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-http-request";
-  const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-http-response";
-  const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
-  const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
-  const BRIDGE_MARKER$1 = "yomuUserscriptHttpBridge";
-  const BRIDGE_TIMEOUT_MS$1 = 3e4;
-  const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
-  let eventBridgeProbeInFlight;
-  function getUserscriptHttpRequest() {
-    for (const candidate of userscriptRequestCandidates()) {
-      const request = asUserscriptRequest(candidate.request);
-      if (request) {
-        return request.bind(candidate.thisArg);
-      }
-    }
-    return userscriptHttpEventBridge();
-  }
-  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
-  function isUserscriptEventBridgeRequest(request) {
-    return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
-  }
-  function probeUserscriptEventBridge(request) {
-    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
-    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
-    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-    const probe = new Promise((resolve) => {
-      const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      let settled = false;
-      let responseCleanup = noop$1;
-      let bridgeReadyCleanup = noop$1;
-      const finish = (alive) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        responseCleanup();
-        bridgeReadyCleanup();
-        if (!alive) {
-          const markerDataset = bridgeMarkerDataset$1();
-          if (markerDataset?.[BRIDGE_MARKER$1] === "true") delete markerDataset[BRIDGE_MARKER$1];
-        }
-        resolve(alive);
-      };
-      const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
-      responseCleanup = addBridgeEventListener$1(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
-        if (bridgeEventId(event) === id) finish(true);
-      });
-      bridgeReadyCleanup = addBridgeEventListener$1(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-      dispatchBridgeEvent$1(BRIDGE_PROBE_EVENT, { id });
-    });
-    eventBridgeProbeInFlight = probe;
-    void probe.then(() => {
-      if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
-    });
-    return probe;
-  }
-  function userscriptHttpEventBridge() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
-      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        options.ontimeout?.();
-        reject(new Error("Request timed out."));
-      }, options.timeout ?? BRIDGE_TIMEOUT_MS$1);
-      let cleanupBridgeResponseListener = noop$1;
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        cleanupBridgeResponseListener();
-      };
-      const onResponse = (event) => {
-        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
-      };
-      cleanupBridgeResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
-      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, options: requestOptions });
-    }));
-  }
-  function tagEventBridgeRequest(request) {
-    request[EVENT_BRIDGE_TAG] = true;
-    return request;
-  }
-  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-    const detail = bridgeResponseEventDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.kind === "load" && detail.response) {
-      options.onload?.(detail.response);
-      resolve(detail.response);
-      return;
-    }
-    rejectBridgeResponse(detail, options, reject);
-  }
-  function rejectBridgeResponse(detail, options, reject) {
-    const message = detail.message || "Request failed.";
-    if (detail.kind === "timeout") options.ontimeout?.();
-    else options.onerror?.(new Error(message));
-    reject(new Error(message));
-  }
-  function addBridgeEventListener$1(type, listener) {
-    const cleanups = [];
-    if (addWindowEventListener(type, listener)) {
-      cleanups.push(() => removeWindowEventListener(type, listener));
-    }
-    const documentTarget = bridgeDocumentTarget$1();
-    if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
-      cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
-    }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }
-  function dispatchBridgeEvent$1(type, detail) {
-    const eventDetail = bridgeEventDetail(detail);
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-    const documentTarget = bridgeDocumentTarget$1();
-    if (documentTarget) {
-      dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-    }
-    return dispatched;
-  }
-  function bridgeDocumentTarget$1() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function bridgeMarkerDataset$1() {
-    if (typeof document === "undefined") return void 0;
-    const root = document.documentElement;
-    return root?.dataset;
-  }
-  function callAddEventListener$1(target, type, listener) {
-    try {
-      target.addEventListener(type, listener);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function callRemoveEventListener$1(target, type, listener) {
-    try {
-      target.removeEventListener(type, listener);
-    } catch {
-    }
-  }
-  function callDispatchEvent$1(target, event) {
-    try {
-      return target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
-  }
-  function noop$1() {
-  }
+  const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
   function detectInstalledReaderRuntime(globals = globalThis) {
     if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
     if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
@@ -2672,8 +2545,26 @@
     }
     return null;
   }
+  function announcedInstalledReaderRuntime(root = document) {
+    const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
+    return kind === "extension" || kind === "userscript" ? kind : null;
+  }
   function isHostedReaderRuntime() {
     return document.documentElement?.dataset.yomuHosted !== void 0;
+  }
+  function expectedBridgeKind(trustedPage) {
+    if (detectInstalledReaderRuntime()) return null;
+    const announced = announcedInstalledReaderRuntime();
+    return announced && trustedPage() ? announced : null;
+  }
+  function readyBridgeOwner(dataset, keys, expected) {
+    if (dataset?.[keys.ready] !== "true") return null;
+    const kind = dataset[keys.kind];
+    if (kind === "extension" || kind === "userscript") {
+      if (expected && kind !== expected && kind !== "extension") return null;
+      return { ownerId: dataset[keys.owner], kind };
+    }
+    return { ownerId: dataset[keys.owner], kind: expected ?? "userscript" };
   }
   const MANAGED_STORAGE_KEY_PREFIXES = [
     "yomu-",
@@ -2761,19 +2652,20 @@
     if (!retained.length) return;
     throw new Error(`Unprefixed managed extension storage retained: ${retained.join(", ")}`);
   }
-  const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
-  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
-  const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
+  const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
+  const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
+  const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
   const BRIDGE_OWNER = "yomuStorageBridgeOwner";
+  const BRIDGE_KIND = "yomuStorageBridgeKind";
+  const BRIDGE_KEYS$1 = { ready: BRIDGE_MARKER$1, owner: BRIDGE_OWNER, kind: BRIDGE_KIND };
   const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
   const EXTENSION_STORAGE_TARGET = "extension-storage";
-  const BRIDGE_TIMEOUT_MS = 1e4;
-  let clientOwnerId;
+  const BRIDGE_TIMEOUT_MS$1 = 1e4;
+  let clientOwner$1;
   function getUserscriptGmStorage() {
-    if (!storageBridgeClientReady() && !clientOwnerId) return void 0;
-    clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
-    const ownerId = clientOwnerId;
-    const request = (detail) => storageBridgeRequest(detail, ownerId);
+    if (!storageBridgeClientAvailable()) return void 0;
+    clientOwner$1 ??= pinnableOwner(readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind()));
+    const request = (detail) => storageBridgeRequest(detail);
     return {
       getValue: (key, fallback) => request({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
       setValue: (key, value) => request({ op: "set", key, value }).then(() => void 0),
@@ -2786,45 +2678,83 @@
       }).then(() => void 0) : Promise.resolve()
     };
   }
-  function storageBridgeClientReady() {
-    if (typeof window === "undefined") return false;
-    if (typeof document === "undefined") return false;
-    return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
+  function storageBridgeClientAvailable() {
+    if (typeof window === "undefined" || typeof document === "undefined") return false;
+    return Boolean(clientOwner$1 || expectedStorageBridgeKind() || readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, null));
   }
-  function storageBridgeRequest(request, ownerId) {
+  function expectedStorageBridgeKind() {
+    return expectedBridgeKind(shouldInstallUserscriptStorageBridge);
+  }
+  function userscriptGmStorageOwnerKind() {
+    if (!storageBridgeClientAvailable()) return void 0;
+    return clientOwner$1?.kind ?? expectedStorageBridgeKind() ?? readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, null)?.kind;
+  }
+  function installedStorageResponderReady() {
+    return readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind()) !== null;
+  }
+  function storageBridgeRequest(request) {
     return new Promise((resolve, reject) => {
-      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
-        reject(new Error("Storage bridge authority changed; reload to reconnect."));
-        return;
-      }
       const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-          reject(new Error("Storage bridge authority changed during the request."));
-          return;
-        }
-        reject(new Error("Storage bridge request timed out."));
-      }, BRIDGE_TIMEOUT_MS);
-      let cleanupResponseListener = noop;
+      let pinned;
+      let cleanupListeners = noop$1;
       const cleanup = () => {
         window.clearTimeout(timeout);
-        cleanupResponseListener();
+        cleanupListeners();
       };
+      const fail2 = (message) => {
+        cleanup();
+        reject(new Error(message));
+      };
+      const timeout = window.setTimeout(() => {
+        if (!pinned) fail2("Installed Yomu storage did not connect; reload to reconnect.");
+        else if (!pinnedOwnerCurrent(pinned)) fail2("Storage bridge authority changed during the request.");
+        else fail2("Storage bridge request timed out.");
+      }, BRIDGE_TIMEOUT_MS$1);
       const onResponse = (event) => {
         const detail = storageBridgeResponseDetail(event);
         if (!detail || detail.id !== id) return;
+        if (!pinned || !pinnedOwnerCurrent(pinned)) return fail2("Storage bridge authority changed during the request.");
         cleanup();
-        if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-          reject(new Error("Storage bridge authority changed during the request."));
-          return;
-        }
         if (detail.ok) resolve(detail);
         else reject(new Error(detail.message || "Storage bridge request failed."));
       };
-      cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId, ...request });
+      const send = (owner) => {
+        pinned = owner;
+        cleanupListeners();
+        cleanupListeners = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+        dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ownerId: owner.ownerId, ...request });
+      };
+      const connect = () => {
+        if (clientOwner$1) {
+          if (pinnedOwnerCurrent(clientOwner$1)) send(clientOwner$1);
+          else fail2("Storage bridge authority changed; reload to reconnect.");
+          return true;
+        }
+        const owner = readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind());
+        if (!owner) return false;
+        clientOwner$1 = pinnableOwner(owner);
+        send(owner);
+        return true;
+      };
+      if (connect()) return;
+      cleanupListeners = addBridgeEventListener$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+        if (!pinned) connect();
+      });
     });
+  }
+  function pinnableOwner(owner) {
+    return owner?.ownerId === void 0 ? void 0 : owner;
+  }
+  function pinnedOwnerCurrent(owner) {
+    const dataset = bridgeMarkerDataset$1();
+    return dataset?.[BRIDGE_MARKER$1] === "true" && dataset[BRIDGE_OWNER] === owner.ownerId;
+  }
+  function shouldInstallUserscriptStorageBridge() {
+    try {
+      return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
+    } catch {
+      return false;
+    }
   }
   function storageBridgeResponseDetail(event) {
     const detail = normalizedBridgeEventDetail(event);
@@ -2841,7 +2771,216 @@
     };
   }
   function extensionStorageBridgeAdvertised() {
-    return bridgeMarkerDataset()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === "true";
+    return bridgeMarkerDataset$1()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === "true";
+  }
+  function addBridgeEventListener$1(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent$1(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget) {
+      dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget$1() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset$1() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener$1(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener$1(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent$1(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function noop$1() {
+  }
+  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
+  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+  const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+  const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
+  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+  const BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: "yomuHttpBridgeOwner", kind: "yomuHttpBridgeKind" };
+  const BRIDGE_TIMEOUT_MS = 3e4;
+  const BRIDGE_READY_TIMEOUT_MS = 1e4;
+  const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+  let clientOwner;
+  let eventBridgeProbeInFlight;
+  function getUserscriptHttpRequest() {
+    for (const candidate of userscriptRequestCandidates()) {
+      const request = asUserscriptRequest(candidate.request);
+      if (request) {
+        return request.bind(candidate.thisArg);
+      }
+    }
+    return userscriptHttpEventBridge();
+  }
+  function shouldInstallUserscriptHttpBridge() {
+    try {
+      return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
+    } catch {
+      return false;
+    }
+  }
+  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+  function isUserscriptEventBridgeRequest(request) {
+    return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+  }
+  function probeUserscriptEventBridge(request) {
+    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+    const current = currentHttpBridgeOwner();
+    const probe = current !== void 0 ? current ? probeHttpBridgeOwner(current) : Promise.resolve(false) : httpBridgeOwner().then((owner) => owner ? probeHttpBridgeOwner(owner) : false);
+    eventBridgeProbeInFlight = probe;
+    void probe.then(() => {
+      if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+    });
+    return probe;
+  }
+  function probeHttpBridgeOwner(owner) {
+    return new Promise((resolve) => {
+      const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      let settled = false;
+      let responseCleanup = noop;
+      const finish = (alive) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        responseCleanup();
+        if (!alive) {
+          const markerDataset = bridgeMarkerDataset();
+          if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
+        }
+        resolve(alive);
+      };
+      const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+      responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+        if (bridgeEventId(event) === id) finish(true);
+      });
+      dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id, ownerId: owner.ownerId });
+    });
+  }
+  function httpBridgeOwner() {
+    const current = currentHttpBridgeOwner();
+    if (current !== void 0) return Promise.resolve(current);
+    return new Promise((resolve) => {
+      const cleanups = [];
+      const settle = (owner) => {
+        for (const cleanup of cleanups.splice(0)) cleanup();
+        resolve(owner);
+      };
+      const recheck = () => {
+        const owner = currentHttpBridgeOwner();
+        if (owner !== void 0) settle(owner);
+      };
+      const timeout = window.setTimeout(() => settle(null), BRIDGE_READY_TIMEOUT_MS);
+      cleanups.push(() => window.clearTimeout(timeout));
+      cleanups.push(addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, recheck));
+      cleanups.push(addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+        const later = window.setTimeout(recheck, 0);
+        cleanups.push(() => window.clearTimeout(later));
+      }));
+    });
+  }
+  function currentHttpBridgeOwner() {
+    const dataset = bridgeMarkerDataset();
+    if (clientOwner) {
+      return dataset?.[BRIDGE_MARKER] === "true" && dataset[BRIDGE_KEYS.owner] === clientOwner.ownerId ? clientOwner : null;
+    }
+    const expected = expectedHttpBridgeKind();
+    const owner = readyBridgeOwner(dataset, BRIDGE_KEYS, expected);
+    if (owner?.ownerId) clientOwner = owner;
+    if (owner) return owner;
+    return expected && !installedStorageResponderReady() ? void 0 : null;
+  }
+  function expectedHttpBridgeKind() {
+    return expectedBridgeKind(shouldInstallUserscriptHttpBridge);
+  }
+  function userscriptHttpEventBridge() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (currentHttpBridgeOwner() === null) return void 0;
+    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
+      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        options.ontimeout?.();
+        reject(new Error("Request timed out."));
+      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+      let cleanupBridgeResponseListener = noop;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupBridgeResponseListener();
+      };
+      const onResponse = (event) => {
+        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+      };
+      void httpBridgeOwner().then((owner) => {
+        if (!owner) {
+          cleanup();
+          const error = new Error("Installed Yomu request bridge is unavailable; reload to reconnect.");
+          options.onerror?.(error);
+          reject(error);
+          return;
+        }
+        cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+        const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+        dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+      });
+    }));
+  }
+  function tagEventBridgeRequest(request) {
+    request[EVENT_BRIDGE_TAG] = true;
+    return request;
+  }
+  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+    const detail = bridgeResponseEventDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.kind === "load" && detail.response) {
+      options.onload?.(detail.response);
+      resolve(detail.response);
+      return;
+    }
+    rejectBridgeResponse(detail, options, reject);
+  }
+  function rejectBridgeResponse(detail, options, reject) {
+    const message = detail.message || "Request failed.";
+    if (detail.kind === "timeout") options.ontimeout?.();
+    else options.onerror?.(new Error(message));
+    reject(new Error(message));
   }
   function addBridgeEventListener(type, listener) {
     const cleanups = [];
@@ -5511,7 +5650,6 @@
       noDefinitions: "No enabled definition source returned results.",
       enabledHeader: "On",
       labelHeader: "Label",
-      detailsHeader: "Details",
       displayName: "Display name",
       orderHeader: "Order",
       removeHeader: "Remove",
@@ -6768,7 +6906,6 @@ donate	寄付
 discord	Discord
 enabledHeader	有効
 labelHeader	ラベル
-detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除
@@ -7007,157 +7144,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     metaLabelText: "#8f9aaa",
     tableBorder: "#353c47"
   };
-  function managedStorageOwner() {
-    const installed = detectInstalledReaderRuntime();
-    if (installed) return installed;
-    if (!getUserscriptGmStorage()) return "standalone";
-    return document.documentElement?.dataset.yomuStorageBridgeKind === "extension" ? "extension" : "userscript";
-  }
-  function asyncGmGetValue() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    const direct = directGmGetValue();
-    if (direct) return direct;
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-  }
-  function directGmGetValue() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
-  }
-  function legacyGmGetValue() {
-    return typeof GM_getValue === "function" ? GM_getValue : null;
-  }
-  function modernGmGetValue() {
-    const modern = globalThis.GM?.getValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function asyncGmSetValue() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    const direct = directGmSetValue();
-    if (direct) return direct;
-    if (directGmGetValue()) return null;
-    return bridgeGmSetValue();
-  }
-  function directGmSetValue() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
-  }
-  function legacyGmSetValue() {
-    return typeof GM_setValue === "function" ? GM_setValue : null;
-  }
-  function modernGmSetValue() {
-    const modern = globalThis.GM?.setValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function extensionGmSetValue() {
-    const extension = extensionStorageArea();
-    return extension ? (key, value) => extension.set({ [key]: value }) : null;
-  }
-  function bridgeGmSetValue() {
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key, value) => bridge.setValue(key, value) : null;
-  }
-  function asyncGmDeleteValue() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    const direct = directGmDeleteValue();
-    if (direct) return direct;
-    if (directGmGetValue()) return null;
-    return bridgeGmDeleteValue();
-  }
-  function directGmDeleteValue() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
-  }
-  function legacyGmDeleteValue() {
-    return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
-  }
-  function modernGmDeleteValue() {
-    const modern = globalThis.GM?.deleteValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function extensionGmDeleteValue() {
-    const extension = extensionStorageArea();
-    return extension ? (key) => extension.remove(key) : null;
-  }
-  function bridgeGmDeleteValue() {
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key) => bridge.deleteValue(key) : null;
-  }
-  function asyncGmListValues() {
-    if (packagedExtensionStorageAdapterMissing()) return null;
-    const direct = directGmListValues();
-    if (direct) return direct;
-    if (directGmGetValue()) return null;
-    return bridgeGmListValues();
-  }
-  function directGmListValues() {
-    return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
-  }
-  function legacyGmListValues() {
-    if (typeof GM_listValues === "function") return GM_listValues;
-    const directListValues = globalThis.GM_listValues;
-    return typeof directListValues === "function" ? directListValues : null;
-  }
-  function modernGmListValues() {
-    const modern = globalThis.GM?.listValues;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function extensionGmListValues() {
-    const extension = extensionStorageArea();
-    if (!extension) return null;
-    return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-  }
-  function bridgeGmListValues() {
-    const bridge = getUserscriptGmStorage();
-    return bridge ? () => bridge.listValues() : null;
-  }
-  function extensionStorageArea() {
-    return extensionCapability((extension) => extension.storage?.local);
-  }
-  function extensionCapability(select2) {
-    const candidate = globalThis;
-    return activeExtensionCapability(candidate.browser, select2) ?? activeExtensionCapability(candidate.chrome, select2) ?? null;
-  }
-  function activeExtensionCapability(extension, select2) {
-    return extension?.runtime?.id ? select2(extension) : void 0;
-  }
-  function packagedExtensionStorageAdapterMissing() {
-    if (!isPackagedExtensionDocument()) return false;
-    const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
-    return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
-  }
-  function isPackagedExtensionDocument() {
-    try {
-      const protocol = globalThis.location?.protocol ?? "";
-      return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
-    } catch {
-      return false;
-    }
-  }
-  function rawExtensionStorageGetValue() {
-    const extension = extensionStorageArea();
-    return extension ? extensionStorageGetValue(extension) : null;
-  }
-  function extensionStorageGetValue(extension) {
-    return async (key, fallback) => {
-      const value = (await extension.get(key))[key];
-      return value === void 0 ? fallback : value;
-    };
-  }
-  function extensionStorageChangedEvent() {
-    return extensionCapability((extension) => extension.storage?.onChanged);
-  }
-  const BASES = ["jpdb-popup-reader-yomitan", "yomu-practice-sessions-v1", "yomu-anki-status-index"];
-  function ownedDatabaseName(base) {
-    const owner = managedStorageOwner();
-    if (owner === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol)) return base;
-    return `${base}-${owner}-v2`;
-  }
-  function databaseBelongsToCurrentOwner(name) {
-    const base = BASES.find((base2) => name === base2 || name === `${base2}-userscript-v2` || name === `${base2}-extension-v2`);
-    if (base) return name === ownedDatabaseName(base);
-    return managedStorageOwner() === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
-  }
   const entries$1 = [];
   const registeredEntryIndexes = /* @__PURE__ */ new Map();
   let resetWritesSuppressed = false;
@@ -7261,8 +7247,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
     { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
-    { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-userscript-v2" },
-    { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-extension-v2" },
     // Bunpro vocab SRS-state index for page word colouring.
     { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
@@ -7274,8 +7258,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // store's own deleteDatabase during reset; registered so the invariant test
     // asserts it and the reset sweep nets it as a fallback.
     { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
-    { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-userscript-v2" },
-    { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-extension-v2" },
     { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
     {
       owner: "dictionaries/archive-cache",
@@ -7321,8 +7303,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
     // New Tab study surface stores.
     { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
-    { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-userscript-v2" },
-    { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-extension-v2" },
     { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
     { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
     { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -7528,6 +7508,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const read = await readManagedGmValue(getValue, key, epoch);
     return read.kind === "found" ? read.value : fallback;
   }
+  const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+  function isHostedSettingsStorageKey(key) {
+    return key === HOSTED_SETTINGS_BLOB_KEY;
+  }
+  function isHostedYomuLocation(origin, hostname, pathname) {
+    if (origin === DOCS_ORIGIN) return true;
+    if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+    return isHostedLocalDevelopmentLocation(origin, pathname);
+  }
+  function isHostedYomuOrigin() {
+    try {
+      return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+    } catch {
+      return false;
+    }
+  }
+  function isHostedGithubPagesLocation(hostname, pathname) {
+    return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+  }
+  function isHostedLocalDevelopmentLocation(origin, pathname) {
+    if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+    return pathname.includes("/study/") || pathname.includes("/newtab/");
+  }
   const OWNER_PREFIX = "yomu:web-owner:v2:";
   let selectedOwner;
   function selectOwner(owner) {
@@ -7660,45 +7663,61 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const prefix = ownedKey("");
     return enumerateStorageKeys(storage2, "localStorage").filter(belongsToOwner).map((key) => logicalManagedStorageKey(key.slice(prefix.length))).filter((key) => key !== null && managedLocalStorage.getItem(key) !== null);
   }
-  function managedWebStorageResetKeys(owner) {
-    selectOwner(owner);
+  function managedWebStorageResetKeys() {
     return [.../* @__PURE__ */ new Set([
       ...enumerateStorageKeys(storageArea("local"), "localStorage"),
       ...enumerateStorageKeys(storageArea("session"), "sessionStorage")
-    ])].filter(belongsToOwner);
+    ])].filter(isManagedStorageKey);
   }
   function managedStorageFacade(area) {
     return {
       getItem(key) {
         const { storage: storage2, epoch } = certifiedArea(area);
-        const raw = readStorageValue(storage2, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`);
-        if (raw === null || epoch.generation === 0) return raw;
-        try {
-          const unreadable = Symbol("unreadable-managed-web-storage");
-          const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
-          return typeof value === "string" ? value : null;
-        } catch {
-          return null;
-        }
+        const own = logicalItem(readStorageValue(storage2, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
+        if (own !== null) return own;
+        const earlier = earlierLocalRecordKey(area, key, epoch);
+        return earlier ? logicalItem(readStorageValue(storage2, earlier, `localStorage key "${key}"`), epoch) : null;
       },
       setItem(key, value) {
         assertManagedLogicalKey(key);
         const { storage: storage2, epoch } = certifiedArea(area);
         const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
         writeAndVerify(storage2, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+        removeEarlierLocalRecord(area, key, epoch);
         assertAreaCertificate(area, epoch);
       },
       removeItem(key) {
         assertManagedLogicalKey(key);
         const { storage: storage2, epoch } = certifiedArea(area);
-        const physicalKey = physicalStorageKey(key, epoch);
-        removeStorageValue(storage2, physicalKey, `${area}Storage key "${key}"`);
-        if (readStorageValue(storage2, physicalKey, `${area}Storage key "${key}"`) !== null) {
-          throw new Error(`${area}Storage retained managed key "${key}".`);
-        }
+        removeVerified(storage2, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`, `${area}Storage retained managed key "${key}".`);
+        removeEarlierLocalRecord(area, key, epoch);
         assertAreaCertificate(area, epoch);
       }
     };
+  }
+  function earlierLocalRecordKey(area, key, epoch) {
+    if (area !== "local" || !selectedOwner || selectedOwner === "standalone") return null;
+    const storage2 = storageArea("local");
+    const marker = readStorageValue(storage2, AREA_MARKER_KEYS.local, "localStorage earlier epoch marker");
+    return marker === managedStateEpochToken(epoch) ? epochSlotKey(key, epoch) : null;
+  }
+  function removeEarlierLocalRecord(area, key, epoch) {
+    const earlier = isHostedYomuOrigin() ? null : earlierLocalRecordKey(area, key, epoch);
+    if (earlier) removeVerified(storageArea("local"), earlier, `localStorage key "${key}"`, `localStorage retained earlier managed key "${key}".`);
+  }
+  function removeVerified(storage2, key, label, retained) {
+    removeStorageValue(storage2, key, label);
+    if (readStorageValue(storage2, key, label) !== null) throw new Error(retained);
+  }
+  function logicalItem(raw, epoch) {
+    if (raw === null || epoch.generation === 0) return raw;
+    try {
+      const unreadable = Symbol("unreadable-managed-web-storage");
+      const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+      return typeof value === "string" ? value : null;
+    } catch {
+      return null;
+    }
   }
   function certifiedArea(area) {
     const epoch = certifiedEpoch;
@@ -7713,9 +7732,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function physicalStorageKey(key, epoch) {
+    return ownedKey(epochSlotKey(key, epoch));
+  }
+  function epochSlotKey(key, epoch) {
     assertManagedLogicalKey(key);
-    if (epoch.generation === 0) return ownedKey(key);
-    return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`);
+    if (epoch.generation === 0) return key;
+    return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
   }
   function assertManagedLogicalKey(key) {
     if (!isManagedStorageKey(key) || isManagedStorageSlotKey(key)) {
@@ -8044,29 +8066,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isManagedStorageBackupKey(key) {
     return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
   }
-  const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-  function isHostedSettingsStorageKey(key) {
-    return key === HOSTED_SETTINGS_BLOB_KEY;
-  }
-  function isHostedYomuLocation(origin, hostname, pathname) {
-    if (origin === DOCS_ORIGIN) return true;
-    if (isHostedGithubPagesLocation(hostname, pathname)) return true;
-    return isHostedLocalDevelopmentLocation(origin, pathname);
-  }
-  function isHostedYomuOrigin() {
-    try {
-      return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
-    } catch {
-      return false;
-    }
-  }
-  function isHostedGithubPagesLocation(hostname, pathname) {
-    return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
-  }
-  function isHostedLocalDevelopmentLocation(origin, pathname) {
-    if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
-    return pathname.includes("/study/") || pathname.includes("/newtab/");
-  }
   function localStorageGet(key, fallback) {
     try {
       const value = localStorage.getItem(key);
@@ -8134,6 +8133,68 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ]);
   function isSettingsAuthorityStorageKey(key) {
     return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
+  }
+  const HOSTED_LOCAL_SETTINGS_KEYS = [
+    "showFurigana",
+    "furiganaMode",
+    "showPitchAccent",
+    "wordUnderlineColorSource",
+    "subtitlePlayerEnabled",
+    "subtitleAutoDetect",
+    "subtitleOverlayVisible",
+    "subtitleControlsMode",
+    "subtitleTranscriptVisible",
+    "ocrEnabled",
+    "ocrVideoPauseFrames",
+    "ocrProvider",
+    "ocrOverlayTheme",
+    "preferJapaneseSiteLanguage"
+  ];
+  const HOSTED_DEMO_READER_SETTINGS = {
+    showFurigana: true,
+    furiganaMode: "all",
+    showPitchAccent: true,
+    wordUnderlineColorSource: "pitch",
+    subtitlePlayerEnabled: true,
+    subtitleAutoDetect: true,
+    subtitleOverlayVisible: true,
+    subtitleControlsMode: "always",
+    subtitleTranscriptVisible: false,
+    ocrEnabled: true,
+    ocrVideoPauseFrames: true,
+    ocrProvider: "google-lens",
+    ocrOverlayTheme: "auto",
+    preferJapaneseSiteLanguage: false
+  };
+  const ACADEMY_READER_DEFAULTS = {
+    showFurigana: true,
+    furiganaMode: "all",
+    showPitchAccent: true
+  };
+  const HOSTED_APPEARANCE_CHOICES = {
+    interfaceLanguage: /* @__PURE__ */ new Set(["auto", "en", "ja"]),
+    theme: /* @__PURE__ */ new Set(["auto", "dark", "light"])
+  };
+  const HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
+  function isPassiveHostedSettingsRecord(record2) {
+    const entries2 = Object.entries(record2).filter(([key, value]) => key !== "learningTargetChosen" || value !== false);
+    return entries2.every(isHostedAppearanceEntry) || extendsHostedPolicy(record2, entries2, ACADEMY_READER_DEFAULTS) || extendsHostedPolicy(record2, entries2, HOSTED_DEMO_READER_SETTINGS);
+  }
+  function isPassiveHostedSettingsJson(serialized) {
+    let record2;
+    try {
+      record2 = JSON.parse(serialized);
+    } catch {
+      return false;
+    }
+    return typeof record2 === "object" && record2 !== null && !Array.isArray(record2) && isPassiveHostedSettingsRecord(record2);
+  }
+  function extendsHostedPolicy(record2, entries2, policy) {
+    return Object.entries(policy).every(([key, value]) => record2[key] === value) && entries2.every((entry) => Object.hasOwn(policy, entry[0]) || isHostedAppearanceEntry(entry));
+  }
+  function isHostedAppearanceEntry([key, value]) {
+    if (key === "accentColor") return typeof value === "string" && HOSTED_ACCENT_COLOR_RE.test(value);
+    return Object.hasOwn(HOSTED_APPEARANCE_CHOICES, key) && HOSTED_APPEARANCE_CHOICES[key].has(value);
   }
   function isRecord$6(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -8207,6 +8268,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const entry = provenanceValues()[key];
     return entry ? entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === fingerprint(serialized) : epoch.generation === 0;
   }
+  function localMirrorEpochMatches(key, epoch, rawWriterRecord) {
+    const serialized = recoverableSerializedValue(key);
+    if (serialized === null) return false;
+    const entry = provenanceValues()[key];
+    if (entry) return entry.epoch === managedStateEpochToken(epoch);
+    return epoch.generation === 0 || rawWriterRecord(serialized);
+  }
   function removeLocalMirrorProvenance(key) {
     updateProvenance(key, null);
   }
@@ -8267,6 +8335,67 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hash = Math.imul(hash ^ serialized.charCodeAt(index), 16777619);
     }
     return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  }
+  const SETTINGS_KEY = "jpdb-popup-reader-settings";
+  const INTENT_LEDGER_KEY = "yomu:settings-intent:v2";
+  const LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
+  const LAST_KEYS = [LOCAL_SRS_V2_INDEX_KEY, "yomu:prefer-japanese-site-language:v1", INTENT_LEDGER_KEY, SETTINGS_KEY];
+  const COORDINATION_FIELDS = ["__yomuSettingsPersistenceTransactionV1", "__yomuSettingsPersistenceCommitV1"];
+  const HOSTED_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+  const OWNER_NAMESPACE_PREFIX = "yomu:web-owner:v2:";
+  let adoption;
+  function websiteOnlyValuePresent(key, epoch) {
+    return isHostedYomuOrigin() && isWebsiteStoreKey(key) && localMirrorBelongsToEpoch(key, epoch);
+  }
+  function adoptWebsiteOnlyStore(getValue, epoch, write) {
+    const token = managedStateEpochToken(epoch);
+    if (adoption?.token === token) return adoption.done;
+    const done = runAdoption(getValue, epoch, write).finally(() => {
+      if (adoption?.done === done) adoption = void 0;
+    });
+    adoption = { token, done };
+    return done;
+  }
+  async function runAdoption(getValue, epoch, write) {
+    if (!isHostedYomuOrigin()) return;
+    const installed = await readManagedGmValue(getValue, SETTINGS_KEY, epoch);
+    if (installed.kind === "found" && !saysNoTargetChosen(installed.value)) return;
+    const settingsUnitAbsent = installed.kind === "missing" && (await readManagedGmValue(getValue, INTENT_LEDGER_KEY, epoch)).kind === "missing";
+    for (const key of websiteOnlyKeys(epoch)) {
+      if (isSettingsAuthorityStorageKey(key) && !settingsUnitAbsent) continue;
+      if ((await readManagedGmValue(getValue, key, epoch)).kind !== "missing") continue;
+      const value = localStorageGet(key, MISSING);
+      if (!isMissingSentinel(value)) await write(key, adoptedValue(key, value));
+    }
+  }
+  function websiteOnlyKeys(epoch) {
+    const keys = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (key && websiteOnlyValuePresent(key, epoch)) keys.push(key);
+    }
+    const rank = (key) => LAST_KEYS.indexOf(key);
+    return keys.sort((left, right) => rank(left) - rank(right) || left.localeCompare(right));
+  }
+  function isWebsiteStoreKey(key) {
+    return isManagedStorageBackupKey(key) && !key.startsWith(OWNER_NAMESPACE_PREFIX) && !RETIRED_SETTINGS_STORAGE_KEYS.includes(key) && managedStateEntries().some((entry) => entry.kind === "gm" && (entry.key === key || entry.prefix !== void 0 && key.startsWith(entry.prefix)));
+  }
+  function adoptedValue(key, value) {
+    if (!isRecord$6(value)) return value;
+    const record2 = withoutFields(value, COORDINATION_FIELDS);
+    if (key === SETTINGS_KEY) return withoutFields(record2, [HOSTED_PATCH_FIELD, ...HOSTED_LOCAL_SETTINGS_KEYS]);
+    if (key === INTENT_LEDGER_KEY && isRecord$6(record2.records)) {
+      return { ...record2, records: withoutFields(record2.records, HOSTED_LOCAL_SETTINGS_KEYS) };
+    }
+    return record2;
+  }
+  function withoutFields(record2, fields) {
+    const copy2 = { ...record2 };
+    for (const field of fields) delete copy2[field];
+    return copy2;
+  }
+  function saysNoTargetChosen(settings) {
+    return isRecord$6(settings) && settings.learningTargetChosen === false;
   }
   class ConcreteManagedWriteJournal {
     constructor(storage2, preserveLocalFallbackOnWriteFailure) {
@@ -8500,6 +8629,143 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function managedWriteConflict(key, label) {
     return new Error(`${label} "${key}" changed after staging; rollback left the newer value intact.`);
   }
+  function managedStorageOwner() {
+    return detectInstalledReaderRuntime() ?? userscriptGmStorageOwnerKind() ?? "standalone";
+  }
+  function asyncGmGetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmGetValue();
+    if (direct) return direct;
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+  }
+  function directGmGetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
+  }
+  function legacyGmGetValue() {
+    return typeof GM_getValue === "function" ? GM_getValue : null;
+  }
+  function modernGmGetValue() {
+    const modern = globalThis.GM?.getValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function asyncGmSetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmSetValue();
+    if (direct) return direct;
+    if (directGmGetValue()) return null;
+    return bridgeGmSetValue();
+  }
+  function directGmSetValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+  }
+  function legacyGmSetValue() {
+    return typeof GM_setValue === "function" ? GM_setValue : null;
+  }
+  function modernGmSetValue() {
+    const modern = globalThis.GM?.setValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function extensionGmSetValue() {
+    const extension = extensionStorageArea();
+    return extension ? (key, value) => extension.set({ [key]: value }) : null;
+  }
+  function bridgeGmSetValue() {
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, value) => bridge.setValue(key, value) : null;
+  }
+  function asyncGmDeleteValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmDeleteValue();
+    if (direct) return direct;
+    if (directGmGetValue()) return null;
+    return bridgeGmDeleteValue();
+  }
+  function directGmDeleteValue() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+  }
+  function legacyGmDeleteValue() {
+    return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+  }
+  function modernGmDeleteValue() {
+    const modern = globalThis.GM?.deleteValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function extensionGmDeleteValue() {
+    const extension = extensionStorageArea();
+    return extension ? (key) => extension.remove(key) : null;
+  }
+  function bridgeGmDeleteValue() {
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key) => bridge.deleteValue(key) : null;
+  }
+  function asyncGmListValues() {
+    if (packagedExtensionStorageAdapterMissing()) return null;
+    const direct = directGmListValues();
+    if (direct) return direct;
+    if (directGmGetValue()) return null;
+    return bridgeGmListValues();
+  }
+  function directGmListValues() {
+    return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
+  }
+  function legacyGmListValues() {
+    if (typeof GM_listValues === "function") return GM_listValues;
+    const directListValues = globalThis.GM_listValues;
+    return typeof directListValues === "function" ? directListValues : null;
+  }
+  function modernGmListValues() {
+    const modern = globalThis.GM?.listValues;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function extensionGmListValues() {
+    const extension = extensionStorageArea();
+    if (!extension) return null;
+    return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+  }
+  function bridgeGmListValues() {
+    const bridge = getUserscriptGmStorage();
+    return bridge ? () => bridge.listValues() : null;
+  }
+  function extensionStorageArea() {
+    return extensionCapability((extension) => extension.storage?.local);
+  }
+  function extensionCapability(select2) {
+    const candidate = globalThis;
+    return activeExtensionCapability(candidate.browser, select2) ?? activeExtensionCapability(candidate.chrome, select2) ?? null;
+  }
+  function activeExtensionCapability(extension, select2) {
+    return extension?.runtime?.id ? select2(extension) : void 0;
+  }
+  function packagedExtensionStorageAdapterMissing() {
+    if (!isPackagedExtensionDocument()) return false;
+    const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+    return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+  }
+  function isPackagedExtensionDocument() {
+    try {
+      const protocol = globalThis.location?.protocol ?? "";
+      return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+    } catch {
+      return false;
+    }
+  }
+  function rawExtensionStorageGetValue() {
+    const extension = extensionStorageArea();
+    return extension ? extensionStorageGetValue(extension) : null;
+  }
+  function extensionStorageGetValue(extension) {
+    return async (key, fallback) => {
+      const value = (await extension.get(key))[key];
+      return value === void 0 ? fallback : value;
+    };
+  }
+  function extensionStorageChangedEvent() {
+    return extensionCapability((extension) => extension.storage?.onChanged);
+  }
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
@@ -8599,9 +8865,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return null;
     }
   }
-  function hasAsyncGmStorageBackend() {
-    return asyncGmGetValue() !== null;
-  }
   async function assertManagedStateMutationAllowed() {
     const getValue = asyncGmGetValue();
     const epoch = await assertRealmManagedStateEpoch(getValue);
@@ -8694,8 +8957,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function sharedManagedValue(getValue, key, fallback, epoch) {
     const read = await readManagedGmValue(getValue, key, epoch);
     if (read.kind === "found") return read.value;
-    if (read.kind === "deleted") return fallback;
-    return fallback;
+    if (read.kind === "deleted" || !websiteOnlyValuePresent(key, epoch)) return fallback;
+    await adoptWebsiteOnlyStore(getValue, epoch, gmStorageSet).catch((error) => debugStorageError("Website-only store adoption failed", key, error));
+    const adopted = await readManagedGmValue(getValue, key, epoch);
+    return adopted.kind === "found" ? adopted.value : fallback;
   }
   function failedManagedReadValue(error, key, fallback) {
     if (isStaleManagedStateEpochError(error)) throw error;
@@ -8708,10 +8973,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return fallback;
   }
   function localOnlyManagedValueStrict(key, fallback, epoch) {
-    if (hostedSettingsLocalValuePresent(key) && !localMirrorBelongsToEpoch(key, epoch)) {
+    if (!hostedSettingsLocalValuePresent(key)) return localOnlyManagedValue(key, fallback, epoch);
+    if (!localMirrorEpochMatches(key, epoch, isPassiveHostedSettingsJson)) {
       throw storageWriteError(key, "Hosted settings localStorage is present without matching provenance");
     }
-    return localOnlyManagedValue(key, fallback, epoch);
+    return localStorageGet(key, fallback);
   }
   function hostedSettingsLocalValuePresent(key) {
     return isHostedSettingsStorageKey(key) && isHostedYomuOrigin() && webStorageHasKey(localStorage, key);
@@ -9066,13 +9332,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function exportStoredValues(prefixes) {
     await ensureManagedWebStorageCurrent();
+    await adoptWebsiteOnlyStoreBeforeExport();
+    const localKeys = /* @__PURE__ */ new Set();
+    addLocalStorageKeys(localKeys, prefixes);
     const keys = (await storageKeys(prefixes)).filter(isManagedStorageBackupKey);
-    const entries2 = await Promise.all(keys.map(async (key) => [key, await storedBackupValue(key)]));
+    const entries2 = await Promise.all(keys.map(async (key) => [key, await storedBackupValue(key, localKeys.has(key))]));
     return Object.fromEntries(entries2.filter(([, value]) => !isMissingSentinel(value)));
   }
-  async function storedBackupValue(key) {
+  async function adoptWebsiteOnlyStoreBeforeExport() {
+    const getValue = asyncGmGetValue();
+    if (!getValue || !isHostedYomuOrigin()) return;
+    await adoptWebsiteOnlyStore(getValue, await assertRealmManagedStateEpoch(getValue), gmStorageSet);
+  }
+  async function storedBackupValue(key, pageRecord) {
     const shared2 = await gmStorageGet(key, MISSING);
-    if (!isMissingSentinel(shared2)) return shared2;
+    if (!isMissingSentinel(shared2) || !pageRecord) return shared2;
     try {
       const serialized = managedLocalStorage.getItem(key);
       return serialized === null ? MISSING : JSON.parse(serialized);
@@ -9267,8 +9541,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   async function clearManagedStoredValues() {
-    const installed = hasAsyncGmStorageBackend();
-    const webKeys = installed ? managedWebStorageResetKeys(managedStorageOwner()) : [];
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
     let count = 0;
@@ -9276,27 +9548,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
       await deleteManagedStoredValue(key);
       count++;
     }
-    for (const key of webKeys) {
+    for (const key of originWebStorageResetKeys()) {
       removeLocalStorageKey(key);
       removeSessionStorageKey(key);
       if (resetWebStorageHasKey(localStorage, key, "localStorage") || resetWebStorageHasKey(sessionStorage, key, "sessionStorage")) {
-        throw new ManagedStateResetError("Factory reset could not clear the selected owner cache.");
+        throw new ManagedStateResetError(`Web storage still contains "${key}" after deletion.`);
       }
       count++;
     }
     count += await clearStrandedExtensionStudyManagedValuesForReset();
     await clearManagedIndexedDatabases();
-    if (ownsOriginBrowserStorage()) {
-      count += await clearManagedBrowserCaches();
-      count += await unregisterManagedServiceWorkers();
-    }
+    count += await clearManagedBrowserCaches();
+    count += await unregisterManagedServiceWorkers();
     return count;
   }
   async function managedStoredKeysStillPresent() {
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
-    const webKeys = hasAsyncGmStorageBackend() ? managedWebStorageResetKeys(managedStorageOwner()) : [];
-    return [.../* @__PURE__ */ new Set([...keys, ...webKeys, ...await strandedExtensionStudyManagedKeys()])].sort();
+    return [.../* @__PURE__ */ new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+  }
+  function originWebStorageResetKeys() {
+    try {
+      return managedWebStorageResetKeys().filter((key) => !isFactoryResetControlStorageKey(key));
+    } catch (error) {
+      throw new ManagedStateResetError("Factory reset could not enumerate this site's web storage.", { cause: error });
+    }
   }
   async function clearStrandedExtensionStudyManagedValuesForReset() {
     try {
@@ -9312,11 +9588,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new ManagedStateResetError("Factory reset could not inspect legacy extension Study storage.", { cause: error });
     }
   }
-  function ownsOriginBrowserStorage() {
-    return !hasAsyncGmStorageBackend() || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
-  }
   async function clearManagedBrowserCaches() {
-    if (!ownsOriginBrowserStorage()) return 0;
     if (typeof caches === "undefined") return 0;
     try {
       const keys = await caches.keys();
@@ -9332,7 +9604,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   async function unregisterManagedServiceWorkers() {
-    if (!ownsOriginBrowserStorage()) return 0;
     if (typeof navigator === "undefined" || !navigator.serviceWorker?.getRegistrations) return 0;
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
@@ -9560,9 +9831,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
     const keys = /* @__PURE__ */ new Set();
     const gmEnumeration = await addGmStorageKeys(keys);
-    if (!hasAsyncGmStorageBackend()) {
-      for (const key of managedWebStorageResetKeys("standalone")) keys.add(key);
-    }
     await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
     if (!gmEnumeration.complete) {
       const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
@@ -9709,8 +9977,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     restoreLocalFallbackStoredValueAtEpoch(key, value, existed, managedStateEpochForSynchronousLocalRead());
   }
   async function clearManagedIndexedDatabases() {
-    const names = registeredManagedIndexedDbNames().filter(databaseBelongsToCurrentOwner);
-    await Promise.all(names.map(deleteIndexedDbDatabase));
+    await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
   }
   function isManagedBrowserCacheName(name) {
     return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -14699,9 +14966,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
   }
-  const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+  const SYNTHETIC_INTERACTION_TEST_SLOT = void 0;
   function syntheticEventsAllowed() {
-    return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+    return SYNTHETIC_INTERACTION_TEST_SLOT !== void 0;
   }
   function sandboxSharedState(key, create) {
     const realm = globalThis;
@@ -15002,11 +15269,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      runSyntheticReaderFormSubmitForTests(event, onSubmit);
+      runSyntheticReaderFormSubmitForTests(event);
     });
   }
   function runSyntheticReaderFormSubmitForTests(event, onSubmit) {
-    if (!event.isTrusted && syntheticEventsAllowed()) onSubmit();
+    if (!event.isTrusted && syntheticEventsAllowed()) ;
   }
   function handleReaderFormSubmitClick(form, submitter, onSubmit, onInvalid, event) {
     if (!isExactReaderFormSubmitTarget(form, submitter, event.target)) return;
@@ -16342,6 +16609,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!configuredTag) return activeLearningTarget().ocr.languageHint;
     return languageSubtag(configuredTag) ?? configuredTag;
   }
+  function isTargetDefaultOcrLanguageTag(value) {
+    const tag = value?.trim().toLowerCase();
+    if (!tag) return false;
+    return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
+  }
+  const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = /* @__PURE__ */ new Set(["ja-jp", "ko-kr"]);
   function targetSpeechSynthesisLocale() {
     return activeLearningTarget().audio.speechSynthesisLocale;
   }
@@ -18129,17 +18402,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function parseSettingsIntentLedger(value) {
     const record2 = objectRecord$5(value);
-    if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
-    const records = objectRecord$5(record2.records);
-    if (!records) return null;
+    const records = record2 && objectRecord$5(record2.records);
+    if (!records || !nonNegativeNumber(record2.revision)) return null;
     const parsed = {};
+    let revision2 = record2.revision;
     for (const [key, entry] of Object.entries(records)) {
       const item = objectRecord$5(entry);
-      if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
+      if (!item || !nonNegativeNumber(item.seq)) return null;
       const seq = item.seq;
       parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+      revision2 = Math.max(revision2, seq);
     }
-    return { revision: record2.revision, records: parsed };
+    return { revision: revision2, records: parsed };
+  }
+  function nonNegativeNumber(value) {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
   }
   function objectRecord$5(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -18218,22 +18495,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       subtitleSeekPadding: 0.08
     };
   }
-  const HOSTED_DEMO_READER_SETTINGS = {
-    showFurigana: true,
-    furiganaMode: "all",
-    showPitchAccent: true,
-    wordUnderlineColorSource: "pitch",
-    subtitlePlayerEnabled: true,
-    subtitleAutoDetect: true,
-    subtitleOverlayVisible: true,
-    subtitleControlsMode: "always",
-    subtitleTranscriptVisible: false,
-    ocrEnabled: true,
-    ocrVideoPauseFrames: true,
-    ocrProvider: "google-lens",
-    ocrOverlayTheme: "auto",
-    preferJapaneseSiteLanguage: false
-  };
   const DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS = {
     interfaceLanguage: "en",
     parserProvider: "local"
@@ -18252,16 +18513,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "subtitleFontSize",
     "subtitleBottomOffset"
   ];
-  const ACADEMY_READER_DEFAULTS = {
-    showFurigana: true,
-    furiganaMode: "all",
-    showPitchAccent: true
-  };
-  const HOSTED_APPEARANCE_CHOICES = {
-    interfaceLanguage: /* @__PURE__ */ new Set(["auto", "en", "ja"]),
-    theme: /* @__PURE__ */ new Set(["auto", "dark", "light"])
-  };
-  const HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
   function normalizeLearningTargetChosen(value, defaults = DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS) {
     if (!value) return false;
     const explicit = explicitLearningTargetChoice(value);
@@ -18278,22 +18529,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function legacyReaderTargetEvidenceExists(value) {
     return LEGACY_READER_TARGET_EVIDENCE_KEYS.some((key) => hasOwn(value, key));
-  }
-  function isPassiveHostedSettingsRecord(record2) {
-    return Object.entries(record2).every(isHostedAppearanceEntry) || extendsHostedPolicy(record2, ACADEMY_READER_DEFAULTS) || extendsHostedPolicy(record2, HOSTED_DEMO_READER_SETTINGS);
-  }
-  function extendsHostedPolicy(record2, policy) {
-    return Object.entries(policy).every(([key, value]) => record2[key] === value) && Object.entries(record2).every((entry) => hasOwn(policy, entry[0]) || isHostedAppearanceEntry(entry));
-  }
-  function isHostedAppearanceEntry([key, value]) {
-    return isHostedAppearanceChoice(key, value) || isHostedAccentColor(key, value);
-  }
-  function isHostedAppearanceChoice(key, value) {
-    return HOSTED_APPEARANCE_CHOICES[key]?.has(value) === true;
-  }
-  function isHostedAccentColor(key, value) {
-    if (key !== "accentColor") return false;
-    return typeof value === "string" ? HOSTED_ACCENT_COLOR_RE.test(value) : false;
   }
   function persistedProfilesChooseLearningTarget(value, defaults) {
     const profiles = value.languageProfiles;
@@ -18420,10 +18655,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return matchingCommittedPair(settings, intentLedger);
   }
   function matchingCommittedPair(settings, intentLedger) {
-    if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
     const settingsId = commitId(settings);
-    const ledgerId = commitId(intentLedger);
-    return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+    return settingsId !== null && settingsId === commitId(intentLedger) ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
   }
   function commitId(value) {
     const record2 = objectRecord$6(value);
@@ -18478,6 +18711,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function readSettingsPersistenceViewStrict() {
     return readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
   }
+  async function readSettingsIntentLedgerForWrite() {
+    const read = readSettingsStorageValueStrict;
+    const view = await stableSettingsPersistenceView(read);
+    if (view) return view.intentLedger;
+    if (committedSettingsStoragePair(await read(SETTINGS_STORAGE_KEY, null), await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null))) {
+      throw new Error("Settings storage did not provide a stable committed snapshot.");
+    }
+    return { revision: 0, records: {} };
+  }
   function serializeSettingsPersistencePair(settings, intentLedger) {
     const commit = createStorageCoordinationId();
     return {
@@ -18530,21 +18772,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return record2;
   }
   function validateBackupAuthority(record2) {
-    const settings = objectRecord$4(record2[SETTINGS_STORAGE_KEY]);
-    if (!settings) {
+    const committed = committedSettingsStoragePair(
+      record2[SETTINGS_STORAGE_KEY] ?? null,
+      record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY] ?? null
+    );
+    if (!committed) {
+      throw new InvalidSettingsBackupAuthorityError(
+        "Settings backup contains an incomplete settings persistence transaction."
+      );
+    }
+    if (!objectRecord$4(committed.settings)) {
       throw new InvalidSettingsBackupAuthorityError(
         "Settings backup contains a malformed canonical settings value."
       );
     }
-    const ledger = record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY];
-    if (!parseSettingsIntentLedger(ledger)) {
+    if (committed.intentLedger != null && !parseSettingsIntentLedger(committed.intentLedger)) {
       throw new InvalidSettingsBackupAuthorityError(
         "Settings backup contains a malformed settings intent ledger."
-      );
-    }
-    if (!commitId(settings) || !commitId(ledger) || Object.hasOwn(settings, TRANSACTION_FIELD) || !committedSettingsStoragePair(settings, ledger)) {
-      throw new InvalidSettingsBackupAuthorityError(
-        "Settings backup contains an incomplete settings persistence transaction."
       );
     }
   }
@@ -19414,10 +19658,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         activeTargetRosterId(languageProfileSettings)
       ),
       ...languageProfileSettings,
-      learningTargetChosen: booleanSetting(value, "learningTargetChosen"),
+      // v1.9.3 contract: a record that predates the field keeps the choice
+      // its own Reader state implies (learning-target-choice.ts).
+      learningTargetChosen: normalizeLearningTargetChosen(value),
+      ...unpinnedOcrLanguage(settingsValue),
       preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
     };
+  }
+  function unpinnedOcrLanguage(value) {
+    return isTargetDefaultOcrLanguageTag(value?.ocrLanguage) ? { ocrLanguage: "" } : {};
   }
   function normalizePreferredJapaneseSiteLanguage(value) {
     if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
@@ -20010,14 +20260,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function coupledSettingsIntentKeys(keys) {
     return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
   }
-  async function readSettingsIntentLedger() {
-    return (await readSettingsPersistenceViewStrict()).intentLedger;
-  }
   async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
     const normalizedSettings = mergeSettings(settings);
     let storedSettings = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-      const ledger = await readSettingsIntentLedger();
+      const ledger = await readSettingsIntentLedgerForWrite();
       const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
       const nextLedger = recordSettingsIntent(
         withdrawn,
@@ -26897,12 +27144,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
     });
   }
-  function yomitanDatabaseName() {
-    return ownedDatabaseName("jpdb-popup-reader-yomitan");
-  }
-  function assertYomitanStorageOwner(databaseName) {
-    if (databaseName !== yomitanDatabaseName()) throw new Error("Dictionary storage owner changed; reload to reconnect.");
-  }
+  const YOMITAN_DATABASE_NAME = "jpdb-popup-reader-yomitan";
   function firefoxXrayWaiver(value) {
     if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
     try {
@@ -27202,9 +27444,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
     }
   }
-  function assertYomitanDatabaseOwner(db) {
-    assertYomitanStorageOwner(db.name);
-  }
   const MANAGED_STATE_STORE = "managedState";
   const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
   const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
@@ -27228,25 +27467,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       markerStoreName: MANAGED_STATE_STORE,
       markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
       markerKeyPath: "key",
-      clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName)),
-      beforeMutate: () => assertYomitanDatabaseOwner(db)
+      clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
     });
   }
-  async function fencedYomitanDbHandle(databaseName, current, open) {
-    assertYomitanStorageOwner(databaseName);
+  async function fencedYomitanDbHandle(current, open) {
     const existing = current();
-    const epoch = existing ? await assertManagedStateReadAllowed() : await assertManagedStateMutationAllowed();
-    assertYomitanStorageOwner(databaseName);
-    const db = await (existing ?? open(epoch));
-    if (!existing) await assertManagedStateMutationAllowed();
-    assertYomitanStorageOwner(databaseName);
+    if (existing) {
+      await assertManagedStateReadAllowed();
+      return existing;
+    }
+    const db = await open(await assertManagedStateMutationAllowed());
+    await assertManagedStateMutationAllowed();
     return db;
   }
   function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
-    return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, (tx) => {
-      assertYomitanDatabaseOwner(db);
-      mutate(tx);
-    }, options);
+    return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
   }
   function readBlobWithFileReader(blob, read, result) {
     return new Promise((resolve, reject) => {
@@ -27546,6 +27781,133 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return -1;
   }
+  const MAX_DEXIE_SCALAR_LENGTH = 128;
+  const MAX_DEXIE_NESTING = 128;
+  const MAX_DECODED_STRING_LENGTH = 256;
+  const ATOM = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/;
+  const WHITESPACE = /[ \t\r\n]/;
+  const STRUCTURAL = '{}[],:"';
+  const CLOSABLE = /* @__PURE__ */ new Set(["key-or-end", "value-or-end", "comma-or-end"]);
+  function failInvalidDexieJson() {
+    throw new SyntaxError("Invalid Dexie JSON dictionary.");
+  }
+  class DexieSyntaxPreflight {
+    stack = [];
+    root = "value";
+    inString = false;
+    escaped = false;
+    unicodeDigits = 0;
+    atom = "";
+    text = "";
+    rootKey = "";
+    format;
+    feed(chunk) {
+      for (const char of chunk) {
+        if (this.inString) this.stringChar(char);
+        else this.structuralChar(char);
+      }
+    }
+    finish() {
+      this.finishAtom();
+      if (this.inString || this.escaped || this.unicodeDigits || this.stack.length) failInvalidDexieJson();
+      if (this.root !== "done" || this.format !== "dexie") failInvalidDexieJson();
+    }
+    stringChar(char) {
+      if (char !== '"' || this.escaped || this.unicodeDigits) this.bufferText(char);
+      if (this.unicodeDigits) this.unicodeDigit(char);
+      else if (this.escaped) this.escapeChar(char);
+      else if (char === "\\") this.escaped = true;
+      else if (char === '"') this.closeString();
+      else if (char.charCodeAt(0) < 32) failInvalidDexieJson();
+    }
+    bufferText(char) {
+      if (this.text.length < MAX_DECODED_STRING_LENGTH) this.text += char;
+    }
+    unicodeDigit(char) {
+      if (!/[0-9a-f]/i.test(char)) failInvalidDexieJson();
+      this.unicodeDigits--;
+    }
+    escapeChar(char) {
+      if (char === "u") this.unicodeDigits = 4;
+      else if (!'"\\/bfnrt'.includes(char)) failInvalidDexieJson();
+      this.escaped = false;
+    }
+    closeString() {
+      this.inString = false;
+      const frame = this.stack.at(-1);
+      const decoded = this.text.length < MAX_DECODED_STRING_LENGTH ? JSON.parse(`"${this.text}"`) : "";
+      if (frame?.kind === "object" && (frame.next === "key" || frame.next === "key-or-end")) {
+        frame.next = "colon";
+        if (this.stack.length === 1) this.rootKey = decoded;
+        return;
+      }
+      this.value();
+      if (this.atRootFormatName()) this.format = decoded;
+    }
+    structuralChar(char) {
+      const whitespace = WHITESPACE.test(char);
+      if (!whitespace && !STRUCTURAL.includes(char)) {
+        this.atomChar(char);
+        return;
+      }
+      this.finishAtom();
+      if (whitespace) return;
+      if (char === '"') this.openString();
+      else if (char === "{" || char === "[") this.openContainer(char);
+      else if (char === "}" || char === "]") this.closeContainer(char);
+      else if (char === ":") this.colon();
+      else this.comma();
+    }
+    atomChar(char) {
+      if (this.atom.length >= MAX_DEXIE_SCALAR_LENGTH) throw new RangeError("Dexie import scalar exceeds 128 characters.");
+      this.atom += char;
+    }
+    finishAtom() {
+      if (!this.atom) return;
+      if (!ATOM.test(this.atom)) failInvalidDexieJson();
+      this.value();
+      this.atom = "";
+    }
+    openString() {
+      this.inString = true;
+      this.text = "";
+    }
+    openContainer(char) {
+      if (this.stack.length >= MAX_DEXIE_NESTING) throw new RangeError("Dexie import nesting exceeds 128 levels.");
+      this.value();
+      this.stack.push(char === "{" ? { kind: "object", next: "key-or-end" } : { kind: "array", next: "value-or-end" });
+    }
+    closeContainer(char) {
+      const frame = this.stack.at(-1);
+      if (!frame || frame.kind !== (char === "}" ? "object" : "array") || !CLOSABLE.has(frame.next)) failInvalidDexieJson();
+      this.stack.pop();
+    }
+    colon() {
+      const frame = this.stack.at(-1);
+      if (!frame || frame.next !== "colon") failInvalidDexieJson();
+      frame.next = "value";
+    }
+    comma() {
+      const frame = this.stack.at(-1);
+      if (!frame || frame.next !== "comma-or-end") failInvalidDexieJson();
+      frame.next = frame.kind === "object" ? "key" : "value";
+    }
+    /** Account for one complete value (scalar, string, or container opening). */
+    value() {
+      const frame = this.stack.at(-1);
+      if (this.atRootFormatName()) this.format = void 0;
+      if (!frame) {
+        if (this.root !== "value") failInvalidDexieJson();
+        this.root = "done";
+        return;
+      }
+      if (frame.next !== "value" && frame.next !== "value-or-end") failInvalidDexieJson();
+      frame.next = "comma-or-end";
+    }
+    atRootFormatName() {
+      return this.stack.length === 1 && this.rootKey === "formatName";
+    }
+  }
   Logger.scope("DictionaryReplicaPurge");
   const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
   const STATE_STORE = "managedState";
@@ -27601,12 +27963,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function runDictionaryImportWrite(db, stores, mutate, options, importing) {
     return runYomitanManagedStateWrite(db, stores, (tx) => {
-      const apply = () => {
-        assertYomitanDatabaseOwner(db);
-        mutate(tx);
-      };
-      if (importing) importing(tx, apply);
-      else apply();
+      if (importing) importing(tx, () => mutate(tx));
+      else mutate(tx);
     }, options);
   }
   async function validateZipDictionaryBanks(zip, dictionary, version) {
@@ -27625,110 +27983,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return supported;
   }
-  const MAX_DEXIE_SCALAR_LENGTH = 128;
-  const MAX_DEXIE_NESTING = 128;
+  const DEXIE_PREFLIGHT_CHUNK_BYTES = 262144;
+  const DEXIE_TABLES = /* @__PURE__ */ new Set(["dictionaries", "terms", "kanji", "termMeta", "kanjiMeta"]);
   async function validateDexieJson(file) {
-    const stack = [];
-    let root = "value";
-    let string = false, escaped = false, unicode = 0, atom = "", text2 = "";
-    let rootKey = "", format;
-    const fail2 = () => {
-      throw new SyntaxError("Invalid Dexie JSON dictionary.");
-    };
-    const value = () => {
-      const frame = stack.at(-1);
-      if (stack.length === 1 && rootKey === "formatName") format = void 0;
-      if (!frame) {
-        if (root !== "value") fail2();
-        root = "done";
-      } else {
-        if (!["value", "value-or-end"].includes(frame.next)) fail2();
-        frame.next = "comma-or-end";
-      }
-    };
-    const stringToken = () => {
-      const frame = stack.at(-1);
-      const decoded = text2.length < 256 ? JSON.parse(`"${text2}"`) : "";
-      if (frame?.kind === "object" && ["key", "key-or-end"].includes(frame.next)) {
-        frame.next = "colon";
-        if (stack.length === 1) rootKey = decoded;
-      } else {
-        value();
-        if (stack.length === 1 && rootKey === "formatName") format = decoded;
-      }
-    };
-    const finishAtom = () => {
-      if (!atom) return;
-      if (!/^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(atom)) fail2();
-      value();
-      atom = "";
-    };
-    for (let offset = 0; offset < file.size; offset += 262144) {
-      const chunk = await readBlobText(file.slice(offset, offset + 262144));
-      for (const char of chunk) {
-        if (string) {
-          if (char !== '"' || escaped || unicode) {
-            if (text2.length < 256) text2 += char;
-          }
-          if (unicode) {
-            if (!/[0-9a-f]/i.test(char)) fail2();
-            unicode--;
-            continue;
-          }
-          if (escaped) {
-            if (char === "u") unicode = 4;
-            else if (!'"\\/bfnrt'.includes(char)) fail2();
-            escaped = false;
-            continue;
-          }
-          if (char === "\\") {
-            escaped = true;
-            continue;
-          }
-          if (char === '"') {
-            string = false;
-            stringToken();
-            continue;
-          }
-          if (char.charCodeAt(0) < 32) fail2();
-          continue;
-        }
-        if (/[ \t\r\n]/.test(char) || '{}[],:"'.includes(char)) finishAtom();
-        else {
-          if (atom.length >= MAX_DEXIE_SCALAR_LENGTH) throw new RangeError("Dexie import scalar exceeds 128 characters.");
-          atom += char;
-          continue;
-        }
-        if (/[ \t\r\n]/.test(char)) continue;
-        const frame = stack.at(-1);
-        if (char === '"') {
-          string = true;
-          text2 = "";
-        } else if (char === "{" || char === "[") {
-          if (stack.length >= MAX_DEXIE_NESTING) throw new RangeError("Dexie import nesting exceeds 128 levels.");
-          value();
-          stack.push({ kind: char === "{" ? "object" : "array", next: char === "{" ? "key-or-end" : "value-or-end" });
-        } else if (char === "}" || char === "]") {
-          if (!frame || frame.kind !== (char === "}" ? "object" : "array") || !["key-or-end", "value-or-end", "comma-or-end"].includes(frame.next)) fail2();
-          stack.pop();
-        } else if (char === ":") {
-          if (!frame || frame.next !== "colon") return fail2();
-          frame.next = "value";
-        } else if (char === ",") {
-          if (!frame || frame.next !== "comma-or-end") return fail2();
-          frame.next = frame.kind === "object" ? "key" : "value";
-        }
-      }
+    const syntax = new DexieSyntaxPreflight();
+    for (let offset = 0; offset < file.size; offset += DEXIE_PREFLIGHT_CHUNK_BYTES) {
+      syntax.feed(await readBlobText(file.slice(offset, offset + DEXIE_PREFLIGHT_CHUNK_BYTES)));
     }
-    finishAtom();
-    if (string || escaped || unicode || stack.length || root !== "done" || format !== "dexie") fail2();
-    const known = /* @__PURE__ */ new Set(["dictionaries", "terms", "kanji", "termMeta", "kanjiMeta"]);
+    syntax.finish();
     let recognized = false;
     await streamDexieTables(file, {}, (table) => {
-      if (known.has(table)) recognized = true;
+      if (DEXIE_TABLES.has(table)) recognized = true;
     });
     const counts = await readDexieTableRowCounts(file);
-    if (!recognized && !Object.keys(counts).some((table) => known.has(table))) fail2();
+    if (!recognized && !Object.keys(counts).some((table) => DEXIE_TABLES.has(table))) failInvalidDexieJson();
     return counts;
   }
   const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -29547,7 +29815,6 @@ ${entry.reading}`;
       this.getCorsProxyUrl = getCorsProxyUrl;
       this.getInterfaceLanguage = getInterfaceLanguage;
     }
-    databaseName = yomitanDatabaseName();
     dbPromise;
     dictionaryInfoPromise;
     summaryPromise;
@@ -30312,17 +30579,15 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$G.info("Dictionary DB closed for reset", { name: this.databaseName });
+        log$G.info("Dictionary DB closed for reset", { name: YOMITAN_DATABASE_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      assertYomitanStorageOwner(this.databaseName);
       const done = log$G.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
-        assertYomitanStorageOwner(this.databaseName);
         db?.close();
         this.dbPromise = void 0;
         this.invalidateCaches();
@@ -30340,15 +30605,15 @@ ${entry.reading}`;
             globalThis.clearTimeout(timeout);
             callback();
           };
-          const request = indexedDB.deleteDatabase(this.databaseName);
+          const request = indexedDB.deleteDatabase(YOMITAN_DATABASE_NAME);
           request.onsuccess = () => settle(resolve);
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$G.warn("Dictionary delete blocked by another tab", { name: this.databaseName });
+            log$G.warn("Dictionary delete blocked by another tab", { name: YOMITAN_DATABASE_NAME });
           };
         });
-        log$G.info("Dictionary database deleted", { name: this.databaseName });
+        log$G.info("Dictionary database deleted", { name: YOMITAN_DATABASE_NAME });
       } catch (error) {
         log$G.warn("Dictionary database delete failed", { error });
         throw error;
@@ -30852,7 +31117,7 @@ ${entry.reading}`;
       });
     }
     db() {
-      return fencedYomitanDbHandle(this.databaseName, () => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
+      return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
     }
     // A blocked or wedged upgrade (an older runtime still holding the
     // connection) used to leave the open promise pending FOREVER — every local
@@ -30861,7 +31126,7 @@ ${entry.reading}`;
     // (the delete path at clearAll already does both).
     openDb(epoch) {
       const promise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(this.databaseName, DB_VERSION);
+        const request = indexedDB.open(YOMITAN_DATABASE_NAME, DB_VERSION);
         let settled = false;
         const failOpen = (reason, error) => {
           if (settled) return;
@@ -30873,14 +31138,6 @@ ${entry.reading}`;
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
         request.onblocked = () => failOpen("Dictionary database upgrade blocked by another open connection");
         request.onupgradeneeded = (event) => {
-          try {
-            assertYomitanStorageOwner(this.databaseName);
-          } catch (error) {
-            request.transaction?.abort();
-            clearTimeout(openTimeout);
-            failOpen("Dictionary storage owner changed", error);
-            return;
-          }
           const db = request.result;
           const tx = request.transaction;
           log$G.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
@@ -30953,7 +31210,7 @@ ${entry.reading}`;
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
         log$G.info("Dictionary DB version change; closing", {
-          name: this.databaseName,
+          name: YOMITAN_DATABASE_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
         });
@@ -31870,19 +32127,15 @@ ${entry.reading || ""}`;
     }
   }
   async function saveAnkiStatusIndex(index) {
-    const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
     try {
       await saveAnkiStatusIndexToIndexedDb(index);
-      assertAnkiStatusOwner(databaseName);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      assertAnkiStatusOwner(databaseName);
       log$F.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
   async function saveAnkiStatusIndexCheckedAt(index) {
-    const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
     if (index.entryStore !== "indexeddb") {
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
       return;
@@ -31890,10 +32143,8 @@ ${entry.reading || ""}`;
     const meta = ankiStatusIndexMeta(index);
     try {
       await putStoredAnkiStatusIndexMeta(meta);
-      assertAnkiStatusOwner(databaseName);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      assertAnkiStatusOwner(databaseName);
       log$F.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
@@ -31915,7 +32166,6 @@ ${entry.reading || ""}`;
       const meta = await idbRequest(
         db.transaction(ANKI_STATUS_INDEX_META_STORE, "readonly").objectStore(ANKI_STATUS_INDEX_META_STORE).get("current")
       );
-      assertAnkiStatusOwner(db.name);
       if (!meta) return null;
       return {
         version: meta.version,
@@ -31943,7 +32193,6 @@ ${entry.reading || ""}`;
         const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
         const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record2) => [key, record2])));
         await idbTransactionDone(tx);
-        assertAnkiStatusOwner(db.name);
         records.push(...chunkRecords);
       }
       return new Map(records.filter((record2) => Boolean(record2[1])).map(([key, record2]) => [key, record2.entry]));
@@ -31998,12 +32247,6 @@ ${entry.reading || ""}`;
       entries2.forEach((candidate) => {
         const request = store.get(candidate.key);
         request.onsuccess = () => {
-          try {
-            assertAnkiStatusOwner(db.name);
-          } catch {
-            tx.abort();
-            return;
-          }
           const current = request.result?.entry;
           if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
         };
@@ -32016,26 +32259,16 @@ ${entry.reading || ""}`;
     const count = idbRequest(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count());
     return count.then(async (value) => {
       await done;
-      assertAnkiStatusOwner(db.name);
       return value;
     });
   }
   async function openAnkiStatusIndexDb() {
-    const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
     const epoch = await assertManagedStateMutationAllowed();
-    assertAnkiStatusOwner(databaseName);
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(databaseName, ANKI_STATUS_INDEX_DB_VERSION);
+      const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
       request.onerror = () => reject(request.error ?? new Error("Could not open Anki status index database."));
       request.onblocked = () => reject(new Error("Anki status index database upgrade was blocked."));
       request.onupgradeneeded = () => {
-        try {
-          assertAnkiStatusOwner(databaseName);
-        } catch (error) {
-          request.transaction?.abort();
-          reject(error);
-          return;
-        }
         const db = request.result;
         if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)) {
           db.createObjectStore(ANKI_STATUS_INDEX_META_STORE, { keyPath: "id" });
@@ -32113,18 +32346,11 @@ ${entry.reading || ""}`;
       markerKey: ANKI_STATUS_INDEX_EPOCH_RECORD_ID,
       markerKeyPath: "id",
       clearedStoreNames: [ANKI_STATUS_INDEX_ENTRY_STORE],
-      deletedRecords: [{ storeName: ANKI_STATUS_INDEX_META_STORE, key: "current" }],
-      beforeMutate: () => assertAnkiStatusOwner(db.name)
+      deletedRecords: [{ storeName: ANKI_STATUS_INDEX_META_STORE, key: "current" }]
     });
   }
   function runAnkiStatusIndexWrite(db, storeNames, mutate) {
-    return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, (tx) => {
-      assertAnkiStatusOwner(db.name);
-      mutate(tx);
-    });
-  }
-  function assertAnkiStatusOwner(databaseName) {
-    if (databaseName !== ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME)) throw new Error("Anki status storage owner changed; reload to reconnect.");
+    return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, mutate);
   }
   async function putStoredAnkiStatusIndexMeta(meta) {
     if (!canUseIndexedDb()) throw new Error("IndexedDB is unavailable.");
@@ -32645,7 +32871,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     lastFocusStatusRefreshAt = 0;
     accountEpoch = 0;
     // Companion lifecycle API consumed by page and newtab runtimes through the structural Anki client.
-    // fallow-ignore-next-line unused-class-member
     destroy() {
       this.isDestroyed = true;
       this.clearAccountContext();
@@ -33674,7 +33899,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
     }
     // Public review action used by card and newtab controls to answer rendered Anki review cards.
-    // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
       log$E.info("Answering Anki card", { cardId, grade, ease });
@@ -36600,6 +36824,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       twoButton: entries2.length === 2
     };
   }
+  function gradeKeyHintAttributes(settings, shortcut) {
+    const key = shortcut ? settings.shortcuts[shortcut]?.trim() ?? "" : "";
+    if (!key) return "";
+    const escaped = key.replace(/[&<>"']/gu, (character) => `&#${character.charCodeAt(0)};`);
+    return ` data-grade-key="${escaped}" aria-keyshortcuts="${escaped}"`;
+  }
   const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
   const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
@@ -37594,7 +37824,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
         ${renderAnkiReviewTarget(options.targetLabel)}
         <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join("")}
+            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join("")}
         </div>
     `;
   }
@@ -37610,7 +37840,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function ankiReviewGradesClass(grades) {
     return grades.length === 5 ? " jpdb-reader-grades" : "";
   }
-  function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, language2, gradeShortcut) {
+  function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings, gradeShortcut) {
     const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
     const command = privateCommandAttributes({
       kind: "card-action",
@@ -37620,7 +37850,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       reviewTarget: ankiReviewTarget(ankiCardId),
       ankiCardId
     });
-    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, language2)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
+    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}${gradeKeyHintAttributes(settings, gradeShortcut)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
   }
   function ankiReviewCardAttributes(ankiCardId) {
     return ankiCardId ? ` data-anki-card-id="${ankiCardId}"` : "";
@@ -41565,7 +41795,7 @@ ${key}`] = { t: now, v: value };
     async reviewCard(card, grade) {
       log$z.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
-      await this.refreshCard(card);
+      await this.refreshCard(card).catch((error) => log$z.warn("Card refresh after review failed", { term: card.spelling }, error));
     }
     // Used by mining controls to add JPDB-backed cards to selected decks.
     async addToDeck(deckId, card, sentence) {
@@ -42537,7 +42767,7 @@ ${normalizedReading}`;
           this.assertCurrent(request);
           entry.result = result;
           const hasData = usable(result);
-          entry.expiresAt = Date.now() + (result.status === "partial" ? request.scope.backoff.retryAfterMs() || INCOMPLETE_QUERY_TTL_MS : hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
+          entry.expiresAt = Date.now() + (hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
           if (!cached && result.status === "complete" && hasData) writePublicJpdbCache(kind, key, result);
           return result;
         }).catch((error) => {
@@ -45859,7 +46089,7 @@ ${normalizedReading}`;
       const promise = this.searchEnabledSources(query, settings, options).then((outcome) => {
         const result = { ...outcome, examples: applySearchExampleLimit(outcome.examples, settings, options) };
         if (!options.signal?.aborted) {
-          this.cache.set(cacheKey, { result, expiresAt: Date.now() + (result.status === "partial" ? 1e3 : result.examples.length ? 3e5 : 1e4) });
+          this.cache.set(cacheKey, { result, expiresAt: Date.now() + searchResultTtlMs(result) });
           pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
         }
         return result;
@@ -45892,7 +46122,7 @@ ${normalizedReading}`;
         sources.forEach((source) => {
           void this.searchSource(source, query, settings, options).then((examples) => {
             if (examples.length) {
-              resolve({ examples, status: "partial" });
+              resolve({ examples, status: "complete" });
               return;
             }
             emptyResults.push(examples);
@@ -46036,6 +46266,10 @@ ${normalizedReading}`;
       const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language2);
       return readBlobAsDataUrl(blob);
     }
+  }
+  function searchResultTtlMs(result) {
+    if (result.examples.length) return 3e5;
+    return result.status === "partial" ? 1e3 : 1e4;
   }
   function raceSharedImmersionSearchAgainstAbort(promise, signal) {
     if (signal.aborted) return Promise.reject(immersionSearchAbortError());
@@ -69268,11 +69502,11 @@ ${reading}`);
       retainWithoutAcademyProvenance: false,
       academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
     };
-    const card = existing ? preserveExistingSchedule(
+    const card = !existing ? incoming : existing.reviewEnabled === false ? mergeStoredYomuSrsCards(existing, incoming) : preserveExistingSchedule(
       mergeStoredYomuSrsCards(existing, incoming),
       existing,
       input2.postponeExisting === true && !previousProvenance ? input2.dueAt : void 0
-    ) : incoming;
+    );
     deck.cards[identity.key] = card;
     return {
       card,
@@ -69718,8 +69952,7 @@ ${reading}`);
           partOfSpeech: request.card.partOfSpeech,
           language: request.card.language
         });
-        const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
-        if (existing.reviewEnabled === false) throw new Error("Saved word is not enrolled in review.");
+        const { reviewEnabled: _saved, ...existing } = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
         const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
         if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
           delete deck.cards[request.card.providerCardId];
@@ -69778,8 +70011,8 @@ ${reading}`);
       const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
         const deck = await this.readDeckUncoordinated();
         const previousDeck = structuredClone(deck);
-        const previousCards = new Map(Object.entries(deck.cards));
-        const previousTombstones = { ...deck.tombstones ?? {} };
+        const previousCards = new Map(Object.entries(previousDeck.cards));
+        const previousTombstones = { ...previousDeck.tombstones ?? {} };
         const value = operation(deck);
         await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
         const changedCardIds = /* @__PURE__ */ new Set([
@@ -69937,7 +70170,7 @@ ${reading}`);
     return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
   }
   function localCardState(card, now) {
-    if (card.reviewEnabled === false) return [];
+    if (card.reviewEnabled === false) return ["in-deck"];
     if (card.reviews === 0) return ["new"];
     if (card.dueAt <= now) return ["due"];
     if (card.intervalDays >= 21) return ["known"];
@@ -83828,7 +84061,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.9.3".trim() ? "1.9.3".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.0".trim() ? "2.0.0".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -120673,9 +120906,6 @@ ${reading}`);
     if (!isRecord$6(value.settings) || typeof value.syncedAt !== "string" || !Number.isFinite(Date.parse(value.syncedAt)) || value.storage !== void 0 && !isRecord$6(value.storage)) {
       throw userFacingError("settingsImportIncomplete");
     }
-    if (value.storage && RETIRED_SETTINGS_STORAGE_KEYS.some((key) => Object.hasOwn(value.storage, key))) {
-      throw userFacingError("settingsImportUnsupportedFormat");
-    }
     return value;
   }
   const AUTHORIZATION_STATE_BYTES = 24;
@@ -120927,11 +121157,6 @@ ${reading}`);
     return brokerUrl.href;
   }
   function navigateToOAuthBroker(browserWindow, url) {
-    const testNavigate = globalThis.__YOMU_TEST_NAVIGATE_TO_OAUTH__;
-    if (testNavigate) {
-      testNavigate(url);
-      return;
-    }
     browserWindow.location.assign(url);
   }
   function readAuthRedirectCandidate() {
@@ -125639,7 +125864,6 @@ ${reading}`);
     if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
     const storage2 = value.storage;
     if (storage2 !== void 0 && !isRecord$6(storage2)) return null;
-    if (storage2 && RETIRED_SETTINGS_STORAGE_KEYS.some((key) => Object.hasOwn(storage2, key))) return null;
     if (value.dictionaries !== void 0 && !isReaderDictionaryExport(value.dictionaries)) return null;
     return { settings: value.settings, storage: storage2, dictionaries: value.dictionaries };
   }
@@ -133030,6 +133254,11 @@ ${reading}`);
     const template = cardName.trim();
     candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
   }
+  async function ankiCardReviewedSince(invoke, cardId, since) {
+    const log2 = await invoke("getReviewsOfCards", { cards: [cardId] });
+    const reviews = log2?.[String(cardId)];
+    return Array.isArray(reviews) && reviews.some((review) => typeof review?.id === "number" && review.id >= since);
+  }
   function renderAnkiActionRow(...args) {
     return yomuAnkiCompanion()?.renderAnkiActionRow(...args) ?? "";
   }
@@ -133685,6 +133914,7 @@ ${reading}`);
         selected,
         profile,
         selected.gradeProfile !== profile,
+        settings,
         reviewGroup
       )).join("");
       if (!gradeRows) return "";
@@ -133795,7 +134025,7 @@ ${reading}`);
     if (labelText) labelText.textContent = label;
   }
   function updatePopoverReviewGradeProfile(actions, gradeProfile) {
-    actions.querySelectorAll("[data-review-grade-profile]").forEach((row) => {
+    actions.querySelectorAll("[data-review-target-row][data-review-grade-profile]").forEach((row) => {
       row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
     });
   }
@@ -133819,7 +134049,7 @@ ${reading}`);
     button2.title = label;
     button2.setAttribute("aria-label", `${buttonLabel}: ${label}`);
   }
-  function renderTargetedGradeRow(scale, selected, profile, hidden, reviewGroup) {
+  function renderTargetedGradeRow(scale, selected, profile, hidden, settings, reviewGroup) {
     const { grades, shortcuts } = scale;
     const targetLabel = renderReviewTargetLabel(selected);
     const targetAttrs = reviewTargetButtonAttrs(selected);
@@ -133827,7 +134057,8 @@ ${reading}`);
         ${targetLabel}
         ${grades.map(([grade, label]) => {
       const title = selected.label ? ` title="${escapeHtml$2(selected.label)}" aria-label="${escapeHtml$2(`${label}: ${selected.label}`)}"` : "";
-      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: profile, gradeShortcut: shortcuts.find(([, value]) => value === grade)?.[0], reviewGroup, reviewTarget: selected.kind === "wanikani" ? void 0 : selected.kind, ankiCardId: selected.ankiCardId })}${title}>${escapeHtml$2(label)}</button>`;
+      const gradeShortcut = shortcuts.find(([, value]) => value === grade)?.[0];
+      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: profile, gradeShortcut, reviewGroup, reviewTarget: selected.kind === "wanikani" ? void 0 : selected.kind, ankiCardId: selected.ankiCardId })}${title}${gradeKeyHintAttributes(settings, gradeShortcut)}>${escapeHtml$2(label)}</button>`;
     }).join("")}
     </div>`;
   }
@@ -135952,7 +136183,7 @@ ${component.reading}`;
         log$7.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null).then((result) => {
-        if (!result || result.status === "partial") onIncomplete();
+        if (!result) onIncomplete();
         return result?.info ?? null;
       });
     }
@@ -135983,10 +136214,7 @@ ${component.reading}`;
       }) : Promise.resolve(null) : Promise.resolve(null);
       const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
       const jpdbIdentityReady = cardNeedsCanonicalReading(card) ? jitenVocabularyLookup.then(() => card, () => card) : Promise.resolve(card);
-      const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([result]) => {
-        if (result.status === "partial") onIncomplete();
-        return exactJpdbFrequencyRank(card, result.cards);
-      }).catch((error) => {
+      const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([result]) => exactJpdbFrequencyRank(card, result.cards)).catch((error) => {
         onIncomplete();
         log$7.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
         return null;
@@ -137644,6 +137872,13 @@ ${component.reading}`;
       recoverReviewRecording: "Recover previous answer",
       reviewResetReload: "Previous answer cleared by reset. Reload Study.",
       syncUnavailable: "Review sync unavailable",
+      heldReviewsNotice: "Answers not confirmed: {count}",
+      heldReviewsCheck: "Check again",
+      heldReviewsDiscard: "Discard",
+      heldReviewsStillUnknown: "Still not confirmed. Open Anki, then check again.",
+      heldReviewsDiscarded: "Unconfirmed answers discarded",
+      reviewQueueFull: "Too many answers are waiting to sync. Reconnect, then grade again.",
+      reviewQueueRejected: "This answer could not be saved. Grade it again.",
       syncSynced: "✓ Synced",
       dailyGoalUnit: "min",
       dailyGoalReached: "Goal reached",
@@ -137935,6 +138170,13 @@ ${component.reading}`;
     recoverReviewRecording: "前の回答を復元",
     reviewResetReload: "リセットにより前の回答は消去されました。Studyを再読み込みしてください。",
     syncUnavailable: "復習結果を同期できません",
+    heldReviewsNotice: "未確認の回答: {count}件",
+    heldReviewsCheck: "もう一度確認",
+    heldReviewsDiscard: "破棄",
+    heldReviewsStillUnknown: "まだ確認できません。Ankiを開いてからもう一度確認してください。",
+    heldReviewsDiscarded: "未確認の回答を破棄しました",
+    reviewQueueFull: "同期待ちの回答が多すぎます。接続してからもう一度採点してください。",
+    reviewQueueRejected: "この回答は保存できませんでした。もう一度採点してください。",
     syncSynced: "✓ 同期済み",
     dailyGoalUnit: "分",
     dailyGoalReached: "目標達成",
@@ -138204,7 +138446,9 @@ ${component.reading}`;
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
       const title = targetLabel ? ` title="${escapeHtml$2(targetLabel)}" aria-label="${escapeHtml$2(`${buttonLabel}: ${targetLabel}`)}"` : "";
-      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context?.profile, gradeShortcut: context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : void 0, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}>${escapeHtml$2(buttonLabel)}</button>`;
+      const gradeShortcut = context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : void 0;
+      const keyHint = context ? gradeKeyHintAttributes(context.settings, gradeShortcut) : "";
+      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context?.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${keyHint}>${escapeHtml$2(buttonLabel)}</button>`;
     }).join("")}
         </div>
     `;
@@ -138441,6 +138685,8 @@ ${component.reading}`;
     "empty-fallback",
     "continue-batch",
     "recover-review-recording",
+    "check-held-reviews",
+    "discard-held-reviews",
     "study-step",
     "study-hint",
     "return-to-review",
@@ -139228,6 +139474,7 @@ ${newTabCardReading(card)}`;
   const NEW_TAB_GRADE_QUEUE_KEY = "jpdb-reader-newtab-grade-queue";
   const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
   const REVIEW_QUEUE_OWNER_KEY = "yomu:private:review-delivery:v2";
+  const REVIEW_QUEUE_FULL_ERROR = "Review queue is full.";
   function reviewDeliveryScope(target, providerContext) {
     return `${target}:${providerContext}`;
   }
@@ -144554,12 +144801,7 @@ ${entry.url}`),
     constructor(factory = indexedDB) {
       this.factory = factory;
     }
-    databaseName = ownedDatabaseName(PRACTICE_SESSION_DATABASE);
-    assertOwner() {
-      if (this.databaseName !== ownedDatabaseName(PRACTICE_SESSION_DATABASE)) throw new Error("Practice storage owner changed; reload to reconnect.");
-    }
     async read(id) {
-      this.assertOwner();
       const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
       return this.transaction("readonly", async (store, material) => {
         const checkpoint = await requestValue(store.get([epoch, id]));
@@ -144572,26 +144814,21 @@ ${entry.url}`),
       });
     }
     async list() {
-      this.assertOwner();
       const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
       return this.transaction("readonly", (store) => requestValue(store.index("epoch").getAll(epoch)));
     }
     async write(record2, previousRevision) {
-      this.assertOwner();
       const epoch = managedStateEpochToken(await assertManagedStateMutationAllowed());
       await this.transaction("readwrite", async (store, material) => {
         if (managedStateWritesSuppressed()) throw new Error("Practice saving is paused during reset.");
         const previous = await requestValue(store.get([epoch, record2.id]));
-        this.assertOwner();
         if (previousRevision === null ? previous !== void 0 : previous?.revision !== previousRevision || previous?.version !== record2.version || previous?.purpose !== record2.purpose) {
           throw new PracticeSessionConflict();
         }
         if (managedStateWritesSuppressed()) throw new Error("Practice saving is paused during reset.");
         const { items, material: original, ...checkpoint } = record2;
         if (previousRevision === null) await requestValue(material.put({ epoch, id: record2.id, items, material: original }));
-        this.assertOwner();
         await requestValue(store.put({ ...checkpoint, epoch, itemCount: items.length, materialCount: original.length }));
-        this.assertOwner();
       });
     }
     async transaction(mode, run) {
@@ -144599,7 +144836,6 @@ ${entry.url}`),
       try {
         if (mode === "readwrite") await assertManagedStateMutationAllowed();
         else await assertManagedStateReadAllowed();
-        this.assertOwner();
         const transaction = db.transaction(["sessions", "material"], mode);
         let result;
         let failure;
@@ -144624,18 +144860,10 @@ ${entry.url}`),
       }
     }
     open() {
-      this.assertOwner();
       return new Promise((resolve, reject) => {
         let settled = false;
-        const request = this.factory.open(this.databaseName, 1);
+        const request = this.factory.open(PRACTICE_SESSION_DATABASE, 1);
         request.onupgradeneeded = () => {
-          try {
-            this.assertOwner();
-          } catch (error) {
-            request.transaction?.abort();
-            reject(error);
-            return;
-          }
           const store = request.result.createObjectStore("sessions", { keyPath: ["epoch", "id"] });
           store.createIndex("epoch", "epoch");
           request.result.createObjectStore("material", { keyPath: ["epoch", "id"] });
@@ -144987,7 +145215,16 @@ ${entry.url}`),
   function validRecord(value) {
     if (!value || typeof value !== "object") return false;
     const record2 = value;
-    return record2.version === 1 && typeof record2.id === "string" && typeof record2.turn === "string" && typeof record2.title === "string" && PURPOSES.includes(record2.purpose) && Number.isSafeInteger(record2.revision) && Number(record2.revision) >= 0 && Number.isSafeInteger(record2.position) && Number(record2.position) >= 0 && Array.isArray(record2.material) && record2.material.every(validMaterial) && new Set(record2.material.map((item) => item.id)).size === record2.material.length && Array.isArray(record2.items) && record2.items.length > 0 && Number(record2.position) <= record2.items.length && new Set(record2.items.map((item) => item?.id)).size === record2.items.length && record2.items.every((item) => item && typeof item.id === "string" && !!item.id && typeof item.prompt === "string" && typeof item.promptLanguage === "string" && typeof item.spelling === "string" && typeof item.reading === "string" && typeof item.meaning === "string" && typeof item.language === "string") && (record2.purpose !== "listening" && record2.purpose !== "speaking" || record2.items.every((item) => validAudio(item.audio))) && Array.isArray(record2.ineligible) && record2.ineligible.every((id) => typeof id === "string") && !!record2.responses && typeof record2.responses === "object" && !Array.isArray(record2.responses) && Object.entries(record2.responses).every(([id, response]) => record2.items.some((item) => item.id === id) && validResponse(response)) && typeof record2.paused === "boolean" && Number.isFinite(record2.createdAt) && Number.isFinite(record2.updatedAt);
+    return record2.version === 1 && typeof record2.id === "string" && typeof record2.turn === "string" && typeof record2.title === "string" && PURPOSES.includes(record2.purpose) && Number.isSafeInteger(record2.revision) && Number(record2.revision) >= 0 && Number.isSafeInteger(record2.position) && Number(record2.position) >= 0 && Array.isArray(record2.material) && record2.material.every(validMaterial) && new Set(record2.material.map((item) => item.id)).size === record2.material.length && validItems(record2.items, record2.purpose) && Number(record2.position) <= record2.items.length && Array.isArray(record2.ineligible) && record2.ineligible.every((id) => typeof id === "string") && validResponses(record2.responses, record2.items) && typeof record2.paused === "boolean" && Number.isFinite(record2.createdAt) && Number.isFinite(record2.updatedAt);
+  }
+  function validItems(items, purpose) {
+    return Array.isArray(items) && items.length > 0 && new Set(items.map((item) => item?.id)).size === items.length && items.every(validItem) && (purpose !== "listening" && purpose !== "speaking" || items.every((item) => validAudio(item.audio)));
+  }
+  function validItem(item) {
+    return !!item && typeof item.id === "string" && !!item.id && typeof item.prompt === "string" && typeof item.promptLanguage === "string" && typeof item.spelling === "string" && typeof item.reading === "string" && typeof item.meaning === "string" && typeof item.language === "string";
+  }
+  function validResponses(responses, items) {
+    return !!responses && typeof responses === "object" && !Array.isArray(responses) && Object.entries(responses).every(([id, response]) => items.some((item) => item.id === id) && validResponse(response));
   }
   function validSummary(value) {
     if (!value || typeof value !== "object") return false;
@@ -146011,13 +146248,19 @@ ${entry.url}`),
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const record2 = value;
     const shortString = (item) => typeof item === "string" && item.length > 0 && item.length <= 256;
-    if (!shortString(record2.id) || !(shortString(record2.providerContext) || record2.target === "yomu-local" && record2.providerContext === "") || typeof record2.at !== "number" || !Number.isFinite(record2.at) || typeof record2.attempts !== "number" || !Number.isSafeInteger(record2.attempts) || record2.attempts < 0 || typeof record2.target !== "string" || !["anki", "jpdb-api", "jiten-api", "yomu-local"].includes(record2.target) || typeof record2.grade !== "string" || !["nothing", "something", "hard", "okay", "easy", "fail", "pass"].includes(record2.grade) || !record2.card || typeof record2.card !== "object" || Array.isArray(record2.card)) return false;
+    if (!shortString(record2.id) || !(shortString(record2.providerContext) || record2.target === "yomu-local" && record2.providerContext === "") || typeof record2.at !== "number" || !Number.isFinite(record2.at) || typeof record2.attempts !== "number" || !Number.isSafeInteger(record2.attempts) || record2.attempts < 0 || record2.heldSince !== void 0 && !Number.isFinite(record2.heldSince) || typeof record2.target !== "string" || !["anki", "jpdb-api", "jiten-api", "yomu-local"].includes(record2.target) || typeof record2.grade !== "string" || !["nothing", "something", "hard", "okay", "easy", "fail", "pass"].includes(record2.grade) || !record2.card || typeof record2.card !== "object" || Array.isArray(record2.card)) return false;
     const card = record2.card;
     return typeof card.spelling === "string" && typeof card.reading === "string" && JSON.stringify(value).length <= 256e3;
   }
   class ReviewDraftResetError extends Error {
     constructor() {
       super("The previous answer was cleared by factory reset. Reload Study.");
+    }
+  }
+  class ReviewQueueRejectedError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "ReviewQueueRejectedError";
     }
   }
   class ExtensionReviewQueueClient {
@@ -146050,14 +146293,34 @@ ${entry.url}`),
       const epoch = parseManagedStateEpoch(value.epoch);
       const current = await this.currentEpoch();
       if (current.generation > epoch.generation) {
-        if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+        this.clearDraftIfUnchanged(draft);
         throw new ReviewDraftResetError();
       }
       this.epoch ??= epoch;
       if (!sameManagedStateEpoch(this.epoch, epoch)) throw new Error("Review draft belongs to a different reset generation.");
-      await this.request({ kind: "record", reviews: structuredClone(value.reviews) });
-      if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+      try {
+        await this.request({ kind: "record", reviews: structuredClone(value.reviews) });
+      } catch (error) {
+        if (error instanceof ReviewQueueRejectedError) this.clearDraftIfUnchanged(draft);
+        throw error;
+      }
+      this.clearDraftIfUnchanged(draft);
       return structuredClone(value.reviews);
+    }
+    /** Hands an earlier release's durable offline queue to the owner (idempotent by id). */
+    async adopt(reviews) {
+      if (!reviews.length) return;
+      await this.request({ kind: "adopt", reviews: structuredClone([...reviews]) });
+    }
+    /** `heldSince` names the claim to release, so a late retry cannot free a newer claim. */
+    async release(id, providerContext, heldSince) {
+      await this.request({ kind: "release", id, providerContext, ...heldSince === void 0 ? {} : { heldSince } });
+    }
+    async discard(id, providerContext) {
+      await this.request({ kind: "discard", id, providerContext });
+    }
+    clearDraftIfUnchanged(draft) {
+      if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
     }
     async claim(id, providerContext) {
       const value = await this.request({ kind: "claim", id, providerContext });
@@ -146099,7 +146362,7 @@ ${entry.url}`),
         if (!sameManagedStateEpoch(before, await this.currentEpoch())) throw new Error("Review queue reset generation changed; reload Study.");
         if (!response || typeof response !== "object" || Array.isArray(response)) throw new Error("Invalid review queue response.");
         const result = response;
-        if (result.ok !== true) throw new Error(typeof result.error === "string" ? result.error : "Review queue request failed.");
+        if (result.ok !== true) throw new ReviewQueueRejectedError(typeof result.error === "string" ? result.error : "Review queue request failed.");
         return result.value;
       } finally {
         if (timer !== void 0) clearTimeout(timer);
@@ -146143,11 +146406,15 @@ ${entry.url}`),
     set: gmStorageSet,
     delete: gmStorageDelete
   };
+  const GRADE_QUEUE_LEASE = "newtab-grade-queue";
+  const HELD_REVIEW_SETTLE_MS = 5 * 6e4;
+  const UNBOUND_PROVIDER_CONTEXT = "legacy";
   class NewTabGradeQueue {
     constructor(deps) {
       this.deps = deps;
       this.storage = deps.storage ?? gmGradeQueueStorage;
       this.owner = deps.owner !== void 0 ? deps.owner : createPackagedReviewQueueClient();
+      this.exclusive = deps.exclusive ?? ((operation) => withGmStorageLease(GRADE_QUEUE_LEASE, operation));
     }
     // Read-modify-write mutex: a flush that snapshotted the queue while an
     // enqueue landed would otherwise clobber the fresh grade with its stale
@@ -146155,16 +146422,75 @@ ${entry.url}`),
     serial = Promise.resolve();
     storage;
     owner;
+    exclusive;
     ownerReady = false;
     ownerPending = [];
-    legacyPending = false;
     notifiedCompletions = /* @__PURE__ */ new Set();
+    // Claims (id -> claim stamp) this tab dispatched and lost the outcome of.
+    unknownClaims = /* @__PURE__ */ new Map();
+    // Claims this tab certainly never sent, whose release reply was lost.
+    unsentClaims = /* @__PURE__ */ new Map();
     completionVersions = /* @__PURE__ */ new Map();
     enqueue(card, grade, targets2, providerContextForTarget = this.deps.providerContextForTarget) {
       return this.locked(() => this.enqueueUnlocked(card, grade, targets2, providerContextForTarget));
     }
+    // Flushes the queue and returns how many grades still remain unsynced.
     flush() {
-      return this.locked(() => this.flushUnlocked());
+      return this.locked(async () => {
+        if (this.owner) return this.flushOwned();
+        if (!(await this.read()).length) return 0;
+        return this.exclusive(() => this.flushShared());
+      });
+    }
+    /** Held reviews for the current provider accounts, awaiting "Check again" or "Discard". */
+    heldReviews() {
+      return this.locked(() => this.heldReviewsUnlocked());
+    }
+    /** Resolves each held review from a fresh provider read, then resends the ones that did not land. */
+    async recheckHeld() {
+      await this.locked(async () => {
+        for (const item of await this.heldReviewsUnlocked()) {
+          const landed = await (this.deps.confirmDelivered?.(item) ?? Promise.resolve(void 0)).catch(() => void 0);
+          if (landed !== void 0) await this.resolveHeld(item, landed);
+        }
+      });
+      return this.flush();
+    }
+    /** The learner chose to drop held reviews whose outcome is unknown. */
+    discardHeld() {
+      return this.locked(async () => {
+        const held = await this.heldReviewsUnlocked();
+        if (this.owner) {
+          for (const item of held) {
+            await this.owner.discard(item.id, item.providerContext ?? "");
+            this.unknownClaims.delete(item.id);
+          }
+          return;
+        }
+        const claims = new Map(held.map((item) => [item.id, item.heldSince]));
+        await this.exclusive(async () => this.write((await this.read()).filter((item) => !sameClaim(claims, item))));
+      });
+    }
+    // Number of grades waiting to sync back to the providers (for the sync-status UI).
+    async pendingCount() {
+      if (this.owner) return (await this.owner.list()).length;
+      return (await this.read()).length;
+    }
+    needsRecordingRecovery() {
+      try {
+        return this.owner?.hasPendingRecord() ?? false;
+      } catch {
+        return true;
+      }
+    }
+    usesSharedOwner() {
+      return this.owner !== null;
+    }
+    blocksReview(card) {
+      return Boolean(this.owner && (this.needsRecordingRecovery() || !this.ownerReady || this.ownerPending.some((item) => this.providerIsCurrent(item) && cardKey(item.card) === cardKey(card))));
+    }
+    recoverRecording() {
+      return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
     }
     locked(operation) {
       const next = this.serial.then(operation, operation);
@@ -146188,67 +146514,100 @@ ${entry.url}`),
         this.ownerPending.push(...structuredClone(entries2));
         return true;
       }
-      const queue = await this.read();
-      const entryKeys = new Set(entries2.map((entry) => this.key(entry)));
-      if (queue.some((item) => item.target === "anki" && item.attempts > 0 && entryKeys.has(this.key(item)))) return false;
-      const deduped = queue.filter((item) => !entryKeys.has(this.key(item)));
-      deduped.push(...entries2);
-      if (deduped.length > NEW_TAB_GRADE_QUEUE_LIMIT) return false;
-      await this.write(deduped);
-      return true;
-    }
-    // Number of grades waiting to sync back to the providers (for the sync-status UI).
-    async pendingCount() {
-      if (this.owner) return (await this.owner.list()).length;
-      return (await this.read()).length;
-    }
-    async hasUncertainReviews() {
-      if (this.owner) return this.legacyPending || (await this.owner.list()).some((item) => item.attempts > 0);
-      return (await this.read()).some((item) => item.target === "anki" && item.attempts > 0);
-    }
-    needsRecordingRecovery() {
-      try {
-        return this.owner?.hasPendingRecord() ?? false;
-      } catch {
+      return this.exclusive(async () => {
+        const queue = await this.read();
+        const entryKeys = new Set(entries2.map((entry) => this.key(entry)));
+        if (queue.some((item) => item.heldSince !== void 0 && entryKeys.has(this.key(item)))) return false;
+        const deduped = queue.filter((item) => !entryKeys.has(this.key(item)));
+        deduped.push(...entries2);
+        if (deduped.length > NEW_TAB_GRADE_QUEUE_LIMIT) return false;
+        await this.write(deduped);
         return true;
+      });
+    }
+    async heldReviewsUnlocked() {
+      const reviews = this.owner ? await this.owner.list() : await this.read();
+      return reviews.filter((item) => this.providerIsCurrent(item) && !this.notifiedCompletions.has(item.id) && !sameClaim(this.unsentClaims, item) && this.outcomeUnknown(item));
+    }
+    /** Held means the outcome is unknown, never "another tab may still be sending it". */
+    outcomeUnknown(item) {
+      const claimed = this.owner ? item.attempts > 0 : item.heldSince !== void 0;
+      return claimed && (sameClaim(this.unknownClaims, item) || Date.now() - (item.heldSince ?? 0) >= HELD_REVIEW_SETTLE_MS);
+    }
+    async resolveHeld(item, landed) {
+      if (this.owner) {
+        const context = item.providerContext ?? "";
+        if (landed) this.notifySubmitted(item);
+        await (landed ? this.owner.acknowledge(item.id, context) : this.owner.release(item.id, context, item.heldSince));
+        this.unknownClaims.delete(item.id);
+        return;
       }
-    }
-    usesSharedOwner() {
-      return this.owner !== null;
-    }
-    blocksReview(card) {
-      return Boolean(this.owner && (this.needsRecordingRecovery() || !this.ownerReady || this.legacyPending || this.ownerPending.some((item) => this.providerIsCurrent(item) && cardKey(item.card) === cardKey(card))));
-    }
-    recoverRecording() {
-      return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
+      await this.exclusive(async () => {
+        const queue = await this.read();
+        if (!queue.some((entry) => entry.id === item.id && entry.heldSince === item.heldSince)) return;
+        if (landed) this.deps.onSubmitted(item.card);
+        await this.write(landed ? queue.filter((entry) => entry.id !== item.id) : queue.map((entry) => entry.id === item.id ? withoutHold(entry) : entry));
+        this.unknownClaims.delete(item.id);
+      });
     }
     async flushOwned() {
       const owner = this.owner;
       this.ownerReady = false;
-      const legacy = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null);
-      this.legacyPending = legacy !== null && (!Array.isArray(legacy) || legacy.length > 0);
+      await this.adoptLegacyQueue(owner).catch(() => void 0);
       await this.refreshOwnerPending();
-      if (!this.needsRecordingRecovery() && !this.legacyPending) {
-        for (const item of this.ownerPending) {
-          if (!this.providerIsCurrent(item)) continue;
-          if (item.attempts !== 0) {
-            if (this.notifiedCompletions.has(item.id)) await owner.acknowledge(item.id, item.providerContext ?? "");
-            continue;
-          }
-          const claimed = await owner.claim(item.id, item.providerContext ?? "");
-          if (!claimed || !this.providerIsCurrent(claimed)) continue;
-          try {
-            if (await this.deps.submit(claimed)) {
-              this.notifySubmitted(claimed);
-              await owner.acknowledge(claimed.id, claimed.providerContext ?? "");
-            }
-          } catch {
-          }
-        }
+      if (!this.needsRecordingRecovery()) {
+        const deliverable = this.deliveryProbe();
+        for (const item of this.ownerPending) await this.deliverOwned(owner, item, deliverable);
       }
       await this.refreshOwnerPending();
       this.ownerReady = true;
       return this.ownerPending.length;
+    }
+    /**
+     * 1.9.3's offline queue lives under the same key (and hosted Study over the
+     * extension storage bridge still writes it). Hand its reviews to the owner
+     * with their original ids (so a repeated hand-over is a no-op), then retire
+     * exactly what the owner now has. The owner takes only what fits, and held
+     * entries belong to a hosted Study tab still resolving them: whatever stays
+     * in the key waits for a later flush, never erased and never blocking Study.
+     */
+    async adoptLegacyQueue(owner) {
+      if (!(await this.read()).some((item) => item.heldSince === void 0)) return;
+      await this.exclusive(async () => {
+        const legacy = await this.read();
+        const adoptable = legacy.filter((item) => item.heldSince === void 0).map(adoptedReview).filter(isReviewQueueRecord).slice(0, NEW_TAB_GRADE_QUEUE_LIMIT);
+        if (!adoptable.length) return;
+        await owner.adopt(adoptable).catch(() => void 0);
+        const { statuses } = await owner.snapshot(adoptable.map((item) => item.id), []);
+        const adopted = new Set(adoptable.filter((item) => statuses[item.id] !== "unknown").map((item) => item.id));
+        if (adopted.size) await this.write(legacy.filter((item) => !adopted.has(item.id)));
+      });
+    }
+    async deliverOwned(owner, item, deliverable) {
+      if (!this.providerIsCurrent(item)) return;
+      const context = item.providerContext ?? "";
+      if (item.attempts !== 0) {
+        if (this.notifiedCompletions.has(item.id)) await owner.acknowledge(item.id, context);
+        else if (this.unsentClaims.has(item.id)) await this.releaseClaim(owner, item.id, context, this.unsentClaims.get(item.id));
+        return;
+      }
+      if (!await deliverable.possible(item.target)) return;
+      const claimed = await owner.claim(item.id, context);
+      if (!claimed) return;
+      const outcome = this.providerIsCurrent(claimed) ? await this.dispatch(claimed, deliverable) : { status: "not-delivered" };
+      if (outcome.status === "delivered") {
+        this.notifySubmitted(claimed);
+        await owner.acknowledge(claimed.id, context).catch(() => void 0);
+      } else if (outcome.status === "not-delivered") {
+        this.unsentClaims.set(claimed.id, claimed.heldSince);
+        await this.releaseClaim(owner, claimed.id, context, claimed.heldSince).catch(() => void 0);
+      } else {
+        this.unknownClaims.set(claimed.id, claimed.heldSince);
+      }
+    }
+    async releaseClaim(owner, id, context, heldSince) {
+      await owner.release(id, context, heldSince);
+      this.unsentClaims.delete(id);
     }
     async refreshOwnerPending() {
       const owner = this.owner;
@@ -146256,7 +146615,11 @@ ${entry.url}`),
         const context = this.deps.providerContextForTarget(target);
         return { target, context, key: reviewDeliveryScope(target, context) };
       });
-      const { reviews: pending2, statuses, revisions } = await owner.snapshot(this.ownerPending.map((item) => item.id), scopes.map((scope) => scope.key));
+      const ids = this.ownerPending.map((item) => item.id);
+      const { reviews: pending2, statuses, revisions } = await owner.snapshot(ids.slice(0, NEW_TAB_GRADE_QUEUE_LIMIT), scopes.map((scope) => scope.key));
+      for (let start = NEW_TAB_GRADE_QUEUE_LIMIT; start < ids.length; start += NEW_TAB_GRADE_QUEUE_LIMIT) {
+        Object.assign(statuses, (await owner.snapshot(ids.slice(start, start + NEW_TAB_GRADE_QUEUE_LIMIT), [])).statuses);
+      }
       const missing = this.ownerPending.filter((item) => !pending2.some((current) => current.id === item.id));
       if (missing.some((item) => statuses[item.id] === "unknown")) throw new Error("Review completion could not be verified.");
       if (scopes.some((scope) => revisions[scope.key] < (this.completionVersions.get(scope.key) ?? 0))) {
@@ -146278,43 +146641,69 @@ ${entry.url}`),
       this.deps.onSubmitted(item.card);
       this.notifiedCompletions.add(item.id);
     }
-    // Flushes the queue and returns how many grades still remain unsynced.
-    async flushUnlocked() {
-      if (this.owner) return this.flushOwned();
+    async flushShared() {
       const queue = await this.read();
       if (!queue.length) return 0;
       let pending2 = [...queue];
+      const replace = (id, next) => {
+        pending2 = next ? pending2.map((entry) => entry.id === id ? next : entry) : pending2.filter((entry) => entry.id !== id);
+      };
+      const deliverable = this.deliveryProbe();
       for (const item of queue) {
-        if (!this.canSubmit(item)) continue;
-        const attempted = item.target === "anki" ? { ...item, attempts: 1 } : item;
-        if (attempted !== item) {
-          pending2 = pending2.map((entry) => entry.id === item.id ? attempted : entry);
+        if (!this.canSubmit(item) || !await deliverable.possible(item.target)) continue;
+        const dispatched = item.target === "anki" ? { ...item, heldSince: Date.now() } : item;
+        if (dispatched !== item) {
+          replace(item.id, dispatched);
           await this.write(pending2);
+          if (!this.providerIsCurrent(item)) {
+            replace(item.id, item);
+            continue;
+          }
         }
-        if (!this.providerIsCurrent(attempted)) continue;
-        const retry = await this.flushItem(attempted);
-        pending2 = retry ? pending2.map((entry) => entry.id === item.id ? retry : entry) : pending2.filter((entry) => entry.id !== item.id);
+        const outcome = await this.dispatch(dispatched, deliverable);
+        if (outcome.status === "delivered") this.deps.onSubmitted(item.card);
+        if (outcome.status === "unknown") this.unknownClaims.set(item.id, dispatched.heldSince);
+        replace(item.id, outcome.status === "delivered" ? null : outcome.status === "unknown" ? { ...dispatched, lastError: outcome.error } : { ...item, attempts: item.attempts + 1, lastError: outcome.error });
       }
       await this.write(pending2);
       return pending2.length;
     }
-    async flushItem(item) {
+    async dispatch(item, deliverable) {
       try {
-        const submitted = await this.deps.submit(item);
-        if (!submitted) return item;
-        this.deps.onSubmitted(item.card);
-        return null;
+        return await this.deps.submit(item) ? { status: "delivered" } : { status: "not-delivered", error: "Review was not submitted." };
       } catch (error) {
-        return failedQueuedGrade(item, error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (item.target !== "anki") return { status: "not-delivered", error: message };
+        deliverable.stop("anki");
+        return { status: "unknown", error: message };
       }
+    }
+    deliveryProbe() {
+      const results = /* @__PURE__ */ new Map();
+      return {
+        possible: (target) => {
+          let result = results.get(target);
+          if (!result) {
+            result = this.deliveryPossible(target);
+            results.set(target, result);
+          }
+          return result;
+        },
+        stop: (target) => {
+          results.set(target, Promise.resolve(false));
+        }
+      };
+    }
+    async deliveryPossible(target) {
+      if (target !== "anki" && target !== "yomu-local" && typeof navigator !== "undefined" && navigator.onLine === false) return false;
+      return this.deps.canDeliver ? this.deps.canDeliver(target).catch(() => false) : true;
     }
     key(item) {
       const context = "providerContext" in item ? item.providerContext ?? "legacy" : "legacy";
       return `${context}:${item.target}:${cardKey(item.card)}`;
     }
     canSubmit(item) {
-      if (item.target === "anki" && item.attempts > 0) return false;
-      return this.providerIsCurrent(item);
+      return item.heldSince === void 0 && this.providerIsCurrent(item);
     }
     providerIsCurrent(item) {
       return item.target === "yomu-local" || Boolean(item.providerContext && item.providerContext === this.deps.providerContextForTarget(item.target));
@@ -146334,11 +146723,18 @@ ${entry.url}`),
   function queuedGradeProviderBinding(target, providerContextForTarget) {
     return target === "yomu-local" ? {} : { providerContext: providerContextForTarget(target) };
   }
-  function failedQueuedGrade(item, error) {
+  function sameClaim(claims, item) {
+    return claims.has(item.id) && claims.get(item.id) === item.heldSince;
+  }
+  function withoutHold(item) {
+    const { heldSince: _held, ...pending2 } = item;
+    return pending2;
+  }
+  function adoptedReview(item) {
     return {
-      ...item,
-      attempts: item.target === "anki" ? item.attempts : item.attempts + 1,
-      lastError: error instanceof Error ? error.message : String(error)
+      ...withoutHold(item),
+      attempts: 0,
+      providerContext: item.target === "yomu-local" ? "" : item.providerContext || UNBOUND_PROVIDER_CONTEXT
     };
   }
   function isQueuedNewTabGrade(value) {
@@ -146356,7 +146752,7 @@ ${entry.url}`),
     return record2.target === "anki" || record2.target === "jpdb-api" || record2.target === "jiten-api" || record2.target === "bunpro-api" || record2.target === "yomu-local";
   }
   function hasQueuedGradePayload(record2) {
-    return isObjectRecord(record2.card) && typeof record2.attempts === "number" && (record2.providerContext === void 0 || typeof record2.providerContext === "string");
+    return isObjectRecord(record2.card) && typeof record2.attempts === "number" && (record2.providerContext === void 0 || typeof record2.providerContext === "string") && (record2.heldSince === void 0 || typeof record2.heldSince === "number");
   }
   function isJpdbGrade(value) {
     return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
@@ -146557,6 +146953,25 @@ ${entry.url}`),
   }
   function requiresFreshProviderReview(card) {
     return CONSUMED_REVIEW_SOURCES.has(card.reviewSource) || CONSUMED_CARD_SOURCES.has(card.source);
+  }
+  function syncHeldReviewNotice(root, count, copy2) {
+    const existing = root.querySelector("[data-newtab-held-reviews]");
+    if (count <= 0) {
+      existing?.remove();
+      return;
+    }
+    const notice = existing ?? el("div", { class: "jpdb-reader-newtab-held-reviews", dataset: { newtabHeldReviews: true }, role: "group" });
+    if (!existing) {
+      const anchor = root.querySelector("[data-newtab-count]");
+      if (!anchor) return;
+      anchor.after(notice);
+    }
+    replaceChildrenWith(
+      notice,
+      el("span", {}, copy2.message),
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("check-held-reviews") } }, copy2.check),
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("discard-held-reviews") } }, copy2.discard)
+    );
   }
   function renderNewTabBrand(overflowMenu, brand) {
     if (!overflowMenu) return null;
@@ -147546,7 +147961,7 @@ ${entry.url}`),
       const context = this.queries.searchContext();
       entry.promise = this.fetchFrontSentence(card).then(({ sentence, status }) => {
         this.queries.assertSearchContext(context);
-        entry.expiresAt = Math.min(Date.now() + (status === "partial" ? 1e3 : 3e4), this.queries.validUntil(card));
+        entry.expiresAt = Math.min(Date.now() + (sentence || status === "complete" ? 3e4 : 1e3), this.queries.validUntil(card));
         return sentence;
       }).catch((error) => {
         entry.expiresAt = Date.now() + 1e3;
@@ -147977,6 +148392,10 @@ ${entry.url}`),
       return this.renderNewTabImmersionCardVariant(card, example, index, total, "kanji");
     }
   }
+  function acquisitionExpiry(result) {
+    if (result.examples.length) return Infinity;
+    return Date.now() + (result.status === "partial" ? 1e3 : 1e4);
+  }
   class StudyExampleQueries {
     constructor(deps) {
       this.deps = deps;
@@ -148005,7 +148424,7 @@ ${entry.url}`),
         settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
         "Immersion Kit examples timed out."
       ).then((result) => {
-        entry.expiresAt = Date.now() + (result.status === "partial" ? 1e3 : result.examples.length ? 3e5 : 1e4);
+        entry.expiresAt = acquisitionExpiry(result);
         return result;
       }).catch((error) => {
         entry.expiresAt = Date.now() + 1e3;
@@ -149002,7 +149421,9 @@ ${options.version}`;
         providerContextForTarget: (target) => newTabReviewProviderContext(this.providerContexts, target),
         submit: (item) => this.submitQueuedGrade(item),
         onSubmitted: (card) => this.queuedReviewSubmitted(card),
-        onProviderCompleted: (target) => this.reviewProviderCompleted(target)
+        onProviderCompleted: (target) => this.reviewProviderCompleted(target),
+        canDeliver: (target) => this.canDeliverQueuedReview(target),
+        confirmDelivered: (item) => this.confirmQueuedReviewDelivered(item)
       });
       this.studyExamples = new StudyExamples({
         getSettings: () => this.dependencies.getSettings(),
@@ -150156,6 +150577,11 @@ ${options.version}`;
       if (action === "recover-review-recording") {
         event.preventDefault();
         void this.recoverReviewRecording(root);
+        return true;
+      }
+      if (action === "check-held-reviews" || action === "discard-held-reviews") {
+        event.preventDefault();
+        void this.resolveHeldReviews(root, action === "discard-held-reviews");
         return true;
       }
       if (action === "practice-sessions") {
@@ -155492,7 +155918,16 @@ ${options.version}`;
       return this.gradeCurrentCardUnlocked(grade, selectedTarget2);
     }
     async queueGradeForLater(target, grade, queueTargets, isCorrection, providerContexts) {
-      if (!await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts)) {
+      let queued;
+      try {
+        queued = await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts);
+      } catch (error) {
+        if (!(error instanceof ReviewQueueRejectedError)) throw error;
+        log$2.warn("Review owner refused the answer", error);
+        this.setStatus(target.root, this.reviewRejectionText(error));
+        return false;
+      }
+      if (!queued) {
         this.setStatus(target.root, this.text("couldNotSubmitGrade"));
         return false;
       }
@@ -155500,7 +155935,7 @@ ${options.version}`;
       this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
       this.setStatus(target.root, this.text("offlineGradeReconnect"));
       if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-      this.advanceAfterGrade(target.root, target.card, grade);
+      this.advanceAfterGrade(target.root, target.card, grade, false);
       return true;
     }
     tryQueueGrade(card, grade, targets2, providerContexts) {
@@ -155757,6 +156192,9 @@ ${options.version}`;
       if (providerContext !== this.providerContexts.anki) return null;
       try {
         return await this.refreshAnkiReviewCardState(card, cardId, providerContext);
+      } catch (error) {
+        log$2.warn("Anki card state refresh after a review failed", error);
+        return null;
       } finally {
         this.publishAnkiGradeIfCurrent(card, providerContext);
       }
@@ -155862,7 +156300,8 @@ ${options.version}`;
       try {
         this.syncPendingCount = await this.gradeQueue.flush();
         if (this.destroyed) return;
-        this.syncProblem = await this.gradeQueue.hasUncertainReviews() ? "syncReviewCheck" : void 0;
+        this.heldReviewCount = (await this.gradeQueue.heldReviews()).length;
+        this.syncProblem = this.heldReviewCount ? "syncReviewCheck" : void 0;
         if (this.destroyed) return;
         if (this.syncPendingCount === 0) this.lastSyncedAt = Date.now();
         const root = this.currentRoot();
@@ -155877,6 +156316,7 @@ ${options.version}`;
         this.syncProblem = "syncUnavailable";
       }
       this.refreshSessionProgressSoon();
+      this.syncHeldReviewNotice();
       const current = this.currentGradeTarget();
       if (current && this.gradeQueue.usesSharedOwner()) {
         current.root.classList.toggle("jpdb-reader-newtab-review-mode", this.canReviewCard(current.card));
@@ -155928,7 +156368,7 @@ ${options.version}`;
         if (this.destroyed) return;
         if (error instanceof ReviewDraftResetError) this.queuedReviewNeedsRefresh = true;
         log$2.warn("Review recording recovery failed", error);
-        this.setStatus(root, this.text(error instanceof ReviewDraftResetError ? "reviewResetReload" : "syncUnavailable"));
+        this.setStatus(root, error instanceof ReviewQueueRejectedError ? this.reviewRejectionText(error) : this.text(error instanceof ReviewDraftResetError ? "reviewResetReload" : "syncUnavailable"));
       } finally {
         this.gradeSubmissionInFlight = false;
         if (this.destroyed) return;
@@ -155940,12 +156380,60 @@ ${options.version}`;
     recordingRecoveryButton() {
       return el("button", { type: "button", dataset: { newtabAction: newTabAction("recover-review-recording") } }, this.text("recoverReviewRecording"));
     }
+    reviewRejectionText(error) {
+      return this.text(error.message === REVIEW_QUEUE_FULL_ERROR ? "reviewQueueFull" : "reviewQueueRejected");
+    }
+    heldReviewCount = 0;
+    syncHeldReviewNotice() {
+      const root = this.currentRoot();
+      if (!root) return;
+      syncHeldReviewNotice(root, this.heldReviewCount, {
+        message: this.formatNewTabText("heldReviewsNotice", { count: String(this.heldReviewCount) }),
+        check: this.text("heldReviewsCheck"),
+        discard: this.text("heldReviewsDiscard")
+      });
+    }
+    // "Check again" reads the provider's own review history; "Discard" drops
+    // answers the learner has decided not to resend.
+    async resolveHeldReviews(root, discard) {
+      root.querySelectorAll("[data-newtab-held-reviews] button").forEach((button2) => {
+        button2.disabled = true;
+      });
+      try {
+        if (discard) await this.gradeQueue.discardHeld();
+        else await this.gradeQueue.recheckHeld();
+        await this.flushQueuedGrades();
+        if (this.destroyed) return;
+        this.setStatus(root, this.text(discard ? "heldReviewsDiscarded" : this.heldReviewCount ? "heldReviewsStillUnknown" : "syncSynced"));
+      } catch (error) {
+        if (this.destroyed) return;
+        log$2.warn("Held review resolution failed", error);
+        this.setStatus(root, this.text("syncUnavailable"));
+        this.syncHeldReviewNotice();
+      }
+    }
+    // AnkiConnect is local: probe it before a queued answer is claimed, so a
+    // closed Anki leaves the answer pending instead of holding it.
+    async canDeliverQueuedReview(target) {
+      if (target === "anki") await this.dependencies.anki.invoke("version");
+      return true;
+    }
+    // Only Anki exposes the review log needed to tell whether a held answer
+    // landed; other providers resend, as 1.9.3 retried them.
+    async confirmQueuedReviewDelivered(item) {
+      if (item.target !== "anki") return false;
+      const cardId = this.ankiCardIdForReview(item.card);
+      return cardId ? ankiCardReviewedSince((action, params) => this.dependencies.anki.invoke(action, params), cardId, item.at) : void 0;
+    }
     // Thin delegation to the same table-driven adapter dispatch the live grade
     // path uses; the Bunpro migration guard is handled inside the submitter.
     submitQueuedGrade(item) {
       return this.reviewSubmitter.submitQueued(item);
     }
-    advanceAfterGrade(root, card, grade) {
+    // `delivered` is false for an answer only queued for later: the native
+    // scheduler has not seen it, so there is nothing fresh to reload (and an
+    // offline session must keep going through its cached cards).
+    advanceAfterGrade(root, card, grade, delivered = true) {
       const key = cardKey(card);
       const previousIndex = this.index;
       const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
@@ -155959,7 +156447,7 @@ ${options.version}`;
       this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
       this.state.revealAnswer = false;
       this.persistState();
-      if (requiresFreshProviderReview(card)) {
+      if (delivered && requiresFreshProviderReview(card)) {
         this.markQueueRefreshed();
         return this.loadWordsInto(root, false, { useOfflineCache: false });
       }
@@ -156592,6 +157080,74 @@ ${options.version}`;
       languageProfiles: settings.languageProfiles.map((profile) => profile === active ? { ...profile, targetLanguage: targetLanguage2 } : profile)
     };
   }
+  function importSettingsBackupForRecovery(file, setStatus) {
+    return restoreReaderSettingsBackup(file, DEFAULT_SETTINGS, {
+      dictionaries: new YomitanDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
+      setStatus,
+      persistSettings: saveSettings,
+      adoptSettings: () => void 0,
+      dictionaryStateChanged: () => void 0
+    });
+  }
+  function createSettingsRecoverySurface(language2) {
+    const element2 = document.createElement("section");
+    element2.className = "jpdb-reader-extension-settings-recovery";
+    element2.dataset.extensionSettingsRecovery = "blocked";
+    element2.setAttribute("role", "alert");
+    element2.setAttribute("aria-labelledby", "yomu-extension-settings-recovery-title");
+    element2.setAttribute("aria-describedby", "yomu-extension-settings-recovery-copy");
+    element2.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:Canvas;color:CanvasText;font:16px/1.5 system-ui,sans-serif;";
+    const card = document.createElement("div");
+    card.style.cssText = "width:min(560px,100%);padding:24px;border:1px solid ButtonBorder;border-radius:14px;background:Canvas;box-shadow:0 12px 40px #0004;";
+    const title = document.createElement("h1");
+    title.id = "yomu-extension-settings-recovery-title";
+    title.textContent = uiText(language2, "extensionSettingsRecoveryTitle");
+    const body = document.createElement("p");
+    body.id = "yomu-extension-settings-recovery-copy";
+    body.textContent = uiText(language2, "extensionSettingsRecoveryBody");
+    const actions = {
+      retry: recoveryButton("retry", uiText(language2, "extensionSettingsRecoveryRetry")),
+      import: recoveryButton("import", uiText(language2, "importSettings")),
+      reload: recoveryButton("reload", uiText(language2, "extensionSettingsRecoveryReload"))
+    };
+    const importInput = settingsFileInput();
+    const actionRow = document.createElement("div");
+    actionRow.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;";
+    actionRow.append(actions.retry, actions.import, actions.reload, importInput);
+    const status = document.createElement("p");
+    status.dataset.recoveryStatus = "";
+    status.setAttribute("aria-live", "polite");
+    card.append(title, body, actionRow, status);
+    element2.append(card);
+    return { element: element2, actions, importInput, status };
+  }
+  function setRecoveryActionsDisabled(surface, disabled) {
+    for (const button2 of Object.values(surface.actions)) button2.disabled = disabled;
+  }
+  function isolateRecoverySurface(surface) {
+    const previousInert = [...document.body.children].filter((element2) => element2 instanceof HTMLElement && element2 !== surface).map((element2) => ({ element: element2, inert: element2.inert === true }));
+    for (const { element: element2 } of previousInert) element2.inert = true;
+    return () => {
+      for (const { element: element2, inert } of previousInert) element2.inert = inert;
+    };
+  }
+  function recoveryButton(action, label) {
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "jpdb-reader-btn";
+    button2.dataset.recoveryAction = action;
+    button2.textContent = label;
+    return button2;
+  }
+  function settingsFileInput() {
+    const input2 = document.createElement("input");
+    input2.type = "file";
+    input2.accept = "application/json,.json";
+    input2.hidden = true;
+    input2.tabIndex = -1;
+    input2.dataset.recoveryImportInput = "";
+    return input2;
+  }
   const activeGuards = /* @__PURE__ */ new WeakMap();
   function ensureExtensionStudySettingsAuthority(options = {}) {
     const active = activeGuards.get(document);
@@ -156605,94 +157161,64 @@ ${options.version}`;
     return guard;
   }
   async function runExtensionSettingsRecoveryGuard(options) {
-    const attempt2 = () => attemptCurrentSettingsRead(options.reportFailure);
+    const attempt2 = () => attemptCurrentSettingsRead(options);
     if (await attempt2()) return;
     await waitOnRecoverySurface(attempt2, options);
   }
-  async function attemptCurrentSettingsRead(reportFailure) {
-    if (!/^(?:chrome|moz|safari-web)-extension:$/.test(location.protocol)) return true;
+  async function attemptCurrentSettingsRead(options) {
     try {
       if (packagedExtensionStorageAdapterMissing()) throw new Error("Storage adapter unavailable");
+      await options.prepareStorage?.();
       await readSettingsPersistenceViewStrict();
       return true;
     } catch {
-      reportFailure?.();
+      options.reportFailure?.();
       return false;
     }
   }
   function waitOnRecoverySurface(retryAuthorityRecovery, options) {
     const language2 = options.interfaceLanguage ?? "auto";
-    const surface = recoverySurface(language2);
-    const retry = surface.querySelector('[data-recovery-action="retry"]');
-    const reload = surface.querySelector('[data-recovery-action="reload"]');
-    const status = surface.querySelector("[data-recovery-status]");
-    document.body.prepend(surface);
-    const restorePageInteractivity = isolateRecoverySurface(surface);
+    const surface = createSettingsRecoverySurface(language2);
+    const { retry, import: importSettings, reload } = surface.actions;
+    document.body.prepend(surface.element);
+    const restorePageInteractivity = isolateRecoverySurface(surface.element);
     retry.focus();
+    const readAgain = async () => await retryAuthorityRecovery() ? null : uiText(language2, "extensionSettingsRecoveryStillBlocked");
     return new Promise((resolve) => {
-      retry.addEventListener("click", () => {
-        retry.disabled = true;
-        reload.disabled = true;
-        status.textContent = uiText(language2, "extensionSettingsRecoveryRetrying");
-        void retryAuthorityRecovery().then((ready) => {
-          if (ready) {
+      const run = (step) => {
+        setRecoveryActionsDisabled(surface, true);
+        surface.status.textContent = uiText(language2, "extensionSettingsRecoveryRetrying");
+        void step().then((blocked) => {
+          if (blocked === null) {
             restorePageInteractivity();
-            surface.remove();
+            surface.element.remove();
             resolve();
             return;
           }
-          status.textContent = uiText(language2, "extensionSettingsRecoveryStillBlocked");
-          retry.disabled = false;
-          reload.disabled = false;
+          surface.status.textContent = blocked;
+          setRecoveryActionsDisabled(surface, false);
           retry.focus();
         });
+      };
+      retry.addEventListener("click", () => run(readAgain));
+      importSettings.addEventListener("click", () => surface.importInput.click());
+      surface.importInput.addEventListener("change", () => {
+        const file = surface.importInput.files?.[0];
+        surface.importInput.value = "";
+        if (file) run(() => importThenReadAgain(file, surface, language2, readAgain));
       });
       reload.addEventListener("click", () => (options.reload ?? (() => location.reload()))());
     });
   }
-  function isolateRecoverySurface(surface) {
-    const previousInert = [...document.body.children].filter((element2) => element2 instanceof HTMLElement && element2 !== surface).map((element2) => ({ element: element2, inert: element2.inert === true }));
-    for (const { element: element2 } of previousInert) element2.inert = true;
-    return () => {
-      for (const { element: element2, inert } of previousInert) element2.inert = inert;
-    };
-  }
-  function recoverySurface(language2) {
-    const surface = document.createElement("section");
-    surface.className = "jpdb-reader-extension-settings-recovery";
-    surface.dataset.extensionSettingsRecovery = "blocked";
-    surface.setAttribute("role", "alert");
-    surface.setAttribute("aria-labelledby", "yomu-extension-settings-recovery-title");
-    surface.setAttribute("aria-describedby", "yomu-extension-settings-recovery-copy");
-    surface.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:Canvas;color:CanvasText;font:16px/1.5 system-ui,sans-serif;";
-    const card = document.createElement("div");
-    card.style.cssText = "width:min(560px,100%);padding:24px;border:1px solid ButtonBorder;border-radius:14px;background:Canvas;box-shadow:0 12px 40px #0004;";
-    const title = document.createElement("h1");
-    title.id = "yomu-extension-settings-recovery-title";
-    title.textContent = uiText(language2, "extensionSettingsRecoveryTitle");
-    const body = document.createElement("p");
-    body.id = "yomu-extension-settings-recovery-copy";
-    body.textContent = uiText(language2, "extensionSettingsRecoveryBody");
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;";
-    actions.append(
-      recoveryButton("retry", uiText(language2, "extensionSettingsRecoveryRetry")),
-      recoveryButton("reload", uiText(language2, "extensionSettingsRecoveryReload"))
-    );
-    const status = document.createElement("p");
-    status.dataset.recoveryStatus = "";
-    status.setAttribute("aria-live", "polite");
-    card.append(title, body, actions, status);
-    surface.append(card);
-    return surface;
-  }
-  function recoveryButton(action, label) {
-    const button2 = document.createElement("button");
-    button2.type = "button";
-    button2.className = "jpdb-reader-btn";
-    button2.dataset.recoveryAction = action;
-    button2.textContent = label;
-    return button2;
+  async function importThenReadAgain(file, surface, language2, readAgain) {
+    try {
+      await importSettingsBackupForRecovery(file, (message) => {
+        surface.status.textContent = message;
+      });
+    } catch (error) {
+      return userFacingErrorText(language2, "actionFailed", error);
+    }
+    return readAgain();
   }
   class PopupNavigationController {
     constructor(hasActiveKanjiPopover) {
@@ -157796,9 +158322,9 @@ ${rank.detail}` : baseTitle;
   }
   async function startNewTabRuntime(options = {}) {
     await ensureExtensionStudySettingsAuthority({
-      reportFailure: () => log.warn("Packaged Study settings could not be read")
+      prepareStorage: options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent,
+      reportFailure: () => log.warn("Study settings could not be read")
     });
-    await (options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent)();
     const app = (options.createRuntime ?? (() => new NewTabRuntime()))();
     await app.init();
     (options.registerPagehide ?? ((destroy) => {

@@ -48,6 +48,7 @@ const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
 const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
 const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
@@ -511,11 +512,7 @@ const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
   ["localhost", "loopback"],
   ["[::1]", "loopback"]
 ]);
-const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
-  "http://127.0.0.1:5174",
-  "http://localhost:5174",
-  "http://[::1]:5174"
-]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([]);
 function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
   return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
 }
@@ -590,6 +587,35 @@ function isLoopbackStudyRoutePath(path) {
 }
 function isRepositoryStudyRoutePath(path) {
   return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
+const PRIVILEGED_APP_POLICIES = {
+  docs: isYomuActiveAppRoute,
+  "github-pages": isYomuActiveAppRoute,
+  extension: () => false,
+  loopback: isPrivilegedLocalAppRoute,
+  "docs-preview": isPrivilegedLocalAppRoute
+};
+function isYomuPrivilegedHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? PRIVILEGED_APP_POLICIES[appUrl.originKind](value, appUrl) : false;
+}
+function isYomuStorageBridgeHostedUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+  return isYomuPrivilegedHostedAppUrl(value);
+}
+function isYomuActiveAppRoute(value, appUrl) {
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isPrivilegedLocalAppRoute(value, appUrl) {
+  return isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin) && isYomuActiveAppRoute(value, appUrl);
+}
+function isExactHostedAppPath(appUrl, route) {
+  if (appUrl.originKind === "github-pages") {
+  return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+  }
+  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
 }
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
@@ -980,104 +1006,186 @@ function normalizedPropertyDescriptor(descriptor) {
   };
   }
 }
-const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-http-request";
-const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-http-response";
-const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
-const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
-const BRIDGE_MARKER$1 = "yomuUserscriptHttpBridge";
-const BRIDGE_TIMEOUT_MS$1 = 3e4;
-const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
-let eventBridgeProbeInFlight;
-function getUserscriptHttpRequest() {
-  for (const candidate of userscriptRequestCandidates()) {
-  const request = asUserscriptRequest(candidate.request);
-  if (request) {
-    return request.bind(candidate.thisArg);
+const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+function detectInstalledReaderRuntime(globals = globalThis) {
+  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+  return "userscript";
   }
+  return null;
+}
+function announcedInstalledReaderRuntime(root = document) {
+  const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
+  return kind === "extension" || kind === "userscript" ? kind : null;
+}
+function expectedBridgeKind(trustedPage) {
+  if (detectInstalledReaderRuntime()) return null;
+  const announced = announcedInstalledReaderRuntime();
+  return announced && trustedPage() ? announced : null;
+}
+function readyBridgeOwner(dataset, keys, expected) {
+  if (dataset?.[keys.ready] !== "true") return null;
+  const kind = dataset[keys.kind];
+  if (kind === "extension" || kind === "userscript") {
+  if (expected && kind !== expected && kind !== "extension") return null;
+  return { ownerId: dataset[keys.owner], kind };
   }
-  return userscriptHttpEventBridge();
+  return { ownerId: dataset[keys.owner], kind: expected ?? "userscript" };
 }
-const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
-function isUserscriptEventBridgeRequest(request) {
-  return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+const MANAGED_STORAGE_KEY_PREFIXES = [
+  "yomu-",
+  "yomu:",
+  "yomu.",
+  // Yomu-internal redirect handoff keys use a leading double underscore.
+  // Factory reset clears hosted web storage by managed prefix, so include it.
+  "__yomu",
+  "jpdb-reader-",
+  "jpdb-popup-reader-"
+];
+const MANAGED_STATE_SLOT_KEY_PREFIX = "yomu:state-slot:v1:";
+const MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX = "yomu:web-storage-slot:v1:";
+const MANAGED_SLOT_KEY_PREFIXES = [
+  MANAGED_STATE_SLOT_KEY_PREFIX,
+  MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX
+];
+function isManagedStorageKey(key) {
+  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
-function probeUserscriptEventBridge(request) {
-  if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
-  if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
-  if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-  const probe = new Promise((resolve) => {
-  const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  let settled = false;
-  let responseCleanup = noop$1;
-  let bridgeReadyCleanup = noop$1;
-  const finish = (alive) => {
-    if (settled) return;
-    settled = true;
-    window.clearTimeout(timeout);
-    responseCleanup();
-    bridgeReadyCleanup();
-    if (!alive) {
-      const markerDataset = bridgeMarkerDataset$1();
-      if (markerDataset?.[BRIDGE_MARKER$1] === "true") delete markerDataset[BRIDGE_MARKER$1];
-    }
-    resolve(alive);
+function isPrivateManagedStorageKey(key) {
+  return logicalManagedStorageKey(key)?.startsWith("yomu:private:") === true;
+}
+function logicalManagedStorageKey(key) {
+  const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate) => key.startsWith(candidate));
+  if (!prefix) return key;
+  const encoded = key.slice(prefix.length);
+  const separator = encoded.indexOf(":");
+  if (separator < 1 || separator === encoded.length - 1) return null;
+  try {
+  const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+  return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+  } catch {
+  return null;
+  }
+}
+function isManagedStorageSlotKey(key) {
+  return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
+const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
+const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+const BRIDGE_OWNER = "yomuStorageBridgeOwner";
+const BRIDGE_KIND = "yomuStorageBridgeKind";
+const BRIDGE_KEYS$1 = { ready: BRIDGE_MARKER$1, owner: BRIDGE_OWNER, kind: BRIDGE_KIND };
+const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
+const EXTENSION_STORAGE_TARGET = "extension-storage";
+const BRIDGE_TIMEOUT_MS$1 = 1e4;
+let clientOwner$1;
+function getUserscriptGmStorage() {
+  if (!storageBridgeClientAvailable()) return void 0;
+  clientOwner$1 ??= pinnableOwner(readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind()));
+  const request = (detail) => storageBridgeRequest(detail);
+  return {
+  getValue: (key, fallback) => request({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+  setValue: (key, value) => request({ op: "set", key, value }).then(() => void 0),
+  deleteValue: (key) => request({ op: "delete", key }).then(() => void 0),
+  listValues: () => request({ op: "list" }).then((detail) => detail.keys ?? []),
+  clearPrivateManagedValues: () => request({ op: "clear-private-managed" }).then(() => void 0),
+  clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? request({
+    op: "clear-legacy-extension-managed",
+    target: EXTENSION_STORAGE_TARGET
+  }).then(() => void 0) : Promise.resolve()
   };
-  const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
-  responseCleanup = addBridgeEventListener$1(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
-    if (bridgeEventId(event) === id) finish(true);
-  });
-  bridgeReadyCleanup = addBridgeEventListener$1(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-  dispatchBridgeEvent$1(BRIDGE_PROBE_EVENT, { id });
-  });
-  eventBridgeProbeInFlight = probe;
-  void probe.then(() => {
-  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
-  });
-  return probe;
 }
-function userscriptHttpEventBridge() {
-  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-  return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
-  const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    options.ontimeout?.();
-    reject(new Error("Request timed out."));
-  }, options.timeout ?? BRIDGE_TIMEOUT_MS$1);
-  let cleanupBridgeResponseListener = noop$1;
+function storageBridgeClientAvailable() {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  return Boolean(clientOwner$1 || expectedStorageBridgeKind() || readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, null));
+}
+function expectedStorageBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptStorageBridge);
+}
+function installedStorageResponderReady() {
+  return readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind()) !== null;
+}
+function storageBridgeRequest(request) {
+  return new Promise((resolve, reject) => {
+  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  let pinned;
+  let cleanupListeners = noop$1;
   const cleanup = () => {
     window.clearTimeout(timeout);
-    cleanupBridgeResponseListener();
+    cleanupListeners();
   };
+  const fail = (message) => {
+    cleanup();
+    reject(new Error(message));
+  };
+  const timeout = window.setTimeout(() => {
+    if (!pinned) fail("Installed Yomu storage did not connect; reload to reconnect.");
+    else if (!pinnedOwnerCurrent(pinned)) fail("Storage bridge authority changed during the request.");
+    else fail("Storage bridge request timed out.");
+  }, BRIDGE_TIMEOUT_MS$1);
   const onResponse = (event) => {
-    handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+    const detail = storageBridgeResponseDetail(event);
+    if (!detail || detail.id !== id) return;
+    if (!pinned || !pinnedOwnerCurrent(pinned)) return fail("Storage bridge authority changed during the request.");
+    cleanup();
+    if (detail.ok) resolve(detail);
+    else reject(new Error(detail.message || "Storage bridge request failed."));
   };
-  cleanupBridgeResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
-  const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, options: requestOptions });
-  }));
+  const send = (owner) => {
+    pinned = owner;
+    cleanupListeners();
+    cleanupListeners = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+    dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ownerId: owner.ownerId, ...request });
+  };
+  const connect = () => {
+    if (clientOwner$1) {
+      if (pinnedOwnerCurrent(clientOwner$1)) send(clientOwner$1);
+      else fail("Storage bridge authority changed; reload to reconnect.");
+      return true;
+    }
+    const owner = readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind());
+    if (!owner) return false;
+    clientOwner$1 = pinnableOwner(owner);
+    send(owner);
+    return true;
+  };
+  if (connect()) return;
+  cleanupListeners = addBridgeEventListener$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+    if (!pinned) connect();
+  });
+  });
 }
-function tagEventBridgeRequest(request) {
-  request[EVENT_BRIDGE_TAG] = true;
-  return request;
+function pinnableOwner(owner) {
+  return owner?.ownerId === void 0 ? void 0 : owner;
 }
-function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-  const detail = bridgeResponseEventDetail(event);
-  if (!detail || detail.id !== id) return;
-  cleanup();
-  if (detail.kind === "load" && detail.response) {
-  options.onload?.(detail.response);
-  resolve(detail.response);
-  return;
+function pinnedOwnerCurrent(owner) {
+  const dataset = bridgeMarkerDataset$1();
+  return dataset?.[BRIDGE_MARKER$1] === "true" && dataset[BRIDGE_OWNER] === owner.ownerId;
+}
+function shouldInstallUserscriptStorageBridge() {
+  try {
+  return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
+  } catch {
+  return false;
   }
-  rejectBridgeResponse(detail, options, reject);
 }
-function rejectBridgeResponse(detail, options, reject) {
-  const message = detail.message || "Request failed.";
-  if (detail.kind === "timeout") options.ontimeout?.();
-  else options.onerror?.(new Error(message));
-  reject(new Error(message));
+function storageBridgeResponseDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  if (!detail || typeof detail !== "object") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
+  return {
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
+  };
+}
+function extensionStorageBridgeAdvertised() {
+  return bridgeMarkerDataset$1()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === "true";
 }
 function addBridgeEventListener$1(type, listener) {
   const cleanups = [];
@@ -1133,95 +1241,160 @@ function callDispatchEvent$1(target, event) {
 }
 function noop$1() {
 }
-function detectInstalledReaderRuntime(globals = globalThis) {
-  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
-  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
-  return "userscript";
+const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
+const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
+const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+const BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: "yomuHttpBridgeOwner", kind: "yomuHttpBridgeKind" };
+const BRIDGE_TIMEOUT_MS = 3e4;
+const BRIDGE_READY_TIMEOUT_MS = 1e4;
+const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let clientOwner;
+let eventBridgeProbeInFlight;
+function getUserscriptHttpRequest() {
+  for (const candidate of userscriptRequestCandidates()) {
+  const request = asUserscriptRequest(candidate.request);
+  if (request) {
+    return request.bind(candidate.thisArg);
   }
-  return null;
-}
-const MANAGED_STATE_SLOT_KEY_PREFIX = "yomu:state-slot:v1:";
-const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
-const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
-const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
-const BRIDGE_OWNER = "yomuStorageBridgeOwner";
-const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
-const EXTENSION_STORAGE_TARGET = "extension-storage";
-const BRIDGE_TIMEOUT_MS = 1e4;
-let clientOwnerId;
-function getUserscriptGmStorage() {
-  if (!storageBridgeClientReady() && !clientOwnerId) return void 0;
-  clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
-  const ownerId = clientOwnerId;
-  const request = (detail) => storageBridgeRequest(detail, ownerId);
-  return {
-  getValue: (key, fallback) => request({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
-  setValue: (key, value) => request({ op: "set", key, value }).then(() => void 0),
-  deleteValue: (key) => request({ op: "delete", key }).then(() => void 0),
-  listValues: () => request({ op: "list" }).then((detail) => detail.keys ?? []),
-  clearPrivateManagedValues: () => request({ op: "clear-private-managed" }).then(() => void 0),
-  clearLegacyExtensionManagedValues: () => extensionStorageBridgeAdvertised() ? request({
-    op: "clear-legacy-extension-managed",
-    target: EXTENSION_STORAGE_TARGET
-  }).then(() => void 0) : Promise.resolve()
-  };
-}
-function storageBridgeClientReady() {
-  if (typeof window === "undefined") return false;
-  if (typeof document === "undefined") return false;
-  return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
-}
-function storageBridgeRequest(request, ownerId) {
-  return new Promise((resolve, reject) => {
-  if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
-    reject(new Error("Storage bridge authority changed; reload to reconnect."));
-    return;
   }
-  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-      reject(new Error("Storage bridge authority changed during the request."));
-      return;
-    }
-    reject(new Error("Storage bridge request timed out."));
-  }, BRIDGE_TIMEOUT_MS);
-  let cleanupResponseListener = noop;
-  const cleanup = () => {
+  return userscriptHttpEventBridge();
+}
+function shouldInstallUserscriptHttpBridge() {
+  try {
+  return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
+  } catch {
+  return false;
+  }
+}
+const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+function isUserscriptEventBridgeRequest(request) {
+  return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+}
+function probeUserscriptEventBridge(request) {
+  if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+  if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+  if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+  const current = currentHttpBridgeOwner();
+  const probe = current !== void 0 ? current ? probeHttpBridgeOwner(current) : Promise.resolve(false) : httpBridgeOwner().then((owner) => owner ? probeHttpBridgeOwner(owner) : false);
+  eventBridgeProbeInFlight = probe;
+  void probe.then(() => {
+  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+  });
+  return probe;
+}
+function probeHttpBridgeOwner(owner) {
+  return new Promise((resolve) => {
+  const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  let settled = false;
+  let responseCleanup = noop;
+  const finish = (alive) => {
+    if (settled) return;
+    settled = true;
     window.clearTimeout(timeout);
-    cleanupResponseListener();
-  };
-  const onResponse = (event) => {
-    const detail = storageBridgeResponseDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-      reject(new Error("Storage bridge authority changed during the request."));
-      return;
+    responseCleanup();
+    if (!alive) {
+      const markerDataset = bridgeMarkerDataset();
+      if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
     }
-    if (detail.ok) resolve(detail);
-    else reject(new Error(detail.message || "Storage bridge request failed."));
+    resolve(alive);
   };
-  cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId, ...request });
+  const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+  responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+    if (bridgeEventId(event) === id) finish(true);
+  });
+  dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id, ownerId: owner.ownerId });
   });
 }
-function storageBridgeResponseDetail(event) {
-  const detail = normalizedBridgeEventDetail(event);
-  if (!detail || typeof detail !== "object") return void 0;
-  const record2 = detail;
-  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
-  return {
-  id: record2.id,
-  ok: record2.ok,
-  found: typeof record2.found === "boolean" ? record2.found : void 0,
-  value: record2.value,
-  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record2.message === "string" ? record2.message : void 0
+function httpBridgeOwner() {
+  const current = currentHttpBridgeOwner();
+  if (current !== void 0) return Promise.resolve(current);
+  return new Promise((resolve) => {
+  const cleanups = [];
+  const settle = (owner) => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    resolve(owner);
   };
+  const recheck = () => {
+    const owner = currentHttpBridgeOwner();
+    if (owner !== void 0) settle(owner);
+  };
+  const timeout = window.setTimeout(() => settle(null), BRIDGE_READY_TIMEOUT_MS);
+  cleanups.push(() => window.clearTimeout(timeout));
+  cleanups.push(addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, recheck));
+  cleanups.push(addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+    const later = window.setTimeout(recheck, 0);
+    cleanups.push(() => window.clearTimeout(later));
+  }));
+  });
 }
-function extensionStorageBridgeAdvertised() {
-  return bridgeMarkerDataset()?.[EXTENSION_STORAGE_BRIDGE_MARKER] === "true";
+function currentHttpBridgeOwner() {
+  const dataset = bridgeMarkerDataset();
+  if (clientOwner) {
+  return dataset?.[BRIDGE_MARKER] === "true" && dataset[BRIDGE_KEYS.owner] === clientOwner.ownerId ? clientOwner : null;
+  }
+  const expected = expectedHttpBridgeKind();
+  const owner = readyBridgeOwner(dataset, BRIDGE_KEYS, expected);
+  if (owner?.ownerId) clientOwner = owner;
+  if (owner) return owner;
+  return expected && !installedStorageResponderReady() ? void 0 : null;
+}
+function expectedHttpBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptHttpBridge);
+}
+function userscriptHttpEventBridge() {
+  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+  if (currentHttpBridgeOwner() === null) return void 0;
+  return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
+  const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    options.ontimeout?.();
+    reject(new Error("Request timed out."));
+  }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+  let cleanupBridgeResponseListener = noop;
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    cleanupBridgeResponseListener();
+  };
+  const onResponse = (event) => {
+    handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+  };
+  void httpBridgeOwner().then((owner) => {
+    if (!owner) {
+      cleanup();
+      const error = new Error("Installed Yomu request bridge is unavailable; reload to reconnect.");
+      options.onerror?.(error);
+      reject(error);
+      return;
+    }
+    cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+    const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+  });
+  }));
+}
+function tagEventBridgeRequest(request) {
+  request[EVENT_BRIDGE_TAG] = true;
+  return request;
+}
+function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+  const detail = bridgeResponseEventDetail(event);
+  if (!detail || detail.id !== id) return;
+  cleanup();
+  if (detail.kind === "load" && detail.response) {
+  options.onload?.(detail.response);
+  resolve(detail.response);
+  return;
+  }
+  rejectBridgeResponse(detail, options, reject);
+}
+function rejectBridgeResponse(detail, options, reject) {
+  const message = detail.message || "Request failed.";
+  if (detail.kind === "timeout") options.ontimeout?.();
+  else options.onerror?.(new Error(message));
+  reject(new Error(message));
 }
 function addBridgeEventListener(type, listener) {
   const cleanups = [];
@@ -3858,7 +4031,6 @@ const COPY = {
   noDefinitions: "No enabled definition source returned results.",
   enabledHeader: "On",
   labelHeader: "Label",
-  detailsHeader: "Details",
   displayName: "Display name",
   orderHeader: "Order",
   removeHeader: "Remove",
@@ -5115,7 +5287,6 @@ donate	寄付
 discord	Discord
 enabledHeader	有効
 labelHeader	ラベル
-detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除
@@ -5231,120 +5402,6 @@ const ANKI_CARD_COLOR_TOKENS = {
   metaLabelText: "#8f9aaa",
   tableBorder: "#353c47"
 };
-function managedStorageOwner() {
-  const installed = detectInstalledReaderRuntime();
-  if (installed) return installed;
-  if (!getUserscriptGmStorage()) return "standalone";
-  return document.documentElement?.dataset.yomuStorageBridgeKind === "extension" ? "extension" : "userscript";
-}
-function asyncGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmGetValue();
-  if (direct) return direct;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-}
-function directGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
-}
-function legacyGmGetValue() {
-  return typeof GM_getValue === "function" ? GM_getValue : null;
-}
-function modernGmGetValue() {
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function asyncGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmSetValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmSetValue();
-}
-function directGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
-}
-function legacyGmSetValue() {
-  return typeof GM_setValue === "function" ? GM_setValue : null;
-}
-function modernGmSetValue() {
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmSetValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key, value) => extension.set({ [key]: value }) : null;
-}
-function bridgeGmSetValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, value) => bridge.setValue(key, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmDeleteValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmDeleteValue();
-}
-function directGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
-}
-function legacyGmDeleteValue() {
-  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
-}
-function modernGmDeleteValue() {
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmDeleteValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key) => extension.remove(key) : null;
-}
-function bridgeGmDeleteValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key) => bridge.deleteValue(key) : null;
-}
-function extensionStorageArea() {
-  return extensionCapability((extension) => extension.storage?.local);
-}
-function extensionCapability(select) {
-  const candidate = globalThis;
-  return activeExtensionCapability(candidate.browser, select) ?? activeExtensionCapability(candidate.chrome, select) ?? null;
-}
-function activeExtensionCapability(extension, select) {
-  return extension?.runtime?.id ? select(extension) : void 0;
-}
-function packagedExtensionStorageAdapterMissing() {
-  if (!isPackagedExtensionDocument()) return false;
-  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
-  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
-}
-function isPackagedExtensionDocument() {
-  try {
-  const protocol = globalThis.location?.protocol ?? "";
-  return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
-  } catch {
-  return false;
-  }
-}
-function rawExtensionStorageGetValue() {
-  const extension = extensionStorageArea();
-  return extension ? extensionStorageGetValue(extension) : null;
-}
-function extensionStorageGetValue(extension) {
-  return async (key, fallback) => {
-  const value = (await extension.get(key))[key];
-  return value === void 0 ? fallback : value;
-  };
-}
-function ownedDatabaseName(base) {
-  const owner = managedStorageOwner();
-  if (owner === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol)) return base;
-  return `${base}-${owner}-v2`;
-}
 const entries = [];
 const registeredEntryIndexes = /* @__PURE__ */ new Map();
 let resetWritesSuppressed = false;
@@ -5370,6 +5427,9 @@ function registerManagedStates(list) {
 }
 function managedStateIdentity(entry) {
   return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
+}
+function managedStateEntries() {
+  return entries;
 }
 function managedStateWritesSuppressed() {
   return resetWritesSuppressed;
@@ -5486,8 +5546,6 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-userscript-v2" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-extension-v2" },
   // Bunpro vocab SRS-state index for page word colouring.
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   // Public lookup caches.
@@ -5499,8 +5557,6 @@ const MANAGED_STATE_MANIFEST = [
   // store's own deleteDatabase during reset; registered so the invariant test
   // asserts it and the reset sweep nets it as a fallback.
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-userscript-v2" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-extension-v2" },
   { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
   {
   owner: "dictionaries/archive-cache",
@@ -5546,8 +5602,6 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
-  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-userscript-v2" },
-  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-extension-v2" },
   { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -5730,6 +5784,38 @@ async function readManagedGmValue(getValue, key, epoch) {
   if (isMissingSentinel(logical)) return { kind: "deleted" };
   return { kind: "found", value: logical };
 }
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedYomuOrigin() {
+  try {
+  return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+  } catch {
+  return false;
+  }
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
+const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  "yomu:factory-reset-signal",
+  MANAGED_STATE_EPOCH_KEY,
+  "yomu:local-storage-provenance:v1",
+  // Transient cloud-sync handoff written before an OAuth redirect. Factory
+  // reset owns it via the '__yomu' prefix, but backups must not replay it.
+  "__yomu_cloud_settings_sync_pending_action"
+]);
+function isManagedStorageBackupKey(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
+}
 function localStorageGet(key, fallback) {
   try {
   const value = localStorage.getItem(key);
@@ -5771,6 +5857,42 @@ function storageWriteError(key, message, ...causes) {
   const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
   return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
 }
+const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const RETIRED_SETTINGS_STORAGE_KEYS = [
+  "jpdb-reader-settings",
+  "yomu-reader-settings",
+  "yomu-settings",
+  "yomu:explicit-user-settings:v1"
+];
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  SETTINGS_STORAGE_KEY,
+  ...RETIRED_SETTINGS_STORAGE_KEYS,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_CACHE_KEY
+]);
+function isSettingsAuthorityStorageKey(key) {
+  return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -5890,6 +6012,170 @@ function fingerprint(serialized) {
   }
   return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
+const SETTINGS_KEY = "jpdb-popup-reader-settings";
+const INTENT_LEDGER_KEY = "yomu:settings-intent:v2";
+const LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
+const LAST_KEYS = [LOCAL_SRS_V2_INDEX_KEY, "yomu:prefer-japanese-site-language:v1", INTENT_LEDGER_KEY, SETTINGS_KEY];
+const COORDINATION_FIELDS = ["__yomuSettingsPersistenceTransactionV1", "__yomuSettingsPersistenceCommitV1"];
+const HOSTED_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const OWNER_NAMESPACE_PREFIX = "yomu:web-owner:v2:";
+let adoption;
+function websiteOnlyValuePresent(key, epoch) {
+  return isHostedYomuOrigin() && isWebsiteStoreKey(key) && localMirrorBelongsToEpoch(key, epoch);
+}
+function adoptWebsiteOnlyStore(getValue, epoch, write) {
+  const token = managedStateEpochToken(epoch);
+  if (adoption?.token === token) return adoption.done;
+  const done = runAdoption(getValue, epoch, write).finally(() => {
+  if (adoption?.done === done) adoption = void 0;
+  });
+  adoption = { token, done };
+  return done;
+}
+async function runAdoption(getValue, epoch, write) {
+  if (!isHostedYomuOrigin()) return;
+  const installed = await readManagedGmValue(getValue, SETTINGS_KEY, epoch);
+  if (installed.kind === "found" && !saysNoTargetChosen(installed.value)) return;
+  const settingsUnitAbsent = installed.kind === "missing" && (await readManagedGmValue(getValue, INTENT_LEDGER_KEY, epoch)).kind === "missing";
+  for (const key of websiteOnlyKeys(epoch)) {
+  if (isSettingsAuthorityStorageKey(key) && !settingsUnitAbsent) continue;
+  if ((await readManagedGmValue(getValue, key, epoch)).kind !== "missing") continue;
+  const value = localStorageGet(key, MISSING);
+  if (!isMissingSentinel(value)) await write(key, adoptedValue(key, value));
+  }
+}
+function websiteOnlyKeys(epoch) {
+  const keys = [];
+  for (let index = 0; index < localStorage.length; index++) {
+  const key = localStorage.key(index);
+  if (key && websiteOnlyValuePresent(key, epoch)) keys.push(key);
+  }
+  const rank = (key) => LAST_KEYS.indexOf(key);
+  return keys.sort((left, right) => rank(left) - rank(right) || left.localeCompare(right));
+}
+function isWebsiteStoreKey(key) {
+  return isManagedStorageBackupKey(key) && !key.startsWith(OWNER_NAMESPACE_PREFIX) && !RETIRED_SETTINGS_STORAGE_KEYS.includes(key) && managedStateEntries().some((entry) => entry.kind === "gm" && (entry.key === key || entry.prefix !== void 0 && key.startsWith(entry.prefix)));
+}
+function adoptedValue(key, value) {
+  if (!isRecord(value)) return value;
+  const record2 = withoutFields(value, COORDINATION_FIELDS);
+  if (key === SETTINGS_KEY) return withoutFields(record2, [HOSTED_PATCH_FIELD, ...HOSTED_LOCAL_SETTINGS_KEYS]);
+  if (key === INTENT_LEDGER_KEY && isRecord(record2.records)) {
+  return { ...record2, records: withoutFields(record2.records, HOSTED_LOCAL_SETTINGS_KEYS) };
+  }
+  return record2;
+}
+function withoutFields(record2, fields) {
+  const copy = { ...record2 };
+  for (const field of fields) delete copy[field];
+  return copy;
+}
+function saysNoTargetChosen(settings) {
+  return isRecord(settings) && settings.learningTargetChosen === false;
+}
+function asyncGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmGetValue();
+  if (direct) return direct;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
+}
+function legacyGmGetValue() {
+  return typeof GM_getValue === "function" ? GM_getValue : null;
+}
+function modernGmGetValue() {
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function asyncGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmSetValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmSetValue();
+}
+function directGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+}
+function legacyGmSetValue() {
+  return typeof GM_setValue === "function" ? GM_setValue : null;
+}
+function modernGmSetValue() {
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmSetValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
+}
+function bridgeGmSetValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmDeleteValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmDeleteValue();
+}
+function directGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+}
+function legacyGmDeleteValue() {
+  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+}
+function modernGmDeleteValue() {
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmDeleteValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key) => extension.remove(key) : null;
+}
+function bridgeGmDeleteValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
+}
+function extensionStorageArea() {
+  return extensionCapability((extension) => extension.storage?.local);
+}
+function extensionCapability(select) {
+  const candidate = globalThis;
+  return activeExtensionCapability(candidate.browser, select) ?? activeExtensionCapability(candidate.chrome, select) ?? null;
+}
+function activeExtensionCapability(extension, select) {
+  return extension?.runtime?.id ? select(extension) : void 0;
+}
+function packagedExtensionStorageAdapterMissing() {
+  if (!isPackagedExtensionDocument()) return false;
+  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+}
+function isPackagedExtensionDocument() {
+  try {
+  const protocol = globalThis.location?.protocol ?? "";
+  return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+  } catch {
+  return false;
+  }
+}
+function rawExtensionStorageGetValue() {
+  const extension = extensionStorageArea();
+  return extension ? extensionStorageGetValue(extension) : null;
+}
+function extensionStorageGetValue(extension) {
+  return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
 async function assertRealmManagedStateEpoch(getValue) {
@@ -5977,8 +6263,10 @@ async function gmStorageGet(key, fallback) {
 async function sharedManagedValue(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
-  if (read.kind === "deleted") return fallback;
-  return fallback;
+  if (read.kind === "deleted" || !websiteOnlyValuePresent(key, epoch)) return fallback;
+  await adoptWebsiteOnlyStore(getValue, epoch, gmStorageSet).catch((error) => debugStorageError("Website-only store adoption failed", key, error));
+  const adopted = await readManagedGmValue(getValue, key, epoch);
+  return adopted.kind === "found" ? adopted.value : fallback;
 }
 function failedManagedReadValue(error, key, fallback) {
   if (isStaleManagedStateEpochError(error)) throw error;
@@ -10544,9 +10832,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
   }
-  const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+  const SYNTHETIC_INTERACTION_TEST_SLOT = void 0;
   function syntheticEventsAllowed() {
-    return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+    return SYNTHETIC_INTERACTION_TEST_SLOT !== void 0;
   }
   function sandboxSharedState(key, create) {
     const realm = globalThis;
@@ -13655,19 +13943,15 @@ function releaseAnkiStatusIndexRebuildLease(owner) {
   }
 }
 async function saveAnkiStatusIndex(index) {
-  const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
   try {
   await saveAnkiStatusIndexToIndexedDb(index);
-  assertAnkiStatusOwner(databaseName);
   await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
   } catch (error) {
-  assertAnkiStatusOwner(databaseName);
   log$1.warn("Anki status save fell back", error);
   await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
   }
 }
 async function saveAnkiStatusIndexCheckedAt(index) {
-  const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
   if (index.entryStore !== "indexeddb") {
   await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
   return;
@@ -13675,10 +13959,8 @@ async function saveAnkiStatusIndexCheckedAt(index) {
   const meta = ankiStatusIndexMeta(index);
   try {
   await putStoredAnkiStatusIndexMeta(meta);
-  assertAnkiStatusOwner(databaseName);
   await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
   } catch (error) {
-  assertAnkiStatusOwner(databaseName);
   log$1.warn("Anki status metadata failed", error);
   await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
   }
@@ -13700,7 +13982,6 @@ async function loadAnkiStatusIndexFromIndexedDb() {
   const meta = await idbRequest(
     db.transaction(ANKI_STATUS_INDEX_META_STORE, "readonly").objectStore(ANKI_STATUS_INDEX_META_STORE).get("current")
   );
-  assertAnkiStatusOwner(db.name);
   if (!meta) return null;
   return {
     version: meta.version,
@@ -13728,7 +14009,6 @@ async function loadAnkiStatusIndexEntriesFromIndexedDb(keys) {
     const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
     const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record2) => [key, record2])));
     await idbTransactionDone(tx);
-    assertAnkiStatusOwner(db.name);
     records.push(...chunkRecords);
   }
   return new Map(records.filter((record2) => Boolean(record2[1])).map(([key, record2]) => [key, record2.entry]));
@@ -13783,12 +14063,6 @@ async function putBestAnkiStatusIndexEntries(db, entries2) {
   entries2.forEach((candidate) => {
     const request = store.get(candidate.key);
     request.onsuccess = () => {
-      try {
-        assertAnkiStatusOwner(db.name);
-      } catch {
-        tx.abort();
-        return;
-      }
       const current = request.result?.entry;
       if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
     };
@@ -13801,26 +14075,16 @@ function countAnkiStatusIndexEntries(db) {
   const count = idbRequest(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count());
   return count.then(async (value) => {
   await done;
-  assertAnkiStatusOwner(db.name);
   return value;
   });
 }
 async function openAnkiStatusIndexDb() {
-  const databaseName = ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME);
   const epoch = await assertManagedStateMutationAllowed();
-  assertAnkiStatusOwner(databaseName);
   return new Promise((resolve, reject) => {
-  const request = indexedDB.open(databaseName, ANKI_STATUS_INDEX_DB_VERSION);
+  const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
   request.onerror = () => reject(request.error ?? new Error("Could not open Anki status index database."));
   request.onblocked = () => reject(new Error("Anki status index database upgrade was blocked."));
   request.onupgradeneeded = () => {
-    try {
-      assertAnkiStatusOwner(databaseName);
-    } catch (error) {
-      request.transaction?.abort();
-      reject(error);
-      return;
-    }
     const db = request.result;
     if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)) {
       db.createObjectStore(ANKI_STATUS_INDEX_META_STORE, { keyPath: "id" });
@@ -13898,18 +14162,11 @@ function reconcileAnkiStatusIndexEpoch(db, epoch) {
   markerKey: ANKI_STATUS_INDEX_EPOCH_RECORD_ID,
   markerKeyPath: "id",
   clearedStoreNames: [ANKI_STATUS_INDEX_ENTRY_STORE],
-  deletedRecords: [{ storeName: ANKI_STATUS_INDEX_META_STORE, key: "current" }],
-  beforeMutate: () => assertAnkiStatusOwner(db.name)
+  deletedRecords: [{ storeName: ANKI_STATUS_INDEX_META_STORE, key: "current" }]
   });
 }
 function runAnkiStatusIndexWrite(db, storeNames, mutate) {
-  return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, (tx) => {
-  assertAnkiStatusOwner(db.name);
-  mutate(tx);
-  });
-}
-function assertAnkiStatusOwner(databaseName) {
-  if (databaseName !== ownedDatabaseName(ANKI_STATUS_INDEX_DB_NAME)) throw new Error("Anki status storage owner changed; reload to reconnect.");
+  return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, mutate);
 }
 async function putStoredAnkiStatusIndexMeta(meta) {
   if (!canUseIndexedDb()) throw new Error("IndexedDB is unavailable.");
@@ -14430,7 +14687,6 @@ class AnkiConnectClient {
   lastFocusStatusRefreshAt = 0;
   accountEpoch = 0;
   // Companion lifecycle API consumed by page and newtab runtimes through the structural Anki client.
-  // fallow-ignore-next-line unused-class-member
   destroy() {
   this.isDestroyed = true;
   this.clearAccountContext();
@@ -15459,7 +15715,6 @@ class AnkiConnectClient {
   return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
   }
   // Public review action used by card and newtab controls to answer rendered Anki review cards.
-  // fallow-ignore-next-line unused-class-member
   async answerCard(cardId, grade) {
   const ease = ankiEaseFromGrade(grade);
   log.info("Answering Anki card", { cardId, grade, ease });
@@ -17007,6 +17262,12 @@ function reviewGradeScale(settings, profile = "standard") {
   twoButton: entries2.length === 2
   };
 }
+function gradeKeyHintAttributes(settings, shortcut) {
+  const key = shortcut ? settings.shortcuts[shortcut]?.trim() ?? "" : "";
+  if (!key) return "";
+  const escaped = key.replace(/[&<>"']/gu, (character) => `&#${character.charCodeAt(0)};`);
+  return ` data-grade-key="${escaped}" aria-keyshortcuts="${escaped}"`;
+}
 const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
 const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
 const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
@@ -17201,15 +17462,15 @@ function renderTrustedAnkiExistingSection(ankiLookup, primary, notes, storedCont
   const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
   const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, "Anki");
   return `
-    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
-        <summary class="jpdb-reader-local-title">
-            <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$1(title)}${ankiNoteCountSuffix(notes)}</span>
-            <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
-        </summary>
-        ${renderExistingAnkiCollisionSummary(notes, language)}
-        ${renderExistingAnkiNotes(notes, primary, storedContext, settings, options)}
-    </details>
-  `;
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
+            <summary class="jpdb-reader-local-title">
+                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$1(title)}${ankiNoteCountSuffix(notes)}</span>
+                <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
+            </summary>
+            ${renderExistingAnkiCollisionSummary(notes, language)}
+            ${renderExistingAnkiNotes(notes, primary, storedContext, settings, options)}
+        </details>
+    `;
 }
 function ankiSectionIsEnabled(settings) {
   return settings.ankiEnabled && settings.ankiSectionEnabled;
@@ -17237,16 +17498,16 @@ function renderAnkiNewCardPreview(card, sentence, settings, context = {}, fieldT
   if (!fieldPreview) return "";
   const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, "Anki");
   return `
-    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
-        <summary class="jpdb-reader-local-title">
-            <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>${escapeHtml$1(title)}</span>
-            <small class="jpdb-reader-source-status">${escapeHtml$1(ankiNewCardSummary(settings))}</small>
-        </summary>
-        <div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview">
-            ${fieldPreview}
-        </div>
-    </details>
-  `;
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
+            <summary class="jpdb-reader-local-title">
+                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>${escapeHtml$1(title)}</span>
+                <small class="jpdb-reader-source-status">${escapeHtml$1(ankiNewCardSummary(settings))}</small>
+            </summary>
+            <div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview">
+                ${fieldPreview}
+            </div>
+        </details>
+    `;
 }
 function ankiPreviewSentence(sentence, card) {
   return sentence ?? card.sentence ?? "";
@@ -17257,10 +17518,10 @@ function accountDataSurfaceIsTrusted(explicit) {
 function renderPrivateAccountDataLauncher(language) {
   if (typeof document !== "undefined") installOwnedStudyLauncher(document);
   return `<section class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-account-private-launcher" data-account-private-launcher>
-    <div class="jpdb-reader-local-title"><strong>${escapeHtml$1(uiText(language, "accountSettingsTrustedSurfaceTitle"))}</strong></div>
-    <p class="jpdb-reader-help">${escapeHtml$1(uiText(language, "accountSettingsTrustedSurfaceHelp"))}</p>
-    <button class="jpdb-reader-btn" type="button" data-yomu-owned-study-launcher>${escapeHtml$1(uiText(language, "openAccountSettingsTrustedSurface"))}</button>
-  </section>`;
+        <div class="jpdb-reader-local-title"><strong>${escapeHtml$1(uiText(language, "accountSettingsTrustedSurfaceTitle"))}</strong></div>
+        <p class="jpdb-reader-help">${escapeHtml$1(uiText(language, "accountSettingsTrustedSurfaceHelp"))}</p>
+        <button class="jpdb-reader-btn" type="button" data-yomu-owned-study-launcher>${escapeHtml$1(uiText(language, "openAccountSettingsTrustedSurface"))}</button>
+    </section>`;
 }
 function orderedExistingAnkiNotes(ankiLookup) {
   const notes = [];
@@ -17286,35 +17547,35 @@ function ankiExistingSectionSummary(primary, count, language, aggregateState) {
 }
 function renderAnkiCollisionSummary(notes, language) {
   return `<div class="jpdb-reader-anki-match-summary" aria-label="${escapeHtml$1(uiText(language, "ankiMatches"))}">
-    ${notes.map((note) => `<div class="jpdb-reader-anki-match-summary-row">
+        ${notes.map((note) => `<div class="jpdb-reader-anki-match-summary-row">
         <span><span class="jpdb-reader-state-dot anki-${note.state}"></span>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</span>
         <small>${escapeHtml$1(ankiExistingSummary(note, language))}</small>
     </div>`).join("")}
-  </div>`;
+    </div>`;
 }
 function renderAnkiExistingNote(note, storedContext, settings, collapsible, open, options) {
   const language = settings.interfaceLanguage;
   const preview = ankiExistingPreview(note, storedContext, language);
   const content = `<div class="jpdb-reader-anki-existing-note-body">
-    ${preview.renderedCard}
-    ${preview.fields}
-    ${preview.pending}
-    ${preview.context}
-    ${renderAnkiNoteActions(note, language)}
-    ${!options.suppressReviewButtons && settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ""}
-  </div>`;
+        ${preview.renderedCard}
+        ${preview.fields}
+        ${preview.pending}
+        ${preview.context}
+        ${renderAnkiNoteActions(note, language)}
+        ${!options.suppressReviewButtons && settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ""}
+    </div>`;
   if (!collapsible) {
   return `<div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview" data-anki-note-id="${note.noteId}">
-    ${content}
-  </div>`;
+        ${content}
+    </div>`;
   }
   return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}" ${ankiDetailsStateAttributes(options, ankiDeckSourceStateKey(note), open)}>
-    <summary class="jpdb-reader-anki-existing-note-title">
-        <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</strong></span>
-        <small>${escapeHtml$1(preview.summary)}</small>
-    </summary>
-    ${content}
-  </details>`;
+        <summary class="jpdb-reader-anki-existing-note-title">
+            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</strong></span>
+            <small>${escapeHtml$1(preview.summary)}</small>
+        </summary>
+        ${content}
+    </details>`;
 }
 function ankiNewCardSummary(settings) {
   return [
@@ -17342,9 +17603,9 @@ function renderAnkiStoredFieldsFallback(note, language) {
   const fields = renderAnkiFields(note, language);
   if (!fields) return "";
   return `<details class="jpdb-reader-anki-stored-fields" open>
-    <summary>${escapeHtml$1(uiText(language, "ankiStoredFields"))}</summary>
-    ${fields}
-  </details>`;
+        <summary>${escapeHtml$1(uiText(language, "ankiStoredFields"))}</summary>
+        ${fields}
+    </details>`;
 }
 function ankiExistingSummary(note, language) {
   return [
@@ -17402,9 +17663,9 @@ function renderAnkiRenderedCardPreview(note, card, language, showHeading, index)
   }
   const title = renderedCardTitle(card, index);
   return `<details class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index === 0 ? " open" : ""}>
-    <summary class="jpdb-reader-anki-rendered-card-title" title="${escapeHtml$1(title)}">${escapeHtml$1(title)}</summary>
-    ${content}
-  </details>`;
+        <summary class="jpdb-reader-anki-rendered-card-title" title="${escapeHtml$1(title)}">${escapeHtml$1(title)}</summary>
+        ${content}
+    </details>`;
 }
 function orderedRenderedCards(note) {
   const cards = note.renderedCards ?? [];
@@ -17428,8 +17689,8 @@ function renderAnkiRenderedSides(card, soundFilenames, language, options = POPOV
 function renderAnkiRenderedSideBody(html) {
   if (!html || !hasRenderableAnkiCardContent(html)) return "";
   return `<section class="jpdb-reader-anki-rendered-side">
-    <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${pruneRedundantAnkiGlyphRepeats(html)}</div>
-  </section>`;
+        <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${pruneRedundantAnkiGlyphRepeats(html)}</div>
+    </section>`;
 }
 function pruneRedundantAnkiGlyphRepeats(html) {
   if (typeof document === "undefined") return html;
@@ -17529,8 +17790,8 @@ function renderAnkiPreviewFields(fieldsByName, language, options = {}) {
   const fields = Object.entries(fieldsByName).map(([name, value]) => ({ name, value: value.trim() })).filter((field) => field.value).slice(0, 14);
   if (!fields.length) return "";
   return `<div class="jpdb-reader-anki-fields">
-    ${fields.map((field) => previewField(field.name, field.value, language, options)).join("")}
-  </div>`;
+        ${fields.map((field) => previewField(field.name, field.value, language, options)).join("")}
+    </div>`;
 }
 function previewField(label, value, language, options = {}) {
   return `<div class="jpdb-reader-anki-field"><strong title="${escapeHtml$1(label)}">${escapeHtml$1(displayAnkiFieldLabel(label))}</strong><span>${renderFieldText(value, language, options)}</span></div>`;
@@ -17549,23 +17810,23 @@ function renderAnkiSoundChip(filename, language) {
 function renderAnkiNoteActions(note, language) {
   if (!Number.isFinite(note.noteId) || note.noteId <= 0) return "";
   return `<div class="jpdb-reader-anki-note-actions">
-    ${renderAnkiAudioMergeSelect(note, language)}
-    <div class="jpdb-reader-anki-note-action-row">
-        <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: "card-action", action: "anki-merge", noteId: note.noteId })} title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
-        <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: "card-action", action: "anki-edit", noteId: note.noteId })}>${escapeHtml$1(uiText(language, "editInAnki"))}</button>
-    </div>
-  </div>`;
+        ${renderAnkiAudioMergeSelect(note, language)}
+        <div class="jpdb-reader-anki-note-action-row">
+            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: "card-action", action: "anki-merge", noteId: note.noteId })} title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}"${privateCommandAttributes({ kind: "card-action", action: "anki-edit", noteId: note.noteId })}>${escapeHtml$1(uiText(language, "editInAnki"))}</button>
+        </div>
+    </div>`;
 }
 function renderAnkiAudioMergeSelect(note, language) {
   if (!noteHasAudio(note)) return "";
   return `<label class="jpdb-reader-anki-audio-merge">
-    <span>${escapeHtml$1(uiText(language, "audio"))}</span>
-    <select data-anki-audio-merge>
-        <option value="both"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "both" })}>${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
-        <option value="theirs"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "theirs" })}>${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
-        <option value="ours"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "ours" })}>${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
-    </select>
-  </label>`;
+        <span>${escapeHtml$1(uiText(language, "audio"))}</span>
+        <select data-anki-audio-merge>
+            <option value="both"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "both" })}>${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
+            <option value="theirs"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "theirs" })}>${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
+            <option value="ours"${privateCommandAttributes({ kind: "anki-audio-merge", mode: "ours" })}>${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
+        </select>
+    </label>`;
 }
 function noteHasAudio(note) {
   return Object.entries(note.fields).some(
@@ -17823,11 +18084,11 @@ function renderReviewButtons(settings, ankiNote = null, options = {}) {
   const grades = scale.grades;
   const intervals = ankiReviewIntervals(options.intervals, ankiNote);
   return `
-    ${renderAnkiReviewTarget(options.targetLabel)}
-    <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
-        ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings.interfaceLanguage, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join("")}
-    </div>
-  `;
+        ${renderAnkiReviewTarget(options.targetLabel)}
+        <div class="jpdb-reader-row${ankiReviewGradesClass(grades)}" style="--cols: ${grades.length}">
+            ${grades.map(([grade, label]) => renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings, scale.shortcuts.find(([, value]) => value === grade)?.[0])).join("")}
+        </div>
+    `;
 }
 function ankiReviewCardId(note) {
   return note?.primaryCardId ?? void 0;
@@ -17841,7 +18102,7 @@ function renderAnkiReviewTarget(targetLabel) {
 function ankiReviewGradesClass(grades) {
   return grades.length === 5 ? " jpdb-reader-grades" : "";
 }
-function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, language, gradeShortcut) {
+function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, settings, gradeShortcut) {
   const ankiAttrs = ankiReviewCardAttributes(ankiCardId);
   const command = privateCommandAttributes({
   kind: "card-action",
@@ -17851,7 +18112,7 @@ function renderAnkiReviewButton(grade, label, ankiCardId, intervals, options, la
   reviewTarget: ankiReviewTarget(ankiCardId),
   ankiCardId
   });
-  return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, language)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
+  return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${command}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}${gradeKeyHintAttributes(settings, gradeShortcut)}>${label}${ankiReviewIntervalSpan(intervals, grade)}</button>`;
 }
 function ankiReviewCardAttributes(ankiCardId) {
   return ankiCardId ? ` data-anki-card-id="${ankiCardId}"` : "";

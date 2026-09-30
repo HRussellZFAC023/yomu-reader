@@ -1,16 +1,16 @@
 {
   "_entrypoint-!~{001}~.js": {
-    "file": "assets/entrypoint-B6xY63Rd.css",
+    "file": "assets/entrypoint-8rW0R1uV.css",
     "src": "_entrypoint-!~{001}~.js"
   },
-  "_entrypoint-DF4AggMH.js": {
-    "file": "chunks/entrypoint-DF4AggMH.js",
+  "_entrypoint-BQoOjj3Y.js": {
+    "file": "chunks/entrypoint-BQoOjj3Y.js",
     "name": "entrypoint",
     "dynamicImports": [
       "src/reader/newtab/runtime.ts"
     ],
     "css": [
-      "assets/entrypoint-B6xY63Rd.css"
+      "assets/entrypoint-8rW0R1uV.css"
     ]
   },
   "src/academy/entrypoint.ts": {
@@ -19,16 +19,16 @@
     "src": "src/academy/entrypoint.ts",
     "isEntry": true,
     "imports": [
-      "_entrypoint-DF4AggMH.js"
+      "_entrypoint-BQoOjj3Y.js"
     ]
   },
   "src/reader/newtab/runtime.ts": {
-    "file": "chunks/runtime-BSF4gFq-.js",
+    "file": "chunks/runtime-D6QT6sCE.js",
     "name": "runtime",
     "src": "src/reader/newtab/runtime.ts",
     "isDynamicEntry": true,
     "imports": [
-      "_entrypoint-DF4AggMH.js"
+      "_entrypoint-BQoOjj3Y.js"
     ]
   }
 }

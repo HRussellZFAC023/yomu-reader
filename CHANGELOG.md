@@ -1,5 +1,64 @@
 # Changelog
 
+## [2.0.0] - 2026-09-30
+
+Yomu 2 rebuilds how settings, dictionaries and reviews are stored and delivered, so they survive updates, reloads and lost connections, and hold up better with more than one tab open. It also simplifies Study: a review is now show, reveal, grade. Updating from 1.9.x, or from 1.8.80 or later, keeps your settings, dictionaries, saved words and queued reviews.
+
+### Added
+
+- Study has a new "Practice" tab with saved practice sessions built from your current selection: Read words, Complete sentences, Write words, Listen and Speak. Practice never changes your scheduled reviews. Sessions stay on this device, and Factory reset clears them.
+- A new "Read" page on yomureader.com (first in the site menu) lists free graded readers from NPO Tadoku Supporters (NPO多言語多読) as text links. It credits the organisation and the books' creators, notes that each book has its own licence (such as CC BY-NC-ND 4.0), and loads nothing from tadoku.org until you open a book.
+
+### Changed
+
+- Study reviews are now show, reveal, grade. Kanji drawing, typing the word, sentence cloze, pitch listening and speaking no longer run as steps before the grade. They are optional under "Practice this word" on each card and do not change the grade. The first-run Study tour and the suggested-grade highlight are gone.
+- Saving a word to the Yomu deck no longer schedules it. Saved words appear in your Library, and "Add to review" starts reviewing one. Grading a saved word from a popover, a nested lookup or the subtitle word list also starts its review. Words saved in 1.9 stay scheduled.
+- Jiten and Anki cards now use their own grades in popovers, Study and the subtitle word list: Again, Hard, Good, Easy (Anki shows Again and Good, and Jiten shows Fail and Pass, if you use two-button reviews). With the default keys, grading follows button position: 1 Again, 2 Hard, 3 Good, 4 Easy. In 1.9 these keys used the five-button JPDB scale, so 3 was Hard and 4 was Good. Check your habits before grading Anki or Jiten cards by keyboard. Popover grade buttons now show their key, except on touch screens.
+- Anki Study asks Anki for the next card after every grade, so Anki decides when a failed card comes back. If Anki does not confirm an answer while you are online, Study shows "Could not submit grade" and loads the next card from Anki instead of keeping the answer to resend. Undo and going back to an earlier card are no longer offered for Anki cards. Offline Anki sessions still carry on through the cached cards.
+- Extension Study saves offline answers through the extension itself. Until the extension confirms an answer was saved, grading pauses, and if that confirmation is lost Study offers "Recover previous answer". If the extension refuses an answer, for example because too many are waiting to sync, Study says so and you can grade again.
+- If Anki took a queued answer but the reply was lost, Study shows "Answers not confirmed" with "Check again" (looks in Anki's review history and resends only if the answer is missing) and "Discard". That card cannot be graded again until you choose one.
+- Offline reviews left over from Yomu 1.9 are handed to the new review queue once after the update, then sync like new ones. Reviews queued for a different JPDB, Jiten or Anki account keep waiting for that account.
+- Batch mining in the subtitle word list keeps collecting and grading separate: "Add selected" saves words without reviewing them. Each word's grade buttons match its review service, and "Grade selected" appears only when every selected word uses the same scale. If a word fails, Yomu stops there, and only the unfinished words stay selected for a retry.
+- If settings cannot be read, hosted Study now shows a recovery screen with "Try again", "Import settings JSON" and "Reload Study" instead of a blank page, and packaged Study's recovery screen gains "Import settings JSON". On ordinary sites the Reader stays off instead of starting with default settings, and shows a puck with a red "!" that opens Study (plus a menu command in the userscript). A fresh install or a normal upgrade does not show this screen.
+- "Import settings JSON" accepts only Yomu settings backups (format version 3) and Yomu Google Drive snapshots. Any other file shows "This settings backup format is not supported." A backup whose saved settings are incomplete is refused with "The settings data in this backup is incomplete." instead of being imported in part.
+- Settings: Appearance keeps everyday choices visible and puts sizing, font weight and colour tuning under "Appearance (advanced)". Settings search and validation open that section when they need to. The "Review rating scale" option "Five point: NOTHING to EASY" is now called "Provider default".
+- Saved subtitle line shortcuts (including Alt+Arrow) and saved audio-source lists are kept exactly as saved, and are no longer rewritten to newer defaults on load.
+- Ordinary mining no longer changes a Yomu note type you already have in Anki: its templates, styling and fields stay as they are. "Set up Yomu note type" still updates them when you ask, and settings still offer to add any missing fields.
+- The website menu is now Read, Watch, Study and Membership. Learning path, Academy, Apps, Help and the other pages are under "More", and the header no longer shows GitHub and Discord icons. Study's menu uses the same list. The homepage now leads with reading Japanese, keeps its live sample, and restyles the install choices.
+- yomureader.com no longer keeps its own copy of an installed Reader's data. If you remove the extension or userscript, website-only Study shows what you last saved on the website itself.
+- If you used yomureader.com/study before installing Yomu, a newly installed Reader that has not chosen a learning target still takes over the local cards and progress you saved on the website, and your website settings if it has none of its own. A Reader that already has your learning target now keeps only its own data: website cards and progress are no longer merged into it.
+- The userscript loads about 160 KB less code on every page: starter-dictionary choices ship as a smaller list instead of the whole dictionary catalogue.
+
+### Fixed
+
+- With the browser extension installed, hosted Study, Academy and the website PDF and video readers use the extension's storage, even when the extension starts after the page or the Yomu userscript is also installed. With both installed, each save and each request (a JPDB review, an Anki answer, a new Anki note) is handled once instead of twice.
+- yomureader.com without the extension or userscript: Study, the PDF Reader and the Video Player open with the settings you saved there again in two cases. One is using the site's theme or language toggle after saving settings in Study. The other is Academy, the homepage demo or a toggle running after a Factory reset under 1.9.x. In 1.9.3, Study could fail to open in these cases and other pages fell back to defaults.
+- A review that reached JPDB or Anki now counts as done even if Yomu could not re-read the card afterwards, so it is not sent a second time.
+- Anki grades count as done only when Anki confirms them.
+- Userscript and website Study: two open Study tabs no longer send the same queued review twice.
+- When too many answers are waiting to sync, Study refuses the new answer and tells you, instead of silently dropping the oldest queued answers.
+- Saving another sentence for a word already in the Yomu deck no longer brings its next review forward.
+- On jiten.moe's review page, Yomu's word panel (definitions and examples) no longer appears on write-in cards before you reveal the answer, or on the next card while the last answer is still closing. Jiten review status in Yomu refreshes for the exact word and reading you graded.
+- JPDB definitions and search results recover after a rate limit or network error instead of staying empty until you reload the page.
+- Study examples recover after an outage, each expanded Search kanji panel loads and navigates on its own, audio stops when you switch cards or panels, and the example shown after you reveal a card matches the one prepared for its front.
+- Dictionary safety: a replacement dictionary .zip with no usable entries, or a malformed dictionary file, is rejected before your installed dictionaries are touched; a blocked cleanup can no longer delete a dictionary you import later; the extension no longer falls back to a separate page-only dictionary store when its background is slow to start.
+- Closing a popup sheet several times in a row no longer swallows your next click.
+- Academy: Lesson 0's writing checks now look for the patterns it teaches. Those pass, malformed sentences are rejected, and anything else gets guidance instead of a pass or a failed attempt. Drafts and feedback survive a reload; review cards match what you practised; every activity is reachable from the overview; and the repeat-request activity now practises all five classroom phrases. If you finished "Ask Rie to say it again" in 1.9.3, it reopens as "Understand, ask again, and give feedback", and your earlier completion stays recorded.
+- Academy remembers where you were in Lesson 0's "Meet Xingyu and Mika" listening activity when your session expires or Academy starts offline.
+- Academy's Study code now loads only when you open Study, so Academy pages start faster.
+
+### Removed
+
+- "Import settings JSON" no longer turns Yomitan settings exports into Yomu settings; they now fail with "This settings backup format is not supported." Older Yomu backup formats fail the same way. Yomitan dictionary ZIPs and dictionary backups still import.
+- Settings last saved by a version older than 1.8.80 are no longer converted when they load, including old default shortcuts and the pre-1.6.117 definition order. Settings saved by 1.8.80–1.9.3 still load.
+- Settings → Study no longer has "Study steps" or "Auto-submit kanji grade". Those choices are dropped with the new Study flow.
+- Retired settings with no effect: the new-tab takeover flag and the Uchisen on/off, alias and priority fields. The optional Uchisen lookup link remains.
+- Release builds no longer give local development pages (localhost:5174) access to Yomu's storage and network bridges.
+
+### Known limitations
+
+- If two Study tabs show the same card while you are online, both can grade it, so it is reviewed twice, as in 1.9.
+
 ## [1.9.3] - 2026-08-15
 
 ### Fixed

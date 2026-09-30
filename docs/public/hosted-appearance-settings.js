@@ -18,6 +18,22 @@ var MANAGED_SLOT_KEY_PREFIXES = [
 function isManagedStorageKey(key) {
   return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
+function isPrivateManagedStorageKey(key) {
+  return logicalManagedStorageKey(key)?.startsWith("yomu:private:") === true;
+}
+function logicalManagedStorageKey(key) {
+  const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate) => key.startsWith(candidate));
+  if (!prefix) return key;
+  const encoded = key.slice(prefix.length);
+  const separator = encoded.indexOf(":");
+  if (separator < 1 || separator === encoded.length - 1) return null;
+  try {
+    const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+    return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+  } catch {
+    return null;
+  }
+}
 function isManagedStorageSlotKey(key) {
   return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
@@ -51,15 +67,67 @@ var VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 var PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
 var NADESHIKO_URL = "https://nadeshiko.co/";
 var NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
+var USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
+
+// src/reader/app/build-mode.ts
+var DEVELOPMENT_BUILD = false;
 
 // src/reader/app/trusted-hosted-url.ts
-var PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
+var DOCS_PREVIEW_HOST = "yomureader.localhost";
+var WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+var EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+var TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_ORIGIN, "docs"],
+  [GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+var TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_PREVIEW_HOST, "docs-preview"],
+  ["127.0.0.1", "loopback"],
+  ["localhost", "loopback"],
+  ["[::1]", "loopback"]
+]);
+var PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = new Set(DEVELOPMENT_BUILD ? [
   "http://127.0.0.1:5174",
   "http://localhost:5174",
   "http://[::1]:5174"
-]);
+] : []);
 function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
   return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
+}
+function trustedHttpsOriginKind(url, path) {
+  const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+  if (originKind !== "github-pages") return originKind ?? null;
+  return isYomuRepositoryPath(path) ? originKind : null;
+}
+function trustedWebHostKind(url) {
+  if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+  return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+function trustedExtensionOriginKind(url) {
+  if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+  return url.hostname ? "extension" : null;
 }
 
 // src/reader/newtab/url.ts
@@ -75,6 +143,92 @@ var SETTINGS_PANEL_IDS = [
   "help"
 ];
 var SETTINGS_PANEL_ID_SET = new Set(SETTINGS_PANEL_IDS);
+var STUDY_ROUTE_POLICIES = {
+  docs: isYomuStudyRoutePath,
+  "docs-preview": isYomuStudyRoutePath,
+  extension: isYomuStudyRoutePath,
+  "github-pages": isRepositoryStudyRoutePath,
+  loopback: isLoopbackStudyRoutePath
+};
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
+
+// src/reader/app/pages-url.ts
+var PRIVILEGED_APP_POLICIES = {
+  docs: isYomuActiveAppRoute,
+  "github-pages": isYomuActiveAppRoute,
+  extension: () => false,
+  loopback: isPrivilegedLocalAppRoute,
+  "docs-preview": isPrivilegedLocalAppRoute
+};
+function isYomuPrivilegedHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? PRIVILEGED_APP_POLICIES[appUrl.originKind](value, appUrl) : false;
+}
+function isYomuStorageBridgeHostedUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+  return isYomuPrivilegedHostedAppUrl(value);
+}
+function isYomuActiveAppRoute(value, appUrl) {
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isPrivilegedLocalAppRoute(value, appUrl) {
+  return isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin) && isYomuActiveAppRoute(value, appUrl);
+}
+function isExactHostedAppPath(appUrl, route) {
+  if (appUrl.originKind === "github-pages") {
+    return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+  }
+  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+}
+
+// src/reader/app/runtime-presence.ts
+var INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+function detectInstalledReaderRuntime(globals = globalThis) {
+  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+    return "userscript";
+  }
+  return null;
+}
+function announcedInstalledReaderRuntime(root = document) {
+  const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
+  return kind === "extension" || kind === "userscript" ? kind : null;
+}
+
+// src/reader/userscript/bridge-authority.ts
+function expectedBridgeKind(trustedPage) {
+  if (detectInstalledReaderRuntime()) return null;
+  const announced = announcedInstalledReaderRuntime();
+  return announced && trustedPage() ? announced : null;
+}
+function readyBridgeOwner(dataset, keys, expected) {
+  if (dataset?.[keys.ready] !== "true") return null;
+  const kind = dataset[keys.kind];
+  if (kind === "extension" || kind === "userscript") {
+    if (expected && kind !== expected && kind !== "extension") return null;
+    return { ownerId: dataset[keys.owner], kind };
+  }
+  return { ownerId: dataset[keys.owner], kind: expected ?? "userscript" };
+}
 
 // src/reader/userscript/bridge-detail.ts
 function bridgeEventDetail(detail) {
@@ -411,15 +565,16 @@ var BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
 var BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
 var BRIDGE_MARKER = "yomuUserscriptStorageBridge";
 var BRIDGE_OWNER = "yomuStorageBridgeOwner";
+var BRIDGE_KIND = "yomuStorageBridgeKind";
+var BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: BRIDGE_OWNER, kind: BRIDGE_KIND };
 var EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
 var EXTENSION_STORAGE_TARGET = "extension-storage";
 var BRIDGE_TIMEOUT_MS = 1e4;
-var clientOwnerId;
+var clientOwner;
 function getUserscriptGmStorage() {
-  if (!storageBridgeClientReady() && !clientOwnerId) return void 0;
-  clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
-  const ownerId = clientOwnerId;
-  const request = (detail) => storageBridgeRequest(detail, ownerId);
+  if (!storageBridgeClientAvailable()) return void 0;
+  clientOwner ??= pinnableOwner(readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind()));
+  const request = (detail) => storageBridgeRequest(detail);
   return {
     getValue: (key, fallback) => request({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
     setValue: (key, value) => request({ op: "set", key, value }).then(() => void 0),
@@ -432,45 +587,76 @@ function getUserscriptGmStorage() {
     }).then(() => void 0) : Promise.resolve()
   };
 }
-function storageBridgeClientReady() {
-  if (typeof window === "undefined") return false;
-  if (typeof document === "undefined") return false;
-  return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
+function storageBridgeClientAvailable() {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  return Boolean(clientOwner || expectedStorageBridgeKind() || readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, null));
 }
-function storageBridgeRequest(request, ownerId) {
+function expectedStorageBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptStorageBridge);
+}
+function storageBridgeRequest(request) {
   return new Promise((resolve, reject) => {
-    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
-      reject(new Error("Storage bridge authority changed; reload to reconnect."));
-      return;
-    }
     const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    const timeout = window.setTimeout(() => {
-      cleanup();
-      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-        reject(new Error("Storage bridge authority changed during the request."));
-        return;
-      }
-      reject(new Error("Storage bridge request timed out."));
-    }, BRIDGE_TIMEOUT_MS);
-    let cleanupResponseListener = noop;
+    let pinned;
+    let cleanupListeners = noop;
     const cleanup = () => {
       window.clearTimeout(timeout);
-      cleanupResponseListener();
+      cleanupListeners();
     };
+    const fail = (message) => {
+      cleanup();
+      reject(new Error(message));
+    };
+    const timeout = window.setTimeout(() => {
+      if (!pinned) fail("Installed Yomu storage did not connect; reload to reconnect.");
+      else if (!pinnedOwnerCurrent(pinned)) fail("Storage bridge authority changed during the request.");
+      else fail("Storage bridge request timed out.");
+    }, BRIDGE_TIMEOUT_MS);
     const onResponse = (event) => {
       const detail = storageBridgeResponseDetail(event);
       if (!detail || detail.id !== id) return;
+      if (!pinned || !pinnedOwnerCurrent(pinned)) return fail("Storage bridge authority changed during the request.");
       cleanup();
-      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-        reject(new Error("Storage bridge authority changed during the request."));
-        return;
-      }
       if (detail.ok) resolve(detail);
       else reject(new Error(detail.message || "Storage bridge request failed."));
     };
-    cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId, ...request });
+    const send = (owner) => {
+      pinned = owner;
+      cleanupListeners();
+      cleanupListeners = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, ...request });
+    };
+    const connect = () => {
+      if (clientOwner) {
+        if (pinnedOwnerCurrent(clientOwner)) send(clientOwner);
+        else fail("Storage bridge authority changed; reload to reconnect.");
+        return true;
+      }
+      const owner = readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind());
+      if (!owner) return false;
+      clientOwner = pinnableOwner(owner);
+      send(owner);
+      return true;
+    };
+    if (connect()) return;
+    cleanupListeners = addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+      if (!pinned) connect();
+    });
   });
+}
+function pinnableOwner(owner) {
+  return owner?.ownerId === void 0 ? void 0 : owner;
+}
+function pinnedOwnerCurrent(owner) {
+  const dataset = bridgeMarkerDataset();
+  return dataset?.[BRIDGE_MARKER] === "true" && dataset[BRIDGE_OWNER] === owner.ownerId;
+}
+function shouldInstallUserscriptStorageBridge() {
+  try {
+    return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
+  } catch {
+    return false;
+  }
 }
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
@@ -544,139 +730,6 @@ function callDispatchEvent(target, event) {
 function noop() {
 }
 
-// src/reader/app/gm-storage-adapters.ts
-function asyncGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmGetValue();
-  if (direct) return direct;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-}
-function directGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
-}
-function legacyGmGetValue() {
-  return typeof GM_getValue === "function" ? GM_getValue : null;
-}
-function modernGmGetValue() {
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function asyncGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmSetValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmSetValue();
-}
-function directGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
-}
-function legacyGmSetValue() {
-  return typeof GM_setValue === "function" ? GM_setValue : null;
-}
-function modernGmSetValue() {
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmSetValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key, value) => extension.set({ [key]: value }) : null;
-}
-function bridgeGmSetValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, value) => bridge.setValue(key, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmDeleteValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmDeleteValue();
-}
-function directGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
-}
-function legacyGmDeleteValue() {
-  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
-}
-function modernGmDeleteValue() {
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmDeleteValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key) => extension.remove(key) : null;
-}
-function bridgeGmDeleteValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key) => bridge.deleteValue(key) : null;
-}
-function asyncGmListValues() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmListValues();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmListValues();
-}
-function directGmListValues() {
-  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
-}
-function legacyGmListValues() {
-  if (typeof GM_listValues === "function") return GM_listValues;
-  const directListValues = globalThis.GM_listValues;
-  return typeof directListValues === "function" ? directListValues : null;
-}
-function modernGmListValues() {
-  const modern = globalThis.GM?.listValues;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmListValues() {
-  const extension = extensionStorageArea();
-  if (!extension) return null;
-  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-}
-function bridgeGmListValues() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? () => bridge.listValues() : null;
-}
-function extensionStorageArea() {
-  return extensionCapability((extension) => extension.storage?.local);
-}
-function extensionCapability(select) {
-  const candidate = globalThis;
-  return activeExtensionCapability(candidate.browser, select) ?? activeExtensionCapability(candidate.chrome, select) ?? null;
-}
-function activeExtensionCapability(extension, select) {
-  return extension?.runtime?.id ? select(extension) : void 0;
-}
-function packagedExtensionStorageAdapterMissing() {
-  if (!isPackagedExtensionDocument()) return false;
-  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
-  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
-}
-function isPackagedExtensionDocument() {
-  try {
-    const protocol = globalThis.location?.protocol ?? "";
-    return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
-  } catch {
-    return false;
-  }
-}
-function rawExtensionStorageGetValue() {
-  const extension = extensionStorageArea();
-  return extension ? extensionStorageGetValue(extension) : null;
-}
-function extensionStorageGetValue(extension) {
-  return async (key, fallback) => {
-    const value = (await extension.get(key))[key];
-    return value === void 0 ? fallback : value;
-  };
-}
-
 // src/reader/app/managed-state-registry.ts
 var entries = [];
 var registeredEntryIndexes = /* @__PURE__ */ new Map();
@@ -703,6 +756,9 @@ function registerManagedStates(list) {
 }
 function managedStateIdentity(entry) {
   return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
+}
+function managedStateEntries() {
+  return entries;
 }
 function managedStateWritesSuppressed() {
   return resetWritesSuppressed;
@@ -777,8 +833,6 @@ var MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-userscript-v2" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-extension-v2" },
   // Bunpro vocab SRS-state index for page word colouring.
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   // Public lookup caches.
@@ -790,8 +844,6 @@ var MANAGED_STATE_MANIFEST = [
   // store's own deleteDatabase during reset; registered so the invariant test
   // asserts it and the reset sweep nets it as a fallback.
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-userscript-v2" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-extension-v2" },
   { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
   {
     owner: "dictionaries/archive-cache",
@@ -837,8 +889,6 @@ var MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
-  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-userscript-v2" },
-  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-extension-v2" },
   { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -1018,6 +1068,31 @@ async function managedGmValue(getValue, key, fallback, epoch) {
   return read.kind === "found" ? read.value : fallback;
 }
 
+// src/reader/app/hosted-storage-fallback.ts
+var HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+function isHostedSettingsStorageKey(key) {
+  return key === HOSTED_SETTINGS_BLOB_KEY;
+}
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedYomuOrigin() {
+  try {
+    return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+  } catch {
+    return false;
+  }
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
+
 // src/reader/app/managed-web-storage.ts
 var OWNER_PREFIX = "yomu:web-owner:v2:";
 var selectedOwner;
@@ -1039,34 +1114,51 @@ function managedStorageFacade(area) {
   return {
     getItem(key) {
       const { storage, epoch } = certifiedArea(area);
-      const raw = readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`);
-      if (raw === null || epoch.generation === 0) return raw;
-      try {
-        const unreadable = Symbol("unreadable-managed-web-storage");
-        const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
-        return typeof value === "string" ? value : null;
-      } catch {
-        return null;
-      }
+      const own = logicalItem(readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
+      if (own !== null) return own;
+      const earlier = earlierLocalRecordKey(area, key, epoch);
+      return earlier ? logicalItem(readStorageValue(storage, earlier, `localStorage key "${key}"`), epoch) : null;
     },
     setItem(key, value) {
       assertManagedLogicalKey(key);
       const { storage, epoch } = certifiedArea(area);
       const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
       writeAndVerify(storage, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+      removeEarlierLocalRecord(area, key, epoch);
       assertAreaCertificate(area, epoch);
     },
     removeItem(key) {
       assertManagedLogicalKey(key);
       const { storage, epoch } = certifiedArea(area);
-      const physicalKey = physicalStorageKey(key, epoch);
-      removeStorageValue(storage, physicalKey, `${area}Storage key "${key}"`);
-      if (readStorageValue(storage, physicalKey, `${area}Storage key "${key}"`) !== null) {
-        throw new Error(`${area}Storage retained managed key "${key}".`);
-      }
+      removeVerified(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`, `${area}Storage retained managed key "${key}".`);
+      removeEarlierLocalRecord(area, key, epoch);
       assertAreaCertificate(area, epoch);
     }
   };
+}
+function earlierLocalRecordKey(area, key, epoch) {
+  if (area !== "local" || !selectedOwner || selectedOwner === "standalone") return null;
+  const storage = storageArea("local");
+  const marker = readStorageValue(storage, AREA_MARKER_KEYS.local, "localStorage earlier epoch marker");
+  return marker === managedStateEpochToken(epoch) ? epochSlotKey(key, epoch) : null;
+}
+function removeEarlierLocalRecord(area, key, epoch) {
+  const earlier = isHostedYomuOrigin() ? null : earlierLocalRecordKey(area, key, epoch);
+  if (earlier) removeVerified(storageArea("local"), earlier, `localStorage key "${key}"`, `localStorage retained earlier managed key "${key}".`);
+}
+function removeVerified(storage, key, label, retained) {
+  removeStorageValue(storage, key, label);
+  if (readStorageValue(storage, key, label) !== null) throw new Error(retained);
+}
+function logicalItem(raw, epoch) {
+  if (raw === null || epoch.generation === 0) return raw;
+  try {
+    const unreadable = Symbol("unreadable-managed-web-storage");
+    const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
 }
 function certifiedArea(area) {
   const epoch = certifiedEpoch;
@@ -1081,9 +1173,12 @@ function assertAreaCertificate(area, epoch) {
   }
 }
 function physicalStorageKey(key, epoch) {
+  return ownedKey(epochSlotKey(key, epoch));
+}
+function epochSlotKey(key, epoch) {
   assertManagedLogicalKey(key);
-  if (epoch.generation === 0) return ownedKey(key);
-  return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`);
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
 function assertManagedLogicalKey(key) {
   if (!isManagedStorageKey(key) || isManagedStorageSlotKey(key)) {
@@ -1123,6 +1218,7 @@ function removeStorageValue(storage, key, label) {
 }
 
 // src/reader/app/gm-storage-lease.ts
+var MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 var STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
 async function withGmStorageLeaseCore(name, operation, options, environment) {
   return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
@@ -1303,29 +1399,17 @@ function debugStorageLeaseError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
 
-// src/reader/app/hosted-storage-fallback.ts
-var HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-function isHostedSettingsStorageKey(key) {
-  return key === HOSTED_SETTINGS_BLOB_KEY;
-}
-function isHostedYomuLocation(origin, hostname, pathname) {
-  if (origin === DOCS_ORIGIN) return true;
-  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
-  return isHostedLocalDevelopmentLocation(origin, pathname);
-}
-function isHostedYomuOrigin() {
-  try {
-    return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
-  } catch {
-    return false;
-  }
-}
-function isHostedGithubPagesLocation(hostname, pathname) {
-  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
-}
-function isHostedLocalDevelopmentLocation(origin, pathname) {
-  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
-  return pathname.includes("/study/") || pathname.includes("/newtab/");
+// src/reader/app/managed-storage-backup-policy.ts
+var EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  "yomu:factory-reset-signal",
+  MANAGED_STATE_EPOCH_KEY,
+  "yomu:local-storage-provenance:v1",
+  // Transient cloud-sync handoff written before an OAuth redirect. Factory
+  // reset owns it via the '__yomu' prefix, but backups must not replay it.
+  "__yomu_cloud_settings_sync_pending_action"
+]);
+function isManagedStorageBackupKey(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
 }
 
 // src/reader/app/storage-local-values.ts
@@ -1400,6 +1484,72 @@ function isSettingsAuthorityStorageKey(key) {
   return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key);
 }
 
+// src/reader/app/hosted-demo-settings.ts
+var HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+var HOSTED_DEMO_READER_SETTINGS = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true,
+  wordUnderlineColorSource: "pitch",
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: true,
+  subtitleControlsMode: "always",
+  subtitleTranscriptVisible: false,
+  ocrEnabled: true,
+  ocrVideoPauseFrames: true,
+  ocrProvider: "google-lens",
+  ocrOverlayTheme: "auto",
+  preferJapaneseSiteLanguage: false
+};
+
+// src/reader/settings/passive-hosted-settings-record.ts
+var ACADEMY_READER_DEFAULTS = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true
+};
+var HOSTED_APPEARANCE_CHOICES = {
+  interfaceLanguage: /* @__PURE__ */ new Set(["auto", "en", "ja"]),
+  theme: /* @__PURE__ */ new Set(["auto", "dark", "light"])
+};
+var HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
+function isPassiveHostedSettingsRecord(record2) {
+  const entries2 = Object.entries(record2).filter(([key, value]) => key !== "learningTargetChosen" || value !== false);
+  return entries2.every(isHostedAppearanceEntry) || extendsHostedPolicy(record2, entries2, ACADEMY_READER_DEFAULTS) || extendsHostedPolicy(record2, entries2, HOSTED_DEMO_READER_SETTINGS);
+}
+function isPassiveHostedSettingsJson(serialized) {
+  let record2;
+  try {
+    record2 = JSON.parse(serialized);
+  } catch {
+    return false;
+  }
+  return typeof record2 === "object" && record2 !== null && !Array.isArray(record2) && isPassiveHostedSettingsRecord(record2);
+}
+function extendsHostedPolicy(record2, entries2, policy) {
+  return Object.entries(policy).every(([key, value]) => record2[key] === value) && entries2.every((entry) => Object.hasOwn(policy, entry[0]) || isHostedAppearanceEntry(entry));
+}
+function isHostedAppearanceEntry([key, value]) {
+  if (key === "accentColor") return typeof value === "string" && HOSTED_ACCENT_COLOR_RE.test(value);
+  return Object.hasOwn(HOSTED_APPEARANCE_CHOICES, key) && HOSTED_APPEARANCE_CHOICES[key].has(value);
+}
+
 // src/reader/core/object-utils.ts
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -1472,6 +1622,13 @@ function localMirrorBelongsToEpoch(key, epoch) {
   const entry = provenanceValues()[key];
   return entry ? entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === fingerprint(serialized) : epoch.generation === 0;
 }
+function localMirrorEpochMatches(key, epoch, rawWriterRecord) {
+  const serialized = recoverableSerializedValue(key);
+  if (serialized === null) return false;
+  const entry = provenanceValues()[key];
+  if (entry) return entry.epoch === managedStateEpochToken(epoch);
+  return epoch.generation === 0 || rawWriterRecord(serialized);
+}
 function updateProvenance(key, entry, strict = false) {
   const values = provenanceValues();
   if (!mutateProvenance(values, key, entry)) return;
@@ -1529,6 +1686,69 @@ function fingerprint(serialized) {
     hash = Math.imul(hash ^ serialized.charCodeAt(index), 16777619);
   }
   return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+// src/reader/app/website-store-adoption.ts
+var SETTINGS_KEY = "jpdb-popup-reader-settings";
+var INTENT_LEDGER_KEY = "yomu:settings-intent:v2";
+var LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
+var LAST_KEYS = [LOCAL_SRS_V2_INDEX_KEY, "yomu:prefer-japanese-site-language:v1", INTENT_LEDGER_KEY, SETTINGS_KEY];
+var COORDINATION_FIELDS = ["__yomuSettingsPersistenceTransactionV1", "__yomuSettingsPersistenceCommitV1"];
+var HOSTED_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+var OWNER_NAMESPACE_PREFIX = "yomu:web-owner:v2:";
+var adoption;
+function websiteOnlyValuePresent(key, epoch) {
+  return isHostedYomuOrigin() && isWebsiteStoreKey(key) && localMirrorBelongsToEpoch(key, epoch);
+}
+function adoptWebsiteOnlyStore(getValue, epoch, write) {
+  const token = managedStateEpochToken(epoch);
+  if (adoption?.token === token) return adoption.done;
+  const done = runAdoption(getValue, epoch, write).finally(() => {
+    if (adoption?.done === done) adoption = void 0;
+  });
+  adoption = { token, done };
+  return done;
+}
+async function runAdoption(getValue, epoch, write) {
+  if (!isHostedYomuOrigin()) return;
+  const installed = await readManagedGmValue(getValue, SETTINGS_KEY, epoch);
+  if (installed.kind === "found" && !saysNoTargetChosen(installed.value)) return;
+  const settingsUnitAbsent = installed.kind === "missing" && (await readManagedGmValue(getValue, INTENT_LEDGER_KEY, epoch)).kind === "missing";
+  for (const key of websiteOnlyKeys(epoch)) {
+    if (isSettingsAuthorityStorageKey(key) && !settingsUnitAbsent) continue;
+    if ((await readManagedGmValue(getValue, key, epoch)).kind !== "missing") continue;
+    const value = localStorageGet(key, MISSING);
+    if (!isMissingSentinel(value)) await write(key, adoptedValue(key, value));
+  }
+}
+function websiteOnlyKeys(epoch) {
+  const keys = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key && websiteOnlyValuePresent(key, epoch)) keys.push(key);
+  }
+  const rank = (key) => LAST_KEYS.indexOf(key);
+  return keys.sort((left, right) => rank(left) - rank(right) || left.localeCompare(right));
+}
+function isWebsiteStoreKey(key) {
+  return isManagedStorageBackupKey(key) && !key.startsWith(OWNER_NAMESPACE_PREFIX) && !RETIRED_SETTINGS_STORAGE_KEYS.includes(key) && managedStateEntries().some((entry) => entry.kind === "gm" && (entry.key === key || entry.prefix !== void 0 && key.startsWith(entry.prefix)));
+}
+function adoptedValue(key, value) {
+  if (!isRecord(value)) return value;
+  const record2 = withoutFields(value, COORDINATION_FIELDS);
+  if (key === SETTINGS_KEY) return withoutFields(record2, [HOSTED_PATCH_FIELD, ...HOSTED_LOCAL_SETTINGS_KEYS]);
+  if (key === INTENT_LEDGER_KEY && isRecord(record2.records)) {
+    return { ...record2, records: withoutFields(record2.records, HOSTED_LOCAL_SETTINGS_KEYS) };
+  }
+  return record2;
+}
+function withoutFields(record2, fields) {
+  const copy = { ...record2 };
+  for (const field of fields) delete copy[field];
+  return copy;
+}
+function saysNoTargetChosen(settings) {
+  return isRecord(settings) && settings.learningTargetChosen === false;
 }
 
 // src/reader/app/managed-write-journal.ts
@@ -1765,6 +1985,139 @@ function managedWriteConflict(key, label) {
   return new Error(`${label} "${key}" changed after staging; rollback left the newer value intact.`);
 }
 
+// src/reader/app/gm-storage-adapters.ts
+function asyncGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmGetValue();
+  if (direct) return direct;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
+}
+function legacyGmGetValue() {
+  return typeof GM_getValue === "function" ? GM_getValue : null;
+}
+function modernGmGetValue() {
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function asyncGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmSetValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmSetValue();
+}
+function directGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+}
+function legacyGmSetValue() {
+  return typeof GM_setValue === "function" ? GM_setValue : null;
+}
+function modernGmSetValue() {
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmSetValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
+}
+function bridgeGmSetValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmDeleteValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmDeleteValue();
+}
+function directGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+}
+function legacyGmDeleteValue() {
+  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+}
+function modernGmDeleteValue() {
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmDeleteValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key) => extension.remove(key) : null;
+}
+function bridgeGmDeleteValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
+}
+function asyncGmListValues() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmListValues();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmListValues();
+}
+function directGmListValues() {
+  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
+}
+function legacyGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const directListValues = globalThis.GM_listValues;
+  return typeof directListValues === "function" ? directListValues : null;
+}
+function modernGmListValues() {
+  const modern = globalThis.GM?.listValues;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmListValues() {
+  const extension = extensionStorageArea();
+  if (!extension) return null;
+  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+}
+function bridgeGmListValues() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  return extensionCapability((extension) => extension.storage?.local);
+}
+function extensionCapability(select) {
+  const candidate = globalThis;
+  return activeExtensionCapability(candidate.browser, select) ?? activeExtensionCapability(candidate.chrome, select) ?? null;
+}
+function activeExtensionCapability(extension, select) {
+  return extension?.runtime?.id ? select(extension) : void 0;
+}
+function packagedExtensionStorageAdapterMissing() {
+  if (!isPackagedExtensionDocument()) return false;
+  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+}
+function isPackagedExtensionDocument() {
+  try {
+    const protocol = globalThis.location?.protocol ?? "";
+    return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+  } catch {
+    return false;
+  }
+}
+function rawExtensionStorageGetValue() {
+  const extension = extensionStorageArea();
+  return extension ? extensionStorageGetValue(extension) : null;
+}
+function extensionStorageGetValue(extension) {
+  return async (key, fallback) => {
+    const value = (await extension.get(key))[key];
+    return value === void 0 ? fallback : value;
+  };
+}
+
 // src/reader/app/storage.ts
 var FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 var managedStateEpochSession = managedStateEpochSessionForRealm();
@@ -1863,8 +2216,10 @@ async function gmStorageGetSharedStrict(key, fallback) {
 async function sharedManagedValue(getValue, key, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key, epoch);
   if (read.kind === "found") return read.value;
-  if (read.kind === "deleted") return fallback;
-  return fallback;
+  if (read.kind === "deleted" || !websiteOnlyValuePresent(key, epoch)) return fallback;
+  await adoptWebsiteOnlyStore(getValue, epoch, gmStorageSet).catch((error) => debugStorageError("Website-only store adoption failed", key, error));
+  const adopted = await readManagedGmValue(getValue, key, epoch);
+  return adopted.kind === "found" ? adopted.value : fallback;
 }
 function localOnlyManagedValue(key, fallback, epoch) {
   const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
@@ -1872,10 +2227,11 @@ function localOnlyManagedValue(key, fallback, epoch) {
   return fallback;
 }
 function localOnlyManagedValueStrict(key, fallback, epoch) {
-  if (hostedSettingsLocalValuePresent(key) && !localMirrorBelongsToEpoch(key, epoch)) {
+  if (!hostedSettingsLocalValuePresent(key)) return localOnlyManagedValue(key, fallback, epoch);
+  if (!localMirrorEpochMatches(key, epoch, isPassiveHostedSettingsJson)) {
     throw storageWriteError(key, "Hosted settings localStorage is present without matching provenance");
   }
-  return localOnlyManagedValue(key, fallback, epoch);
+  return localStorageGet(key, fallback);
 }
 function hostedSettingsLocalValuePresent(key) {
   return isHostedSettingsStorageKey(key) && isHostedYomuOrigin() && webStorageHasKey(localStorage, key);
@@ -2029,17 +2385,21 @@ function objectRecord(value) {
 var SETTINGS_INTENT_LEDGER_STORAGE_KEY2 = "yomu:settings-intent:v2";
 function parseSettingsIntentLedger(value) {
   const record2 = objectRecord2(value);
-  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
-  const records = objectRecord2(record2.records);
-  if (!records) return null;
+  const records = record2 && objectRecord2(record2.records);
+  if (!records || !nonNegativeNumber(record2.revision)) return null;
   const parsed = {};
+  let revision = record2.revision;
   for (const [key, entry] of Object.entries(records)) {
     const item = objectRecord2(entry);
-    if (!item || typeof item.seq !== "number" || !Number.isSafeInteger(item.seq) || item.seq <= 0 || item.seq > record2.revision) return null;
+    if (!item || !nonNegativeNumber(item.seq)) return null;
     const seq = item.seq;
     parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+    revision = Math.max(revision, seq);
   }
-  return { revision: record2.revision, records: parsed };
+  return { revision, records: parsed };
+}
+function nonNegativeNumber(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 function objectRecord2(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -2085,10 +2445,8 @@ function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
   return matchingCommittedPair(settings, intentLedger);
 }
 function matchingCommittedPair(settings, intentLedger) {
-  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
   const settingsId = commitId(settings);
-  const ledgerId = commitId(intentLedger);
-  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+  return settingsId !== null && settingsId === commitId(intentLedger) ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
 }
 function commitId(value) {
   const record2 = objectRecord(value);

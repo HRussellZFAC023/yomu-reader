@@ -1,4 +1,4 @@
-import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as activeLearningTarget, R as isAppleTouchBrowser, S as attempt, T as DOCS_ORIGIN, U as GITHUB_PAGES_ORIGIN, V as APP_REPOSITORY_NAME, W as addWindowEventListener, X as bridgeEventDetail, Y as dispatchWindowEvent, Z as createWindowCustomEvent, _ as bridgeEventId, $ as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a0 as bridgeResponseEventDetail, a1 as removeWindowEventListener, a2 as updateRenderedWordPrivateState, a3 as renderedWordPrivateStateForCard, a4 as renderedWordPrivateValue, a5 as subscribeToStoredValueChanges, a6 as currentAccountDataSurfaceIsTrusted, a7 as gmPrivateStorageSet, a8 as Logger, a9 as uiText, aa as overlayViewport, ab as overlayViewportBounds, ac as layoutPointToOverlay, ad as sourceRectToOverlay, ae as trustedReaderEventHandler, af as readCardCommandCapability, ag as privateReviewGradeAllowed, ah as normalizeAttemptedAudioUrl, ai as audioSubSourceNameKey, aj as audioSubSourceProviderName, ak as disabledAudioSubSourceNameKeys, al as parseJson, am as escapeRegExp, an as uniqueStrings, ao as getOrderedAudioSources, ap as orderAudioSources, aq as isTextToSpeechFallbackSource, ar as isBrowserTextToSpeechSource, as as audioPreloadLimits, at as preloadableAudioSources, au as cheapCandidatePreloadAudioSources, av as orderAudioCandidates, aw as getAudioBagKey, ax as audioCandidateSelectionMode, ay as registerAudioAttempt, az as getJpdbAudioBagKey, aA as preparedAudioCacheKey, aB as getAudioCandidateCacheKey, aC as cloneAudioCandidates, aD as isApiTextToSpeechSource, aE as canonicalLanguageTag, aF as languageSubtag, aG as hasJitenAudioReference, aH as yomuAnkiCompanion, aI as flattenNoteFields, aJ as stablePositiveHashId, aK as normalizeAnkiFieldName, aL as HAS_JAPANESE, aM as codePointSafePrefix, aN as ANKI_EXPRESSION_FIELD_NAMES, aO as ANKI_READING_FIELD_NAMES, aP as ANKI_MEANING_FIELD_NAMES, aQ as ANKI_SENTENCE_FIELD_NAMES, aR as escapeHtml$2, aS as privateCommandAttributes, aT as ACADEMY_SRS_LABEL, aU as sharedHexToRgb, aV as sanitizeAccentColor, aW as sharedContrastRatio, aX as CORE_COLOR_TOKENS, aY as sharedMixHex, aZ as RENDERED_WORD_CONTRAST_VARS, a_ as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, a$ as PAGE_WORD_COLOR_TOKENS, b0 as renderedWordHasAnkiState, b1 as canonicalStudyCardIdentity, b2 as applyLocalYomuSrsStateToRenderedWord, b3 as hasJpdbApiCredential, b4 as hasJitenApiCredential, b5 as hasBunproFrontendCredential, b6 as isBunproFrontendCredentialExpired, b7 as hasWanikaniApiCredential, b8 as isLocalYomuSrsStorageError, b9 as activeLearningTargetLanguage, ba as effectiveWanikaniApiToken, bb as effectiveBunproFrontendApiToken, bc as effectiveBunproLegacyApiKey, bd as effectiveJpdbApiKey, be as effectiveJitenApiKey, bf as yomuKanjiStudyCompanion, bg as isUnifiedIdeograph, bh as readerWordSurfaceText$1, bi as readAnkiAudioMergeCapability, bj as formatUiText, bk as uiList, bl as readReviewTargetCapability, bm as renderKanjiNavigationText, bn as shouldRenderRuby, bo as renderRuby, bp as cleanCardHighlightValue, bq as renderHighlightedTextHtml, br as cardHighlightTargets, bs as compactCardHighlightValue, bt as IMMERSION_KIT_SOURCE_ID, bu as JITEN_DEFINITION_SOURCE_ID, bv as JPDB_DEFINITION_SOURCE_ID, bw as BUNPRO_DEFINITION_SOURCE_ID, bx as WANIKANI_DEFINITION_SOURCE_ID, by as STUDY_TRANSLATION_SOURCE_ID, bz as ANKI_SOURCE_ID, bA as STUDY_GRAMMAR_SOURCE_ID, bB as LOOKUP_PILL_COLOR_TOKENS, bC as normalizeDictionaryPreferences, bD as genericLookupTextVariants, bE as ownedDatabaseName, bF as yomitanDictionaryIdentity, bG as gmStorageGet, bH as gmStorageSet, bI as gmStorageDelete, bJ as assertManagedStateMutationAllowed, bK as managedStateEpochToken, bL as managedStateEpochTokenRelation, bM as assertManagedStateReadAllowed, bN as normalizeZipKanjiMetaRow, bO as normalizeZipTermMetaRow, bP as normalizeZipKanjiRow, bQ as normalizeZipTermRow, bR as isRecord$5, bS as isJapaneseKanjiCharacter, bT as lookupSpansStartingInRange, bU as normalizeImportedLookupMeta, bV as normalizeGenericLookupText, bW as splitTags, bX as JAPANESE_RE$1, bY as codePointBoundaryAtOrAfter, bZ as yomitanZipDictionaryName, b_ as yomitanZipVersion, b$ as countYomitanZipBanks, c0 as normalizeImportedLookupTerm, c1 as activeLearningTargetGeneration, c2 as imageMimeType, c3 as bytesToBase64$1, c4 as speakerIcon, c5 as renderedWordPrivateAttributesForState, c6 as gmStorageGetSync, c7 as gmStorageSetSync, c8 as isNonNullObject, c9 as uniqueNonEmptyStrings, ca as pitchNumberForReading, cb as pitchPatternFromPosition, cc as KANA, cd as COMBINING_KANA_MARKS, ce as collectPitchVariants, cf as splitMorae, cg as pitchLevelsForDisplay, ch as pitchClassNameForPattern, ci as learningTargetModuleFor, cj as defaultLearningTargetModule, ck as languageDisplayName, cl as resolveUiLanguage, cm as primaryCardState, cn as cardStateLabel, co as ConcurrencyGate, cp as KANA_ONLY_RUN_RE, cq as ITERATION_MARK, cr as KANA_WITH_PROLONGED, cs as mapLimited, ct as bareFallbackCardFromText, cu as inferredInflectedSurfaceRubies, cv as nonOverlappingTokens, cw as READING_KANA_ONLY_RE, cx as HALFWIDTH_KATAKANA, cy as PROLONGED_SOUND_MARK, cz as KATAKANA_MIDDLE_DOT, cA as fallbackLookupTermsForCard, cB as yomuBunproCompanion, cC as shouldLookupAnkiStatus, cD as setRenderedWordPitchClass, cE as shouldHideFuriganaForCardState, cF as isPopupLookupEnabled, cG as yomuNormalizeOcrRenderedText, cH as replaceRenderedWordFurigana, cI as htmlToFirstElement, cJ as clearRenderedWordAnkiState, cK as clearRenderedWordFurigana, cL as cardDeckMembershipClassNames, cM as setInnerHtml, cN as gmStorageDeleteSync, cO as appendToDocumentHead, cP as yomuSettingsSurfaceCompanion, cQ as subscribeToFactoryResetSignals, cR as APP_NAME, cS as createFactoryResetSignal, cT as beginSettingsResetGuard, cU as publishFactoryResetSignal, cV as delay, cW as clearManagedStoredValues, cX as deleteSettingsStorage, cY as commitManagedStateResetEpoch, cZ as clearFactoryResetSignal, c_ as managedStateResetEpochMayHaveCommitted, c$ as endSettingsResetGuard, d0 as managedStoredKeysStillPresent, d1 as ManagedStateResetError, d2 as stableHash32, d3 as uniqueTrimmedStrings, d4 as stableHashBase36, d5 as isTargetLanguageText, d6 as KANJI_LIKE_WITH_COUNTERS, d7 as HIRAGANA_WITH_PROLONGED, d8 as KATAKANA_WITH_PROLONGED, d9 as KANJI_LIKE_RE, da as applyOverlayPageScale, db as overlayViewportBottomInset, dc as renderImmersionSearchLinksHtml, dd as renderTokensToHtml, de as readPrivateReviewTarget, df as runLimited, dg as isManagedStorageKey, dh as managedLocalStorage, di as readJitenKanjiWordsCommandCapability, dj as bindPrivateCommandCapability, dk as parseHtmlDocument, dl as isCurrentScanTarget, dm as applyTokensToScanTarget, dn as unwrapReaderWords, dp as collectFragmentTextTargetsIn, dq as collectFormControlTextTargetsIn, dr as newTabText, ds as CARD_STATE_LABEL_KEYS, dt as readKanjiCommandCapability, du as DEFAULT_OVERLAY_BACKGROUND_COLOR, dv as dispatchPrivateCommand, dw as claimLocalTapActivation, dx as installControlTapActivation, dy as enabledReaderControl, dz as effectiveFuriganaMode, dA as KANJI_DOODLE_CLEAR_EVENT, dB as installKanjiDoodle, dC as rankKanjiStrokeCandidates, dD as promiseWithTimeout, dE as isYomuNewTabUrl, dF as convertRomajiToKana, dG as normalizeJapaneseStudyAnswer, dH as isolate, dI as contextPitchPattern, dJ as managedStateWritesSuppressed, dK as createStorageCoordinationId, dL as managedSessionStorage, dM as bindAuthorizedReaderFormSubmit, dN as isDirectTrustedReaderInteraction, dO as normalizedJapaneseCardReading, dP as parseManagedStateEpoch, dQ as sameManagedStateEpoch, dR as gmStorageGetStrict, dS as DEFAULT_SETTINGS, dT as renderImmersionSearchLinks, dU as createStudySessionClock, dV as readJpdbKanjiCommandCapability, dW as isNewTabCopyKey, dX as nextExplicitUiLanguage, dY as GITHUB_REPOSITORY_URL, dZ as DISCORD_INVITE_URL, d_ as dispatchAuthorizedReaderControlClick, d$ as DOCS_BASE_URL, e0 as SUPPORT_STATUS_URL, e1 as validPitchPositions, e2 as mountStudySessionClockControl, e3 as combinedApiCredentialLabel, e4 as assessKanjiStrokes, e5 as SHAPE_PASS_SCORE, e6 as activeLanguageProfile, e7 as packagedExtensionStorageAdapterMissing, e8 as readSettingsPersistenceViewStrict, e9 as FURIGANA_HIDE_STATE_GROUPS, ea as WORD_COLOR_HIDE_STATE_GROUPS, eb as accentToRgba, ec as effectiveReaderTextColorSource, ed as effectiveReaderColorSource, ee as effectiveSubtitleTextColorSource, ef as effectiveSubtitleColorSource, eg as accessibleOcrBackgroundOpacity, eh as accessibleOcrBackgroundColor, ei as READER_THEME_COLOR_TOKENS, ej as EXTENSION_STORE_URLS, ek as USERSCRIPT_INSTALL_URL, el as learnerLanguageById, em as readApiCredentialsFromFormData, en as normalizeReaderSettings, eo as DEFAULT_AUDIO_SOURCES, ep as learningTargetRosterIdForTag, eq as dictionaryLookupLinksForTarget, er as availableInterfaceLocales, es as credentialValueFromReader, et as normalizeOcrProvider, eu as slice1LanguageIdForTag, ev as canonicalTagForSlice1Language, ew as canonicalTagForLearningTarget, ex as languageProfileDictionariesFromPreferences, ey as activateLanguageProfileForOutputLanguage, ez as normalizeDictionaryLookupLinks, eA as normalizeAudioSource, eB as isLearningTargetRosterId, eC as MAX_LOOKUP_LINK_ROWS, eD as normalizeAnkiFieldMappings, eE as isLearnerLanguageId, eF as COPY_LOOKUP_LINK, eG as exportManagedStoredValues, eH as RETIRED_SETTINGS_STORAGE_KEYS, eI as SETTINGS_STORAGE_KEY, eJ as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eK as applySettingsIntent, eL as serializeSettingsPersistencePair, eM as defaultDictionaryLookupLinks, eN as MAX_EXTRA_LOOKUP_LINKS, eO as missingLookupComponents, eP as AUDIO_SOURCE_UI_TYPE_VALUES, eQ as audioSourceLabel, eR as lookupSiteComponents, eS as DEFAULT_POPUP_FONT_FAMILY, eT as DEFAULT_READER_FONT_FAMILY, eU as isPromiseLike$2, eV as dispatchAuthorizedReaderControlEvent, eW as ANKI_CONNECT_ADDON_URL, eX as redactedApiCredentialsFromForm, eY as LEARNER_LANGUAGE_IDS, eZ as externalLinkIcon, e_ as LEARNING_TARGET_ROSTER, e$ as furiganaModeNeedsDifficultyExplanation, f0 as DEFAULT_OVERLAY_TEXT_COLOR, f1 as DEFAULT_OVERLAY_OUTLINE_COLOR, f2 as storedCredentialClearName, f3 as hasStatusColorSource, f4 as NEW_TAB_PAGE_URL, f5 as AUDIO_GUIDE_URL, f6 as NADESHIKO_DEVELOPER_URL, f7 as VIDEO_PLAYER_PAGE_URL, f8 as PDF_READER_PAGE_URL, f9 as DONATE_URL, fa as SUPPORT_COPY, fb as SUPPORT_COPY_EXTRA, fc as LEARNER_LANGUAGES, fd as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fe as gmPrivateStorageDelete, ff as gmPrivateStorageGet, fg as subscribeToSettingsChanges, fh as subscribeLocalYomuSrsMutations, fi as LocalYomuSrsRepository, fj as withGmStorageLease, fk as unwrapProfileKey, fl as parseAcademyPairingTicket, fm as wrapProfileKey, fn as decryptProfileEvent, fo as encryptProfileEvent, fp as mergeStoredYomuSrsDecks, fq as settingsPanelHash, fr as readTrustedYomuUrl, fs as isPrivilegedYomuLocalDevelopmentOrigin, ft as settingsPanelFromHash, fu as readBackupSettingsPersistenceView, fv as beginStoredValuesImport, fw as settingsIntentKeys, fx as mergeDictionaryPreferences, fy as retireStaleDictionaryPreferences, fz as captureActiveLanguageProfileDictionaries, fA as SETTINGS_TITLE, fB as learningTargetRosterEntry, fC as NEW_TAB_VERSION_URL, fD as NO_EXPLICIT_USER_CHOICE, fE as normalizeAudioSubSources, fF as publishSettingsChange$1, fG as mergeApiCredentialValues, fH as configureLogger, fI as localeDirection, fJ as subscribeToSettingsStorageChanges, fK as isHostedYomuOrigin, fL as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, fM as loadSettings, fN as copyIcon, fO as ankiIcon, fP as createYomuLocalSrsAdapter, fQ as saveSettings, fR as yomuOnboardingController, fS as clearManagedBrowserCaches, fT as unregisterManagedServiceWorkers, fU as setRenderedWordCardIdentity, fV as renderedWordCardKey, fW as renderedWordsInRoot, fX as renderedWordElementKey, fY as applyInterfaceLocaleToRoot, fZ as applyInterfaceLocaleToDocument, f_ as ensureManagedWebStorageCurrent } from "./entrypoint-DF4AggMH.js";
+import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as updateRenderedWordPrivateState, a7 as renderedWordPrivateStateForCard, a8 as renderedWordPrivateValue, a9 as subscribeToStoredValueChanges, aa as currentAccountDataSurfaceIsTrusted, ab as gmPrivateStorageSet, ac as Logger, ad as uiText, ae as overlayViewport, af as overlayViewportBounds, ag as layoutPointToOverlay, ah as sourceRectToOverlay, ai as trustedReaderEventHandler, aj as readCardCommandCapability, ak as privateReviewGradeAllowed, al as normalizeAttemptedAudioUrl, am as audioSubSourceNameKey, an as audioSubSourceProviderName, ao as targetAudioTemplateLanguageToken, ap as disabledAudioSubSourceNameKeys, aq as parseJson, ar as escapeRegExp, as as uniqueStrings, at as getOrderedAudioSources, au as orderAudioSources, av as isTextToSpeechFallbackSource, aw as isBrowserTextToSpeechSource, ax as audioPreloadLimits, ay as preloadableAudioSources, az as cheapCandidatePreloadAudioSources, aA as orderAudioCandidates, aB as getAudioBagKey, aC as audioCandidateSelectionMode, aD as registerAudioAttempt, aE as getJpdbAudioBagKey, aF as preparedAudioCacheKey, aG as getAudioCandidateCacheKey, aH as cloneAudioCandidates, aI as targetSpeechSynthesisLocale, aJ as isApiTextToSpeechSource, aK as canonicalLanguageTag, aL as languageSubtag, aM as hasJitenAudioReference, aN as yomuAnkiCompanion, aO as flattenNoteFields, aP as stablePositiveHashId, aQ as normalizeAnkiFieldName, aR as HAS_JAPANESE, aS as codePointSafePrefix, aT as ANKI_EXPRESSION_FIELD_NAMES, aU as ANKI_READING_FIELD_NAMES, aV as ANKI_MEANING_FIELD_NAMES, aW as ANKI_SENTENCE_FIELD_NAMES, aX as escapeHtml$2, aY as privateCommandAttributes, aZ as ACADEMY_SRS_LABEL, a_ as sharedHexToRgb, a$ as sanitizeAccentColor, b0 as sharedContrastRatio, b1 as CORE_COLOR_TOKENS, b2 as sharedMixHex, b3 as RENDERED_WORD_CONTRAST_VARS, b4 as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, b5 as PAGE_WORD_COLOR_TOKENS, b6 as renderedWordHasAnkiState, b7 as canonicalStudyCardIdentity, b8 as applyLocalYomuSrsStateToRenderedWord, b9 as hasJpdbApiCredential, ba as hasJitenApiCredential, bb as hasBunproFrontendCredential, bc as isBunproFrontendCredentialExpired, bd as hasWanikaniApiCredential, be as isLocalYomuSrsStorageError, bf as activeLearningTargetLanguage, bg as effectiveWanikaniApiToken, bh as effectiveBunproFrontendApiToken, bi as effectiveBunproLegacyApiKey, bj as effectiveJpdbApiKey, bk as effectiveJitenApiKey, bl as yomuKanjiStudyCompanion, bm as activeLearningTarget, bn as isUnifiedIdeograph, bo as readerWordSurfaceText$1, bp as readAnkiAudioMergeCapability, bq as formatUiText, br as uiList, bs as readReviewTargetCapability, bt as renderKanjiNavigationText, bu as shouldRenderRuby, bv as renderRuby, bw as cleanCardHighlightValue, bx as renderHighlightedTextHtml, by as cardHighlightTargets, bz as compactCardHighlightValue, bA as IMMERSION_KIT_SOURCE_ID, bB as JITEN_DEFINITION_SOURCE_ID, bC as JPDB_DEFINITION_SOURCE_ID, bD as BUNPRO_DEFINITION_SOURCE_ID, bE as WANIKANI_DEFINITION_SOURCE_ID, bF as STUDY_TRANSLATION_SOURCE_ID, bG as ANKI_SOURCE_ID, bH as STUDY_GRAMMAR_SOURCE_ID, bI as LOOKUP_PILL_COLOR_TOKENS, bJ as normalizeDictionaryPreferences, bK as genericLookupTextVariants, bL as yomitanDictionaryIdentity, bM as gmStorageGet, bN as gmStorageSet, bO as gmStorageDelete, bP as assertManagedStateMutationAllowed, bQ as managedStateEpochToken, bR as managedStateEpochTokenRelation, bS as assertManagedStateReadAllowed, bT as normalizeZipKanjiMetaRow, bU as normalizeZipTermMetaRow, bV as normalizeZipKanjiRow, bW as normalizeZipTermRow, bX as isRecord$5, bY as isJapaneseKanjiCharacter, bZ as lookupSpansStartingInRange, b_ as normalizeImportedLookupMeta, b$ as normalizeGenericLookupText, c0 as splitTags, c1 as JAPANESE_RE$1, c2 as codePointBoundaryAtOrAfter, c3 as yomitanZipDictionaryName, c4 as yomitanZipVersion, c5 as countYomitanZipBanks, c6 as normalizeImportedLookupTerm, c7 as activeLearningTargetGeneration, c8 as imageMimeType, c9 as bytesToBase64$1, ca as speakerIcon, cb as renderedWordPrivateAttributesForState, cc as gmStorageGetSync, cd as gmStorageSetSync, ce as isNonNullObject, cf as uniqueNonEmptyStrings, cg as pitchNumberForReading, ch as pitchPatternFromPosition, ci as KANA, cj as COMBINING_KANA_MARKS, ck as collectPitchVariants, cl as splitMorae, cm as pitchLevelsForDisplay, cn as pitchClassNameForPattern, co as learningTargetModuleFor, cp as defaultLearningTargetModule, cq as languageDisplayName, cr as resolveUiLanguage, cs as primaryCardState, ct as cardStateLabel, cu as ConcurrencyGate, cv as KANA_ONLY_RUN_RE, cw as ITERATION_MARK, cx as KANA_WITH_PROLONGED, cy as mapLimited, cz as bareFallbackCardFromText, cA as inferredInflectedSurfaceRubies, cB as nonOverlappingTokens, cC as READING_KANA_ONLY_RE, cD as HALFWIDTH_KATAKANA, cE as PROLONGED_SOUND_MARK, cF as KATAKANA_MIDDLE_DOT, cG as fallbackLookupTermsForCard, cH as yomuBunproCompanion, cI as shouldLookupAnkiStatus, cJ as setRenderedWordPitchClass, cK as shouldHideFuriganaForCardState, cL as isPopupLookupEnabled, cM as yomuNormalizeOcrRenderedText, cN as replaceRenderedWordFurigana, cO as htmlToFirstElement, cP as clearRenderedWordAnkiState, cQ as clearRenderedWordFurigana, cR as cardDeckMembershipClassNames, cS as setInnerHtml, cT as gmStorageDeleteSync, cU as appendToDocumentHead, cV as yomuSettingsSurfaceCompanion, cW as subscribeToFactoryResetSignals, cX as APP_NAME, cY as createFactoryResetSignal, cZ as beginSettingsResetGuard, c_ as publishFactoryResetSignal, c$ as delay, d0 as clearManagedStoredValues, d1 as deleteSettingsStorage, d2 as commitManagedStateResetEpoch, d3 as clearFactoryResetSignal, d4 as managedStateResetEpochMayHaveCommitted, d5 as endSettingsResetGuard, d6 as managedStoredKeysStillPresent, d7 as ManagedStateResetError, d8 as stableHash32, d9 as uniqueTrimmedStrings, da as stableHashBase36, db as isTargetLanguageText, dc as KANJI_LIKE_WITH_COUNTERS, dd as HIRAGANA_WITH_PROLONGED, de as KATAKANA_WITH_PROLONGED, df as KANJI_LIKE_RE, dg as applyOverlayPageScale, dh as overlayViewportBottomInset, di as renderImmersionSearchLinksHtml, dj as renderTokensToHtml, dk as readPrivateReviewTarget, dl as runLimited, dm as isManagedStorageKey, dn as managedLocalStorage, dp as readJitenKanjiWordsCommandCapability, dq as bindPrivateCommandCapability, dr as parseHtmlDocument, ds as isCurrentScanTarget, dt as applyTokensToScanTarget, du as unwrapReaderWords, dv as collectFragmentTextTargetsIn, dw as collectFormControlTextTargetsIn, dx as newTabText, dy as CARD_STATE_LABEL_KEYS, dz as readKanjiCommandCapability, dA as DEFAULT_OVERLAY_BACKGROUND_COLOR, dB as dispatchPrivateCommand, dC as claimLocalTapActivation, dD as installControlTapActivation, dE as enabledReaderControl, dF as effectiveFuriganaMode, dG as KANJI_DOODLE_CLEAR_EVENT, dH as installKanjiDoodle, dI as rankKanjiStrokeCandidates, dJ as promiseWithTimeout, dK as isYomuNewTabUrl, dL as convertRomajiToKana, dM as normalizeJapaneseStudyAnswer, dN as isolate, dO as contextPitchPattern, dP as managedStateWritesSuppressed, dQ as createStorageCoordinationId, dR as managedSessionStorage, dS as bindAuthorizedReaderFormSubmit, dT as isDirectTrustedReaderInteraction, dU as normalizedJapaneseCardReading, dV as parseManagedStateEpoch, dW as sameManagedStateEpoch, dX as gmStorageGetStrict, dY as withGmStorageLease, dZ as DEFAULT_SETTINGS, d_ as renderImmersionSearchLinks, d$ as createStudySessionClock, e0 as readJpdbKanjiCommandCapability, e1 as isNewTabCopyKey, e2 as nextExplicitUiLanguage, e3 as GITHUB_REPOSITORY_URL, e4 as DISCORD_INVITE_URL, e5 as dispatchAuthorizedReaderControlClick, e6 as DOCS_BASE_URL, e7 as SUPPORT_STATUS_URL, e8 as validPitchPositions, e9 as mountStudySessionClockControl, ea as combinedApiCredentialLabel, eb as assessKanjiStrokes, ec as SHAPE_PASS_SCORE, ed as activeLanguageProfile, ee as readBackupSettingsPersistenceView, ef as beginStoredValuesImport, eg as settingsIntentKeys, eh as normalizeReaderSettings, ei as mergeDictionaryPreferences, ej as retireStaleDictionaryPreferences, ek as captureActiveLanguageProfileDictionaries, el as saveSettings, em as packagedExtensionStorageAdapterMissing, en as readSettingsPersistenceViewStrict, eo as FURIGANA_HIDE_STATE_GROUPS, ep as WORD_COLOR_HIDE_STATE_GROUPS, eq as accentToRgba, er as effectiveReaderTextColorSource, es as effectiveReaderColorSource, et as effectiveSubtitleTextColorSource, eu as effectiveSubtitleColorSource, ev as accessibleOcrBackgroundOpacity, ew as accessibleOcrBackgroundColor, ex as READER_THEME_COLOR_TOKENS, ey as EXTENSION_STORE_URLS, ez as USERSCRIPT_INSTALL_URL, eA as learnerLanguageById, eB as readApiCredentialsFromFormData, eC as DEFAULT_AUDIO_SOURCES, eD as learningTargetRosterIdForTag, eE as dictionaryLookupLinksForTarget, eF as availableInterfaceLocales, eG as credentialValueFromReader, eH as normalizeOcrProvider, eI as slice1LanguageIdForTag, eJ as canonicalTagForSlice1Language, eK as canonicalTagForLearningTarget, eL as languageProfileDictionariesFromPreferences, eM as activateLanguageProfileForOutputLanguage, eN as normalizeDictionaryLookupLinks, eO as normalizeAudioSource, eP as isLearningTargetRosterId, eQ as MAX_LOOKUP_LINK_ROWS, eR as normalizeAnkiFieldMappings, eS as isLearnerLanguageId, eT as COPY_LOOKUP_LINK, eU as exportManagedStoredValues, eV as RETIRED_SETTINGS_STORAGE_KEYS, eW as SETTINGS_STORAGE_KEY, eX as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eY as applySettingsIntent, eZ as serializeSettingsPersistencePair, e_ as defaultDictionaryLookupLinks, e$ as MAX_EXTRA_LOOKUP_LINKS, f0 as missingLookupComponents, f1 as AUDIO_SOURCE_UI_TYPE_VALUES, f2 as audioSourceLabel, f3 as lookupSiteComponents, f4 as DEFAULT_POPUP_FONT_FAMILY, f5 as DEFAULT_READER_FONT_FAMILY, f6 as isPromiseLike$2, f7 as dispatchAuthorizedReaderControlEvent, f8 as ANKI_CONNECT_ADDON_URL, f9 as redactedApiCredentialsFromForm, fa as LEARNER_LANGUAGE_IDS, fb as externalLinkIcon, fc as LEARNING_TARGET_ROSTER, fd as furiganaModeNeedsDifficultyExplanation, fe as DEFAULT_OVERLAY_TEXT_COLOR, ff as DEFAULT_OVERLAY_OUTLINE_COLOR, fg as storedCredentialClearName, fh as hasStatusColorSource, fi as NEW_TAB_PAGE_URL, fj as AUDIO_GUIDE_URL, fk as NADESHIKO_DEVELOPER_URL, fl as VIDEO_PLAYER_PAGE_URL, fm as PDF_READER_PAGE_URL, fn as DONATE_URL, fo as SUPPORT_COPY, fp as SUPPORT_COPY_EXTRA, fq as LEARNER_LANGUAGES, fr as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fs as gmPrivateStorageDelete, ft as gmPrivateStorageGet, fu as subscribeToSettingsChanges, fv as subscribeLocalYomuSrsMutations, fw as LocalYomuSrsRepository, fx as unwrapProfileKey, fy as parseAcademyPairingTicket, fz as wrapProfileKey, fA as decryptProfileEvent, fB as encryptProfileEvent, fC as mergeStoredYomuSrsDecks, fD as settingsPanelHash, fE as readTrustedYomuUrl, fF as isPrivilegedYomuLocalDevelopmentOrigin, fG as settingsPanelFromHash, fH as SETTINGS_TITLE, fI as learningTargetRosterEntry, fJ as NEW_TAB_VERSION_URL, fK as NO_EXPLICIT_USER_CHOICE, fL as normalizeAudioSubSources, fM as publishSettingsChange$1, fN as mergeApiCredentialValues, fO as configureLogger, fP as localeDirection, fQ as subscribeToSettingsStorageChanges, fR as isHostedYomuOrigin, fS as loadSettings, fT as copyIcon, fU as ankiIcon, fV as createYomuLocalSrsAdapter, fW as yomuOnboardingController, fX as clearManagedBrowserCaches, fY as unregisterManagedServiceWorkers, fZ as setRenderedWordCardIdentity, f_ as renderedWordCardKey, f$ as renderedWordsInRoot, g0 as renderedWordElementKey, g1 as applyInterfaceLocaleToRoot, g2 as applyInterfaceLocaleToDocument, g3 as ensureManagedWebStorageCurrent } from "./entrypoint-BQoOjj3Y.js";
 function assignSentenceInfo(paragraphs, tokens) {
   paragraphs.forEach((paragraph, index) => {
     const tokenData = tokens[index] ?? [];
@@ -377,12 +377,6 @@ function outputLanguageOf(value) {
 }
 function adoptLearningTargetFromSettings(value) {
   return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
-}
-function targetSpeechSynthesisLocale() {
-  return activeLearningTarget().audio.speechSynthesisLocale;
-}
-function targetAudioTemplateLanguageToken() {
-  return activeLearningTarget().audio.templateLanguageToken;
 }
 function isAbortError$1(error) {
   return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
@@ -882,8 +876,11 @@ const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
 const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
 const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
 const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+const BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: "yomuHttpBridgeOwner", kind: "yomuHttpBridgeKind" };
 const BRIDGE_TIMEOUT_MS = 3e4;
+const BRIDGE_READY_TIMEOUT_MS = 1e4;
 const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let clientOwner;
 let eventBridgeProbeInFlight;
 function getUserscriptHttpRequest() {
   for (const candidate of userscriptRequestCandidates()) {
@@ -894,6 +891,13 @@ function getUserscriptHttpRequest() {
   }
   return userscriptHttpEventBridge();
 }
+function shouldInstallUserscriptHttpBridge() {
+  try {
+    return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
+  } catch {
+    return false;
+  }
+}
 const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
 function isUserscriptEventBridgeRequest(request) {
   return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
@@ -902,17 +906,24 @@ function probeUserscriptEventBridge(request) {
   if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
   if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
   if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-  const probe = new Promise((resolve) => {
+  const current = currentHttpBridgeOwner();
+  const probe = current !== void 0 ? current ? probeHttpBridgeOwner(current) : Promise.resolve(false) : httpBridgeOwner().then((owner) => owner ? probeHttpBridgeOwner(owner) : false);
+  eventBridgeProbeInFlight = probe;
+  void probe.then(() => {
+    if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+  });
+  return probe;
+}
+function probeHttpBridgeOwner(owner) {
+  return new Promise((resolve) => {
     const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     let settled = false;
     let responseCleanup = noop;
-    let bridgeReadyCleanup = noop;
     const finish = (alive) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
       responseCleanup();
-      bridgeReadyCleanup();
       if (!alive) {
         const markerDataset = bridgeMarkerDataset();
         if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
@@ -923,18 +934,48 @@ function probeUserscriptEventBridge(request) {
     responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
       if (bridgeEventId(event) === id) finish(true);
     });
-    bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-    dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+    dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id, ownerId: owner.ownerId });
   });
-  eventBridgeProbeInFlight = probe;
-  void probe.then(() => {
-    if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+}
+function httpBridgeOwner() {
+  const current = currentHttpBridgeOwner();
+  if (current !== void 0) return Promise.resolve(current);
+  return new Promise((resolve) => {
+    const cleanups = [];
+    const settle = (owner) => {
+      for (const cleanup of cleanups.splice(0)) cleanup();
+      resolve(owner);
+    };
+    const recheck = () => {
+      const owner = currentHttpBridgeOwner();
+      if (owner !== void 0) settle(owner);
+    };
+    const timeout = window.setTimeout(() => settle(null), BRIDGE_READY_TIMEOUT_MS);
+    cleanups.push(() => window.clearTimeout(timeout));
+    cleanups.push(addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, recheck));
+    cleanups.push(addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+      const later = window.setTimeout(recheck, 0);
+      cleanups.push(() => window.clearTimeout(later));
+    }));
   });
-  return probe;
+}
+function currentHttpBridgeOwner() {
+  const dataset = bridgeMarkerDataset();
+  if (clientOwner) {
+    return dataset?.[BRIDGE_MARKER] === "true" && dataset[BRIDGE_KEYS.owner] === clientOwner.ownerId ? clientOwner : null;
+  }
+  const expected = expectedHttpBridgeKind();
+  const owner = readyBridgeOwner(dataset, BRIDGE_KEYS, expected);
+  if (owner?.ownerId) clientOwner = owner;
+  if (owner) return owner;
+  return expected && !installedStorageResponderReady() ? void 0 : null;
+}
+function expectedHttpBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptHttpBridge);
 }
 function userscriptHttpEventBridge() {
   if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+  if (currentHttpBridgeOwner() === null) return void 0;
   return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
     const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const timeout = window.setTimeout(() => {
@@ -950,9 +991,18 @@ function userscriptHttpEventBridge() {
     const onResponse = (event) => {
       handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
     };
-    cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+    void httpBridgeOwner().then((owner) => {
+      if (!owner) {
+        cleanup();
+        const error = new Error("Installed Yomu request bridge is unavailable; reload to reconnect.");
+        options.onerror?.(error);
+        reject(error);
+        return;
+      }
+      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+    });
   }));
 }
 function tagEventBridgeRequest(request) {
@@ -1537,6 +1587,12 @@ function reviewGradeScale(settings, profile = "standard") {
     shortcuts: entries2.map(([grade, , key]) => [key, grade]),
     twoButton: entries2.length === 2
   };
+}
+function gradeKeyHintAttributes(settings, shortcut) {
+  const key = shortcut ? settings.shortcuts[shortcut]?.trim() ?? "" : "";
+  if (!key) return "";
+  const escaped = key.replace(/[&<>"']/gu, (character) => `&#${character.charCodeAt(0)};`);
+  return ` data-grade-key="${escaped}" aria-keyshortcuts="${escaped}"`;
 }
 const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
 const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
@@ -7289,6 +7345,11 @@ function addAnkiReviewTargetLabel(candidates, cardId, label, cardName = "") {
   const template = cardName.trim();
   candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
 }
+async function ankiCardReviewedSince(invoke, cardId, since) {
+  const log2 = await invoke("getReviewsOfCards", { cards: [cardId] });
+  const reviews = log2?.[String(cardId)];
+  return Array.isArray(reviews) && reviews.some((review) => typeof review?.id === "number" && review.id >= since);
+}
 function renderAnkiActionRow(...args) {
   return yomuAnkiCompanion()?.renderAnkiActionRow(...args) ?? "";
 }
@@ -8233,12 +8294,7 @@ function collectTermMatchCandidates(db, target, candidates, rank) {
     tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
   });
 }
-function yomitanDatabaseName() {
-  return ownedDatabaseName("jpdb-popup-reader-yomitan");
-}
-function assertYomitanStorageOwner(databaseName) {
-  if (databaseName !== yomitanDatabaseName()) throw new Error("Dictionary storage owner changed; reload to reconnect.");
-}
+const YOMITAN_DATABASE_NAME = "jpdb-popup-reader-yomitan";
 function firefoxXrayWaiver(value) {
   if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
   try {
@@ -8523,9 +8579,6 @@ function assertManagedStateIdbMarker(record2, epoch) {
     throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
   }
 }
-function assertYomitanDatabaseOwner(db) {
-  assertYomitanStorageOwner(db.name);
-}
 const MANAGED_STATE_STORE = "managedState";
 const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
 const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
@@ -8549,25 +8602,21 @@ function reconcileYomitanManagedStateEpoch(db, epoch) {
     markerStoreName: MANAGED_STATE_STORE,
     markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
     markerKeyPath: "key",
-    clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName)),
-    beforeMutate: () => assertYomitanDatabaseOwner(db)
+    clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
   });
 }
-async function fencedYomitanDbHandle(databaseName, current, open) {
-  assertYomitanStorageOwner(databaseName);
+async function fencedYomitanDbHandle(current, open) {
   const existing = current();
-  const epoch = existing ? await assertManagedStateReadAllowed() : await assertManagedStateMutationAllowed();
-  assertYomitanStorageOwner(databaseName);
-  const db = await (existing ?? open(epoch));
-  if (!existing) await assertManagedStateMutationAllowed();
-  assertYomitanStorageOwner(databaseName);
+  if (existing) {
+    await assertManagedStateReadAllowed();
+    return existing;
+  }
+  const db = await open(await assertManagedStateMutationAllowed());
+  await assertManagedStateMutationAllowed();
   return db;
 }
 function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
-  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, (tx) => {
-    assertYomitanDatabaseOwner(db);
-    mutate(tx);
-  }, options);
+  return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
 }
 function readBlobWithFileReader(blob, read, result) {
   return new Promise((resolve, reject) => {
@@ -8867,6 +8916,133 @@ function findJsonStringEnd(value, quoteIndex) {
   }
   return -1;
 }
+const MAX_DEXIE_SCALAR_LENGTH = 128;
+const MAX_DEXIE_NESTING = 128;
+const MAX_DECODED_STRING_LENGTH = 256;
+const ATOM = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/;
+const WHITESPACE = /[ \t\r\n]/;
+const STRUCTURAL = '{}[],:"';
+const CLOSABLE = /* @__PURE__ */ new Set(["key-or-end", "value-or-end", "comma-or-end"]);
+function failInvalidDexieJson() {
+  throw new SyntaxError("Invalid Dexie JSON dictionary.");
+}
+class DexieSyntaxPreflight {
+  stack = [];
+  root = "value";
+  inString = false;
+  escaped = false;
+  unicodeDigits = 0;
+  atom = "";
+  text = "";
+  rootKey = "";
+  format;
+  feed(chunk) {
+    for (const char of chunk) {
+      if (this.inString) this.stringChar(char);
+      else this.structuralChar(char);
+    }
+  }
+  finish() {
+    this.finishAtom();
+    if (this.inString || this.escaped || this.unicodeDigits || this.stack.length) failInvalidDexieJson();
+    if (this.root !== "done" || this.format !== "dexie") failInvalidDexieJson();
+  }
+  stringChar(char) {
+    if (char !== '"' || this.escaped || this.unicodeDigits) this.bufferText(char);
+    if (this.unicodeDigits) this.unicodeDigit(char);
+    else if (this.escaped) this.escapeChar(char);
+    else if (char === "\\") this.escaped = true;
+    else if (char === '"') this.closeString();
+    else if (char.charCodeAt(0) < 32) failInvalidDexieJson();
+  }
+  bufferText(char) {
+    if (this.text.length < MAX_DECODED_STRING_LENGTH) this.text += char;
+  }
+  unicodeDigit(char) {
+    if (!/[0-9a-f]/i.test(char)) failInvalidDexieJson();
+    this.unicodeDigits--;
+  }
+  escapeChar(char) {
+    if (char === "u") this.unicodeDigits = 4;
+    else if (!'"\\/bfnrt'.includes(char)) failInvalidDexieJson();
+    this.escaped = false;
+  }
+  closeString() {
+    this.inString = false;
+    const frame = this.stack.at(-1);
+    const decoded = this.text.length < MAX_DECODED_STRING_LENGTH ? JSON.parse(`"${this.text}"`) : "";
+    if (frame?.kind === "object" && (frame.next === "key" || frame.next === "key-or-end")) {
+      frame.next = "colon";
+      if (this.stack.length === 1) this.rootKey = decoded;
+      return;
+    }
+    this.value();
+    if (this.atRootFormatName()) this.format = decoded;
+  }
+  structuralChar(char) {
+    const whitespace = WHITESPACE.test(char);
+    if (!whitespace && !STRUCTURAL.includes(char)) {
+      this.atomChar(char);
+      return;
+    }
+    this.finishAtom();
+    if (whitespace) return;
+    if (char === '"') this.openString();
+    else if (char === "{" || char === "[") this.openContainer(char);
+    else if (char === "}" || char === "]") this.closeContainer(char);
+    else if (char === ":") this.colon();
+    else this.comma();
+  }
+  atomChar(char) {
+    if (this.atom.length >= MAX_DEXIE_SCALAR_LENGTH) throw new RangeError("Dexie import scalar exceeds 128 characters.");
+    this.atom += char;
+  }
+  finishAtom() {
+    if (!this.atom) return;
+    if (!ATOM.test(this.atom)) failInvalidDexieJson();
+    this.value();
+    this.atom = "";
+  }
+  openString() {
+    this.inString = true;
+    this.text = "";
+  }
+  openContainer(char) {
+    if (this.stack.length >= MAX_DEXIE_NESTING) throw new RangeError("Dexie import nesting exceeds 128 levels.");
+    this.value();
+    this.stack.push(char === "{" ? { kind: "object", next: "key-or-end" } : { kind: "array", next: "value-or-end" });
+  }
+  closeContainer(char) {
+    const frame = this.stack.at(-1);
+    if (!frame || frame.kind !== (char === "}" ? "object" : "array") || !CLOSABLE.has(frame.next)) failInvalidDexieJson();
+    this.stack.pop();
+  }
+  colon() {
+    const frame = this.stack.at(-1);
+    if (!frame || frame.next !== "colon") failInvalidDexieJson();
+    frame.next = "value";
+  }
+  comma() {
+    const frame = this.stack.at(-1);
+    if (!frame || frame.next !== "comma-or-end") failInvalidDexieJson();
+    frame.next = frame.kind === "object" ? "key" : "value";
+  }
+  /** Account for one complete value (scalar, string, or container opening). */
+  value() {
+    const frame = this.stack.at(-1);
+    if (this.atRootFormatName()) this.format = void 0;
+    if (!frame) {
+      if (this.root !== "value") failInvalidDexieJson();
+      this.root = "done";
+      return;
+    }
+    if (frame.next !== "value" && frame.next !== "value-or-end") failInvalidDexieJson();
+    frame.next = "comma-or-end";
+  }
+  atRootFormatName() {
+    return this.stack.length === 1 && this.rootKey === "formatName";
+  }
+}
 Logger.scope("DictionaryReplicaPurge");
 const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
 const STATE_STORE = "managedState";
@@ -8922,12 +9098,8 @@ function requestPersistentDictionaryStorage() {
 }
 function runDictionaryImportWrite(db, stores, mutate, options, importing) {
   return runYomitanManagedStateWrite(db, stores, (tx) => {
-    const apply = () => {
-      assertYomitanDatabaseOwner(db);
-      mutate(tx);
-    };
-    if (importing) importing(tx, apply);
-    else apply();
+    if (importing) importing(tx, () => mutate(tx));
+    else mutate(tx);
   }, options);
 }
 async function validateZipDictionaryBanks(zip, dictionary, version) {
@@ -8946,110 +9118,20 @@ async function validateZipDictionaryBanks(zip, dictionary, version) {
   }
   return supported;
 }
-const MAX_DEXIE_SCALAR_LENGTH = 128;
-const MAX_DEXIE_NESTING = 128;
+const DEXIE_PREFLIGHT_CHUNK_BYTES = 262144;
+const DEXIE_TABLES = /* @__PURE__ */ new Set(["dictionaries", "terms", "kanji", "termMeta", "kanjiMeta"]);
 async function validateDexieJson(file) {
-  const stack = [];
-  let root = "value";
-  let string = false, escaped = false, unicode = 0, atom = "", text2 = "";
-  let rootKey = "", format;
-  const fail2 = () => {
-    throw new SyntaxError("Invalid Dexie JSON dictionary.");
-  };
-  const value = () => {
-    const frame = stack.at(-1);
-    if (stack.length === 1 && rootKey === "formatName") format = void 0;
-    if (!frame) {
-      if (root !== "value") fail2();
-      root = "done";
-    } else {
-      if (!["value", "value-or-end"].includes(frame.next)) fail2();
-      frame.next = "comma-or-end";
-    }
-  };
-  const stringToken = () => {
-    const frame = stack.at(-1);
-    const decoded = text2.length < 256 ? JSON.parse(`"${text2}"`) : "";
-    if (frame?.kind === "object" && ["key", "key-or-end"].includes(frame.next)) {
-      frame.next = "colon";
-      if (stack.length === 1) rootKey = decoded;
-    } else {
-      value();
-      if (stack.length === 1 && rootKey === "formatName") format = decoded;
-    }
-  };
-  const finishAtom = () => {
-    if (!atom) return;
-    if (!/^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(atom)) fail2();
-    value();
-    atom = "";
-  };
-  for (let offset = 0; offset < file.size; offset += 262144) {
-    const chunk = await readBlobText(file.slice(offset, offset + 262144));
-    for (const char of chunk) {
-      if (string) {
-        if (char !== '"' || escaped || unicode) {
-          if (text2.length < 256) text2 += char;
-        }
-        if (unicode) {
-          if (!/[0-9a-f]/i.test(char)) fail2();
-          unicode--;
-          continue;
-        }
-        if (escaped) {
-          if (char === "u") unicode = 4;
-          else if (!'"\\/bfnrt'.includes(char)) fail2();
-          escaped = false;
-          continue;
-        }
-        if (char === "\\") {
-          escaped = true;
-          continue;
-        }
-        if (char === '"') {
-          string = false;
-          stringToken();
-          continue;
-        }
-        if (char.charCodeAt(0) < 32) fail2();
-        continue;
-      }
-      if (/[ \t\r\n]/.test(char) || '{}[],:"'.includes(char)) finishAtom();
-      else {
-        if (atom.length >= MAX_DEXIE_SCALAR_LENGTH) throw new RangeError("Dexie import scalar exceeds 128 characters.");
-        atom += char;
-        continue;
-      }
-      if (/[ \t\r\n]/.test(char)) continue;
-      const frame = stack.at(-1);
-      if (char === '"') {
-        string = true;
-        text2 = "";
-      } else if (char === "{" || char === "[") {
-        if (stack.length >= MAX_DEXIE_NESTING) throw new RangeError("Dexie import nesting exceeds 128 levels.");
-        value();
-        stack.push({ kind: char === "{" ? "object" : "array", next: char === "{" ? "key-or-end" : "value-or-end" });
-      } else if (char === "}" || char === "]") {
-        if (!frame || frame.kind !== (char === "}" ? "object" : "array") || !["key-or-end", "value-or-end", "comma-or-end"].includes(frame.next)) fail2();
-        stack.pop();
-      } else if (char === ":") {
-        if (!frame || frame.next !== "colon") return fail2();
-        frame.next = "value";
-      } else if (char === ",") {
-        if (!frame || frame.next !== "comma-or-end") return fail2();
-        frame.next = frame.kind === "object" ? "key" : "value";
-      }
-    }
+  const syntax = new DexieSyntaxPreflight();
+  for (let offset = 0; offset < file.size; offset += DEXIE_PREFLIGHT_CHUNK_BYTES) {
+    syntax.feed(await readBlobText(file.slice(offset, offset + DEXIE_PREFLIGHT_CHUNK_BYTES)));
   }
-  finishAtom();
-  if (string || escaped || unicode || stack.length || root !== "done" || format !== "dexie") fail2();
-  const known = /* @__PURE__ */ new Set(["dictionaries", "terms", "kanji", "termMeta", "kanjiMeta"]);
+  syntax.finish();
   let recognized = false;
   await streamDexieTables(file, {}, (table) => {
-    if (known.has(table)) recognized = true;
+    if (DEXIE_TABLES.has(table)) recognized = true;
   });
   const counts = await readDexieTableRowCounts(file);
-  if (!recognized && !Object.keys(counts).some((table) => known.has(table))) fail2();
+  if (!recognized && !Object.keys(counts).some((table) => DEXIE_TABLES.has(table))) failInvalidDexieJson();
   return counts;
 }
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -10846,7 +10928,6 @@ class YomitanDictionaryStore {
     this.getCorsProxyUrl = getCorsProxyUrl;
     this.getInterfaceLanguage = getInterfaceLanguage;
   }
-  databaseName = yomitanDatabaseName();
   dbPromise;
   dictionaryInfoPromise;
   summaryPromise;
@@ -11611,17 +11692,15 @@ class YomitanDictionaryStore {
     try {
       const db = await dbPromise;
       db.close();
-      log$n.info("Dictionary DB closed for reset", { name: this.databaseName });
+      log$n.info("Dictionary DB closed for reset", { name: YOMITAN_DATABASE_NAME });
     } catch {
     }
   }
   async deleteDatabase(options = {}) {
-    assertYomitanStorageOwner(this.databaseName);
     const done = log$n.time("Dictionary database delete");
     try {
       const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
       const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
-      assertYomitanStorageOwner(this.databaseName);
       db?.close();
       this.dbPromise = void 0;
       this.invalidateCaches();
@@ -11639,15 +11718,15 @@ class YomitanDictionaryStore {
           globalThis.clearTimeout(timeout);
           callback();
         };
-        const request = indexedDB.deleteDatabase(this.databaseName);
+        const request = indexedDB.deleteDatabase(YOMITAN_DATABASE_NAME);
         request.onsuccess = () => settle(resolve);
         request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
         request.onblocked = () => {
           blocked = true;
-          log$n.warn("Dictionary delete blocked by another tab", { name: this.databaseName });
+          log$n.warn("Dictionary delete blocked by another tab", { name: YOMITAN_DATABASE_NAME });
         };
       });
-      log$n.info("Dictionary database deleted", { name: this.databaseName });
+      log$n.info("Dictionary database deleted", { name: YOMITAN_DATABASE_NAME });
     } catch (error) {
       log$n.warn("Dictionary database delete failed", { error });
       throw error;
@@ -12151,7 +12230,7 @@ class YomitanDictionaryStore {
     });
   }
   db() {
-    return fencedYomitanDbHandle(this.databaseName, () => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
+    return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
   }
   // A blocked or wedged upgrade (an older runtime still holding the
   // connection) used to leave the open promise pending FOREVER — every local
@@ -12160,7 +12239,7 @@ class YomitanDictionaryStore {
   // (the delete path at clearAll already does both).
   openDb(epoch) {
     const promise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.databaseName, DB_VERSION);
+      const request = indexedDB.open(YOMITAN_DATABASE_NAME, DB_VERSION);
       let settled = false;
       const failOpen = (reason, error) => {
         if (settled) return;
@@ -12172,14 +12251,6 @@ class YomitanDictionaryStore {
       const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
       request.onblocked = () => failOpen("Dictionary database upgrade blocked by another open connection");
       request.onupgradeneeded = (event) => {
-        try {
-          assertYomitanStorageOwner(this.databaseName);
-        } catch (error) {
-          request.transaction?.abort();
-          clearTimeout(openTimeout);
-          failOpen("Dictionary storage owner changed", error);
-          return;
-        }
         const db = request.result;
         const tx = request.transaction;
         log$n.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
@@ -12252,7 +12323,7 @@ class YomitanDictionaryStore {
   installVersionChangeHandler(db) {
     db.onversionchange = (event) => {
       log$n.info("Dictionary DB version change; closing", {
-        name: this.databaseName,
+        name: YOMITAN_DATABASE_NAME,
         oldVersion: event.oldVersion,
         newVersion: event.newVersion
       });
@@ -16218,6 +16289,7 @@ class CardPopoverRenderer {
       selected,
       profile,
       selected.gradeProfile !== profile,
+      settings,
       reviewGroup
     )).join("");
     if (!gradeRows) return "";
@@ -16328,7 +16400,7 @@ function updatePopoverReviewTargetLabels(actions, label, shortLabel) {
   if (labelText) labelText.textContent = label;
 }
 function updatePopoverReviewGradeProfile(actions, gradeProfile) {
-  actions.querySelectorAll("[data-review-grade-profile]").forEach((row) => {
+  actions.querySelectorAll("[data-review-target-row][data-review-grade-profile]").forEach((row) => {
     row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
   });
 }
@@ -16352,7 +16424,7 @@ function updatePopoverReviewButtonLabel(button, label) {
   button.title = label;
   button.setAttribute("aria-label", `${buttonLabel}: ${label}`);
 }
-function renderTargetedGradeRow(scale, selected, profile, hidden, reviewGroup) {
+function renderTargetedGradeRow(scale, selected, profile, hidden, settings, reviewGroup) {
   const { grades, shortcuts } = scale;
   const targetLabel = renderReviewTargetLabel(selected);
   const targetAttrs = reviewTargetButtonAttrs(selected);
@@ -16360,7 +16432,8 @@ function renderTargetedGradeRow(scale, selected, profile, hidden, reviewGroup) {
         ${targetLabel}
         ${grades.map(([grade, label]) => {
     const title = selected.label ? ` title="${escapeHtml$2(selected.label)}" aria-label="${escapeHtml$2(`${label}: ${selected.label}`)}"` : "";
-    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: profile, gradeShortcut: shortcuts.find(([, value]) => value === grade)?.[0], reviewGroup, reviewTarget: selected.kind === "wanikani" ? void 0 : selected.kind, ankiCardId: selected.ankiCardId })}${title}>${escapeHtml$2(label)}</button>`;
+    const gradeShortcut = shortcuts.find(([, value]) => value === grade)?.[0];
+    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: profile, gradeShortcut, reviewGroup, reviewTarget: selected.kind === "wanikani" ? void 0 : selected.kind, ankiCardId: selected.ankiCardId })}${title}${gradeKeyHintAttributes(settings, gradeShortcut)}>${escapeHtml$2(label)}</button>`;
   }).join("")}
     </div>`;
 }
@@ -20027,7 +20100,7 @@ class CardRenderDataLoader {
       log$k.warn("JPDB page lookup failed", { term: card.spelling }, error);
       return null;
     }), null).then((result) => {
-      if (!result || result.status === "partial") onIncomplete();
+      if (!result) onIncomplete();
       return result?.info ?? null;
     });
   }
@@ -20058,10 +20131,7 @@ class CardRenderDataLoader {
     }) : Promise.resolve(null) : Promise.resolve(null);
     const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
     const jpdbIdentityReady = cardNeedsCanonicalReading(card) ? jitenVocabularyLookup.then(() => card, () => card) : Promise.resolve(card);
-    const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([result]) => {
-      if (result.status === "partial") onIncomplete();
-      return exactJpdbFrequencyRank(card, result.cards);
-    }).catch((error) => {
+    const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([result]) => exactJpdbFrequencyRank(card, result.cards)).catch((error) => {
       onIncomplete();
       log$k.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
       return null;
@@ -22501,7 +22571,7 @@ class ImmersionKitClient {
     const promise = this.searchEnabledSources(query, settings, options).then((outcome) => {
       const result = { ...outcome, examples: applySearchExampleLimit(outcome.examples, settings, options) };
       if (!options.signal?.aborted) {
-        this.cache.set(cacheKey, { result, expiresAt: Date.now() + (result.status === "partial" ? 1e3 : result.examples.length ? 3e5 : 1e4) });
+        this.cache.set(cacheKey, { result, expiresAt: Date.now() + searchResultTtlMs(result) });
         pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
       }
       return result;
@@ -22534,7 +22604,7 @@ class ImmersionKitClient {
       sources.forEach((source) => {
         void this.searchSource(source, query, settings, options).then((examples) => {
           if (examples.length) {
-            resolve({ examples, status: "partial" });
+            resolve({ examples, status: "complete" });
             return;
           }
           emptyResults.push(examples);
@@ -22678,6 +22748,10 @@ class ImmersionKitClient {
     const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language2);
     return readBlobAsDataUrl(blob);
   }
+}
+function searchResultTtlMs(result) {
+  if (result.examples.length) return 3e5;
+  return result.status === "partial" ? 1e3 : 1e4;
 }
 function raceSharedImmersionSearchAgainstAbort(promise, signal) {
   if (signal.aborted) return Promise.reject(immersionSearchAbortError());
@@ -25287,7 +25361,9 @@ function renderLookupReviewTargetButtons(target, grades, context, reviewGroup) {
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
     const title = targetLabel ? ` title="${escapeHtml$2(targetLabel)}" aria-label="${escapeHtml$2(`${buttonLabel}: ${targetLabel}`)}"` : "";
-    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context?.profile, gradeShortcut: context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : void 0, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}>${escapeHtml$2(buttonLabel)}</button>`;
+    const gradeShortcut = context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : void 0;
+    const keyHint = context ? gradeKeyHintAttributes(context.settings, gradeShortcut) : "";
+    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context?.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${keyHint}>${escapeHtml$2(buttonLabel)}</button>`;
   }).join("")}
         </div>
     `;
@@ -25647,7 +25723,7 @@ class JpdbClient {
   async reviewCard(card, grade) {
     log$f.info("Reviewing card", { term: card.spelling, grade });
     await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
-    await this.refreshCard(card);
+    await this.refreshCard(card).catch((error) => log$f.warn("Card refresh after review failed", { term: card.spelling }, error));
   }
   // Used by mining controls to add JPDB-backed cards to selected decks.
   async addToDeck(deckId, card, sentence) {
@@ -27711,7 +27787,7 @@ class JpdbVocabularyClient {
         this.assertCurrent(request);
         entry.result = result;
         const hasData = usable(result);
-        entry.expiresAt = Date.now() + (result.status === "partial" ? request.scope.backoff.retryAfterMs() || INCOMPLETE_QUERY_TTL_MS : hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
+        entry.expiresAt = Date.now() + (hasData ? COMPLETE_QUERY_TTL_MS : EMPTY_QUERY_TTL_MS);
         if (!cached && result.status === "complete" && hasData) writePublicJpdbCache(kind, key, result);
         return result;
       }).catch((error) => {
@@ -28423,6 +28499,8 @@ const NEW_TAB_ACTIONS = [
   "empty-fallback",
   "continue-batch",
   "recover-review-recording",
+  "check-held-reviews",
+  "discard-held-reviews",
   "study-step",
   "study-hint",
   "return-to-review",
@@ -29210,6 +29288,7 @@ function isScheduledStudyCard(card) {
 const NEW_TAB_GRADE_QUEUE_KEY = "jpdb-reader-newtab-grade-queue";
 const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
 const REVIEW_QUEUE_OWNER_KEY = "yomu:private:review-delivery:v2";
+const REVIEW_QUEUE_FULL_ERROR = "Review queue is full.";
 function reviewDeliveryScope(target, providerContext) {
   return `${target}:${providerContext}`;
 }
@@ -34323,12 +34402,7 @@ class PracticeSessionStore {
   constructor(factory = indexedDB) {
     this.factory = factory;
   }
-  databaseName = ownedDatabaseName(PRACTICE_SESSION_DATABASE);
-  assertOwner() {
-    if (this.databaseName !== ownedDatabaseName(PRACTICE_SESSION_DATABASE)) throw new Error("Practice storage owner changed; reload to reconnect.");
-  }
   async read(id) {
-    this.assertOwner();
     const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
     return this.transaction("readonly", async (store, material) => {
       const checkpoint = await requestValue(store.get([epoch, id]));
@@ -34341,26 +34415,21 @@ class PracticeSessionStore {
     });
   }
   async list() {
-    this.assertOwner();
     const epoch = managedStateEpochToken(await assertManagedStateReadAllowed());
     return this.transaction("readonly", (store) => requestValue(store.index("epoch").getAll(epoch)));
   }
   async write(record2, previousRevision) {
-    this.assertOwner();
     const epoch = managedStateEpochToken(await assertManagedStateMutationAllowed());
     await this.transaction("readwrite", async (store, material) => {
       if (managedStateWritesSuppressed()) throw new Error("Practice saving is paused during reset.");
       const previous = await requestValue(store.get([epoch, record2.id]));
-      this.assertOwner();
       if (previousRevision === null ? previous !== void 0 : previous?.revision !== previousRevision || previous?.version !== record2.version || previous?.purpose !== record2.purpose) {
         throw new PracticeSessionConflict();
       }
       if (managedStateWritesSuppressed()) throw new Error("Practice saving is paused during reset.");
       const { items, material: original, ...checkpoint } = record2;
       if (previousRevision === null) await requestValue(material.put({ epoch, id: record2.id, items, material: original }));
-      this.assertOwner();
       await requestValue(store.put({ ...checkpoint, epoch, itemCount: items.length, materialCount: original.length }));
-      this.assertOwner();
     });
   }
   async transaction(mode, run) {
@@ -34368,7 +34437,6 @@ class PracticeSessionStore {
     try {
       if (mode === "readwrite") await assertManagedStateMutationAllowed();
       else await assertManagedStateReadAllowed();
-      this.assertOwner();
       const transaction = db.transaction(["sessions", "material"], mode);
       let result;
       let failure;
@@ -34393,18 +34461,10 @@ class PracticeSessionStore {
     }
   }
   open() {
-    this.assertOwner();
     return new Promise((resolve, reject) => {
       let settled = false;
-      const request = this.factory.open(this.databaseName, 1);
+      const request = this.factory.open(PRACTICE_SESSION_DATABASE, 1);
       request.onupgradeneeded = () => {
-        try {
-          this.assertOwner();
-        } catch (error) {
-          request.transaction?.abort();
-          reject(error);
-          return;
-        }
         const store = request.result.createObjectStore("sessions", { keyPath: ["epoch", "id"] });
         store.createIndex("epoch", "epoch");
         request.result.createObjectStore("material", { keyPath: ["epoch", "id"] });
@@ -34756,7 +34816,16 @@ function copyMaterial(material) {
 function validRecord(value) {
   if (!value || typeof value !== "object") return false;
   const record2 = value;
-  return record2.version === 1 && typeof record2.id === "string" && typeof record2.turn === "string" && typeof record2.title === "string" && PURPOSES.includes(record2.purpose) && Number.isSafeInteger(record2.revision) && Number(record2.revision) >= 0 && Number.isSafeInteger(record2.position) && Number(record2.position) >= 0 && Array.isArray(record2.material) && record2.material.every(validMaterial) && new Set(record2.material.map((item) => item.id)).size === record2.material.length && Array.isArray(record2.items) && record2.items.length > 0 && Number(record2.position) <= record2.items.length && new Set(record2.items.map((item) => item?.id)).size === record2.items.length && record2.items.every((item) => item && typeof item.id === "string" && !!item.id && typeof item.prompt === "string" && typeof item.promptLanguage === "string" && typeof item.spelling === "string" && typeof item.reading === "string" && typeof item.meaning === "string" && typeof item.language === "string") && (record2.purpose !== "listening" && record2.purpose !== "speaking" || record2.items.every((item) => validAudio(item.audio))) && Array.isArray(record2.ineligible) && record2.ineligible.every((id) => typeof id === "string") && !!record2.responses && typeof record2.responses === "object" && !Array.isArray(record2.responses) && Object.entries(record2.responses).every(([id, response]) => record2.items.some((item) => item.id === id) && validResponse(response)) && typeof record2.paused === "boolean" && Number.isFinite(record2.createdAt) && Number.isFinite(record2.updatedAt);
+  return record2.version === 1 && typeof record2.id === "string" && typeof record2.turn === "string" && typeof record2.title === "string" && PURPOSES.includes(record2.purpose) && Number.isSafeInteger(record2.revision) && Number(record2.revision) >= 0 && Number.isSafeInteger(record2.position) && Number(record2.position) >= 0 && Array.isArray(record2.material) && record2.material.every(validMaterial) && new Set(record2.material.map((item) => item.id)).size === record2.material.length && validItems(record2.items, record2.purpose) && Number(record2.position) <= record2.items.length && Array.isArray(record2.ineligible) && record2.ineligible.every((id) => typeof id === "string") && validResponses(record2.responses, record2.items) && typeof record2.paused === "boolean" && Number.isFinite(record2.createdAt) && Number.isFinite(record2.updatedAt);
+}
+function validItems(items, purpose) {
+  return Array.isArray(items) && items.length > 0 && new Set(items.map((item) => item?.id)).size === items.length && items.every(validItem) && (purpose !== "listening" && purpose !== "speaking" || items.every((item) => validAudio(item.audio)));
+}
+function validItem(item) {
+  return !!item && typeof item.id === "string" && !!item.id && typeof item.prompt === "string" && typeof item.promptLanguage === "string" && typeof item.spelling === "string" && typeof item.reading === "string" && typeof item.meaning === "string" && typeof item.language === "string";
+}
+function validResponses(responses, items) {
+  return !!responses && typeof responses === "object" && !Array.isArray(responses) && Object.entries(responses).every(([id, response]) => items.some((item) => item.id === id) && validResponse(response));
 }
 function validSummary(value) {
   if (!value || typeof value !== "object") return false;
@@ -35780,13 +35849,19 @@ function isReviewQueueRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record2 = value;
   const shortString = (item) => typeof item === "string" && item.length > 0 && item.length <= 256;
-  if (!shortString(record2.id) || !(shortString(record2.providerContext) || record2.target === "yomu-local" && record2.providerContext === "") || typeof record2.at !== "number" || !Number.isFinite(record2.at) || typeof record2.attempts !== "number" || !Number.isSafeInteger(record2.attempts) || record2.attempts < 0 || typeof record2.target !== "string" || !["anki", "jpdb-api", "jiten-api", "yomu-local"].includes(record2.target) || typeof record2.grade !== "string" || !["nothing", "something", "hard", "okay", "easy", "fail", "pass"].includes(record2.grade) || !record2.card || typeof record2.card !== "object" || Array.isArray(record2.card)) return false;
+  if (!shortString(record2.id) || !(shortString(record2.providerContext) || record2.target === "yomu-local" && record2.providerContext === "") || typeof record2.at !== "number" || !Number.isFinite(record2.at) || typeof record2.attempts !== "number" || !Number.isSafeInteger(record2.attempts) || record2.attempts < 0 || record2.heldSince !== void 0 && !Number.isFinite(record2.heldSince) || typeof record2.target !== "string" || !["anki", "jpdb-api", "jiten-api", "yomu-local"].includes(record2.target) || typeof record2.grade !== "string" || !["nothing", "something", "hard", "okay", "easy", "fail", "pass"].includes(record2.grade) || !record2.card || typeof record2.card !== "object" || Array.isArray(record2.card)) return false;
   const card = record2.card;
   return typeof card.spelling === "string" && typeof card.reading === "string" && JSON.stringify(value).length <= 256e3;
 }
 class ReviewDraftResetError extends Error {
   constructor() {
     super("The previous answer was cleared by factory reset. Reload Study.");
+  }
+}
+class ReviewQueueRejectedError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ReviewQueueRejectedError";
   }
 }
 class ExtensionReviewQueueClient {
@@ -35819,14 +35894,34 @@ class ExtensionReviewQueueClient {
     const epoch = parseManagedStateEpoch(value.epoch);
     const current = await this.currentEpoch();
     if (current.generation > epoch.generation) {
-      if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+      this.clearDraftIfUnchanged(draft);
       throw new ReviewDraftResetError();
     }
     this.epoch ??= epoch;
     if (!sameManagedStateEpoch(this.epoch, epoch)) throw new Error("Review draft belongs to a different reset generation.");
-    await this.request({ kind: "record", reviews: structuredClone(value.reviews) });
-    if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
+    try {
+      await this.request({ kind: "record", reviews: structuredClone(value.reviews) });
+    } catch (error) {
+      if (error instanceof ReviewQueueRejectedError) this.clearDraftIfUnchanged(draft);
+      throw error;
+    }
+    this.clearDraftIfUnchanged(draft);
     return structuredClone(value.reviews);
+  }
+  /** Hands an earlier release's durable offline queue to the owner (idempotent by id). */
+  async adopt(reviews) {
+    if (!reviews.length) return;
+    await this.request({ kind: "adopt", reviews: structuredClone([...reviews]) });
+  }
+  /** `heldSince` names the claim to release, so a late retry cannot free a newer claim. */
+  async release(id, providerContext, heldSince) {
+    await this.request({ kind: "release", id, providerContext, ...heldSince === void 0 ? {} : { heldSince } });
+  }
+  async discard(id, providerContext) {
+    await this.request({ kind: "discard", id, providerContext });
+  }
+  clearDraftIfUnchanged(draft) {
+    if (JSON.stringify(this.drafts.read()) === JSON.stringify(draft)) this.drafts.clear();
   }
   async claim(id, providerContext) {
     const value = await this.request({ kind: "claim", id, providerContext });
@@ -35868,7 +35963,7 @@ class ExtensionReviewQueueClient {
       if (!sameManagedStateEpoch(before, await this.currentEpoch())) throw new Error("Review queue reset generation changed; reload Study.");
       if (!response || typeof response !== "object" || Array.isArray(response)) throw new Error("Invalid review queue response.");
       const result = response;
-      if (result.ok !== true) throw new Error(typeof result.error === "string" ? result.error : "Review queue request failed.");
+      if (result.ok !== true) throw new ReviewQueueRejectedError(typeof result.error === "string" ? result.error : "Review queue request failed.");
       return result.value;
     } finally {
       if (timer !== void 0) clearTimeout(timer);
@@ -35912,11 +36007,15 @@ const gmGradeQueueStorage = {
   set: gmStorageSet,
   delete: gmStorageDelete
 };
+const GRADE_QUEUE_LEASE = "newtab-grade-queue";
+const HELD_REVIEW_SETTLE_MS = 5 * 6e4;
+const UNBOUND_PROVIDER_CONTEXT = "legacy";
 class NewTabGradeQueue {
   constructor(deps) {
     this.deps = deps;
     this.storage = deps.storage ?? gmGradeQueueStorage;
     this.owner = deps.owner !== void 0 ? deps.owner : createPackagedReviewQueueClient();
+    this.exclusive = deps.exclusive ?? ((operation) => withGmStorageLease(GRADE_QUEUE_LEASE, operation));
   }
   // Read-modify-write mutex: a flush that snapshotted the queue while an
   // enqueue landed would otherwise clobber the fresh grade with its stale
@@ -35924,16 +36023,75 @@ class NewTabGradeQueue {
   serial = Promise.resolve();
   storage;
   owner;
+  exclusive;
   ownerReady = false;
   ownerPending = [];
-  legacyPending = false;
   notifiedCompletions = /* @__PURE__ */ new Set();
+  // Claims (id -> claim stamp) this tab dispatched and lost the outcome of.
+  unknownClaims = /* @__PURE__ */ new Map();
+  // Claims this tab certainly never sent, whose release reply was lost.
+  unsentClaims = /* @__PURE__ */ new Map();
   completionVersions = /* @__PURE__ */ new Map();
   enqueue(card, grade, targets, providerContextForTarget = this.deps.providerContextForTarget) {
     return this.locked(() => this.enqueueUnlocked(card, grade, targets, providerContextForTarget));
   }
+  // Flushes the queue and returns how many grades still remain unsynced.
   flush() {
-    return this.locked(() => this.flushUnlocked());
+    return this.locked(async () => {
+      if (this.owner) return this.flushOwned();
+      if (!(await this.read()).length) return 0;
+      return this.exclusive(() => this.flushShared());
+    });
+  }
+  /** Held reviews for the current provider accounts, awaiting "Check again" or "Discard". */
+  heldReviews() {
+    return this.locked(() => this.heldReviewsUnlocked());
+  }
+  /** Resolves each held review from a fresh provider read, then resends the ones that did not land. */
+  async recheckHeld() {
+    await this.locked(async () => {
+      for (const item of await this.heldReviewsUnlocked()) {
+        const landed = await (this.deps.confirmDelivered?.(item) ?? Promise.resolve(void 0)).catch(() => void 0);
+        if (landed !== void 0) await this.resolveHeld(item, landed);
+      }
+    });
+    return this.flush();
+  }
+  /** The learner chose to drop held reviews whose outcome is unknown. */
+  discardHeld() {
+    return this.locked(async () => {
+      const held = await this.heldReviewsUnlocked();
+      if (this.owner) {
+        for (const item of held) {
+          await this.owner.discard(item.id, item.providerContext ?? "");
+          this.unknownClaims.delete(item.id);
+        }
+        return;
+      }
+      const claims = new Map(held.map((item) => [item.id, item.heldSince]));
+      await this.exclusive(async () => this.write((await this.read()).filter((item) => !sameClaim(claims, item))));
+    });
+  }
+  // Number of grades waiting to sync back to the providers (for the sync-status UI).
+  async pendingCount() {
+    if (this.owner) return (await this.owner.list()).length;
+    return (await this.read()).length;
+  }
+  needsRecordingRecovery() {
+    try {
+      return this.owner?.hasPendingRecord() ?? false;
+    } catch {
+      return true;
+    }
+  }
+  usesSharedOwner() {
+    return this.owner !== null;
+  }
+  blocksReview(card) {
+    return Boolean(this.owner && (this.needsRecordingRecovery() || !this.ownerReady || this.ownerPending.some((item) => this.providerIsCurrent(item) && cardKey(item.card) === cardKey(card))));
+  }
+  recoverRecording() {
+    return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
   }
   locked(operation) {
     const next = this.serial.then(operation, operation);
@@ -35957,67 +36115,100 @@ class NewTabGradeQueue {
       this.ownerPending.push(...structuredClone(entries2));
       return true;
     }
-    const queue = await this.read();
-    const entryKeys = new Set(entries2.map((entry) => this.key(entry)));
-    if (queue.some((item) => item.target === "anki" && item.attempts > 0 && entryKeys.has(this.key(item)))) return false;
-    const deduped = queue.filter((item) => !entryKeys.has(this.key(item)));
-    deduped.push(...entries2);
-    if (deduped.length > NEW_TAB_GRADE_QUEUE_LIMIT) return false;
-    await this.write(deduped);
-    return true;
-  }
-  // Number of grades waiting to sync back to the providers (for the sync-status UI).
-  async pendingCount() {
-    if (this.owner) return (await this.owner.list()).length;
-    return (await this.read()).length;
-  }
-  async hasUncertainReviews() {
-    if (this.owner) return this.legacyPending || (await this.owner.list()).some((item) => item.attempts > 0);
-    return (await this.read()).some((item) => item.target === "anki" && item.attempts > 0);
-  }
-  needsRecordingRecovery() {
-    try {
-      return this.owner?.hasPendingRecord() ?? false;
-    } catch {
+    return this.exclusive(async () => {
+      const queue = await this.read();
+      const entryKeys = new Set(entries2.map((entry) => this.key(entry)));
+      if (queue.some((item) => item.heldSince !== void 0 && entryKeys.has(this.key(item)))) return false;
+      const deduped = queue.filter((item) => !entryKeys.has(this.key(item)));
+      deduped.push(...entries2);
+      if (deduped.length > NEW_TAB_GRADE_QUEUE_LIMIT) return false;
+      await this.write(deduped);
       return true;
+    });
+  }
+  async heldReviewsUnlocked() {
+    const reviews = this.owner ? await this.owner.list() : await this.read();
+    return reviews.filter((item) => this.providerIsCurrent(item) && !this.notifiedCompletions.has(item.id) && !sameClaim(this.unsentClaims, item) && this.outcomeUnknown(item));
+  }
+  /** Held means the outcome is unknown, never "another tab may still be sending it". */
+  outcomeUnknown(item) {
+    const claimed = this.owner ? item.attempts > 0 : item.heldSince !== void 0;
+    return claimed && (sameClaim(this.unknownClaims, item) || Date.now() - (item.heldSince ?? 0) >= HELD_REVIEW_SETTLE_MS);
+  }
+  async resolveHeld(item, landed) {
+    if (this.owner) {
+      const context = item.providerContext ?? "";
+      if (landed) this.notifySubmitted(item);
+      await (landed ? this.owner.acknowledge(item.id, context) : this.owner.release(item.id, context, item.heldSince));
+      this.unknownClaims.delete(item.id);
+      return;
     }
-  }
-  usesSharedOwner() {
-    return this.owner !== null;
-  }
-  blocksReview(card) {
-    return Boolean(this.owner && (this.needsRecordingRecovery() || !this.ownerReady || this.legacyPending || this.ownerPending.some((item) => this.providerIsCurrent(item) && cardKey(item.card) === cardKey(card))));
-  }
-  recoverRecording() {
-    return this.locked(() => this.owner?.resumeRecord() ?? Promise.resolve(null));
+    await this.exclusive(async () => {
+      const queue = await this.read();
+      if (!queue.some((entry) => entry.id === item.id && entry.heldSince === item.heldSince)) return;
+      if (landed) this.deps.onSubmitted(item.card);
+      await this.write(landed ? queue.filter((entry) => entry.id !== item.id) : queue.map((entry) => entry.id === item.id ? withoutHold(entry) : entry));
+      this.unknownClaims.delete(item.id);
+    });
   }
   async flushOwned() {
     const owner = this.owner;
     this.ownerReady = false;
-    const legacy = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null);
-    this.legacyPending = legacy !== null && (!Array.isArray(legacy) || legacy.length > 0);
+    await this.adoptLegacyQueue(owner).catch(() => void 0);
     await this.refreshOwnerPending();
-    if (!this.needsRecordingRecovery() && !this.legacyPending) {
-      for (const item of this.ownerPending) {
-        if (!this.providerIsCurrent(item)) continue;
-        if (item.attempts !== 0) {
-          if (this.notifiedCompletions.has(item.id)) await owner.acknowledge(item.id, item.providerContext ?? "");
-          continue;
-        }
-        const claimed = await owner.claim(item.id, item.providerContext ?? "");
-        if (!claimed || !this.providerIsCurrent(claimed)) continue;
-        try {
-          if (await this.deps.submit(claimed)) {
-            this.notifySubmitted(claimed);
-            await owner.acknowledge(claimed.id, claimed.providerContext ?? "");
-          }
-        } catch {
-        }
-      }
+    if (!this.needsRecordingRecovery()) {
+      const deliverable = this.deliveryProbe();
+      for (const item of this.ownerPending) await this.deliverOwned(owner, item, deliverable);
     }
     await this.refreshOwnerPending();
     this.ownerReady = true;
     return this.ownerPending.length;
+  }
+  /**
+   * 1.9.3's offline queue lives under the same key (and hosted Study over the
+   * extension storage bridge still writes it). Hand its reviews to the owner
+   * with their original ids (so a repeated hand-over is a no-op), then retire
+   * exactly what the owner now has. The owner takes only what fits, and held
+   * entries belong to a hosted Study tab still resolving them: whatever stays
+   * in the key waits for a later flush, never erased and never blocking Study.
+   */
+  async adoptLegacyQueue(owner) {
+    if (!(await this.read()).some((item) => item.heldSince === void 0)) return;
+    await this.exclusive(async () => {
+      const legacy = await this.read();
+      const adoptable = legacy.filter((item) => item.heldSince === void 0).map(adoptedReview).filter(isReviewQueueRecord).slice(0, NEW_TAB_GRADE_QUEUE_LIMIT);
+      if (!adoptable.length) return;
+      await owner.adopt(adoptable).catch(() => void 0);
+      const { statuses } = await owner.snapshot(adoptable.map((item) => item.id), []);
+      const adopted = new Set(adoptable.filter((item) => statuses[item.id] !== "unknown").map((item) => item.id));
+      if (adopted.size) await this.write(legacy.filter((item) => !adopted.has(item.id)));
+    });
+  }
+  async deliverOwned(owner, item, deliverable) {
+    if (!this.providerIsCurrent(item)) return;
+    const context = item.providerContext ?? "";
+    if (item.attempts !== 0) {
+      if (this.notifiedCompletions.has(item.id)) await owner.acknowledge(item.id, context);
+      else if (this.unsentClaims.has(item.id)) await this.releaseClaim(owner, item.id, context, this.unsentClaims.get(item.id));
+      return;
+    }
+    if (!await deliverable.possible(item.target)) return;
+    const claimed = await owner.claim(item.id, context);
+    if (!claimed) return;
+    const outcome = this.providerIsCurrent(claimed) ? await this.dispatch(claimed, deliverable) : { status: "not-delivered" };
+    if (outcome.status === "delivered") {
+      this.notifySubmitted(claimed);
+      await owner.acknowledge(claimed.id, context).catch(() => void 0);
+    } else if (outcome.status === "not-delivered") {
+      this.unsentClaims.set(claimed.id, claimed.heldSince);
+      await this.releaseClaim(owner, claimed.id, context, claimed.heldSince).catch(() => void 0);
+    } else {
+      this.unknownClaims.set(claimed.id, claimed.heldSince);
+    }
+  }
+  async releaseClaim(owner, id, context, heldSince) {
+    await owner.release(id, context, heldSince);
+    this.unsentClaims.delete(id);
   }
   async refreshOwnerPending() {
     const owner = this.owner;
@@ -36025,7 +36216,11 @@ class NewTabGradeQueue {
       const context = this.deps.providerContextForTarget(target);
       return { target, context, key: reviewDeliveryScope(target, context) };
     });
-    const { reviews: pending2, statuses, revisions } = await owner.snapshot(this.ownerPending.map((item) => item.id), scopes.map((scope) => scope.key));
+    const ids = this.ownerPending.map((item) => item.id);
+    const { reviews: pending2, statuses, revisions } = await owner.snapshot(ids.slice(0, NEW_TAB_GRADE_QUEUE_LIMIT), scopes.map((scope) => scope.key));
+    for (let start = NEW_TAB_GRADE_QUEUE_LIMIT; start < ids.length; start += NEW_TAB_GRADE_QUEUE_LIMIT) {
+      Object.assign(statuses, (await owner.snapshot(ids.slice(start, start + NEW_TAB_GRADE_QUEUE_LIMIT), [])).statuses);
+    }
     const missing = this.ownerPending.filter((item) => !pending2.some((current) => current.id === item.id));
     if (missing.some((item) => statuses[item.id] === "unknown")) throw new Error("Review completion could not be verified.");
     if (scopes.some((scope) => revisions[scope.key] < (this.completionVersions.get(scope.key) ?? 0))) {
@@ -36047,43 +36242,69 @@ class NewTabGradeQueue {
     this.deps.onSubmitted(item.card);
     this.notifiedCompletions.add(item.id);
   }
-  // Flushes the queue and returns how many grades still remain unsynced.
-  async flushUnlocked() {
-    if (this.owner) return this.flushOwned();
+  async flushShared() {
     const queue = await this.read();
     if (!queue.length) return 0;
     let pending2 = [...queue];
+    const replace = (id, next) => {
+      pending2 = next ? pending2.map((entry) => entry.id === id ? next : entry) : pending2.filter((entry) => entry.id !== id);
+    };
+    const deliverable = this.deliveryProbe();
     for (const item of queue) {
-      if (!this.canSubmit(item)) continue;
-      const attempted = item.target === "anki" ? { ...item, attempts: 1 } : item;
-      if (attempted !== item) {
-        pending2 = pending2.map((entry) => entry.id === item.id ? attempted : entry);
+      if (!this.canSubmit(item) || !await deliverable.possible(item.target)) continue;
+      const dispatched = item.target === "anki" ? { ...item, heldSince: Date.now() } : item;
+      if (dispatched !== item) {
+        replace(item.id, dispatched);
         await this.write(pending2);
+        if (!this.providerIsCurrent(item)) {
+          replace(item.id, item);
+          continue;
+        }
       }
-      if (!this.providerIsCurrent(attempted)) continue;
-      const retry = await this.flushItem(attempted);
-      pending2 = retry ? pending2.map((entry) => entry.id === item.id ? retry : entry) : pending2.filter((entry) => entry.id !== item.id);
+      const outcome = await this.dispatch(dispatched, deliverable);
+      if (outcome.status === "delivered") this.deps.onSubmitted(item.card);
+      if (outcome.status === "unknown") this.unknownClaims.set(item.id, dispatched.heldSince);
+      replace(item.id, outcome.status === "delivered" ? null : outcome.status === "unknown" ? { ...dispatched, lastError: outcome.error } : { ...item, attempts: item.attempts + 1, lastError: outcome.error });
     }
     await this.write(pending2);
     return pending2.length;
   }
-  async flushItem(item) {
+  async dispatch(item, deliverable) {
     try {
-      const submitted = await this.deps.submit(item);
-      if (!submitted) return item;
-      this.deps.onSubmitted(item.card);
-      return null;
+      return await this.deps.submit(item) ? { status: "delivered" } : { status: "not-delivered", error: "Review was not submitted." };
     } catch (error) {
-      return failedQueuedGrade(item, error);
+      const message = error instanceof Error ? error.message : String(error);
+      if (item.target !== "anki") return { status: "not-delivered", error: message };
+      deliverable.stop("anki");
+      return { status: "unknown", error: message };
     }
+  }
+  deliveryProbe() {
+    const results = /* @__PURE__ */ new Map();
+    return {
+      possible: (target) => {
+        let result = results.get(target);
+        if (!result) {
+          result = this.deliveryPossible(target);
+          results.set(target, result);
+        }
+        return result;
+      },
+      stop: (target) => {
+        results.set(target, Promise.resolve(false));
+      }
+    };
+  }
+  async deliveryPossible(target) {
+    if (target !== "anki" && target !== "yomu-local" && typeof navigator !== "undefined" && navigator.onLine === false) return false;
+    return this.deps.canDeliver ? this.deps.canDeliver(target).catch(() => false) : true;
   }
   key(item) {
     const context = "providerContext" in item ? item.providerContext ?? "legacy" : "legacy";
     return `${context}:${item.target}:${cardKey(item.card)}`;
   }
   canSubmit(item) {
-    if (item.target === "anki" && item.attempts > 0) return false;
-    return this.providerIsCurrent(item);
+    return item.heldSince === void 0 && this.providerIsCurrent(item);
   }
   providerIsCurrent(item) {
     return item.target === "yomu-local" || Boolean(item.providerContext && item.providerContext === this.deps.providerContextForTarget(item.target));
@@ -36103,11 +36324,18 @@ class NewTabGradeQueue {
 function queuedGradeProviderBinding(target, providerContextForTarget) {
   return target === "yomu-local" ? {} : { providerContext: providerContextForTarget(target) };
 }
-function failedQueuedGrade(item, error) {
+function sameClaim(claims, item) {
+  return claims.has(item.id) && claims.get(item.id) === item.heldSince;
+}
+function withoutHold(item) {
+  const { heldSince: _held, ...pending2 } = item;
+  return pending2;
+}
+function adoptedReview(item) {
   return {
-    ...item,
-    attempts: item.target === "anki" ? item.attempts : item.attempts + 1,
-    lastError: error instanceof Error ? error.message : String(error)
+    ...withoutHold(item),
+    attempts: 0,
+    providerContext: item.target === "yomu-local" ? "" : item.providerContext || UNBOUND_PROVIDER_CONTEXT
   };
 }
 function isQueuedNewTabGrade(value) {
@@ -36125,7 +36353,7 @@ function hasQueuedGradeTarget(record2) {
   return record2.target === "anki" || record2.target === "jpdb-api" || record2.target === "jiten-api" || record2.target === "bunpro-api" || record2.target === "yomu-local";
 }
 function hasQueuedGradePayload(record2) {
-  return isObjectRecord(record2.card) && typeof record2.attempts === "number" && (record2.providerContext === void 0 || typeof record2.providerContext === "string");
+  return isObjectRecord(record2.card) && typeof record2.attempts === "number" && (record2.providerContext === void 0 || typeof record2.providerContext === "string") && (record2.heldSince === void 0 || typeof record2.heldSince === "number");
 }
 function isJpdbGrade(value) {
   return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
@@ -36326,6 +36554,25 @@ function newTabUndoableReview(card, isCorrection, canUndoJiten, at = Date.now())
 }
 function requiresFreshProviderReview(card) {
   return CONSUMED_REVIEW_SOURCES.has(card.reviewSource) || CONSUMED_CARD_SOURCES.has(card.source);
+}
+function syncHeldReviewNotice(root, count, copy) {
+  const existing = root.querySelector("[data-newtab-held-reviews]");
+  if (count <= 0) {
+    existing?.remove();
+    return;
+  }
+  const notice = existing ?? el("div", { class: "jpdb-reader-newtab-held-reviews", dataset: { newtabHeldReviews: true }, role: "group" });
+  if (!existing) {
+    const anchor = root.querySelector("[data-newtab-count]");
+    if (!anchor) return;
+    anchor.after(notice);
+  }
+  replaceChildrenWith(
+    notice,
+    el("span", {}, copy.message),
+    el("button", { type: "button", dataset: { newtabAction: newTabAction("check-held-reviews") } }, copy.check),
+    el("button", { type: "button", dataset: { newtabAction: newTabAction("discard-held-reviews") } }, copy.discard)
+  );
 }
 function renderNewTabBrand(overflowMenu, brand) {
   if (!overflowMenu) return null;
@@ -37315,7 +37562,7 @@ class StudyExamplesPresentation {
     const context = this.queries.searchContext();
     entry.promise = this.fetchFrontSentence(card).then(({ sentence, status }) => {
       this.queries.assertSearchContext(context);
-      entry.expiresAt = Math.min(Date.now() + (status === "partial" ? 1e3 : 3e4), this.queries.validUntil(card));
+      entry.expiresAt = Math.min(Date.now() + (sentence || status === "complete" ? 3e4 : 1e3), this.queries.validUntil(card));
       return sentence;
     }).catch((error) => {
       entry.expiresAt = Date.now() + 1e3;
@@ -37746,6 +37993,10 @@ class StudyExamplesPresentation {
     return this.renderNewTabImmersionCardVariant(card, example, index, total, "kanji");
   }
 }
+function acquisitionExpiry(result) {
+  if (result.examples.length) return Infinity;
+  return Date.now() + (result.status === "partial" ? 1e3 : 1e4);
+}
 class StudyExampleQueries {
   constructor(deps) {
     this.deps = deps;
@@ -37774,7 +38025,7 @@ class StudyExampleQueries {
       settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
       "Immersion Kit examples timed out."
     ).then((result) => {
-      entry.expiresAt = Date.now() + (result.status === "partial" ? 1e3 : result.examples.length ? 3e5 : 1e4);
+      entry.expiresAt = acquisitionExpiry(result);
       return result;
     }).catch((error) => {
       entry.expiresAt = Date.now() + 1e3;
@@ -38586,7 +38837,9 @@ class NewTabController {
       providerContextForTarget: (target) => newTabReviewProviderContext(this.providerContexts, target),
       submit: (item) => this.submitQueuedGrade(item),
       onSubmitted: (card) => this.queuedReviewSubmitted(card),
-      onProviderCompleted: (target) => this.reviewProviderCompleted(target)
+      onProviderCompleted: (target) => this.reviewProviderCompleted(target),
+      canDeliver: (target) => this.canDeliverQueuedReview(target),
+      confirmDelivered: (item) => this.confirmQueuedReviewDelivered(item)
     });
     this.studyExamples = new StudyExamples({
       getSettings: () => this.dependencies.getSettings(),
@@ -39740,6 +39993,11 @@ class NewTabController {
     if (action === "recover-review-recording") {
       event.preventDefault();
       void this.recoverReviewRecording(root);
+      return true;
+    }
+    if (action === "check-held-reviews" || action === "discard-held-reviews") {
+      event.preventDefault();
+      void this.resolveHeldReviews(root, action === "discard-held-reviews");
       return true;
     }
     if (action === "practice-sessions") {
@@ -45076,7 +45334,16 @@ class NewTabController {
     return this.gradeCurrentCardUnlocked(grade, selectedTarget2);
   }
   async queueGradeForLater(target, grade, queueTargets, isCorrection, providerContexts) {
-    if (!await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts)) {
+    let queued;
+    try {
+      queued = await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts);
+    } catch (error) {
+      if (!(error instanceof ReviewQueueRejectedError)) throw error;
+      log$8.warn("Review owner refused the answer", error);
+      this.setStatus(target.root, this.reviewRejectionText(error));
+      return false;
+    }
+    if (!queued) {
       this.setStatus(target.root, this.text("couldNotSubmitGrade"));
       return false;
     }
@@ -45084,7 +45351,7 @@ class NewTabController {
     this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
     this.setStatus(target.root, this.text("offlineGradeReconnect"));
     if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-    this.advanceAfterGrade(target.root, target.card, grade);
+    this.advanceAfterGrade(target.root, target.card, grade, false);
     return true;
   }
   tryQueueGrade(card, grade, targets, providerContexts) {
@@ -45341,6 +45608,9 @@ class NewTabController {
     if (providerContext !== this.providerContexts.anki) return null;
     try {
       return await this.refreshAnkiReviewCardState(card, cardId, providerContext);
+    } catch (error) {
+      log$8.warn("Anki card state refresh after a review failed", error);
+      return null;
     } finally {
       this.publishAnkiGradeIfCurrent(card, providerContext);
     }
@@ -45446,7 +45716,8 @@ class NewTabController {
     try {
       this.syncPendingCount = await this.gradeQueue.flush();
       if (this.destroyed) return;
-      this.syncProblem = await this.gradeQueue.hasUncertainReviews() ? "syncReviewCheck" : void 0;
+      this.heldReviewCount = (await this.gradeQueue.heldReviews()).length;
+      this.syncProblem = this.heldReviewCount ? "syncReviewCheck" : void 0;
       if (this.destroyed) return;
       if (this.syncPendingCount === 0) this.lastSyncedAt = Date.now();
       const root = this.currentRoot();
@@ -45461,6 +45732,7 @@ class NewTabController {
       this.syncProblem = "syncUnavailable";
     }
     this.refreshSessionProgressSoon();
+    this.syncHeldReviewNotice();
     const current = this.currentGradeTarget();
     if (current && this.gradeQueue.usesSharedOwner()) {
       current.root.classList.toggle("jpdb-reader-newtab-review-mode", this.canReviewCard(current.card));
@@ -45512,7 +45784,7 @@ class NewTabController {
       if (this.destroyed) return;
       if (error instanceof ReviewDraftResetError) this.queuedReviewNeedsRefresh = true;
       log$8.warn("Review recording recovery failed", error);
-      this.setStatus(root, this.text(error instanceof ReviewDraftResetError ? "reviewResetReload" : "syncUnavailable"));
+      this.setStatus(root, error instanceof ReviewQueueRejectedError ? this.reviewRejectionText(error) : this.text(error instanceof ReviewDraftResetError ? "reviewResetReload" : "syncUnavailable"));
     } finally {
       this.gradeSubmissionInFlight = false;
       if (this.destroyed) return;
@@ -45524,12 +45796,60 @@ class NewTabController {
   recordingRecoveryButton() {
     return el("button", { type: "button", dataset: { newtabAction: newTabAction("recover-review-recording") } }, this.text("recoverReviewRecording"));
   }
+  reviewRejectionText(error) {
+    return this.text(error.message === REVIEW_QUEUE_FULL_ERROR ? "reviewQueueFull" : "reviewQueueRejected");
+  }
+  heldReviewCount = 0;
+  syncHeldReviewNotice() {
+    const root = this.currentRoot();
+    if (!root) return;
+    syncHeldReviewNotice(root, this.heldReviewCount, {
+      message: this.formatNewTabText("heldReviewsNotice", { count: String(this.heldReviewCount) }),
+      check: this.text("heldReviewsCheck"),
+      discard: this.text("heldReviewsDiscard")
+    });
+  }
+  // "Check again" reads the provider's own review history; "Discard" drops
+  // answers the learner has decided not to resend.
+  async resolveHeldReviews(root, discard) {
+    root.querySelectorAll("[data-newtab-held-reviews] button").forEach((button) => {
+      button.disabled = true;
+    });
+    try {
+      if (discard) await this.gradeQueue.discardHeld();
+      else await this.gradeQueue.recheckHeld();
+      await this.flushQueuedGrades();
+      if (this.destroyed) return;
+      this.setStatus(root, this.text(discard ? "heldReviewsDiscarded" : this.heldReviewCount ? "heldReviewsStillUnknown" : "syncSynced"));
+    } catch (error) {
+      if (this.destroyed) return;
+      log$8.warn("Held review resolution failed", error);
+      this.setStatus(root, this.text("syncUnavailable"));
+      this.syncHeldReviewNotice();
+    }
+  }
+  // AnkiConnect is local: probe it before a queued answer is claimed, so a
+  // closed Anki leaves the answer pending instead of holding it.
+  async canDeliverQueuedReview(target) {
+    if (target === "anki") await this.dependencies.anki.invoke("version");
+    return true;
+  }
+  // Only Anki exposes the review log needed to tell whether a held answer
+  // landed; other providers resend, as 1.9.3 retried them.
+  async confirmQueuedReviewDelivered(item) {
+    if (item.target !== "anki") return false;
+    const cardId = this.ankiCardIdForReview(item.card);
+    return cardId ? ankiCardReviewedSince((action, params) => this.dependencies.anki.invoke(action, params), cardId, item.at) : void 0;
+  }
   // Thin delegation to the same table-driven adapter dispatch the live grade
   // path uses; the Bunpro migration guard is handled inside the submitter.
   submitQueuedGrade(item) {
     return this.reviewSubmitter.submitQueued(item);
   }
-  advanceAfterGrade(root, card, grade) {
+  // `delivered` is false for an answer only queued for later: the native
+  // scheduler has not seen it, so there is nothing fresh to reload (and an
+  // offline session must keep going through its cached cards).
+  advanceAfterGrade(root, card, grade, delivered = true) {
     const key = cardKey(card);
     const previousIndex = this.index;
     const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
@@ -45543,7 +45863,7 @@ class NewTabController {
     this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
     this.state.revealAnswer = false;
     this.persistState();
-    if (requiresFreshProviderReview(card)) {
+    if (delivered && requiresFreshProviderReview(card)) {
       this.markQueueRefreshed();
       return this.loadWordsInto(root, false, { useOfflineCache: false });
     }
@@ -46176,6 +46496,313 @@ function newTabSettingsWithPageTarget(settings, targetLanguage2) {
     languageProfiles: settings.languageProfiles.map((profile) => profile === active ? { ...profile, targetLanguage: targetLanguage2 } : profile)
   };
 }
+function settingsRestoreSaveOptions(previous, next, importedView) {
+  const persistPreferredJapaneseSiteLanguage = importedView !== null || previous.preferJapaneseSiteLanguage !== next.preferJapaneseSiteLanguage;
+  if (!importedView) {
+    return {
+      persistPreferredJapaneseSiteLanguage,
+      explicitUserChoiceKeys: changedSettingsKeys(previous, next)
+    };
+  }
+  const normalizedKeys = Object.keys(next);
+  const knownKeys = new Set(normalizedKeys);
+  const explicitUserChoiceKeys = settingsIntentKeys(importedView.intentLedger).filter((key) => knownKeys.has(key));
+  return {
+    persistPreferredJapaneseSiteLanguage,
+    clearExplicitUserChoiceKeys: normalizedKeys,
+    explicitUserChoiceKeys
+  };
+}
+function witnessedSettingsRestoreCandidate(previous, fallback, importedView) {
+  if (!importedView) return fallback;
+  const witnessed = importedView.settings;
+  return normalizeReaderSettings({
+    ...previous,
+    ...witnessed,
+    shortcuts: { ...previous.shortcuts, ...witnessed.shortcuts ?? {} }
+  });
+}
+async function runSettingsRestoreTransaction(options) {
+  const importedView = await readBackupSettingsPersistenceView(options.storage);
+  await options.prepareSettings?.(importedView);
+  const storedValues = await beginStoredValuesImport(options.storage);
+  try {
+    await options.stageBeforeSettings?.();
+    await options.publishSettings(importedView);
+    storedValues.commit();
+    return { restoredValues: storedValues.count };
+  } catch (error) {
+    return rollbackSettingsRestore(error, storedValues, options.rollbackBeforeSettings);
+  }
+}
+async function rollbackSettingsRestore(error, storedValues, rollbackBeforeSettings) {
+  const rollbackErrors = await collectRollbackErrors([
+    rollbackBeforeSettings ?? noRollback,
+    () => storedValues.rollback()
+  ]);
+  if (!rollbackErrors.length) throw error;
+  throw new AggregateError(
+    [error, ...rollbackErrors],
+    `Settings restore failed and ${rollbackErrors.length} rollback operation(s) also failed.`
+  );
+}
+async function collectRollbackErrors(operations) {
+  const failures = [];
+  for (const operation of operations) {
+    try {
+      await operation();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  return failures;
+}
+async function noRollback() {
+}
+const log$7 = Logger.scope("SettingsFileIO");
+function recommendedDictionaryFilename(dictionary) {
+  if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
+  try {
+    const parsed = new URL(dictionary.downloadUrl);
+    const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
+    if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
+  } catch {
+  }
+  return `${dictionary.id}.zip`;
+}
+const READER_SETTINGS_BACKUP_FORMAT = "yomu-reader-settings";
+const READER_SETTINGS_BACKUP_VERSION = 3;
+const BACKUP_FIELDS = /* @__PURE__ */ new Set(["formatName", "formatVersion", "exportedAt", "settings", "storage", "dictionaries"]);
+function parseReaderSettingsBackup(value) {
+  if (!isRecord$5(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord$5(value.settings)) return null;
+  if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
+  const storage = value.storage;
+  if (storage !== void 0 && !isRecord$5(storage)) return null;
+  if (value.dictionaries !== void 0 && !isReaderDictionaryExport(value.dictionaries)) return null;
+  return { settings: value.settings, storage, dictionaries: value.dictionaries };
+}
+function readerDictionaryExportHasData(value) {
+  if (!isReaderDictionaryExport(value)) return false;
+  const record2 = value;
+  return arrayHasItems(record2.dictionaries) || arrayHasItems(record2.entries) || arrayHasItems(record2.terms) || arrayHasItems(record2.kanji) || arrayHasItems(record2.termMeta) || arrayHasItems(record2.kanjiMeta);
+}
+function isReaderDictionaryExport(value) {
+  if (!value || typeof value !== "object") return false;
+  const formatName = value.formatName;
+  return formatName === "yomu-yomitan-dictionaries" || formatName === "jpdb-reader-yomitan-dictionaries";
+}
+function arrayHasItems(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+async function pickFile(root, type) {
+  return (await pickFiles(root, type))[0] ?? null;
+}
+function pickFiles(root, type) {
+  const inputEl = root.querySelector(`input[data-file="${type}"]`);
+  if (!inputEl) {
+    log$7.warn("File picker input missing", { type });
+    return Promise.resolve([]);
+  }
+  return new Promise((resolve) => {
+    inputEl.onchange = () => {
+      const files = Array.from(inputEl.files ?? []);
+      inputEl.value = "";
+      resolve(files);
+    };
+    dispatchAuthorizedReaderControlClick(inputEl);
+  });
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
+}
+function dateStamp() {
+  return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+}
+async function restoreReaderSettingsBackup(file, previousSettings, port) {
+  const text2 = await file.text();
+  let json;
+  try {
+    json = JSON.parse(text2);
+  } catch {
+    throw userFacingError("settingsImportUnsupportedFormat");
+  }
+  const backup = parseReaderSettingsBackup(json);
+  if (!backup) throw userFacingError("settingsImportUnsupportedFormat");
+  let importedSettings = normalizeReaderSettings({
+    ...previousSettings,
+    ...backup.settings,
+    shortcuts: { ...previousSettings.shortcuts, ...backup.settings.shortcuts }
+  });
+  const dictionaries2 = await BundledDictionaryRestore.prepare(backup.dictionaries, port);
+  const result = await runSettingsRestoreTransaction({
+    storage: backup.storage,
+    prepareSettings: (importedView) => {
+      importedSettings = witnessedSettingsRestoreCandidate(
+        previousSettings,
+        importedSettings,
+        importedView
+      );
+    },
+    stageBeforeSettings: () => dictionaries2.stage(importedSettings).then((settings) => {
+      importedSettings = settings;
+    }),
+    rollbackBeforeSettings: () => dictionaries2.rollback(),
+    publishSettings: (importedView) => port.persistSettings(
+      importedSettings,
+      settingsRestoreSaveOptions(previousSettings, importedSettings, importedView)
+    )
+  });
+  port.adoptSettings(importedSettings);
+  return importSettingsStatus(result.restoredValues, dictionaries2.summary, importedSettings.interfaceLanguage);
+}
+class BundledDictionaryRestore {
+  constructor(restore, port) {
+    this.restore = restore;
+    this.port = port;
+  }
+  mutationAttempted = false;
+  importedSummary = null;
+  static async prepare(json, port) {
+    return new BundledDictionaryRestore(await dictionaryRestoreFiles(json, port.dictionaries), port);
+  }
+  get summary() {
+    return this.importedSummary;
+  }
+  async stage(settings) {
+    if (this.restore) await this.importBundledDictionaries(this.restore.imported, settings.interfaceLanguage);
+    const merged = await mergeImportedDictionaryPreferences(settings, this.port.dictionaries);
+    this.port.dictionaryStateChanged();
+    return merged;
+  }
+  async rollback() {
+    if (!this.restore || !this.mutationAttempted) return;
+    await this.port.dictionaries.importFile(this.restore.previous);
+    this.port.dictionaryStateChanged();
+  }
+  async importBundledDictionaries(file, language2) {
+    this.mutationAttempted = true;
+    this.port.setStatus(uiText(language2, "importingBundledDictionaries"));
+    this.importedSummary = await this.port.dictionaries.importFile(
+      file,
+      (message) => this.port.setStatus(message)
+    );
+  }
+}
+async function dictionaryRestoreFiles(dictionaryExport, dictionaries2) {
+  if (!readerDictionaryExportHasData(dictionaryExport)) return null;
+  return {
+    imported: jsonFile(dictionaryExport, "yomu-dictionaries-from-settings.json"),
+    previous: new File(
+      [await dictionaries2.exportJson()],
+      "yomu-dictionaries-before-settings-restore.json",
+      { type: "application/json" }
+    )
+  };
+}
+function jsonFile(value, filename) {
+  return new File([JSON.stringify(value)], filename, { type: "application/json" });
+}
+async function mergeImportedDictionaryPreferences(settings, dictionaries2) {
+  const importedSummary = await dictionaries2.summary().catch(() => ({ dictionaries: [] }));
+  const importedNames = importedSummary.dictionaries.map((item) => item.title);
+  const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
+  const merged = mergeDictionaryPreferences(
+    retireStaleDictionaryPreferences(settings.dictionaryPreferences, importedNames),
+    importedNames,
+    importedTypes
+  );
+  return captureActiveLanguageProfileDictionaries(settings, merged);
+}
+function importSettingsStatus(restoredValues, dictionarySummary, language2) {
+  const details = restoreStatusDetails(restoredValues, dictionarySummary, language2);
+  return details.length ? uiText(language2, "settingsImportedWithDetails").replace("{details}", details.join("; ")) : uiText(language2, "settingsImported");
+}
+function restoreStatusDetails(restoredValues, dictionarySummary, language2) {
+  const details = [];
+  if (restoredValues) {
+    details.push(countStatus(uiText(language2, "restoredStoredChoices"), restoredValues));
+  }
+  if (dictionarySummary) {
+    details.push(countStatus(uiText(language2, "importedDictionaryRecordCount"), dictionarySummary.entries));
+  }
+  return details;
+}
+function countStatus(template, count) {
+  return template.replace("{count}", count.toLocaleString()).replace("{plural}", count === 1 ? "" : "s");
+}
+function importSettingsBackupForRecovery(file, setStatus) {
+  return restoreReaderSettingsBackup(file, DEFAULT_SETTINGS, {
+    dictionaries: new YomitanDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
+    setStatus,
+    persistSettings: saveSettings,
+    adoptSettings: () => void 0,
+    dictionaryStateChanged: () => void 0
+  });
+}
+function createSettingsRecoverySurface(language2) {
+  const element = document.createElement("section");
+  element.className = "jpdb-reader-extension-settings-recovery";
+  element.dataset.extensionSettingsRecovery = "blocked";
+  element.setAttribute("role", "alert");
+  element.setAttribute("aria-labelledby", "yomu-extension-settings-recovery-title");
+  element.setAttribute("aria-describedby", "yomu-extension-settings-recovery-copy");
+  element.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:Canvas;color:CanvasText;font:16px/1.5 system-ui,sans-serif;";
+  const card = document.createElement("div");
+  card.style.cssText = "width:min(560px,100%);padding:24px;border:1px solid ButtonBorder;border-radius:14px;background:Canvas;box-shadow:0 12px 40px #0004;";
+  const title = document.createElement("h1");
+  title.id = "yomu-extension-settings-recovery-title";
+  title.textContent = uiText(language2, "extensionSettingsRecoveryTitle");
+  const body = document.createElement("p");
+  body.id = "yomu-extension-settings-recovery-copy";
+  body.textContent = uiText(language2, "extensionSettingsRecoveryBody");
+  const actions = {
+    retry: recoveryButton("retry", uiText(language2, "extensionSettingsRecoveryRetry")),
+    import: recoveryButton("import", uiText(language2, "importSettings")),
+    reload: recoveryButton("reload", uiText(language2, "extensionSettingsRecoveryReload"))
+  };
+  const importInput = settingsFileInput();
+  const actionRow = document.createElement("div");
+  actionRow.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;";
+  actionRow.append(actions.retry, actions.import, actions.reload, importInput);
+  const status = document.createElement("p");
+  status.dataset.recoveryStatus = "";
+  status.setAttribute("aria-live", "polite");
+  card.append(title, body, actionRow, status);
+  element.append(card);
+  return { element, actions, importInput, status };
+}
+function setRecoveryActionsDisabled(surface, disabled) {
+  for (const button of Object.values(surface.actions)) button.disabled = disabled;
+}
+function isolateRecoverySurface(surface) {
+  const previousInert = [...document.body.children].filter((element) => element instanceof HTMLElement && element !== surface).map((element) => ({ element, inert: element.inert === true }));
+  for (const { element } of previousInert) element.inert = true;
+  return () => {
+    for (const { element, inert } of previousInert) element.inert = inert;
+  };
+}
+function recoveryButton(action, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "jpdb-reader-btn";
+  button.dataset.recoveryAction = action;
+  button.textContent = label;
+  return button;
+}
+function settingsFileInput() {
+  const input2 = document.createElement("input");
+  input2.type = "file";
+  input2.accept = "application/json,.json";
+  input2.hidden = true;
+  input2.tabIndex = -1;
+  input2.dataset.recoveryImportInput = "";
+  return input2;
+}
 const activeGuards = /* @__PURE__ */ new WeakMap();
 function ensureExtensionStudySettingsAuthority(options = {}) {
   const active = activeGuards.get(document);
@@ -46189,94 +46816,64 @@ function ensureExtensionStudySettingsAuthority(options = {}) {
   return guard;
 }
 async function runExtensionSettingsRecoveryGuard(options) {
-  const attempt2 = () => attemptCurrentSettingsRead(options.reportFailure);
+  const attempt2 = () => attemptCurrentSettingsRead(options);
   if (await attempt2()) return;
   await waitOnRecoverySurface(attempt2, options);
 }
-async function attemptCurrentSettingsRead(reportFailure) {
-  if (!/^(?:chrome|moz|safari-web)-extension:$/.test(location.protocol)) return true;
+async function attemptCurrentSettingsRead(options) {
   try {
     if (packagedExtensionStorageAdapterMissing()) throw new Error("Storage adapter unavailable");
+    await options.prepareStorage?.();
     await readSettingsPersistenceViewStrict();
     return true;
   } catch {
-    reportFailure?.();
+    options.reportFailure?.();
     return false;
   }
 }
 function waitOnRecoverySurface(retryAuthorityRecovery, options) {
   const language2 = options.interfaceLanguage ?? "auto";
-  const surface = recoverySurface(language2);
-  const retry = surface.querySelector('[data-recovery-action="retry"]');
-  const reload = surface.querySelector('[data-recovery-action="reload"]');
-  const status = surface.querySelector("[data-recovery-status]");
-  document.body.prepend(surface);
-  const restorePageInteractivity = isolateRecoverySurface(surface);
+  const surface = createSettingsRecoverySurface(language2);
+  const { retry, import: importSettings, reload } = surface.actions;
+  document.body.prepend(surface.element);
+  const restorePageInteractivity = isolateRecoverySurface(surface.element);
   retry.focus();
+  const readAgain = async () => await retryAuthorityRecovery() ? null : uiText(language2, "extensionSettingsRecoveryStillBlocked");
   return new Promise((resolve) => {
-    retry.addEventListener("click", () => {
-      retry.disabled = true;
-      reload.disabled = true;
-      status.textContent = uiText(language2, "extensionSettingsRecoveryRetrying");
-      void retryAuthorityRecovery().then((ready) => {
-        if (ready) {
+    const run = (step) => {
+      setRecoveryActionsDisabled(surface, true);
+      surface.status.textContent = uiText(language2, "extensionSettingsRecoveryRetrying");
+      void step().then((blocked) => {
+        if (blocked === null) {
           restorePageInteractivity();
-          surface.remove();
+          surface.element.remove();
           resolve();
           return;
         }
-        status.textContent = uiText(language2, "extensionSettingsRecoveryStillBlocked");
-        retry.disabled = false;
-        reload.disabled = false;
+        surface.status.textContent = blocked;
+        setRecoveryActionsDisabled(surface, false);
         retry.focus();
       });
+    };
+    retry.addEventListener("click", () => run(readAgain));
+    importSettings.addEventListener("click", () => surface.importInput.click());
+    surface.importInput.addEventListener("change", () => {
+      const file = surface.importInput.files?.[0];
+      surface.importInput.value = "";
+      if (file) run(() => importThenReadAgain(file, surface, language2, readAgain));
     });
     reload.addEventListener("click", () => (options.reload ?? (() => location.reload()))());
   });
 }
-function isolateRecoverySurface(surface) {
-  const previousInert = [...document.body.children].filter((element) => element instanceof HTMLElement && element !== surface).map((element) => ({ element, inert: element.inert === true }));
-  for (const { element } of previousInert) element.inert = true;
-  return () => {
-    for (const { element, inert } of previousInert) element.inert = inert;
-  };
-}
-function recoverySurface(language2) {
-  const surface = document.createElement("section");
-  surface.className = "jpdb-reader-extension-settings-recovery";
-  surface.dataset.extensionSettingsRecovery = "blocked";
-  surface.setAttribute("role", "alert");
-  surface.setAttribute("aria-labelledby", "yomu-extension-settings-recovery-title");
-  surface.setAttribute("aria-describedby", "yomu-extension-settings-recovery-copy");
-  surface.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:Canvas;color:CanvasText;font:16px/1.5 system-ui,sans-serif;";
-  const card = document.createElement("div");
-  card.style.cssText = "width:min(560px,100%);padding:24px;border:1px solid ButtonBorder;border-radius:14px;background:Canvas;box-shadow:0 12px 40px #0004;";
-  const title = document.createElement("h1");
-  title.id = "yomu-extension-settings-recovery-title";
-  title.textContent = uiText(language2, "extensionSettingsRecoveryTitle");
-  const body = document.createElement("p");
-  body.id = "yomu-extension-settings-recovery-copy";
-  body.textContent = uiText(language2, "extensionSettingsRecoveryBody");
-  const actions = document.createElement("div");
-  actions.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;";
-  actions.append(
-    recoveryButton("retry", uiText(language2, "extensionSettingsRecoveryRetry")),
-    recoveryButton("reload", uiText(language2, "extensionSettingsRecoveryReload"))
-  );
-  const status = document.createElement("p");
-  status.dataset.recoveryStatus = "";
-  status.setAttribute("aria-live", "polite");
-  card.append(title, body, actions, status);
-  surface.append(card);
-  return surface;
-}
-function recoveryButton(action, label) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "jpdb-reader-btn";
-  button.dataset.recoveryAction = action;
-  button.textContent = label;
-  return button;
+async function importThenReadAgain(file, surface, language2, readAgain) {
+  try {
+    await importSettingsBackupForRecovery(file, (message) => {
+      surface.status.textContent = message;
+    });
+  } catch (error) {
+    return userFacingErrorText(language2, "actionFailed", error);
+  }
+  return readAgain();
 }
 const FOCUSABLE_SELECTOR = 'button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"])';
 class LookupModalAccessibility {
@@ -46703,7 +47300,7 @@ function scheduleToastRemoval(toast, durationMs) {
     }, TOAST_EXIT_MS);
   }, durationMs));
 }
-const log$7 = Logger.scope("ReaderAudioActions");
+const log$6 = Logger.scope("ReaderAudioActions");
 class ReaderAudioActions {
   constructor(dependencies) {
     this.dependencies = dependencies;
@@ -46758,7 +47355,7 @@ class ReaderAudioActions {
       });
       return played;
     } catch (error) {
-      log$7.warn("Term audio playback failed", { term: card.spelling }, error);
+      log$6.warn("Term audio playback failed", { term: card.spelling }, error);
       this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackFailed"));
       return false;
     } finally {
@@ -46981,7 +47578,7 @@ function updateFlowNoteKey(kind) {
       return "updateHelpNotesManager";
   }
 }
-const CURRENT_YOMU_VERSION = "1.9.3".trim() ? "1.9.3".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.0".trim() ? "2.0.0".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -84248,9 +84845,6 @@ function validateCloudSettingsEnvelope(value) {
   if (!isRecord$5(value.settings) || typeof value.syncedAt !== "string" || !Number.isFinite(Date.parse(value.syncedAt)) || value.storage !== void 0 && !isRecord$5(value.storage)) {
     throw userFacingError("settingsImportIncomplete");
   }
-  if (value.storage && RETIRED_SETTINGS_STORAGE_KEYS.some((key) => Object.hasOwn(value.storage, key))) {
-    throw userFacingError("settingsImportUnsupportedFormat");
-  }
   return value;
 }
 const EXTENSION_BUILD_FLAG = typeof __YOMU_EXTENSION_BUILD__ === "boolean" ? __YOMU_EXTENSION_BUILD__ : false;
@@ -88936,71 +89530,6 @@ function isPendingCloudSettingsRecord(value) {
 function isFiniteTimestamp(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
-const log$6 = Logger.scope("SettingsFileIO");
-function recommendedDictionaryFilename(dictionary) {
-  if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
-  try {
-    const parsed = new URL(dictionary.downloadUrl);
-    const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
-    if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
-  } catch {
-  }
-  return `${dictionary.id}.zip`;
-}
-const READER_SETTINGS_BACKUP_FORMAT = "yomu-reader-settings";
-const READER_SETTINGS_BACKUP_VERSION = 3;
-const BACKUP_FIELDS = /* @__PURE__ */ new Set(["formatName", "formatVersion", "exportedAt", "settings", "storage", "dictionaries"]);
-function parseReaderSettingsBackup(value) {
-  if (!isRecord$5(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord$5(value.settings)) return null;
-  if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
-  const storage = value.storage;
-  if (storage !== void 0 && !isRecord$5(storage)) return null;
-  if (storage && RETIRED_SETTINGS_STORAGE_KEYS.some((key) => Object.hasOwn(storage, key))) return null;
-  if (value.dictionaries !== void 0 && !isReaderDictionaryExport(value.dictionaries)) return null;
-  return { settings: value.settings, storage, dictionaries: value.dictionaries };
-}
-function readerDictionaryExportHasData(value) {
-  if (!isReaderDictionaryExport(value)) return false;
-  const record2 = value;
-  return arrayHasItems(record2.dictionaries) || arrayHasItems(record2.entries) || arrayHasItems(record2.terms) || arrayHasItems(record2.kanji) || arrayHasItems(record2.termMeta) || arrayHasItems(record2.kanjiMeta);
-}
-function isReaderDictionaryExport(value) {
-  if (!value || typeof value !== "object") return false;
-  const formatName = value.formatName;
-  return formatName === "yomu-yomitan-dictionaries" || formatName === "jpdb-reader-yomitan-dictionaries";
-}
-function arrayHasItems(value) {
-  return Array.isArray(value) && value.length > 0;
-}
-async function pickFile(root, type) {
-  return (await pickFiles(root, type))[0] ?? null;
-}
-function pickFiles(root, type) {
-  const inputEl = root.querySelector(`input[data-file="${type}"]`);
-  if (!inputEl) {
-    log$6.warn("File picker input missing", { type });
-    return Promise.resolve([]);
-  }
-  return new Promise((resolve) => {
-    inputEl.onchange = () => {
-      const files = Array.from(inputEl.files ?? []);
-      inputEl.value = "";
-      resolve(files);
-    };
-    dispatchAuthorizedReaderControlClick(inputEl);
-  });
-}
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-}
-function dateStamp() {
-  return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-}
 const DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
 const DEFAULT_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
 function selectAnkiLibraryChoices(scan, currentDeck, currentModel) {
@@ -90563,181 +91092,6 @@ function syncSettingsSaveControl(save, state) {
   save.setAttribute("aria-label", accessibleLabel);
   if (state.blockedBy) save.dataset.saveBlocked = state.blockedBy;
   else delete save.dataset.saveBlocked;
-}
-function settingsRestoreSaveOptions(previous, next, importedView) {
-  const persistPreferredJapaneseSiteLanguage = importedView !== null || previous.preferJapaneseSiteLanguage !== next.preferJapaneseSiteLanguage;
-  if (!importedView) {
-    return {
-      persistPreferredJapaneseSiteLanguage,
-      explicitUserChoiceKeys: changedSettingsKeys(previous, next)
-    };
-  }
-  const normalizedKeys = Object.keys(next);
-  const knownKeys = new Set(normalizedKeys);
-  const explicitUserChoiceKeys = settingsIntentKeys(importedView.intentLedger).filter((key) => knownKeys.has(key));
-  return {
-    persistPreferredJapaneseSiteLanguage,
-    clearExplicitUserChoiceKeys: normalizedKeys,
-    explicitUserChoiceKeys
-  };
-}
-function witnessedSettingsRestoreCandidate(previous, fallback, importedView) {
-  if (!importedView) return fallback;
-  const witnessed = importedView.settings;
-  return normalizeReaderSettings({
-    ...previous,
-    ...witnessed,
-    shortcuts: { ...previous.shortcuts, ...witnessed.shortcuts ?? {} }
-  });
-}
-async function runSettingsRestoreTransaction(options) {
-  const importedView = await readBackupSettingsPersistenceView(options.storage);
-  await options.prepareSettings?.(importedView);
-  const storedValues = await beginStoredValuesImport(options.storage);
-  try {
-    await options.stageBeforeSettings?.();
-    await options.publishSettings(importedView);
-    storedValues.commit();
-    return { restoredValues: storedValues.count };
-  } catch (error) {
-    return rollbackSettingsRestore(error, storedValues, options.rollbackBeforeSettings);
-  }
-}
-async function rollbackSettingsRestore(error, storedValues, rollbackBeforeSettings) {
-  const rollbackErrors = await collectRollbackErrors([
-    rollbackBeforeSettings ?? noRollback,
-    () => storedValues.rollback()
-  ]);
-  if (!rollbackErrors.length) throw error;
-  throw new AggregateError(
-    [error, ...rollbackErrors],
-    `Settings restore failed and ${rollbackErrors.length} rollback operation(s) also failed.`
-  );
-}
-async function collectRollbackErrors(operations) {
-  const failures = [];
-  for (const operation of operations) {
-    try {
-      await operation();
-    } catch (error) {
-      failures.push(error);
-    }
-  }
-  return failures;
-}
-async function noRollback() {
-}
-async function restoreReaderSettingsBackup(file, previousSettings, port) {
-  const text2 = await file.text();
-  let json;
-  try {
-    json = JSON.parse(text2);
-  } catch {
-    throw userFacingError("settingsImportUnsupportedFormat");
-  }
-  const backup = parseReaderSettingsBackup(json);
-  if (!backup) throw userFacingError("settingsImportUnsupportedFormat");
-  let importedSettings = normalizeReaderSettings({
-    ...previousSettings,
-    ...backup.settings,
-    shortcuts: { ...previousSettings.shortcuts, ...backup.settings.shortcuts }
-  });
-  const dictionaries2 = await BundledDictionaryRestore.prepare(backup.dictionaries, port);
-  const result = await runSettingsRestoreTransaction({
-    storage: backup.storage,
-    prepareSettings: (importedView) => {
-      importedSettings = witnessedSettingsRestoreCandidate(
-        previousSettings,
-        importedSettings,
-        importedView
-      );
-    },
-    stageBeforeSettings: () => dictionaries2.stage(importedSettings).then((settings) => {
-      importedSettings = settings;
-    }),
-    rollbackBeforeSettings: () => dictionaries2.rollback(),
-    publishSettings: (importedView) => port.persistSettings(
-      importedSettings,
-      settingsRestoreSaveOptions(previousSettings, importedSettings, importedView)
-    )
-  });
-  port.adoptSettings(importedSettings);
-  return importSettingsStatus(result.restoredValues, dictionaries2.summary, importedSettings.interfaceLanguage);
-}
-class BundledDictionaryRestore {
-  constructor(restore, port) {
-    this.restore = restore;
-    this.port = port;
-  }
-  mutationAttempted = false;
-  importedSummary = null;
-  static async prepare(json, port) {
-    return new BundledDictionaryRestore(await dictionaryRestoreFiles(json, port.dictionaries), port);
-  }
-  get summary() {
-    return this.importedSummary;
-  }
-  async stage(settings) {
-    if (this.restore) await this.importBundledDictionaries(this.restore.imported, settings.interfaceLanguage);
-    const merged = await mergeImportedDictionaryPreferences(settings, this.port.dictionaries);
-    this.port.dictionaryStateChanged();
-    return merged;
-  }
-  async rollback() {
-    if (!this.restore || !this.mutationAttempted) return;
-    await this.port.dictionaries.importFile(this.restore.previous);
-    this.port.dictionaryStateChanged();
-  }
-  async importBundledDictionaries(file, language2) {
-    this.mutationAttempted = true;
-    this.port.setStatus(uiText(language2, "importingBundledDictionaries"));
-    this.importedSummary = await this.port.dictionaries.importFile(
-      file,
-      (message) => this.port.setStatus(message)
-    );
-  }
-}
-async function dictionaryRestoreFiles(dictionaryExport, dictionaries2) {
-  if (!readerDictionaryExportHasData(dictionaryExport)) return null;
-  return {
-    imported: jsonFile(dictionaryExport, "yomu-dictionaries-from-settings.json"),
-    previous: new File(
-      [await dictionaries2.exportJson()],
-      "yomu-dictionaries-before-settings-restore.json",
-      { type: "application/json" }
-    )
-  };
-}
-function jsonFile(value, filename) {
-  return new File([JSON.stringify(value)], filename, { type: "application/json" });
-}
-async function mergeImportedDictionaryPreferences(settings, dictionaries2) {
-  const importedSummary = await dictionaries2.summary().catch(() => ({ dictionaries: [] }));
-  const importedNames = importedSummary.dictionaries.map((item) => item.title);
-  const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
-  const merged = mergeDictionaryPreferences(
-    retireStaleDictionaryPreferences(settings.dictionaryPreferences, importedNames),
-    importedNames,
-    importedTypes
-  );
-  return captureActiveLanguageProfileDictionaries(settings, merged);
-}
-function importSettingsStatus(restoredValues, dictionarySummary, language2) {
-  const details = restoreStatusDetails(restoredValues, dictionarySummary, language2);
-  return details.length ? uiText(language2, "settingsImportedWithDetails").replace("{details}", details.join("; ")) : uiText(language2, "settingsImported");
-}
-function restoreStatusDetails(restoredValues, dictionarySummary, language2) {
-  const details = [];
-  if (restoredValues) {
-    details.push(countStatus(uiText(language2, "restoredStoredChoices"), restoredValues));
-  }
-  if (dictionarySummary) {
-    details.push(countStatus(uiText(language2, "importedDictionaryRecordCount"), dictionarySummary.entries));
-  }
-  return details;
-}
-function countStatus(template, count) {
-  return template.replace("{count}", count.toLocaleString()).replace("{plural}", count === 1 ? "" : "s");
 }
 function cloudSettingsActionEnabled(enabled, action) {
   return enabled && isCloudSettingsAction(action);
@@ -95129,9 +95483,9 @@ function bootNewTabRuntime() {
 }
 async function startNewTabRuntime(options = {}) {
   await ensureExtensionStudySettingsAuthority({
-    reportFailure: () => log.warn("Packaged Study settings could not be read")
+    prepareStorage: options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent,
+    reportFailure: () => log.warn("Study settings could not be read")
   });
-  await (options.ensureStorageCurrent ?? ensureManagedWebStorageCurrent)();
   const app = (options.createRuntime ?? (() => new NewTabRuntime()))();
   await app.init();
   (options.registerPagehide ?? ((destroy) => {

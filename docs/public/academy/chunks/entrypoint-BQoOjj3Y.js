@@ -14873,7 +14873,9 @@ function lessonZeroRepeatRequestCompletionEvaluation(activity2, definition2, at)
   return {
     attempt: {
       kind: "attempt-recorded",
-      eventId: `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:complete`,
+      // v1.9.3 stored `:complete` with only the phrase-09 concepts. The
+      // all-source completion is new evidence, so it has its own key.
+      eventId: `${LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID}:complete:classroom-coverage-v1`,
       at,
       activityId: activity2.id,
       conceptIds: [.../* @__PURE__ */ new Set([...definition2.conceptIds, ...definition2.coverageProbes.flatMap((probe) => probe.conceptIds)])],
@@ -16552,7 +16554,7 @@ const ACADEMY_APPROVED_CHARACTER_SPRITES = {
   steveHappy: ACADEMY_CAST_STANDARDIZATION_GALLERIES.steve["happy:front-near-front"],
   steveDetermined: ACADEMY_CAST_STANDARDIZATION_GALLERIES.steve["determined:left-three-quarter"]
 };
-const DEFAULT_CAST_PORTRAIT_OVERRIDES = {
+const LIKENESS_CLEARED_CAST_CUTOUTS = {
   aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
   xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuNeutral,
   mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
@@ -16562,8 +16564,9 @@ const DEFAULT_CAST_PORTRAIT_OVERRIDES = {
   sam: ACADEMY_APPROVED_CHARACTER_SPRITES.samNeutral,
   steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve
 };
+const ACADEMY_LIKENESS_CLEARED_CAST_IDS = new Set(Object.keys(LIKENESS_CLEARED_CAST_CUTOUTS));
 const defaultCastPortrait = createDefaultCastPortraitResolver(
-  ACADEMY_CAST,
+  ACADEMY_CAST.filter((person) => ACADEMY_LIKENESS_CLEARED_CAST_IDS.has(person.id)),
   Object.entries(ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS).flatMap(([id2, asset]) => {
     const coverage = ACADEMY_CAST_STANDARDIZATION_COVERAGE[id2];
     return Object.values(asset.files).map((path) => ({
@@ -16575,13 +16578,7 @@ const defaultCastPortrait = createDefaultCastPortraitResolver(
     }));
   }),
   Object.fromEntries(Object.entries(ACADEMY_CAST_STANDARDIZATION_GALLERIES).map(([id2, gallery]) => [id2, gallery["neutral:front-near-front"]])),
-  DEFAULT_CAST_PORTRAIT_OVERRIDES
-);
-const ACADEMY_APPROVED_CAST_SPRITES = Object.fromEntries(
-  ACADEMY_CAST.flatMap((person) => {
-    const path = defaultCastPortrait(person.id, "world:person");
-    return path ? [[person.id, path]] : [];
-  })
+  LIKENESS_CLEARED_CAST_CUTOUTS
 );
 const ACADEMY_APPROVED_CAST_PERFORMANCES = {
   aakash: {
@@ -16621,7 +16618,7 @@ const ACADEMY_ASSETS = {
   xingyuListening: assetFile("character.xingyu.listening", "default"),
   mikaSound: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
   characters: {
-    approved: ACADEMY_APPROVED_CAST_SPRITES,
+    approved: LIKENESS_CLEARED_CAST_CUTOUTS,
     approvedPerformances: ACADEMY_APPROVED_CAST_PERFORMANCES,
     journalReview: ACADEMY_JOURNAL_REVIEW_CAST_SPRITES
   },
@@ -27725,11 +27722,7 @@ const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
   ["localhost", "loopback"],
   ["[::1]", "loopback"]
 ]);
-const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([
-  "http://127.0.0.1:5174",
-  "http://localhost:5174",
-  "http://[::1]:5174"
-]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([]);
 function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
   return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
 }
@@ -27817,6 +27810,35 @@ function isLoopbackStudyRoutePath(path) {
 function isRepositoryStudyRoutePath(path) {
   return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
 }
+const PRIVILEGED_APP_POLICIES = {
+  docs: isYomuActiveAppRoute,
+  "github-pages": isYomuActiveAppRoute,
+  extension: () => false,
+  loopback: isPrivilegedLocalAppRoute,
+  "docs-preview": isPrivilegedLocalAppRoute
+};
+function isYomuPrivilegedHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? PRIVILEGED_APP_POLICIES[appUrl.originKind](value, appUrl) : false;
+}
+function isYomuStorageBridgeHostedUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+  return isYomuPrivilegedHostedAppUrl(value);
+}
+function isYomuActiveAppRoute(value, appUrl) {
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isPrivilegedLocalAppRoute(value, appUrl) {
+  return isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin) && isYomuActiveAppRoute(value, appUrl);
+}
+function isExactHostedAppPath(appUrl, route) {
+  if (appUrl.originKind === "github-pages") {
+    return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+  }
+  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+}
 const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
 function detectInstalledReaderRuntime(globals = globalThis) {
   if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
@@ -27825,11 +27847,29 @@ function detectInstalledReaderRuntime(globals = globalThis) {
   }
   return null;
 }
+function announcedInstalledReaderRuntime(root = document) {
+  const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
+  return kind === "extension" || kind === "userscript" ? kind : null;
+}
 function isHostedReaderRuntime() {
   return document.documentElement?.dataset.yomuHosted !== void 0;
 }
 function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
   return forceLocalRuntime || !root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
+}
+function expectedBridgeKind(trustedPage) {
+  if (detectInstalledReaderRuntime()) return null;
+  const announced = announcedInstalledReaderRuntime();
+  return announced && trustedPage() ? announced : null;
+}
+function readyBridgeOwner(dataset, keys, expected) {
+  if (dataset?.[keys.ready] !== "true") return null;
+  const kind = dataset[keys.kind];
+  if (kind === "extension" || kind === "userscript") {
+    if (expected && kind !== expected && kind !== "extension") return null;
+    return { ownerId: dataset[keys.owner], kind };
+  }
+  return { ownerId: dataset[keys.owner], kind: expected ?? "userscript" };
 }
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
@@ -28246,15 +28286,16 @@ const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
 const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
 const BRIDGE_OWNER = "yomuStorageBridgeOwner";
+const BRIDGE_KIND = "yomuStorageBridgeKind";
+const BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: BRIDGE_OWNER, kind: BRIDGE_KIND };
 const EXTENSION_STORAGE_BRIDGE_MARKER = "yomuExtensionStorageBridge";
 const EXTENSION_STORAGE_TARGET = "extension-storage";
 const BRIDGE_TIMEOUT_MS = 1e4;
-let clientOwnerId;
+let clientOwner;
 function getUserscriptGmStorage() {
-  if (!storageBridgeClientReady() && !clientOwnerId) return void 0;
-  clientOwnerId ??= bridgeMarkerDataset()?.[BRIDGE_OWNER];
-  const ownerId = clientOwnerId;
-  const request2 = (detail) => storageBridgeRequest(detail, ownerId);
+  if (!storageBridgeClientAvailable()) return void 0;
+  clientOwner ??= pinnableOwner(readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind()));
+  const request2 = (detail) => storageBridgeRequest(detail);
   return {
     getValue: (key2, fallback) => request2({ op: "get", key: key2 }).then((detail) => detail.found ? detail.value : fallback),
     setValue: (key2, value) => request2({ op: "set", key: key2, value }).then(() => void 0),
@@ -28267,45 +28308,83 @@ function getUserscriptGmStorage() {
     }).then(() => void 0) : Promise.resolve()
   };
 }
-function storageBridgeClientReady() {
-  if (typeof window === "undefined") return false;
-  if (typeof document === "undefined") return false;
-  return bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true";
+function storageBridgeClientAvailable() {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  return Boolean(clientOwner || expectedStorageBridgeKind() || readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, null));
 }
-function storageBridgeRequest(request2, ownerId) {
+function expectedStorageBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptStorageBridge);
+}
+function userscriptGmStorageOwnerKind() {
+  if (!storageBridgeClientAvailable()) return void 0;
+  return clientOwner?.kind ?? expectedStorageBridgeKind() ?? readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, null)?.kind;
+}
+function installedStorageResponderReady() {
+  return readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind()) !== null;
+}
+function storageBridgeRequest(request2) {
   return new Promise((resolve, reject) => {
-    if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId || !storageBridgeClientReady()) {
-      reject(new Error("Storage bridge authority changed; reload to reconnect."));
-      return;
-    }
     const id2 = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    const timeout = window.setTimeout(() => {
-      cleanup();
-      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-        reject(new Error("Storage bridge authority changed during the request."));
-        return;
-      }
-      reject(new Error("Storage bridge request timed out."));
-    }, BRIDGE_TIMEOUT_MS);
-    let cleanupResponseListener = noop;
+    let pinned;
+    let cleanupListeners = noop;
     const cleanup = () => {
       window.clearTimeout(timeout);
-      cleanupResponseListener();
+      cleanupListeners();
     };
+    const fail2 = (message) => {
+      cleanup();
+      reject(new Error(message));
+    };
+    const timeout = window.setTimeout(() => {
+      if (!pinned) fail2("Installed Yomu storage did not connect; reload to reconnect.");
+      else if (!pinnedOwnerCurrent(pinned)) fail2("Storage bridge authority changed during the request.");
+      else fail2("Storage bridge request timed out.");
+    }, BRIDGE_TIMEOUT_MS);
     const onResponse = (event) => {
       const detail = storageBridgeResponseDetail(event);
       if (!detail || detail.id !== id2) return;
+      if (!pinned || !pinnedOwnerCurrent(pinned)) return fail2("Storage bridge authority changed during the request.");
       cleanup();
-      if (bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) {
-        reject(new Error("Storage bridge authority changed during the request."));
-        return;
-      }
       if (detail.ok) resolve(detail);
       else reject(new Error(detail.message || "Storage bridge request failed."));
     };
-    cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id: id2, ownerId, ...request2 });
+    const send = (owner) => {
+      pinned = owner;
+      cleanupListeners();
+      cleanupListeners = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id: id2, ownerId: owner.ownerId, ...request2 });
+    };
+    const connect = () => {
+      if (clientOwner) {
+        if (pinnedOwnerCurrent(clientOwner)) send(clientOwner);
+        else fail2("Storage bridge authority changed; reload to reconnect.");
+        return true;
+      }
+      const owner = readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind());
+      if (!owner) return false;
+      clientOwner = pinnableOwner(owner);
+      send(owner);
+      return true;
+    };
+    if (connect()) return;
+    cleanupListeners = addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+      if (!pinned) connect();
+    });
   });
+}
+function pinnableOwner(owner) {
+  return owner?.ownerId === void 0 ? void 0 : owner;
+}
+function pinnedOwnerCurrent(owner) {
+  const dataset = bridgeMarkerDataset();
+  return dataset?.[BRIDGE_MARKER] === "true" && dataset[BRIDGE_OWNER] === owner.ownerId;
+}
+function shouldInstallUserscriptStorageBridge() {
+  try {
+    return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
+  } catch {
+    return false;
+  }
 }
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
@@ -28377,157 +28456,6 @@ function callDispatchEvent(target2, event) {
   }
 }
 function noop() {
-}
-function managedStorageOwner() {
-  const installed = detectInstalledReaderRuntime();
-  if (installed) return installed;
-  if (!getUserscriptGmStorage()) return "standalone";
-  return document.documentElement?.dataset.yomuStorageBridgeKind === "extension" ? "extension" : "userscript";
-}
-function asyncGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmGetValue();
-  if (direct) return direct;
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
-}
-function directGmGetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
-}
-function legacyGmGetValue() {
-  return typeof GM_getValue === "function" ? GM_getValue : null;
-}
-function modernGmGetValue() {
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function asyncGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmSetValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmSetValue();
-}
-function directGmSetValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
-}
-function legacyGmSetValue() {
-  return typeof GM_setValue === "function" ? GM_setValue : null;
-}
-function modernGmSetValue() {
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmSetValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
-}
-function bridgeGmSetValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmDeleteValue();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmDeleteValue();
-}
-function directGmDeleteValue() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
-}
-function legacyGmDeleteValue() {
-  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
-}
-function modernGmDeleteValue() {
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmDeleteValue() {
-  const extension = extensionStorageArea();
-  return extension ? (key2) => extension.remove(key2) : null;
-}
-function bridgeGmDeleteValue() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key2) => bridge.deleteValue(key2) : null;
-}
-function asyncGmListValues() {
-  if (packagedExtensionStorageAdapterMissing()) return null;
-  const direct = directGmListValues();
-  if (direct) return direct;
-  if (directGmGetValue()) return null;
-  return bridgeGmListValues();
-}
-function directGmListValues() {
-  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
-}
-function legacyGmListValues() {
-  if (typeof GM_listValues === "function") return GM_listValues;
-  const directListValues = globalThis.GM_listValues;
-  return typeof directListValues === "function" ? directListValues : null;
-}
-function modernGmListValues() {
-  const modern = globalThis.GM?.listValues;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function extensionGmListValues() {
-  const extension = extensionStorageArea();
-  if (!extension) return null;
-  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-}
-function bridgeGmListValues() {
-  const bridge = getUserscriptGmStorage();
-  return bridge ? () => bridge.listValues() : null;
-}
-function extensionStorageArea() {
-  return extensionCapability((extension) => extension.storage?.local);
-}
-function extensionCapability(select2) {
-  const candidate2 = globalThis;
-  return activeExtensionCapability(candidate2.browser, select2) ?? activeExtensionCapability(candidate2.chrome, select2) ?? null;
-}
-function activeExtensionCapability(extension, select2) {
-  return extension?.runtime?.id ? select2(extension) : void 0;
-}
-function packagedExtensionStorageAdapterMissing() {
-  if (!isPackagedExtensionDocument()) return false;
-  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
-  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
-}
-function isPackagedExtensionDocument() {
-  try {
-    const protocol = globalThis.location?.protocol ?? "";
-    return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
-  } catch {
-    return false;
-  }
-}
-function rawExtensionStorageGetValue() {
-  const extension = extensionStorageArea();
-  return extension ? extensionStorageGetValue(extension) : null;
-}
-function extensionStorageGetValue(extension) {
-  return async (key2, fallback) => {
-    const value = (await extension.get(key2))[key2];
-    return value === void 0 ? fallback : value;
-  };
-}
-function extensionStorageChangedEvent() {
-  return extensionCapability((extension) => extension.storage?.onChanged);
-}
-const BASES = ["jpdb-popup-reader-yomitan", "yomu-practice-sessions-v1", "yomu-anki-status-index"];
-function ownedDatabaseName(base) {
-  const owner = managedStorageOwner();
-  if (owner === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol)) return base;
-  return `${base}-${owner}-v2`;
-}
-function databaseBelongsToCurrentOwner(name) {
-  const base = BASES.find((base2) => name === base2 || name === `${base2}-userscript-v2` || name === `${base2}-extension-v2`);
-  if (base) return name === ownedDatabaseName(base);
-  return managedStorageOwner() === "standalone" || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
 }
 const entries = [];
 const registeredEntryIndexes = /* @__PURE__ */ new Map();
@@ -28668,8 +28596,6 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-userscript-v2" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index-extension-v2" },
   // Bunpro vocab SRS-state index for page word colouring.
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   // Public lookup caches.
@@ -28681,8 +28607,6 @@ const MANAGED_STATE_MANIFEST = [
   // store's own deleteDatabase during reset; registered so the invariant test
   // asserts it and the reset sweep nets it as a fallback.
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-userscript-v2" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan-extension-v2" },
   { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
   {
     owner: "dictionaries/archive-cache",
@@ -28728,8 +28652,6 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1" },
-  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-userscript-v2" },
-  { owner: "study/practice-session", kind: "idb", key: "yomu-practice-sessions-v1-extension-v2" },
   { owner: "study/practice-session", kind: "session", key: "yomu:practice-session-tab:v1" },
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -28935,6 +28857,29 @@ async function managedGmValue(getValue, key2, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key2, epoch);
   return read.kind === "found" ? read.value : fallback;
 }
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+function isHostedSettingsStorageKey(key2) {
+  return key2 === HOSTED_SETTINGS_BLOB_KEY;
+}
+function isHostedYomuLocation(origin, hostname, pathname) {
+  if (origin === DOCS_ORIGIN) return true;
+  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
+  return isHostedLocalDevelopmentLocation(origin, pathname);
+}
+function isHostedYomuOrigin() {
+  try {
+    return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
+  } catch {
+    return false;
+  }
+}
+function isHostedGithubPagesLocation(hostname, pathname) {
+  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
+}
+function isHostedLocalDevelopmentLocation(origin, pathname) {
+  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
+  return pathname.includes("/study/") || pathname.includes("/newtab/");
+}
 const OWNER_PREFIX = "yomu:web-owner:v2:";
 let selectedOwner;
 function selectOwner(owner) {
@@ -29067,45 +29012,61 @@ function managedLocalStorageKeys() {
   const prefix = ownedKey("");
   return enumerateStorageKeys(storage, "localStorage").filter(belongsToOwner).map((key2) => logicalManagedStorageKey(key2.slice(prefix.length))).filter((key2) => key2 !== null && managedLocalStorage.getItem(key2) !== null);
 }
-function managedWebStorageResetKeys(owner) {
-  selectOwner(owner);
+function managedWebStorageResetKeys() {
   return [.../* @__PURE__ */ new Set([
     ...enumerateStorageKeys(storageArea("local"), "localStorage"),
     ...enumerateStorageKeys(storageArea("session"), "sessionStorage")
-  ])].filter(belongsToOwner);
+  ])].filter(isManagedStorageKey);
 }
 function managedStorageFacade(area) {
   return {
     getItem(key2) {
       const { storage, epoch } = certifiedArea(area);
-      const raw = readStorageValue(storage, physicalStorageKey(key2, epoch), `${area}Storage key "${key2}"`);
-      if (raw === null || epoch.generation === 0) return raw;
-      try {
-        const unreadable = Symbol("unreadable-managed-web-storage");
-        const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
-        return typeof value === "string" ? value : null;
-      } catch {
-        return null;
-      }
+      const own = logicalItem(readStorageValue(storage, physicalStorageKey(key2, epoch), `${area}Storage key "${key2}"`), epoch);
+      if (own !== null) return own;
+      const earlier = earlierLocalRecordKey(area, key2, epoch);
+      return earlier ? logicalItem(readStorageValue(storage, earlier, `localStorage key "${key2}"`), epoch) : null;
     },
     setItem(key2, value) {
       assertManagedLogicalKey(key2);
       const { storage, epoch } = certifiedArea(area);
       const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
       writeAndVerify(storage, physicalStorageKey(key2, epoch), stored, `${area}Storage key "${key2}"`);
+      removeEarlierLocalRecord(area, key2, epoch);
       assertAreaCertificate(area, epoch);
     },
     removeItem(key2) {
       assertManagedLogicalKey(key2);
       const { storage, epoch } = certifiedArea(area);
-      const physicalKey = physicalStorageKey(key2, epoch);
-      removeStorageValue(storage, physicalKey, `${area}Storage key "${key2}"`);
-      if (readStorageValue(storage, physicalKey, `${area}Storage key "${key2}"`) !== null) {
-        throw new Error(`${area}Storage retained managed key "${key2}".`);
-      }
+      removeVerified(storage, physicalStorageKey(key2, epoch), `${area}Storage key "${key2}"`, `${area}Storage retained managed key "${key2}".`);
+      removeEarlierLocalRecord(area, key2, epoch);
       assertAreaCertificate(area, epoch);
     }
   };
+}
+function earlierLocalRecordKey(area, key2, epoch) {
+  if (area !== "local" || !selectedOwner || selectedOwner === "standalone") return null;
+  const storage = storageArea("local");
+  const marker = readStorageValue(storage, AREA_MARKER_KEYS.local, "localStorage earlier epoch marker");
+  return marker === managedStateEpochToken(epoch) ? epochSlotKey(key2, epoch) : null;
+}
+function removeEarlierLocalRecord(area, key2, epoch) {
+  const earlier = isHostedYomuOrigin() ? null : earlierLocalRecordKey(area, key2, epoch);
+  if (earlier) removeVerified(storageArea("local"), earlier, `localStorage key "${key2}"`, `localStorage retained earlier managed key "${key2}".`);
+}
+function removeVerified(storage, key2, label, retained) {
+  removeStorageValue(storage, key2, label);
+  if (readStorageValue(storage, key2, label) !== null) throw new Error(retained);
+}
+function logicalItem(raw, epoch) {
+  if (raw === null || epoch.generation === 0) return raw;
+  try {
+    const unreadable = Symbol("unreadable-managed-web-storage");
+    const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
 }
 function certifiedArea(area) {
   const epoch = certifiedEpoch;
@@ -29120,9 +29081,12 @@ function assertAreaCertificate(area, epoch) {
   }
 }
 function physicalStorageKey(key2, epoch) {
+  return ownedKey(epochSlotKey(key2, epoch));
+}
+function epochSlotKey(key2, epoch) {
   assertManagedLogicalKey(key2);
-  if (epoch.generation === 0) return ownedKey(key2);
-  return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`);
+  if (epoch.generation === 0) return key2;
+  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`;
 }
 function assertManagedLogicalKey(key2) {
   if (!isManagedStorageKey(key2) || isManagedStorageSlotKey(key2)) {
@@ -29451,29 +29415,6 @@ const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
 function isManagedStorageBackupKey(key2) {
   return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && !isManagedStorageSlotKey(key2) && !key2.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key2.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
 }
-const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-function isHostedSettingsStorageKey(key2) {
-  return key2 === HOSTED_SETTINGS_BLOB_KEY;
-}
-function isHostedYomuLocation(origin, hostname, pathname) {
-  if (origin === DOCS_ORIGIN) return true;
-  if (isHostedGithubPagesLocation(hostname, pathname)) return true;
-  return isHostedLocalDevelopmentLocation(origin, pathname);
-}
-function isHostedYomuOrigin() {
-  try {
-    return isHostedYomuLocation(location.origin, location.hostname, location.pathname);
-  } catch {
-    return false;
-  }
-}
-function isHostedGithubPagesLocation(hostname, pathname) {
-  return hostname === "hrussellzfac023.github.io" && pathname.startsWith("/yomu-reader/");
-}
-function isHostedLocalDevelopmentLocation(origin, pathname) {
-  if (!isPrivilegedYomuLocalDevelopmentOrigin(origin)) return false;
-  return pathname.includes("/study/") || pathname.includes("/newtab/");
-}
 function localStorageGet(key2, fallback) {
   try {
     const value = localStorage.getItem(key2);
@@ -29541,6 +29482,68 @@ const SETTINGS_AUTHORITY_STORAGE_KEYS = /* @__PURE__ */ new Set([
 ]);
 function isSettingsAuthorityStorageKey(key2) {
   return SETTINGS_AUTHORITY_STORAGE_KEYS.has(key2);
+}
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
+const HOSTED_DEMO_READER_SETTINGS = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true,
+  wordUnderlineColorSource: "pitch",
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: true,
+  subtitleControlsMode: "always",
+  subtitleTranscriptVisible: false,
+  ocrEnabled: true,
+  ocrVideoPauseFrames: true,
+  ocrProvider: "google-lens",
+  ocrOverlayTheme: "auto",
+  preferJapaneseSiteLanguage: false
+};
+const ACADEMY_READER_DEFAULTS = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true
+};
+const HOSTED_APPEARANCE_CHOICES = {
+  interfaceLanguage: /* @__PURE__ */ new Set(["auto", "en", "ja"]),
+  theme: /* @__PURE__ */ new Set(["auto", "dark", "light"])
+};
+const HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
+function isPassiveHostedSettingsRecord(record2) {
+  const entries2 = Object.entries(record2).filter(([key2, value]) => key2 !== "learningTargetChosen" || value !== false);
+  return entries2.every(isHostedAppearanceEntry) || extendsHostedPolicy(record2, entries2, ACADEMY_READER_DEFAULTS) || extendsHostedPolicy(record2, entries2, HOSTED_DEMO_READER_SETTINGS);
+}
+function isPassiveHostedSettingsJson(serialized) {
+  let record2;
+  try {
+    record2 = JSON.parse(serialized);
+  } catch {
+    return false;
+  }
+  return typeof record2 === "object" && record2 !== null && !Array.isArray(record2) && isPassiveHostedSettingsRecord(record2);
+}
+function extendsHostedPolicy(record2, entries2, policy) {
+  return Object.entries(policy).every(([key2, value]) => record2[key2] === value) && entries2.every((entry2) => Object.hasOwn(policy, entry2[0]) || isHostedAppearanceEntry(entry2));
+}
+function isHostedAppearanceEntry([key2, value]) {
+  if (key2 === "accentColor") return typeof value === "string" && HOSTED_ACCENT_COLOR_RE.test(value);
+  return Object.hasOwn(HOSTED_APPEARANCE_CHOICES, key2) && HOSTED_APPEARANCE_CHOICES[key2].has(value);
 }
 function isRecord$6(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -29614,6 +29617,13 @@ function localMirrorBelongsToEpoch(key2, epoch) {
   const entry2 = provenanceValues()[key2];
   return entry2 ? entry2.epoch === managedStateEpochToken(epoch) && entry2.fingerprint === fingerprint(serialized) : epoch.generation === 0;
 }
+function localMirrorEpochMatches(key2, epoch, rawWriterRecord) {
+  const serialized = recoverableSerializedValue(key2);
+  if (serialized === null) return false;
+  const entry2 = provenanceValues()[key2];
+  if (entry2) return entry2.epoch === managedStateEpochToken(epoch);
+  return epoch.generation === 0 || rawWriterRecord(serialized);
+}
 function removeLocalMirrorProvenance(key2) {
   updateProvenance(key2, null);
 }
@@ -29674,6 +29684,67 @@ function fingerprint(serialized) {
     hash2 = Math.imul(hash2 ^ serialized.charCodeAt(index), 16777619);
   }
   return `${serialized.length}:${(hash2 >>> 0).toString(16).padStart(8, "0")}`;
+}
+const SETTINGS_KEY = "jpdb-popup-reader-settings";
+const INTENT_LEDGER_KEY = "yomu:settings-intent:v2";
+const LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
+const LAST_KEYS = [LOCAL_SRS_V2_INDEX_KEY, "yomu:prefer-japanese-site-language:v1", INTENT_LEDGER_KEY, SETTINGS_KEY];
+const COORDINATION_FIELDS = ["__yomuSettingsPersistenceTransactionV1", "__yomuSettingsPersistenceCommitV1"];
+const HOSTED_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+const OWNER_NAMESPACE_PREFIX = "yomu:web-owner:v2:";
+let adoption;
+function websiteOnlyValuePresent(key2, epoch) {
+  return isHostedYomuOrigin() && isWebsiteStoreKey(key2) && localMirrorBelongsToEpoch(key2, epoch);
+}
+function adoptWebsiteOnlyStore(getValue, epoch, write) {
+  const token = managedStateEpochToken(epoch);
+  if (adoption?.token === token) return adoption.done;
+  const done = runAdoption(getValue, epoch, write).finally(() => {
+    if (adoption?.done === done) adoption = void 0;
+  });
+  adoption = { token, done };
+  return done;
+}
+async function runAdoption(getValue, epoch, write) {
+  if (!isHostedYomuOrigin()) return;
+  const installed = await readManagedGmValue(getValue, SETTINGS_KEY, epoch);
+  if (installed.kind === "found" && !saysNoTargetChosen(installed.value)) return;
+  const settingsUnitAbsent = installed.kind === "missing" && (await readManagedGmValue(getValue, INTENT_LEDGER_KEY, epoch)).kind === "missing";
+  for (const key2 of websiteOnlyKeys(epoch)) {
+    if (isSettingsAuthorityStorageKey(key2) && !settingsUnitAbsent) continue;
+    if ((await readManagedGmValue(getValue, key2, epoch)).kind !== "missing") continue;
+    const value = localStorageGet(key2, MISSING);
+    if (!isMissingSentinel(value)) await write(key2, adoptedValue(key2, value));
+  }
+}
+function websiteOnlyKeys(epoch) {
+  const keys = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key2 = localStorage.key(index);
+    if (key2 && websiteOnlyValuePresent(key2, epoch)) keys.push(key2);
+  }
+  const rank2 = (key2) => LAST_KEYS.indexOf(key2);
+  return keys.sort((left, right) => rank2(left) - rank2(right) || left.localeCompare(right));
+}
+function isWebsiteStoreKey(key2) {
+  return isManagedStorageBackupKey(key2) && !key2.startsWith(OWNER_NAMESPACE_PREFIX) && !RETIRED_SETTINGS_STORAGE_KEYS.includes(key2) && managedStateEntries().some((entry2) => entry2.kind === "gm" && (entry2.key === key2 || entry2.prefix !== void 0 && key2.startsWith(entry2.prefix)));
+}
+function adoptedValue(key2, value) {
+  if (!isRecord$6(value)) return value;
+  const record2 = withoutFields(value, COORDINATION_FIELDS);
+  if (key2 === SETTINGS_KEY) return withoutFields(record2, [HOSTED_PATCH_FIELD, ...HOSTED_LOCAL_SETTINGS_KEYS]);
+  if (key2 === INTENT_LEDGER_KEY && isRecord$6(record2.records)) {
+    return { ...record2, records: withoutFields(record2.records, HOSTED_LOCAL_SETTINGS_KEYS) };
+  }
+  return record2;
+}
+function withoutFields(record2, fields) {
+  const copy2 = { ...record2 };
+  for (const field2 of fields) delete copy2[field2];
+  return copy2;
+}
+function saysNoTargetChosen(settings) {
+  return isRecord$6(settings) && settings.learningTargetChosen === false;
 }
 class ConcreteManagedWriteJournal {
   constructor(storage, preserveLocalFallbackOnWriteFailure) {
@@ -29907,6 +29978,143 @@ function managedStoredValuesMatch(left, right) {
 function managedWriteConflict(key2, label) {
   return new Error(`${label} "${key2}" changed after staging; rollback left the newer value intact.`);
 }
+function managedStorageOwner() {
+  return detectInstalledReaderRuntime() ?? userscriptGmStorageOwnerKind() ?? "standalone";
+}
+function asyncGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmGetValue();
+  if (direct) return direct;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
+}
+function directGmGetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return modernGmGetValue() ?? legacyGmGetValue() ?? rawExtensionStorageGetValue();
+}
+function legacyGmGetValue() {
+  return typeof GM_getValue === "function" ? GM_getValue : null;
+}
+function modernGmGetValue() {
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function asyncGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmSetValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmSetValue();
+}
+function directGmSetValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmSetValue() ?? modernGmSetValue() ?? extensionGmSetValue();
+}
+function legacyGmSetValue() {
+  return typeof GM_setValue === "function" ? GM_setValue : null;
+}
+function modernGmSetValue() {
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmSetValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
+}
+function bridgeGmSetValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmDeleteValue();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmDeleteValue();
+}
+function directGmDeleteValue() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  return legacyGmDeleteValue() ?? modernGmDeleteValue() ?? extensionGmDeleteValue();
+}
+function legacyGmDeleteValue() {
+  return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+}
+function modernGmDeleteValue() {
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmDeleteValue() {
+  const extension = extensionStorageArea();
+  return extension ? (key2) => extension.remove(key2) : null;
+}
+function bridgeGmDeleteValue() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key2) => bridge.deleteValue(key2) : null;
+}
+function asyncGmListValues() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmListValues();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmListValues();
+}
+function directGmListValues() {
+  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
+}
+function legacyGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const directListValues = globalThis.GM_listValues;
+  return typeof directListValues === "function" ? directListValues : null;
+}
+function modernGmListValues() {
+  const modern = globalThis.GM?.listValues;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function extensionGmListValues() {
+  const extension = extensionStorageArea();
+  if (!extension) return null;
+  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+}
+function bridgeGmListValues() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  return extensionCapability((extension) => extension.storage?.local);
+}
+function extensionCapability(select2) {
+  const candidate2 = globalThis;
+  return activeExtensionCapability(candidate2.browser, select2) ?? activeExtensionCapability(candidate2.chrome, select2) ?? null;
+}
+function activeExtensionCapability(extension, select2) {
+  return extension?.runtime?.id ? select2(extension) : void 0;
+}
+function packagedExtensionStorageAdapterMissing() {
+  if (!isPackagedExtensionDocument()) return false;
+  const runtimeInstalled = globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ === true;
+  return !runtimeInstalled || typeof GM_getValue !== "function" || typeof GM_setValue !== "function";
+}
+function isPackagedExtensionDocument() {
+  try {
+    const protocol = globalThis.location?.protocol ?? "";
+    return /^(?:chrome|moz|safari-web)-extension:$/.test(protocol);
+  } catch {
+    return false;
+  }
+}
+function rawExtensionStorageGetValue() {
+  const extension = extensionStorageArea();
+  return extension ? extensionStorageGetValue(extension) : null;
+}
+function extensionStorageGetValue(extension) {
+  return async (key2, fallback) => {
+    const value = (await extension.get(key2))[key2];
+    return value === void 0 ? fallback : value;
+  };
+}
+function extensionStorageChangedEvent() {
+  return extensionCapability((extension) => extension.storage?.onChanged);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
@@ -30006,9 +30214,6 @@ function managedStateEpochForSynchronousLocalRead() {
     return null;
   }
 }
-function hasAsyncGmStorageBackend() {
-  return asyncGmGetValue() !== null;
-}
 async function assertManagedStateMutationAllowed() {
   const getValue = asyncGmGetValue();
   const epoch = await assertRealmManagedStateEpoch(getValue);
@@ -30090,8 +30295,10 @@ async function localManagedValuesWithoutBackend(keys, fallback) {
 async function sharedManagedValue(getValue, key2, fallback, epoch) {
   const read = await readManagedGmValue(getValue, key2, epoch);
   if (read.kind === "found") return read.value;
-  if (read.kind === "deleted") return fallback;
-  return fallback;
+  if (read.kind === "deleted" || !websiteOnlyValuePresent(key2, epoch)) return fallback;
+  await adoptWebsiteOnlyStore(getValue, epoch, gmStorageSet).catch((error) => debugStorageError("Website-only store adoption failed", key2, error));
+  const adopted = await readManagedGmValue(getValue, key2, epoch);
+  return adopted.kind === "found" ? adopted.value : fallback;
 }
 function failedManagedReadValue(error, key2, fallback) {
   if (isStaleManagedStateEpochError(error)) throw error;
@@ -30104,10 +30311,11 @@ function localOnlyManagedValue(key2, fallback, epoch) {
   return fallback;
 }
 function localOnlyManagedValueStrict(key2, fallback, epoch) {
-  if (hostedSettingsLocalValuePresent(key2) && !localMirrorBelongsToEpoch(key2, epoch)) {
+  if (!hostedSettingsLocalValuePresent(key2)) return localOnlyManagedValue(key2, fallback, epoch);
+  if (!localMirrorEpochMatches(key2, epoch, isPassiveHostedSettingsJson)) {
     throw storageWriteError(key2, "Hosted settings localStorage is present without matching provenance");
   }
-  return localOnlyManagedValue(key2, fallback, epoch);
+  return localStorageGet(key2, fallback);
 }
 function hostedSettingsLocalValuePresent(key2) {
   return isHostedSettingsStorageKey(key2) && isHostedYomuOrigin() && webStorageHasKey(localStorage, key2);
@@ -30440,13 +30648,21 @@ function gmStorageDeleteSync(key2) {
 }
 async function exportStoredValues(prefixes) {
   await ensureManagedWebStorageCurrent();
+  await adoptWebsiteOnlyStoreBeforeExport();
+  const localKeys = /* @__PURE__ */ new Set();
+  addLocalStorageKeys(localKeys, prefixes);
   const keys = (await storageKeys(prefixes)).filter(isManagedStorageBackupKey);
-  const entries2 = await Promise.all(keys.map(async (key2) => [key2, await storedBackupValue(key2)]));
+  const entries2 = await Promise.all(keys.map(async (key2) => [key2, await storedBackupValue(key2, localKeys.has(key2))]));
   return Object.fromEntries(entries2.filter(([, value]) => !isMissingSentinel(value)));
 }
-async function storedBackupValue(key2) {
+async function adoptWebsiteOnlyStoreBeforeExport() {
+  const getValue = asyncGmGetValue();
+  if (!getValue || !isHostedYomuOrigin()) return;
+  await adoptWebsiteOnlyStore(getValue, await assertRealmManagedStateEpoch(getValue), gmStorageSet);
+}
+async function storedBackupValue(key2, pageRecord) {
   const shared2 = await gmStorageGet(key2, MISSING);
-  if (!isMissingSentinel(shared2)) return shared2;
+  if (!isMissingSentinel(shared2) || !pageRecord) return shared2;
   try {
     const serialized = managedLocalStorage.getItem(key2);
     return serialized === null ? MISSING : JSON.parse(serialized);
@@ -30641,8 +30857,6 @@ function isPlainRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 async function clearManagedStoredValues() {
-  const installed = hasAsyncGmStorageBackend();
-  const webKeys = installed ? managedWebStorageResetKeys(managedStorageOwner()) : [];
   const keys = await allStorageKeys();
   await clearBridgePrivateManagedValuesForReset();
   let count2 = 0;
@@ -30650,27 +30864,31 @@ async function clearManagedStoredValues() {
     await deleteManagedStoredValue(key2);
     count2++;
   }
-  for (const key2 of webKeys) {
+  for (const key2 of originWebStorageResetKeys()) {
     removeLocalStorageKey(key2);
     removeSessionStorageKey(key2);
     if (resetWebStorageHasKey(localStorage, key2, "localStorage") || resetWebStorageHasKey(sessionStorage, key2, "sessionStorage")) {
-      throw new ManagedStateResetError("Factory reset could not clear the selected owner cache.");
+      throw new ManagedStateResetError(`Web storage still contains "${key2}" after deletion.`);
     }
     count2++;
   }
   count2 += await clearStrandedExtensionStudyManagedValuesForReset();
   await clearManagedIndexedDatabases();
-  if (ownsOriginBrowserStorage()) {
-    count2 += await clearManagedBrowserCaches();
-    count2 += await unregisterManagedServiceWorkers();
-  }
+  count2 += await clearManagedBrowserCaches();
+  count2 += await unregisterManagedServiceWorkers();
   return count2;
 }
 async function managedStoredKeysStillPresent() {
   const keys = await allStorageKeys();
   await clearBridgePrivateManagedValuesForReset();
-  const webKeys = hasAsyncGmStorageBackend() ? managedWebStorageResetKeys(managedStorageOwner()) : [];
-  return [.../* @__PURE__ */ new Set([...keys, ...webKeys, ...await strandedExtensionStudyManagedKeys()])].sort();
+  return [.../* @__PURE__ */ new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+}
+function originWebStorageResetKeys() {
+  try {
+    return managedWebStorageResetKeys().filter((key2) => !isFactoryResetControlStorageKey(key2));
+  } catch (error) {
+    throw new ManagedStateResetError("Factory reset could not enumerate this site's web storage.", { cause: error });
+  }
 }
 async function clearStrandedExtensionStudyManagedValuesForReset() {
   try {
@@ -30686,11 +30904,7 @@ async function strandedExtensionStudyManagedKeys() {
     throw new ManagedStateResetError("Factory reset could not inspect legacy extension Study storage.", { cause: error });
   }
 }
-function ownsOriginBrowserStorage() {
-  return !hasAsyncGmStorageBackend() || /^(?:moz|chrome|safari-web)-extension:$/.test(location.protocol);
-}
 async function clearManagedBrowserCaches() {
-  if (!ownsOriginBrowserStorage()) return 0;
   if (typeof caches === "undefined") return 0;
   try {
     const keys = await caches.keys();
@@ -30706,7 +30920,6 @@ async function clearManagedBrowserCaches() {
   }
 }
 async function unregisterManagedServiceWorkers() {
-  if (!ownsOriginBrowserStorage()) return 0;
   if (typeof navigator === "undefined" || !navigator.serviceWorker?.getRegistrations) return 0;
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
@@ -30934,9 +31147,6 @@ async function allStorageKeys() {
   const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
   const keys = /* @__PURE__ */ new Set();
   const gmEnumeration = await addGmStorageKeys(keys);
-  if (!hasAsyncGmStorageBackend()) {
-    for (const key2 of managedWebStorageResetKeys("standalone")) keys.add(key2);
-  }
   await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
   if (!gmEnumeration.complete) {
     const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
@@ -31083,8 +31293,7 @@ function restoreLocalFallbackStoredValue(key2, value, existed) {
   restoreLocalFallbackStoredValueAtEpoch(key2, value, existed, managedStateEpochForSynchronousLocalRead());
 }
 async function clearManagedIndexedDatabases() {
-  const names = registeredManagedIndexedDbNames().filter(databaseBelongsToCurrentOwner);
-  await Promise.all(names.map(deleteIndexedDbDatabase));
+  await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
 }
 function isManagedBrowserCacheName(name) {
   return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -33502,11 +33711,11 @@ function upsertAcademyVocabulary(deck, input, now) {
     retainWithoutAcademyProvenance: false,
     academyProvenance: { [provenance2.id]: previousProvenance ?? provenance2 }
   };
-  const card = existing ? preserveExistingSchedule(
+  const card = !existing ? incoming : existing.reviewEnabled === false ? mergeStoredYomuSrsCards(existing, incoming) : preserveExistingSchedule(
     mergeStoredYomuSrsCards(existing, incoming),
     existing,
     input.postponeExisting === true && !previousProvenance ? input.dueAt : void 0
-  ) : incoming;
+  );
   deck.cards[identity2.key] = card;
   return {
     card,
@@ -33952,8 +34161,7 @@ class LocalYomuSrsRepository {
         partOfSpeech: request2.card.partOfSpeech,
         language: request2.card.language
       });
-      const existing = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
-      if (existing.reviewEnabled === false) throw new Error("Saved word is not enrolled in review.");
+      const { reviewEnabled: _saved, ...existing } = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
       const updated = scheduleReviewedCard({ ...existing, id: identity2.key }, request2.grade, now);
       if (request2.card.providerCardId !== identity2.key && deck.cards[request2.card.providerCardId]) {
         delete deck.cards[request2.card.providerCardId];
@@ -34012,8 +34220,8 @@ class LocalYomuSrsRepository {
     const result2 = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
       const deck = await this.readDeckUncoordinated();
       const previousDeck = structuredClone(deck);
-      const previousCards = new Map(Object.entries(deck.cards));
-      const previousTombstones = { ...deck.tombstones ?? {} };
+      const previousCards = new Map(Object.entries(previousDeck.cards));
+      const previousTombstones = { ...previousDeck.tombstones ?? {} };
       const value = operation(deck);
       await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
       const changedCardIds = /* @__PURE__ */ new Set([
@@ -34171,7 +34379,7 @@ function meaningsFromGlosses(glosses) {
   return normalized2.length ? [{ glosses: normalized2, partOfSpeech: [] }] : [];
 }
 function localCardState(card, now) {
-  if (card.reviewEnabled === false) return [];
+  if (card.reviewEnabled === false) return ["in-deck"];
   if (card.reviews === 0) return ["new"];
   if (card.dueAt <= now) return ["due"];
   if (card.intervalDays >= 21) return ["known"];
@@ -34270,9 +34478,9 @@ function text$g(value) {
 function grade(rating) {
   return rating;
 }
-const SYNTHETIC_INTERACTION_TEST_SLOT = Symbol.for("yomu.reader.synthetic-interaction-tests");
+const SYNTHETIC_INTERACTION_TEST_SLOT = void 0;
 function syntheticEventsAllowed() {
-  return globalThis[SYNTHETIC_INTERACTION_TEST_SLOT] === true;
+  return SYNTHETIC_INTERACTION_TEST_SLOT !== void 0;
 }
 function sandboxSharedState(key2, create) {
   const realm = globalThis;
@@ -34573,11 +34781,11 @@ function bindAuthorizedReaderFormSubmit(form2, onSubmit, onInvalid) {
   }
   form2.addEventListener("submit", (event) => {
     event.preventDefault();
-    runSyntheticReaderFormSubmitForTests(event, onSubmit);
+    runSyntheticReaderFormSubmitForTests(event);
   });
 }
 function runSyntheticReaderFormSubmitForTests(event, onSubmit) {
-  if (!event.isTrusted && syntheticEventsAllowed()) onSubmit();
+  if (!event.isTrusted && syntheticEventsAllowed()) ;
 }
 function handleReaderFormSubmitClick(form2, submitter, onSubmit, onInvalid, event) {
   if (!isExactReaderFormSubmitTarget(form2, submitter, event.target)) return;
@@ -38541,6 +38749,18 @@ function normalizeStringIds(value) {
 function isRecord$5(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+function isTargetDefaultOcrLanguageTag(value) {
+  const tag = value?.trim().toLowerCase();
+  if (!tag) return false;
+  return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
+}
+const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = /* @__PURE__ */ new Set(["ja-jp", "ko-kr"]);
+function targetSpeechSynthesisLocale() {
+  return activeLearningTarget().audio.speechSynthesisLocale;
+}
+function targetAudioTemplateLanguageToken() {
+  return activeLearningTarget().audio.templateLanguageToken;
+}
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 function splitTags(value) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
@@ -40040,7 +40260,6 @@ const COPY$c = {
     noDefinitions: "No enabled definition source returned results.",
     enabledHeader: "On",
     labelHeader: "Label",
-    detailsHeader: "Details",
     displayName: "Display name",
     orderHeader: "Order",
     removeHeader: "Remove",
@@ -41297,7 +41516,6 @@ donate	寄付
 discord	Discord
 enabledHeader	有効
 labelHeader	ラベル
-detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除
@@ -43074,17 +43292,21 @@ function coupledIntentKeys(keys, known) {
 }
 function parseSettingsIntentLedger(value) {
   const record2 = objectRecord$1(value);
-  if (!record2 || typeof record2.revision !== "number" || !Number.isSafeInteger(record2.revision) || record2.revision < 0) return null;
-  const records2 = objectRecord$1(record2.records);
-  if (!records2) return null;
+  const records2 = record2 && objectRecord$1(record2.records);
+  if (!records2 || !nonNegativeNumber(record2.revision)) return null;
   const parsed = {};
+  let revision2 = record2.revision;
   for (const [key2, entry2] of Object.entries(records2)) {
     const item2 = objectRecord$1(entry2);
-    if (!item2 || typeof item2.seq !== "number" || !Number.isSafeInteger(item2.seq) || item2.seq <= 0 || item2.seq > record2.revision) return null;
+    if (!item2 || !nonNegativeNumber(item2.seq)) return null;
     const seq = item2.seq;
     parsed[key2] = hasOwn(item2, "value") ? { seq, value: item2.value } : { seq };
+    revision2 = Math.max(revision2, seq);
   }
-  return { revision: record2.revision, records: parsed };
+  return { revision: revision2, records: parsed };
+}
+function nonNegativeNumber(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 function objectRecord$1(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -43162,6 +43384,56 @@ function createDefaultSubtitleSettings(fontFamily) {
     subtitleHoverPause: true,
     subtitleSeekPadding: 0.08
   };
+}
+const DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS = {
+  interfaceLanguage: "en",
+  parserProvider: "local"
+};
+const LEGACY_READER_TARGET_EVIDENCE_KEYS = [
+  "apiKey",
+  "jitenApiKey",
+  "parserProvider",
+  "lookupOnClick",
+  "lookupOnHover",
+  "manualScanEnabled",
+  "annotationsPaused",
+  "popupMode",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleFontSize",
+  "subtitleBottomOffset"
+];
+function normalizeLearningTargetChosen(value, defaults = DEFAULT_LEARNING_TARGET_CHOICE_DEFAULTS) {
+  if (!value) return false;
+  const explicit = explicitLearningTargetChoice(value);
+  if (explicit !== void 0) return explicit;
+  return unmarkedLegacySettingsChooseTarget(value, defaults);
+}
+function explicitLearningTargetChoice(value) {
+  return hasOwn(value, "learningTargetChosen") && typeof value.learningTargetChosen === "boolean" ? value.learningTargetChosen : void 0;
+}
+function unmarkedLegacySettingsChooseTarget(value, defaults) {
+  if (isPassiveHostedSettingsRecord(value)) return false;
+  if (persistedProfilesChooseLearningTarget(value, defaults)) return true;
+  return legacyReaderTargetEvidenceExists(value);
+}
+function legacyReaderTargetEvidenceExists(value) {
+  return LEGACY_READER_TARGET_EVIDENCE_KEYS.some((key2) => hasOwn(value, key2));
+}
+function persistedProfilesChooseLearningTarget(value, defaults) {
+  const profiles = value.languageProfiles;
+  if (!Array.isArray(profiles)) return false;
+  if (!profiles.some(isPersistedLanguageProfile)) return false;
+  const normalized2 = normalizeLanguageProfiles(
+    profiles,
+    value.activeLanguageProfileId,
+    {
+      outputLanguage: "en",
+      uiLocale: defaults.interfaceLanguage,
+      parserProvider: defaults.parserProvider
+    }
+  );
+  return normalized2.profiles.some((profile2) => languageProfileHasIndependentState(profile2, defaults));
 }
 function isPersistedLanguageProfile(profile2) {
   return Boolean(
@@ -43273,10 +43545,8 @@ function committedSettingsStoragePair(storedSettings, storedIntentLedger) {
   return matchingCommittedPair(settings, intentLedger);
 }
 function matchingCommittedPair(settings, intentLedger) {
-  if (settings == null && intentLedger == null) return { settings: null, intentLedger: null };
   const settingsId = commitId(settings);
-  const ledgerId = commitId(intentLedger);
-  return typeof settingsId === "string" && settingsId === ledgerId ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
+  return settingsId !== null && settingsId === commitId(intentLedger) ? { settings: withoutCommit(settings), intentLedger: withoutCommit(intentLedger) } : null;
 }
 function commitId(value) {
   const record2 = objectRecord$2(value);
@@ -43331,6 +43601,15 @@ class InvalidSettingsBackupAuthorityError extends Error {
 function readSettingsPersistenceViewStrict() {
   return readSettingsPersistenceViewStrictFrom(readSettingsStorageValueStrict);
 }
+async function readSettingsIntentLedgerForWrite() {
+  const read = readSettingsStorageValueStrict;
+  const view = await stableSettingsPersistenceView(read);
+  if (view) return view.intentLedger;
+  if (committedSettingsStoragePair(await read(SETTINGS_STORAGE_KEY, null), await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null))) {
+    throw new Error("Settings storage did not provide a stable committed snapshot.");
+  }
+  return { revision: 0, records: {} };
+}
 function serializeSettingsPersistencePair(settings, intentLedger) {
   const commit = createStorageCoordinationId();
   return {
@@ -43383,21 +43662,23 @@ function backupAuthority(values) {
   return record2;
 }
 function validateBackupAuthority(record2) {
-  const settings = objectRecord(record2[SETTINGS_STORAGE_KEY]);
-  if (!settings) {
+  const committed = committedSettingsStoragePair(
+    record2[SETTINGS_STORAGE_KEY] ?? null,
+    record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY] ?? null
+  );
+  if (!committed) {
+    throw new InvalidSettingsBackupAuthorityError(
+      "Settings backup contains an incomplete settings persistence transaction."
+    );
+  }
+  if (!objectRecord(committed.settings)) {
     throw new InvalidSettingsBackupAuthorityError(
       "Settings backup contains a malformed canonical settings value."
     );
   }
-  const ledger = record2[SETTINGS_INTENT_LEDGER_STORAGE_KEY];
-  if (!parseSettingsIntentLedger(ledger)) {
+  if (committed.intentLedger != null && !parseSettingsIntentLedger(committed.intentLedger)) {
     throw new InvalidSettingsBackupAuthorityError(
       "Settings backup contains a malformed settings intent ledger."
-    );
-  }
-  if (!commitId(settings) || !commitId(ledger) || Object.hasOwn(settings, TRANSACTION_FIELD) || !committedSettingsStoragePair(settings, ledger)) {
-    throw new InvalidSettingsBackupAuthorityError(
-      "Settings backup contains an incomplete settings persistence transaction."
     );
   }
 }
@@ -44199,10 +44480,16 @@ function mergeSettings(value) {
       activeTargetRosterId(languageProfileSettings)
     ),
     ...languageProfileSettings,
-    learningTargetChosen: booleanSetting(value, "learningTargetChosen"),
+    // v1.9.3 contract: a record that predates the field keeps the choice
+    // its own Reader state implies (learning-target-choice.ts).
+    learningTargetChosen: normalizeLearningTargetChosen(value),
+    ...unpinnedOcrLanguage(settingsValue),
     preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
     shortcuts: normalizeShortcutSettings(settingsValue)
   };
+}
+function unpinnedOcrLanguage(value) {
+  return isTargetDefaultOcrLanguageTag(value?.ocrLanguage) ? { ocrLanguage: "" } : {};
 }
 function normalizePreferredJapaneseSiteLanguage(value) {
   if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
@@ -44795,14 +45082,11 @@ async function persistSettingsWithIntent(settings, intent) {
 function coupledSettingsIntentKeys(keys) {
   return coupledIntentKeys(keys, (key2) => hasOwn(DEFAULT_SETTINGS, key2));
 }
-async function readSettingsIntentLedger() {
-  return (await readSettingsPersistenceViewStrict()).intentLedger;
-}
 async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
   const normalizedSettings = mergeSettings(settings);
   let storedSettings = normalizedSettings;
   await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-    const ledger = await readSettingsIntentLedger();
+    const ledger = await readSettingsIntentLedgerForWrite();
     const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
     const nextLedger = recordSettingsIntent(
       withdrawn,
@@ -56831,7 +57115,7 @@ function validateCheckpoint(value) {
     throw new TypeError("Academy checkpoint has an invalid route history.");
   }
   if (!isAcademyPresentationMode(value.presentationMode)) throw new TypeError("Academy checkpoint has an invalid presentation mode.");
-  if (value.seenIntroductions !== void 0 && (!Array.isArray(value.seenIntroductions) || value.seenIntroductions.some((id2) => typeof id2 !== "string" || !id2.trim()) || new Set(value.seenIntroductions).size !== value.seenIntroductions.length)) {
+  if (value.seenIntroductions !== void 0 && !seenIntroductionsAreValid(value.seenIntroductions)) {
     throw new TypeError("Academy checkpoint has invalid seen introductions.");
   }
   if (value.worldVisits !== void 0 && (!value.worldVisits || typeof value.worldVisits !== "object" || Object.entries(value.worldVisits).some(([place2, visits]) => !isWorldPlaceId(place2) || !Number.isSafeInteger(visits) || visits < 0))) {
@@ -56880,6 +57164,9 @@ function validateCheckpoint(value) {
     throw new TypeError("Academy checkpoint has invalid placement progress.");
   }
   validateRouteContext(value);
+}
+function seenIntroductionsAreValid(value) {
+  return Array.isArray(value) && !value.some((id2) => typeof id2 !== "string" || !id2.trim()) && new Set(value).size === value.length;
 }
 function routeFrameIsValid(value) {
   if (!value || typeof value !== "object" || !isAcademyRoute(value.route)) return false;
@@ -57517,6 +57804,9 @@ function prefersReducedMotion$1() {
 const UNGROUNDED_ACTIVITY_ROUTES = new Set(
   ACADEMY_ROUTES.filter((route) => academyRouteKind(route) === "legacy-ungrounded-activity")
 );
+function learnerProgress(checkpoint) {
+  return Object.fromEntries(Object.entries(checkpoint).filter(([key2, value]) => key2.endsWith("Progress") && Boolean(value)));
+}
 function normalizeResumeCheckpoint(checkpoint, projection, now, online, accountLinked) {
   const session = checkpoint.session;
   if (!session || !sessionCanResume(session, now, online)) {
@@ -57525,18 +57815,7 @@ function normalizeResumeCheckpoint(checkpoint, projection, now, online, accountL
       route: "access",
       routeHistory: [],
       presentationMode: checkpoint.presentationMode,
-      ...checkpoint.authoredWeekProgress ? { authoredWeekProgress: checkpoint.authoredWeekProgress } : {},
-      ...checkpoint.classroomExpressionProgress ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress } : {},
-      ...checkpoint.classroomInstructionProgress ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress } : {},
-      ...checkpoint.lessonZeroRepeatRequestProgress ? { lessonZeroRepeatRequestProgress: checkpoint.lessonZeroRepeatRequestProgress } : {},
-      ...checkpoint.lessonZeroDeskLanguageProgress ? { lessonZeroDeskLanguageProgress: checkpoint.lessonZeroDeskLanguageProgress } : {},
-      ...checkpoint.lessonZeroGreetingProgress ? { lessonZeroGreetingProgress: checkpoint.lessonZeroGreetingProgress } : {},
-      ...checkpoint.lessonZeroHiraganaProgress ? { lessonZeroHiraganaProgress: checkpoint.lessonZeroHiraganaProgress } : {},
-      ...checkpoint.lessonZeroSentenceFrameProgress ? { lessonZeroSentenceFrameProgress: checkpoint.lessonZeroSentenceFrameProgress } : {},
-      ...checkpoint.lessonZeroNameCardProgress ? { lessonZeroNameCardProgress: checkpoint.lessonZeroNameCardProgress } : {},
-      ...checkpoint.lessonZeroVowelProgress ? { lessonZeroVowelProgress: checkpoint.lessonZeroVowelProgress } : {},
-      ...checkpoint.lessonZeroVowelWritingProgress ? { lessonZeroVowelWritingProgress: checkpoint.lessonZeroVowelWritingProgress } : {},
-      ...checkpoint.placementProgress ? { placementProgress: checkpoint.placementProgress } : {},
+      ...learnerProgress(checkpoint),
       updatedAt: now
     };
   }
@@ -232099,7 +232378,7 @@ async function loadLessonActivityChapter(packageId, kanjiWriting, loadedPackage)
       }, {
         ja: "元の問題を順番に解き、一週間の予定が読める形になりました。間違えたカードだけをもう一度確認します。",
         en: "The source problems are complete in order, leaving a readable weekly plan. Only missed cards return for repair."
-      }, [createLessonNineWeeklyPlanBeat(loadedPackage ?? await loadAuthoredWeekPackage(packageId))]);
+      }, [createLessonNineWeeklyPlanBeat(await resolveAuthoredWeekPackage(packageId, loadedPackage))]);
     case "l1-l10":
       return chapter("l1-l10", "s1e13-dinner-by-if", "jenny", {
         ja: "一日の時間割",
@@ -232189,7 +232468,7 @@ async function loadLessonActivityChapter(packageId, kanjiWriting, loadedPackage)
         en: "The items and quantities in both fridges now agree, and the partner’s information can be reported in one sentence. Shin and Peter check each counter once more before the next clue."
       }, [createLessonEighteenFridgeInventoryWorkbookBeat(), vegetableBagBeat(), counterMatchBeat()]);
     case "l1-l19": {
-      const loaded = loadedPackage ?? await loadAuthoredWeekPackage(packageId);
+      const loaded = await resolveAuthoredWeekPackage(packageId, loadedPackage);
       return chapter("l1-l19", "s1e08-menu-without-pictures", "shin", {
         ja: "元のメニューで注文する",
         en: "Ordering from the original menu"
@@ -232211,7 +232490,7 @@ async function loadLessonActivityChapter(packageId, kanjiWriting, loadedPackage)
       }, {
         ja: "六つのカードが期間、に、回数でそろいました。ジョディは、予定を比べる前に、何を数えているかを確かめる習慣を残します。",
         en: "All six cards now align period, に, and repetition. Before comparing schedules, Jodi leaves behind the habit of checking what is being counted."
-      }, [createLessonTwentyFrequencyLensBeat(loadedPackage ?? await loadAuthoredWeekPackage(packageId))]);
+      }, [createLessonTwentyFrequencyLensBeat(await resolveAuthoredWeekPackage(packageId, loadedPackage))]);
     case "l1-l21":
       return chapter("l1-l21", "s1e17-catwalk-clue", "peter", {
         ja: "通勤をくらべる二行ノート",
@@ -232802,6 +233081,9 @@ async function loadReachableLessonActivityChapter(packageId, kanjiWriting, loade
   } catch {
     return null;
   }
+}
+async function resolveAuthoredWeekPackage(packageId, loadedPackage) {
+  return loadedPackage ?? loadAuthoredWeekPackage(packageId);
 }
 function chapter(lessonPackageId, canonicalEpisodeId, hostId, title2, introduction, conclusion, beats) {
   const episode2 = requiredEpisode(canonicalEpisodeId);
@@ -265805,6 +266087,13 @@ const NEW_TAB_COPY = {
     recoverReviewRecording: "Recover previous answer",
     reviewResetReload: "Previous answer cleared by reset. Reload Study.",
     syncUnavailable: "Review sync unavailable",
+    heldReviewsNotice: "Answers not confirmed: {count}",
+    heldReviewsCheck: "Check again",
+    heldReviewsDiscard: "Discard",
+    heldReviewsStillUnknown: "Still not confirmed. Open Anki, then check again.",
+    heldReviewsDiscarded: "Unconfirmed answers discarded",
+    reviewQueueFull: "Too many answers are waiting to sync. Reconnect, then grade again.",
+    reviewQueueRejected: "This answer could not be saved. Grade it again.",
     syncSynced: "✓ Synced",
     dailyGoalUnit: "min",
     dailyGoalReached: "Goal reached",
@@ -266096,6 +266385,13 @@ const JA_NEW_TAB_COPY = {
   recoverReviewRecording: "前の回答を復元",
   reviewResetReload: "リセットにより前の回答は消去されました。Studyを再読み込みしてください。",
   syncUnavailable: "復習結果を同期できません",
+  heldReviewsNotice: "未確認の回答: {count}件",
+  heldReviewsCheck: "もう一度確認",
+  heldReviewsDiscard: "破棄",
+  heldReviewsStillUnknown: "まだ確認できません。Ankiを開いてからもう一度確認してください。",
+  heldReviewsDiscarded: "未確認の回答を破棄しました",
+  reviewQueueFull: "同期待ちの回答が多すぎます。接続してからもう一度採点してください。",
+  reviewQueueRejected: "この回答は保存できませんでした。もう一度採点してください。",
   syncSynced: "✓ 同期済み",
   dailyGoalUnit: "分",
   dailyGoalReached: "目標達成",
@@ -266434,7 +266730,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BSF4gFq-.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-D6QT6sCE.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -272588,7 +272884,7 @@ if ("serviceWorker" in navigator) {
   }, { once: true });
 }
 export {
-  USERSCRIPT_HTTP_BRIDGE_READY_EVENT as $,
+  createWindowCustomEvent as $,
   frCatalog as A,
   fiCatalog as B,
   enCatalog as C,
@@ -272605,406 +272901,411 @@ export {
   INTERFACE_LOCALES as N,
   resolveLanguageProfile as O,
   adoptLearningTargetLanguage as P,
-  activeLearningTarget as Q,
-  isAppleTouchBrowser as R,
-  attempt as S,
-  DOCS_ORIGIN as T,
-  GITHUB_PAGES_ORIGIN as U,
-  APP_REPOSITORY_NAME as V,
-  addWindowEventListener as W,
-  bridgeEventDetail as X,
-  dispatchWindowEvent as Y,
-  createWindowCustomEvent as Z,
-  bridgeEventId as _,
+  isAppleTouchBrowser as Q,
+  attempt as R,
+  DOCS_ORIGIN as S,
+  GITHUB_PAGES_ORIGIN as T,
+  APP_REPOSITORY_NAME as U,
+  readyBridgeOwner as V,
+  installedStorageResponderReady as W,
+  expectedBridgeKind as X,
+  addWindowEventListener as Y,
+  bridgeEventDetail as Z,
+  dispatchWindowEvent as _,
   normalizeCardStates as a,
-  PAGE_WORD_COLOR_TOKENS as a$,
-  bridgeResponseEventDetail as a0,
-  removeWindowEventListener as a1,
-  updateRenderedWordPrivateState as a2,
-  renderedWordPrivateStateForCard as a3,
-  renderedWordPrivateValue as a4,
-  subscribeToStoredValueChanges as a5,
-  currentAccountDataSurfaceIsTrusted as a6,
-  gmPrivateStorageSet as a7,
-  Logger as a8,
-  uiText as a9,
-  preparedAudioCacheKey as aA,
-  getAudioCandidateCacheKey as aB,
-  cloneAudioCandidates as aC,
-  isApiTextToSpeechSource as aD,
-  canonicalLanguageTag as aE,
-  languageSubtag as aF,
-  hasJitenAudioReference as aG,
-  yomuAnkiCompanion as aH,
-  flattenNoteFields as aI,
-  stablePositiveHashId as aJ,
-  normalizeAnkiFieldName as aK,
-  HAS_JAPANESE$1 as aL,
-  codePointSafePrefix as aM,
-  ANKI_EXPRESSION_FIELD_NAMES as aN,
-  ANKI_READING_FIELD_NAMES as aO,
-  ANKI_MEANING_FIELD_NAMES as aP,
-  ANKI_SENTENCE_FIELD_NAMES as aQ,
-  escapeHtml as aR,
-  privateCommandAttributes as aS,
-  ACADEMY_SRS_LABEL as aT,
-  sharedHexToRgb as aU,
-  sanitizeAccentColor as aV,
-  sharedContrastRatio as aW,
-  CORE_COLOR_TOKENS as aX,
-  sharedMixHex as aY,
-  RENDERED_WORD_CONTRAST_VARS as aZ,
-  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW as a_,
-  overlayViewport as aa,
-  overlayViewportBounds as ab,
-  layoutPointToOverlay as ac,
-  sourceRectToOverlay as ad,
-  trustedReaderEventHandler as ae,
-  readCardCommandCapability as af,
-  privateReviewGradeAllowed as ag,
-  normalizeAttemptedAudioUrl as ah,
-  audioSubSourceNameKey as ai,
-  audioSubSourceProviderName as aj,
-  disabledAudioSubSourceNameKeys as ak,
-  parseJson as al,
-  escapeRegExp as am,
-  uniqueStrings as an,
-  getOrderedAudioSources as ao,
-  orderAudioSources as ap,
-  isTextToSpeechFallbackSource as aq,
-  isBrowserTextToSpeechSource as ar,
-  audioPreloadLimits as as,
-  preloadableAudioSources as at,
-  cheapCandidatePreloadAudioSources as au,
-  orderAudioCandidates as av,
-  getAudioBagKey as aw,
-  audioCandidateSelectionMode as ax,
-  registerAudioAttempt as ay,
-  getJpdbAudioBagKey as az,
+  sanitizeAccentColor as a$,
+  isYomuPrivilegedHostedAppUrl as a0,
+  bridgeEventId as a1,
+  USERSCRIPT_HTTP_BRIDGE_READY_EVENT as a2,
+  USERSCRIPT_STORAGE_BRIDGE_READY_EVENT as a3,
+  bridgeResponseEventDetail as a4,
+  removeWindowEventListener as a5,
+  updateRenderedWordPrivateState as a6,
+  renderedWordPrivateStateForCard as a7,
+  renderedWordPrivateValue as a8,
+  subscribeToStoredValueChanges as a9,
+  orderAudioCandidates as aA,
+  getAudioBagKey as aB,
+  audioCandidateSelectionMode as aC,
+  registerAudioAttempt as aD,
+  getJpdbAudioBagKey as aE,
+  preparedAudioCacheKey as aF,
+  getAudioCandidateCacheKey as aG,
+  cloneAudioCandidates as aH,
+  targetSpeechSynthesisLocale as aI,
+  isApiTextToSpeechSource as aJ,
+  canonicalLanguageTag as aK,
+  languageSubtag as aL,
+  hasJitenAudioReference as aM,
+  yomuAnkiCompanion as aN,
+  flattenNoteFields as aO,
+  stablePositiveHashId as aP,
+  normalizeAnkiFieldName as aQ,
+  HAS_JAPANESE$1 as aR,
+  codePointSafePrefix as aS,
+  ANKI_EXPRESSION_FIELD_NAMES as aT,
+  ANKI_READING_FIELD_NAMES as aU,
+  ANKI_MEANING_FIELD_NAMES as aV,
+  ANKI_SENTENCE_FIELD_NAMES as aW,
+  escapeHtml as aX,
+  privateCommandAttributes as aY,
+  ACADEMY_SRS_LABEL as aZ,
+  sharedHexToRgb as a_,
+  currentAccountDataSurfaceIsTrusted as aa,
+  gmPrivateStorageSet as ab,
+  Logger as ac,
+  uiText as ad,
+  overlayViewport as ae,
+  overlayViewportBounds as af,
+  layoutPointToOverlay as ag,
+  sourceRectToOverlay as ah,
+  trustedReaderEventHandler as ai,
+  readCardCommandCapability as aj,
+  privateReviewGradeAllowed as ak,
+  normalizeAttemptedAudioUrl as al,
+  audioSubSourceNameKey as am,
+  audioSubSourceProviderName as an,
+  targetAudioTemplateLanguageToken as ao,
+  disabledAudioSubSourceNameKeys as ap,
+  parseJson as aq,
+  escapeRegExp as ar,
+  uniqueStrings as as,
+  getOrderedAudioSources as at,
+  orderAudioSources as au,
+  isTextToSpeechFallbackSource as av,
+  isBrowserTextToSpeechSource as aw,
+  audioPreloadLimits as ax,
+  preloadableAudioSources as ay,
+  cheapCandidatePreloadAudioSources as az,
   KANJI_PATTERN as b,
-  countYomitanZipBanks as b$,
-  renderedWordHasAnkiState as b0,
-  canonicalStudyCardIdentity as b1,
-  applyLocalYomuSrsStateToRenderedWord as b2,
-  hasJpdbApiCredential as b3,
-  hasJitenApiCredential as b4,
-  hasBunproFrontendCredential as b5,
-  isBunproFrontendCredentialExpired as b6,
-  hasWanikaniApiCredential as b7,
-  isLocalYomuSrsStorageError as b8,
-  activeLearningTargetLanguage as b9,
-  STUDY_GRAMMAR_SOURCE_ID as bA,
-  LOOKUP_PILL_COLOR_TOKENS as bB,
-  normalizeDictionaryPreferences as bC,
-  genericLookupTextVariants as bD,
-  ownedDatabaseName as bE,
-  yomitanDictionaryIdentity as bF,
-  gmStorageGet as bG,
-  gmStorageSet as bH,
-  gmStorageDelete as bI,
-  assertManagedStateMutationAllowed as bJ,
-  managedStateEpochToken as bK,
-  managedStateEpochTokenRelation as bL,
-  assertManagedStateReadAllowed as bM,
-  normalizeZipKanjiMetaRow as bN,
-  normalizeZipTermMetaRow as bO,
-  normalizeZipKanjiRow as bP,
-  normalizeZipTermRow as bQ,
-  isRecord$6 as bR,
-  isJapaneseKanjiCharacter as bS,
-  lookupSpansStartingInRange as bT,
-  normalizeImportedLookupMeta as bU,
-  normalizeGenericLookupText as bV,
-  splitTags as bW,
-  JAPANESE_RE as bX,
-  codePointBoundaryAtOrAfter as bY,
-  yomitanZipDictionaryName as bZ,
-  yomitanZipVersion as b_,
-  effectiveWanikaniApiToken as ba,
-  effectiveBunproFrontendApiToken as bb,
-  effectiveBunproLegacyApiKey as bc,
-  effectiveJpdbApiKey as bd,
-  effectiveJitenApiKey as be,
-  yomuKanjiStudyCompanion as bf,
-  isUnifiedIdeograph as bg,
-  readerWordSurfaceText as bh,
-  readAnkiAudioMergeCapability as bi,
-  formatUiText as bj,
-  uiList as bk,
-  readReviewTargetCapability as bl,
-  renderKanjiNavigationText as bm,
-  shouldRenderRuby as bn,
-  renderRuby as bo,
-  cleanCardHighlightValue as bp,
-  renderHighlightedTextHtml as bq,
-  cardHighlightTargets as br,
-  compactCardHighlightValue as bs,
-  IMMERSION_KIT_SOURCE_ID as bt,
-  JITEN_DEFINITION_SOURCE_ID as bu,
-  JPDB_DEFINITION_SOURCE_ID as bv,
-  BUNPRO_DEFINITION_SOURCE_ID as bw,
-  WANIKANI_DEFINITION_SOURCE_ID as bx,
-  STUDY_TRANSLATION_SOURCE_ID as by,
-  ANKI_SOURCE_ID as bz,
+  normalizeGenericLookupText as b$,
+  sharedContrastRatio as b0,
+  CORE_COLOR_TOKENS as b1,
+  sharedMixHex as b2,
+  RENDERED_WORD_CONTRAST_VARS as b3,
+  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW as b4,
+  PAGE_WORD_COLOR_TOKENS as b5,
+  renderedWordHasAnkiState as b6,
+  canonicalStudyCardIdentity as b7,
+  applyLocalYomuSrsStateToRenderedWord as b8,
+  hasJpdbApiCredential as b9,
+  IMMERSION_KIT_SOURCE_ID as bA,
+  JITEN_DEFINITION_SOURCE_ID as bB,
+  JPDB_DEFINITION_SOURCE_ID as bC,
+  BUNPRO_DEFINITION_SOURCE_ID as bD,
+  WANIKANI_DEFINITION_SOURCE_ID as bE,
+  STUDY_TRANSLATION_SOURCE_ID as bF,
+  ANKI_SOURCE_ID as bG,
+  STUDY_GRAMMAR_SOURCE_ID as bH,
+  LOOKUP_PILL_COLOR_TOKENS as bI,
+  normalizeDictionaryPreferences as bJ,
+  genericLookupTextVariants as bK,
+  yomitanDictionaryIdentity as bL,
+  gmStorageGet as bM,
+  gmStorageSet as bN,
+  gmStorageDelete as bO,
+  assertManagedStateMutationAllowed as bP,
+  managedStateEpochToken as bQ,
+  managedStateEpochTokenRelation as bR,
+  assertManagedStateReadAllowed as bS,
+  normalizeZipKanjiMetaRow as bT,
+  normalizeZipTermMetaRow as bU,
+  normalizeZipKanjiRow as bV,
+  normalizeZipTermRow as bW,
+  isRecord$6 as bX,
+  isJapaneseKanjiCharacter as bY,
+  lookupSpansStartingInRange as bZ,
+  normalizeImportedLookupMeta as b_,
+  hasJitenApiCredential as ba,
+  hasBunproFrontendCredential as bb,
+  isBunproFrontendCredentialExpired as bc,
+  hasWanikaniApiCredential as bd,
+  isLocalYomuSrsStorageError as be,
+  activeLearningTargetLanguage as bf,
+  effectiveWanikaniApiToken as bg,
+  effectiveBunproFrontendApiToken as bh,
+  effectiveBunproLegacyApiKey as bi,
+  effectiveJpdbApiKey as bj,
+  effectiveJitenApiKey as bk,
+  yomuKanjiStudyCompanion as bl,
+  activeLearningTarget as bm,
+  isUnifiedIdeograph as bn,
+  readerWordSurfaceText as bo,
+  readAnkiAudioMergeCapability as bp,
+  formatUiText as bq,
+  uiList as br,
+  readReviewTargetCapability as bs,
+  renderKanjiNavigationText as bt,
+  shouldRenderRuby as bu,
+  renderRuby as bv,
+  cleanCardHighlightValue as bw,
+  renderHighlightedTextHtml as bx,
+  cardHighlightTargets as by,
+  compactCardHighlightValue as bz,
   thCatalog as c,
-  endSettingsResetGuard as c$,
-  normalizeImportedLookupTerm as c0,
-  activeLearningTargetGeneration as c1,
-  imageMimeType as c2,
-  bytesToBase64 as c3,
-  speakerIcon as c4,
-  renderedWordPrivateAttributesForState as c5,
-  gmStorageGetSync as c6,
-  gmStorageSetSync as c7,
-  isNonNullObject as c8,
-  uniqueNonEmptyStrings$1 as c9,
-  fallbackLookupTermsForCard as cA,
-  yomuBunproCompanion as cB,
-  shouldLookupAnkiStatus as cC,
-  setRenderedWordPitchClass as cD,
-  shouldHideFuriganaForCardState as cE,
-  isPopupLookupEnabled as cF,
-  yomuNormalizeOcrRenderedText as cG,
-  replaceRenderedWordFurigana as cH,
-  htmlToFirstElement as cI,
-  clearRenderedWordAnkiState as cJ,
-  clearRenderedWordFurigana as cK,
-  cardDeckMembershipClassNames as cL,
-  setInnerHtml as cM,
-  gmStorageDeleteSync as cN,
-  appendToDocumentHead as cO,
-  yomuSettingsSurfaceCompanion as cP,
-  subscribeToFactoryResetSignals as cQ,
-  APP_NAME as cR,
-  createFactoryResetSignal as cS,
-  beginSettingsResetGuard as cT,
-  publishFactoryResetSignal as cU,
-  delay as cV,
-  clearManagedStoredValues as cW,
-  deleteSettingsStorage as cX,
-  commitManagedStateResetEpoch as cY,
-  clearFactoryResetSignal as cZ,
-  managedStateResetEpochMayHaveCommitted as c_,
-  pitchNumberForReading as ca,
-  pitchPatternFromPosition as cb,
-  KANA as cc,
-  COMBINING_KANA_MARKS as cd,
-  collectPitchVariants as ce,
-  splitMorae as cf,
-  pitchLevelsForDisplay as cg,
-  pitchClassNameForPattern as ch,
-  learningTargetModuleFor as ci,
-  defaultLearningTargetModule as cj,
-  languageDisplayName as ck,
-  resolveUiLanguage as cl,
-  primaryCardState as cm,
-  cardStateLabel as cn,
-  ConcurrencyGate as co,
-  KANA_ONLY_RUN_RE as cp,
-  ITERATION_MARK as cq,
-  KANA_WITH_PROLONGED as cr,
-  mapLimited as cs,
-  bareFallbackCardFromText as ct,
-  inferredInflectedSurfaceRubies as cu,
-  nonOverlappingTokens as cv,
-  READING_KANA_ONLY_RE as cw,
-  HALFWIDTH_KATAKANA as cx,
-  PROLONGED_SOUND_MARK as cy,
-  KATAKANA_MIDDLE_DOT as cz,
+  delay as c$,
+  splitTags as c0,
+  JAPANESE_RE as c1,
+  codePointBoundaryAtOrAfter as c2,
+  yomitanZipDictionaryName as c3,
+  yomitanZipVersion as c4,
+  countYomitanZipBanks as c5,
+  normalizeImportedLookupTerm as c6,
+  activeLearningTargetGeneration as c7,
+  imageMimeType as c8,
+  bytesToBase64 as c9,
+  inferredInflectedSurfaceRubies as cA,
+  nonOverlappingTokens as cB,
+  READING_KANA_ONLY_RE as cC,
+  HALFWIDTH_KATAKANA as cD,
+  PROLONGED_SOUND_MARK as cE,
+  KATAKANA_MIDDLE_DOT as cF,
+  fallbackLookupTermsForCard as cG,
+  yomuBunproCompanion as cH,
+  shouldLookupAnkiStatus as cI,
+  setRenderedWordPitchClass as cJ,
+  shouldHideFuriganaForCardState as cK,
+  isPopupLookupEnabled as cL,
+  yomuNormalizeOcrRenderedText as cM,
+  replaceRenderedWordFurigana as cN,
+  htmlToFirstElement as cO,
+  clearRenderedWordAnkiState as cP,
+  clearRenderedWordFurigana as cQ,
+  cardDeckMembershipClassNames as cR,
+  setInnerHtml as cS,
+  gmStorageDeleteSync as cT,
+  appendToDocumentHead as cU,
+  yomuSettingsSurfaceCompanion as cV,
+  subscribeToFactoryResetSignals as cW,
+  APP_NAME as cX,
+  createFactoryResetSignal as cY,
+  beginSettingsResetGuard as cZ,
+  publishFactoryResetSignal as c_,
+  speakerIcon as ca,
+  renderedWordPrivateAttributesForState as cb,
+  gmStorageGetSync as cc,
+  gmStorageSetSync as cd,
+  isNonNullObject as ce,
+  uniqueNonEmptyStrings$1 as cf,
+  pitchNumberForReading as cg,
+  pitchPatternFromPosition as ch,
+  KANA as ci,
+  COMBINING_KANA_MARKS as cj,
+  collectPitchVariants as ck,
+  splitMorae as cl,
+  pitchLevelsForDisplay as cm,
+  pitchClassNameForPattern as cn,
+  learningTargetModuleFor as co,
+  defaultLearningTargetModule as cp,
+  languageDisplayName as cq,
+  resolveUiLanguage as cr,
+  primaryCardState as cs,
+  cardStateLabel as ct,
+  ConcurrencyGate as cu,
+  KANA_ONLY_RUN_RE as cv,
+  ITERATION_MARK as cw,
+  KANA_WITH_PROLONGED as cx,
+  mapLimited as cy,
+  bareFallbackCardFromText as cz,
   tlCatalog as d,
-  DOCS_BASE_URL as d$,
-  managedStoredKeysStillPresent as d0,
-  ManagedStateResetError as d1,
-  stableHash32 as d2,
-  uniqueTrimmedStrings as d3,
-  stableHashBase36 as d4,
-  isTargetLanguageText as d5,
-  KANJI_LIKE_WITH_COUNTERS as d6,
-  HIRAGANA_WITH_PROLONGED as d7,
-  KATAKANA_WITH_PROLONGED as d8,
-  KANJI_LIKE_RE as d9,
-  KANJI_DOODLE_CLEAR_EVENT as dA,
-  installKanjiDoodle as dB,
-  rankKanjiStrokeCandidates as dC,
-  promiseWithTimeout as dD,
-  isYomuNewTabUrl as dE,
-  convertRomajiToKana as dF,
-  normalizeJapaneseStudyAnswer as dG,
-  isolate as dH,
-  contextPitchPattern as dI,
-  managedStateWritesSuppressed as dJ,
-  createStorageCoordinationId as dK,
-  managedSessionStorage as dL,
-  bindAuthorizedReaderFormSubmit as dM,
-  isDirectTrustedReaderInteraction as dN,
-  normalizedJapaneseCardReading as dO,
-  parseManagedStateEpoch as dP,
-  sameManagedStateEpoch as dQ,
-  gmStorageGetStrict as dR,
-  DEFAULT_SETTINGS as dS,
-  renderImmersionSearchLinks as dT,
-  createStudySessionClock as dU,
-  readJpdbKanjiCommandCapability as dV,
-  isNewTabCopyKey as dW,
-  nextExplicitUiLanguage as dX,
-  GITHUB_REPOSITORY_URL as dY,
-  DISCORD_INVITE_URL as dZ,
-  dispatchAuthorizedReaderControlClick as d_,
-  applyOverlayPageScale as da,
-  overlayViewportBottomInset as db,
-  renderImmersionSearchLinksHtml as dc,
-  renderTokensToHtml as dd,
-  readPrivateReviewTarget as de,
-  runLimited as df,
-  isManagedStorageKey as dg,
-  managedLocalStorage as dh,
-  readJitenKanjiWordsCommandCapability as di,
-  bindPrivateCommandCapability as dj,
-  parseHtmlDocument as dk,
-  isCurrentScanTarget as dl,
-  applyTokensToScanTarget as dm,
-  unwrapReaderWords as dn,
-  collectFragmentTextTargetsIn as dp,
-  collectFormControlTextTargetsIn as dq,
-  newTabText as dr,
-  CARD_STATE_LABEL_KEYS as ds,
-  readKanjiCommandCapability as dt,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as du,
-  dispatchPrivateCommand as dv,
-  claimLocalTapActivation as dw,
-  installControlTapActivation as dx,
-  enabledReaderControl as dy,
-  effectiveFuriganaMode as dz,
+  createStudySessionClock as d$,
+  clearManagedStoredValues as d0,
+  deleteSettingsStorage as d1,
+  commitManagedStateResetEpoch as d2,
+  clearFactoryResetSignal as d3,
+  managedStateResetEpochMayHaveCommitted as d4,
+  endSettingsResetGuard as d5,
+  managedStoredKeysStillPresent as d6,
+  ManagedStateResetError as d7,
+  stableHash32 as d8,
+  uniqueTrimmedStrings as d9,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as dA,
+  dispatchPrivateCommand as dB,
+  claimLocalTapActivation as dC,
+  installControlTapActivation as dD,
+  enabledReaderControl as dE,
+  effectiveFuriganaMode as dF,
+  KANJI_DOODLE_CLEAR_EVENT as dG,
+  installKanjiDoodle as dH,
+  rankKanjiStrokeCandidates as dI,
+  promiseWithTimeout as dJ,
+  isYomuNewTabUrl as dK,
+  convertRomajiToKana as dL,
+  normalizeJapaneseStudyAnswer as dM,
+  isolate as dN,
+  contextPitchPattern as dO,
+  managedStateWritesSuppressed as dP,
+  createStorageCoordinationId as dQ,
+  managedSessionStorage as dR,
+  bindAuthorizedReaderFormSubmit as dS,
+  isDirectTrustedReaderInteraction as dT,
+  normalizedJapaneseCardReading as dU,
+  parseManagedStateEpoch as dV,
+  sameManagedStateEpoch as dW,
+  gmStorageGetStrict as dX,
+  withGmStorageLease as dY,
+  DEFAULT_SETTINGS as dZ,
+  renderImmersionSearchLinks as d_,
+  stableHashBase36 as da,
+  isTargetLanguageText as db,
+  KANJI_LIKE_WITH_COUNTERS as dc,
+  HIRAGANA_WITH_PROLONGED as dd,
+  KATAKANA_WITH_PROLONGED as de,
+  KANJI_LIKE_RE as df,
+  applyOverlayPageScale as dg,
+  overlayViewportBottomInset as dh,
+  renderImmersionSearchLinksHtml as di,
+  renderTokensToHtml as dj,
+  readPrivateReviewTarget as dk,
+  runLimited as dl,
+  isManagedStorageKey as dm,
+  managedLocalStorage as dn,
+  readJitenKanjiWordsCommandCapability as dp,
+  bindPrivateCommandCapability as dq,
+  parseHtmlDocument as dr,
+  isCurrentScanTarget as ds,
+  applyTokensToScanTarget as dt,
+  unwrapReaderWords as du,
+  collectFragmentTextTargetsIn as dv,
+  collectFormControlTextTargetsIn as dw,
+  newTabText as dx,
+  CARD_STATE_LABEL_KEYS as dy,
+  readKanjiCommandCapability as dz,
   esCatalog as e,
-  furiganaModeNeedsDifficultyExplanation as e$,
-  SUPPORT_STATUS_URL as e0,
-  validPitchPositions as e1,
-  mountStudySessionClockControl as e2,
-  combinedApiCredentialLabel as e3,
-  assessKanjiStrokes as e4,
-  SHAPE_PASS_SCORE as e5,
-  activeLanguageProfile as e6,
-  packagedExtensionStorageAdapterMissing as e7,
-  readSettingsPersistenceViewStrict as e8,
-  FURIGANA_HIDE_STATE_GROUPS as e9,
-  normalizeAudioSource as eA,
-  isLearningTargetRosterId as eB,
-  MAX_LOOKUP_LINK_ROWS as eC,
-  normalizeAnkiFieldMappings as eD,
-  isLearnerLanguageId as eE,
-  COPY_LOOKUP_LINK as eF,
-  exportManagedStoredValues as eG,
-  RETIRED_SETTINGS_STORAGE_KEYS as eH,
-  SETTINGS_STORAGE_KEY as eI,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eJ,
-  applySettingsIntent as eK,
-  serializeSettingsPersistencePair as eL,
-  defaultDictionaryLookupLinks as eM,
-  MAX_EXTRA_LOOKUP_LINKS as eN,
-  missingLookupComponents as eO,
-  AUDIO_SOURCE_UI_TYPE_VALUES as eP,
-  audioSourceLabel as eQ,
-  lookupSiteComponents as eR,
-  DEFAULT_POPUP_FONT_FAMILY as eS,
-  DEFAULT_READER_FONT_FAMILY as eT,
-  isPromiseLike as eU,
-  dispatchAuthorizedReaderControlEvent as eV,
-  ANKI_CONNECT_ADDON_URL as eW,
-  redactedApiCredentialsFromForm as eX,
-  LEARNER_LANGUAGE_IDS as eY,
-  externalLinkIcon as eZ,
-  LEARNING_TARGET_ROSTER as e_,
-  WORD_COLOR_HIDE_STATE_GROUPS as ea,
-  accentToRgba as eb,
-  effectiveReaderTextColorSource as ec,
-  effectiveReaderColorSource as ed,
-  effectiveSubtitleTextColorSource as ee,
-  effectiveSubtitleColorSource as ef,
-  accessibleOcrBackgroundOpacity as eg,
-  accessibleOcrBackgroundColor as eh,
-  READER_THEME_COLOR_TOKENS as ei,
-  EXTENSION_STORE_URLS as ej,
-  USERSCRIPT_INSTALL_URL as ek,
-  learnerLanguageById as el,
-  readApiCredentialsFromFormData as em,
-  normalizeReaderSettings as en,
-  DEFAULT_AUDIO_SOURCES as eo,
-  learningTargetRosterIdForTag as ep,
-  dictionaryLookupLinksForTarget as eq,
-  availableInterfaceLocales as er,
-  credentialValueFromReader as es,
-  normalizeOcrProvider as et,
-  slice1LanguageIdForTag as eu,
-  canonicalTagForSlice1Language as ev,
-  canonicalTagForLearningTarget as ew,
-  languageProfileDictionariesFromPreferences as ex,
-  activateLanguageProfileForOutputLanguage as ey,
-  normalizeDictionaryLookupLinks as ez,
+  MAX_EXTRA_LOOKUP_LINKS as e$,
+  readJpdbKanjiCommandCapability as e0,
+  isNewTabCopyKey as e1,
+  nextExplicitUiLanguage as e2,
+  GITHUB_REPOSITORY_URL as e3,
+  DISCORD_INVITE_URL as e4,
+  dispatchAuthorizedReaderControlClick as e5,
+  DOCS_BASE_URL as e6,
+  SUPPORT_STATUS_URL as e7,
+  validPitchPositions as e8,
+  mountStudySessionClockControl as e9,
+  learnerLanguageById as eA,
+  readApiCredentialsFromFormData as eB,
+  DEFAULT_AUDIO_SOURCES as eC,
+  learningTargetRosterIdForTag as eD,
+  dictionaryLookupLinksForTarget as eE,
+  availableInterfaceLocales as eF,
+  credentialValueFromReader as eG,
+  normalizeOcrProvider as eH,
+  slice1LanguageIdForTag as eI,
+  canonicalTagForSlice1Language as eJ,
+  canonicalTagForLearningTarget as eK,
+  languageProfileDictionariesFromPreferences as eL,
+  activateLanguageProfileForOutputLanguage as eM,
+  normalizeDictionaryLookupLinks as eN,
+  normalizeAudioSource as eO,
+  isLearningTargetRosterId as eP,
+  MAX_LOOKUP_LINK_ROWS as eQ,
+  normalizeAnkiFieldMappings as eR,
+  isLearnerLanguageId as eS,
+  COPY_LOOKUP_LINK as eT,
+  exportManagedStoredValues as eU,
+  RETIRED_SETTINGS_STORAGE_KEYS as eV,
+  SETTINGS_STORAGE_KEY as eW,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eX,
+  applySettingsIntent as eY,
+  serializeSettingsPersistencePair as eZ,
+  defaultDictionaryLookupLinks as e_,
+  combinedApiCredentialLabel as ea,
+  assessKanjiStrokes as eb,
+  SHAPE_PASS_SCORE as ec,
+  activeLanguageProfile as ed,
+  readBackupSettingsPersistenceView as ee,
+  beginStoredValuesImport as ef,
+  settingsIntentKeys as eg,
+  normalizeReaderSettings as eh,
+  mergeDictionaryPreferences as ei,
+  retireStaleDictionaryPreferences as ej,
+  captureActiveLanguageProfileDictionaries as ek,
+  saveSettings as el,
+  packagedExtensionStorageAdapterMissing as em,
+  readSettingsPersistenceViewStrict as en,
+  FURIGANA_HIDE_STATE_GROUPS as eo,
+  WORD_COLOR_HIDE_STATE_GROUPS as ep,
+  accentToRgba as eq,
+  effectiveReaderTextColorSource as er,
+  effectiveReaderColorSource as es,
+  effectiveSubtitleTextColorSource as et,
+  effectiveSubtitleColorSource as eu,
+  accessibleOcrBackgroundOpacity as ev,
+  accessibleOcrBackgroundColor as ew,
+  READER_THEME_COLOR_TOKENS as ex,
+  EXTENSION_STORE_URLS as ey,
+  USERSCRIPT_INSTALL_URL as ez,
   shCatalog as f,
-  DEFAULT_OVERLAY_TEXT_COLOR as f0,
-  DEFAULT_OVERLAY_OUTLINE_COLOR as f1,
-  storedCredentialClearName as f2,
-  hasStatusColorSource as f3,
-  NEW_TAB_PAGE_URL as f4,
-  AUDIO_GUIDE_URL as f5,
-  NADESHIKO_DEVELOPER_URL as f6,
-  VIDEO_PLAYER_PAGE_URL as f7,
-  PDF_READER_PAGE_URL as f8,
-  DONATE_URL as f9,
-  SETTINGS_TITLE as fA,
-  learningTargetRosterEntry as fB,
-  NEW_TAB_VERSION_URL as fC,
-  NO_EXPLICIT_USER_CHOICE as fD,
-  normalizeAudioSubSources as fE,
-  publishSettingsChange as fF,
-  mergeApiCredentialValues as fG,
-  configureLogger as fH,
-  localeDirection as fI,
-  subscribeToSettingsStorageChanges as fJ,
-  isHostedYomuOrigin as fK,
-  USERSCRIPT_STORAGE_BRIDGE_READY_EVENT as fL,
-  loadSettings as fM,
-  copyIcon as fN,
-  ankiIcon as fO,
-  createYomuLocalSrsAdapter as fP,
-  saveSettings as fQ,
-  yomuOnboardingController as fR,
-  clearManagedBrowserCaches as fS,
-  unregisterManagedServiceWorkers as fT,
-  setRenderedWordCardIdentity as fU,
-  renderedWordCardKey as fV,
-  renderedWordsInRoot as fW,
-  renderedWordElementKey as fX,
-  applyInterfaceLocaleToRoot as fY,
-  applyInterfaceLocaleToDocument as fZ,
-  ensureManagedWebStorageCurrent as f_,
-  SUPPORT_COPY as fa,
-  SUPPORT_COPY_EXTRA as fb,
-  LEARNER_LANGUAGES as fc,
-  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as fd,
-  gmPrivateStorageDelete as fe,
-  gmPrivateStorageGet as ff,
-  subscribeToSettingsChanges as fg,
-  subscribeLocalYomuSrsMutations as fh,
-  LocalYomuSrsRepository as fi,
-  withGmStorageLease as fj,
-  unwrapProfileKey as fk,
-  parseAcademyPairingTicket as fl,
-  wrapProfileKey as fm,
-  decryptProfileEvent as fn,
-  encryptProfileEvent as fo,
-  mergeStoredYomuSrsDecks as fp,
-  settingsPanelHash as fq,
-  readTrustedYomuUrl as fr,
-  isPrivilegedYomuLocalDevelopmentOrigin as fs,
-  settingsPanelFromHash as ft,
-  readBackupSettingsPersistenceView as fu,
-  beginStoredValuesImport as fv,
-  settingsIntentKeys as fw,
-  mergeDictionaryPreferences as fx,
-  retireStaleDictionaryPreferences as fy,
-  captureActiveLanguageProfileDictionaries as fz,
+  renderedWordsInRoot as f$,
+  missingLookupComponents as f0,
+  AUDIO_SOURCE_UI_TYPE_VALUES as f1,
+  audioSourceLabel as f2,
+  lookupSiteComponents as f3,
+  DEFAULT_POPUP_FONT_FAMILY as f4,
+  DEFAULT_READER_FONT_FAMILY as f5,
+  isPromiseLike as f6,
+  dispatchAuthorizedReaderControlEvent as f7,
+  ANKI_CONNECT_ADDON_URL as f8,
+  redactedApiCredentialsFromForm as f9,
+  decryptProfileEvent as fA,
+  encryptProfileEvent as fB,
+  mergeStoredYomuSrsDecks as fC,
+  settingsPanelHash as fD,
+  readTrustedYomuUrl as fE,
+  isPrivilegedYomuLocalDevelopmentOrigin as fF,
+  settingsPanelFromHash as fG,
+  SETTINGS_TITLE as fH,
+  learningTargetRosterEntry as fI,
+  NEW_TAB_VERSION_URL as fJ,
+  NO_EXPLICIT_USER_CHOICE as fK,
+  normalizeAudioSubSources as fL,
+  publishSettingsChange as fM,
+  mergeApiCredentialValues as fN,
+  configureLogger as fO,
+  localeDirection as fP,
+  subscribeToSettingsStorageChanges as fQ,
+  isHostedYomuOrigin as fR,
+  loadSettings as fS,
+  copyIcon as fT,
+  ankiIcon as fU,
+  createYomuLocalSrsAdapter as fV,
+  yomuOnboardingController as fW,
+  clearManagedBrowserCaches as fX,
+  unregisterManagedServiceWorkers as fY,
+  setRenderedWordCardIdentity as fZ,
+  renderedWordCardKey as f_,
+  LEARNER_LANGUAGE_IDS as fa,
+  externalLinkIcon as fb,
+  LEARNING_TARGET_ROSTER as fc,
+  furiganaModeNeedsDifficultyExplanation as fd,
+  DEFAULT_OVERLAY_TEXT_COLOR as fe,
+  DEFAULT_OVERLAY_OUTLINE_COLOR as ff,
+  storedCredentialClearName as fg,
+  hasStatusColorSource as fh,
+  NEW_TAB_PAGE_URL as fi,
+  AUDIO_GUIDE_URL as fj,
+  NADESHIKO_DEVELOPER_URL as fk,
+  VIDEO_PLAYER_PAGE_URL as fl,
+  PDF_READER_PAGE_URL as fm,
+  DONATE_URL as fn,
+  SUPPORT_COPY as fo,
+  SUPPORT_COPY_EXTRA as fp,
+  LEARNER_LANGUAGES as fq,
+  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as fr,
+  gmPrivateStorageDelete as fs,
+  gmPrivateStorageGet as ft,
+  subscribeToSettingsChanges as fu,
+  subscribeLocalYomuSrsMutations as fv,
+  LocalYomuSrsRepository as fw,
+  unwrapProfileKey as fx,
+  parseAcademyPairingTicket as fy,
+  wrapProfileKey as fz,
   getPitchClass as g,
+  renderedWordElementKey as g0,
+  applyInterfaceLocaleToRoot as g1,
+  applyInterfaceLocaleToDocument as g2,
+  ensureManagedWebStorageCurrent as g3,
   roCatalog as h,
   plCatalog as i,
   faCatalog as j,

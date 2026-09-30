@@ -11,6 +11,7 @@ const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 class RetryableTimeoutError extends Error {
   constructor(message = "Request timed out.") {
   super(message);
@@ -438,6 +439,58 @@ async function fetchWithinAbortScope(url, init, signal) {
 function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
 }
+const DOCS_PREVIEW_HOST = "yomureader.localhost";
+const WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
+const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+const TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_ORIGIN, "docs"],
+  [GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+  [DOCS_PREVIEW_HOST, "docs-preview"],
+  ["127.0.0.1", "loopback"],
+  ["localhost", "loopback"],
+  ["[::1]", "loopback"]
+]);
+const PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS = /* @__PURE__ */ new Set([]);
+function isPrivilegedYomuLocalDevelopmentOrigin(origin) {
+  return PRIVILEGED_LOCAL_DEVELOPMENT_ORIGINS.has(origin);
+}
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+  url = new URL(value);
+  } catch {
+  return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
+}
+function trustedHttpsOriginKind(url, path) {
+  const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+  if (originKind !== "github-pages") return originKind ?? null;
+  return isYomuRepositoryPath(path) ? originKind : null;
+}
+function trustedWebHostKind(url) {
+  if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+  return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+function trustedExtensionOriginKind(url) {
+  if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+  return url.hostname ? "extension" : null;
+}
 const SETTINGS_PANEL_IDS = [
   "appearance",
   "backup",
@@ -450,6 +503,60 @@ const SETTINGS_PANEL_IDS = [
   "help"
 ];
 new Set(SETTINGS_PANEL_IDS);
+const STUDY_ROUTE_POLICIES = {
+  docs: isYomuStudyRoutePath,
+  "docs-preview": isYomuStudyRoutePath,
+  extension: isYomuStudyRoutePath,
+  "github-pages": isRepositoryStudyRoutePath,
+  loopback: isLoopbackStudyRoutePath
+};
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
+const PRIVILEGED_APP_POLICIES = {
+  docs: isYomuActiveAppRoute,
+  "github-pages": isYomuActiveAppRoute,
+  extension: () => false,
+  loopback: isPrivilegedLocalAppRoute,
+  "docs-preview": isPrivilegedLocalAppRoute
+};
+function isYomuPrivilegedHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? PRIVILEGED_APP_POLICIES[appUrl.originKind](value, appUrl) : false;
+}
+function isYomuStorageBridgeHostedUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+  return isYomuPrivilegedHostedAppUrl(value);
+}
+function isYomuActiveAppRoute(value, appUrl) {
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isPrivilegedLocalAppRoute(value, appUrl) {
+  return isPrivilegedYomuLocalDevelopmentOrigin(appUrl.url.origin) && isYomuActiveAppRoute(value, appUrl);
+}
+function isExactHostedAppPath(appUrl, route) {
+  if (appUrl.originKind === "github-pages") {
+  return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+  }
+  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+}
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
@@ -839,13 +946,64 @@ function normalizedPropertyDescriptor(descriptor) {
   };
   }
 }
+const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+function detectInstalledReaderRuntime(globals = globalThis) {
+  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+  return "userscript";
+  }
+  return null;
+}
+function announcedInstalledReaderRuntime(root = document) {
+  const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
+  return kind === "extension" || kind === "userscript" ? kind : null;
+}
+function expectedBridgeKind(trustedPage) {
+  if (detectInstalledReaderRuntime()) return null;
+  const announced = announcedInstalledReaderRuntime();
+  return announced && trustedPage() ? announced : null;
+}
+function readyBridgeOwner(dataset, keys, expected) {
+  if (dataset?.[keys.ready] !== "true") return null;
+  const kind = dataset[keys.kind];
+  if (kind === "extension" || kind === "userscript") {
+  if (expected && kind !== expected && kind !== "extension") return null;
+  return { ownerId: dataset[keys.owner], kind };
+  }
+  return { ownerId: dataset[keys.owner], kind: expected ?? "userscript" };
+}
+const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+const BRIDGE_OWNER = "yomuStorageBridgeOwner";
+const BRIDGE_KIND = "yomuStorageBridgeKind";
+const BRIDGE_KEYS$1 = { ready: BRIDGE_MARKER$1, owner: BRIDGE_OWNER, kind: BRIDGE_KIND };
+function expectedStorageBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptStorageBridge);
+}
+function installedStorageResponderReady() {
+  return readyBridgeOwner(bridgeMarkerDataset$1(), BRIDGE_KEYS$1, expectedStorageBridgeKind()) !== null;
+}
+function shouldInstallUserscriptStorageBridge() {
+  try {
+  return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
+  } catch {
+  return false;
+  }
+}
+function bridgeMarkerDataset$1() {
+  if (typeof document === "undefined") return void 0;
+  const root = document.documentElement;
+  return root?.dataset;
+}
 const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
 const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
 const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
 const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+const BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: "yomuHttpBridgeOwner", kind: "yomuHttpBridgeKind" };
 const BRIDGE_TIMEOUT_MS = 3e4;
+const BRIDGE_READY_TIMEOUT_MS = 1e4;
 const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let clientOwner;
 let eventBridgeProbeInFlight;
 function getUserscriptHttpRequest() {
   for (const candidate of userscriptRequestCandidates()) {
@@ -856,6 +1014,13 @@ function getUserscriptHttpRequest() {
   }
   return userscriptHttpEventBridge();
 }
+function shouldInstallUserscriptHttpBridge() {
+  try {
+  return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
+  } catch {
+  return false;
+  }
+}
 const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
 function isUserscriptEventBridgeRequest(request) {
   return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
@@ -864,17 +1029,24 @@ function probeUserscriptEventBridge(request) {
   if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
   if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
   if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-  const probe = new Promise((resolve) => {
+  const current = currentHttpBridgeOwner();
+  const probe = current !== void 0 ? current ? probeHttpBridgeOwner(current) : Promise.resolve(false) : httpBridgeOwner().then((owner) => owner ? probeHttpBridgeOwner(owner) : false);
+  eventBridgeProbeInFlight = probe;
+  void probe.then(() => {
+  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+  });
+  return probe;
+}
+function probeHttpBridgeOwner(owner) {
+  return new Promise((resolve) => {
   const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   let settled = false;
   let responseCleanup = noop;
-  let bridgeReadyCleanup = noop;
   const finish = (alive) => {
     if (settled) return;
     settled = true;
     window.clearTimeout(timeout);
     responseCleanup();
-    bridgeReadyCleanup();
     if (!alive) {
       const markerDataset = bridgeMarkerDataset();
       if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
@@ -885,18 +1057,48 @@ function probeUserscriptEventBridge(request) {
   responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
     if (bridgeEventId(event) === id) finish(true);
   });
-  bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-  dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+  dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id, ownerId: owner.ownerId });
   });
-  eventBridgeProbeInFlight = probe;
-  void probe.then(() => {
-  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+}
+function httpBridgeOwner() {
+  const current = currentHttpBridgeOwner();
+  if (current !== void 0) return Promise.resolve(current);
+  return new Promise((resolve) => {
+  const cleanups = [];
+  const settle = (owner) => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    resolve(owner);
+  };
+  const recheck = () => {
+    const owner = currentHttpBridgeOwner();
+    if (owner !== void 0) settle(owner);
+  };
+  const timeout = window.setTimeout(() => settle(null), BRIDGE_READY_TIMEOUT_MS);
+  cleanups.push(() => window.clearTimeout(timeout));
+  cleanups.push(addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, recheck));
+  cleanups.push(addBridgeEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, () => {
+    const later = window.setTimeout(recheck, 0);
+    cleanups.push(() => window.clearTimeout(later));
+  }));
   });
-  return probe;
+}
+function currentHttpBridgeOwner() {
+  const dataset = bridgeMarkerDataset();
+  if (clientOwner) {
+  return dataset?.[BRIDGE_MARKER] === "true" && dataset[BRIDGE_KEYS.owner] === clientOwner.ownerId ? clientOwner : null;
+  }
+  const expected = expectedHttpBridgeKind();
+  const owner = readyBridgeOwner(dataset, BRIDGE_KEYS, expected);
+  if (owner?.ownerId) clientOwner = owner;
+  if (owner) return owner;
+  return expected && !installedStorageResponderReady() ? void 0 : null;
+}
+function expectedHttpBridgeKind() {
+  return expectedBridgeKind(shouldInstallUserscriptHttpBridge);
 }
 function userscriptHttpEventBridge() {
   if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+  if (currentHttpBridgeOwner() === null) return void 0;
   return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
   const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   const timeout = window.setTimeout(() => {
@@ -912,9 +1114,18 @@ function userscriptHttpEventBridge() {
   const onResponse = (event) => {
     handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
   };
-  cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-  const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+  void httpBridgeOwner().then((owner) => {
+    if (!owner) {
+      cleanup();
+      const error = new Error("Installed Yomu request bridge is unavailable; reload to reconnect.");
+      options.onerror?.(error);
+      reject(error);
+      return;
+    }
+    cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+    const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+  });
   }));
 }
 function tagEventBridgeRequest(request) {
@@ -3522,7 +3733,6 @@ const COPY = {
   noDefinitions: "No enabled definition source returned results.",
   enabledHeader: "On",
   labelHeader: "Label",
-  detailsHeader: "Details",
   displayName: "Display name",
   orderHeader: "Order",
   removeHeader: "Remove",
@@ -4779,7 +4989,6 @@ donate	寄付
 discord	Discord
 enabledHeader	有効
 labelHeader	ラベル
-detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除
