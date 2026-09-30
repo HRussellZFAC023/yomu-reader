@@ -183,7 +183,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readImmersionKitFormSettings(reader, current),
         ...readLookupBehaviorFormSettings(reader, current),
         ...readNewTabFormSettings(reader, current),
-        ...readReadingDisplayFormSettings(reader, furiganaMode),
+        ...readReadingDisplayFormSettings(reader, current, furiganaMode),
         ...readOcrFormSettings(reader, current),
         ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
         dictionaryPreferences,
@@ -383,8 +383,6 @@ function readKanjiAddonFormSettings(reader: SettingsFormReader, current: ReaderS
         kanjiOriginKanjiMapEnabled: has('kanjiOriginKanjiMapEnabled'),
         kanjiOriginGraphEnabled: has('kanjiOriginGraphEnabled'),
         kanjiOriginRadicalImagesEnabled: has('kanjiOriginRadicalImagesEnabled'),
-        similarKanjiWords: has('similarKanjiWords.enabled'),
-        similarKanjiWordsPriority: clamped('similarKanjiWords.priority', 0, 999, current.similarKanjiWordsPriority),
         similarKanjiWordLimit: clamped('similarKanjiWordLimit', 2, 24, current.similarKanjiWordLimit),
     };
 }
@@ -501,6 +499,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
 
 function readReadingDisplayFormSettings(
     reader: SettingsFormReader,
+    current: ReaderSettings,
     furiganaMode: ReaderSettings['furiganaMode'],
 ): Partial<ReaderSettings> {
     const { has } = reader;
@@ -516,7 +515,9 @@ function readReadingDisplayFormSettings(
         showLookupPillFrequency: has('showLookupPillFrequency'),
         suppressRedundantWordUi: has('suppressRedundantWordUi'),
         sheetCloseButtonOnLeft: has('sheetCloseButtonOnLeft'),
-        hideKnownFurigana: furiganaMode === 'known-status',
+        // Rendering follows `furiganaMode`; this flag only mirrors it, so it is
+        // re-derived when the mode moves, not rewritten by every Save.
+        hideKnownFurigana: furiganaMode === current.furiganaMode ? current.hideKnownFurigana : furiganaMode === 'known-status',
     };
 }
 
@@ -694,9 +695,10 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen,
         subtitleNativeBlurred: current.subtitleNativeBlurred,
     };
-    applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay, {
-        markVisibilityChosen: nativeDisplay !== currentNativeDisplay,
-    });
+    // The select shows the mode the stored flags imply, and more than one set
+    // of flags implies the same mode (an unchosen hidden track reads as
+    // 'blurred'). Only a different mode is a choice to write.
+    if (nativeDisplay !== currentNativeDisplay) applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay);
     return {
         subtitlePlayerEnabled: has('subtitlePlayerEnabled'),
         subtitleAutoDetect: has('subtitleAutoDetect'),

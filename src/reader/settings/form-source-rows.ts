@@ -94,7 +94,11 @@ function renderSourceRow(row: SettingsSourceRow, index: number, context: SourceR
                     upAction: 'dictionary-source-up',
                     downAction: 'dictionary-source-down',
                     labels: SOURCE_ROW_ORDER_LABELS,
-                    leading: `<input name="${row.prefix}.priority" type="hidden" value="${index}">`,
+                    // The STORED priority, not the row's index: an untouched Save
+                    // writes it back as it was. Moving any row renumbers the whole
+                    // list by position (syncSourceRowOrder), which is the only
+                    // time the order becomes the learner's.
+                    leading: `<input name="${row.prefix}.priority" type="hidden" value="${row.priority}">`,
                 })}
                 ${renderSourceRemoveCell(row, context.showRemove)}
                 ${renderSourceTypeInput(row)}

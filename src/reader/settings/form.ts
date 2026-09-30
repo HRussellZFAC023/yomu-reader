@@ -2673,15 +2673,13 @@ export function syncFontFamilyControls(form: HTMLFormElement): void {
 /**
  * The definition-source editor is the SINGLE writer of one contiguous order.
  *
- * Every visible row (built-in source or imported terms/kanji dictionary) is
- * numbered by its index in the one sorted list `renderSourceRowsList` renders,
- * and the dictionaries with no row of their own -- frequency, pronunciation,
- * metadata -- continue that same numbering after the last visible row. They
- * used to submit their PERSISTED priority instead, which lived in a different
- * space (0, 1, 2 ...) and collided with the front of the visible list, so a
- * no-op open-and-save re-sorted `dictionaryPreferences` and teleported an
- * imported dictionary to the end. One space, so re-rendering the saved settings
- * reproduces the same numbers.
+ * Every row -- built-in source, imported terms/kanji dictionary, and the
+ * dictionaries with no row of their own (frequency, pronunciation, metadata) --
+ * submits its STORED priority, so an untouched Save writes back exactly what
+ * was stored. Moving a row renumbers the visible rows by position and the
+ * row-less dictionaries after the last of them (`syncSourceRowOrder`), so a
+ * chosen order lives in one space and the row-less ones cannot collide with
+ * the front of the visible list and re-sort `dictionaryPreferences`.
  */
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const rows = definitionSourceRows(settings);
@@ -2690,14 +2688,13 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         ...rows.filter(row => row.removable).map(row => row.name),
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
-    const hidden = hiddenPreferences.map((preference, hiddenIndex) => {
+    const hidden = hiddenPreferences.map(preference => {
         const index = settings.dictionaryPreferences.indexOf(preference);
-        const priority = rows.length + hiddenIndex;
         return `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ''}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${priority}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml(preference.type ?? 'terms')}">
         `;
     }).join('');

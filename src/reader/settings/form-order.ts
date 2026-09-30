@@ -157,6 +157,9 @@ function syncSourceRowOrder(container: HTMLElement): void {
         const indexLabel = row.querySelector('.jpdb-reader-order-toggle span');
         if (indexLabel) indexLabel.textContent = String(index + 1);
     });
+    container.querySelectorAll<HTMLInputElement>('input[data-source-order-tail]').forEach((priority, index) => {
+        priority.value = String(rows.length + index);
+    });
     if (container.matches('[data-audio-source-editor]')) syncAudioSourceIndexes(container, rows);
     if (container.classList.contains('jpdb-reader-lookup-links')) syncDictionaryLookupLinkIndexes(container, rows);
 }

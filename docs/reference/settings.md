@@ -167,7 +167,6 @@ Set a hover key. Blank means plain hover.
 | Show pronunciation | — | on | `showPitchAccent` |
 | Hide JPDB-redundant styling | — | off | `suppressRedundantWordUi` |
 | Sheet close button on left | — | off | `sheetCloseButtonOnLeft` |
-| Hide furigana for known cards only | — | on | `hideKnownFurigana` |
 | Manual page scan shortcut | — | `Shift+J` | `shortcuts.scanPage` |
 | Hold while hovering | — | empty | `shortcuts.hoverLookup` |
 
@@ -268,6 +267,7 @@ Reads nearby images. Google Lens needs no setup.
 | Enable video subtitle player | — | on | `subtitlePlayerEnabled` |
 | Auto-detect page subtitles | — | on | `subtitleAutoDetect` |
 | Show subtitle overlay | — | off | `subtitleOverlayVisible` |
+| Show native subtitles | — | off | `subtitleSecondaryVisible` |
 | Not yet described | — | off | `subtitleOverlayVisibleChosen` |
 | Not yet described | — | off | `subtitleSecondaryVisibleChosen` |
 | Blur native subtitles until hover | — | on | `subtitleNativeBlurred` |
@@ -382,9 +382,9 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Manual page scanning | — | off | `manualScanEnabled` |
 | Enable furigana annotations | — | on | `showFurigana` |
 | Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
+| Hide furigana for known cards only | — | on | `hideKnownFurigana` |
 | Read text in images | — | on | `ocrEnabled` |
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
 | Open sources by default | — | on | `dictionarySourcesInitiallyExpanded` |
 | Not yet described | — | empty list | `dictionaryPreferences` |
-| Show native subtitles | — | off | `subtitleSecondaryVisible` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |
