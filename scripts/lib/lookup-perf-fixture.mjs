@@ -7,12 +7,10 @@
 // readable under the one v1.9.3 database name. The schema is created at
 // version 1 on purpose, so production still runs every later migration, derived
 // index and managed-state stamp itself before the gate measures anything.
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
+import { yomitanDatabaseName } from './yomitan-database-name.mjs';
 
 export const MINI_LOOKUP_DICTIONARY_TITLE = 'Mini Lookup Perf';
 
-const DATABASE_NAME_SOURCE = path.resolve(import.meta.dirname, '../../src/reader/dictionaries/yomitan/database-name.ts');
 const FIXTURE_TERMS = [
     ['図書館', 'としょかん', '', ['library'], 1],
     ['漢字', 'かんじ', '', ['Chinese character', 'kanji'], 2],
@@ -99,10 +97,4 @@ export async function seedMiniLookupDictionary(page) {
             });
         }
     }, { dbName: yomitanDatabaseName(), title: MINI_LOOKUP_DICTIONARY_TITLE, fixtureTerms: FIXTURE_TERMS });
-}
-
-function yomitanDatabaseName() {
-    const name = readFileSync(DATABASE_NAME_SOURCE, 'utf8').match(/^export const YOMITAN_DATABASE_NAME = '([^']+)';/m)?.[1];
-    if (!name) throw new Error(`Could not read the Yomitan database name from ${DATABASE_NAME_SOURCE}`);
-    return name;
 }
