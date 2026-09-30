@@ -7,6 +7,11 @@
 - If two Study tabs show the same card while you are online, only the first grade is sent. The other tab says "Already reviewed in another Study tab." and loads its next card instead of reviewing the card a second time. This covers grades made in the last hour.
 - Grading "Again" on the last card in a Study session no longer shows that same card again straight away while other cards are still due.
 - yomureader.com help and guide pages no longer download the 1.8 MB Reader in the background. Only pages with a live reading sample, such as the homepage, preload it.
+- Userscript: on ordinary websites, the grade buttons in a lookup popup (and their number keys) and the kanji buttons in its headword work again. Since 1.9.1 they did nothing.
+- Study no longer brings back a card you just graded when its queue runs out, for example after the last due Anki card.
+- Study's desktop header keeps "Stats" on the same row as the other sections now that "Practice" has joined them.
+- Finishing Study's first-run welcome with "Use without API key" or "Add API key" opens the Dictionaries or API settings as promised, instead of leaving you on Study without them.
+- On canvas-based manga readers that Yomu does not read automatically (pages with no Japanese text, outside BookWalker), Yomu no longer sends every page to your OCR provider in the background while showing a "Scanning..." pill that never shows text. Tap the page to read it.
 
 ## [2.0.0] - 2026-09-30
 
