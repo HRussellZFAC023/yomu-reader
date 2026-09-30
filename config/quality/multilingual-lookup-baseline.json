@@ -1,9 +1,9 @@
 {
-  "measuredAt": "2026-08-15T20:27:59.685Z",
+  "measuredAt": "2026-09-30T12:58:22.380Z",
   "schemaVersion": 3,
   "measurementMode": "production-yomitan-inline-find-term-matches",
   "measurementAlgorithmVersion": "exact-gold-spans-v4-overflow-scan",
-  "gitCommit": "45146bca356cb268cc3d8ab488189dc72111a507",
+  "gitCommit": "365edb53ac3539f4b86a12ced5ec773f38fe0512",
   "gitDirty": false,
   "gitStatusSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "node": "v24.16.0",
@@ -27,7 +27,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "2f6077c6a043d39207daad365b92d984d44eda1db62576a672a3fae64deea6bf"
+      "sha256": "98575012d3f33d89cf550e37cd4bc0c35ae0c5628d39e96ca9f9d992a25f2cc7"
     },
     {
       "path": "scripts/lib/multilingual-parity-archive.ts",
@@ -62,12 +62,20 @@
       "sha256": "8e3eb73385650f5cd35115b7c9b7a285b33a55ab7b5f68588c4b14f70ca95bb6"
     },
     {
+      "path": "src/reader/dictionaries/yomitan/database-name.ts",
+      "sha256": "b9ad00f79663836924709a62b5debb0f22e16f7bd96052ea23c27231ae5a43ac"
+    },
+    {
       "path": "src/reader/dictionaries/yomitan/dexie-normalize.ts",
       "sha256": "523a0ee732f45162128a02f5f0245e74923556d01580ffceaaf248a1dd203b0f"
     },
     {
       "path": "src/reader/dictionaries/yomitan/dexie-stream.ts",
       "sha256": "b16099bbe8689d230a983309a10ce16f460f5e130a359a486efec03ab4292f88"
+    },
+    {
+      "path": "src/reader/dictionaries/yomitan/dexie-syntax.ts",
+      "sha256": "b113fbeade1bf9a3bc4403390412d4502f03af31dd85b29f8d02c16c38b93005"
     },
     {
       "path": "src/reader/dictionaries/yomitan/dictionary-type.ts",
@@ -86,12 +94,20 @@
       "sha256": "46d96529565e3cd4b128653dc9007aaac34c189c303e61e65953b510565388f6"
     },
     {
+      "path": "src/reader/dictionaries/yomitan/import-lifecycle.ts",
+      "sha256": "00d2056a87a75cf1bb1cd30f095f454e559ec62fde8483c43eeefccac97c5a3e"
+    },
+    {
+      "path": "src/reader/dictionaries/yomitan/import-ownership.ts",
+      "sha256": "99e1a99df992cafb2cb89363cc91420db6a78f92623845c857fb3c57a6268cba"
+    },
+    {
       "path": "src/reader/dictionaries/yomitan/import-progress.ts",
       "sha256": "1cf9ef6a505ac3be54f84e66c054334c1843dc925d253565f2ffb67d9cbcb1dd"
     },
     {
       "path": "src/reader/dictionaries/yomitan/index.ts",
-      "sha256": "41727816d7166d8e187e075fc435d71493c0793f5774f42be0b4d009fe19cfe1"
+      "sha256": "2f7773d180261f1f2d022250921b38cfafb315ef407469315c65a86d0c44ddab"
     },
     {
       "path": "src/reader/dictionaries/yomitan/inline-term-candidates.ts",
@@ -114,10 +130,6 @@
       "sha256": "97a7fa12f1da5f6c7d4e782c47ed0563118a7a2b27b462544ba18cf645d2f70d"
     },
     {
-      "path": "src/reader/dictionaries/yomitan/settings-import.ts",
-      "sha256": "71454752710b9b0f9d69f2715f22bcf83a000c105f251ef91105d14f25b4f6c2"
-    },
-    {
       "path": "src/reader/dictionaries/yomitan/structured-content-companion.ts",
       "sha256": "e61650f63538ad2cefd876adb4f1a26f74075ba3fe58aa9a8602e355eafe625b"
     },
@@ -135,7 +147,7 @@
     },
     {
       "path": "src/reader/dictionaries/yomitan/types.ts",
-      "sha256": "e3d4089e27d64d89b6f7fa4a5e2cc7823e87bede61f1392641f9f1a02c06cb27"
+      "sha256": "4d3cdbb325763eca86513df1392cf39632f38f9f6927268d4359db90fbdf22af"
     },
     {
       "path": "src/reader/dictionaries/yomitan/zip-normalize.ts",
@@ -241,7 +253,7 @@
   "results": [
     {
       "language": "th",
-      "lookupContractSha256": "dde35c806d8e96780b80f3ea95edaa7a2579a7ef53ad5c9b91d6aca34adb6c3f",
+      "lookupContractSha256": "9117248ceb7f3acc53265e96fe8fd183f40f84a5cbf29669e7709fcf6c2df3be",
       "dictionary": {
         "id": "wty-th-en",
         "title": "[TH-EN] Wiktionary (terms)",
@@ -344,7 +356,7 @@
     },
     {
       "language": "ru",
-      "lookupContractSha256": "095a93e4adac5555a4c222191e0a7d6004ccddc92d207cfc9e7839988f9569de",
+      "lookupContractSha256": "1868773f1938acb2815152516a77ea8925fbab46bf1b2cb7a9416a9275ff1907",
       "dictionary": {
         "id": "wty-ru-en",
         "title": "[RU-EN] Wiktionary (terms)",
@@ -374,7 +386,7 @@
     },
     {
       "language": "ar",
-      "lookupContractSha256": "2b707ed4254a8a5ab9a63834dc05024ee2af5dd8a7123f25fe9c961446864711",
+      "lookupContractSha256": "1af99e394206b2f29f83287e889cf06c0aa9e00a594ac776f711a6020db78a9d",
       "dictionary": {
         "id": "wty-ar-en",
         "title": "[AR-EN] Wiktionary (terms)",
@@ -453,7 +465,7 @@
     },
     {
       "language": "ko",
-      "lookupContractSha256": "97e715e2d6bc9acd1a62a1832cb5a191afdfbcbfe3c8daaf7fa29c28d5a2f641",
+      "lookupContractSha256": "1a861b3f021a75e88fd6ec25c9f8d58ed8451c899f72616f1e19d76c94949742",
       "dictionary": {
         "id": "wty-ko-en",
         "title": "[KO-EN] Wiktionary (terms)",
@@ -508,7 +520,7 @@
     },
     {
       "language": "de",
-      "lookupContractSha256": "e4f978acef64ed24e7e7eb2b87f7fee5ba8bc4c9f33def08a048feb1cb2e0b55",
+      "lookupContractSha256": "9b5b59d997c28a13e01412b4358fdaa2d3736c66ec857cb74aad3e2170504a26",
       "dictionary": {
         "id": "wty-de-en",
         "title": "[DE-EN] Wiktionary (terms)",
@@ -538,7 +550,7 @@
     },
     {
       "language": "es",
-      "lookupContractSha256": "3b5ebad27c95ca1fac739c537df094864cac10c7c3579d319e620d91271ad202",
+      "lookupContractSha256": "722fec645177c0ecbfccc0ab57d0d8ada83e4ce185419b1c7159626d21951e9f",
       "dictionary": {
         "id": "wty-es-en",
         "title": "[ES-EN] Wiktionary (terms)",
@@ -568,7 +580,7 @@
     },
     {
       "language": "sq",
-      "lookupContractSha256": "c6c95643482fe18fcb0eac6b0937ed06c377d39c36c25fcb2274af7025a77e4a",
+      "lookupContractSha256": "a624b28dae7bfcf26228c886b60f0c59b41568c196ffe80952267d937e7ca7ca",
       "dictionary": {
         "id": "wty-sq-en",
         "title": "[SQ-EN] Wiktionary (terms)",
@@ -629,7 +641,7 @@
     },
     {
       "language": "grc",
-      "lookupContractSha256": "4e1c606fcd2b640303b2782db5ee2d3fdcbb52cf30f11b13c71e5762a0bfa783",
+      "lookupContractSha256": "cc4b4d00bb41aca2576d4d25b021730f885c4481ff8c0e747b8a18698a6a9718",
       "dictionary": {
         "id": "wty-grc-en",
         "title": "[GRC-EN] Wiktionary (terms)",
@@ -798,7 +810,7 @@
     },
     {
       "language": "yue",
-      "lookupContractSha256": "789412dff5130ba6e71b43701bdfdb7fb49ba983477f4dccad7e55398840dec6",
+      "lookupContractSha256": "497712f2140f69f859d03b8a1f05f80edbc1cec8bc51efccb5e11eba9a3012b2",
       "dictionary": {
         "id": "drive-cantonese-yue-en-yue-words-hk-2026-07-22-hietpkiipw",
         "title": "[YUE-EN & YUE] Words.hk.2026-07-22",
@@ -960,7 +972,7 @@
     },
     {
       "language": "zh",
-      "lookupContractSha256": "2f2f59d2e459f665b2e83c192e82fe6ba82755c87da1040965d9c7e8f23bc545",
+      "lookupContractSha256": "2f92a576ff377c2e374b9f7bac3559fdf307960b4e7f58d9f2c34c728e4aaf63",
       "dictionary": {
         "id": "wty-zh-en",
         "title": "[ZH-EN] Wiktionary (terms)",
@@ -1069,7 +1081,7 @@
     },
     {
       "language": "da",
-      "lookupContractSha256": "d9221f7cf8100ed0e9aee0c71fa05ef4ecffa10745d0c902cf8f68568263cad5",
+      "lookupContractSha256": "3e2ee58806032676d047cac96c5224189c82d2234bed2faeeb4c3bb11747da62",
       "dictionary": {
         "id": "wty-da-en",
         "title": "[DA-EN] Wiktionary (terms)",
@@ -1099,7 +1111,7 @@
     },
     {
       "language": "nl",
-      "lookupContractSha256": "f48921170ffc505be0212df53c3cefd33743b4a1bb74d0bf9728b78fa6f39771",
+      "lookupContractSha256": "cafc92c2d811b21ca882996075b771c5d91cf0ff84d10c0821504e5629e35846",
       "dictionary": {
         "id": "wty-nl-en",
         "title": "[NL-EN] Wiktionary (terms)",
@@ -1129,7 +1141,7 @@
     },
     {
       "language": "en",
-      "lookupContractSha256": "df1a75ce5361716b9e8ed3e5c9fdacb3ecb245d1b4921d60e7723e5376e56580",
+      "lookupContractSha256": "d64e924b76122f07ef4ae42447f4acf8f86ae48123fb86da3cd91b565428c1c4",
       "dictionary": {
         "id": "wty-en-en",
         "title": "[EN-EN] Wiktionary (terms)",
@@ -1159,7 +1171,7 @@
     },
     {
       "language": "fi",
-      "lookupContractSha256": "37eae121b38b7fd2c5b4e4acdb8a813c34ed20eb9f2a3740e4faea1597f6b9a4",
+      "lookupContractSha256": "2a4f2b1bef0dd429c625630d6cbd3e21516209db8197d72a6e534f5604e0892c",
       "dictionary": {
         "id": "wty-fi-en",
         "title": "[FI-EN] Wiktionary (terms)",
@@ -1211,7 +1223,7 @@
     },
     {
       "language": "fr",
-      "lookupContractSha256": "732b2520d569888ada63cbfbb886343578f5400ec4ae1360e43db08cbd23b32a",
+      "lookupContractSha256": "d82daa2a220c113803b09c0fb077e8b15c871bdc8b2ad5bdba86b0fc81d953c2",
       "dictionary": {
         "id": "wty-fr-en",
         "title": "[FR-EN] Wiktionary (terms)",
@@ -1248,7 +1260,7 @@
     },
     {
       "language": "el",
-      "lookupContractSha256": "58e83d8aeaba6bbd6446210a07dbed06a350802fe9e2478042251dc0615ae71a",
+      "lookupContractSha256": "721f92d76e02be919871444d4e588dfd4683610e4e90c29a7e54995629d22f76",
       "dictionary": {
         "id": "wty-el-en",
         "title": "[EL-EN] Wiktionary (terms)",
@@ -1285,7 +1297,7 @@
     },
     {
       "language": "hu",
-      "lookupContractSha256": "984b6b0d15c07fcff3931bde5698bc3aab9f88b6ae796b14d503b5792b3776cb",
+      "lookupContractSha256": "501385dbfd98e61a589bf787dd504925fd3fa412e986c4980d38d15c0003b4fb",
       "dictionary": {
         "id": "wty-hu-en",
         "title": "[HU-EN] Wiktionary (terms)",
@@ -1364,7 +1376,7 @@
     },
     {
       "language": "id",
-      "lookupContractSha256": "0db97b93c5ae545df37c0d7da710a1018976794b0738956d0aabcf2502e74103",
+      "lookupContractSha256": "56b60a7d3e47cbdfd423c42ad0d4c439cf9517ed1e16b0094e0f67a1d9c15d3e",
       "dictionary": {
         "id": "wty-id-en",
         "title": "[ID-EN] Wiktionary (terms)",
@@ -1437,7 +1449,7 @@
     },
     {
       "language": "it",
-      "lookupContractSha256": "f8e196fce9da1bdf70a772d6c780c6759e9d7afc883637112f015c8314b12908",
+      "lookupContractSha256": "95f38b79a1b848fc84564705b5db757a42698de0ac5d8a68fd5be9dd250d6f6b",
       "dictionary": {
         "id": "wty-it-en",
         "title": "[IT-EN] Wiktionary (terms)",
@@ -1474,7 +1486,7 @@
     },
     {
       "language": "km",
-      "lookupContractSha256": "0decbaf2eadccf5bdbf5d3431bb66467d351941ca49fd2b3b57590172d56e374",
+      "lookupContractSha256": "f5e0a34956c96c4542baebb3bf3c82a7ef046e351fa59f577041abd76b90be80",
       "dictionary": {
         "id": "wty-km-en",
         "title": "[KM-EN] Wiktionary (terms)",
@@ -1649,7 +1661,7 @@
     },
     {
       "language": "lo",
-      "lookupContractSha256": "b709d4b550ab7ba697b55cc553f9129c9cfd094026f1a90e278e9d9b74a037d0",
+      "lookupContractSha256": "1acfff9ec66e99011ec79eca9920123c053561ef317070ce9be0ee83fccfb6d0",
       "dictionary": {
         "id": "wty-lo-en",
         "title": "[LO-EN] Wiktionary (terms)",
@@ -1830,7 +1842,7 @@
     },
     {
       "language": "la",
-      "lookupContractSha256": "e4ba964e385e0a2cd2a20ec3aafb6c209fa9a0d7316937492e4ddbf094eac0f0",
+      "lookupContractSha256": "b193f049b25e8b21d30d771fb607215ef0ffd67f33505073d0212336e986518c",
       "dictionary": {
         "id": "wty-la-en",
         "title": "[LA-EN] Wiktionary (terms)",
@@ -1860,7 +1872,7 @@
     },
     {
       "language": "mn",
-      "lookupContractSha256": "b425da89d265f5ad74adadc41061862120ca6125f6b43159a28aab0095606cf9",
+      "lookupContractSha256": "ddf8ca71dea0ebcd1f083e796734f107c6a48f4005c6473ebc9b9a054085eebf",
       "dictionary": {
         "id": "wty-mn-en",
         "title": "[MN-EN] Wiktionary (terms)",
@@ -2071,7 +2083,7 @@
     },
     {
       "language": "fa",
-      "lookupContractSha256": "5f305a4525791684f1c13d2de8483149860385676ebc1eec67535f0cf6dce347",
+      "lookupContractSha256": "9e452460be601cfe6685b2491e7e11981d5918ba9acf62af4e774e447e455f89",
       "dictionary": {
         "id": "wty-fa-en",
         "title": "[FA-EN] Wiktionary (terms)",
@@ -2156,7 +2168,7 @@
     },
     {
       "language": "pl",
-      "lookupContractSha256": "3c5f2d200fecae687055927f93037af7a0bbe80e4a5a8c9c6c357a98a4f5c124",
+      "lookupContractSha256": "5bdf06d824e3978d8c39b98f01574a02f67e16abc5a3121b26416d9d0279a180",
       "dictionary": {
         "id": "wty-pl-en",
         "title": "[PL-EN] Wiktionary (terms)",
@@ -2186,7 +2198,7 @@
     },
     {
       "language": "pt",
-      "lookupContractSha256": "c111a6b16483477d2c93b2a1c4d2c7d3344564c1ab8401d81b58d7936a10087e",
+      "lookupContractSha256": "461abc1908cf549137c94eafe90419bab3276cadd5c400d85e1b9db3ffd1b2f3",
       "dictionary": {
         "id": "wty-pt-en",
         "title": "[PT-EN] Wiktionary (terms)",
@@ -2241,7 +2253,7 @@
     },
     {
       "language": "ro",
-      "lookupContractSha256": "b0dcd4a8f1db2227b45102b610148872f3a90bf718bfc7100c3c194006d9301d",
+      "lookupContractSha256": "851804aa791baaf3488045a824c7fbbc72e2e2f0f0f69c287ec8431e27186abc",
       "dictionary": {
         "id": "wty-ro-en",
         "title": "[RO-EN] Wiktionary (terms)",
@@ -2284,7 +2296,7 @@
     },
     {
       "language": "sh",
-      "lookupContractSha256": "373b33d13d669967ce78aff1c530da522fd9c43b5dc7836d41fd027c49255593",
+      "lookupContractSha256": "eedc61b0536432ede2bddbba2d725ef05917fb5668e17b196c834ecfa4952310",
       "dictionary": {
         "id": "wty-sh-en",
         "title": "[SH-EN] Wiktionary (terms)",
@@ -2357,7 +2369,7 @@
     },
     {
       "language": "sv",
-      "lookupContractSha256": "807f255f5356a54a3408cb0fdafb0101626ec36b1e2845dfb40c056926925575",
+      "lookupContractSha256": "5f264dece599ababac2cfe53f47fcfe2a4ad333b4fd782d0e1201a6556aa27f9",
       "dictionary": {
         "id": "wty-sv-en",
         "title": "[SV-EN] Wiktionary (terms)",
@@ -2387,7 +2399,7 @@
     },
     {
       "language": "tl",
-      "lookupContractSha256": "54aa1bec619d3cddc316da55f3a9512d5c500f453e72d2facd1ae829e3e3eb2e",
+      "lookupContractSha256": "cb96cf025f08dd33d9df63b04eabc0a974dd70c9a9ec92a14a03b599f3df242a",
       "dictionary": {
         "id": "wty-tl-en",
         "title": "[TL-EN] Wiktionary (terms)",
@@ -2490,7 +2502,7 @@
     },
     {
       "language": "tr",
-      "lookupContractSha256": "bfd2976be49313c92037e8a4b559a329ee85eba23630481f2721c322d9a0b3fd",
+      "lookupContractSha256": "9fef5ee0df70b566a34bb52a38ac675316cd890368237e9b0dde0ef6c5d5c7e4",
       "dictionary": {
         "id": "wty-tr-en",
         "title": "[TR-EN] Wiktionary (terms)",
@@ -2569,7 +2581,7 @@
     },
     {
       "language": "vi",
-      "lookupContractSha256": "081fc53c1333f4e8a14b4481f18966f8cd8564207561b54cf61798fd85ae6053",
+      "lookupContractSha256": "26bac5fcceb9a5e3a47a7dcb9627754f6377c3563aea0f2ea51a913b5bf21d47",
       "dictionary": {
         "id": "wty-vi-en",
         "title": "[VI-EN] Wiktionary (terms)",
@@ -2708,7 +2720,7 @@
     },
     {
       "language": "ja",
-      "lookupContractSha256": "fa2470230b5b52cea320e76cc1fe7a4e29ef7a51db1c260d7fb3e562cf0ca75a",
+      "lookupContractSha256": "3221db574c23b9cd2fd90458a9f286a7c9964782cae1afd930caa4cf0a638442",
       "dictionary": {
         "id": "jmdict-en",
         "title": "JMdict (en)",
