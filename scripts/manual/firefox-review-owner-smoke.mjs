@@ -199,6 +199,12 @@ async function probe({ endpoint, runId }) {
         const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
             ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
         const expectedClaim = canonical({ ...review, attempts: 1 });
+        // ADR-0018: the owner stamps each claim with heldSince, so only that
+        // claim's own outcome can release it.
+        const claimPayload = value => {
+            const { heldSince, ...rest } = value ?? {};
+            return Number.isFinite(heldSince) ? canonical(rest) : '';
+        };
         const assertEmpty = async () => {
             const value = await command({ kind: 'list' });
             if (!Array.isArray(value) || value.length !== 0) throw new Error('Terminal queue is not an empty array.');
@@ -207,10 +213,11 @@ async function probe({ endpoint, runId }) {
         await post({ type: 'ready' });
         await wait('ready');
         const claimed = await command({ kind: 'claim', id: runId, providerContext: runId });
-        if (claimed !== null && canonical(claimed) !== expectedClaim) throw new Error('Invalid claim payload.');
+        if (claimed !== null && claimPayload(claimed) !== expectedClaim) throw new Error('Invalid claim payload.');
         await post({ type: 'claim', claimed: claimed !== null });
         const pending = await command({ kind: 'list' });
-        if (!Array.isArray(pending) || pending.length !== 1 || canonical(pending[0]) !== expectedClaim) throw new Error('Missing durable attempt payload.');
+        if (!Array.isArray(pending) || pending.length !== 1 || claimPayload(pending[0]) !== expectedClaim
+            || (claimed !== null && pending[0].heldSince !== claimed.heldSince)) throw new Error('Missing durable attempt payload.');
         await post({ type: 'observed' });
         await wait('observed');
         if (tab === 0) {

@@ -7,7 +7,7 @@ const source = readFileSync(resolve('scripts/manual/firefox-review-owner-smoke.m
 const start = source.indexOf('async function probe(');
 if (start < 0) throw new Error('The injected Firefox probe was not found.');
 
-async function runProbe(options: { terminal?: unknown; corruptClaim?: boolean; brokenAck?: boolean; revision?: unknown; noNotifications?: boolean } = {}) {
+async function runProbe(options: { terminal?: unknown; corruptClaim?: boolean; unstampedClaim?: boolean; brokenAck?: boolean; revision?: unknown; noNotifications?: boolean } = {}) {
     let pending: Record<string, unknown> | null = null;
     let completed = false;
     let records = 0;
@@ -29,7 +29,8 @@ async function runProbe(options: { terminal?: unknown; corruptClaim?: boolean; b
             } else if (request.kind === 'claim') {
                 if (completed) value = null;
                 else {
-                    pending = { ...pending, attempts: 1 };
+                    // Like ReviewQueueOwner.claim: the attempt is stamped heldSince.
+                    pending = options.unstampedClaim ? { ...pending, attempts: 1 } : { ...pending, attempts: 1, heldSince: 1_000 };
                     value = options.corruptClaim ? { ...pending, grade: 'easy' } : structuredClone(pending);
                 }
             } else if (request.kind === 'list') {
@@ -68,6 +69,11 @@ it.each([{}, false, 0, ''])('rejects a malformed empty-looking terminal list: %j
 
 it('rejects grade corruption in a successful claim response', async () => {
     const { events } = await runProbe({ corruptClaim: true });
+    expect(events.at(-1)).toMatchObject({ type: 'error', error: 'Invalid claim payload.' });
+});
+
+it('rejects a claim without the owner\'s heldSince stamp', async () => {
+    const { events } = await runProbe({ unstampedClaim: true });
     expect(events.at(-1)).toMatchObject({ type: 'error', error: 'Invalid claim payload.' });
 });
 
