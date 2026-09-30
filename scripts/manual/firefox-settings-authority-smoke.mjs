@@ -7,9 +7,10 @@
  * runner. The copy gets observation-only content scripts plus a storage-fault
  * wrapper; the original XPI/unpacked package is hashed and never modified.
  *
- * Automated phases check raw-data isolation, current authority, and live transport.
- * The remaining phases deliberately require trusted Firefox UI interaction so
- * a synthetic click cannot turn the acceptance run green.
+ * Automated phases check raw-data isolation, current authority, reads of real
+ * v1.9.3 corpus bytes, and live transport. The remaining phases deliberately
+ * require trusted Firefox UI interaction so a synthetic click cannot turn the
+ * acceptance run green.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -57,10 +58,21 @@ const ARTICLE_OPENED_KEY = 'firefox-settings-authority-smoke.article-opened';
 const LIVE_WRITE_KEY = 'firefox-settings-authority-smoke.live-write-issued';
 const REQUESTED_PANEL_KEY = 'firefox-settings-authority-smoke.requested-panel';
 const LAUNCHER_PROOF_KEY = 'firefox-settings-authority-smoke.launcher-proof';
+const SETTINGS_WRITE_COUNT_GLOBAL = 'firefoxSettingsAuthoritySmokeSettingsWrites';
+const UPGRADE_CORPUS_DIRECTORY = path.join(ROOT, 'tests', 'reader', 'fixtures', 'upgrade-v1.9.3');
+const UPGRADE_CORPUS_FILES = Object.freeze({
+    extension: 'd-extension-study-and-content-script.json',
+    unmarked: 'b-userscript-machine-only-unmarked.json',
+    seqZeroLedger: 'c1-userscript-folded-pins-explicit.json',
+});
 const REQUIRED_AUTOMATED_EVENTS = Object.freeze([
     'authority-raw-only',
     'authority-prefixed-only',
     'authority-divergent',
+    'authority-upgrade-v193-unmarked',
+    'reader-upgrade-v193-unmarked',
+    'authority-upgrade-v193-seq0-ledger',
+    'reader-upgrade-v193-seq0-ledger',
     'reader-ready',
     'study-write-issued',
     'reader-observed-study-write',
@@ -110,6 +122,7 @@ let manualPhase = 'automated';
 let phaseStartedAt = 0;
 let storageFailureStudyInstanceId = '';
 let storageFailureTargetSelectedAt = 0;
+let upgradeExpectations = {};
 let runFailure = null;
 let finishRun;
 const runFinished = new Promise(resolve => { finishRun = resolve; });
@@ -127,6 +140,9 @@ try {
         'utf8',
     );
     const storagePrefix = storagePrefixFromAdapter(storageAdapterSource);
+    const upgradeCorpus = await readUpgradeCorpus();
+    assertUpgradeCorpusStoragePrefix(upgradeCorpus, storagePrefix);
+    upgradeExpectations = upgradeScenarioExpectations(upgradeCorpus);
     const studyIndexPath = path.join(extensionDirectory, 'newtab', 'index.html');
     const originalStudyIndex = await readFile(studyIndexPath, 'utf8');
     const studyAppUrl = studyAppUrlFromIndex(originalStudyIndex);
@@ -149,6 +165,8 @@ try {
         storagePrefix,
         studyAppUrl,
         probeToken,
+        upgradeCorpus,
+        upgradeExpectations,
     });
     await prepareFirefoxProfile(profileDirectory);
 
@@ -205,10 +223,12 @@ try {
             valuePayloadsLogged: false,
             keyNamesOnly: true,
             automatedOnly,
+            upgradeCorpus: Object.values(UPGRADE_CORPUS_FILES),
             events,
         },
         instrumentation: [
             'bootstrap waits for deterministic namespace seed before loading the unmodified Study adapter/app',
+            'v1.9.3 upgrade scenarios seed corpus bytes under the packaged compiler prefix and require them byte-identical through Study and Reader boot',
             'observer posts allowlisted booleans, enums, and physical key names only',
             'trusted Save proof observes the exact button activation and durable outcome, never DOM submit trust',
             'content probe uses the compiler background channel and observes real Reader DOM',
@@ -473,7 +493,7 @@ function safeIntent(theme, subtitleFontSize, revision) {
 
 async function instrumentDisposablePackage(options) {
     const manifest = structuredClone(options.originalManifest);
-    const scenarios = scenarioSeeds(options.storagePrefix);
+    const scenarios = scenarioSeeds(options.storagePrefix, options.upgradeCorpus);
     const studyLiveIntent = safeIntent('dark', 37, 8);
     const readerLiveIntent = safeIntent('light', 39, 10);
     manifest.permissions = [...new Set([...(manifest.permissions ?? []), 'tabs'])];
@@ -506,6 +526,7 @@ async function instrumentDisposablePackage(options) {
         seededKeyPrefix: SEEDED_KEY_PREFIX,
         faultKey: FAULT_KEY,
         requestedPanelKey: REQUESTED_PANEL_KEY,
+        settingsWriteCountKey: SETTINGS_WRITE_COUNT_GLOBAL,
         scenarios,
     };
     const observerConfig = {
@@ -523,7 +544,9 @@ async function instrumentDisposablePackage(options) {
         requestedPanelKey: REQUESTED_PANEL_KEY,
         launcherProofKey: LAUNCHER_PROOF_KEY,
         articleUrl: `${options.serverOrigin}/article/`,
+        settingsWriteCountKey: SETTINGS_WRITE_COUNT_GLOBAL,
         scenarios,
+        upgradeScenarios: options.upgradeExpectations,
         studyLiveIntent,
         readerLiveIntent,
     };
@@ -535,6 +558,7 @@ async function instrumentDisposablePackage(options) {
         intentKey: INTENT_KEY,
         privateKey: PRIVATE_KEY,
         launcherProofKey: LAUNCHER_PROOF_KEY,
+        upgradeScenarios: options.upgradeExpectations,
         studyLiveIntent,
         readerLiveIntent,
     };
@@ -550,6 +574,7 @@ async function instrumentDisposablePackage(options) {
             requestedSettingsPanel,
             installDisposableStorageWriteFault,
             guardedDisposableSetValue,
+            noteDisposableSettingsWrite,
             armedStorageFaultAttempt,
             settingsAuthorityWrite,
             postBrowserProbeEvent,
@@ -580,7 +605,7 @@ function injectedScript(config, entrypoint, helpers) {
     return `(() => {\nconst CONFIG = ${JSON.stringify(config)};\n${declarations}\n\n(${entrypoint.toString()})(CONFIG);\n})();\n`;
 }
 
-function scenarioSeeds(prefix) {
+function scenarioSeeds(prefix, upgradeCorpus) {
     const rawChosen = safeSettings('dark', 47, 'legacy-raw-only');
     const canonicalChosen = { ...safeSettings('light', 31, 'current-canonical'), __yomuSettingsPersistenceCommitV1: 'current-fixture' };
     const rawIntent = safeIntent('dark', 47, 2);
@@ -607,6 +632,7 @@ function scenarioSeeds(prefix) {
             [`${prefix}${PRIVATE_KEY}`]: `${PRIVATE_VALUE}-divergent-canonical`,
             [UNRELATED_KEY]: UNRELATED_VALUE,
         },
+        ...upgradeScenarioSeeds(prefix, upgradeCorpus),
         live: {
             [SETTINGS_KEY]: { ...rawChosen, firefoxSettingsAuthoritySmokeSentinel: 'legacy-live-raw-retained' },
             [INTENT_KEY]: rawIntent,
@@ -616,6 +642,87 @@ function scenarioSeeds(prefix) {
             [`${prefix}${PRIVATE_KEY}`]: `${PRIVATE_VALUE}-live-canonical`,
             [UNRELATED_KEY]: UNRELATED_VALUE,
         },
+    };
+}
+
+async function readUpgradeCorpus() {
+    const entries = await Promise.all(Object.entries(UPGRADE_CORPUS_FILES).map(async ([role, file]) => [
+        role,
+        await readJson(path.join(UPGRADE_CORPUS_DIRECTORY, file)),
+    ]));
+    return Object.fromEntries(entries);
+}
+
+function assertUpgradeCorpusStoragePrefix(corpus, prefix) {
+    // Re-keying must not hide a namespace change that would strand every v1.9.3 extension install.
+    if (corpus.extension.compilerStoragePrefix !== prefix) {
+        throw new Error('Packaged compiler storage prefix differs from the v1.9.3 corpus; v2 would not read v1.9.3 extension bytes.');
+    }
+}
+
+function upgradeScenarioSeeds(prefix, corpus) {
+    const extensionStorage = rekeyedExtensionStorage(corpus.extension, prefix);
+    return {
+        'upgrade-v193-unmarked': unmarkedUpgradeSeed(extensionStorage, corpus.unmarked, prefix),
+        'upgrade-v193-seq0-ledger': seqZeroLedgerUpgradeSeed(corpus.seqZeroLedger, prefix),
+    };
+}
+
+/** Moves the v1.9.3 extension bytes from the corpus compiler namespace to the packaged one. */
+function rekeyedExtensionStorage(fixture, prefix) {
+    const source = fixture.compilerStoragePrefix;
+    return Object.fromEntries(Object.entries(fixture.extensionStorageLocal).map(([key, value]) => {
+        if (!key.startsWith(source)) throw new Error(`Upgrade corpus key is outside its compiler namespace: ${key}`);
+        return [`${prefix}${key.slice(source.length)}`, value];
+    }));
+}
+
+/** The extension bytes in v1.9.3's unmarked shape: only the keys it kept, no commit id, no intent ledger. */
+function unmarkedUpgradeSeed(extensionStorage, unmarkedFixture, prefix) {
+    const logicalKeys = Object.keys(unmarkedFixture.gm);
+    const commitField = '__yomuSettingsPersistenceCommitV1';
+    if (logicalKeys.includes(INTENT_KEY) || Object.hasOwn(unmarkedFixture.gm[SETTINGS_KEY] ?? {}, commitField)) {
+        throw new Error('Upgrade corpus unmarked fixture is no longer unmarked.');
+    }
+    return Object.fromEntries(logicalKeys.map(logicalKey => {
+        const key = `${prefix}${logicalKey}`;
+        if (!Object.hasOwn(extensionStorage, key)) throw new Error(`Upgrade corpus extension fixture lacks ${logicalKey}.`);
+        const value = extensionStorage[key];
+        return [key, logicalKey === SETTINGS_KEY ? withoutAuthorityCommit(value) : value];
+    }));
+}
+
+/** v1.8.90 folded v1.8.80 pins into seq-0 records; v1.9.3 then committed a marked pair over them. */
+function seqZeroLedgerUpgradeSeed(fixture, prefix) {
+    const intent = fixture.gm[INTENT_KEY];
+    const seqZero = Object.values(intent?.records ?? {}).some(record => record?.seq === 0);
+    if (!seqZero || !committedAuthorityPayloadPair(fixture.gm[SETTINGS_KEY], intent)) {
+        throw new Error('Upgrade corpus seq-0 fixture is no longer a committed seq-0 ledger pair.');
+    }
+    return Object.fromEntries(Object.entries(fixture.gm).map(([key, value]) => [`${prefix}${key}`, value]));
+}
+
+/** An unmarked v1.9.3 record reads as its own values, so both scenarios expect the corpus' recorded outcome. */
+function upgradeScenarioExpectations(corpus) {
+    const extension = corpus.extension.expected;
+    const seqZero = corpus.seqZeroLedger.expected.settings;
+    return {
+        'upgrade-v193-unmarked': {
+            study: upgradeExpectedSettings(extension.study.settings),
+            reader: upgradeExpectedSettings(extension.contentScript.settings),
+        },
+        'upgrade-v193-seq0-ledger': {
+            study: upgradeExpectedSettings(seqZero),
+            reader: upgradeExpectedSettings(seqZero),
+        },
+    };
+}
+
+function upgradeExpectedSettings(settings) {
+    return {
+        theme: settings.theme,
+        subtitleFontSize: settings.subtitleFontSize,
+        accentColor: settings.accentColor,
     };
 }
 
@@ -705,6 +812,7 @@ function serveProbeState(_request, response) {
         storageFailureStudyInstanceId,
         readerReady: hasEvent('reader-ready'),
         studyWriteAcknowledged: successfulStudyWriteAcknowledged(events),
+        upgradeReaderScenarios: upgradeReaderScenariosObserved(events),
         automatedComplete: automatedPhasesComplete(),
     });
 }
@@ -756,10 +864,19 @@ function normalizeProbeEvent(value, storagePrefix) {
         at: new Date().toISOString(),
         type: shortString(value.type, 'event type'),
         surface: optionalEnum(value.surface, ['study', 'reader']),
-        scenario: optionalEnum(value.scenario, ['raw-only', 'prefixed-only', 'divergent', 'live']),
+        scenario: optionalEnum(value.scenario, [
+            'raw-only',
+            'prefixed-only',
+            'divergent',
+            'upgrade-v193-unmarked',
+            'upgrade-v193-seq0-ledger',
+            'live',
+        ]),
         ok: optionalBoolean(value.ok),
         theme: optionalEnum(value.theme, ['light', 'dark', 'auto']),
         subtitleFontSize: optionalNumber(value.subtitleFontSize),
+        appliedSubtitleFontSize: optionalNumber(value.appliedSubtitleFontSize),
+        accentApplied: optionalBoolean(value.accentApplied),
         darkClass: optionalBoolean(value.darkClass),
         formOpen: optionalBoolean(value.formOpen),
         saveDisabled: optionalBoolean(value.saveDisabled),
@@ -780,6 +897,8 @@ function normalizeProbeEvent(value, storagePrefix) {
         authorityPairValid: optionalBoolean(value.authorityPairValid),
         authorityAbsent: optionalBoolean(value.authorityAbsent),
         onboardingVisible: optionalBoolean(value.onboardingVisible),
+        recoveryVisible: optionalBoolean(value.recoveryVisible),
+        settingsWriteObserved: optionalBoolean(value.settingsWriteObserved),
         trusted: optionalBoolean(value.trusted),
         exactSave: optionalBoolean(value.exactSave),
         attemptId: optionalAttemptId(value.attemptId),
@@ -934,6 +1053,10 @@ function automatedEventPredicate(type) {
         'authority-raw-only': successfulAuthorityEvent,
         'authority-prefixed-only': successfulAuthorityEvent,
         'authority-divergent': successfulAuthorityEvent,
+        'authority-upgrade-v193-unmarked': successfulUpgradeStudyEvent,
+        'reader-upgrade-v193-unmarked': successfulUpgradeReaderEvent,
+        'authority-upgrade-v193-seq0-ledger': successfulUpgradeStudyEvent,
+        'reader-upgrade-v193-seq0-ledger': successfulUpgradeReaderEvent,
         'study-write-issued': successfulStudyWriteEvent,
         'reader-observed-study-write': successfulReaderObservedStudyWriteEvent,
         'reader-write-issued': successfulReaderWriteIssuedEvent,
@@ -1158,6 +1281,28 @@ function successfulAuthorityEvent(event) {
         && (event.scenario === 'raw-only'
             ? event.authorityAbsent === true && event.onboardingVisible === true
             : event.authorityPairValid === true);
+}
+
+function successfulUpgradeStudyEvent(event) {
+    return [
+        event.type === `authority-${event.scenario}`,
+        event.surface === 'study',
+        event.ok === true,
+        upgradeStudyObservationMatches(event, upgradeExpectations[event.scenario]?.study),
+    ].every(Boolean);
+}
+
+function successfulUpgradeReaderEvent(event) {
+    return [
+        event.type === `reader-${event.scenario}`,
+        event.surface === 'reader',
+        event.ok === true,
+        upgradeSurfaceMatches(event, upgradeExpectations[event.scenario]?.reader),
+    ].every(Boolean);
+}
+
+function upgradeReaderScenariosObserved(eventList) {
+    return eventList.filter(successfulUpgradeReaderEvent).map(event => event.scenario);
 }
 
 function successfulStudyWriteEvent(event) {
@@ -1401,8 +1546,10 @@ function manualRunbook({ backupPath, reportPath, serverOrigin: origin }) {
 - Report: \`${reportPath}\`
 - Live status: ${origin}/status/
 
-The script first runs raw-only, prefixed-only, divergent, and two-way live
-storage/DOM phases. Follow each terminal MANUAL PHASE exactly. Use Firefox UI;
+The script first runs raw-only, prefixed-only, divergent, v1.9.3 upgrade
+(unmarked pair, then seq-0 intent ledger), and two-way live storage/DOM phases.
+Each upgrade phase briefly opens and closes its own ordinary Reader tab.
+Follow each terminal MANUAL PHASE exactly. Use Firefox UI;
 do not substitute console calls or synthetic DOM clicks. Do not perform any
 numbered action before the terminal prints its matching MANUAL PHASE; automated
 writer tasks may still be settling.
@@ -1450,6 +1597,11 @@ function sharedProbeHelpers() {
         probeValuesMatch,
         canonicalProbeValue,
         darkThemeClass,
+        initialSetupVisible,
+        settingsRecoveryVisible,
+        appliedSettingsObservation,
+        upgradeSurfaceMatches,
+        waitForStableProof,
         exactSettingsSurface,
         waitForExpectedSettingsSurface,
         surfaceObservationReadiness,
@@ -1490,7 +1642,16 @@ function studyObserverHelpers() {
         studyRelevantKey,
         studyScenario,
         waitForStudyBoot,
-        initialSetupVisible,
+        completeUpgradeScenario,
+        upgradeScenarioProof,
+        bootUpgradeReader,
+        upgradeStudyProof,
+        upgradeStudyObservation,
+        upgradeStudyObservationMatches,
+        upgradeSeedUnchanged,
+        recordUpgradeStorageWrites,
+        upgradeStorageChangeObserved,
+        upgradeSettingsWriteObserved,
         completeAuthorityScenario,
         waitForAuthorityScenarioProof,
         authorityScenarioProof,
@@ -1561,6 +1722,9 @@ function contentProbeHelpers() {
     return [
         ...sharedProbeHelpers(),
         createContentProbeContext,
+        completeUpgradeReaderScenario,
+        upgradeReaderProof,
+        upgradeReaderObservation,
         compilerMessage,
         validatedCompilerResponse,
         contentSettings,
@@ -1654,11 +1818,17 @@ function installDisposableStorageWriteFault(config) {
 async function guardedDisposableSetValue(config, realSetValue, key, value) {
     const name = String(key);
     if (!settingsAuthorityWrite(name, config)) return realSetValue(key, value);
+    noteDisposableSettingsWrite(config);
     const attemptId = armedStorageFaultAttempt(config);
     if (!attemptId) return realSetValue(key, value);
     sessionStorage.setItem(config.faultKey, `consumed:${attemptId}`);
     void postBrowserProbeEvent(config, 'study', { type: 'fault-consumed', attemptId });
     throw new Error('Firefox settings-authority smoke injected storage failure.');
+}
+
+/** Counts every Study settings write from before the app loads, including byte-identical rewrites. */
+function noteDisposableSettingsWrite(config) {
+    globalThis[config.settingsWriteCountKey] = (globalThis[config.settingsWriteCountKey] ?? 0) + 1;
 }
 
 function armedStorageFaultAttempt(config) {
@@ -1723,6 +1893,46 @@ function stringSettingValue(value) {
 function darkThemeClass(theme) {
     const darkClassPresent = document.documentElement.classList.contains('jpdb-reader-theme-dark');
     return darkClassPresent === (theme === 'dark');
+}
+
+/** Study's blocking wall or the Reader's settings-error puck. */
+function settingsRecoveryVisible() {
+    return Boolean(document.querySelector('[data-extension-settings-recovery], [data-yomu-settings-recovery]'));
+}
+
+/** What the booted surface actually applied, not what storage holds. */
+function appliedSettingsObservation(expected) {
+    const root = document.documentElement;
+    const accent = root.style.getPropertyValue('--jpdb-reader-accent').trim().toLowerCase();
+    const subtitleFontSize = Number.parseFloat(root.style.getPropertyValue('--subtitle-font-size-target'));
+    return {
+        darkClass: root.classList.contains('jpdb-reader-theme-dark'),
+        appliedSubtitleFontSize: finiteSettingNumber(subtitleFontSize),
+        accentApplied: accent === String(expected.accentColor).toLowerCase(),
+        onboardingVisible: initialSetupVisible(),
+        recoveryVisible: settingsRecoveryVisible(),
+    };
+}
+
+function upgradeSurfaceMatches(observation, expected) {
+    if (!expected) return false;
+    return [
+        observation.theme === expected.theme,
+        observation.subtitleFontSize === expected.subtitleFontSize,
+        observation.darkClass === (expected.theme === 'dark'),
+        observation.appliedSubtitleFontSize === expected.subtitleFontSize,
+        observation.accentApplied === true,
+        observation.onboardingVisible === false,
+        observation.recoveryVisible === false,
+    ].every(Boolean);
+}
+
+function waitForStableProof(probe, timeout = 20_000) {
+    return browserWaitFor(async () => {
+        if (!await probe()) return null;
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return probe();
+    }, timeout);
 }
 
 function settingsSummariesMatch(left, right) {
@@ -2119,6 +2329,7 @@ async function studyObserver(config) {
     const context = createStudyProbeContext(config);
     const scenario = studyScenario(config);
     await waitForStudyBoot(context, scenario);
+    if (await completeUpgradeScenario(context, scenario)) return;
     if (await completeAuthorityScenario(context, scenario)) return;
     installStudyStorageObserver(context);
     await installStudyFormObserver(context);
@@ -2192,6 +2403,97 @@ async function waitForStudyBoot(context, scenario) {
 function initialSetupVisible() {
     const setup = document.querySelector('.jpdb-reader-onboarding');
     return Boolean(setup && setup.getClientRects().length && getComputedStyle(setup).visibility !== 'hidden');
+}
+
+/** v1.9.3 bytes must read as canonical in Study and a fresh Reader tab without any write. */
+async function completeUpgradeScenario(context, scenario) {
+    if (!Object.hasOwn(context.config.upgradeScenarios, scenario)) return false;
+    const writes = recordUpgradeStorageWrites(context.config, scenario);
+    const proof = await upgradeScenarioProof(context, scenario, writes);
+    await context.post({
+        type: `authority-${scenario}`,
+        scenario,
+        ...proof,
+        keyNames: await context.relevantKeyNames(),
+    });
+    if (proof.ok) await advanceAuthorityScenario(context.config, scenario);
+    return true;
+}
+
+async function upgradeScenarioProof(context, scenario, writes) {
+    const studyProof = () => upgradeStudyProof(context, scenario, writes);
+    const settled = await waitForStableProof(studyProof)
+        && await bootUpgradeReader(context.config, scenario)
+        && await waitForStableProof(studyProof);
+    if (settled) return { ...settled, ok: true };
+    return { ...await upgradeStudyObservation(context, scenario, writes), ok: false };
+}
+
+/** The Reader proves itself; the tab is closed before Study re-checks, so unload writes count too. */
+async function bootUpgradeReader(config, scenario) {
+    const url = new URL(config.articleUrl);
+    url.searchParams.set('scenario', scenario);
+    const tab = await browser.tabs.create({ url: url.href, active: true });
+    const booted = await browserWaitFor(async () => {
+        const state = await fetchProbeState(config);
+        return state?.upgradeReaderScenarios?.includes(scenario) === true;
+    }, 30_000);
+    await browser.tabs.remove(tab.id);
+    return Boolean(booted);
+}
+
+async function upgradeStudyProof(context, scenario, writes) {
+    const observation = await upgradeStudyObservation(context, scenario, writes);
+    const expected = context.config.upgradeScenarios[scenario].study;
+    return upgradeStudyObservationMatches(observation, expected) ? observation : null;
+}
+
+async function upgradeStudyObservation(context, scenario, writes) {
+    const { config } = context;
+    const values = await browser.storage.local.get(null);
+    return {
+        ...await studyCanonicalSummary(config),
+        ...appliedSettingsObservation(config.upgradeScenarios[scenario].study),
+        durableUnchanged: upgradeSeedUnchanged(values, config, config.scenarios[scenario]),
+        settingsWriteObserved: upgradeSettingsWriteObserved(config, writes),
+    };
+}
+
+function upgradeStudyObservationMatches(observation, expected) {
+    return [
+        upgradeSurfaceMatches(observation, expected),
+        observation.durableUnchanged === true,
+        observation.settingsWriteObserved === false,
+    ].every(Boolean);
+}
+
+/** Every seeded key keeps its exact value and no settings authority key appears (no ledger, no slot). */
+function upgradeSeedUnchanged(values, config, seed) {
+    const seededNames = Object.keys(seed);
+    const authorityNames = Object.keys(values).filter(key => studySettingsAuthorityKey(key, config)).sort();
+    const seededAuthorityNames = seededNames.filter(key => studySettingsAuthorityKey(key, config)).sort();
+    return [
+        probeValuesMatch(authorityNames, seededAuthorityNames),
+        seededNames.every(key => Object.hasOwn(values, key) && probeValuesMatch(values[key], seed[key])),
+    ].every(Boolean);
+}
+
+function recordUpgradeStorageWrites(config, scenario) {
+    const writes = { observed: false };
+    const seed = config.scenarios[scenario];
+    browser.storage.onChanged.addListener((changes, areaName) => {
+        if (upgradeStorageChangeObserved(changes, areaName, config, seed)) writes.observed = true;
+    });
+    return writes;
+}
+
+function upgradeStorageChangeObserved(changes, areaName, config, seed) {
+    if (areaName !== 'local') return false;
+    return Object.keys(changes).some(key => Object.hasOwn(seed, key) || studySettingsAuthorityKey(key, config));
+}
+
+function upgradeSettingsWriteObserved(config, writes) {
+    return writes.observed || (globalThis[config.settingsWriteCountKey] ?? 0) > 0;
 }
 
 async function completeAuthorityScenario(context, scenario) {
@@ -2360,7 +2662,13 @@ function divergentAuthorityMatches(current, presence) {
 }
 
 async function advanceAuthorityScenario(config, scenario) {
-    const nextScenarios = { 'raw-only': 'prefixed-only', 'prefixed-only': 'divergent', divergent: 'live' };
+    const nextScenarios = {
+        'raw-only': 'prefixed-only',
+        'prefixed-only': 'divergent',
+        divergent: 'upgrade-v193-unmarked',
+        'upgrade-v193-unmarked': 'upgrade-v193-seq0-ledger',
+        'upgrade-v193-seq0-ledger': 'live',
+    };
     const nextScenario = nextScenarios[scenario];
     sessionStorage.setItem(config.scenarioKey, nextScenario);
     await browser.storage.local.set({ [config.scenarioKey]: nextScenario });
@@ -2876,6 +3184,7 @@ function factoryResetComplete(logicalAuthorityAbsent, managedAuthorityKeys, unre
 async function contentProbe(config) {
     if (location.pathname !== '/article/') return;
     const context = createContentProbeContext(config);
+    if (await completeUpgradeReaderScenario(context)) return;
     await browserWaitFor(readerSurfaceInitialized);
     await context.post({ type: 'reader-ready', ok: true });
     installContentStorageObserver(context);
@@ -2889,6 +3198,30 @@ function createContentProbeContext(config) {
         readSettings: () => contentSettings(config),
         readerWriteIssued: false,
         launcherVisibleReported: false,
+    };
+}
+
+/** An upgrade-scenario tab only proves its boot; it never reports reader-ready or writes. */
+async function completeUpgradeReaderScenario(context) {
+    const scenario = new URLSearchParams(location.search).get('scenario') ?? '';
+    if (!Object.hasOwn(context.config.upgradeScenarios, scenario)) return false;
+    const expected = context.config.upgradeScenarios[scenario].reader;
+    const proof = await waitForStableProof(() => upgradeReaderProof(context, expected));
+    const observation = proof ?? await upgradeReaderObservation(context, expected);
+    await context.post({ type: `reader-${scenario}`, scenario, ok: Boolean(proof), ...observation });
+    return true;
+}
+
+async function upgradeReaderProof(context, expected) {
+    if (!readerSurfaceInitialized()) return null;
+    const observation = await upgradeReaderObservation(context, expected);
+    return upgradeSurfaceMatches(observation, expected) ? observation : null;
+}
+
+async function upgradeReaderObservation(context, expected) {
+    return {
+        ...settingsSummary(await context.readSettings()),
+        ...appliedSettingsObservation(expected),
     };
 }
 

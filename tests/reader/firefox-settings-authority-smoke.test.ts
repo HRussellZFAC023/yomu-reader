@@ -34,11 +34,87 @@ function runtimeFunction<T extends (...args: never[]) => unknown>(name: string):
 }
 
 function runtimeFunctions<T extends Record<string, (...args: never[]) => unknown>>(names: string[]): T {
+    return runtimeFunctionsWithBindings<T>(names, {});
+}
+
+function runtimeFunctionsWithBindings<T extends Record<string, (...args: never[]) => unknown>>(
+    names: string[],
+    bindings: Record<string, unknown>,
+): T {
     const declarations = names.map(name => {
         const declaration = functionDeclaration(name);
         return SOURCE.slice(declaration.getStart(SOURCE_FILE), declaration.getEnd());
     }).join('\n');
-    return Function(`"use strict"; ${declarations}; return { ${names.join(', ')} };`)() as T;
+    const bindingNames = Object.keys(bindings);
+    return Function(
+        ...bindingNames,
+        `"use strict"; ${declarations}; return { ${names.join(', ')} };`,
+    )(...Object.values(bindings)) as T;
+}
+
+const TOP_LEVEL_FUNCTIONS = new Set(SOURCE_FILE.statements
+    .filter(ts.isFunctionDeclaration)
+    .map(statement => statement.name!.text));
+
+/** Top-level functions a declaration reaches by name, ignoring property names that merely share one. */
+function reachedTopLevelFunctions(name: string): string[] {
+    const reached: string[] = [];
+    const visit = (node: ts.Node): void => {
+        if (ts.isIdentifier(node) && TOP_LEVEL_FUNCTIONS.has(node.text) && !propertyNameIdentifier(node)) {
+            reached.push(node.text);
+        }
+        ts.forEachChild(node, visit);
+    };
+    visit(functionDeclaration(name).body!);
+    return reached;
+}
+
+function propertyNameIdentifier(node: ts.Identifier): boolean {
+    const parent = node.parent;
+    return (ts.isPropertyAccessExpression(parent) && parent.name === node)
+        || (ts.isPropertyAssignment(parent) && parent.name === node);
+}
+
+/** The helper names an injected script declares, expanding spread helper lists. */
+function injectedHelperNames(helpers: ts.Expression): string[] {
+    if (ts.isCallExpression(helpers)) {
+        const declaration = functionDeclaration(expressionPath(helpers.expression));
+        const returned = declaration.body!.statements.find(ts.isReturnStatement)!.expression!;
+        return injectedHelperNames(returned);
+    }
+    expect(ts.isArrayLiteralExpression(helpers)).toBe(true);
+    return (helpers as ts.ArrayLiteralExpression).elements.flatMap(element => {
+        if (ts.isSpreadElement(element)) return injectedHelperNames(element.expression);
+        return [(element as ts.Identifier).text];
+    });
+}
+
+const CORPUS_DIRECTORY = 'tests/reader/fixtures/upgrade-v1.9.3';
+const UPGRADE_CORPUS = {
+    extension: JSON.parse(readFileSync(`${CORPUS_DIRECTORY}/d-extension-study-and-content-script.json`, 'utf8')),
+    unmarked: JSON.parse(readFileSync(`${CORPUS_DIRECTORY}/b-userscript-machine-only-unmarked.json`, 'utf8')),
+    seqZeroLedger: JSON.parse(readFileSync(`${CORPUS_DIRECTORY}/c1-userscript-folded-pins-explicit.json`, 'utf8')),
+};
+const CORPUS_SETTINGS_KEY = 'jpdb-popup-reader-settings';
+const CORPUS_INTENT_KEY = 'yomu:settings-intent:v2';
+const COMMIT_FIELD = '__yomuSettingsPersistenceCommitV1';
+
+function upgradeSeedFunctions() {
+    return runtimeFunctionsWithBindings<{
+        upgradeScenarioSeeds: (
+            prefix: string,
+            corpus: typeof UPGRADE_CORPUS,
+        ) => Record<string, Record<string, unknown>>;
+    }>([
+        'authorityRecord',
+        'authorityCommitWitness',
+        'withoutAuthorityCommit',
+        'committedAuthorityPayloadPair',
+        'rekeyedExtensionStorage',
+        'unmarkedUpgradeSeed',
+        'seqZeroLedgerUpgradeSeed',
+        'upgradeScenarioSeeds',
+    ], { SETTINGS_KEY: CORPUS_SETTINGS_KEY, INTENT_KEY: CORPUS_INTENT_KEY });
 }
 
 function runtimeFunctionWithBindings<T extends (...args: never[]) => unknown>(
@@ -85,11 +161,23 @@ function allTrueExcept(fields: string[], omitted?: string): Record<string, boole
 
 describe('Firefox settings-authority browser proof contract', () => {
     it('seeds current canonical pairs without promoting the raw-only fixture', () => {
-        const seeds = runtimeFunctionWithBindings<(prefix: string) => Record<string, Record<string, Record<string, unknown>>>>('scenarioSeeds', {
+        const seeds = runtimeFunctionWithBindings<(
+            prefix: string,
+            corpus: typeof UPGRADE_CORPUS,
+        ) => Record<string, Record<string, Record<string, unknown>>>>('scenarioSeeds', {
             safeSettings: runtimeFunction('safeSettings'), safeIntent: runtimeFunction('safeIntent'),
             SETTINGS_KEY: 'SETTINGS', INTENT_KEY: 'INTENT', PRIVATE_KEY: 'PRIVATE', PRIVATE_VALUE: 'fixture',
             UNRELATED_KEY: 'UNRELATED', UNRELATED_VALUE: 'keep',
-        })('prefix_');
+            upgradeScenarioSeeds: upgradeSeedFunctions().upgradeScenarioSeeds,
+        })('prefix_', UPGRADE_CORPUS);
+        expect(Object.keys(seeds)).toEqual([
+            'raw-only',
+            'prefixed-only',
+            'divergent',
+            'upgrade-v193-unmarked',
+            'upgrade-v193-seq0-ledger',
+            'live',
+        ]);
         for (const name of ['prefixed-only', 'divergent', 'live']) {
             const settings = seeds[name]!.prefix_SETTINGS!;
             const intent = seeds[name]!.prefix_INTENT!;
@@ -153,6 +241,10 @@ describe('Firefox settings-authority browser proof contract', () => {
             'authority-raw-only',
             'authority-prefixed-only',
             'authority-divergent',
+            'authority-upgrade-v193-unmarked',
+            'reader-upgrade-v193-unmarked',
+            'authority-upgrade-v193-seq0-ledger',
+            'reader-upgrade-v193-seq0-ledger',
             'study-write-issued',
             'reader-observed-study-write',
             'reader-write-issued',
@@ -733,6 +825,7 @@ describe('Firefox settings-authority browser proof contract', () => {
 
         const durableWrite = vi.fn(async () => 'durable');
         const post = vi.fn(async () => undefined);
+        const noteSettingsWrite = vi.fn();
         const guardedWrite = runtimeFunctionWithBindings<(
             config: Record<string, unknown>,
             realSetValue: (...args: unknown[]) => Promise<unknown>,
@@ -741,6 +834,7 @@ describe('Firefox settings-authority browser proof contract', () => {
         ) => Promise<unknown>>('guardedDisposableSetValue', {
             sessionStorage: storage,
             settingsAuthorityWrite: (name: string) => name === 'settings',
+            noteDisposableSettingsWrite: noteSettingsWrite,
             armedStorageFaultAttempt: runtimeFunctionWithBindings('armedStorageFaultAttempt', {
                 sessionStorage: storage,
             }),
@@ -762,6 +856,14 @@ describe('Firefox settings-authority browser proof contract', () => {
             'study',
             { type: 'fault-consumed', attemptId: 'attempt-1' },
         );
+        // Both settings writes count (passed-through and faulted); the unrelated one does not.
+        expect(noteSettingsWrite).toHaveBeenCalledTimes(2);
+        const countKey = 'firefoxSettingsAuthoritySmokeTestWrites';
+        const note = runtimeFunction<(config: Record<string, unknown>) => void>('noteDisposableSettingsWrite');
+        note({ settingsWriteCountKey: countKey });
+        note({ settingsWriteCountKey: countKey });
+        expect(Reflect.get(globalThis, countKey)).toBe(2);
+        Reflect.deleteProperty(globalThis, countKey);
 
         const ready = runtimeFunctionWithBindings<(
             context: Record<string, unknown>,
@@ -1354,5 +1456,321 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(complete(false, [], true)).toBe(false);
         expect(complete(true, ['authority-survivor'], true)).toBe(false);
         expect(complete(true, [], false)).toBe(false);
+    });
+
+    it('seeds both v1.9.3 upgrade scenarios from the real corpus bytes under the packaged prefix', () => {
+        expect(SOURCE).toContain(`const SETTINGS_KEY = '${CORPUS_SETTINGS_KEY}'`);
+        expect(SOURCE).toContain(`const INTENT_KEY = '${CORPUS_INTENT_KEY}'`);
+        expect(SOURCE).toContain("path.join(ROOT, 'tests', 'reader', 'fixtures', 'upgrade-v1.9.3')");
+        expect(SOURCE).toContain("extension: 'd-extension-study-and-content-script.json'");
+        expect(SOURCE).toContain("unmarked: 'b-userscript-machine-only-unmarked.json'");
+        expect(SOURCE).toContain("seqZeroLedger: 'c1-userscript-folded-pins-explicit.json'");
+
+        const corpusPrefix = UPGRADE_CORPUS.extension.compilerStoragePrefix as string;
+        const extensionBytes = UPGRADE_CORPUS.extension.extensionStorageLocal as Record<string, unknown>;
+        const prefix = 'usc_packaged_harness_';
+        const { upgradeScenarioSeeds } = upgradeSeedFunctions();
+        const seeds = upgradeScenarioSeeds(prefix, UPGRADE_CORPUS);
+        expect(Object.keys(seeds)).toEqual(['upgrade-v193-unmarked', 'upgrade-v193-seq0-ledger']);
+
+        // 1. d's extension bytes in b's unmarked shape: no commit id and no intent ledger.
+        const unmarked = seeds['upgrade-v193-unmarked']!;
+        expect(Object.keys(UPGRADE_CORPUS.unmarked.gm)).not.toContain(CORPUS_INTENT_KEY);
+        expect(Object.keys(unmarked).sort()).toEqual(
+            Object.keys(UPGRADE_CORPUS.unmarked.gm).map(key => `${prefix}${key}`).sort(),
+        );
+        const markedSettings = extensionBytes[`${corpusPrefix}${CORPUS_SETTINGS_KEY}`] as Record<string, unknown>;
+        expect(markedSettings[COMMIT_FIELD]).toEqual(expect.any(String));
+        const unmarkedSettings = { ...markedSettings };
+        Reflect.deleteProperty(unmarkedSettings, COMMIT_FIELD);
+        expect(unmarked[`${prefix}${CORPUS_SETTINGS_KEY}`]).toEqual(unmarkedSettings);
+        expect(unmarked[`${prefix}${CORPUS_SETTINGS_KEY}`]).not.toHaveProperty(COMMIT_FIELD);
+        expect(unmarked[`${prefix}yomu:prefer-japanese-site-language:v1`])
+            .toBe(extensionBytes[`${corpusPrefix}yomu:prefer-japanese-site-language:v1`]);
+        expect(unmarked).not.toHaveProperty(`${prefix}${CORPUS_INTENT_KEY}`);
+
+        // 2. c1's committed pair with seq-0 ledger records, verbatim under the packaged prefix.
+        const seqZero = seeds['upgrade-v193-seq0-ledger']!;
+        expect(seqZero).toEqual(Object.fromEntries(Object.entries(UPGRADE_CORPUS.seqZeroLedger.gm)
+            .map(([key, value]) => [`${prefix}${key}`, value])));
+        const intent = seqZero[`${prefix}${CORPUS_INTENT_KEY}`] as {
+            records: Record<string, { seq: number }>;
+            __yomuSettingsPersistenceCommitV1: string;
+        };
+        expect(Object.values(intent.records).some(record => record.seq === 0)).toBe(true);
+        expect(intent[COMMIT_FIELD]).toEqual(expect.any(String));
+        expect((seqZero[`${prefix}${CORPUS_SETTINGS_KEY}`] as Record<string, unknown>)[COMMIT_FIELD])
+            .toBe(intent[COMMIT_FIELD]);
+
+        expect(Object.keys({ ...unmarked, ...seqZero }).every(key => key.startsWith(prefix))).toBe(true);
+        expect(() => upgradeScenarioSeeds(prefix, { ...UPGRADE_CORPUS, unmarked: UPGRADE_CORPUS.seqZeroLedger }))
+            .toThrow('no longer unmarked');
+        expect(() => upgradeScenarioSeeds(prefix, { ...UPGRADE_CORPUS, seqZeroLedger: UPGRADE_CORPUS.unmarked }))
+            .toThrow('seq-0 ledger pair');
+
+        const assertPrefix = runtimeFunction<(corpus: typeof UPGRADE_CORPUS, prefix: string) => void>(
+            'assertUpgradeCorpusStoragePrefix',
+        );
+        expect(() => assertPrefix(UPGRADE_CORPUS, corpusPrefix)).not.toThrow();
+        expect(() => assertPrefix(UPGRADE_CORPUS, prefix)).toThrow('would not read v1.9.3 extension bytes');
+        const main = sourceSection('const storagePrefix = storagePrefixFromAdapter', 'const studyIndexPath');
+        expect(main.indexOf('assertUpgradeCorpusStoragePrefix'))
+            .toBeLessThan(main.indexOf('upgradeScenarioExpectations'));
+
+        const { upgradeScenarioExpectations } = runtimeFunctions<{
+            upgradeScenarioExpectations: (corpus: typeof UPGRADE_CORPUS) => Record<string, unknown>;
+        }>(['upgradeExpectedSettings', 'upgradeScenarioExpectations']);
+        const extensionOutcome = { theme: 'dark', subtitleFontSize: 40, accentColor: '#5ea780' };
+        const seqZeroOutcome = { theme: 'dark', subtitleFontSize: 40, accentColor: '#2563eb' };
+        expect(upgradeScenarioExpectations(UPGRADE_CORPUS)).toEqual({
+            'upgrade-v193-unmarked': { study: extensionOutcome, reader: extensionOutcome },
+            'upgrade-v193-seq0-ledger': { study: seqZeroOutcome, reader: seqZeroOutcome },
+        });
+    });
+
+    it('accepts a v1.9.3 upgrade read only when both surfaces apply corpus values and nothing is written', () => {
+        const expected = { theme: 'dark', subtitleFontSize: 40, accentColor: '#5ea780' };
+        const events = runtimeFunctionsWithBindings<{
+            successfulUpgradeStudyEvent: (event: Record<string, unknown>) => boolean;
+            successfulUpgradeReaderEvent: (event: Record<string, unknown>) => boolean;
+            upgradeReaderScenariosObserved: (events: Array<Record<string, unknown>>) => string[];
+        }>([
+            'upgradeSurfaceMatches',
+            'upgradeStudyObservationMatches',
+            'successfulUpgradeStudyEvent',
+            'successfulUpgradeReaderEvent',
+            'upgradeReaderScenariosObserved',
+        ], { upgradeExpectations: { 'upgrade-v193-unmarked': { study: expected, reader: expected } } });
+        const applied = {
+            scenario: 'upgrade-v193-unmarked',
+            ok: true,
+            theme: 'dark',
+            subtitleFontSize: 40,
+            darkClass: true,
+            appliedSubtitleFontSize: 40,
+            accentApplied: true,
+            onboardingVisible: false,
+            recoveryVisible: false,
+        };
+        const study = {
+            ...applied,
+            type: 'authority-upgrade-v193-unmarked',
+            surface: 'study',
+            durableUnchanged: true,
+            settingsWriteObserved: false,
+        };
+        const reader = { ...applied, type: 'reader-upgrade-v193-unmarked', surface: 'reader' };
+        expect(events.successfulUpgradeStudyEvent(study)).toBe(true);
+        expect(events.successfulUpgradeReaderEvent(reader)).toBe(true);
+        const surfaceBreaks: Array<[string, unknown]> = [
+            ['ok', false],
+            ['theme', 'light'],
+            ['subtitleFontSize', 28],
+            ['darkClass', false],
+            ['appliedSubtitleFontSize', 28],
+            ['appliedSubtitleFontSize', undefined],
+            ['accentApplied', false],
+            ['onboardingVisible', true],
+            ['recoveryVisible', true],
+            ['scenario', 'upgrade-v193-seq0-ledger'],
+        ];
+        for (const [field, value] of surfaceBreaks) {
+            expect(events.successfulUpgradeStudyEvent({ ...study, [field]: value }), field).toBe(false);
+            expect(events.successfulUpgradeReaderEvent({ ...reader, [field]: value }), field).toBe(false);
+        }
+        expect(events.successfulUpgradeStudyEvent({ ...study, durableUnchanged: false })).toBe(false);
+        expect(events.successfulUpgradeStudyEvent({ ...study, settingsWriteObserved: true })).toBe(false);
+        expect(events.successfulUpgradeStudyEvent({ ...study, settingsWriteObserved: undefined })).toBe(false);
+        expect(events.successfulUpgradeStudyEvent({ ...study, surface: 'reader' })).toBe(false);
+        expect(events.successfulUpgradeReaderEvent({ ...reader, surface: 'study' })).toBe(false);
+        expect(events.successfulUpgradeReaderEvent({ ...reader, type: 'reader-ready' })).toBe(false);
+        expect(events.upgradeReaderScenariosObserved([
+            study,
+            { ...reader, ok: false },
+            reader,
+        ])).toEqual(['upgrade-v193-unmarked']);
+
+        const config = { settingsKey: CORPUS_SETTINGS_KEY, intentKey: CORPUS_INTENT_KEY, storagePrefix: 'usc_p_' };
+        const settingsKey = `usc_p_${CORPUS_SETTINGS_KEY}`;
+        const siteLanguageKey = 'usc_p_yomu:prefer-japanese-site-language:v1';
+        const seed = { [settingsKey]: { theme: 'dark', nested: { a: 1, order: [1, 2] } }, [siteLanguageKey]: false };
+        const { upgradeSeedUnchanged: unchanged, upgradeStorageChangeObserved: changed } = runtimeFunctions<{
+            upgradeSeedUnchanged: (
+                values: Record<string, unknown>,
+                config: Record<string, unknown>,
+                seed: Record<string, unknown>,
+            ) => boolean;
+            upgradeStorageChangeObserved: (
+                changes: Record<string, unknown>,
+                areaName: string,
+                config: Record<string, unknown>,
+                seed: Record<string, unknown>,
+            ) => boolean;
+        }>([
+            'canonicalProbeValue',
+            'probeValuesMatch',
+            'studySettingsAuthorityKey',
+            'upgradeSeedUnchanged',
+            'upgradeStorageChangeObserved',
+        ]);
+        expect(unchanged({
+            [siteLanguageKey]: false,
+            [settingsKey]: { nested: { order: [1, 2], a: 1 }, theme: 'dark' },
+            'firefox-settings-authority-smoke-unrelated': 'keep-unrelated-v1',
+            'usc_p_yomu:study-cache': 1,
+        }, config, seed)).toBe(true);
+        for (const values of [
+            { ...seed, [settingsKey]: { theme: 'dark', nested: { a: 1, order: [2, 1] } } },
+            { ...seed, [settingsKey]: { ...seed[settingsKey], [COMMIT_FIELD]: 'read-adopted' } },
+            { ...seed, [siteLanguageKey]: true },
+            { [settingsKey]: seed[settingsKey] },
+            { ...seed, [`usc_p_${CORPUS_INTENT_KEY}`]: { revision: 0, records: {} } },
+            { ...seed, [`usc_p_yomu:state-slot:v1:reset:${CORPUS_SETTINGS_KEY}`]: {} },
+            { ...seed, [CORPUS_SETTINGS_KEY]: seed[settingsKey] },
+        ]) expect(unchanged(values, config, seed)).toBe(false);
+        expect(changed({ [siteLanguageKey]: {} }, 'local', config, seed)).toBe(true);
+        expect(changed({ [`usc_p_${CORPUS_INTENT_KEY}`]: {} }, 'local', config, seed)).toBe(true);
+        expect(changed({ 'usc_p_yomu:study-cache': {} }, 'local', config, seed)).toBe(false);
+        expect(changed({ [settingsKey]: {} }, 'sync', config, seed)).toBe(false);
+
+        const writeObserved = runtimeFunction<(
+            config: Record<string, unknown>,
+            writes: { observed: boolean },
+        ) => boolean>('upgradeSettingsWriteObserved');
+        const countKey = 'firefoxSettingsAuthoritySmokeUpgradeTestWrites';
+        expect(writeObserved({ settingsWriteCountKey: countKey }, { observed: false })).toBe(false);
+        expect(writeObserved({ settingsWriteCountKey: countKey }, { observed: true })).toBe(true);
+        Reflect.set(globalThis, countKey, 1);
+        expect(writeObserved({ settingsWriteCountKey: countKey }, { observed: false })).toBe(true);
+        Reflect.deleteProperty(globalThis, countKey);
+    });
+
+    it('reads what the booted surface applied and treats either recovery surface as a failure', () => {
+        const { appliedSettingsObservation } = runtimeFunctions<{
+            appliedSettingsObservation: (expected: Record<string, unknown>) => Record<string, unknown>;
+        }>(['finiteSettingNumber', 'initialSetupVisible', 'settingsRecoveryVisible', 'appliedSettingsObservation']);
+        const root = document.documentElement;
+        root.classList.add('jpdb-reader-theme-dark');
+        root.style.setProperty('--jpdb-reader-accent', '#5EA780', 'important');
+        root.style.setProperty('--subtitle-font-size-target', '40px');
+        document.body.innerHTML = '<main></main>';
+        try {
+            expect(appliedSettingsObservation({ accentColor: '#5ea780' })).toEqual({
+                darkClass: true,
+                appliedSubtitleFontSize: 40,
+                accentApplied: true,
+                onboardingVisible: false,
+                recoveryVisible: false,
+            });
+            expect(appliedSettingsObservation({ accentColor: '#2563eb' })).toMatchObject({ accentApplied: false });
+            document.body.innerHTML = '<section data-extension-settings-recovery="blocked"></section>';
+            expect(appliedSettingsObservation({ accentColor: '#5ea780' })).toMatchObject({ recoveryVisible: true });
+            document.body.innerHTML = '<button data-yomu-settings-recovery="unavailable"></button>';
+            expect(appliedSettingsObservation({ accentColor: '#5ea780' })).toMatchObject({ recoveryVisible: true });
+            root.style.removeProperty('--subtitle-font-size-target');
+            expect(appliedSettingsObservation({ accentColor: '#5ea780' }).appliedSubtitleFontSize).toBeUndefined();
+        } finally {
+            root.classList.remove('jpdb-reader-theme-dark');
+            root.style.removeProperty('--jpdb-reader-accent');
+            root.style.removeProperty('--subtitle-font-size-target');
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('runs the upgrade scenarios after the authority checks, each with its own closed Reader tab', async () => {
+        const order: string[] = [];
+        const advance = runtimeFunctionWithBindings<(
+            config: Record<string, unknown>,
+            scenario: string,
+        ) => Promise<void>>('advanceAuthorityScenario', {
+            sessionStorage: { setItem: (_key: string, value: string) => { order.push(value); } },
+            browser: { storage: { local: { set: async () => undefined } } },
+            location: { reload: () => undefined },
+        });
+        for (const scenario of [
+            'raw-only',
+            'prefixed-only',
+            'divergent',
+            'upgrade-v193-unmarked',
+            'upgrade-v193-seq0-ledger',
+        ]) await advance({ scenarioKey: 'scenario' }, scenario);
+        expect(order).toEqual([
+            'prefixed-only',
+            'divergent',
+            'upgrade-v193-unmarked',
+            'upgrade-v193-seq0-ledger',
+            'live',
+        ]);
+        const scenarioEnum = sourceSection('scenario: optionalEnum(value.scenario', ']),');
+        expect(scenarioEnum).toContain("'upgrade-v193-unmarked'");
+        expect(scenarioEnum).toContain("'upgrade-v193-seq0-ledger'");
+
+        const observerCalls = calledFunctions('studyObserver');
+        expect(observerCalls.indexOf('completeUpgradeScenario')).toBeGreaterThan(observerCalls.indexOf('waitForStudyBoot'));
+        expect(observerCalls.indexOf('completeUpgradeScenario'))
+            .toBeLessThan(observerCalls.indexOf('completeAuthorityScenario'));
+        const proofCalls = calledFunctions('upgradeScenarioProof');
+        expect(proofCalls.filter(call => call === 'waitForStableProof')).toHaveLength(2);
+        expect(proofCalls.indexOf('bootUpgradeReader')).toBeGreaterThan(proofCalls.indexOf('waitForStableProof'));
+        expect(proofCalls.indexOf('bootUpgradeReader')).toBeLessThan(proofCalls.lastIndexOf('waitForStableProof'));
+        const readerCalls = calledFunctions('bootUpgradeReader');
+        expect(readerCalls.indexOf('browser.tabs.create')).toBeLessThan(readerCalls.indexOf('browserWaitFor'));
+        expect(readerCalls.indexOf('browserWaitFor')).toBeLessThan(readerCalls.indexOf('browser.tabs.remove'));
+        expect(referencedIdentifiers('bootUpgradeReader')).toContain('upgradeReaderScenarios');
+        expect(referencedIdentifiers('serveProbeState')).toContain('upgradeReaderScenariosObserved');
+        expect(calledFunctions('completeUpgradeScenario')).toEqual(expect.arrayContaining([
+            'recordUpgradeStorageWrites',
+            'upgradeScenarioProof',
+            'context.post',
+            'advanceAuthorityScenario',
+        ]));
+        expect(calledFunctions('recordUpgradeStorageWrites')).toContain('browser.storage.onChanged.addListener');
+
+        const contentCalls = calledFunctions('contentProbe');
+        const readyPost = contentCalls.indexOf('context.post');
+        expect(contentCalls.indexOf('completeUpgradeReaderScenario')).toBeGreaterThanOrEqual(0);
+        expect(contentCalls.indexOf('completeUpgradeReaderScenario')).toBeLessThan(readyPost);
+        const upgradeReaderCalls = calledFunctions('completeUpgradeReaderScenario');
+        expect(upgradeReaderCalls).toEqual(expect.arrayContaining(['waitForStableProof', 'context.post']));
+        expect(calledFunctions('upgradeReaderProof')).toContain('readerSurfaceInitialized');
+
+        const instrument = sourceSection('async function instrumentDisposablePackage', 'function injectedScript');
+        expect(sourceSection('const bootstrapConfig = {', '};')).toContain('settingsWriteCountKey');
+        expect(sourceSection('const observerConfig = {', '};')).toContain('upgradeScenarios: options.upgradeExpectations');
+        expect(sourceSection('const observerConfig = {', '};')).toContain('settingsWriteCountKey');
+        expect(sourceSection('const contentConfig = {', '};')).toContain('upgradeScenarios: options.upgradeExpectations');
+        expect(instrument).toContain('scenarioSeeds(options.storagePrefix, options.upgradeCorpus)');
+    });
+
+    it('injects every top-level helper each browser entrypoint reaches', () => {
+        const injections: Array<{ entry: string; helpers: string[] }> = [];
+        const visit = (node: ts.Node): void => {
+            if (ts.isCallExpression(node) && expressionPath(node.expression) === 'injectedScript') {
+                const [, entry, helpers] = node.arguments;
+                injections.push({ entry: (entry as ts.Identifier).text, helpers: injectedHelperNames(helpers!) });
+            }
+            ts.forEachChild(node, visit);
+        };
+        visit(functionDeclaration('instrumentDisposablePackage'));
+        expect(injections.map(injection => injection.entry)).toEqual(['browserBootstrap', 'studyObserver', 'contentProbe']);
+        for (const { entry, helpers } of injections) {
+            const declared = new Set([entry, ...helpers]);
+            expect(helpers.length, entry).toBe(declared.size - 1);
+            const missing: string[] = [];
+            const visited = new Set<string>();
+            const reach = (name: string): void => {
+                if (visited.has(name)) return;
+                visited.add(name);
+                for (const reached of reachedTopLevelFunctions(name)) {
+                    if (declared.has(reached)) reach(reached);
+                    else missing.push(`${name} -> ${reached}`);
+                }
+            };
+            reach(entry);
+            expect(missing, entry).toEqual([]);
+        }
+        expect(reachedTopLevelFunctions('studyObserver')).toContain('completeUpgradeScenario');
+        expect(reachedTopLevelFunctions('contentProbe')).toContain('completeUpgradeReaderScenario');
+        expect(reachedTopLevelFunctions('guardedDisposableSetValue')).toContain('noteDisposableSettingsWrite');
     });
 });
