@@ -2205,7 +2205,7 @@ export class ImageOcrController {
             && settings.ocrAutoScanImages
             && !userRequested;
         const ocrOptInCanvases = nativeTextLayerBlocksAutoScan
-            ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested)
+            ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces().filter(isCanvasOcrOptInSurface), settings, userRequested)
             : undefined;
         if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
         if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
@@ -2232,8 +2232,8 @@ export class ImageOcrController {
         ocrOptInCanvases: HTMLCanvasElement[] | undefined,
     ): boolean {
         if (!nativeTextLayerBlocksAutoScan || ocrOptInCanvases?.length) return false;
-        // A native-text-layer page (mokuro et al.) strips auto frames but keeps a
-        // frame the user explicitly tapped until a genuine page turn.
+        // Image OCR is suppressed and no canvas opted in: never auto-capture (the result
+        // would be hidden at render) and keep only a tapped frame until a page turn.
         if (!isReaderRasterPage()) {
             this.releaseAllCanvasFrames();
             return true;

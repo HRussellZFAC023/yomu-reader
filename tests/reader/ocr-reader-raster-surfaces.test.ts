@@ -1134,7 +1134,9 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
         expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([visiblePage, nextPage]);
 
-        const controller = createController({}, undefined, undefined, () => false);
+        // A BookWalker reader page with a canvas always allows image OCR
+        // (shouldAutoScanImageOcr), so the controller runs with the default gate.
+        const controller = createController();
         try {
             await waitForExpect(() => {
                 const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
@@ -2327,6 +2329,31 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(frame).not.toBeNull();
                 expect(frame!.dataset.yomuCanvasFrame).toBe('true');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not auto-capture a reader canvas that has not opted in while generic image OCR is suppressed', async () => {
+        // The auto result for such a canvas is suppressed at render time, so an
+        // auto capture here only uploads the page to the OCR provider and churns
+        // a status pill every poll. The learner's tap stays the way to read it.
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const canvas = pageCanvas(24, 20);
+        document.body.append(canvas);
+        expect(collectCanvasReaderSurfaces()).toEqual([canvas]);
+        const controller = createController({}, undefined, undefined, () => false);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 60));
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+
+            dispatchCanvasPointer(canvas, 'pointerdown');
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
             });
         } finally {
             controller.destroy();
