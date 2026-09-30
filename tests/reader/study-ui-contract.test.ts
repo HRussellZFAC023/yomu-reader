@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { renderNewTabShell } from '../../src/reader/newtab/shell-view';
 
 const newTabCss = readFileSync('src/reader/styles/new-tab.css', 'utf8').replace(/\s+/gu, ' ');
 const statsCss = readFileSync('src/reader/styles/stats.css', 'utf8').replace(/\s+/gu, ' ');
@@ -64,6 +65,26 @@ describe('Reader Study UI contract', () => {
     it('keeps the unrevealed Type Write canvas interactive', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not( .jpdb-reader-newtab-kanji-mode ) .jpdb-reader-newtab-study:not([data-newtab-study-step="type-word"]) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas { pointer-events: none; }');
         expect(newTabCss).not.toContain('.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not( .jpdb-reader-newtab-kanji-mode ) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas { pointer-events: none; }');
+    });
+
+    it('gives every Study section, Practice included, its own column in the top navigation', () => {
+        const shell = renderNewTabShell({
+            language: 'en',
+            overflowMenu: document.createElement('div'),
+            appNavigation: null,
+            showSessionClockControl: false,
+        });
+        const sections = [...shell.querySelectorAll('.jpdb-reader-newtab-mode > button')].map(button => button.textContent);
+        expect(sections).toEqual(['Study', 'Practice', 'Library', 'Stats']);
+        // A fixed column count below the section count wrapped Stats onto a
+        // second row of the desktop header once Practice joined it.
+        const modeRules = [...`${newTabCss} ${statsCss}`.matchAll(/\.jpdb-reader-newtab-mode \{([^}]*)\}/gu)].map(match => match[1]);
+        expect(modeRules.length).toBeGreaterThan(0);
+        for (const rule of modeRules) {
+            const fixedColumns = /grid-template-columns: repeat\((\d+),/u.exec(rule);
+            if (fixedColumns) expect(Number(fixedColumns[1])).toBeGreaterThanOrEqual(sections.length);
+        }
+        expect(modeRules[0]).toContain('grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);');
     });
 
     it('uses native-style bottom navigation and a single-line step rail on phones', () => {
