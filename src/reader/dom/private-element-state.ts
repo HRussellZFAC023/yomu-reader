@@ -1,3 +1,5 @@
+import { sandboxSharedState } from '../ui/sandbox-shared-state';
+
 const TOKEN_ATTRIBUTE = 'data-yomu-private-token';
 const MAX_PENDING_VALUES = 16_384;
 
@@ -22,17 +24,24 @@ export interface PrivateElementStateSlot<T> {
     read(element: Element | null | undefined): T | undefined;
 }
 
-const valuesByElement = new WeakMap<Element, Map<symbol, unknown>>();
-const pendingValues = new Map<string, PendingPrivateValue>();
-const replayableBlueprints = new Map<string, PendingPrivateValue>();
+// The aggregate @require runtime renders HTML (popover grade rows, kanji
+// buttons) that the split core parses, and each bundle carries its own copy of
+// this Module. One sandbox-shared registry, with one slot per named domain, lets
+// a token minted by either copy bind when the other hydrates it.
+const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sandboxSharedState('yomu.private-element-state.v1', () => ({
+    valuesByElement: new WeakMap<Element, Map<symbol, unknown>>(),
+    pendingValues: new Map<string, PendingPrivateValue>(),
+    replayableBlueprints: new Map<string, PendingPrivateValue>(),
+    domainSlots: new Map<string, symbol>(),
+}));
 
 /**
  * Creates a typed facade over the single private Element-state registry.
  * Different domains (commands, rendered-word identity) share hydration and
  * replay protection without sharing keys or being able to read each other.
  */
-export function createPrivateElementStateSlot<T>(snapshot: (value: T) => T, options: PrivateElementStateSlotOptions = {}): PrivateElementStateSlot<T> {
-    const slot = Symbol('yomu-private-element-state');
+export function createPrivateElementStateSlot<T>(domain: string, snapshot: (value: T) => T, options: PrivateElementStateSlotOptions = {}): PrivateElementStateSlot<T> {
+    const slot = domainSlot(domain);
     return {
         attributes(value: T): string {
             const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
@@ -51,6 +60,14 @@ export function createPrivateElementStateSlot<T>(snapshot: (value: T) => T, opti
             return element ? valuesByElement.get(element)?.get(slot) as T | undefined : undefined;
         },
     };
+}
+
+function domainSlot(domain: string): symbol {
+    const existing = domainSlots.get(domain);
+    if (existing) return existing;
+    const slot = Symbol(`yomu-private-element-state:${domain}`);
+    domainSlots.set(domain, slot);
+    return slot;
 }
 
 function registerPendingValue(slot: symbol, value: unknown, replayable: boolean): string {

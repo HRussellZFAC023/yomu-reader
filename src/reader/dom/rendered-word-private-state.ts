@@ -21,6 +21,7 @@ export interface RenderedWordPrivateState {
 type RenderedWordPrivateKey = keyof RenderedWordPrivateState;
 
 const privateStateSlot = createPrivateElementStateSlot<RenderedWordPrivateState>(
+    'rendered-word',
     state => Object.freeze({ ...state }),
     { replayable: true },
 );

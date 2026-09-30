@@ -217,7 +217,7 @@ export type PrivateCommandHandlers = {
     ) => void;
 };
 
-const commandCapabilities = createPrivateElementStateSlot(immutableCommandSnapshot);
+const commandCapabilities = createPrivateElementStateSlot('commands', immutableCommandSnapshot);
 
 /**
  * Carries an immutable command through an HTML string. `setInnerHtml` consumes
