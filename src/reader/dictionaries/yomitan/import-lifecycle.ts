@@ -1,6 +1,7 @@
 import { assertYomitanDatabaseOwner, runYomitanManagedStateWrite } from './managed-state';
 import type { ManagedStateIdbWriteOptions } from '../../app/managed-indexeddb';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexie-stream';
+import { DexieSyntaxPreflight, failInvalidDexieJson } from './dexie-syntax';
 import type { ZipArchive } from './zip';
 import { normalizeZipTermRow, normalizeZipKanjiRow, normalizeZipTermMetaRow, normalizeZipKanjiMetaRow } from './zip-normalize';
 
@@ -36,77 +37,19 @@ export async function validateZipDictionaryBanks(zip: ZipArchive, dictionary: st
     return supported;
 }
 
-// Import safety limits, not JSON grammar limits. The downstream row reader and
-// compatibility fallback still do not have an all-input bounded-memory contract.
-const MAX_DEXIE_SCALAR_LENGTH = 128;
-const MAX_DEXIE_NESTING = 128;
+const DEXIE_PREFLIGHT_CHUNK_BYTES = 262144;
+const DEXIE_TABLES: ReadonlySet<string> = new Set(['dictionaries', 'terms', 'kanji', 'termMeta', 'kanjiMeta']);
 
 /** Chunked syntax preflight with bounded scalar tokens and container depth. */
 export async function validateDexieJson(file: File): Promise<Partial<Record<string, number>>> {
-    const stack: Array<{ kind: 'object' | 'array'; next: string }> = [];
-    let root = 'value';
-    let string = false, escaped = false, unicode = 0, atom = '', text = '';
-    let rootKey = '', format: string | undefined;
-    const fail = (): never => { throw new SyntaxError('Invalid Dexie JSON dictionary.'); };
-    const value = () => {
-        const frame = stack.at(-1);
-        if (stack.length === 1 && rootKey === 'formatName') format = undefined;
-        if (!frame) { if (root !== 'value') fail(); root = 'done'; }
-        else { if (!['value', 'value-or-end'].includes(frame.next)) fail(); frame.next = 'comma-or-end'; }
-    };
-    const stringToken = () => {
-        const frame = stack.at(-1);
-        const decoded = text.length < 256 ? JSON.parse(`"${text}"`) as string : '';
-        if (frame?.kind === 'object' && ['key', 'key-or-end'].includes(frame.next)) {
-            frame.next = 'colon';
-            if (stack.length === 1) rootKey = decoded;
-        } else {
-            value();
-            if (stack.length === 1 && rootKey === 'formatName') format = decoded;
-        }
-    };
-    const finishAtom = () => {
-        if (!atom) return;
-        if (!/^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(atom)) fail();
-        value(); atom = '';
-    };
-    for (let offset = 0; offset < file.size; offset += 262144) {
-        const chunk = await readBlobText(file.slice(offset, offset + 262144));
-        for (const char of chunk) {
-            if (string) {
-                if (char !== '"' || escaped || unicode) { if (text.length < 256) text += char; }
-                if (unicode) { if (!/[0-9a-f]/i.test(char)) fail(); unicode--; continue; }
-                if (escaped) { if (char === 'u') unicode = 4; else if (!'"\\/bfnrt'.includes(char)) fail(); escaped = false; continue; }
-                if (char === '\\') { escaped = true; continue; }
-                if (char === '"') { string = false; stringToken(); continue; }
-                if (char.charCodeAt(0) < 32) fail();
-                continue;
-            }
-            if (/[ \t\r\n]/.test(char) || '{}[],:"'.includes(char)) finishAtom();
-            else {
-                if (atom.length >= MAX_DEXIE_SCALAR_LENGTH) throw new RangeError('Dexie import scalar exceeds 128 characters.');
-                atom += char; continue;
-            }
-            if (/[ \t\r\n]/.test(char)) continue;
-            const frame = stack.at(-1);
-            if (char === '"') { string = true; text = ''; }
-            else if (char === '{' || char === '[') {
-                if (stack.length >= MAX_DEXIE_NESTING) throw new RangeError('Dexie import nesting exceeds 128 levels.');
-                value(); stack.push({ kind: char === '{' ? 'object' : 'array', next: char === '{' ? 'key-or-end' : 'value-or-end' });
-            }
-            else if (char === '}' || char === ']') {
-                if (!frame || frame.kind !== (char === '}' ? 'object' : 'array') || !['key-or-end', 'value-or-end', 'comma-or-end'].includes(frame.next)) fail();
-                stack.pop();
-            } else if (char === ':') { if (!frame || frame.next !== 'colon') return fail(); frame.next = 'value'; }
-            else if (char === ',') { if (!frame || frame.next !== 'comma-or-end') return fail(); frame.next = frame.kind === 'object' ? 'key' : 'value'; }
-        }
+    const syntax = new DexieSyntaxPreflight();
+    for (let offset = 0; offset < file.size; offset += DEXIE_PREFLIGHT_CHUNK_BYTES) {
+        syntax.feed(await readBlobText(file.slice(offset, offset + DEXIE_PREFLIGHT_CHUNK_BYTES)));
     }
-    finishAtom();
-    if (string || escaped || unicode || stack.length || root !== 'done' || format !== 'dexie') fail();
-    const known = new Set(['dictionaries', 'terms', 'kanji', 'termMeta', 'kanjiMeta']);
+    syntax.finish();
     let recognized = false;
-    await streamDexieTables(file, {}, table => { if (known.has(table)) recognized = true; });
+    await streamDexieTables(file, {}, table => { if (DEXIE_TABLES.has(table)) recognized = true; });
     const counts = await readDexieTableRowCounts(file);
-    if (!recognized && !Object.keys(counts).some(table => known.has(table))) fail();
+    if (!recognized && !Object.keys(counts).some(table => DEXIE_TABLES.has(table))) failInvalidDexieJson();
     return counts;
 }

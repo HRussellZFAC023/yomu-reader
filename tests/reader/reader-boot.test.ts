@@ -50,6 +50,21 @@ type BootWindow = Window & {
 
 const bootWindow = window as BootWindow;
 
+type BootModule = typeof import('../../src/reader/app/boot');
+
+const replacementRuntimeRealms: BootModule[] = [];
+
+// Page, userscript and extension Readers ship as separate bundles, so a
+// takeover arrives from another module graph that shares only the page DOM.
+// Managed storage pins one owner per graph; re-booting this graph under a
+// different runtime kind is not a production topology.
+async function importReplacementRuntimeRealm(): Promise<BootModule> {
+    vi.resetModules();
+    const realm = await import('../../src/reader/app/boot');
+    replacementRuntimeRealms.push(realm);
+    return realm;
+}
+
 function settingsForStoredTarget(targetLanguage: string | null) {
     return {
         ...DEFAULT_SETTINGS,
@@ -116,6 +131,7 @@ describe('reader boot', () => {
     });
 
     afterEach(() => {
+        for (const realm of replacementRuntimeRealms.splice(0)) realm.resetReaderBootStateForTests();
         cleanupBootWindow();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
@@ -511,27 +527,29 @@ describe('reader boot', () => {
         expect(appMocks.destroy).not.toHaveBeenCalled();
     });
 
-    it('preserves parsed page words when a real runtime boots after the page runtime', () => {
+    it('preserves parsed page words when a real runtime boots after the page runtime', async () => {
         vi.stubGlobal('GM_getValue', undefined);
 
         bootReaderApp();
         vi.stubGlobal('GM_getValue', vi.fn());
-        bootReaderApp();
+        (await importReplacementRuntimeRealm()).bootReaderApp();
 
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
-    it('preserves parsed page words when the extension replaces a userscript runtime', () => {
+    it('preserves parsed page words when the extension replaces a userscript runtime', async () => {
         bootReaderApp();
         appMocks.destroy.mockClear();
 
         vi.stubGlobal('chrome', { runtime: { id: 'compiled-yomu-extension' } });
-        bootReaderApp();
+        (await importReplacementRuntimeRealm()).bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });

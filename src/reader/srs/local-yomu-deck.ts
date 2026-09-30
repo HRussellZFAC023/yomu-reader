@@ -196,13 +196,15 @@ export function upsertAcademyVocabulary(
         retainWithoutAcademyProvenance: false,
         academyProvenance: { [provenance.id]: previousProvenance ?? provenance },
     };
-    const card = existing
-        ? preserveExistingSchedule(
+    // A saved-only card has a placeholder dueAt, not a learner schedule; the
+    // merge enrols it on the seed's schedule instead.
+    const card = !existing ? incoming
+        : existing.reviewEnabled === false ? mergeStoredYomuSrsCards(existing, incoming)
+        : preserveExistingSchedule(
             mergeStoredYomuSrsCards(existing, incoming),
             existing,
             input.postponeExisting === true && !previousProvenance ? input.dueAt : undefined,
-        )
-        : incoming;
+        );
     deck.cards[identity.key] = card;
     return {
         card,

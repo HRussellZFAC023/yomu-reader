@@ -13,9 +13,13 @@ import {
     installAcademyReaderSrsSync,
     syncAcademyReaderSrs,
 } from '../../src/reader/srs/account-sync';
-import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { LocalYomuSrsRepository, createYomuLocalSrsAdapter } from '../../src/reader/srs/local-yomu';
 import type { StoredYomuSrsCard } from '../../src/reader/srs/local-yomu-deck';
 import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
+import { createApiSrsProviderAdapters } from '../../src/reader/cards/srs-providers';
+import { createYomuLocalReviewService } from '../../src/academy/integration/yomu-local-review';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { JPDBCard } from '../../src/reader/app/types';
 
 const CODE = '0234-5678-ABCD-EFGH-JKMN';
 const PROFILE_KEY = 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
@@ -121,16 +125,91 @@ describe('Reader Academy account sync', () => {
         // full reconciliation, so the card is still discovered and uploaded.
         installAcademyReaderSrsSync();
         await vi.waitFor(() => expect(transport.pushed).toHaveLength(1));
-        await expect(decryptProfileEvent(PROFILE_KEY, 'reader-srs-event', transport.pushed[0]!)).resolves.toMatchObject({
-            kind: 'card', card: { expression: '書く', reviews: 0 },
-        });
+        // A save syncs as collected-only, so no other device schedules it.
+        await expect(pushedCard(transport, 0)).resolves.toMatchObject({ expression: '書く', reviews: 0, reviewEnabled: false });
 
-        await repository.review({ card: mined.card!, grade: 'good' });
+        // The learner's explicit Add to review is itself a live local change.
+        const enrolled = await repository.startReview(mined.card!.providerCardId);
         await vi.waitFor(() => expect(transport.pushed).toHaveLength(2));
-        await expect(decryptProfileEvent(PROFILE_KEY, 'reader-srs-event', transport.pushed[1]!)).resolves.toMatchObject({
-            kind: 'card', card: { expression: '書く', reviews: 1, lastReviewAt: 5_000 },
-        });
+        const enrolment = await pushedCard(transport, 1);
+        expect(enrolment).toMatchObject({ expression: '書く', reviews: 0, dueAt: 5_000 });
+        expect(enrolment).not.toHaveProperty('reviewEnabled');
+
+        await repository.review({ card: enrolled, grade: 'good' });
+        await vi.waitFor(() => expect(transport.pushed).toHaveLength(3));
+        await expect(pushedCard(transport, 2)).resolves.toMatchObject({ expression: '書く', reviews: 1, lastReviewAt: 5_000 });
     });
+
+    // Runs after the startup-recovery case: live mutation listeners are module-global.
+    it('records a deliberate Reader grade of a word saved to Academy and syncs the enrolled review', async () => {
+        const transport = await installDeviceTransport();
+        await claimAcademyReaderDevice(CODE);
+        installAcademyReaderSrsSync();
+        const repository = new LocalYomuSrsRepository(() => 5_000);
+        const academy = createApiSrsProviderAdapters({
+            jpdb: {} as never,
+            isJpdbBackedCard: () => false,
+            yomuLocal: createYomuLocalSrsAdapter(repository),
+        }, { ...DEFAULT_SETTINGS, apiKey: '', yomuLocalSrsEnabled: true }).find(provider => provider.id === 'yomu-local')!;
+        const word: JPDBCard = {
+            vid: 0, sid: 0, rid: 0, spelling: '書く', reading: 'かく', frequencyRank: null, partOfSpeech: [],
+            meanings: [{ glosses: ['to write'], partOfSpeech: [] }], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null,
+        };
+
+        await academy.addToDeck('yomu-local', word, '手紙を書く。');
+        expect(word).toMatchObject({ cardState: [], reviewSource: 'yomu-local', dueAt: undefined });
+        expect((await repository.queue()).cards).toEqual([]);
+        await vi.waitFor(() => expect(transport.pushed).toHaveLength(1));
+        await expect(pushedCard(transport, 0)).resolves.toMatchObject({ expression: '書く', reviews: 0, reviewEnabled: false });
+
+        // Grading is the learner's explicit review: it enrols the saved word
+        // (reported as added before review) and records the grade.
+        await expect(academy.reviewCard(word, 'okay', { sentence: '手紙を書く。' })).resolves.toEqual({ addedBeforeReview: true });
+        expect(word).toMatchObject({ cardState: ['learning'], reviewSource: 'yomu-local', lastReviewAt: 5_000, dueAt: 5_000 + 2 * 86_400_000 });
+        await vi.waitFor(() => expect(transport.pushed).toHaveLength(2));
+        const reviewed = await pushedCard(transport, 1);
+        expect(reviewed).toMatchObject({ expression: '書く', sentence: '手紙を書く。', reviews: 1, lastReviewAt: 5_000 });
+        expect(reviewed).not.toHaveProperty('reviewEnabled');
+    });
+
+    it('enrols a Reader-saved word on the Academy seed schedule, then records and syncs its Academy grade', async () => {
+        const transport = await installDeviceTransport();
+        await claimAcademyReaderDevice(CODE);
+        installAcademyReaderSrsSync();
+        let now = 5_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const review = createYomuLocalReviewService(repository, () => now);
+        await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+        await vi.waitFor(() => expect(transport.pushed).toHaveLength(1));
+
+        now = 10_000;
+        await review.ingest([{
+            id: 'write-letter',
+            conceptId: 'concept:write',
+            reason: 'new-learning',
+            schedule: { dueAfterMs: 60_000 },
+            content: { expression: '書く', reading: 'かく', meanings: ['to write'] },
+        }]);
+        await vi.waitFor(() => expect(transport.pushed).toHaveLength(2));
+        const seeded = await pushedCard(transport, 1);
+        // The save time was a placeholder, not a learner schedule.
+        expect(seeded).toMatchObject({ reviews: 0, dueAt: 70_000, academyProvenance: { 'academy:review-seed:write-letter': { kind: 'review-seed' } } });
+        expect(seeded).not.toHaveProperty('reviewEnabled');
+        await expect(review.due(10)).resolves.toEqual([]);
+
+        now = 70_000;
+        const [item] = await review.due(10);
+        expect(item).toMatchObject({ expression: '書く', dueAt: 70_000 });
+        await review.rate(item!.id, 'good');
+        await vi.waitFor(() => expect(transport.pushed).toHaveLength(3));
+        await expect(pushedCard(transport, 2)).resolves.toMatchObject({ expression: '書く', reviews: 1, lastReviewAt: 70_000 });
+    });
+
+    async function pushedCard(transport: { pushed: EncryptedProfileEvent[] }, index: number): Promise<Record<string, unknown>> {
+        const event = await decryptProfileEvent(PROFILE_KEY, 'reader-srs-event', transport.pushed[index]!) as { kind?: string; card?: Record<string, unknown> };
+        expect(event.kind).toBe('card');
+        return event.card!;
+    }
 
     async function installDeviceTransport() {
         const envelope = await wrapProfileKey(PROFILE_KEY, CODE, PAIRING_ID, 1);

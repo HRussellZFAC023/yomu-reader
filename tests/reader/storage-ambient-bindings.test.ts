@@ -41,6 +41,7 @@ describe('userscript ambient GM bindings', () => {
                 'localStorage',
                 'sessionStorage',
                 'window',
+                'location',
                 storageResult.outputFiles[0].text + '\\nreturn YomuStorageTest;',
             );
             const storage = load(
@@ -52,6 +53,7 @@ describe('userscript ambient GM bindings', () => {
                 webStorage,
                 webStorage,
                 { addEventListener: () => undefined, removeEventListener: () => undefined },
+                new URL('https://example.test/article'),
             );
             await storage.clearManagedStoredValues();
             if (values.size !== 0) throw new Error('ambient GM_listValues was not used');

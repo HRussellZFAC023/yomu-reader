@@ -68,10 +68,47 @@ vi.mock('../../src/reader/app/target-owned-document-start', () => ({
     activateTargetOwnedDocumentStartCompanions: runtimeMocks.activateTargetOwnedCompanions,
 }));
 
+import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+import {
+    serializeSettingsPersistencePair,
+    SETTINGS_STORAGE_KEY,
+} from '../../src/reader/settings/settings-persistence-transaction';
 
 const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
 const STORAGE_BRIDGE_READY_EVENT = 'yomu-userscript-storage-bridge-ready';
+
+interface StoredSettingsPair {
+    readonly settings: Record<string, unknown>;
+    readonly intentLedger: Record<string, unknown>;
+}
+
+// 1.9.3 writes this commit-marked pair once an intent ledger exists. Without a
+// ledger, its non-explicit saves write full settings with no commit marker and
+// no ledger. That unmarked shape is also current and has its own case below.
+function committedSettingsPair(settings: Partial<ReaderSettings>): StoredSettingsPair {
+    const pair = serializeSettingsPersistencePair(
+        { ...DEFAULT_SETTINGS, ...settings },
+        { revision: 0, records: {} },
+    );
+    return {
+        settings: pair[SETTINGS_STORAGE_KEY] as Record<string, unknown>,
+        intentLedger: pair[SETTINGS_INTENT_LEDGER_STORAGE_KEY] as Record<string, unknown>,
+    };
+}
+
+function seedSyncCommittedSettings(settings: Partial<ReaderSettings>): void {
+    const pair = committedSettingsPair(settings);
+    runtimeMocks.syncStoredSettings = pair.settings;
+    runtimeMocks.syncStoredIntentLedger = pair.intentLedger;
+}
+
+function seedAsyncCommittedSettings(settings: Partial<ReaderSettings>): void {
+    const pair = committedSettingsPair(settings);
+    runtimeMocks.asyncStoredSettings = pair.settings;
+    runtimeMocks.asyncStoredIntentLedger = pair.intentLedger;
+}
 
 async function importUserscriptEntry(): Promise<void> {
     await import('../../src/reader/userscript/entry');
@@ -80,7 +117,7 @@ async function importUserscriptEntry(): Promise<void> {
 }
 
 async function dispatchSettingsChoice(learningTargetChosen: boolean): Promise<void> {
-    runtimeMocks.asyncStoredSettings = { learningTargetChosen };
+    seedAsyncCommittedSettings({ learningTargetChosen });
     window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
         detail: { settings: { learningTargetChosen } },
     }));
@@ -162,7 +199,7 @@ describe('target-owned document-start activation', () => {
         expect(runtimeMocks.applyMokuroDefault).not.toHaveBeenCalled();
         expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
 
-        runtimeMocks.asyncStoredSettings = { learningTargetChosen: true };
+        seedAsyncCommittedSettings({ learningTargetChosen: true });
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
         await vi.waitFor(expectTargetOwnedCanvasActivation);
     });
@@ -184,7 +221,7 @@ describe('target-owned document-start activation', () => {
         expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
 
         runtimeMocks.asyncStoredSettingsGate = null;
-        runtimeMocks.asyncStoredSettings = { learningTargetChosen: true };
+        seedAsyncCommittedSettings({ learningTargetChosen: true });
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
         await vi.waitFor(expectTargetOwnedCanvasActivation);
     });
@@ -212,22 +249,40 @@ describe('target-owned document-start activation', () => {
     });
 
     it('preserves synchronous document-start activation for a stored explicit target', async () => {
-        runtimeMocks.syncStoredSettings = { learningTargetChosen: true };
+        seedSyncCommittedSettings({ learningTargetChosen: true });
 
         await importUserscriptEntry();
 
         expectTargetOwnedCanvasActivation();
     });
 
+    it('activates at document start for a 1.9.3 unmarked full settings record without an intent ledger', async () => {
+        // 1.9.3 persistSettingsStorageTransaction reuses the stored ledger's
+        // commit id for non-explicit saves (theme adoption, offline dictionary
+        // setup, grading provider). With no ledger stored that id is undefined,
+        // so the full settings record is written without a commit marker.
+        runtimeMocks.syncStoredSettings = { ...DEFAULT_SETTINGS, learningTargetChosen: true };
+        runtimeMocks.syncStoredIntentLedger = null;
+
+        try {
+            await importUserscriptEntry();
+
+            expectTargetOwnedCanvasActivation();
+        } finally {
+            // Settle any still-pending target-choice listener so a failure here
+            // cannot activate in a later case sharing this jsdom window.
+            await dispatchSettingsChoice(true);
+        }
+    });
+
     it('rejects a target whose settings and intent commit witnesses do not match', async () => {
+        const committed = committedSettingsPair({ learningTargetChosen: true });
         runtimeMocks.syncStoredSettings = {
-            learningTargetChosen: true,
+            ...committed.settings,
             __yomuSettingsPersistenceCommitV1: 'settings-c2',
         };
         runtimeMocks.syncStoredIntentLedger = {
-            version: 2,
-            seq: 1,
-            entries: {},
+            ...committed.intentLedger,
             __yomuSettingsPersistenceCommitV1: 'ledger-c1',
         };
 
@@ -253,10 +308,11 @@ describe('target-owned document-start activation', () => {
 
         expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
         expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
+        await dispatchSettingsChoice(true);
     });
 
     it('keeps stored-target document-start activation safe before documentElement exists', async () => {
-        runtimeMocks.syncStoredSettings = { learningTargetChosen: true };
+        seedSyncCommittedSettings({ learningTargetChosen: true });
         const root = vi.spyOn(document, 'documentElement', 'get')
             .mockReturnValue(null as unknown as HTMLElement);
 
@@ -279,14 +335,16 @@ describe('target-owned document-start activation', () => {
 
         expect(runtimeMocks.activateTargetOwnedCompanions).not.toHaveBeenCalled();
         expect(runtimeMocks.installHttpBridge).not.toHaveBeenCalled();
+        await dispatchSettingsChoice(true);
     });
 
     it('keeps the untouched compatibility profile neutral without substantive Reader state', async () => {
-        runtimeMocks.asyncStoredSettings = {
+        seedAsyncCommittedSettings({
             onboardingSeen: false,
+            learningTargetChosen: false,
             languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({ ...profile })),
             activeLanguageProfileId: DEFAULT_SETTINGS.activeLanguageProfileId,
-        };
+        });
 
         await importUserscriptEntry();
 

@@ -203,7 +203,7 @@ export async function loadLessonActivityChapter(
             }, {
                 ja: '元の問題を順番に解き、一週間の予定が読める形になりました。間違えたカードだけをもう一度確認します。',
                 en: 'The source problems are complete in order, leaving a readable weekly plan. Only missed cards return for repair.',
-            }, [createLessonNineWeeklyPlanBeat(loadedPackage ?? await loadAuthoredWeekPackage(packageId))]);
+            }, [createLessonNineWeeklyPlanBeat(await resolveAuthoredWeekPackage(packageId, loadedPackage))]);
         case 'l1-l10':
             return chapter('l1-l10', 's1e13-dinner-by-if', 'jenny', {
                 ja: '一日の時間割',
@@ -293,7 +293,7 @@ export async function loadLessonActivityChapter(
                 en: 'The items and quantities in both fridges now agree, and the partner’s information can be reported in one sentence. Shin and Peter check each counter once more before the next clue.',
             }, [createLessonEighteenFridgeInventoryWorkbookBeat(), vegetableBagBeat(), counterMatchBeat()]);
         case 'l1-l19': {
-            const loaded = loadedPackage ?? await loadAuthoredWeekPackage(packageId);
+            const loaded = await resolveAuthoredWeekPackage(packageId, loadedPackage);
             return chapter('l1-l19', 's1e08-menu-without-pictures', 'shin', {
                 ja: '元のメニューで注文する',
                 en: 'Ordering from the original menu',
@@ -315,7 +315,7 @@ export async function loadLessonActivityChapter(
             }, {
                 ja: '六つのカードが期間、に、回数でそろいました。ジョディは、予定を比べる前に、何を数えているかを確かめる習慣を残します。',
                 en: 'All six cards now align period, に, and repetition. Before comparing schedules, Jodi leaves behind the habit of checking what is being counted.',
-            }, [createLessonTwentyFrequencyLensBeat(loadedPackage ?? await loadAuthoredWeekPackage(packageId))]);
+            }, [createLessonTwentyFrequencyLensBeat(await resolveAuthoredWeekPackage(packageId, loadedPackage))]);
         case 'l1-l21':
             return chapter('l1-l21', 's1e17-catwalk-clue', 'peter', {
                 ja: '通勤をくらべる二行ノート',
@@ -912,6 +912,14 @@ export async function loadReachableLessonActivityChapter(
     } catch {
         return null;
     }
+}
+
+/** Reuse the authored week a caller already loaded; otherwise the chapter loads its own copy. */
+async function resolveAuthoredWeekPackage(
+    packageId: string,
+    loadedPackage: LoadedAuthoredWeekPackage | undefined,
+): Promise<LoadedAuthoredWeekPackage> {
+    return loadedPackage ?? loadAuthoredWeekPackage(packageId);
 }
 
 function chapter(

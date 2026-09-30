@@ -61,6 +61,8 @@ export interface YomuSrsReviewRequest {
     card: YomuSrsReviewable;
     grade: YomuSrsGrade;
     sentence?: string;
+    /** Local collection: a deliberate learner grade also enrols a saved-only word. Queue submissions omit it. */
+    enrolSaved?: boolean;
 }
 
 export interface YomuSrsReviewResult {

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const EPOCH_KEY = 'yomu:state-epoch';
+// The installed userscript's physical OCR cache. Installed Readers hydrate
+// from and purge only their own owner namespace, so a standalone Reader's raw
+// keys on the same origin survive an installed reset.
+const OWNER_OCR_CACHE_KEY = 'yomu:web-owner:v2:userscript:yomu-ocr-cache-v2';
 
 beforeEach(() => {
     localStorage.clear();
@@ -26,7 +30,8 @@ describe('reader boot managed web-storage barrier', () => {
         const delayedEpoch = new Promise<unknown>(resolve => { resolveEpoch = resolve; });
         const cacheSeenByConstructor: Array<string | null> = [];
         const initOptionsSeen: unknown[] = [];
-        localStorage.setItem('yomu-ocr-cache-v2', '{"stale-before-reset":true}');
+        localStorage.setItem('yomu:web-owner:v2:userscript:yomu:web-storage-epoch:v1:local', '0:legacy');
+        localStorage.setItem(OWNER_OCR_CACHE_KEY, '{"stale-before-reset":true}');
         localStorage.setItem('foreign-host-token', 'keep');
 
         vi.stubGlobal('GM_getValue', undefined);
@@ -39,9 +44,9 @@ describe('reader boot managed web-storage barrier', () => {
             ReaderApp: class {
                 constructor() {
                     // OcrController hydrates in ReaderApp construction. Seeing
-                    // this raw key here would prove construction outran reset
-                    // epoch reconciliation.
-                    cacheSeenByConstructor.push(localStorage.getItem('yomu-ocr-cache-v2'));
+                    // this physical key here would prove construction outran
+                    // reset epoch reconciliation.
+                    cacheSeenByConstructor.push(localStorage.getItem(OWNER_OCR_CACHE_KEY));
                 }
                 init(options: unknown): Promise<void> {
                     initOptionsSeen.push(options);

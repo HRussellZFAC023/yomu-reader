@@ -233,6 +233,40 @@ describe('prepared practice sessions', () => {
         await expect(sessions.list()).rejects.toThrow('could not be read');
     });
 
+    it.each([
+        ['a response for an item the session never prepared', 'sessions', (record: Record<string, unknown>) => ({
+            ...record, responses: { ...record.responses as object, stranger: { draft: '', revealed: false, attempts: 0 } },
+        })],
+        ['responses stored as a list', 'sessions', (record: Record<string, unknown>) => ({ ...record, responses: [] })],
+        ['a response with a negative attempt count', 'sessions', (record: Record<string, unknown>) => ({
+            ...record, responses: { water: { draft: '水', revealed: true, attempts: -1 } },
+        })],
+        ['two prepared items sharing one identity', 'material', (record: Record<string, unknown>) => {
+            const [first] = record.items as Record<string, unknown>[];
+            return { ...record, items: [first, { ...first }] };
+        }],
+        ['a prepared item without its prompt', 'material', (record: Record<string, unknown>) => {
+            const [first, ...rest] = record.items as Record<string, unknown>[];
+            return { ...record, items: [{ ...first, prompt: undefined }, ...rest] };
+        }],
+    ] as const)('refuses to restore a checkpoint with %s', async (_label, storeName, change) => {
+        const session = await sessions.start({ purpose: 'writing', material: words(), title: 'Write' });
+        await command(session, { kind: 'answer', text: '水' });
+        await expect(new PracticeSessions(factory).resume(session.view().id)).resolves.toBeDefined();
+        await corruptSession(factory, change, storeName);
+        await expect(new PracticeSessions(factory).resume(session.view().id)).rejects.toThrow('could not be restored');
+    });
+
+    it('refuses to restore a listening checkpoint whose prepared items lost their audio', async () => {
+        vi.stubGlobal('Blob', NodeBlob);
+        const audio = new Blob(['prepared audio bytes'], { type: 'audio/wav' });
+        const session = await sessions.start({ purpose: 'listening', material: [{ ...words()[0]!, audio }], title: 'Listen' });
+        await corruptSession(factory, record => ({
+            ...record, items: (record.items as Record<string, unknown>[]).map(({ audio: _audio, ...item }) => item),
+        }), 'material');
+        await expect(new PracticeSessions(factory).resume(session.view().id)).rejects.toThrow('could not be restored');
+    });
+
     it('does not turn a render failure into a failed durable response', async () => {
         const session = await sessions.start({ purpose: 'writing', material: words(), title: 'Write' });
         let first = true;
@@ -242,7 +276,11 @@ describe('prepared practice sessions', () => {
     });
 });
 
-async function corruptSession(factory: IDBFactory, change: (record: Record<string, unknown>) => Record<string, unknown>): Promise<void> {
+async function corruptSession(
+    factory: IDBFactory,
+    change: (record: Record<string, unknown>) => Record<string, unknown>,
+    storeName: 'sessions' | 'material' = 'sessions',
+): Promise<void> {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = factory.open(PRACTICE_SESSION_DATABASE);
         request.onsuccess = () => resolve(request.result);
@@ -250,8 +288,8 @@ async function corruptSession(factory: IDBFactory, change: (record: Record<strin
     });
     try {
         await new Promise<void>((resolve, reject) => {
-            const transaction = db.transaction('sessions', 'readwrite');
-            const store = transaction.objectStore('sessions');
+            const transaction = db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
             const request = store.getAll();
             request.onsuccess = () => request.result.forEach(record => store.put(change(record)));
             transaction.oncomplete = () => resolve();

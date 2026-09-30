@@ -688,6 +688,15 @@ describe('Academy IndexedDB persistence', () => {
         })).toThrow('invalid route history');
     });
 
+    it('keeps seen introductions only as a list of distinct non-blank ids', () => {
+        const checkpoint = { schemaVersion: 2, route: 'class', routeHistory: [], presentationMode: 'story', updatedAt: 101 };
+        expect(migrateAcademyCheckpoint({ ...checkpoint, seenIntroductions: ['place:home', 'place:konbini'] }))
+            .toMatchObject({ seenIntroductions: ['place:home', 'place:konbini'] });
+        for (const seenIntroductions of ['place:home', ['place:home', '  '], ['place:home', 7], ['place:home', 'place:home']]) {
+            expect(() => migrateAcademyCheckpoint({ ...checkpoint, seenIntroductions })).toThrow('invalid seen introductions');
+        }
+    });
+
     it('commits event batches atomically when a later event conflicts', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const existing: LearnerEvent = {

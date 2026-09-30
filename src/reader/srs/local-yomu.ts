@@ -249,10 +249,10 @@ export class LocalYomuSrsRepository {
                 partOfSpeech: request.card.partOfSpeech,
                 language: request.card.language,
             });
-            const existing = deck.cards[request.card.providerCardId]
+            const { reviewEnabled, ...existing } = deck.cards[request.card.providerCardId]
                 ?? deck.cards[identity.key]
                 ?? this.cardFromReviewable(request.card, now);
-            if (existing.reviewEnabled === false) throw new Error('Saved word is not enrolled in review.');
+            if (reviewEnabled === false && request.enrolSaved !== true) throw new Error('Saved word is not enrolled in review.');
             const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
             if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
                 delete deck.cards[request.card.providerCardId];
@@ -316,8 +316,9 @@ export class LocalYomuSrsRepository {
         const result = localDeckMutation.then(() => withGmStorageLease('local-yomu-srs-deck', async () => {
             const deck = await this.readDeckUncoordinated();
             const previousDeck = structuredClone(deck);
-            const previousCards = new Map(Object.entries(deck.cards));
-            const previousTombstones = { ...(deck.tombstones ?? {}) };
+            // Compare against the clone: operations such as startReview edit cards in place.
+            const previousCards = new Map(Object.entries(previousDeck.cards));
+            const previousTombstones = { ...(previousDeck.tombstones ?? {}) };
             const value = operation(deck);
             await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
             const changedCardIds = new Set([...previousCards.keys(), ...Object.keys(deck.cards),

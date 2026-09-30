@@ -46,11 +46,43 @@ import { setInnerHtml } from '../../../src/reader/dom';
 
 registerReaderHelpersCleanup();
 
+// Each destination keeps its native scale: JPDB's five grades, Anki's four.
+const JPDB_GRADE_ROW = { grades: ['nothing', 'something', 'hard', 'okay', 'easy'], labels: ['Nothing', 'Something', 'Hard', 'Okay', 'Easy'] };
+const ANKI_GRADE_ROW = { grades: ['nothing', 'hard', 'okay', 'easy'], labels: ['Again', 'Hard', 'Good', 'Easy'] };
+
+/** One entry per rendered grade row; hidden rows are the scales of switchable targets. */
+function popoverGradeRows() {
+    return [...document.querySelectorAll<HTMLElement>('.jpdb-reader-actions [data-review-target-row]')].map(row => {
+        const buttons = [...row.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
+        return {
+            profile: row.dataset.reviewGradeProfile,
+            hidden: row.hidden,
+            grades: buttons.map(button => button.dataset.grade),
+            labels: buttons.map(button => button.textContent?.trim()),
+            targets: [...new Set(buttons.map(button => button.dataset.reviewTarget))],
+            ankiCardIds: [...new Set(buttons.map(button => button.dataset.ankiCardId))],
+        };
+    });
+}
+
+function selectPopoverReviewTarget(value: string): void {
+    const select = document.querySelector<HTMLSelectElement>('[data-review-target-select]')!;
+    select.value = value;
+    updatePopoverReviewTargetSelection(select);
+}
+
+function expectJpdbAndAnkiGradeRows(visible: 'standard' | 'anki', target: string, ankiCardId: string | undefined): void {
+    expect(popoverGradeRows()).toEqual([
+        { profile: 'standard', hidden: visible !== 'standard', ...JPDB_GRADE_ROW, targets: [target], ankiCardIds: [ankiCardId] },
+        { profile: 'anki', hidden: visible !== 'anki', ...ANKI_GRADE_ROW, targets: [target], ankiCardIds: [ankiCardId] },
+    ]);
+}
+
 function expectAnkiGradeButtons(cardId: string): void {
-    const buttons = popoverGradeButtons();
-    expect(buttons).toHaveLength(5);
-    expect(buttons.map(button => button.dataset.reviewTarget)).toEqual(Array(5).fill('anki'));
-    expect(buttons.map(button => button.dataset.ankiCardId)).toEqual(Array(5).fill(cardId));
+    expect(popoverGradeRows()).toEqual([
+        { profile: 'anki', hidden: false, ...ANKI_GRADE_ROW, targets: ['anki'], ankiCardIds: [cardId] },
+    ]);
+    expect(popoverGradeButtons()).toHaveLength(4);
 }
 
 describe('reader helpers', () => {
@@ -736,21 +768,21 @@ describe('reader helpers', () => {
             enableReviews: true,
         });
 
-        document.body.innerHTML = renderModalCard(renderer, { ...card, cardState: ['due'] }, '動画を見る。', {
+        // Bound (not raw innerHTML) so the private target selector can switch rows.
+        setInnerHtml(document.body, renderModalCard(renderer, { ...card, cardState: ['due'] }, '動画を見る。', {
             ankiLookup: testAnkiLookup(),
-        });
+        }));
 
         const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
-        const gradeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
 
         expect(metaText).toContain('JPDB Due');
         expect(metaText).toContain('Anki Known');
         expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.jpdb-due')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.anki-known')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-anki-existing summary small')?.textContent).toBe('Known · Anime::Mining · 8 reviews, 1 lapse');
-        expect(gradeButtons).toHaveLength(5);
-        expect(gradeButtons.every(button => button.dataset.reviewTarget === 'both')).toBe(true);
-        expect(gradeButtons.every(button => button.dataset.ankiCardId === '777')).toBe(true);
+        // Both grades JPDB's five-point scale; Anki's native four waits hidden
+        // until the Anki card itself is the selected destination.
+        expectJpdbAndAnkiGradeRows('standard', 'both', '777');
         expect(popoverGradeTargetCurrentText()).toBe('Both');
         expect(popoverGradeTargetText()).toBe('Grades JPDB + Anki card: Anime::Mining #777');
         expect(document.querySelector<HTMLElement>('.jpdb-reader-actions')?.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
@@ -762,6 +794,13 @@ describe('reader helpers', () => {
             { text: 'JPDB', target: 'jpdb', cardId: '', selected: false },
             { text: 'Anime::Mining #777', target: 'anki', cardId: '777', selected: false },
         ]);
+
+        selectPopoverReviewTarget('anki:777');
+        expectJpdbAndAnkiGradeRows('anki', 'anki', '777');
+        expect(popoverGradeTargetText()).toBe('Grades Anki card: Anime::Mining #777');
+        selectPopoverReviewTarget('jpdb');
+        expectJpdbAndAnkiGradeRows('standard', 'jpdb', undefined);
+        expect(popoverGradeTargetText()).toBe('Grades JPDB');
     });
 
     it('hides the reading chip when it just repeats a kana-only headword', () => {
@@ -942,13 +981,11 @@ describe('reader helpers', () => {
         });
 
         const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
-        const gradeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
+        const gradeButtons = popoverGradeButtons();
 
         expect(metaText).toContain('JPDB Not in deck');
         expect(metaText).toContain('Anki Known');
-        expect(gradeButtons).toHaveLength(5);
-        expect(gradeButtons.every(button => button.dataset.reviewTarget === 'both')).toBe(true);
-        expect(gradeButtons.every(button => button.dataset.ankiCardId === '777')).toBe(true);
+        expectJpdbAndAnkiGradeRows('standard', 'both', '777');
         expect(popoverGradeTargetOptions()).toEqual([
             { text: 'Both', target: 'both', cardId: '777', selected: true },
             { text: 'JPDB', target: 'jpdb', cardId: '', selected: false },

@@ -639,25 +639,28 @@ describe('reader helpers', () => {
     });
 
     it('downloads recommended dictionary ZIPs via the GM object userscript request API', async () => {
-        const store = new YomitanDictionaryStore();
-        await store.clear();
         const blob = yomitanZipBlob({
             'index.json': { title: 'Tiny GM Dictionary', format: 3, revision: 'test' },
             'term_bank_1.json': [
             ['書く', 'かく', '', '', 1, ['to write'], 1, ''],
             ],
         });
+        // A userscript's GM object exists before any of its code runs, so the
+        // store belongs to the userscript owner from its first storage use.
         vi.stubGlobal('GM', {
             xmlHttpRequest: () => Promise.resolve({ status: 200, response: blob }),
         });
+        const store = new YomitanDictionaryStore();
 
         try {
+            await store.clear();
             const summary = await store.importFromUrl('https://example.test/tiny-gm.zip', 'tiny-gm.zip');
             const dictionaries = (await store.summary()).dictionaries;
 
             expect(summary).toMatchObject({ dictionaries: ['Tiny GM Dictionary'], terms: 1 });
             expect(dictionaries[0]).toMatchObject({ title: 'Tiny GM Dictionary', revision: 'test', downloadUrl: 'https://example.test/tiny-gm.zip' });
         } finally {
+            await store.deleteDatabase();
             vi.unstubAllGlobals();
         }
     });

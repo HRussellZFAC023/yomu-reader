@@ -370,15 +370,32 @@ function validRecord(value: unknown): value is PracticeSessionRecord {
         && Number.isSafeInteger(record.position) && Number(record.position) >= 0
         && Array.isArray(record.material) && record.material.every(validMaterial)
         && new Set(record.material.map(item => item.id)).size === record.material.length
-        && Array.isArray(record.items) && record.items.length > 0 && Number(record.position) <= record.items.length
-        && new Set(record.items.map(item => item?.id)).size === record.items.length
-        && record.items.every(item => item && typeof item.id === 'string' && !!item.id && typeof item.prompt === 'string' && typeof item.promptLanguage === 'string'
-            && typeof item.spelling === 'string' && typeof item.reading === 'string' && typeof item.meaning === 'string' && typeof item.language === 'string')
-        && (record.purpose !== 'listening' && record.purpose !== 'speaking' || record.items.every(item => validAudio(item.audio)))
+        && validItems(record.items, record.purpose) && Number(record.position) <= record.items.length
         && Array.isArray(record.ineligible) && record.ineligible.every(id => typeof id === 'string')
-        && !!record.responses && typeof record.responses === 'object' && !Array.isArray(record.responses)
-        && Object.entries(record.responses).every(([id, response]) => record.items!.some(item => item.id === id) && validResponse(response))
+        && validResponses(record.responses, record.items)
         && typeof record.paused === 'boolean' && Number.isFinite(record.createdAt) && Number.isFinite(record.updatedAt);
+}
+
+/** A non-empty list of uniquely identified prepared items, each carrying audio when the purpose plays it. */
+function validItems(items: unknown, purpose: PracticePurpose | undefined): items is readonly PreparedPracticeItem[] {
+    return Array.isArray(items) && items.length > 0
+        && new Set(items.map(item => item?.id)).size === items.length
+        && items.every(validItem)
+        && (purpose !== 'listening' && purpose !== 'speaking' || items.every(item => validAudio(item.audio)));
+}
+
+function validItem(item: Partial<PreparedPracticeItem> | null | undefined): boolean {
+    return !!item && typeof item.id === 'string' && !!item.id && typeof item.prompt === 'string' && typeof item.promptLanguage === 'string'
+        && typeof item.spelling === 'string' && typeof item.reading === 'string' && typeof item.meaning === 'string' && typeof item.language === 'string';
+}
+
+/** Responses are keyed only by items the session prepared. */
+function validResponses(
+    responses: unknown,
+    items: readonly PreparedPracticeItem[],
+): responses is Readonly<Record<string, PracticeResponse>> {
+    return !!responses && typeof responses === 'object' && !Array.isArray(responses)
+        && Object.entries(responses).every(([id, response]) => items.some(item => item.id === id) && validResponse(response));
 }
 
 function validSummary(value: unknown): value is Pick<PracticeSessionRecord, 'id' | 'title' | 'purpose' | 'position' | 'updatedAt'> & { itemCount: number; materialCount: number } {

@@ -3,7 +3,8 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { localizeHtmlFragment } from '../../docs/.vitepress/locales/markdown-localization';
-import { APPS_NAV_LABEL, PRIMARY_NAV } from '../../docs/.vitepress/shared/nav';
+import { websiteNavigationLabel } from '../../docs/.vitepress/locales/site-locales';
+import { APPS_NAV_LABEL, docsNav, siteNavRoutes } from '../../docs/.vitepress/shared/nav';
 
 const homepage = readFileSync('docs/index.md', 'utf8');
 const publicDocsCheck = readFileSync('scripts/check-public-docs.mjs', 'utf8');
@@ -105,9 +106,22 @@ describe('editorial homepage contract', () => {
     });
 
     it('uses one shared Apps category label', () => {
+        // The v2 primary nav is task-focused (Read, Watch, Study; asserted in
+        // hosted-overflow-menu.test.ts), so Apps now sits under More. The contract
+        // is the label: one constant names the nav entry and the sidebar group on
+        // every surface, in both locales, and the retired 'Tools' label is gone.
         expect(APPS_NAV_LABEL).toBe('Apps');
-        expect(PRIMARY_NAV).toContainEqual(expect.objectContaining({ text: APPS_NAV_LABEL, link: '/learn/reference#apps' }));
-        expect(PRIMARY_NAV.some(route => route.text === 'Tools')).toBe(false);
+        const routes = siteNavRoutes();
+        expect(routes.filter(route => route.text === APPS_NAV_LABEL)).toEqual([
+            { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
+        ]);
+        expect(routes.some(route => route.text === 'Tools')).toBe(false);
+        const more = (docsNav() as Array<{ items?: Array<{ text: string; link: string }> }>).find(entry => entry.items);
+        expect(more?.items).toContainEqual({ text: APPS_NAV_LABEL, link: '/learn/reference#apps' });
+        expect(websiteNavigationLabel(APPS_NAV_LABEL, 'ja')).toBe('アプリ');
+        const config = readFileSync('docs/.vitepress/config.mts', 'utf8');
+        expect(config).toContain('text: APPS_NAV_LABEL,');
+        expect(config).not.toMatch(/text: ['"]Tools['"]/);
     });
 
     it('allows the owner-requested factual comparison without reviving the deleted SEO page', () => {

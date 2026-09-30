@@ -193,15 +193,7 @@ function managedStorageFacade(area: ManagedWebStorageArea): Pick<Storage, 'getIt
     return {
         getItem(key: string): string | null {
             const { storage, epoch } = certifiedArea(area);
-            const raw = readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`);
-            if (raw === null || epoch.generation === 0) return raw;
-            try {
-                const unreadable = Symbol('unreadable-managed-web-storage');
-                const value = managedStateLogicalValue<unknown | typeof unreadable>(JSON.parse(raw), epoch, unreadable);
-                return typeof value === 'string' ? value : null;
-            } catch {
-                return null;
-            }
+            return logicalItem(readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
         },
         setItem(key: string, value: string): void {
             assertManagedLogicalKey(key);
@@ -223,6 +215,49 @@ function managedStorageFacade(area: ManagedWebStorageArea): Pick<Storage, 'getIt
     };
 }
 
+/**
+ * v1.9.3 kept installed runtimes' page caches under raw logical keys, before
+ * owner scoping. An installed owner may still need such a record (the
+ * site-language cache is the provenance for undoing Yomu's own site cookies).
+ * It counts only while v1.9.3 certified that raw area for this session's epoch,
+ * so a record from before a reset never does. Standalone already owns the raw
+ * layout through the managed facade, so it has no separate earlier record.
+ */
+export const preOwnerLocalStorage: Pick<Storage, 'getItem' | 'removeItem'> = {
+    getItem(key: string): string | null {
+        const area = preOwnerLocalArea();
+        if (!area) return null;
+        return logicalItem(readStorageValue(area.storage, epochSlotKey(key, area.epoch), `localStorage key "${key}"`), area.epoch);
+    },
+    removeItem(key: string): void {
+        const area = preOwnerLocalArea();
+        if (!area) return;
+        const slotKey = epochSlotKey(key, area.epoch);
+        removeStorageValue(area.storage, slotKey, `localStorage key "${key}"`);
+        if (readStorageValue(area.storage, slotKey, `localStorage key "${key}"`) !== null) {
+            throw new Error(`localStorage retained earlier managed key "${key}".`);
+        }
+    },
+};
+
+function preOwnerLocalArea(): { storage: Storage; epoch: ManagedStateEpoch } | null {
+    const certified = certifiedArea('local');
+    if (!selectedOwner || selectedOwner === 'standalone') return null;
+    const marker = readStorageValue(certified.storage, AREA_MARKER_KEYS.local, 'localStorage earlier epoch marker');
+    return marker === managedStateEpochToken(certified.epoch) ? certified : null;
+}
+
+function logicalItem(raw: string | null, epoch: ManagedStateEpoch): string | null {
+    if (raw === null || epoch.generation === 0) return raw;
+    try {
+        const unreadable = Symbol('unreadable-managed-web-storage');
+        const value = managedStateLogicalValue<unknown | typeof unreadable>(JSON.parse(raw), epoch, unreadable);
+        return typeof value === 'string' ? value : null;
+    } catch {
+        return null;
+    }
+}
+
 function certifiedArea(area: ManagedWebStorageArea): { storage: Storage; epoch: ManagedStateEpoch } {
     const epoch = certifiedEpoch;
     if (!epoch) throw new Error('Managed web storage has not passed its epoch barrier.');
@@ -238,9 +273,13 @@ function assertAreaCertificate(area: ManagedWebStorageArea, epoch: ManagedStateE
 }
 
 function physicalStorageKey(key: string, epoch: ManagedStateEpoch): string {
+    return ownedKey(epochSlotKey(key, epoch));
+}
+
+function epochSlotKey(key: string, epoch: ManagedStateEpoch): string {
     assertManagedLogicalKey(key);
-    if (epoch.generation === 0) return ownedKey(key);
-    return ownedKey(`${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`);
+    if (epoch.generation === 0) return key;
+    return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
 
 function assertManagedLogicalKey(key: string): void {

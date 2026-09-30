@@ -1123,7 +1123,6 @@ const COPY = {
         noDefinitions: 'No enabled definition source returned results.',
         enabledHeader: 'On',
         labelHeader: 'Label',
-        detailsHeader: 'Details',
         displayName: 'Display name',
         orderHeader: 'Order',
         removeHeader: 'Remove',
@@ -2375,7 +2374,6 @@ donate	寄付
 discord	Discord
 enabledHeader	有効
 labelHeader	ラベル
-detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除

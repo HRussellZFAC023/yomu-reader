@@ -15,14 +15,32 @@ import {
 } from '../../src/reader/settings/index';
 import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
+import { ensureManagedWebStorageCurrentSync, managedLocalStorage } from '../../src/reader/app/storage';
 
-function installCurrentPreference(preferJapaneseSiteLanguage: boolean): void {
-    const pair = serializeSettingsPersistencePair({
-        ...DEFAULT_SETTINGS, learningTargetChosen: true, preferJapaneseSiteLanguage,
-    }, { revision: 0, records: {} });
+const SITE_PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
+
+function installCurrentPreference(preferJapaneseSiteLanguage: boolean, dedicated: Record<string, unknown> = {}): void {
+    const stored: Record<string, unknown> = {
+        ...serializeSettingsPersistencePair({
+            ...DEFAULT_SETTINGS, learningTargetChosen: true, preferJapaneseSiteLanguage,
+        }, { revision: 0, records: {} }),
+        ...dedicated,
+    };
     vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
-        Object.hasOwn(pair, key) ? pair[key] : fallback
+        Object.hasOwn(stored, key) ? stored[key] : fallback
     ));
+}
+
+// v1.9.3 certified this origin's raw web-storage area and kept an installed
+// Reader's per-origin cache under the raw logical key, before owner scoping.
+function seedV193EnabledCache(): void {
+    localStorage.setItem('yomu:web-storage-epoch:v1:local', '0:legacy');
+    localStorage.setItem(SITE_PREFERENCE_CACHE_KEY, 'true');
+}
+
+function expectOptOutCacheReconciled(): void {
+    expect(managedLocalStorage.getItem(SITE_PREFERENCE_CACHE_KEY)).toBe('false');
+    expect(localStorage.getItem(SITE_PREFERENCE_CACHE_KEY)).toBeNull();
 }
 
 async function expectTargetlessOptInIgnored(storedSettings: unknown, storedIntentLedger?: unknown): Promise<void> {
@@ -498,7 +516,7 @@ describe('preferred Japanese site language', () => {
     it('lets a stored opt-out override a stale enabled cache left by an earlier visit', () => {
         const language = navigator.language;
         const replace = vi.fn();
-        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        seedV193EnabledCache();
         installCurrentPreference(false);
         vi.stubGlobal('unsafeWindow', window);
         vi.stubGlobal('location', {
@@ -512,23 +530,67 @@ describe('preferred Japanese site language', () => {
 
         expect(navigator.language).toBe(language);
         expect(replace).not.toHaveBeenCalled();
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expectOptOutCacheReconciled();
+    });
+
+    it('lets a stored opt-out override a stale owner-scoped enabled cache', () => {
+        const language = navigator.language;
+        const replace = vi.fn();
+        installCurrentPreference(false);
+        ensureManagedWebStorageCurrentSync();
+        managedLocalStorage.setItem(SITE_PREFERENCE_CACHE_KEY, 'true');
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/newsokur/',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
+        expectOptOutCacheReconciled();
+    });
+
+    it('lets an upgraded opt-out undo the Japanese site cookie v1.9.3 left behind', () => {
+        const replace = vi.fn();
+        let cookie = 'PREF=hl=ja&gl=JP&keep=1';
+        vi.spyOn(document, 'cookie', 'get').mockImplementation(() => cookie);
+        vi.spyOn(document, 'cookie', 'set').mockImplementation(value => {
+            const [pair] = value.split(';');
+            if (pair?.startsWith('PREF=')) cookie = pair;
+        });
+        seedV193EnabledCache();
+        installCurrentPreference(false);
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=nihongo',
+            hostname: 'www.google.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(cookie).toContain('keep=1');
+        expect(cookie).not.toContain('hl=ja');
+        expect(cookie).not.toContain('gl=JP');
+        expect(replace).not.toHaveBeenCalled();
+        expectOptOutCacheReconciled();
     });
 
     it('lets the dedicated opt-out outrank a stale whole-settings save at document-start', () => {
         const language = navigator.language;
-        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
-            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return false;
-            if (key === SETTINGS_STORAGE_KEY) return { preferJapaneseSiteLanguage: true };
-            return fallback;
-        });
+        seedV193EnabledCache();
+        installCurrentPreference(true, { [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]: false });
         vi.stubGlobal('unsafeWindow', window);
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
 
         expect(navigator.language).toBe(language);
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expectOptOutCacheReconciled();
     });
 
     it('reconciles a stale enabled cache with async-only storage without redirecting on the cache', async () => {
@@ -617,7 +679,7 @@ describe('preferred Japanese site language', () => {
         await settleAsyncHandlers();
 
         expect(navigator.language).toBe(language);
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expect(managedLocalStorage.getItem(SITE_PREFERENCE_CACHE_KEY)).toBe('false');
         expect(replace).not.toHaveBeenCalled();
     });
 
@@ -649,7 +711,7 @@ describe('preferred Japanese site language', () => {
 
     it('never treats a stale enabled cache as permission to navigate during an authoritative opt-out', () => {
         const replace = vi.fn();
-        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        seedV193EnabledCache();
         installCurrentPreference(false);
         vi.stubGlobal('unsafeWindow', window);
         vi.stubGlobal('location', {
@@ -662,19 +724,12 @@ describe('preferred Japanese site language', () => {
         installPreferredJapaneseSiteLanguageFromStoredSettings();
 
         expect(replace).not.toHaveBeenCalled();
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expectOptOutCacheReconciled();
     });
 
     it('keeps an authoritative opt-out inert across repeated language-host cold starts', () => {
         const replace = vi.fn();
-        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
-            key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY
-                ? false
-                : key === SETTINGS_STORAGE_KEY
-                    ? { preferJapaneseSiteLanguage: true }
-                    : fallback
-        ));
+        installCurrentPreference(true, { [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]: false });
         vi.stubGlobal('unsafeWindow', window);
 
         for (const href of [
@@ -682,7 +737,9 @@ describe('preferred Japanese site language', () => {
             'https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E8%AA%9E',
             'https://en.wikipedia.org/wiki/Japanese_language',
         ]) {
-            localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+            // Each language host is its own origin with its own stale cache.
+            localStorage.clear();
+            seedV193EnabledCache();
             vi.stubGlobal('location', {
                 href,
                 hostname: new URL(href).hostname,
@@ -693,7 +750,7 @@ describe('preferred Japanese site language', () => {
         }
 
         expect(replace).not.toHaveBeenCalled();
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expectOptOutCacheReconciled();
     });
 
     it('lets an explicit opt-in redirect after a cold opt-out clears stale session suppression', () => {

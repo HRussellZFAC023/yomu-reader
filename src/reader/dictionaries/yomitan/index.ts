@@ -17,7 +17,7 @@ import {
     type TermMatchCandidates,
 } from './term-match';
 import { uiText } from '../../app/i18n';
-import { assertYomitanStorageOwner, yomitanDatabaseName } from './database-owner';
+import { assertYomitanStorageOwner, yomitanDatabaseNameAtFirstUse } from './database-owner';
 import { Logger } from '../../app/logger';
 import { assertManagedStateMutationAllowed } from '../../app/storage';
 import type { ManagedStateEpoch } from '../../app/managed-state-epoch';
@@ -207,7 +207,7 @@ interface RandomTopTermOptions {
 }
 
 export class YomitanDictionaryStore {
-    private readonly databaseName = yomitanDatabaseName();
+    private readonly databaseName = yomitanDatabaseNameAtFirstUse();
     private dbPromise?: Promise<IDBDatabase>;
     private dictionaryInfoPromise?: Promise<YomitanDictionaryInfo[]>;
     private summaryPromise?: Promise<DictionarySummary>;
@@ -1136,18 +1136,18 @@ export class YomitanDictionaryStore {
         try {
             const db = await dbPromise;
             db.close();
-            log.info('Dictionary DB closed for reset', { name: this.databaseName });
+            log.info('Dictionary DB closed for reset', { name: this.databaseName() });
         } catch {
         }
     }
 
     async deleteDatabase(options: { timeoutMs?: number; completedResetId?: string } = {}): Promise<void> {
-        assertYomitanStorageOwner(this.databaseName);
+        assertYomitanStorageOwner(this.databaseName());
         const done = log.time('Dictionary database delete');
         try {
             const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
             const db = this.dbPromise ? await this.dbPromise.catch(() => undefined) : undefined;
-            assertYomitanStorageOwner(this.databaseName);
+            assertYomitanStorageOwner(this.databaseName());
             db?.close();
             this.dbPromise = undefined;
             this.invalidateCaches();
@@ -1167,15 +1167,15 @@ export class YomitanDictionaryStore {
                     globalThis.clearTimeout(timeout);
                     callback();
                 };
-                const request = indexedDB.deleteDatabase(this.databaseName);
+                const request = indexedDB.deleteDatabase(this.databaseName());
                 request.onsuccess = () => settle(resolve);
                 request.onerror = () => settle(() => reject(request.error ?? new Error('Dictionary database reset failed.')));
                 request.onblocked = () => {
                     blocked = true;
-                    log.warn('Dictionary delete blocked by another tab', { name: this.databaseName });
+                    log.warn('Dictionary delete blocked by another tab', { name: this.databaseName() });
                 };
             });
-            log.info('Dictionary database deleted', { name: this.databaseName });
+            log.info('Dictionary database deleted', { name: this.databaseName() });
         } catch (error) {
             log.warn('Dictionary database delete failed', { error });
             throw error;
@@ -1816,7 +1816,7 @@ export class YomitanDictionaryStore {
     }
 
     private db(): Promise<IDBDatabase> {
-        return fencedYomitanDbHandle(this.databaseName, () => this.dbPromise, epoch => (this.dbPromise ??= this.openDb(epoch)));
+        return fencedYomitanDbHandle(this.databaseName(), () => this.dbPromise, epoch => (this.dbPromise ??= this.openDb(epoch)));
     }
 
     // A blocked or wedged upgrade (an older runtime still holding the
@@ -1826,7 +1826,7 @@ export class YomitanDictionaryStore {
     // (the delete path at clearAll already does both).
     private openDb(epoch: ManagedStateEpoch): Promise<IDBDatabase> {
         const promise: Promise<IDBDatabase> = new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.databaseName, DB_VERSION);
+            const request = indexedDB.open(this.databaseName(), DB_VERSION);
             let settled = false;
             const failOpen = (reason: string, error?: unknown) => {
                 if (settled) return;
@@ -1838,7 +1838,7 @@ export class YomitanDictionaryStore {
             const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
             request.onblocked = () => failOpen('Dictionary database upgrade blocked by another open connection');
             request.onupgradeneeded = event => {
-                try { assertYomitanStorageOwner(this.databaseName); }
+                try { assertYomitanStorageOwner(this.databaseName()); }
                 catch (error) {
                     request.transaction?.abort();
                     clearTimeout(openTimeout);
@@ -1935,7 +1935,7 @@ export class YomitanDictionaryStore {
     private installVersionChangeHandler(db: IDBDatabase): void {
         db.onversionchange = event => {
             log.info('Dictionary DB version change; closing', {
-                name: this.databaseName,
+                name: this.databaseName(),
                 oldVersion: event.oldVersion,
                 newVersion: event.newVersion,
             });

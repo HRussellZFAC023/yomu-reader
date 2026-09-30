@@ -9,6 +9,8 @@ const EPOCH_KEY = 'yomu:state-epoch';
 const PREFERENCE_KEY = 'yomu:prefer-japanese-site-language:v1';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
+// An installed Reader keeps its per-origin records under its own owner prefix.
+const OWNER_PREFERENCE_CACHE_KEY = `yomu:web-owner:v2:extension:${PREFERENCE_CACHE_KEY}`;
 
 interface EpochRecord {
     readonly version: 1;
@@ -50,7 +52,9 @@ describe('preferred-site-language cache reset epoch', () => {
         const oldRealm = await import('../../src/reader/app/preferred-site-language-impl');
         await oldRealm.installPreferredJapaneseSiteLanguageFromStoredSettings();
         await settleAsyncHandlers();
-        expect(localStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('true');
+        const oldStorage = await import('../../src/reader/app/storage');
+        expect(oldStorage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('true');
+        expect(localStorage.getItem(OWNER_PREFERENCE_CACHE_KEY)).toBe('true');
 
         // Reset ran on a different origin: shared GM state advanced, but this
         // origin's pre-reset local cache and an unrelated host key remain.
@@ -61,10 +65,11 @@ describe('preferred-site-language cache reset epoch', () => {
         localStorage.setItem('foreign-site-token', 'keep');
 
         expect(await rebootPreferenceCache()).toBeNull();
-        expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toMatchObject({
-            generation: 1,
-            resetId: 'factory-reset',
-        });
+        // The reboot purged the physical pre-reset record, not merely its view.
+        expect(localStorage.getItem(OWNER_PREFERENCE_CACHE_KEY)).toBeNull();
+        // Shared reset state stays in installed storage; publishing it into
+        // page storage would overwrite a standalone Reader's own counter.
+        expect(localStorage.getItem(EPOCH_KEY)).toBeNull();
         expect(localStorage.getItem('foreign-site-token')).toBe('keep');
     });
 
@@ -80,17 +85,23 @@ describe('preferred-site-language cache reset epoch', () => {
         ]);
         installGmStore(values);
         vi.stubGlobal('browser', { runtime: { id: 'epoch-cache-proof' } });
+        // v1.9.3 left an enabled record on this origin before the reset. It
+        // is not provenance in the new epoch, so the opt-out stays shared-only.
+        localStorage.setItem('yomu:web-storage-epoch:v1:local', '0:legacy');
+        localStorage.setItem(PREFERENCE_CACHE_KEY, 'true');
 
         const firstRealm = await import('../../src/reader/app/preferred-site-language-impl');
         await firstRealm.installPreferredJapaneseSiteLanguageFromStoredSettings();
         await settleAsyncHandlers();
         const firstStorage = await import('../../src/reader/app/storage');
         expect(firstStorage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)).toBeNull();
-        expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(currentEpoch);
+        expect(localStorage.getItem(OWNER_PREFERENCE_CACHE_KEY)).toBeNull();
+        expect(localStorage.getItem(EPOCH_KEY)).toBeNull();
 
         values.delete(PREFERENCE_KEY);
         expect(await rebootPreferenceCache()).toBeNull();
-        expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(currentEpoch);
+        expect(localStorage.getItem(OWNER_PREFERENCE_CACHE_KEY)).toBeNull();
+        expect(localStorage.getItem(EPOCH_KEY)).toBeNull();
     });
 });
 

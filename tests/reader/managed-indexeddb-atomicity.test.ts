@@ -27,7 +27,10 @@ const epochHarness = vi.hoisted(() => {
     };
 });
 
-const YOMITAN_TEST_DB = 'yomu-managed-indexeddb-atomicity';
+// The Yomitan helpers mutate only the current owner's dictionary database, and
+// this jsdom realm has no GM runtime or storage bridge, so it is standalone.
+const YOMITAN_TEST_DB = 'jpdb-popup-reader-yomitan';
+const FOREIGN_OWNER_YOMITAN_DB = 'jpdb-popup-reader-yomitan-userscript-v2';
 const ANKI_DB = 'yomu-anki-status-index';
 const EPOCH_ONE: ManagedStateEpoch = {
     version: 1,
@@ -56,7 +59,7 @@ beforeEach(() => epochHarness.reset());
 afterEach(async () => {
     for (const db of activeConnections) db.close();
     activeConnections.clear();
-    await Promise.all([deleteDatabase(YOMITAN_TEST_DB), deleteDatabase(ANKI_DB)]);
+    await Promise.all([YOMITAN_TEST_DB, FOREIGN_OWNER_YOMITAN_DB, ANKI_DB].map(deleteDatabase));
     localStorage.clear();
     sessionStorage.clear();
 });
@@ -155,6 +158,25 @@ describe('managed IndexedDB atomic epoch fence', () => {
 
         await expect(readAll(db, 'terms')).resolves.toEqual([{ id: 1, value: 'untouched' }]);
         await expect(readValue(db, 'managedState', 'epoch')).resolves.toMatchObject({ token: 7 });
+    });
+
+    it('refuses to reconcile or write another owner\'s dictionary database before mutation', async () => {
+        const db = await openYomitanTestDb(FOREIGN_OWNER_YOMITAN_DB);
+        // A current marker, so only ownership can stop the write; the newer
+        // reconciliation epoch would otherwise clear the content stores.
+        await rawWrite(db, ['managedState', 'terms'], tx => {
+            tx.objectStore('managedState').put({ key: 'epoch', token: '0:legacy' });
+            tx.objectStore('terms').put({ id: 1, value: 'untouched' });
+        });
+
+        await expect(yomitanManagedState.runYomitanManagedStateWrite(db, 'terms', tx => {
+            tx.objectStore('terms').clear();
+        })).rejects.toThrow('owner changed');
+        await expect(yomitanManagedState.reconcileYomitanManagedStateEpoch(db, EPOCH_ONE))
+            .rejects.toThrow('owner changed');
+
+        await expect(readAll(db, 'terms')).resolves.toEqual([{ id: 1, value: 'untouched' }]);
+        await expect(readValue(db, 'managedState', 'epoch')).resolves.toMatchObject({ token: '0:legacy' });
     });
 
     it('atomically rejects a stale Anki meta write after generation-one data wins', async () => {
@@ -270,9 +292,9 @@ function legacyEpoch(): ManagedStateEpoch {
     return { version: 1, generation: 0, resetId: 'legacy', committedAt: 0 };
 }
 
-function openYomitanTestDb(): Promise<IDBDatabase> {
+function openYomitanTestDb(name = YOMITAN_TEST_DB): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(YOMITAN_TEST_DB, 1);
+        const request = indexedDB.open(name, 1);
         request.onerror = () => reject(request.error);
         request.onupgradeneeded = () => {
             const db = request.result;

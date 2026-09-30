@@ -300,9 +300,7 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
         throw new TypeError('Academy checkpoint has an invalid route history.');
     }
     if (!isAcademyPresentationMode(value.presentationMode)) throw new TypeError('Academy checkpoint has an invalid presentation mode.');
-    if (value.seenIntroductions !== undefined && (!Array.isArray(value.seenIntroductions)
-        || value.seenIntroductions.some(id => typeof id !== 'string' || !id.trim())
-        || new Set(value.seenIntroductions).size !== value.seenIntroductions.length)) {
+    if (value.seenIntroductions !== undefined && !seenIntroductionsAreValid(value.seenIntroductions)) {
         throw new TypeError('Academy checkpoint has invalid seen introductions.');
     }
     if (value.worldVisits !== undefined && (!value.worldVisits || typeof value.worldVisits !== 'object'
@@ -365,6 +363,13 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
         throw new TypeError('Academy checkpoint has invalid placement progress.');
     }
     validateRouteContext(value);
+}
+
+/** Introduction ids are non-blank strings, each recorded once. */
+function seenIntroductionsAreValid(value: unknown): value is readonly string[] {
+    return Array.isArray(value)
+        && !value.some(id => typeof id !== 'string' || !id.trim())
+        && new Set(value).size === value.length;
 }
 
 function routeFrameIsValid(value: unknown): boolean {
