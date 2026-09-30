@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.1
+// @version 2.0.2
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.5b3bc4e9e6e6.user.js#sha256=WzvE6ebmqu1X0piOD7w82HhFGO7TTDt9dz0EAvS5RL8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.c378e8ee5a78.user.js#sha256=w3jo7lp4P/4evHK7g6JZRN/sza25CzoqYPSeVPoIoBU=
 // @resource yomuCss  https://yomureader.com/yomu.ebfeb8423b4e.css#sha256=6/64QjtOg2TMygyMO9Tmh6tenwid7veJVRohvIbwESM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -28194,13 +28194,11 @@ function definitionSourceStackContext(params) {
 const { options, extraSections } = normalizedDefinitionSourceStackOptions(params);
 const grouped = groupTermEntriesByDictionary(params.entries);
 const sourceIds = orderedDefinitionSourceIds(params.settings, [...grouped.keys()]);
-const dictionarySourceIds = sourceIds.filter((sourceId) => grouped.has(sourceId));
 return {
 card: params.card,
 sentence: params.sentence,
 sourceIds,
 grouped,
-dictionarySourceIds,
 extraSections,
 includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
 includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
@@ -28228,24 +28226,12 @@ function isDefinitionSourceStackOptions(value, optionKeys) {
 return optionKeys.some((key) => key in value);
 }
 function renderDefinitionSourceSections(context, params) {
-let renderedDictionaries = false;
-const sections = [];
-for (const sourceId of context.sourceIds) {
-const rendered = renderDefinitionSourceSection(sourceId, context, params, renderedDictionaries);
-if (rendered.renderedDictionaries) renderedDictionaries = true;
-if (rendered.html) sections.push(rendered.html);
+return context.sourceIds.map((sourceId) => renderDefinitionSourceSection(sourceId, context, params)).filter(Boolean);
 }
-return sections;
-}
-function renderDefinitionSourceSection(sourceId, context, params, renderedDictionaries) {
+function renderDefinitionSourceSection(sourceId, context, params) {
 const coreSource = renderCoreDefinitionSourceSection(sourceId, context, params);
-if (coreSource !== null) return { html: coreSource, renderedDictionaries: false };
-if (!context.grouped.has(sourceId)) return { html: "", renderedDictionaries: false };
-if (renderedDictionaries) return { html: "", renderedDictionaries: false };
-return {
-html: renderLocalDefinitionDictionarySources(context, params),
-renderedDictionaries: true
-};
+if (coreSource !== null) return coreSource;
+return context.grouped.has(sourceId) ? renderLocalDefinitionDictionarySource(sourceId, context, params) : "";
 }
 function renderCoreDefinitionSourceSection(sourceId, context, params) {
 return CORE_DEFINITION_SOURCE_RENDERERS[sourceId]?.(context, params) ?? null;
@@ -28297,9 +28283,9 @@ return context.includeStudySources ? params.renderGrammarSource(context.sentence
 function renderImmersionDefinitionSourceSection(context, params) {
 return context.includeImmersionSource ? renderImmersionSource(params) : "";
 }
-function renderLocalDefinitionDictionarySources(context, params) {
+function renderLocalDefinitionDictionarySource(dictionary, context, params) {
 return renderLocalDefinitionSourcesSection(
-context.dictionarySourceIds,
+[dictionary],
 context.grouped,
 params.settings,
 params.sourceAttributes,
@@ -33533,8 +33519,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.1"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.1"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.2"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.2"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33677,7 +33663,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.1"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.2"}`;
 } catch {
 return null;
 }

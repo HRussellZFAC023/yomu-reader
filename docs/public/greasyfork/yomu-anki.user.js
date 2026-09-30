@@ -12714,7 +12714,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   Logger.scope("Settings");
   ({
     languageProfiles: [createDefaultLanguageProfile()],
-    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
+    // Numbered as normalization numbers them, so the defaults are already
+    // normal and an untouched Save writes them back unchanged.
+    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, priority) => ({ ...link, priority }))
   });
   new Set(FURIGANA_HIDE_STATE_GROUPS);
   const commandCapabilities = createPrivateElementStateSlot("commands", immutableCommandSnapshot);

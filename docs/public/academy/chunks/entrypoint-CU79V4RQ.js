@@ -34070,9 +34070,6 @@ class LocalYomuSrsRepository {
       };
     });
   }
-  // Served through createLocalYomuSrsAdapter below, which the member graph
-  // does not follow.
-  // fallow-ignore-next-line unused-class-member
   async collection(limit = 50, options = {}) {
     const now = this.now();
     const language = options.language ? canonicalLanguageTag(options.language) : "";
@@ -43527,15 +43524,21 @@ function dictionaryPreferencesForLanguageProfile(preferences, dictionaries) {
   if (!dictionaries.installed.length) return preferences;
   const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
   const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
-  const order2 = new Map(dictionaries.order.map((id2, index) => [normalizedProfileDictionaryId(id2), index]));
-  return preferences.map((preference, index) => {
+  const priorities = profileOrderedPriorities(preferences, dictionaries.order);
+  return preferences.map((preference) => {
     const key2 = normalizedProfileDictionaryId(preference.name);
     return {
       ...preference,
       enabled: installed.has(key2) && enabled.has(key2),
-      priority: order2.get(key2) ?? dictionaries.order.length + index
+      priority: priorities.get(preference.name) ?? preference.priority
     };
   }).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
+}
+function profileOrderedPriorities(preferences, order2) {
+  const rank2 = new Map(order2.map((id2, index) => [normalizedProfileDictionaryId(id2), index]));
+  const ordered = preferences.filter((preference) => rank2.has(normalizedProfileDictionaryId(preference.name))).sort((left, right) => rank2.get(normalizedProfileDictionaryId(left.name)) - rank2.get(normalizedProfileDictionaryId(right.name)));
+  const slots = ordered.map((preference) => preference.priority).sort((left, right) => left - right);
+  return new Map(ordered.map((preference, index) => [preference.name, slots[index]]));
 }
 function normalizedProfileDictionaryId(value) {
   return value.normalize("NFKC").trim().toLocaleLowerCase("en-US");
@@ -44353,7 +44356,9 @@ const DEFAULT_SETTINGS = {
   kanjiDictionariesPriority: 30,
   dictionarySourcesInitiallyExpanded: true,
   dictionaryPreferences: [],
-  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
+  // Numbered as normalization numbers them, so the defaults are already
+  // normal and an untouched Save writes them back unchanged.
+  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, priority) => ({ ...link, priority })),
   ...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
@@ -266744,7 +266749,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-a9TvCM_v.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BkOhszLH.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

@@ -12215,7 +12215,9 @@ function isPopupLookupEnabled(settings) {
 const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
 ({
   languageProfiles: [createDefaultLanguageProfile()],
-  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
+  // Numbered as normalization numbers them, so the defaults are already
+  // normal and an untouched Save writes them back unchanged.
+  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, priority) => ({ ...link, priority }))
 });
 new Set(FURIGANA_HIDE_STATE_GROUPS);
 function effectiveFuriganaMode(settings) {

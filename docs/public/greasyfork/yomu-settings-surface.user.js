@@ -15634,15 +15634,21 @@ function dictionaryPreferencesForLanguageProfile(preferences, dictionaries2) {
   if (!dictionaries2.installed.length) return preferences;
   const installed = new Set(dictionaries2.installed.map(normalizedProfileDictionaryId));
   const enabled = new Set(dictionaries2.enabled.map(normalizedProfileDictionaryId));
-  const order = new Map(dictionaries2.order.map((id, index) => [normalizedProfileDictionaryId(id), index]));
-  return preferences.map((preference, index) => {
+  const priorities = profileOrderedPriorities(preferences, dictionaries2.order);
+  return preferences.map((preference) => {
   const key = normalizedProfileDictionaryId(preference.name);
   return {
     ...preference,
     enabled: installed.has(key) && enabled.has(key),
-    priority: order.get(key) ?? dictionaries2.order.length + index
+    priority: priorities.get(preference.name) ?? preference.priority
   };
   }).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
+}
+function profileOrderedPriorities(preferences, order) {
+  const rank = new Map(order.map((id, index) => [normalizedProfileDictionaryId(id), index]));
+  const ordered = preferences.filter((preference) => rank.has(normalizedProfileDictionaryId(preference.name))).sort((left, right) => rank.get(normalizedProfileDictionaryId(left.name)) - rank.get(normalizedProfileDictionaryId(right.name)));
+  const slots = ordered.map((preference) => preference.priority).sort((left, right) => left - right);
+  return new Map(ordered.map((preference, index) => [preference.name, slots[index]]));
 }
 function normalizedProfileDictionaryId(value) {
   return value.normalize("NFKC").trim().toLocaleLowerCase("en-US");
@@ -16316,7 +16322,9 @@ const DEFAULT_SETTINGS = {
   kanjiDictionariesPriority: 30,
   dictionarySourcesInitiallyExpanded: true,
   dictionaryPreferences: [],
-  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
+  // Numbered as normalization numbers them, so the defaults are already
+  // normal and an untouched Save writes them back unchanged.
+  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, priority) => ({ ...link, priority })),
   ...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
@@ -17841,7 +17849,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.0.1".trim() ? "2.0.1".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.2".trim() ? "2.0.2".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -53967,7 +53975,7 @@ function readFormSettings(data, current) {
   ...readImmersionKitFormSettings(reader, current),
   ...readLookupBehaviorFormSettings(reader, current),
   ...readNewTabFormSettings(reader, current),
-  ...readReadingDisplayFormSettings(reader, furiganaMode),
+  ...readReadingDisplayFormSettings(reader, current, furiganaMode),
   ...readOcrFormSettings(reader, current),
   ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
   dictionaryPreferences,
@@ -54127,8 +54135,6 @@ function readKanjiAddonFormSettings(reader, current) {
   kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
   kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
   kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
-  similarKanjiWords: has("similarKanjiWords.enabled"),
-  similarKanjiWordsPriority: clamped("similarKanjiWords.priority", 0, 999, current.similarKanjiWordsPriority),
   similarKanjiWordLimit: clamped("similarKanjiWordLimit", 2, 24, current.similarKanjiWordLimit)
   };
 }
@@ -54226,7 +54232,7 @@ function readNewTabFormSettings(reader, current) {
   newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled")
   };
 }
-function readReadingDisplayFormSettings(reader, furiganaMode) {
+function readReadingDisplayFormSettings(reader, current, furiganaMode) {
   const { has } = reader;
   const { get } = reader;
   return {
@@ -54240,7 +54246,9 @@ function readReadingDisplayFormSettings(reader, furiganaMode) {
   showLookupPillFrequency: has("showLookupPillFrequency"),
   suppressRedundantWordUi: has("suppressRedundantWordUi"),
   sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
-  hideKnownFurigana: furiganaMode === "known-status"
+  // Rendering follows `furiganaMode`; this flag only mirrors it, so it is
+  // re-derived when the mode moves, not rewritten by every Save.
+  hideKnownFurigana: furiganaMode === current.furiganaMode ? current.hideKnownFurigana : furiganaMode === "known-status"
   };
 }
 function readLocalDictionaryFormSettings(reader, current, kanjiPreferences) {
@@ -54399,9 +54407,7 @@ function readSubtitleFormSettings(reader, current) {
   subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen,
   subtitleNativeBlurred: current.subtitleNativeBlurred
   };
-  applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay, {
-  markVisibilityChosen: nativeDisplay !== currentNativeDisplay
-  });
+  if (nativeDisplay !== currentNativeDisplay) applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay);
   return {
   subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
   subtitleAutoDetect: has("subtitleAutoDetect"),
@@ -55386,6 +55392,9 @@ function syncSourceRowOrder(container) {
   const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
   if (indexLabel) indexLabel.textContent = String(index + 1);
   });
+  container.querySelectorAll("input[data-source-order-tail]").forEach((priority, index) => {
+  priority.value = String(rows.length + index);
+  });
   if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
   if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
 }
@@ -55503,7 +55512,11 @@ function renderSourceRow(row, index, context) {
       upAction: "dictionary-source-up",
       downAction: "dictionary-source-down",
       labels: SOURCE_ROW_ORDER_LABELS,
-      leading: `<input name="${row.prefix}.priority" type="hidden" value="${index}">`
+      // The STORED priority, not the row's index: an untouched Save
+      // writes it back as it was. Moving any row renumbers the whole
+      // list by position (syncSourceRowOrder), which is the only
+      // time the order becomes the learner's.
+      leading: `<input name="${row.prefix}.priority" type="hidden" value="${row.priority}">`
     })}
                 ${renderSourceRemoveCell(row, context.showRemove)}
                 ${renderSourceTypeInput(row)}
@@ -60741,14 +60754,13 @@ function renderDictionarySourceRows(settings) {
   ...rows.filter((row) => row.removable).map((row) => row.name)
   ]);
   const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
-  const hidden = hiddenPreferences.map((preference, hiddenIndex) => {
+  const hidden = hiddenPreferences.map((preference) => {
   const index = settings.dictionaryPreferences.indexOf(preference);
-  const priority = rows.length + hiddenIndex;
   return `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$1(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$1(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${priority}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
         `;
   }).join("");
@@ -62264,9 +62276,6 @@ class LocalYomuSrsRepository {
     };
   });
   }
-  // Served through createLocalYomuSrsAdapter below, which the member graph
-  // does not follow.
-  // fallow-ignore-next-line unused-class-member
   async collection(limit = 50, options = {}) {
   const now = this.now();
   const language2 = options.language ? canonicalLanguageTag(options.language) : "";
@@ -64996,12 +65005,10 @@ class SettingsDialogController {
   const requestId = ++this.targetDictionaryAvailabilityRequestId;
   const status = form.querySelector("[data-target-dictionary-state]");
   const content = form.querySelector("[data-target-dictionary-content]");
-  const showAvailability = (message) => {
-    if (status) {
-      status.hidden = !message;
-      status.textContent = message ?? "";
-    }
-    if (content) content.hidden = Boolean(message);
+  const showAvailability = (message, hideContent = Boolean(message)) => {
+    if (status) status.hidden = !message;
+    if (status) status.textContent = message ?? "";
+    if (content) content.hidden = hideContent;
   };
   showAvailability(uiText(this.settings.interfaceLanguage, "checkingDictionaries"));
   try {
@@ -65020,8 +65027,9 @@ class SettingsDialogController {
     ));
   } catch (error) {
     log$6.warn("Published dictionary coverage check failed", error);
+    this.publishedDictionaryLanguagesPromise = void 0;
     if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-    showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"));
+    showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"), false);
   }
   }
   bindEditorControls(form) {
