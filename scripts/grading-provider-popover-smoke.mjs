@@ -1,8 +1,13 @@
 #!/usr/bin/env node
-// E2E smoke for the dual SRS grading provider: with BOTH a jpdb and a jiten key,
-// a word present in both services shows a provider toggle beside the grade target.
-// Toggling flips the deck/grade buttons between Jiten and JPDB, and grading
-// dispatches to the chosen service. Produces before/after screenshots.
+// E2E smoke for dual SRS grading on an ordinary page: with BOTH a jpdb and a
+// jiten key, a word present in both services is graded by the learner's chosen
+// grading provider (apiGradingProvider). Since 1.9.1 the provider toggle, the
+// provider status and per-service grade targets are account details that only
+// render on Yomu-owned Study surfaces (tests/reader/offhost-account-data-privacy
+// .test.ts; tests/reader/jpdb/02-sources-mining-drawer-pitch.test.ts pins the
+// trusted-surface toggle). So this smoke grades the same word once per
+// preference: the page never sees a provider control, and each grade reaches
+// only the chosen service. Produces a screenshot per service.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -30,6 +35,14 @@ const SENTENCE = `毎日${TERM}するのが大切です。`;
 const REQUEST_BRIDGE_NAME = '__yomuGradingProviderSmokeRequest';
 const JITEN_WORD_ID = 1500800;
 const JITEN_READING_INDEX = 0;
+const JITEN_FREQUENCY_RANK = 12435;
+// Only the Jiten mocks report this rank (JPDB's mock rank is 1200), so
+// its pill proves the Jiten identity was enriched onto the JPDB-parsed card.
+const JITEN_RANK_LABEL = `#${JITEN_FREQUENCY_RANK}`;
+const NATIVE_GRADES = {
+    jpdb: ['nothing', 'something', 'hard', 'okay', 'easy'],
+    jiten: ['nothing', 'hard', 'okay', 'easy'],
+};
 
 // [surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch]
 const JPDB_VOCAB = [
@@ -46,6 +59,10 @@ const settings = {
     jpdbMiningEnabled: true,
     enableReviews: true,
     apiGradingProvider: 'jpdb',
+    // JPDB parses the page and Jiten's reader parse only enriches the word, so
+    // 復習 keeps both identities: the one case where the preference picks the
+    // service. (A Jiten-parsed word is Jiten-only until Study's toggle re-parses it.)
+    parserProvider: 'jpdb',
     furiganaMode: 'known-status',
     furiganaHiddenStateGroups: ['known'],
     audioEnabled: false,
@@ -88,16 +105,46 @@ let jitenKnownState = [0];
 let jitenParseCalls = 0;
 
 try {
+    const jpdbRun = await runGradingProviderPhase('jpdb');
+    const jitenRun = await runGradingProviderPhase('jiten');
+    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, browserEvents };
+    writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
+    console.log(JSON.stringify({
+        ok: true,
+        viewport: SMOKE_VIEWPORT,
+        jpdbState: jpdbRun.state,
+        jitenState: jitenRun.state,
+        repaintState: jitenRun.repaintState,
+        kanjiSourceTitle: jitenRun.kanjiSourceTitle,
+        jpdbReviewRequests: jpdbRun.reviewRequests,
+        jitenReviewRequests: jitenRun.reviewRequests,
+    }, null, 2));
+} finally {
+    await closeSmokeBrowserAndServer(browser, server.server);
+}
+
+// One fresh page per preference: the ordinary-page popover has no switcher, so
+// the chosen service comes from settings, exactly as a learner sets it in Study.
+async function runGradingProviderPhase(provider) {
+    requests.length = 0;
+    jitenKnownState = [0];
+    jitenParseCalls = 0;
+    const label = provider === 'jpdb' ? 'JPDB' : 'Jiten';
+    const otherProvider = provider === 'jpdb' ? 'jiten' : 'jpdb';
     const context = await browser.newContext({ bypassCSP: true, ...smokeContextOptions(SMOKE_VIEWPORT) });
     const page = await context.newPage();
     page.on('console', message => {
         if (message.type() === 'error' || message.type() === 'warning') {
-            browserEvents.push({ type: message.type(), text: message.text() });
+            browserEvents.push({ provider, type: message.type(), text: message.text() });
         }
     });
-    page.on('pageerror', error => browserEvents.push({ type: 'pageerror', text: String(error) }));
+    page.on('pageerror', error => browserEvents.push({ provider, type: 'pageerror', text: String(error) }));
     await page.exposeFunction(REQUEST_BRIDGE_NAME, request => handleRequest(request));
-    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings, requestBridgeName: REQUEST_BRIDGE_NAME });
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: { ...settings, apiGradingProvider: provider },
+        requestBridgeName: REQUEST_BRIDGE_NAME,
+    });
     await page.route(/https?:\/\/(?:[^/]*jpdb\.io|[^/]*api\.jiten\.moe|[^/]*workers\.dev)\//, route => {
         const response = handleRequest({ method: route.request().method(), url: route.request().url(), headers: route.request().headers(), data: route.request().postData() ?? '' });
         return route.fulfill({ status: response.status, contentType: response.contentType ?? 'application/json; charset=utf-8', body: response.responseText ?? '' });
@@ -110,89 +157,102 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
     const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
     assert(await word.count() === 1, 'jpdb parse did not render the 復習 reader word');
-    await word.click();
-    await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
+    await ensurePopover(page, word);
     // Before any kanji navigation: renderKanjiCardShell replaces the title row,
     // so .jpdb-reader-spelling stops existing once kanji details are open.
-    await assertPopoverHeadwordMatchesLookup(page, word, { label: 'grading-provider first open' });
+    await assertPopoverHeadwordMatchesLookup(page, word, { label: `grading-provider ${provider} first open` });
+    const state = await readPopoverState(page);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, `${provider}-grading.png`), fullPage: false });
+    assertOrdinaryPageGradingControls(state, label);
+    // The grade row carries no provider attribute, but it must still offer the
+    // chosen service's own scale (JPDB five grades, Jiten four).
+    assert(state.gradeValues.join() === NATIVE_GRADES[provider].join(), `Grade buttons are not ${label}'s own scale`, state);
 
-    // The toggle only appears once the Jiten identity is enriched onto the card.
-    await waitForProviderToggle(page);
-    const initialState = await readPopoverState(page);
-    assert(initialState.toggleInTargetGutter, 'Provider toggle is not in the review target gutter', initialState);
-    assert(initialState.labelInsideProviderToggle, 'Provider label is not part of the provider-toggle touch surface', initialState);
-
-    const jpdbState = await ensureProvider(page, word, 'JPDB');
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'jpdb-grading.png'), fullPage: false });
-    assert(jpdbState.providerLabel.includes('JPDB'), 'Provider label did not switch to JPDB', jpdbState);
-    assert(jpdbState.gradeTargets.every(target => target === 'jpdb'), 'Default grade buttons are not targeting JPDB', jpdbState);
-    assert(jpdbState.gradeCount >= 4, 'JPDB grade buttons missing', jpdbState);
-
-    // Grade with JPDB.
     await page.locator('.jpdb-reader-actions [data-action="grade"][data-grade="okay"]').first().click();
+    await withPopoverTimeoutReport(page, `${provider}-review-timeout`, () => waitForReviewRequest(provider));
+    // Both services would be called from the same grade click, so a stray
+    // second review is already recorded once the chosen one has landed.
     await page.waitForTimeout(600);
-    assert(requestCount('jpdb.io', '/review') >= 1, 'JPDB review request was not sent on grade', summarizeRequests());
+    assert(reviewRequestCount(otherProvider) === 0, `A ${label} grade was also sent to the other connected service`, { requests: summarizeRequests() });
 
-    await ensurePopover(page, word);
-    const jitenState = await ensureProvider(page, word, 'Jiten');
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'jiten-grading.png'), fullPage: false });
-    assert(jitenState.providerLabel.includes('Jiten'), 'Toggled provider label is not Jiten', jitenState);
-    assert(jitenState.gradeTargets.every(target => target === 'jiten'), 'After toggle, grade buttons are not targeting Jiten', jitenState);
-    assert(jitenState.toggleInTargetGutter, 'Provider toggle left the review target gutter after switching', jitenState);
-    assert(jitenState.labelInsideProviderToggle, 'Jiten label is not part of the provider-toggle touch surface', jitenState);
-    // No second provider switcher on the grade row — the review target gutter toggle is the only one.
-    assert(!jitenState.hasReviewTargetSelect, 'Unexpected second provider selector on the grade row', jitenState);
-    // The jiten popover follows the JPDB pattern: no Mining/Suspended/Forget row.
-    assert(!/data-action="jiten-(mining|suspend|forget)"/.test(jitenState.actionsHtml), 'Jiten popover still renders the Mining/Suspended/Forget row', { actionsHtml: jitenState.actionsHtml.slice(0, 400) });
-    assert(/data-action="deck-picker"/.test(jitenState.actionsHtml) && /data-action="neverforget"/.test(jitenState.actionsHtml), 'Jiten popover is missing the JPDB-style deck actions', { actionsHtml: jitenState.actionsHtml.slice(0, 400) });
+    const repaintState = provider === 'jiten' ? await waitForReviewedWordRepaint(page) : null;
+    const kanjiSourceTitle = provider === 'jiten' ? await readJitenKanjiSourceTitle(page, word) : null;
+    assert(browserEvents.length === 0, 'Browser console/page errors occurred during grading-provider smoke', { browserEvents });
+    const { actionsHtml: _actionsHtml, ...reportedState } = state;
+    const result = {
+        state: reportedState,
+        repaintState,
+        kanjiSourceTitle,
+        reviewRequests: reviewRequestCount(provider),
+        readerParseRequests: requestCount('api.jiten.moe', '/reader/parse'),
+        requests: summarizeRequests(),
+    };
+    await context.close();
+    return result;
+}
 
-    // Grade with Jiten.
-    await page.locator('.jpdb-reader-actions [data-action="grade"][data-grade="okay"]').first().click();
-    const repaintState = await waitForReviewedWordRepaint(page);
-    assert(requestCount('api.jiten.moe', '/srs/review') >= 1, 'Jiten review request was not sent on grade', summarizeRequests());
+// Grade buttons stay on the page, but nothing that names or switches the
+// account-backed service may: the page owns this DOM and can read it.
+function assertOrdinaryPageGradingControls(state, label) {
+    const actions = { actionsHtml: state.actionsHtml.slice(0, 600) };
+    assert(state.jitenIdentityShown, 'Jiten identity was not enriched onto the dual-key card before grading', state);
+    assert(!state.hasToggle, 'The grading-provider toggle rendered on an ordinary page', state);
+    assert(!state.providerLabel, 'The account provider status rendered on an ordinary page', state);
+    assert(state.gradeTargets.every(target => target === ''), 'Grade buttons exposed their review target to the page', state);
+    assert(!state.hasReviewTargetSelect, 'A review-target selector rendered on an ordinary page', state);
+    assert(!state.hasAddDeckSelect, 'The account deck selector rendered on an ordinary page', state);
+    assert(!/data-action="(?:deck-picker|neverforget|blacklist|jiten-(?:mining|suspend|forget))"/.test(state.actionsHtml), 'Account deck-state actions rendered on an ordinary page', actions);
+    assert(/data-action="add-default"/.test(state.actionsHtml), 'The provider-neutral Add to deck action is missing', actions);
+}
 
-    // Kanji facts: navigate to a kanji and confirm the source is branded "Jiten"
-    // (not the old "Jiten kanji facts" / "Kanji facts" label). The jpdb kanji
-    // card needs the kanji-study companion + a scraped jpdb page, so this smoke
-    // verifies the Jiten side of the relabel via the core render path.
+async function waitForReviewRequest(provider) {
+    const deadline = Date.now() + 8_000;
+    while (Date.now() < deadline) {
+        if (reviewRequestCount(provider) >= 1) return;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error(`${provider} review request was not sent on grade: ${JSON.stringify(summarizeRequests())}`);
+}
+
+function reviewRequestCount(provider) {
+    return provider === 'jpdb'
+        ? requestCount('jpdb.io', '/api/v1/review')
+        : requestCount('api.jiten.moe', '/srs/review');
+}
+
+// Kanji facts: navigate to a kanji and confirm the source is branded "Jiten"
+// (not the old "Jiten kanji facts" / "Kanji facts" label). The jpdb kanji
+// card needs the kanji-study companion + a scraped jpdb page, so this smoke
+// verifies the Jiten side of the relabel via the core render path.
+async function readJitenKanjiSourceTitle(page, word) {
     await ensurePopover(page, word);
     await page.locator('.jpdb-reader-popover [data-action="kanji"][data-kanji="復"]').first().click();
-    await page.waitForSelector('.jpdb-reader-jiten-kanji', { state: 'attached', timeout: 8_000 });
+    await withPopoverTimeoutReport(page, 'kanji-facts-timeout', () =>
+        page.waitForSelector('.jpdb-reader-jiten-kanji', { state: 'attached', timeout: 8_000 }));
     const kanjiSourceTitle = await page.evaluate(() => document.querySelector('.jpdb-reader-jiten-kanji > summary')?.textContent?.trim() ?? '');
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'kanji-facts.png'), fullPage: false });
     assert(kanjiSourceTitle === 'Jiten', `Jiten kanji-fact section is not branded "Jiten"`, { kanjiSourceTitle });
-    assert(browserEvents.length === 0, 'Browser console/page errors occurred during grading-provider smoke', { browserEvents });
-
-    const report = {
-        ok: true,
-        viewport: SMOKE_VIEWPORT,
-        term: TERM,
-        jpdbState,
-        jitenState,
-        repaintState,
-        jpdbReviewRequests: requestCount('jpdb.io', '/review'),
-        jitenReviewRequests: requestCount('api.jiten.moe', '/srs/review'),
-        readerParseRequests: requestCount('api.jiten.moe', '/reader/parse'),
-        browserEvents,
-        requests: summarizeRequests(),
-    };
-    writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
-    console.log(JSON.stringify({ ok: true, viewport: SMOKE_VIEWPORT, jpdbState, jitenState, repaintState, jpdbReviewRequests: report.jpdbReviewRequests, jitenReviewRequests: report.jitenReviewRequests }, null, 2));
-    await context.close();
-} finally {
-    await closeSmokeBrowserAndServer(browser, server.server);
+    return kanjiSourceTitle;
 }
 
 async function ensurePopover(page, word) {
-    if (await page.locator('.jpdb-reader-popover').count() && await page.locator('.jpdb-reader-popover').first().isVisible()) return;
-    await word.click();
-    await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
-    await waitForProviderToggle(page);
+    if (!(await page.locator('.jpdb-reader-popover').count() && await page.locator('.jpdb-reader-popover').first().isVisible())) {
+        await word.click();
+        await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
+    }
+    await waitForGradesReady(page);
 }
 
-async function waitForProviderToggle(page) {
-    await withPopoverTimeoutReport(page, 'provider-toggle-timeout', () =>
-        page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 }));
+// Grades are ready once they render and the Jiten identity (its #rank pill,
+// which only Jiten's reader parse supplies) is on the card: before that the
+// card is JPDB-only and a Jiten preference could not apply to it.
+async function waitForGradesReady(page) {
+    await withPopoverTimeoutReport(page, 'grades-ready-timeout', () => page.waitForFunction(
+        rank => document.querySelectorAll('.jpdb-reader-actions [data-action="grade"][data-grade]').length >= 4
+            && [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-pill')].some(pill => (pill.textContent ?? '').includes(rank)),
+        JITEN_RANK_LABEL,
+        { timeout: 10_000 },
+    ));
 }
 
 // Every wait in this smoke fails the same way -- a popover that never reached the
@@ -235,52 +295,27 @@ async function popoverTimeoutSnapshot(page) {
     };
 }
 
-async function ensureProvider(page, word, providerLabel) {
-    await ensurePopover(page, word);
-    let state = await readPopoverState(page);
-    if (state.providerLabel.includes(providerLabel)) {
-        await waitForProviderReady(page, providerLabel);
-        return await readPopoverState(page);
-    }
-    await page.locator('[data-action="grade-provider-toggle"]').first().click();
-    await waitForProviderReady(page, providerLabel);
-    state = await readPopoverState(page);
-    assert(state.providerLabel.includes(providerLabel), `Provider label did not switch to ${providerLabel}`, state);
-    return state;
-}
-
-async function waitForProviderReady(page, providerLabel) {
-    await withPopoverTimeoutReport(page, `provider-ready-timeout-${providerLabel.toLowerCase()}`, () => page.waitForFunction(
-        label => {
-            const providerReady = (document.querySelector('.jpdb-reader-provider-status')?.textContent ?? '').includes(label);
-            const hasGrades = document.querySelectorAll('.jpdb-reader-actions [data-action="grade"][data-grade]').length >= 4;
-            const toggle = document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
-            const current = document.querySelector('[data-review-target-current]');
-            return providerReady && hasGrades && Boolean(toggle && current && toggle.contains(current));
-        },
-        providerLabel,
-        { timeout: 8_000 },
-    ));
-}
-
 async function readPopoverState(page) {
-    return page.evaluate(() => {
+    return page.evaluate(rank => {
         const grades = [...document.querySelectorAll('.jpdb-reader-actions [data-action="grade"][data-grade]')];
-        const toggle = document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
-        const current = document.querySelector('[data-review-target-current]');
         return {
             providerLabel: document.querySelector('.jpdb-reader-provider-status')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
             hasToggle: Boolean(document.querySelector('[data-action="grade-provider-toggle"]')),
-            toggleInTargetGutter: Boolean(document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]')),
-            labelInsideProviderToggle: Boolean(toggle && current && toggle.contains(current)),
+            jitenIdentityShown: [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-pill')].some(pill => (pill.textContent ?? '').includes(rank)),
             gradeCount: grades.length,
+            gradeLabels: grades.map(button => button.textContent?.trim() ?? ''),
+            gradeValues: grades.map(button => button.dataset.grade ?? ''),
             gradeTargets: grades.map(button => button.dataset.reviewTarget ?? ''),
             hasReviewTargetSelect: Boolean(document.querySelector('[data-review-target-select]')),
+            hasAddDeckSelect: Boolean(document.querySelector('.jpdb-reader-popover [data-add-deck-select]')),
             actionsHtml: document.querySelector('.jpdb-reader-actions')?.innerHTML ?? '',
         };
-    });
+    }, JITEN_RANK_LABEL);
 }
 
+// On an ordinary page the refreshed Jiten state paints through the
+// provider-neutral jpdb-* state family; the jiten-* family and the card's
+// state/source attributes stay off the page.
 async function waitForReviewedWordRepaint(page) {
     try {
         await page.waitForFunction(
@@ -289,8 +324,7 @@ async function waitForReviewedWordRepaint(page) {
                     .find(element => element instanceof HTMLElement && element.dataset.expression === term);
                 return Boolean(word
                     && word instanceof HTMLElement
-                    && word.dataset.cardState === 'mature'
-                    && (word.classList.contains('jpdb-mature') || word.classList.contains('jiten-mature'))
+                    && word.classList.contains('jpdb-mature')
                     && !word.classList.contains('jpdb-reader-has-furi')
                     && !word.querySelector('rt,.jpdb-reader-furi'));
             },
@@ -308,8 +342,8 @@ async function waitForReviewedWordRepaint(page) {
         throw error;
     }
     const state = await readReviewedWordState(page);
-    assert(state.cardState === 'mature', 'Reviewed Jiten word did not repaint to the refreshed mature state', state);
-    assert(state.hasKnownHighlight, 'Reviewed Jiten word did not gain a known-family highlight class', state);
+    assert(state.hasJpdbMature, 'Reviewed Jiten word did not repaint to the refreshed mature state', state);
+    assert(!state.hasJitenStateClass && !state.cardState && !state.cardSource, 'Reviewed Jiten word exposed its provider state to the ordinary page', state);
     assert(!state.hasFuriganaClass && !state.hasRuby, 'Reviewed Jiten word kept stale furigana after entering the hidden known group', state);
     return state;
 }
@@ -323,10 +357,10 @@ async function readReviewedWordState(page) {
         return {
             found: true,
             cardState: word.dataset.cardState ?? '',
+            cardSource: word.dataset.cardSource ?? '',
             className: word.className,
             hasJpdbMature: word.classList.contains('jpdb-mature'),
-            hasJitenMature: word.classList.contains('jiten-mature'),
-            hasKnownHighlight: word.classList.contains('jpdb-mature') || word.classList.contains('jiten-mature'),
+            hasJitenStateClass: [...word.classList].some(className => className.startsWith('jiten-')),
             hasFuriganaClass: word.classList.contains('jpdb-reader-has-furi'),
             hasRuby: Boolean(word.querySelector('rt,.jpdb-reader-furi')),
             expression: word.dataset.expression ?? '',
@@ -376,7 +410,7 @@ function mockJiten(pathname, body = {}) {
                 readingIndex: JITEN_READING_INDEX,
                 spelling: TERM,
                 reading: '復[ふく]習[しゅう]',
-                frequencyRank: 12435,
+                frequencyRank: JITEN_FREQUENCY_RANK,
                 partsOfSpeech: ['n', 'vs'],
                 meaningsChunks: [['review; revision']],
                 meaningsPartOfSpeech: [['n']],
@@ -389,10 +423,18 @@ function mockJiten(pathname, body = {}) {
         jitenKnownState = [2];
         return jsonHttpResponse({});
     }
+    // Since 2.0 a graded Jiten word refreshes by its exact word and reading
+    // instead of re-parsing its spelling.
+    if (pathname.endsWith('/reader/lookup-vocabulary')) {
+        const words = Array.isArray(body.words) ? body.words : [];
+        return jsonHttpResponse({
+            result: words.map(([wordId, readingIndex]) => wordId === JITEN_WORD_ID && readingIndex === JITEN_READING_INDEX ? jitenKnownState : []),
+        });
+    }
     if (pathname === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`) {
         return jsonHttpResponse({
             wordId: JITEN_WORD_ID,
-            mainReading: { text: TERM, readingIndex: JITEN_READING_INDEX, frequencyRank: 12435 },
+            mainReading: { text: TERM, readingIndex: JITEN_READING_INDEX, frequencyRank: JITEN_FREQUENCY_RANK },
             alternativeReadings: [],
             partsOfSpeech: ['noun', 'suru verb'],
             definitions: [{ senseIndex: 0, englishMeanings: ['review; revision'], pos: ['noun'] }],
