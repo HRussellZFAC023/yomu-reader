@@ -386,6 +386,8 @@ try {
   }
 
   result.stage = "prepare-practice";
+  // The tab pointer lives in managed session storage, which an installed
+  // Reader namespaces as yomu:web-owner:v2:<owner>:<key>.
   await page.locator('[data-newtab-action="practice-sessions"]').click();
   await page.locator("[data-practice-purpose]").selectOption("writing");
   await page.locator('[data-practice-action="start"]').click();
@@ -397,7 +399,7 @@ try {
         ?.getAttribute("aria-busy") === "false",
   );
   const pointer = await page.evaluate(() =>
-    sessionStorage.getItem("yomu:practice-session-tab:v1"),
+    Object.keys(sessionStorage).filter(key => key === "yomu:practice-session-tab:v1" || key.endsWith(":yomu:practice-session-tab:v1")).map(key => sessionStorage.getItem(key))[0] ?? null,
   );
   assert(pointer, "Practice did not retain a tab-owned resume pointer.");
   const promptBeforeKey = await page
@@ -436,7 +438,7 @@ try {
   );
   assert(
     (await page.evaluate(() =>
-      sessionStorage.getItem("yomu:practice-session-tab:v1"),
+      Object.keys(sessionStorage).filter(key => key === "yomu:practice-session-tab:v1" || key.endsWith(":yomu:practice-session-tab:v1")).map(key => sessionStorage.getItem(key))[0] ?? null,
     )) === pointer,
     "Reload changed the session identity.",
   );

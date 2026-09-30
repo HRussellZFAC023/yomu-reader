@@ -25,7 +25,6 @@ Yomu 2 rebuilds how settings, dictionaries and reviews are stored and delivered,
 - Saved subtitle line shortcuts (including Alt+Arrow) and saved audio-source lists are kept exactly as saved, and are no longer rewritten to newer defaults on load.
 - Ordinary mining no longer changes a Yomu note type you already have in Anki: its templates, styling and fields stay as they are. "Set up Yomu note type" still updates them when you ask, and settings still offer to add any missing fields.
 - The website menu is now Read, Watch, Study and Membership. Learning path, Academy, Apps, Help and the other pages are under "More", and the header no longer shows GitHub and Discord icons. Study's menu uses the same list. The homepage now leads with reading Japanese, keeps its live sample, and restyles the install choices.
-- yomureader.com no longer keeps its own copy of an installed Reader's data. If you remove the extension or userscript, website-only Study shows what you last saved on the website itself.
 - If you used yomureader.com/study before installing Yomu, a newly installed Reader that has not chosen a learning target still takes over the local cards and progress you saved on the website, and your website settings if it has none of its own. A Reader that already has your learning target now keeps only its own data: website cards and progress are no longer merged into it.
 - The userscript loads about 160 KB less code on every page: starter-dictionary choices ship as a smaller list instead of the whole dictionary catalogue.
 

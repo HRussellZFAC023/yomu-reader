@@ -26,7 +26,7 @@ const SCRIPT_PATH = SMOKE_PATHS.scriptPath;
 const CSS_PATH = SMOKE_PATHS.cssPath;
 const SETTINGS_COMPANION_PATH = path.resolve(ROOT, 'dist/greasyfork/yomu-settings-surface.user.js');
 const YOMITAN_DB_NAME = yomitanDbNameFromSource(
-    readFileSync(path.resolve(ROOT, 'src/reader/dictionaries/yomitan/index.ts'), 'utf8'),
+    readFileSync(path.resolve(ROOT, 'src/reader/dictionaries/yomitan/database-name.ts'), 'utf8'),
 );
 const PAGE_PATH = '/parser-glyph-identity.html';
 const REQUEST_BRIDGE_NAME = '__yomuParserGlyphRequest';
@@ -768,7 +768,7 @@ async function dismissPopover(page) {
 }
 
 function yomitanDbNameFromSource(source) {
-    const name = source.match(/^const DB_NAME = '([^']+)';/m)?.[1];
+    const name = source.match(/^export const YOMITAN_DATABASE_NAME = '([^']+)';/m)?.[1];
     if (!name) throw new Error('Could not read the production Yomitan DB name.');
     return name;
 }

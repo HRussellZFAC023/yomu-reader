@@ -8,7 +8,9 @@ import { chromium } from 'playwright';
 import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
 import { bootStudySession, createStudyServer, createStudySettings } from './lib/study-fixture.mjs';
 
-const GRADES = ['okay', 'easy', 'hard', 'something', 'nothing'];
+// The fixture reviews Jiten cards, which use Jiten's four grades: Again,
+// Hard, Good and Easy (nothing, hard, okay, easy).
+const GRADES = ['okay', 'easy', 'hard', 'okay', 'nothing'];
 
 async function gradeVisibleCard(page, grade) {
     await revealVisibleCard(page);

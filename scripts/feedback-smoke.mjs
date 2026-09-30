@@ -243,6 +243,8 @@ const FEEDBACK_FILE_ROUTES = new Map([
     ...routeEntries(['/yomu.user.js', '/video-player/yomu.user.js', '/yomu-reader/yomu.user.js'], { filePath: SCRIPT_PATH, contentType: 'application/javascript; charset=utf-8' }),
     ...routeEntries(['/yomu.css', '/video-player/yomu.css', '/yomu-reader/yomu.css'], { filePath: CSS_PATH, contentType: 'text/css; charset=utf-8' }),
     ['/hosted-reader-worker.js', { filePath: path.join(PUBLIC_DIR, 'hosted-reader-worker.js'), contentType: 'application/javascript; charset=utf-8' }],
+    // The shell's theme and language toggles save through this module.
+    ['/hosted-appearance-settings.js', { filePath: path.join(PUBLIC_DIR, 'hosted-appearance-settings.js'), contentType: 'application/javascript; charset=utf-8' }],
     ['/video-player/sw.js', { filePath: path.join(PUBLIC_DIR, 'video-player', 'sw.js'), contentType: 'application/javascript; charset=utf-8' }],
     ['/video-player/manifest.webmanifest', { filePath: path.join(PUBLIC_DIR, 'video-player', 'manifest.webmanifest'), contentType: 'application/manifest+json; charset=utf-8' }],
     ...COMPANION_SCRIPT_PATHS.flatMap(filePath => {
@@ -748,8 +750,15 @@ function hostedVideoBootedFromExplicitTarget(state) {
         state.installedRuntimeKind === 'userscript',
         state.onboardingCount === 0,
         hostedExplicitTargetSettingsReady(state.shared),
-        hostedExplicitTargetSettingsReady(state.local),
+        pageCopyMatchesInstalledStore(state.local, state.shared),
     ].every(Boolean);
+}
+
+// CONTEXT.md (Settings Authority): with a Reader installed, a page-local copy
+// of its settings may exist but is never a competing authority, so any value
+// it holds must be the installed store's.
+function pageCopyMatchesInstalledStore(local, shared) {
+    return Object.entries(local).every(([field, value]) => value === undefined || Object.is(value, shared[field]));
 }
 
 function hostedExplicitTargetSettingsReady(settings) {
@@ -1161,14 +1170,11 @@ async function assertHostedSubtitleStyleControls(page) {
     await setHostedSubtitleStyleFont(page);
     await page.locator('[data-subtitle-style-setting="subtitleMiningPause"]').setChecked(false);
     await page.locator('[data-subtitle-style-setting="subtitleHoverPause"]').setChecked(false);
-    await page.waitForFunction(({ key, expectedBottomOffset }) => {
-        const settings = JSON.parse(localStorage.getItem(key) || '{}');
-        return settings.subtitleFontSize === 34
-            && settings.subtitleBottomOffset === expectedBottomOffset
-            && settings.subtitleBackgroundOpacity === 0.35
-            && settings.subtitleMiningPause === false
-            && settings.subtitleHoverPause === false;
-    }, { key: SETTINGS_KEY, expectedBottomOffset: bottomOffset }, { timeout: 6000 });
+    await waitForSharedSettings(page, settings => settings.subtitleFontSize === 34
+        && settings.subtitleBottomOffset === bottomOffset
+        && settings.subtitleBackgroundOpacity === 0.35
+        && settings.subtitleMiningPause === false
+        && settings.subtitleHoverPause === false);
     const styleState = await readHostedSubtitleStyleState(page);
     assert(hostedSubtitleStyleControlsReady(styleState, bottomOffset), 'Hosted compact subtitle style controls did not update subtitle settings/style', styleState);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-style-controls.png'), fullPage: false });
@@ -1216,6 +1222,17 @@ async function clickHostedSettingsThroughFullscreenOverlap(page) {
     await page.mouse.click(point.x, point.y);
 }
 
+/** Polls the installed Reader's settings (its GM store), where hosted controls save. */
+async function waitForSharedSettings(page, matches, timeoutMs = 6000) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        const settings = await page.evaluate(key => globalThis.GM_getValue(key, {}), SETTINGS_KEY);
+        if (matches(settings)) return settings;
+        if (Date.now() > deadline) throw new Error(`Installed Reader settings did not reach the expected values: ${JSON.stringify(settings)}`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+}
+
 async function readHostedSubtitleSettingsSyncState(page) {
     const [surface, storage] = await Promise.all([
         page.evaluate(() => ({
@@ -1251,14 +1268,14 @@ function hostedSubtitleSettingsSynced(state, expectedBottomOffset) {
     return state.hasLauncher
         && state.writableControls === 0
         && hostedSubtitleSettingsValuesReady(state.shared, expectedBottomOffset)
-        && hostedSubtitleSettingsValuesReady(state.local, expectedBottomOffset);
+        && pageCopyMatchesInstalledStore(state.local, state.shared);
 }
 
 async function assertHostedSubtitleSettingsRetainedAcrossReload(page, expectedBottomOffset) {
     const storage = await readHostedSubtitleStorageState(page);
     const retained = hostedSubtitleSettingsValuesReady(storage.shared, expectedBottomOffset)
-        && hostedSubtitleSettingsValuesReady(storage.local, expectedBottomOffset);
-    assert(retained, 'Reopening the hosted player replaced shared or local compact-control settings with the fixture', storage);
+        && pageCopyMatchesInstalledStore(storage.local, storage.shared);
+    assert(retained, 'Reopening the hosted player replaced shared compact-control settings with the fixture, or left a page copy that disagrees', storage);
 }
 
 function hostedSubtitleSettingsValuesReady(saved, expectedBottomOffset) {
@@ -1279,9 +1296,9 @@ async function setHostedSubtitleStyleControl(page, name, value) {
 async function setHostedSubtitleBottomOffsetByDrag(page, targetBottomOffset) {
     const handle = page.locator('.jpdb-subtitle-text > [data-subtitle-drag-handle]').first();
     await handle.waitFor({ timeout: 6000 });
-    const geometry = await page.evaluate(({ key, requested }) => {
+    const geometry = await page.evaluate(async ({ key, requested }) => {
         const root = document.querySelector('.jpdb-subtitle-player');
-        const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        const settings = await globalThis.GM_getValue(key, {});
         const current = Number.isFinite(settings.subtitleBottomOffset)
             ? settings.subtitleBottomOffset
             : Number.parseFloat(root.style.getPropertyValue('--subtitle-bottom')) || 16;
@@ -1302,10 +1319,7 @@ async function setHostedSubtitleBottomOffsetByDrag(page, targetBottomOffset) {
     await page.mouse.down();
     await page.mouse.move(x, y + geometry.deltaY, { steps: 8 });
     await page.mouse.up();
-    await page.waitForFunction(({ key, expected }) => {
-        const settings = JSON.parse(localStorage.getItem(key) || '{}');
-        return settings.subtitleBottomOffset === expected;
-    }, { key: SETTINGS_KEY, expected: geometry.target }, { timeout: 6000 });
+    await waitForSharedSettings(page, settings => settings.subtitleBottomOffset === geometry.target);
     return geometry.target;
 }
 
@@ -1319,10 +1333,10 @@ async function setHostedSubtitleStyleFont(page) {
 }
 
 async function readHostedSubtitleStyleState(page) {
-    return page.evaluate(key => {
+    return page.evaluate(async key => {
         const root = document.querySelector('.jpdb-subtitle-player');
         const popover = document.querySelector('[data-subtitle-style-popover]');
-        const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        const settings = await globalThis.GM_getValue(key, {});
         const normalizeColor = value => {
             if (!value) return '';
             const probe = document.createElement('span');

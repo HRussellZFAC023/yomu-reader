@@ -21,7 +21,7 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
-const YOMITAN_STORE_SOURCE_PATH = path.join(ROOT, 'src', 'reader', 'dictionaries', 'yomitan', 'index.ts');
+const YOMITAN_STORE_SOURCE_PATH = path.join(ROOT, 'src', 'reader', 'dictionaries', 'yomitan', 'database-name.ts');
 const YOMITAN_DB_NAME = readYomitanDbName(YOMITAN_STORE_SOURCE_PATH);
 const PAGE_PATH = '/furigana-local-default.html';
 const REQUEST_BRIDGE_NAME = '__yomuFuriganaLocalSmokeRequest';
@@ -250,7 +250,7 @@ async function recordFuriganaSmoke(page, state, externalRequests) {
 
 function readYomitanDbName(sourcePath) {
     const source = readFileSync(sourcePath, 'utf8');
-    const name = source.match(/^const DB_NAME = '([^']+)';/m)?.[1];
+    const name = source.match(/^export const YOMITAN_DATABASE_NAME = '([^']+)';/m)?.[1];
     if (!name) throw new Error(`Could not read the Yomitan DB name from ${sourcePath}`);
     return name;
 }
