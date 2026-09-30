@@ -5,6 +5,9 @@
 //      clear labels and WITHOUT the review-fallback notice.
 //   2. degraded reviewer — Jiten key configured but the API is down: practice
 //      words must load WITH the "No reviews ready" notice (trust fix).
+//   3. keyless collector — saves words from the userscript popup, adds one to
+//      review from Study's Library, exports, restores into a fresh profile and
+//      survives interrupted saves (scripts/lib/local-collection-journey.mjs).
 // Reports friction feedback (timings, label text, console errors) as JSON.
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -21,6 +24,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { newTabModeButton } from './lib/smoke-test-helpers.mjs';
+import { runLocalCollectionJourney } from './lib/local-collection-journey.mjs';
 
 const { root: ROOT, dist: DIST, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
@@ -371,8 +375,9 @@ async function main() {
         }
         const mobilePassFail = await runMobilePassFailLayout(browser, fixture.origin);
         const keylessGrading = await runKeylessLocalGrading(browser, fixture.origin);
+        const localCollection = await runLocalCollectionJourney(browser);
         const blockers = results.flatMap(result => result.feedback.filter(item => item.startsWith('BUG')));
-        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy, mobilePassFail, keylessGrading }, null, 2));
+        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy, mobilePassFail, keylessGrading, localCollection }, null, 2));
         if (blockers.length) process.exitCode = 1;
     } finally {
         await browser.close();

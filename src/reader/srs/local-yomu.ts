@@ -143,9 +143,6 @@ export class LocalYomuSrsRepository {
         });
     }
 
-    // Served through createLocalYomuSrsAdapter below, which the member graph
-    // does not follow.
-    // fallow-ignore-next-line unused-class-member
     async collection(limit = 50, options: YomuSrsQueueOptions = {}): Promise<YomuSrsReviewable[]> {
         const now = this.now();
         const language = options.language ? canonicalLanguageTag(options.language) : '';
