@@ -98,13 +98,13 @@ async function proveOrderOnStudy(browser) {
             'Imported dictionaries were not appended after the built-in sources', { imported });
         const gmAfterImport = await readPrefixedGmValues(page, GM_STORAGE_PREFIX);
         const importedRecord = storedRecord(gmAfterImport);
-        // The first Save after an import numbers every row into the editor's one
-        // list. It may rewrite numbers; it must not move anything.
+        // The first Save after an import is untouched too: it writes back exactly
+        // what the import stored, renumbering no source and recording no choice.
         const firstSave = await saveSettings(page);
+        const firstSaveDiff = recordDifferences(importedRecord, firstSave);
+        assert(!firstSaveDiff.length, 'The first untouched Save after an import changed the stored settings or intent records', firstSaveDiff);
         const afterFirstSave = await openSettings(page, 'dictionaries');
-        assert(sameList(afterFirstSave, imported) && sameList(profileOrder(firstSave), profileOrder(importedRecord)),
-            'The first untouched Save after an import reordered the shelf', { imported, afterFirstSave });
-        const firstSaveChanges = recordDifferences(importedRecord, firstSave);
+        assert(sameList(afterFirstSave, imported), 'The first untouched Save after an import reordered the shelf', { imported, afterFirstSave });
         const importedLookup = await studyLookup(page, LIBRARY);
 
         // The learner's order: Beta above every built-in, Alpha below them all.
@@ -163,7 +163,7 @@ async function proveOrderOnStudy(browser) {
                 secondTab,
                 appended,
                 storedOrder: { imported: profileOrder(importedRecord), saved: profileOrder(saved), appended: profileOrder(appendedRecord) },
-                firstSaveAfterImport: { orderUnchanged: true, changedFields: firstSaveChanges },
+                firstSaveAfterImport: { byteIdenticalApartFromCommitId: true, commitIds: [importedRecord.commit, firstSave.commit] },
                 untouchedSave: { byteIdenticalApartFromCommitId: true, commitIds: [saved.commit, untouched.commit] },
                 studyLookup: { imported: importedLookup, reordered: reorderedLookup },
             },
