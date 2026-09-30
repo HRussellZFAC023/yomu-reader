@@ -142,10 +142,12 @@ try {
         return {
             onboardingSeen: parsed.onboardingSeen === true,
             settingsVisible: Boolean(document.querySelector('.jpdb-reader-settings')),
+            settingsPanel: document.querySelector('.jpdb-reader-settings [data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? '',
             popoverVisible: Boolean(document.querySelector('.jpdb-reader-popover')),
         };
     }, YOMU_SETTINGS_KEY);
     assert(actionState.onboardingSeen && actionState.settingsVisible && !actionState.popoverVisible, 'Onboarding action word click did not open settings cleanly', actionState);
+    assert(actionState.settingsPanel === 'dictionaries', 'Keyless onboarding did not open the Dictionaries settings panel', actionState);
 
     const report = {
         ok: true,

@@ -233,6 +233,29 @@ function recordOpenedSettings(internals: Record<string, unknown>, calls: string[
     };
 }
 
+function prepareFreshHostedStudyOnboarding(calls: string[]): ReturnType<typeof prepareOrderedRuntime> {
+    vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+    storeRuntimeSettings({
+        onboardingSeen: false,
+        learningTargetChosen: false,
+        localDictionariesEnabled: false,
+    });
+    const prepared = prepareOrderedRuntime(calls);
+    recordOpenedSettings(prepared.internals, calls);
+    return prepared;
+}
+
+async function chooseJapaneseWithoutApiKey(): Promise<void> {
+    await vi.waitFor(() => {
+        expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')).not.toBeNull();
+    });
+    const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+    targetLanguage.value = 'ja';
+    targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')!.checked = false;
+    document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
+}
+
 describe('packaged Study welcome integration', () => {
     afterEach(() => {
         uninstallUserscriptGmStorageBridge();
@@ -413,29 +436,11 @@ describe('packaged Study welcome integration', () => {
     });
 
     it('opens post-onboarding dictionary settings only after the first Study render', async () => {
-        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
-        storeRuntimeSettings({
-            onboardingSeen: false,
-            learningTargetChosen: false,
-            localDictionariesEnabled: false,
-        });
         const calls: string[] = [];
-        const { runtime, internals } = prepareOrderedRuntime(calls);
-        internals.settingsDialog = {
-            open: vi.fn((panel: string) => { calls.push(`settings:${panel}`); }),
-            resumePendingCloudSettingsSync: vi.fn(async () => undefined),
-        };
+        const { runtime, internals } = prepareFreshHostedStudyOnboarding(calls);
 
         const initializing = runtime.init();
-        await vi.waitFor(() => {
-            expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')).not.toBeNull();
-        });
-        const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        targetLanguage.value = 'ja';
-        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
-        document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')!.checked = false;
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
-
+        await chooseJapaneseWithoutApiKey();
         await initializing;
 
         expect(calls).toEqual(['render', 'settings:dictionaries']);
@@ -444,6 +449,31 @@ describe('packaged Study welcome integration', () => {
         const storedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
         expect(storedSettings.learningTargetChosen).toBe(true);
         expect(storedSettings.languageProfiles[0]?.targetLanguage).toBe('ja');
+    });
+
+    it('opens post-onboarding settings when Study sees its own completed settings before dictionary styles load', async () => {
+        const calls: string[] = [];
+        const { runtime, internals } = prepareFreshHostedStudyOnboarding(calls);
+        // The runtime applies the completed settings (and echoes them into
+        // waitForCompletion) before its real dictionary-style refresh settles;
+        // the mocked render is instant, so the first Study render would win.
+        let releaseDictionaryStyles!: () => void;
+        const dictionaryStyles = new Promise<void>(resolve => { releaseDictionaryStyles = resolve; });
+        internals.refreshDictionaryStyles = vi.fn(() => dictionaryStyles);
+
+        const initializing = runtime.init();
+        await chooseJapaneseWithoutApiKey();
+        await vi.waitFor(() => {
+            expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
+        });
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+        releaseDictionaryStyles();
+        await initializing;
+
+        await vi.waitFor(() => {
+            expect(calls).toContain('settings:dictionaries');
+        });
+        expect(calls.indexOf('render')).toBeLessThan(calls.indexOf('settings:dictionaries'));
     });
 
     it('leaves fresh public Study inert when the chooser is dismissed', async () => {

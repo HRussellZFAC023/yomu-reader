@@ -469,8 +469,7 @@ export class OnboardingController {
 
     private dismiss(): void {
         this.close();
-        this.resolveCompletion?.();
-        this.resolveCompletion = undefined;
+        this.finishCompletionWaiter();
     }
 
     private syncYoutubeImmersionChoice(targetLanguage: string | null): void {
@@ -625,17 +624,25 @@ export class OnboardingController {
         openSettings: boolean | 'dictionaries',
         installOfflineDictionaries: boolean,
     ): Promise<void> {
+        // This commit owns the completion boundary. onComplete may echo these
+        // settings into waitForCompletion(), whose late-authority release
+        // would let Study render before the requested settings panel exists.
+        const finishCompletion = this.takeCompletionWaiter();
         this.close();
         await this.options.onComplete?.(settings);
         if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
         this.openPostOnboardingSettings(openSettings);
-        this.finishCompletionWaiter();
+        finishCompletion();
     }
 
     private finishCompletionWaiter(): void {
-        const resolve = this.resolveCompletion;
+        this.takeCompletionWaiter()();
+    }
+
+    private takeCompletionWaiter(): () => void {
+        const resolve = this.resolveCompletion ?? (() => undefined);
         this.resolveCompletion = undefined;
-        resolve?.();
+        return resolve;
     }
 
     private completedOnboardingSettings(
