@@ -635,7 +635,9 @@ async function installHostedStorageBridge(page, requestBridgeName) {
         css: readFileSync(CSS_PATH, 'utf8'),
         requestBridgeName,
         storagePrefix: GM_STORAGE_PREFIX,
-        initialize: 'ifMissing',
+        // A fresh install has no settings record, which is what lets it adopt
+        // the website's (ADR-0017); a bare {} would be a record to leave alone.
+        initialize: 'never',
     });
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.evaluate(readyEvent => {
@@ -708,7 +710,7 @@ function lateAuthorityCorsHeaders() {
 
 async function verifyDurableHostedSettings({ page, requests }) {
     const startedAt = Date.now();
-    const { localSave, localOnly } = await verifyLocalOnlyHostedSettings(page);
+    const { localSave } = await verifyLocalOnlyHostedSettings(page);
     const { afterPromotion, runtimeBridgeRequests } = await verifyLateBridgePromotion(
         page,
         requests,
@@ -718,7 +720,7 @@ async function verifyDurableHostedSettings({ page, requests }) {
     return {
         elapsedMs: Date.now() - startedAt,
         savedTheme: localSave.savedTheme,
-        pendingBeforeInstall: pendingHostedTheme(localOnly.local) === localSave.savedTheme,
+        websiteSaveAdoptedOnInstall: storedTheme(afterPromotion.gm) === localSave.savedTheme,
         gmSeparatedFromWebsiteKey: GM_SETTINGS_STORAGE_KEY !== YOMU_SETTINGS_KEY,
         runtimeBridgeGetRequests: runtimeBridgeRequests,
         promotedToGm: storedTheme(afterPromotion.gm) === localSave.savedTheme,
@@ -746,8 +748,10 @@ async function verifyLocalOnlyHostedSettings(page) {
     const localOnly = await readStorageState(page);
     assert(storedTheme(localOnly.local) === localSave.savedTheme,
         'Hosted settings save did not persist to website localStorage before installation', { localSave, localOnly });
-    assert(pendingHostedTheme(localOnly.local) === localSave.savedTheme,
-        'Bridge-less hosted save was not marked for later GM promotion', { localSave, localOnly });
+    // ADR-0017: a later install adopts the Website-only Store itself, so the
+    // save carries no pending-promotion marker (2.0 only strips old ones).
+    assert(pendingHostedPatch(localOnly.local) == null,
+        'Bridge-less hosted save wrote the retired pending-promotion marker', { localSave, localOnly });
     assert(localOnly.gm === null, 'Local-only settings leaked into the isolated GM namespace before installation', localOnly);
     return { localSave, localOnly };
 }
@@ -827,10 +831,6 @@ function storedTheme(settings) {
 
 function pendingHostedPatch(settings) {
     return settings ? settings.__yomuHostedPendingGmPatch : undefined;
-}
-
-function pendingHostedTheme(settings) {
-    return storedTheme(pendingHostedPatch(settings));
 }
 
 async function openSettings(page) {

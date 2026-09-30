@@ -786,6 +786,8 @@ function initGmBridge({
     window.GM = storageEnabled ? storageGmApi() : requestOnlyGmApi();
 
     function initializeStorage() {
+        // 'never' models a freshly installed Reader that has saved nothing yet.
+        if (initialize === 'never') return;
         if (initialize === 'ifMissing') {
             if (readStoredValue(key, undefined) === undefined) writeStoredValue(key, value);
             return;
