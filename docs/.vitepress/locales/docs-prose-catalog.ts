@@ -4675,6 +4675,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Practice': '練習',
     'tab builds saved practice from your current selection: Read words, Complete sentences, Write words, Listen and Speak. It leaves your scheduled reviews alone.': 'タブで現在の選択から練習を作って保存できます。種類は「単語を読む」「文の空欄を埋める」「単語を書く」「聞き取り」「発話」です。予定済みの復習には影響しません。',
     'Grades follow the service that schedules the card. JPDB records Nothing, Something, Hard, Okay or Easy. Anki and Jiten record Again, Hard, Good or Easy. A thumb-friendly two-button mode is available. Bunpro uses the choices its live session accepts.': '評価は、カードの予定を管理するサービスに従います。JPDBは「何も分からない」「少し分かる」「難しい」「OK」「簡単」を、AnkiとJitenは「もう一度」「難しい」「良い」「簡単」を記録します。親指で押しやすい2ボタンのモードもあります。Bunproでは有効なセッションが受け付ける選択肢を使います。',
+    'Grading "Again" on the last card in a Study session no longer shows that same card again straight away while other cards are still due.': 'Studyのセッションで最後のカードを「もう一度」と評価しても、ほかに期限のカードが残っている間は、同じカードがすぐにまた表示されなくなりました。',
+    'yomureader.com help and guide pages no longer download the 1.8 MB Reader in the background. Only pages with a live reading sample, such as the homepage, preload it.': 'yomureader.comのヘルプやガイドのページで、1.8 MBのReaderをバックグラウンドで読み込まなくなりました。先読みするのは、トップページのように読み物のサンプルがあるページだけです。',
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

@@ -5,6 +5,8 @@
 ### Fixed
 
 - If two Study tabs show the same card while you are online, only the first grade is sent. The other tab says "Already reviewed in another Study tab." and loads its next card instead of reviewing the card a second time. This covers grades made in the last hour.
+- Grading "Again" on the last card in a Study session no longer shows that same card again straight away while other cards are still due.
+- yomureader.com help and guide pages no longer download the 1.8 MB Reader in the background. Only pages with a live reading sample, such as the homepage, preload it.
 
 ## [2.0.0] - 2026-09-30
 
