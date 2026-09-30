@@ -205,8 +205,8 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
         await waitForExampleTranslations(popover, sourceExpectation(scenario, 'popover'));
         const dom = await popover.evaluate(summarizeSourceDom);
         assertSurface(scenario, dom, requests, 'popover');
-        const bunproMining = scenario.id === 'all-three-sources'
-            ? await minePopoverToBunpro(popover, requests)
+        const offhostMining = scenario.id === 'all-three-sources'
+            ? await assertOffhostPopoverMiningIsPrivate(popover, requests)
             : null;
         const wanikaniSource = popover.locator('.yomu-wanikani-source');
         if (await wanikaniSource.count()) await wanikaniSource.scrollIntoViewIfNeeded();
@@ -216,7 +216,7 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
         writeFileSync(domPath, JSON.stringify(dom, null, 2));
         return {
             dom,
-            bunproMining,
+            offhostMining,
             requests: summarizeRequests(requests),
             screenshot,
             domPath,
@@ -226,27 +226,30 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
     }
 }
 
-async function minePopoverToBunpro(popover, requests) {
+// Since 1.9.1 an ordinary page's popover carries no account-backed deck
+// choices: the deck picker, and the Bunpro option in it, lives on Yomu-owned
+// Study surfaces (unit-covered with a trusted renderer). Off-host, a popover
+// offers at most "Add to deck +" for the card's own enabled SRS; with
+// JPDB/Jiten mining off, this JPDB-backed page word has no such default.
+async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
     // The full card-data promise has a four-second fallback and can replace
-    // the initial shell. Wait it out so the fixture exercises the stable UI,
-    // then expand the same mining drawer a learner would use.
+    // the initial shell. Wait it out so the check reads the completed render.
     await popover.page().waitForTimeout(4_500);
-    await popover.locator('[data-action="mining-collapse"]').first().click({ force: true });
-    const add = popover.locator('.jpdb-reader-mining-title[data-action="deck-picker"]').first();
-    await add.waitFor({ state: 'visible', timeout: 10_000 });
-    await add.click();
-    const picker = popover.locator('[data-add-deck-select]').first();
-    await picker.waitFor({ state: 'visible', timeout: 10_000 });
-    await picker.selectOption('bunpro:bunpro');
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline && !requests.some(request => request.path === '/api/frontend/reviews/update_via_action_type')) {
-        await popover.page().waitForTimeout(50);
-    }
-    const update = requests.find(request => request.path === '/api/frontend/reviews/update_via_action_type');
-    assert(update, 'Generic popup did not submit Bunpro mining action', summarizeRequests(requests));
-    assert(update.body?.action_type === 'add' && JSON.stringify(update.body?.reviewables) === JSON.stringify([['Vocab', 77]]),
-        'Generic popup Bunpro mining payload was incorrect', update.body);
-    return { body: update.body };
+    const actions = await popover.evaluate(node => ({
+        actionBars: node.querySelectorAll('.jpdb-reader-actions').length,
+        loading: Boolean(node.querySelector('[data-card-details-loading]')),
+        bunproSource: Boolean(node.querySelector('[data-source="bunpro"]')),
+        deckAuthority: Array.from(
+            node.querySelectorAll('[data-add-deck-select], [data-action="deck-picker"], [data-deck-source], [data-deck-id]'),
+            control => control.outerHTML,
+        ),
+    }));
+    assert(actions.actionBars === 1 && !actions.loading && actions.bunproSource,
+        'Generic popup did not finish rendering its Bunpro card and actions', actions);
+    assert(actions.deckAuthority.length === 0, 'Generic popup exposed account-backed deck choices on an ordinary page', actions);
+    const bunproWrites = requests.filter(request => request.host === 'api.bunpro.jp' && request.method !== 'GET' && request.path.startsWith('/api/frontend/reviews/'));
+    assert(bunproWrites.length === 0, 'Generic popup changed Bunpro reviews without a learner action', summarizeRequests(bunproWrites));
+    return actions;
 }
 
 async function runSearchSurface(browser, fixture, scenario, settings) {
