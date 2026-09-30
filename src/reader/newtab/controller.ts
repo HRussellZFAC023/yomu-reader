@@ -9250,7 +9250,9 @@ export class NewTabController {
             this.playCardEnterTransition(root);
             return;
         }
-        this.index = Math.min(previousIndex, this.visibleWords.length - 1);
+        // The next card now sits where the failed one was; past the end, wrap
+        // to the first rather than land on the failed card at the back.
+        this.index = previousIndex < pool.length ? previousIndex : 0;
         this.renderWord(root, this.visibleWords[this.index]!);
         this.playCardEnterTransition(root);
     }

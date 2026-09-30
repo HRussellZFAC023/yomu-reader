@@ -446,6 +446,18 @@ describe('failed-card session loop (community ask)', () => {
             internals.index = 0;
             internals.advanceAfterGrade(root, nextCard, 'okay');
             expect(internals.allWords.map(item => item.spelling)).toEqual(['落第']);
+
+            // Failing the last card in the pool wraps to the first remaining
+            // card instead of showing the failed card again straight away.
+            const first = card('一', 3);
+            const last = card('終', 4);
+            internals.visibleWords = [first, last];
+            internals.allWords = [first, last];
+            internals.index = 1;
+            vi.mocked(internals.renderWord).mockClear();
+            internals.advanceAfterGrade(root, last, 'nothing');
+            expect(internals.visibleWords.map(item => item.spelling)).toEqual(['一', '終']);
+            expect(internals.renderWord).toHaveBeenCalledWith(root, first);
         } finally {
             controller.destroy();
         }
