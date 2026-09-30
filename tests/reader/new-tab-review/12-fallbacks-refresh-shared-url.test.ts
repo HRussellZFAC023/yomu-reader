@@ -1318,6 +1318,48 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
+    // Revealing a card turns Study's own URL into that card's portable link. An
+    // Anki grade then reloads the queue straight away, before any other card
+    // renders, and Anki has scheduled the graded card out of it: treating that
+    // self-written link as a shared one brought the graded card back.
+    it('does not bring a graded card back through the revealed-card URL Study wrote itself', async () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        window.history.replaceState(null, '', '/newtab/index.html');
+        const graded = newTabTestCard({ vid: 1, spelling: '順番', reading: 'じゅんばん', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const next = newTabTestCard({ vid: 2, spelling: '新規', reading: 'しんき', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const lookupStudyCard = vi.fn(async () => newTabTestCard({ vid: 88, spelling: '順番', reading: 'じゅんばん', source: 'jpdb' }));
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, newTabSource: 'jpdb', immersionKitEnabled: false }), { lookupStudyCard });
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+
+        try {
+            applySeededNewTabWords(controller, root, {
+                allWords: [graded, next],
+                sourceLabel: 'JPDB',
+                reviewCountMode: true,
+                state: { route: 'study', sort: 'random', filter: 'all', source: 'jpdb', revealAnswer: true },
+            });
+            expect(new URLSearchParams(location.hash.slice(1)).get('w')).toBe('順番');
+
+            await (controller as unknown as {
+                applyLoadedWords(
+                    root: HTMLElement,
+                    preferStoredWord: boolean,
+                    loadGeneration: number,
+                    result: { cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean },
+                    useOfflineCache: boolean,
+                    usedCachedWords: boolean,
+                    navigationGeneration: number,
+                ): Promise<void>;
+            }).applyLoadedWords(root, false, 0, { cards: [next], sourceLabel: 'JPDB', reviewCountMode: true }, false, false, 0);
+
+            expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['新規']);
+            expect(newTabPromptText(root)).toBe('新規');
+            expect(lookupStudyCard).not.toHaveBeenCalled();
+        } finally {
+            root.remove();
+        }
+    });
+
     it('does not turn a target-change lookup rejection into an ambient portable fallback card', async () => {
         localStorage.removeItem('jpdb-reader-newtab-ui');
         window.history.replaceState(null, '', `/newtab/index.html#card=${encodeURIComponent('999:1:図鑑:ずかん')}&w=${encodeURIComponent('図鑑')}&r=${encodeURIComponent('ずかん')}`);

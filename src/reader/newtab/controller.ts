@@ -109,9 +109,9 @@ import {
 } from './index';
 import { NEW_TAB_FILTERS, normalizeNewTabUiState, type SharedNewTabViewState } from './state';
 import {
+    isOwnStudyCardRoute,
     planStudyCardHistoryUpdate,
     readStudyCardRoute,
-    studyCardRouteSignature,
     type PortableStudyCardRoute,
     type StudyCardRoute,
 } from './study-card-route';
@@ -2876,7 +2876,8 @@ export class NewTabController {
 
     private async withPortableUrlCard(cards: JPDBCard[]): Promise<JPDBCard[]> {
         const identity = this.portableCardIdentityFromLocation();
-        if (!identity?.spelling || !this.isVocabularyStudyRoute()) return cards;
+        // Only an opened link adds its card: Study's own revealed-card route would bring a graded card back.
+        if (!identity?.spelling || !this.isVocabularyStudyRoute() || isOwnStudyCardRoute(location.href, this.lastSyncedCardRouteSignature)) return cards;
         if (cards.some(card => this.cardMatchesPortableIdentity(card, identity))) return cards;
         const card = await this.targetResources.lookupPortableCard(
             identity,
@@ -9763,8 +9764,7 @@ export class NewTabController {
         if (!this.isVocabularyStudyRoute()) return;
         const key = this.cardKeyFromLocation();
         if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
-        const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
-        if (routeSignature && routeSignature === this.lastSyncedCardRouteSignature) return;
+        if (isOwnStudyCardRoute(location.href, this.lastSyncedCardRouteSignature)) return;
         if (this.undoReviewForPopstate(root, key)) return;
         this.renderCardForPopstate(root, key);
     }

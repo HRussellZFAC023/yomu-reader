@@ -80,6 +80,15 @@ export function studyCardRouteSignature(route: StudyCardRoute | null): string {
         : `portable:${route.key}:${route.spelling}:${route.reading}`;
 }
 
+/**
+ * True while the URL still shows the card route Study itself last wrote. That
+ * route names the card on screen (or just graded), not a link someone opened.
+ */
+export function isOwnStudyCardRoute(href: string, lastWrittenRouteSignature: string): boolean {
+    const signature = studyCardRouteSignature(readStudyCardRoute(href));
+    return Boolean(signature) && signature === lastWrittenRouteSignature;
+}
+
 /** Decide the one history mutation needed for a card render, if any. */
 export function planStudyCardHistoryUpdate(input: {
     readonly href: string;
