@@ -15,7 +15,7 @@ import {
     createFactoryResetSignal,
     ManagedStateResetError,
     managedStateResetEpochMayHaveCommitted,
-    managedStoredKeysStillPresent,
+    managedStoredKeysLeftAfterReset,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
     type FactoryResetSignal,
@@ -150,7 +150,7 @@ export class FactoryResetCoordinator {
     }
 
     private async assertManagedStateDeleted(): Promise<void> {
-        const managedKeysStillPresent = await managedStoredKeysStillPresent();
+        const managedKeysStillPresent = await managedStoredKeysLeftAfterReset();
         if (!managedKeysStillPresent.length) return;
         log.warn('Managed keys remained after reset', { managedKeysStillPresent });
         throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(', ')}`);

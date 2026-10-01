@@ -680,6 +680,28 @@ describe('managed storage epoch boundary', () => {
         },
     );
 
+    // A save in another tab can write its claim back while the sweep runs, and
+    // its own next fence deletes it again: the reset sweeps claims alone again
+    // for a moment instead of failing (ADR-0019 decision 7).
+    it('sweeps again a lease claim written back during the reset, but reports anything else at once', async () => {
+        vi.useFakeTimers();
+        const values = new Map<string, unknown>();
+        installGmStore(values);
+        const resetting = await import('../../src/reader/app/storage');
+        await resetting.publishFactoryResetSignal(resetting.createFactoryResetSignal('prepare'));
+        await resetting.clearManagedStoredValues();
+        values.set('yomu:lease:local-yomu-srs-deck:written-back', { version: 1 });
+        await expect(resetting.managedStoredKeysStillPresent()).resolves.toEqual(['yomu:lease:local-yomu-srs-deck:written-back']);
+
+        const settled = resetting.managedStoredKeysLeftAfterReset();
+        await vi.advanceTimersByTimeAsync(1_000);
+        await expect(settled).resolves.toEqual([]);
+
+        values.set('yomu:lease:local-yomu-srs-deck:written-back', { version: 1 });
+        values.set('jpdb-reader-settings', {});
+        await expect(resetting.managedStoredKeysLeftAfterReset()).resolves.toEqual(['jpdb-reader-settings', 'yomu:lease:local-yomu-srs-deck:written-back']);
+    });
+
     it('does not resolve a lease operation while its pending renewal can still reject', async () => {
         vi.useFakeTimers();
         const values = new Map<string, unknown>();

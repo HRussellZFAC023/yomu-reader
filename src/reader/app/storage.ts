@@ -4,7 +4,7 @@ import {
     isPrivateManagedStorageKey,
     logicalManagedStorageKey,
 } from './managed-storage-keys';
-import { isPromiseLike } from '../core/async-utils';
+import { delay, isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
 import './managed-state-manifest';
@@ -36,7 +36,7 @@ import {
     managedLocalStorage, managedSessionStorage, managedLocalStorageKeys, managedWebStorageResetKeys,
 } from './managed-web-storage';
 import {
-    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId, fenceStorageLeaseWrite, isStorageLeaseLapsed,
+    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, STORAGE_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId, fenceStorageLeaseWrite, isStorageLeaseLapsed,
     withGmStorageLeaseCore, withManagedStateEpochControlLeaseCore, type GmStorageLeaseOptions,
 } from './gm-storage-lease';
 import { isManagedStorageBackupKey } from './managed-storage-backup-policy';
@@ -1136,6 +1136,29 @@ export async function managedStoredKeysStillPresent(): Promise<string[]> {
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
     return [...new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+}
+
+const RESET_LEASE_SETTLE_PASSES = 5;
+const RESET_LEASE_SETTLE_MS = 500;
+
+/**
+ * What a factory reset's sweep left. A save in another tab can write its lease
+ * claim back while the sweep runs; its next fence sees the reset and deletes
+ * it too (ADR-0019 decision 7), so claims alone are swept again for a few
+ * short passes. Anything else left is reported at once.
+ */
+export async function managedStoredKeysLeftAfterReset(): Promise<string[]> {
+    let left = await managedStoredKeysStillPresent();
+    for (let pass = 0; pass < RESET_LEASE_SETTLE_PASSES && onlyLeaseClaims(left); pass++) {
+        await delay(RESET_LEASE_SETTLE_MS);
+        for (const key of left) await deleteManagedStoredValue(key);
+        left = await managedStoredKeysStillPresent();
+    }
+    return left;
+}
+
+function onlyLeaseClaims(keys: readonly string[]): boolean {
+    return keys.length > 0 && keys.every(key => key.startsWith(STORAGE_LEASE_KEY_PREFIX));
 }
 
 /**
