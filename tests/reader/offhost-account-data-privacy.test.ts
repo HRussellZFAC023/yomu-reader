@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki';
+import { applyAnkiLookupToRenderedWord } from '../../src/reader/app/dom-helpers';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
@@ -13,6 +15,7 @@ import { renderedWordElementKey } from '../../src/reader/dom/rendered-word-state
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { reviewShortcutButton } from '../../src/reader/dom/review-shortcuts';
+import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { testCardActionController } from './jpdb/fixtures';
 
 const PRIVATE_DECK = 'Private::Deck Ω';
@@ -287,6 +290,198 @@ describe('offhost account-data privacy', () => {
         expect(trustedWord.classList.contains('jiten-due')).toBe(true);
     });
 });
+
+// ADR-0019: a colour source the learner chose must paint. On an ordinary page
+// the "Anki" channel paints the word's Anki state through the provider-neutral
+// review lane, and only Anki state reaches that lane.
+describe('offhost Anki colour channel', () => {
+    const READER_WORD_CSS = ['reader-words-ocr.css', 'subtitles-youtube.css']
+        .map(file => readFileSync(`src/reader/styles/${file}`, 'utf8'))
+        .join('\n');
+    const ankiTextColour: ReaderSettings = {
+        ...settings,
+        wordTextColorSource: 'anki',
+        wordHighlightColorSource: 'off',
+        wordUnderlineColorSource: 'off',
+    };
+    const jpdbUnknownCard: JPDBCard = { ...card, cardState: ['not-in-deck'] };
+    const STUDY_URL = 'https://yomureader.com/study/';
+
+    beforeEach(() => {
+        const style = document.createElement('style');
+        style.textContent = READER_WORD_CSS;
+        document.head.append(style);
+    });
+
+    afterEach(() => {
+        resetReaderRootClassGuardForTests();
+        document.head.replaceChildren();
+        document.documentElement.removeAttribute('class');
+        document.documentElement.removeAttribute('style');
+    });
+
+    it('paints an Anki-due word as due without naming the provider', () => {
+        applyReaderTheme(ankiTextColour);
+        const word = renderedWord(jpdbUnknownCard);
+
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        expect(rootValue('--jpdb-reader-state-due-readable')).toMatch(/^#[0-9a-f]{6}$/u);
+        expect(wordTextColour(word)).toBe(rootValue('--jpdb-reader-state-due-readable'));
+        expect(word.classList.contains('jpdb-due')).toBe(true);
+        expect(declaredCustomPropertyNames(word)).toContain('--jpdb-reader-review-color');
+        expectPageCarriesNoProviderIdentity(word);
+    });
+
+    it('keeps a due word only JPDB holds off the Anki channel', () => {
+        applyReaderTheme(ankiTextColour);
+        const word = renderedWord(card);
+
+        applyAnkiLookupToRenderedWord(word, { state: 'not-in-deck', notes: [], primary: null, trusted: true }, 'en');
+
+        expect(word.classList.contains('jpdb-due')).toBe(true);
+        expect(wordTextColour(word)).toBe('currentColor');
+        expectPageCarriesNoProviderIdentity(word);
+    });
+
+    it('drops the Anki colour with the Anki state', () => {
+        applyReaderTheme(ankiTextColour);
+        const word = renderedWord(jpdbUnknownCard);
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        applyAnkiLookupToRenderedWord(word, { state: 'not-in-deck', notes: [], primary: null, trusted: true }, 'en');
+
+        expect(word.classList.contains('jpdb-due')).toBe(false);
+        expect(wordTextColour(word)).toBe('currentColor');
+    });
+
+    it('paints an Anki-due subtitle word on the Anki subtitle channel', () => {
+        applyReaderTheme({ ...ankiTextColour, subtitleTextColorSource: 'anki', subtitleHighlightColorSource: 'off', subtitleUnderlineColorSource: 'off' });
+        const word = renderedWord(jpdbUnknownCard, 'jpdb-subtitle-row-text');
+
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        expect(resolveCssVariables(word, 'var(--jpdb-reader-subtitle-text)')).toBe(rootValue('--jpdb-reader-state-due-readable'));
+        expectPageCarriesNoProviderIdentity(word);
+    });
+
+    it('keeps the Anki colour, unnamed, when a later empty lookup must not clear it', () => {
+        applyReaderTheme(ankiTextColour);
+        const word = renderedWord(jpdbUnknownCard);
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        applyAnkiLookupToRenderedWord(word, { state: 'not-in-deck', notes: [], primary: null, trusted: true }, 'en', { preserveExistingEmpty: true });
+
+        expect(wordTextColour(word)).toBe(rootValue('--jpdb-reader-state-due-readable'));
+        expectPageCarriesNoProviderIdentity(word);
+    });
+
+    it('keeps Study on its Anki classes and colours', () => {
+        vi.stubGlobal('location', { href: STUDY_URL });
+        applyReaderTheme(ankiTextColour);
+        const word = renderedWord(jpdbUnknownCard);
+
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        expect(word.classList.contains('anki-due')).toBe(true);
+        expect(word.classList.contains('jpdb-due')).toBe(false);
+        expect(word.dataset.ankiState).toBe('due');
+        expect(word.title).toBe(`Anki: Due (${PRIVATE_DECK})`);
+        expect(wordTextColour(word)).toBe(rootValue('--jpdb-reader-state-due-readable'));
+    });
+
+    function renderedWord(wordCard: JPDBCard, containerClass = 'yomu-test-page-text'): HTMLElement {
+        const token = {
+            card: wordCard,
+            start: 0,
+            end: wordCard.spelling.length,
+            length: wordCard.spelling.length,
+            rubies: [],
+            pitchClass: 'heiban',
+            sentence: wordCard.spelling,
+        };
+        const container = document.createElement('div');
+        container.className = containerClass;
+        setInnerHtml(container, renderTokensToHtml(wordCard.spelling, [token], ankiTextColour));
+        document.body.replaceChildren(container);
+        return container.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    }
+});
+
+function rootValue(name: string): string {
+    return document.documentElement.style.getPropertyValue(name).trim();
+}
+
+// jsdom loads no layout but does cascade custom properties from a stylesheet;
+// it never substitutes var(), so resolve the colour-source chain the way the
+// browser would to judge what the word paints.
+function wordTextColour(word: HTMLElement): string {
+    return resolveCssVariables(word, 'var(--jpdb-reader-word-color-source)');
+}
+
+function resolveCssVariables(element: HTMLElement, value: string): string {
+    const start = value.indexOf('var(');
+    if (start < 0) return value.trim();
+    const end = matchingParenthesis(value, start + 3);
+    const [name, fallback] = splitVarArguments(value.slice(start + 4, end));
+    const declared = inheritedCustomProperty(element, name);
+    const replacement = declared ? resolveCssVariables(element, declared) : resolveCssVariables(element, fallback ?? '');
+    return resolveCssVariables(element, `${value.slice(0, start)}${replacement}${value.slice(end + 1)}`);
+}
+
+function matchingParenthesis(value: string, open: number): number {
+    let depth = 0;
+    for (let index = open; index < value.length; index += 1) {
+        if (value[index] === '(') depth += 1;
+        if (value[index] === ')' && --depth === 0) return index;
+    }
+    throw new Error(`Unbalanced var() in ${value}`);
+}
+
+function splitVarArguments(args: string): [string, string | undefined] {
+    const comma = args.indexOf(',');
+    return comma < 0 ? [args.trim(), undefined] : [args.slice(0, comma).trim(), args.slice(comma + 1)];
+}
+
+function inheritedCustomProperty(element: Element, name: string): string {
+    for (let node: Element | null = element; node; node = node.parentElement) {
+        const value = (node instanceof HTMLElement ? node.style.getPropertyValue(name) : '')
+            || getComputedStyle(node).getPropertyValue(name);
+        if (value.trim()) return value.trim();
+    }
+    return '';
+}
+
+// Everything an ordinary page can read about the word: its markup, the root
+// classes and inline style Yomu sets on <html>, and the custom properties the
+// reader stylesheet declares on the word.
+function expectPageCarriesNoProviderIdentity(word: HTMLElement): void {
+    const root = document.documentElement;
+    const pageReadable = [
+        document.body.outerHTML,
+        root.className,
+        root.getAttribute('style') ?? '',
+        ...declaredCustomPropertyNames(word),
+    ].join('\n');
+    expect(pageReadable).not.toMatch(/anki/i);
+    for (const secret of [PRIVATE_DECK, PRIVATE_MODEL, '909090', '808080', '112233']) {
+        expect(pageReadable).not.toContain(secret);
+    }
+}
+
+function declaredCustomPropertyNames(element: HTMLElement): string[] {
+    return [...document.styleSheets].flatMap(sheet => [...sheet.cssRules])
+        .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && safeMatches(element, rule.selectorText))
+        .flatMap(rule => rule.style.cssText.match(/--[\w-]+(?=\s*:)/gu) ?? []);
+}
+
+function safeMatches(element: HTMLElement, selector: string): boolean {
+    try {
+        return element.matches(selector);
+    } catch {
+        return false;
+    }
+}
 
 function popupRenderer(trusted: boolean, selectedSettings = settings): CardPopoverRenderer {
     return new CardPopoverRenderer({

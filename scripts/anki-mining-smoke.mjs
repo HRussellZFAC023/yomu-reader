@@ -254,18 +254,19 @@ const STUDY_LAUNCHER_SELECTOR ='.jpdb-reader-popover [data-account-private-launc
 const PRIVATE_ANKI_DETAIL_TERMS = ['Mining', 'よむ Japanese', 'to read', '今日は本を読む', '12 reviews'];
 // Anki on an ordinary page (the reader fixtures). Since 1.9.1 the page owns
 // this DOM, so Anki account detail stays off it
-// (tests/reader/offhost-account-data-privacy.test.ts): a word's Anki state is
-// projected into the provider-neutral jpdb-* state family plus
-// yomu-deck-member, the existing-card section is one Study launcher, and one
-// "Add to deck +" reaches the learner's default destination. Merge, edit and
-// the rendered card live on Study.
+// (tests/reader/offhost-account-data-privacy.test.ts, ADR-0019): a word's Anki
+// state is projected into the provider-neutral jpdb-* state family plus
+// yomu-deck-member, and onto the provider-neutral review lane
+// (yomu-review-<state>) that the "Anki" colour channel paints. The
+// existing-card section is one Study launcher, and one "Add to deck +" reaches
+// the learner's default destination. Merge, edit and the rendered card live on
+// Study.
 const ORDINARY_PAGE_ANKI_SETTINGS = {
     // Anki is that default destination while JPDB mining is off.
     jpdbMiningEnabled: false,
     ankiSectionEnabled: true,
-    // Off-host the Anki colour channel cannot tell Anki state from JPDB state
-    // (both paint through the neutral family), so use the neutral channel.
-    wordTextColorSource: 'status',
+    // "Text colour: Anki", the default, must paint the Anki state here too.
+    wordTextColorSource: 'anki',
 };
 const MOBILE_HANDOFF_SETTINGS = {
     ...ORDINARY_PAGE_ANKI_SETTINGS,
@@ -603,16 +604,50 @@ function assertRenderedStatePreserved(before, after, interaction) {
         `${interaction} replaced the Anki state colour with native page text`, { before, after });
 }
 
-// The Anki card is due and in a deck; off-host both are told with the
+// The Anki card is due and in a deck; off-host all three are told with the
 // provider-neutral classes only.
 function hasProjectedAnkiDueState(word) {
-    return word.classes.includes('jpdb-due') && word.classes.includes('yomu-deck-member');
+    return ['jpdb-due', 'yomu-review-due', 'yomu-deck-member'].every(className => word.classes.includes(className));
 }
 
 function exposesAnkiProvider(word) {
     return Boolean(word.state)
-        || word.classes.some(className => className.startsWith('anki-'))
+        || word.attributes.some(attribute => /anki/i.test(attribute))
         || word.title.startsWith('Anki');
+}
+
+// "Text colour: Anki" paints the Anki-due word with the due colour and leaves
+// a word Anki holds no card for in the page's own colour; nothing the page can
+// read on <html> or on the words names Anki.
+function assertAnkiTextColourPaints(paint) {
+    assert(paint.rootClasses.includes('jpdb-reader-word-text-review'), 'Text colour: Anki did not select the review lane', paint);
+    assert(paint.reading.colorSource.toLowerCase() === paint.dueColor.toLowerCase(), 'Text colour: Anki did not paint the Anki-due word with the due colour', paint);
+    assert(paint.reading.color !== paint.reading.parentColor, 'The Anki-due word kept the page text colour', paint);
+    assert(paint.withoutCard.colorSource.toLowerCase() === 'currentcolor', 'Text colour: Anki painted a word Anki holds no card for', paint);
+    assert(paint.withoutCard.color === paint.withoutCard.parentColor, 'A word Anki holds no card for lost the page text colour', paint);
+    assert(!/anki/i.test(paint.rootClasses) && !paint.ankiMentions.length, 'The ordinary page named Anki in its colour classes or word attributes', paint);
+}
+
+function readAnkiTextColourPaint() {
+    const words = [...document.querySelectorAll('main .jpdb-reader-word')];
+    const paint = expression => {
+        const word = words.find(element => element.dataset.expression === expression);
+        if (!(word instanceof HTMLElement)) return null;
+        return {
+            classes: word.className,
+            colorSource: getComputedStyle(word).getPropertyValue('--jpdb-reader-word-color-source').trim(),
+            color: getComputedStyle(word).color,
+            parentColor: getComputedStyle(word.parentElement ?? word).color,
+        };
+    };
+    return {
+        rootClasses: document.documentElement.className,
+        dueColor: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-state-due-readable').trim(),
+        reading: paint('読む'),
+        withoutCard: paint('今日'),
+        ankiMentions: words.flatMap(word => [...word.attributes].map(attribute => `${attribute.name}=${attribute.value}`))
+            .filter(text => /anki/i.test(text)),
+    };
 }
 
 function assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, interaction) {
@@ -657,7 +692,7 @@ async function waitForDueReadingWordState(page) {
     await page.waitForFunction(() => {
         const word = [...document.querySelectorAll('.jpdb-reader-word')]
             .find(element => element.dataset.expression === '読む' && (element.textContent ?? '').includes('読'));
-        return word instanceof HTMLElement && word.classList.contains('jpdb-due') && word.classList.contains('yomu-deck-member');
+        return word instanceof HTMLElement && ['jpdb-due', 'yomu-review-due', 'yomu-deck-member'].every(className => word.classList.contains(className));
     }, null, { timeout: 12000 });
 }
 
@@ -679,6 +714,7 @@ function readRenderedWordState(word) {
         accessibleColor: getComputedStyle(element).getPropertyValue('--jpdb-reader-word-accessible-color').trim(),
         style: element.getAttribute('style') ?? '',
         title: element.title,
+        attributes: [...element.attributes].map(attribute => `${attribute.name}=${attribute.value}`),
     }));
 }
 
@@ -735,6 +771,8 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         requests: initialAnkiRequests,
     } = ankiRequestSnapshot(requests);
     const statusStorage = await readAnkiStatusStorage(page);
+    const ankiTextColour = await page.evaluate(readAnkiTextColourPaint);
+    assertAnkiTextColourPaints(ankiTextColour);
 
     const beforeHover = await readRenderedWordState(knownWord);
     const hoverStartedAt = Date.now();
@@ -790,6 +828,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     return {
         firstAnkiColorMs,
         hoverHydrationMs,
+        ankiTextColour,
         statusStorage,
         studyUrl,
         initialAnkiActions,
@@ -832,7 +871,7 @@ function localRootReaderState() {
     return {
         path: location.pathname,
         renderedWords: document.querySelectorAll('main .jpdb-reader-word').length,
-        projectedAnkiDueWords: document.querySelectorAll('main .jpdb-reader-word.jpdb-due.yomu-deck-member').length,
+        projectedAnkiDueWords: document.querySelectorAll('main .jpdb-reader-word.jpdb-due.yomu-review-due.yomu-deck-member').length,
         exposedAnkiWords: document.querySelectorAll('main .jpdb-reader-word:is([data-anki-state], [class*="anki-"])').length,
         reading: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.dataset.reading ?? '',
         surface: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.textContent ?? '',

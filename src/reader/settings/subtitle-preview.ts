@@ -1,6 +1,7 @@
 import type { ReaderColorSource } from '../app/types';
 import { DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_SETTINGS, accentToRgba, sanitizeAccentColor } from './index';
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption } from './form-read';
+import { colorSourceClassName } from '../theme/color-source-classes';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 
@@ -58,7 +59,7 @@ function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLEle
     };
     (Object.keys(classes) as Array<keyof typeof classes>).forEach(channel => {
         COLOR_SOURCE_CLASS_VALUES.forEach(source => {
-            preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
+            preview.classList.toggle(colorSourceClassName('subtitle', channel, source), classes[channel] === source);
         });
     });
 }

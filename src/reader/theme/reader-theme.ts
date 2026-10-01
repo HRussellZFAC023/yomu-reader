@@ -11,6 +11,7 @@ import {
 } from '../settings/index';
 import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
+import { colorSourceClassName } from './color-source-classes';
 import { READER_THEME_COLOR_TOKENS } from './color-tokens';
 import type { ReaderColorSource, ReaderSettings } from '../app/types';
 
@@ -76,7 +77,7 @@ function toggleClassIfChanged(root: HTMLElement, className: string, enabled: boo
 // silently strips every reader root class. Inline style (the theme colour vars)
 // survives, so words keep their state and furigana renders, but the colour /
 // underline / highlight CHANNELS die: those rules key off ancestor classes such
-// as `.jpdb-reader-word-text-anki`. Re-assert the reader root classes whenever
+// as `.jpdb-reader-word-text-review`. Re-assert the reader root classes whenever
 // the host clobbers them so decoration survives the rewrite. Scoped to the real
 // document root (never the settings-preview container) and a no-op everywhere a
 // host never touches <html class>.
@@ -215,7 +216,7 @@ function readerPitchColors(settings: ReaderSettings): Record<string, { color: st
 function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subtitle', sources: ColorSourceMap): void {
     COLOR_CHANNELS.forEach(channel => {
         COLOR_SOURCE_CLASSES.forEach(source => {
-            toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+            toggleClassIfChanged(root, colorSourceClassName(scope, channel, source), sources[channel] === source);
         });
     });
 }

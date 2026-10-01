@@ -49,7 +49,7 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; display: inline !important; white-space: inherit; word-break: inherit; overflow-wrap: inherit !important; line-break: inherit; cursor: inherit; }');
         expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word { white-space: inherit; }');
         expect(normalizedReaderWordsOcrCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-atomic="true"]) .jpdb-reader-passive-word { white-space: nowrap; }');
-        expect(normalizedReaderWordsOcrCss).toContain(':is( .jpdb-reader-word-highlight-status, .jpdb-reader-word-highlight-jpdb, .jpdb-reader-word-highlight-anki, .jpdb-reader-word-highlight-pitch ) .jpdb-reader-word { --jpdb-reader-word-highlight-paint:');
+        expect(normalizedReaderWordsOcrCss).toContain(':is( .jpdb-reader-word-highlight-status, .jpdb-reader-word-highlight-jpdb, .jpdb-reader-word-highlight-review, .jpdb-reader-word-highlight-pitch ) .jpdb-reader-word { --jpdb-reader-word-highlight-paint:');
         expect(normalizedReaderWordsOcrCss).not.toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word');
     });
 

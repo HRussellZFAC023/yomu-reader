@@ -1103,7 +1103,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-underline-status')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-pitch')).toBe(false);
-        expect(root.classList.contains('jpdb-reader-subtitle-highlight-anki')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-review')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(true);
         expect(root.style.getPropertyValue('--jpdb-reader-accent')).toBe('#336699');
         expect(root.style.getPropertyValue('--jpdb-reader-accent-readable')).toMatch(/^#[0-9a-f]{6}$/);

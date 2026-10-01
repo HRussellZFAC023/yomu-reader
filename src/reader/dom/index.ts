@@ -4192,14 +4192,14 @@ function removeAttributeIfPresent(element: HTMLElement, name: string): void {
     element.removeAttribute(name);
 }
 
-type AdditiveDecorationSource = 'status' | 'jpdb' | 'anki' | 'pitch';
-const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'anki', 'pitch'];
+type AdditiveDecorationSource = 'status' | 'jpdb' | 'review' | 'pitch';
+const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'review', 'pitch'];
 const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => source !== 'pitch');
 
 // A document-root mode selector cannot cross into an open shadow root. The
 // shadow stylesheet supplies the word/state variables, while this small inline
 // contract supplies the active channel to the shared synthetic underline.
-// Source order deliberately matches the stylesheet cascade (pitch is last).
+// Sources are root-class tokens (theme/color-source-classes) in cascade order (pitch last).
 function styleAdditiveMirrorPaint(root: HTMLElement, projectedWordsOnly = false): void {
     if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
     setInlineStyleIfChanged(root, '-webkit-text-fill-color', 'transparent', 'important');

@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { projectAdditiveTextMirror } from '../../src/reader/dom';
 import { stableCssPixels } from '../../src/reader/dom/inline-style';
+import { colorSourceClassName } from '../../src/reader/theme/color-source-classes';
 
 function rect(left: number, top = 50, width = 40, height = 16): DOMRect {
     return {
@@ -262,6 +264,28 @@ describe('additive text-mirror source projection', () => {
             expect(word.style.position).toBe('');
         } finally {
             document.documentElement.classList.remove('jpdb-reader-word-underline-pitch');
+        }
+    });
+
+    // Ordinary pages read the mirror word's inline style, so the Anki colour
+    // channel reaches it as the provider-neutral review lane (ADR-0019).
+    it('bridges the Anki colour channel onto mirror words as the review lane', () => {
+        const { host, mirror, word } = scene();
+        const channels = (['underline', 'highlight'] as const).map(channel => colorSourceClassName('word', channel, 'anki'));
+        document.documentElement.classList.add(...channels);
+        sourceRects = [rect(120)];
+
+        try {
+            projectAdditiveTextMirror(mirror, host);
+
+            expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source')).toBe('var(--jpdb-reader-source-review-decoration, transparent)');
+            expect(word.style.getPropertyValue('--jpdb-reader-mirror-status-soft')).toBe('var(--jpdb-reader-source-review-soft, transparent)');
+            expect(`${document.documentElement.className} ${word.getAttribute('style')}`).not.toMatch(/anki/iu);
+            const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+            expect(css).toContain('--jpdb-reader-source-review-decoration:');
+            expect(css).toContain('--jpdb-reader-source-review-soft:');
+        } finally {
+            document.documentElement.classList.remove(...channels);
         }
     });
 

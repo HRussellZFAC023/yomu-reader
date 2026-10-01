@@ -123,11 +123,11 @@ function hasAnkiAccessibleWordColor(word: HTMLElement): boolean {
 
 function preserveExistingAnkiContrast(word: HTMLElement, hasAccessibleColor: boolean, hasInlineTextColor: boolean): boolean {
     const preserve = [
-        word.dataset.ankiPreserveContrast === 'true',
+        word.dataset.yomuPreserveContrast === 'true',
         hasAccessibleColor,
         !hasInlineTextColor,
     ].every(Boolean);
-    if (preserve) delete word.dataset.ankiPreserveContrast;
+    if (preserve) delete word.dataset.yomuPreserveContrast;
     return preserve;
 }
 

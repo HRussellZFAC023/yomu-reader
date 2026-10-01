@@ -1085,10 +1085,12 @@
 
 /* Status boxes on the baked sample appear only when the viewer's runtime has
    a real status source (Jiten/JPDB key or Anki) — mirrors what the live
-   annotation channel would paint. */
+   annotation channel would paint. The Anki channel's root class ends in
+   -review; an older installed Reader still sets -anki. */
 :is(
   .jpdb-reader-word-highlight-status,
   .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-highlight-review,
   .jpdb-reader-word-highlight-anki
 ) .yomu-try-me-sample .jpdb-reader-word {
   --yomu-demo-status-highlight: color-mix(in srgb, var(--yomu-demo-status-color, var(--vp-c-brand-2)) 14%, transparent);

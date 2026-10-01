@@ -460,7 +460,7 @@ describe('settings form localization', () => {
         const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]')!;
         expect(preview.classList.contains('jpdb-reader-subtitle-highlight-status')).toBe(true);
         expect(preview.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
-        expect(preview.classList.contains('jpdb-reader-subtitle-text-anki')).toBe(true);
+        expect(preview.classList.contains('jpdb-reader-subtitle-text-review')).toBe(true);
         expect(previewWords.length).toBeGreaterThan(0);
         expect(previewWords.every(word => word.tabIndex === -1)).toBe(true);
         expect(dictionaryStatus.getAttribute('role')).toBe('status');
