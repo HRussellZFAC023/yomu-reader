@@ -191,24 +191,13 @@ it('counts a word saved from the Study lookup popup in Stats and the Library the
         controller.refreshBrowseAfterCardMutation();
         openView(root, 'stats');
         await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
+        // A save that lands while Stats is open (a grade still being written,
+        // say) shows there at once, and does not leave Stats loading.
+        await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('3'));
         savedTile(root)!.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
         expect(libraryAddToReview(root, '読む')).not.toBeNull();
-    } finally { controller.destroy(); }
-});
-
-// A save that lands while Stats is open (a grade still being written, say)
-// shows there without leaving it, and does not leave Stats loading.
-it('recounts an open Stats when Academy changes in this tab', async () => {
-    setActiveLearningTargetLanguage('ja');
-    const repository = new LocalYomuSrsRepository();
-    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
-    const controller = academyStatsController(repository);
-    try {
-        const root = await renderLoadedApiStats(controller);
-        expect(metric(root, 'Saved')).toBe('1');
-        await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
-        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
     } finally { controller.destroy(); }
 });
 

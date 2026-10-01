@@ -158,11 +158,13 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
 // Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
 function newTabLookupProviderStatusLabel(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
     if (!provider?.hasApiKey) return '';
-    const academy = provider.id === 'yomu-local';
-    if (academy && card.source !== 'yomu-local' && card.reviewSource !== 'yomu-local') return '';
-    // Academy keeps a word saved but not in review "in deck"; Library and Stats call it "Saved".
-    const label = academy && state === 'in-deck' ? newTabText(settings.interfaceLanguage, 'savedWord') : cardStateLabel(state, settings.interfaceLanguage);
-    return `${provider.label} ${label}`;
+    if (provider.id === 'yomu-local' && card.source !== 'yomu-local' && card.reviewSource !== 'yomu-local') return '';
+    return `${provider.label} ${providerStateLabel(provider, state, settings.interfaceLanguage)}`;
+}
+
+// Academy keeps a word saved but not in review "in deck"; Library and Stats call it "Saved".
+function providerStateLabel(provider: ApiSrsProviderView, state: string, language: InterfaceLanguage): string {
+    return provider.id === 'yomu-local' && state === 'in-deck' ? newTabText(language, 'savedWord') : cardStateLabel(state, language);
 }
 
 function newTabLookupAnkiStatusLabel(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
