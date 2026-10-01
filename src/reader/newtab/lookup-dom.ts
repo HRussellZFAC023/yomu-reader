@@ -157,9 +157,13 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
 // Main-popover parity: name the SRS the grade buttons act on (JPDB, Jiten or
 // Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
 function newTabLookupProviderStatusLabel(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
-    if (!provider?.hasApiKey) return '';
-    if (provider.id === 'yomu-local' && card.source !== 'yomu-local' && card.reviewSource !== 'yomu-local') return '';
+    if (!provider?.hasApiKey || !providerOwnsCard(provider, card)) return '';
     return `${provider.label} ${providerStateLabel(provider, state, settings.interfaceLanguage)}`;
+}
+
+// Academy is named only on a card it holds.
+function providerOwnsCard(provider: ApiSrsProviderView, card: JPDBCard): boolean {
+    return provider.id !== 'yomu-local' || card.source === 'yomu-local' || card.reviewSource === 'yomu-local';
 }
 
 // Academy keeps a word saved but not in review "in deck"; Library and Stats call it "Saved".
