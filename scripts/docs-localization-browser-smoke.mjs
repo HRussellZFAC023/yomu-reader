@@ -67,6 +67,7 @@ try {
     });
     page.on('pageerror', error => {
         pageErrors.push(error.stack || error.message);
+        console.error(`[page error] ${error.stack || error.message}`);
         if (isVueHydrationWarning(error.message)) hydrationMessages.push(error.message);
     });
 
@@ -398,7 +399,24 @@ async function assertHostedRuntimeOrder(page, { surface, annotationSelector, loo
     );
     if (surface === 'Academy') await assertAcademyRuntimeRevision(page);
     const annotatedWord = page.locator(annotationSelector).first();
-    await annotatedWord.waitFor({ state: 'visible', timeout: 20_000 });
+    await annotatedWord.waitFor({ state: 'visible', timeout: 20_000 }).catch(async error => {
+        // Say why the runtime did not annotate, instead of only that it timed out.
+        const state = await page.evaluate(selector => {
+            const owner = document.getElementById('jpdb-reader-runtime-owner');
+            const surface = document.querySelector('[data-yomu-runtime-surface]');
+            return {
+                url: location.href,
+                health: owner?.getAttribute('data-yomu-runtime-health') ?? null,
+                missingServices: owner?.getAttribute('data-yomu-runtime-missing-services') ?? null,
+                initialized: Boolean(window.__yomuReaderAppInitialized),
+                readerWords: document.querySelectorAll('.jpdb-reader-word').length,
+                matching: document.querySelectorAll(selector).length,
+                surfaceText: surface?.textContent?.slice(0, 80) ?? null,
+                surfaceHtml: surface?.outerHTML.slice(0, 300) ?? null,
+            };
+        }, annotationSelector).catch(probeError => ({ probeError: String(probeError) }));
+        throw new Error(`${surface} was not annotated: ${JSON.stringify(state)}`, { cause: error });
+    });
     if (!lookupExpression) return;
     await assertOwnedHoverLookup(page, annotatedWord, annotationSelector, lookupExpression);
     await page.keyboard.press('Escape');
