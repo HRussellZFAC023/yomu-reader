@@ -16,10 +16,21 @@ function savedTile(root: HTMLElement): HTMLButtonElement | null {
     return root.querySelector<HTMLButtonElement>('.jpdb-reader-stats-metric-link');
 }
 
-function libraryAddToReview(root: HTMLElement, expression: string): HTMLButtonElement | null {
+function libraryRow(root: HTMLElement, expression: string): HTMLElement | undefined {
     return [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-item')]
-        .find(row => row.querySelector(`[data-expression="${expression}"]`))
-        ?.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]') ?? null;
+        .find(row => row.querySelector(`[data-expression="${expression}"]`));
+}
+
+function libraryAddToReview(root: HTMLElement, expression: string): HTMLButtonElement | null {
+    return libraryRow(root, expression)?.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]') ?? null;
+}
+
+function libraryState(root: HTMLElement, expression: string): string {
+    return libraryRow(root, expression)?.querySelector('.jpdb-reader-newtab-browse-state')?.textContent?.trim() ?? '';
+}
+
+function pressedChips(root: HTMLElement): string[] {
+    return [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-chip[aria-pressed="true"]')].map(chip => chip.textContent ?? '');
 }
 
 function openView(root: HTMLElement, mode: 'search' | 'stats'): void {
@@ -148,11 +159,14 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
             return button!;
         });
         expect(root.classList.contains('jpdb-reader-newtab-search-mode')).toBe(true);
+        // Library names the words as Stats did, and shows Academy's words.
+        expect([libraryState(root, '読む'), libraryState(root, '書く')]).toEqual(['Saved', 'Saved']);
+        expect(pressedChips(root)).toEqual(['Academy 2', 'All 2']);
         addToReview.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).toBeNull());
         expect(libraryAddToReview(root, '書く')).not.toBeNull();
 
-        root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="stats"]')!.click();
+        openView(root, 'stats');
         await vi.waitFor(() => expect(metric(root, 'Cards')).toBe('1'));
         expect(metric(root, 'Saved')).toBe('1');
     } finally { controller.destroy(); }
@@ -177,6 +191,41 @@ it('leaves Academy out of Stats while Academy is turned off', async () => {
         openView(root, 'search');
         await vi.waitFor(() => expect(root.querySelector('[data-newtab-search-results] .jpdb-reader-newtab-search-empty')).not.toBeNull());
         expect(root.querySelector('.jpdb-reader-newtab-browse-item')).toBeNull();
+    } finally { controller.destroy(); }
+});
+
+// The tile promises the saved words, so Library must show them even when the
+// learner narrowed it earlier with a state chip or a search.
+it('opens Library on the saved words whatever chip or search narrowed it before', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.review({ card: read.card!, grade: 'good' });
+    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+    const controller = academyStatsController(repository);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        openView(root, 'search');
+        const learning = await vi.waitFor(() => {
+            const chip = root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-filter"][data-browse-filter="learning"]');
+            expect(chip).not.toBeNull();
+            return chip!;
+        });
+        learning.click();
+        await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).toBeNull());
+        // A search the learner left in Library, as a shared search link leaves one.
+        (controller as unknown as { searchController: { setInitialQuery(query: string): void } }).searchController.setInitialQuery('読');
+        openView(root, 'stats');
+        await vi.waitFor(() => expect(savedTile(root)).not.toBeNull());
+
+        savedTile(root)!.click();
+        await vi.waitFor(() => {
+            expect(libraryAddToReview(root, '書く')).not.toBeNull();
+            expect(libraryAddToReview(root, '見る')).not.toBeNull();
+        });
+        expect(pressedChips(root)).toEqual(['Academy 3', 'All 3']);
+        expect(root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.value).toBe('');
     } finally { controller.destroy(); }
 });
 
@@ -221,14 +270,21 @@ it('counts Academy words of the active learning target only', async () => {
     expect([metric(spanish, 'Due now'), metric(spanish, 'Cards'), metric(spanish, 'Saved')]).toEqual(['1', '1', '2']);
 });
 
-it('labels the Saved tile in Japanese', async () => {
+it('labels the Saved tile, and the Library rows it opens, in Japanese', async () => {
     setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
 
-    const root = await loadAcademyStats(repository, 'ja');
-    expect(metric(root, '保存済み')).toBe('1');
-    expect(savedTile(root)?.textContent).toContain('単語帳で復習に追加できます');
-    expect(root.textContent).not.toContain('未翻訳');
-    expect(root.textContent).not.toContain('Add to review in Library');
+    const controller = academyStatsController(repository, 'ja');
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(metric(root, '保存済み')).toBe('1');
+        expect(savedTile(root)?.textContent).toContain('単語帳で復習に追加できます');
+        expect(root.textContent).not.toContain('未翻訳');
+        expect(root.textContent).not.toContain('Add to review in Library');
+        // Library, opened from the tile, uses the same word for these words.
+        savedTile(root)!.click();
+        await vi.waitFor(() => expect(libraryState(root, '読む')).toBe('保存済み'));
+        expect(root.textContent).not.toContain('未翻訳');
+    } finally { controller.destroy(); }
 });

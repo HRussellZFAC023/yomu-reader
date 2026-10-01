@@ -269,7 +269,10 @@ class Journey {
         await page.keyboard.press('Enter');
         await waitForLibraryRows(page, 2);
         const library = await listedLibraryRows(page);
-        assert(library.length === 2 && library.every(row => row.addToReview), 'The Saved tile did not open Library on the saved words', library);
+        assert(library.length === 2 && library.every(row => row.addToReview && row.label === 'Saved'),
+            'The Saved tile did not open Library on the saved words, named as Stats names them', library);
+        const libraryChips = await page.locator('.jpdb-reader-newtab-browse-source-chips [aria-pressed="true"]').allTextContents();
+        assert(libraryChips.length === 1 && /^Academy 2$/u.test(libraryChips[0].trim()), 'The Saved tile did not open Library on Academy words', { libraryChips });
         await libraryRow(page, WORDS.read.surface).locator('[data-newtab-action="browse-start-review"]').click();
         await waitForToast(page, /Added to review/u);
         await page.waitForFunction(({ enrolled, saved }) => {
@@ -309,7 +312,8 @@ class Journey {
             studyCardBeforeAdding: before.prompt,
             statsBeforeAdding: savedBefore,
             savedTileAria,
-            libraryFromSavedTile: library.map(row => row.expression),
+            libraryFromSavedTile: library.map(row => `${row.expression} ${row.label}`),
+            libraryChips,
             enrolled: pick(read, ['expression', 'reviews', 'dueAt']),
             leftSaved: pick(book, ['expression', 'reviewEnabled']),
             statsRevisitedAfterAdd: revisited,
@@ -709,6 +713,7 @@ function listedLibraryRows(page) {
     return page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-newtab-browse-item')].map(item => ({
         expression: item.querySelector('[data-expression]')?.getAttribute('data-expression') ?? '',
         state: item.querySelector('[data-browse-state]')?.getAttribute('data-browse-state') ?? '',
+        label: item.querySelector('[data-browse-state]')?.textContent?.trim() ?? '',
         addToReview: Boolean(item.querySelector('[data-newtab-action="browse-start-review"]')),
     })));
 }

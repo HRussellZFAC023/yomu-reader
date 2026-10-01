@@ -149,6 +149,8 @@ export interface NewTabStatsControllerDeps {
     syncMode(root: HTMLElement): void;
     syncThemeToggle(root: HTMLElement): void;
     showSettings(tab: 'api' | 'mining'): void;
+    // The Saved tile: Library showing the learner's saved Academy words.
+    openSavedWords(root: HTMLElement): void;
     hasCoarsePointer(): boolean;
     // False once the learner has left Stats: a load that finishes later keeps
     // its data for the next visit but must not paint over Library or Study.
@@ -185,6 +187,7 @@ export class NewTabStatsController {
         'stats-connect-anki': root => { void this.connectAnki(root); },
         'stats-open-jpdb-settings': () => this.deps.showSettings('api'),
         'stats-open-anki-settings': () => this.deps.showSettings('mining'),
+        'stats-open-saved': root => this.deps.openSavedWords(root),
         'stats-import-jpdb': root => {
             root.querySelector<HTMLInputElement>('[data-stats-jpdb-file]')?.click();
         },

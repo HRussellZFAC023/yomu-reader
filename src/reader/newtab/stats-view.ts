@@ -117,14 +117,14 @@ function renderStatsMetrics(context: NewTabStatsRenderContext): HTMLElement {
 }
 
 // Saved words are not review work, so they are not "Cards". The tile is the
-// way to them: it opens Library, where "Add to review" schedules each one.
+// way to them: it opens Library on them, where "Add to review" schedules each one.
 function renderStatsSavedMetric({ source, text }: NewTabStatsRenderContext): HTMLElement | null {
     if (!source.savedOnly) return null;
     return el('button', {
         type: 'button',
         class: 'jpdb-reader-stats-metric jpdb-reader-stats-metric-link',
-        dataset: { newtabAction: newTabAction('mode'), mode: 'search' },
-    }, statsMetricContent(text('statsSaved'), formatCompactNumber(source.savedOnly), text('statsSavedDetail')));
+        dataset: { newtabAction: newTabAction('stats-open-saved') },
+    }, statsMetricContent(text('savedWord'), formatCompactNumber(source.savedOnly), text('statsSavedDetail')));
 }
 
 function reviewsTodayDetail(context: NewTabStatsRenderContext): string {

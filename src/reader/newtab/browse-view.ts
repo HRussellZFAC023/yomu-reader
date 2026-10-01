@@ -12,6 +12,7 @@ import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 import { newTabAction } from './actions';
 import { newTabCardIdentityLanguage, newTabCardTarget } from './study-queue';
 import { isSavedOnlyNewTabCard } from './srs-card-adapter';
+import { newTabText } from './i18n';
 
 export type BrowseFilter = 'all' | CardState;
 export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
@@ -60,6 +61,13 @@ function browseSourceCounts(cards: JPDBCard[]): Map<BrowseSourceFilter, number> 
         counts.set(source, (counts.get(source) ?? 0) + 1);
     }
     return counts;
+}
+
+/** A chip press: "All" clears the chips; any other chip toggles itself. */
+export function toggleBrowseChip<T extends string>(active: Set<T>, chip: T | 'all'): void {
+    if (chip === 'all') active.clear();
+    else if (active.has(chip)) active.delete(chip);
+    else active.add(chip);
 }
 
 // Multi-state OR filter. With a query, prefix matches rank ahead of
@@ -342,7 +350,7 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
         renderBrowseText('jpdb-reader-newtab-browse-meaning', meaning),
         el('span', { class: 'jpdb-reader-newtab-browse-state', dataset: { browseState: state } },
             el('span', { class: `jpdb-reader-state-dot jpdb-${state}` }),
-            cardStateLabel(state, language),
+            browseStateLabel(card, state, language),
             browseStateDetails(card, dueIn),
         )),
         startReview && isSavedOnlyNewTabCard(card)
@@ -352,6 +360,11 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
             }, startReview)
             : null,
     );
+}
+
+// A saved Academy word is named as Stats' Saved tile names it, not as a deck state.
+function browseStateLabel(card: JPDBCard, state: CardState, language: ReaderSettings['interfaceLanguage']): string {
+    return isSavedOnlyNewTabCard(card) ? newTabText(language, 'savedWord') : cardStateLabel(state, language);
 }
 
 function browseReading(card: JPDBCard): string {

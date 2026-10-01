@@ -6,6 +6,7 @@ import {
     renderBrowseList,
     renderBrowseSourceChips,
     sortBrowseCards,
+    toggleBrowseChip,
     type BrowseFilter,
     type BrowseSortKey,
     type BrowseSourceFilter,
@@ -937,6 +938,7 @@ export class NewTabController {
             syncMode: root => this.syncMode(root),
             syncThemeToggle: root => this.syncThemeToggle(root),
             showSettings: tab => this.dependencies.showSettings(tab),
+            openSavedWords: root => this.openSavedWords(root),
             hasCoarsePointer: () => this.hasCoarsePointer(),
             statsVisible: () => this.state.route === 'stats' && !this.practiceVisible,
             studyTroubleCards: root => this.studyStatsTroubleCards(root),
@@ -7634,18 +7636,23 @@ export class NewTabController {
     private handleBrowseFilterClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
         event.preventDefault();
         const filter = (target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter ?? 'all') as BrowseFilter;
-        if (filter === 'all') this.browseFilters.clear();
-        else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
-        else this.browseFilters.add(filter);
+        toggleBrowseChip(this.browseFilters, filter);
         return this.refreshBrowseAfterChipChange(root);
+    }
+
+    // Stats' Saved tile: Library on Academy words, with no earlier chip or search hiding them.
+    private openSavedWords(root: HTMLElement): void {
+        this.browseFilters.clear();
+        this.browseSourceFilters = new Set(['yomu-local']);
+        this.browsePage = 0;
+        this.searchController.setInitialQuery('');
+        this.setState({ route: 'search', revealAnswer: false }, root, { preserveWord: true });
     }
 
     private handleBrowseSourceFilterClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
         event.preventDefault();
         const filter = (target.closest<HTMLElement>('[data-browse-source-filter]')?.dataset.browseSourceFilter ?? 'all') as BrowseSourceChip;
-        if (filter === 'all') this.browseSourceFilters.clear();
-        else if (this.browseSourceFilters.has(filter)) this.browseSourceFilters.delete(filter);
-        else this.browseSourceFilters.add(filter);
+        toggleBrowseChip(this.browseSourceFilters, filter);
         return this.refreshBrowseAfterChipChange(root);
     }
 

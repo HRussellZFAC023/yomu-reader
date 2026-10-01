@@ -166,6 +166,12 @@
   outline-offset: 2px;
 }
 
+/* A chevron shows the tile leads somewhere, on touch screens too. It stays
+   out of the button's accessible name where alt text is supported. */
+.jpdb-reader-stats-metric-link .jpdb-reader-stats-metric-detail::after {
+  content: " \203A" / "";
+}
+
 @media (min-width: 761px) {
   .jpdb-reader-stats-metrics:has(> .jpdb-reader-stats-metric-link) {
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -749,6 +755,11 @@
   .jpdb-reader-stats-metrics,
   .jpdb-reader-stats-connections {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* The seventh tile spans its row instead of sitting alone in half of it. */
+  .jpdb-reader-stats-metric-link {
+    grid-column: 1 / -1;
   }
 
   .jpdb-reader-stats-bars {
