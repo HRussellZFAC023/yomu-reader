@@ -62,6 +62,28 @@ export function applyMainRendererTargetChoice(request: LearningTargetChoiceUpdat
     request.apply(request.chosen);
 }
 
+/** The part of an Electron window a renderer message needs. */
+export interface GamingMessageWindow {
+    isDestroyed(): boolean;
+    webContents: {
+        isLoading(): boolean;
+        once(event: 'did-finish-load', listener: () => void): unknown;
+        send(channel: string): void;
+    };
+}
+
+// A message sent while the page is still loading is lost: the settings window would
+// never open the target choice the capture shortcut asked for. Deliver it once the
+// page has loaded instead.
+export function sendWhenLoaded(window: GamingMessageWindow | null, channel: string): void {
+    if (!window || window.isDestroyed()) return;
+    if (window.webContents.isLoading()) {
+        window.webContents.once('did-finish-load', () => sendWhenLoaded(window, channel));
+        return;
+    }
+    window.webContents.send(channel);
+}
+
 export interface GamingTrayStatus {
     shortcutLabel: string;
     shortcutRegistered: boolean;

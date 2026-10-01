@@ -15,6 +15,7 @@ import {
     createGamingTray,
     runOverlayCapture,
     runTargetGatedCapture,
+    sendWhenLoaded,
     windowCloseIntent,
     type GamingTrayController,
     type GamingTrayHost,
@@ -419,11 +420,7 @@ async function requestLearningTargetChoice(): Promise<void> {
 }
 
 function notifyTargetChoiceRequired(): void {
-    if (!targetChoiceRequested) return;
-    const window = mainWindow;
-    if (!window) return;
-    if ([window.isDestroyed(), window.webContents.isLoading()].includes(true)) return;
-    window.webContents.send(YOMU_GAMING_CHANNELS.targetChoiceRequired);
+    if (targetChoiceRequested) sendWhenLoaded(mainWindow, YOMU_GAMING_CHANNELS.targetChoiceRequired);
 }
 
 function setLearningTargetChosen(event: Electron.IpcMainInvokeEvent, value: unknown): void {

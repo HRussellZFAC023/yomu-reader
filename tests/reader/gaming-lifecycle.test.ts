@@ -11,6 +11,7 @@ import {
     gamingWindowParkingHint,
     runOverlayCapture,
     runTargetGatedCapture,
+    sendWhenLoaded,
     windowCloseIntent,
     type GamingTrayActions,
     type GamingTrayHost,
@@ -165,6 +166,44 @@ function fakeHost(overrides: Partial<GamingTrayHost> = {}) {
     };
     return { host, item, state, listeners };
 }
+
+describe('gaming renderer messages', () => {
+    function messageWindow(loading: boolean) {
+        let finishLoad: (() => void) | undefined;
+        const send = vi.fn();
+        const window = {
+            loading,
+            isDestroyed: () => false,
+            webContents: {
+                isLoading: () => window.loading,
+                once: (_event: 'did-finish-load', listener: () => void) => { finishLoad = listener; },
+                send,
+            },
+        };
+        return { window, send, finishLoad: () => { window.loading = false; finishLoad?.(); } };
+    }
+
+    it('sends at once to a loaded window', () => {
+        const { window, send } = messageWindow(false);
+        sendWhenLoaded(window, 'yomu-gaming:target-choice-required');
+        expect(send).toHaveBeenCalledWith('yomu-gaming:target-choice-required');
+    });
+
+    it('delivers a message sent while the page is loading once it has loaded, instead of dropping it', () => {
+        const { window, send, finishLoad } = messageWindow(true);
+        sendWhenLoaded(window, 'yomu-gaming:target-choice-required');
+        expect(send).not.toHaveBeenCalled();
+        finishLoad();
+        expect(send).toHaveBeenCalledOnce();
+    });
+
+    it('sends nothing to a missing or destroyed window', () => {
+        expect(() => sendWhenLoaded(null, 'yomu-gaming:target-choice-required')).not.toThrow();
+        const { window, send } = messageWindow(false);
+        sendWhenLoaded({ ...window, isDestroyed: () => true }, 'yomu-gaming:target-choice-required');
+        expect(send).not.toHaveBeenCalled();
+    });
+});
 
 describe('gaming window close policy', () => {
     it('parks the window instead of destroying it while a tray is live', () => {
