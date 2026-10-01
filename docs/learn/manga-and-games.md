@@ -1,6 +1,6 @@
 ---
 title: Manga and games
-description: Read text trapped inside manga panels, screenshots and game frames with OCR, while keeping image requests explicit.
+description: Read text trapped inside manga panels, screenshots and game frames with OCR, and choose which service sees your page images.
 ---
 
 # Manga and games
@@ -13,13 +13,13 @@ First choose the language you are reading under Settings → Appearance. Yomu do
 
 ## Read manga
 
-Some Japanese manga pages ship recognised text beside the image, as Mokuro pages do. Yomu reads that embedded text immediately. Other pages and languages need an OCR provider after you ask for a scan.
+Some Japanese manga pages ship recognised text beside the image, as Mokuro pages do. Yomu reads that embedded text immediately. Other pages and languages need an OCR provider.
 
 Press a panel or use Scan images. Yomu can use Google Lens, your Google Cloud Vision key, a compatible local service or the browser extension's screenshot path. The [live OCR panel on the homepage](/#yomu-live-ocr) lets you try the loop with nothing installed.
 
 Compatible local endpoints include MangaOCR, PaddleOCR, Apple Vision-style wrappers and services that return Yomu's supported JSON shape. Choose the provider and endpoint under Settings → Images. A local OCR endpoint can run on your own computer; Google Lens and Cloud Vision are network services.
 
-With "Image OCR scanning" set to "Auto", Yomu reads images by itself on pages with text in your learning language, on pages built around one large image and on BookWalker. Anywhere else, a manga page drawn on a canvas goes to Google Lens or Cloud Vision only when you tap it or point at it, and the first such page on each site shows a "Tap the page to read it" hint. A local OCR service reads those pages without waiting, because the image goes only to the endpoint you control. Embedded OCR never leaves the page.
+With "Image OCR scanning" set to "Auto", Yomu reads images by itself on pages with text in your learning language, on pages built around one large image and on BookWalker. Anywhere else, a manga page drawn on a canvas goes to Google Lens or Cloud Vision only when you tap or click it, and the first such page on each site shows a "Tap the page to read it" hint. A local OCR service reads those pages without waiting, because the image goes only to the endpoint you control. Embedded OCR never leaves the page.
 
 Stylised lettering, tiny furigana, sound effects and text crossing artwork can confuse any OCR system. Check the sentence when a result looks wrong. A lookup tool cannot repair a bad scan.
 

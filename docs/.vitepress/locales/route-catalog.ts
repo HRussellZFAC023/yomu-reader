@@ -46,7 +46,7 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         ['Save words with their original context, review them through active recall, and use Yomu Study with local or connected sources.', '単語を元の文脈と一緒に保存し、能動的に思い出して復習し、端末内または接続した出典とよむStudyを使います。']),
     route('learn/manga-and-games', 'learn/manga-and-games.md',
         ['Manga and games', '漫画とゲーム'],
-        ['Read Japanese trapped inside manga panels, screenshots and game frames with OCR, while keeping image requests explicit.', '画像の読み取りを明示的な操作に保ちながら、OCRで漫画のコマ、スクリーンショット、ゲーム画面の中にある日本語を読みます。']),
+        ['Read Japanese trapped inside manga panels, screenshots and game frames with OCR, and choose which service sees your page images.', 'OCRで漫画のコマ、スクリーンショット、ゲーム画面の中にある日本語を読み、ページ画像を見せるサービスを自分で選べます。']),
     route('learn/reading', 'learn/reading.md',
         ['Reading', '読む'],
         ['Use tadoku, popup lookup, furigana, PDFs and kanji drilldown to read Japanese for the story instead of stopping at every word.', '多読、ポップアップ検索、ふりがな、PDF、漢字の掘り下げを使い、すべての単語で止まらず物語のために日本語を読みます。']),
