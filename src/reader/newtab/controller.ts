@@ -371,6 +371,7 @@ import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, Yomit
 import { NewTabTargetResources } from './target-resources';
 import { captureActiveTarget, isCurrentActiveTarget, type ActiveTargetSnapshot } from './target-scope';
 import { nearestNewTabAction, newTabAction, newTabActionSelector, type NewTabAction } from './actions';
+import { isNewTabEnterRevealKey, isNewTabKeyboardCaptureBlockedTarget, isNewTabRevealKey, isNewTabStudyInteractiveTarget } from './study-keys';
 
 export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
@@ -9849,18 +9850,6 @@ function concreteNewTabSourceFromValue(value: string | undefined): ConcreteNewTa
         : null;
 }
 
-function isNewTabRevealKey(key: string): boolean {
-    return isNewTabSpaceRevealKey(key) || isNewTabEnterRevealKey(key);
-}
-
-function isNewTabSpaceRevealKey(key: string): boolean {
-    return key === ' ';
-}
-
-function isNewTabEnterRevealKey(key: string): boolean {
-    return key === 'Enter';
-}
-
 function consumeNestedLookupEvent(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -9869,27 +9858,6 @@ function consumeNestedLookupEvent(event: MouseEvent): void {
 function setOptionalText(element: HTMLElement | null, text: string): void {
     if (element) element.textContent = text;
 }
-
-function isNewTabStudyInteractiveTarget(target: HTMLElement): boolean {
-    return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
-}
-
-
-function isNewTabKeyboardCaptureBlockedTarget(target: HTMLElement): boolean {
-    return Boolean(target.closest([
-        'input',
-        'select',
-        'textarea',
-        '[contenteditable]:not([contenteditable="false"])',
-        '[data-newtab-search]',
-        '[role="search"]',
-        '[data-settings-panel]',
-        '.jpdb-reader-settings',
-    ].join(',')));
-}
-
-
-
 
 function renderDeckSelectorOptions(
     select: HTMLSelectElement,
