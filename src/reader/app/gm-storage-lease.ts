@@ -3,12 +3,17 @@ export const STORAGE_LEASE_KEY_PREFIX = 'yomu:lease:';
 /**
  * The lease for a critical section that is only storage work, such as a local
  * deck or settings save: a tab that dies mid-save keeps the other tabs waiting
- * this long at most. Pair it with `guards`, so a holder that is still saving
- * renews it and one whose lease lapsed cannot write. A lease held across
- * network requests keeps the one-minute default: its holder can be alive yet
- * write nothing while it waits for a reply.
+ * this long at most while storage answers promptly. Pair it with `guards`, so
+ * a holder that is still saving renews it and one whose lease lapsed cannot
+ * write. A lease held across network requests keeps the one-minute default:
+ * its holder can be alive yet write nothing while it waits for a reply.
  */
 export const STORAGE_WORK_LEASE_MS = 5_000;
+const DEFAULT_LEASE_MS = 60_000;
+// Slow storage stretches each claim by this many of its round trips (ADR-0019):
+// a waiting tab polls in about seven (the three-read fence, the claims, its
+// claim write) and renews only once half its claim is spent.
+const LEASE_ROUND_TRIPS = 20;
 // How long another tab may keep a caller waiting before onWait says so.
 const WAIT_NOTICE_MS = 1_500;
 
@@ -61,7 +66,11 @@ interface StorageLeaseSpec extends Pick<GmStorageLeaseOptions, 'guards'> {
     readonly prefix: string;
     readonly epoch: string;
     readonly io: { readonly [Method in keyof GmStorageLeaseBackend]: NonNullable<GmStorageLeaseBackend[Method]> };
-    /** The managed-state mutation fence; the epoch-control lease guards the epoch itself and has none. */
+    /**
+     * The managed-state mutation fence, checked on each poll and around the
+     * section rather than around each claim write: it costs three storage
+     * reads. The epoch-control lease guards the epoch itself and has none.
+     */
     readonly fence: () => Promise<void>;
     readonly leaseMs: number;
     readonly pollMs: number;
@@ -186,7 +195,7 @@ async function withSharedStorageLease<T, Epoch>(
         return result;
     }
 
-    const leaseMs = boundedLeaseOption(options.leaseMs, 60_000, 1_000, 10 * 60_000);
+    const leaseMs = boundedLeaseOption(options.leaseMs, DEFAULT_LEASE_MS, 1_000, 10 * 60_000);
     return new StorageLeaseClaimant({
         guards: options.guards,
         prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
@@ -244,16 +253,18 @@ export async function withManagedStateEpochControlLeaseCore<T>(
 class StorageLeaseClaimant {
     private readonly key: string;
     private readonly startedAt = Date.now();
-    // Time for a claim write to land while the claim it extends is still live.
-    private readonly landingMs: number;
+    // Time for a write to land while the claim it extends is still live, when storage is prompt.
+    private readonly promptLandingMs: number;
     private claim: StorageLeaseClaim;
     // The leaseUntil other tabs can already read: a claim counts once its write has landed.
     private liveUntil = 0;
+    // How long storage took to answer one call of the last claim write.
+    private roundTripMs = 0;
 
     constructor(private readonly lease: StorageLeaseSpec) {
         const owner = createStorageCoordinationId();
         this.key = `${lease.prefix}${owner}`;
-        this.landingMs = Math.min(1_000, Math.floor(lease.leaseMs / 5));
+        this.promptLandingMs = Math.min(1_000, Math.floor(lease.leaseMs / 5));
         this.claim = {
             version: 1,
             claimId: createStorageCoordinationId(),
@@ -281,8 +292,19 @@ class StorageLeaseClaimant {
         }
     }
 
+    /**
+     * A claim must outlast the storage round trips its holder makes before it
+     * renews, so slow storage stretches it by LEASE_ROUND_TRIPS of them, up to
+     * the default lease: slowness delays a save instead of lapsing it.
+     */
+    private leaseMs(): number {
+        const { leaseMs } = this.lease;
+        return Math.min(leaseMs + LEASE_ROUND_TRIPS * this.roundTripMs, Math.max(leaseMs, DEFAULT_LEASE_MS));
+    }
+
+    // Slow storage takes longer to land a write: allow it two round trips.
     private live(): boolean {
-        return Date.now() + this.landingMs < this.liveUntil;
+        return Date.now() + Math.max(this.promptLandingMs, 2 * this.roundTripMs) < this.liveUntil;
     }
 
     private async waitForTurn(): Promise<void> {
@@ -293,7 +315,7 @@ class StorageLeaseClaimant {
             try {
                 // A throttled waiter's place may have lapsed and been overtaken: it queues again.
                 if (!this.live()) await this.queue();
-                else if (this.liveUntil - Date.now() <= lease.leaseMs / 2) await this.writeClaim();
+                else if (this.liveUntil - Date.now() <= this.leaseMs() / 2) await this.writeClaim();
             } catch (error) {
                 if (error instanceof StorageLeaseLapsedError) continue;
                 throw error;
@@ -326,22 +348,25 @@ class StorageLeaseClaimant {
 
     /** `requeue` writes a new place in the queue instead of extending the live claim. */
     private async writeClaim(changes: Partial<StorageLeaseClaim> = {}, requeue = false): Promise<void> {
-        const { fence, leaseMs, io: { getValue, setValue, deleteValue } } = this.lease;
-        await fence();
+        const { getValue, setValue, deleteValue } = this.lease.io;
         if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
-        const next = { ...this.claim, ...changes, leaseUntil: Date.now() + leaseMs };
+        const writtenAt = Date.now();
+        const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
         this.claim = next;
         try {
             await setValue(this.key, next);
-            await fence();
+            const landedAt = Date.now();
+            this.liveUntil = next.leaseUntil;
             await assertStorageLeaseClaimOwned(this.key, next, getValue);
+            // The faster of the write and the read confirming it: one call that
+            // a frozen tab held up is not slow storage.
+            this.roundTripMs = Math.min(landedAt - writtenAt, Date.now() - landedAt);
         } catch (error) {
             await deleteStorageLeaseClaimIfOwned(this.key, next, getValue, deleteValue).catch(cleanupError => {
                 debugStorageLeaseError('GM storage lease rollback failed', this.key, cleanupError);
             });
             throw error;
         }
-        this.liveUntil = next.leaseUntil;
     }
 
     /**
@@ -358,18 +383,22 @@ class StorageLeaseClaimant {
         // A guarded write was refused, as against a renewal that failed after the last write.
         let refused = false;
         let renewal: Promise<void> | undefined;
-        // Due on every tick: half a period of slack absorbs the time the last
-        // renewal took to land. A tick may then run up to
-        // leaseMs - renewEveryMs - landingMs late (2.3 s of a 5 s lease).
+        // Due a sixth of the way into the claim: while storage is prompt, that is
+        // on every tick, with half a period of slack for the time the last
+        // renewal took to land. A tick may then run up to leaseMs - renewEveryMs
+        // - landingMs late (2.3 s of a 5 s lease), more once slow storage
+        // stretches the claim.
+        const due = (): boolean => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
         const renewIfDue = (): void => {
-            if (!held || lost || renewal || this.liveUntil - Date.now() > lease.leaseMs - renewEveryMs / 2) return;
-            renewal = (async () => {
-                await assertStorageLeaseClaimOwned(key, this.claim, getValue);
-                await this.writeClaim();
-            })().catch(error => {
+            if (lost || renewal || !due()) return;
+            renewal = this.writeClaim().catch(error => {
                 lost ??= { error };
                 debugStorageLeaseError('GM storage lease renewal failed', key, error);
-            }).finally(() => { renewal = undefined; });
+            }).finally(() => {
+                renewal = undefined;
+                // A renewal that found storage slow renews again at once, for a longer claim.
+                renewIfDue();
+            });
         };
         const guarding: GuardingStorageLease | undefined = lease.guards && {
             guards: lease.guards,

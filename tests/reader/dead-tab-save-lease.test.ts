@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_WORK_LEASE_MS } from '../../src/reader/app/gm-storage-lease';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
 import type { JPDBCard } from '../../src/reader/app/types';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 
 // A learner's save in one tab while another tab died in the middle of the same
@@ -19,10 +19,14 @@ function openProfile(dyingWriteKey: string) {
     localStorage.clear();
     resetManagedStateEpochSessionsForTests();
     const values = new Map<string, unknown>();
-    const profile = { values, dying: false };
+    const profile = { values, dying: false, died: false };
     installGmStorageFixture(values, {
         // The dying tab's write of this key is in flight when the tab goes away: it never lands.
-        beforeSet: key => profile.dying && key.startsWith(dyingWriteKey) ? new Promise<void>(() => undefined) : undefined,
+        beforeSet: key => {
+            if (!profile.dying || !key.startsWith(dyingWriteKey)) return undefined;
+            profile.died = true;
+            return new Promise<void>(() => undefined);
+        },
     });
     vi.stubGlobal('GM_listValues', () => [...values.keys()]);
     return profile;
@@ -79,12 +83,12 @@ function suspendAfterNextCardWrite(): void {
 }
 
 /** Starts a save in a tab that dies at the profile's dying write, and returns once it has died. */
-async function dieMidSave(profile: { dying: boolean }, save: () => Promise<unknown>, died: () => boolean): Promise<void> {
+async function dieMidSave(profile: { dying: boolean; died: boolean }, save: () => Promise<unknown>, stepMs = 0): Promise<void> {
     const timers = vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 0 as never);
     profile.dying = true;
     void save().catch(() => undefined);
-    for (let turn = 0; turn < 50 && !died(); turn++) await vi.advanceTimersByTimeAsync(0);
-    expect(died()).toBe(true);
+    for (let turn = 0; turn < 200 && !profile.died; turn++) await vi.advanceTimersByTimeAsync(stepMs);
+    expect(profile.died).toBe(true);
     profile.dying = false;
     timers.mockRestore();
 }
@@ -140,6 +144,19 @@ async function storedWords(tab: Tab): Promise<string[]> {
     return Object.values((await new tab.store.LocalYomuSrsStore().read()).cards).map(card => card.expression);
 }
 
+/** Every userscript storage call answers `latencyMs` late, as slow extension messaging or a busy page makes it. */
+function slowStorage(latencyMs: number): void {
+    for (const name of ['GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_listValues']) {
+        const call = (globalThis as Record<string, unknown>)[name] as (...args: unknown[]) => unknown;
+        vi.stubGlobal(name, (...args: unknown[]) => new Promise(answer => setTimeout(() => answer(call(...args)), latencyMs)));
+    }
+}
+
+function addWord(tab: Tab, expression: string, reading: string): Promise<string> {
+    return new tab.deck.LocalYomuSrsRepository(() => NOW).mine({ expression, reading, meaning: 'gloss' })
+        .then(() => 'saved', (error: unknown) => String(error));
+}
+
 function useFakeClock(): void {
     beforeEach(() => { vi.useFakeTimers({ now: NOW }); });
     afterEach(() => {
@@ -156,8 +173,7 @@ describe('a save after another tab died mid-save', () => {
         const profile = openProfile(DECK_INDEX_KEY);
         const dying = await openTab();
         await dieMidSave(profile,
-            () => new dying.deck.LocalYomuSrsRepository(() => NOW).mine({ expression: '読む', reading: 'よむ', meaning: 'to read' }),
-            () => [...profile.values.keys()].some(key => key.startsWith('yomu:srs-local:v2:card:')));
+            () => new dying.deck.LocalYomuSrsRepository(() => NOW).mine({ expression: '読む', reading: 'よむ', meaning: 'to read' }));
 
         const tab = await openTab();
         const startedAt = Date.now();
@@ -170,13 +186,29 @@ describe('a save after another tab died mid-save', () => {
         expect(Object.values(deck.cards).map(card => card.expression)).toEqual(['本']);
     });
 
+    // Real storage answers in a millisecond or two: the dead tab's claim
+    // stretches by a few dozen ms, and the save's own calls take a few more.
+    it('adds the word about one short lease after the tab died when storage answers in 2 ms', async () => {
+        const profile = openProfile(DECK_INDEX_KEY);
+        slowStorage(2);
+        const dying = await openTab();
+        await dieMidSave(profile, () => addWord(dying, '読む', 'よむ'), 1);
+
+        const tab = await openTab();
+        const diedAt = Date.now();
+        let savedAt = Number.NaN;
+        const save = addWord(tab, '本', 'ほん').finally(() => { savedAt = Date.now(); });
+        await vi.advanceTimersByTimeAsync(2 * STORAGE_WORK_LEASE_MS);
+        expect(await save).toBe('saved');
+        expect(savedAt - diedAt).toBeLessThanOrEqual(STORAGE_WORK_LEASE_MS + 300);
+    });
+
     it('saves settings within the short lease and says it is waiting meanwhile', async () => {
         const profile = openProfile(SETTINGS_INTENT_KEY);
         const dying = await openTab();
         await dying.settings.saveSettings({ ...DEFAULT_SETTINGS, theme: 'light' }, { explicitUserChoiceKeys: ['theme'] });
         await dieMidSave(profile,
-            () => dying.settings.saveSettings({ ...DEFAULT_SETTINGS, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] }),
-            () => JSON.stringify(profile.values.get(SETTINGS_STORAGE_KEY)).includes('Transaction'));
+            () => dying.settings.saveSettings({ ...DEFAULT_SETTINGS, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] }));
 
         const tab = await openTab();
         const startedAt = Date.now();
@@ -301,5 +333,35 @@ describe('a tab that resumes after another tab saved in its place', () => {
         resume();
         await vi.advanceTimersByTimeAsync(500);
         expect(await stale).toBeNull();
+    });
+});
+
+// ADR-0019 decision 7: slow storage only delays a save. 2.0.4's one-minute
+// lease saved through 600 ms a call; a five-second claim that each claim write
+// fenced with three more reads lapsed mid-save at 250 ms and timed out at 400.
+describe('a save while storage answers slowly', () => {
+    useFakeClock();
+
+    it.each([250, 400, 600, 800])('adds the word when every storage call takes %i ms', async latencyMs => {
+        openProfile(DECK_INDEX_KEY);
+        slowStorage(latencyMs);
+        const tab = await openTab();
+        const save = addWord(tab, '本', 'ほん');
+        await vi.advanceTimersByTimeAsync(120_000);
+        expect(await save).toBe('saved');
+        // Slow storage is not another tab.
+        expect(tab.waits).toEqual([]);
+    });
+
+    it.each([400, 800])('adds both words when two tabs save at once and every storage call takes %i ms', async latencyMs => {
+        openProfile(DECK_INDEX_KEY);
+        slowStorage(latencyMs);
+        const [first, second] = [await openTab(), await openTab()];
+        const saves = Promise.all([addWord(first, '本', 'ほん'), addWord(second, '読む', 'よむ')]);
+        await vi.advanceTimersByTimeAsync(180_000);
+        expect(await saves).toEqual(['saved', 'saved']);
+        const words = storedWords(first);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect((await words).sort()).toEqual(['本', '読む'].sort());
     });
 });

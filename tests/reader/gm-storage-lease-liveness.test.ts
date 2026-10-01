@@ -34,9 +34,13 @@ async function openTab(values: Map<string, unknown>, latencyMs = 0, writeLatency
         deleteValue: key => settle(() => { values.delete(key); }, writeLatencyMs),
         listValues: () => settle(() => [...values.keys()]),
     };
+    // The managed-state fence reads the epoch, the reset signal, then the epoch again.
+    const assertMutationFence = async (): Promise<void> => {
+        for (const key of ['epoch', 'reset-signal', 'epoch']) await backend.getValue!(key, null);
+    };
     return {
         realm,
-        environment: { backend, captureEpoch: async () => 'epoch', assertMutationFence: async () => undefined, epochToken: epoch => epoch },
+        environment: { backend, captureEpoch: async () => 'epoch', assertMutationFence, epochToken: epoch => epoch },
         freeze: () => { parked ??= []; },
         thaw: () => {
             const answers = parked ?? [];
@@ -292,7 +296,7 @@ describe('storage lease liveness', () => {
             await guardedWrite(tab, 'committed');
             vi.setSystemTime(Date.now() + workLeaseMs + 1_000);
         });
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(3_000);
         await expect(saving).resolves.toBeUndefined();
         expect(values.get(GUARDED)).toBe('committed');
     });
