@@ -54,7 +54,8 @@ export type AudioTtsMode = 'fallback' | 'source-order';
 
 export type AudioAutoPlayMode = 'off' | 'all' | 'hover' | 'tap';
 
-export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
+// A stored retired provider such as 'page-text' normalizes to Google Lens (normalizeOcrProvider).
+export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'off';
 
 export type OcrOverlayTheme = 'auto' | 'dark' | 'light';
 

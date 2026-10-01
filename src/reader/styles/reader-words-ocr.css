@@ -1522,6 +1522,30 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   outline-offset: 3px;
 }
 
+/* One-time "Tap the page to read it" hint (ocr/reader-canvas-tap-hint.ts): the
+   canvas pill, pass-through like it, so a tap on it reads the page beneath. Only
+   its dismiss button takes pointer input. */
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint[hidden] {
+  display: none !important;
+}
+
+.jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss {
+  pointer-events: auto;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: -6px;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
+  outline-offset: 1px;
+}
+
 @keyframes jpdb-ocr-video-frame-status-spin {
   to {
     transform: rotate(360deg);

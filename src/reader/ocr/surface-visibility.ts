@@ -40,6 +40,20 @@ export function isNearViewport(element: Element, margin: number): boolean {
         && rect.left <= window.innerWidth + margin;
 }
 
+/** The part of `rect` inside the viewport, or undefined when none of it is. */
+export function visibleViewportIntersection(rect: DOMRect): DOMRect | undefined {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return undefined;
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(viewportWidth, rect.right);
+    const bottom = Math.min(viewportHeight, rect.bottom);
+    const width = right - left;
+    const height = bottom - top;
+    return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : undefined;
+}
+
 export function isImageOccludedByVideo(image: HTMLImageElement, rect: DOMRect): boolean {
     // Paused-video snapshots intentionally sit on their video.
     if (image.dataset.yomuVideoFrame) return false;

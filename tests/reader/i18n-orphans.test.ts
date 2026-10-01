@@ -12,7 +12,8 @@ import { describe, expect, it } from 'vitest';
 const SRC_DIR = join(process.cwd(), 'src');
 const I18N_PATH = join(SRC_DIR, 'reader/app/i18n.ts');
 const SUBTITLE_SETTINGS_COPY_PATH = join(SRC_DIR, 'reader/app/subtitle-settings-copy.ts');
-const I18N_COPY_PATHS = new Set([I18N_PATH, SUBTITLE_SETTINGS_COPY_PATH]);
+const OCR_STATUS_COPY_PATH = join(SRC_DIR, 'reader/app/ocr-status-copy.ts');
+const I18N_COPY_PATHS = new Set([I18N_PATH, SUBTITLE_SETTINGS_COPY_PATH, OCR_STATUS_COPY_PATH]);
 
 function collectTsFiles(dir: string): string[] {
     const out: string[] = [];
@@ -53,11 +54,11 @@ function i18nConsumerText(i18n: string): { consumer: string; keys: string[] } {
     return { consumer: blanked.join('\n'), keys };
 }
 
-function subtitleSettingsCopyInventory(source: string): { consumer: string; keys: string[] } {
+function copyLeafInventory(source: string, table: string): { consumer: string; keys: string[] } {
     const lines = source.split('\n');
-    const enStart = lines.findIndex(line => /^const EN_SUBTITLE_SETTINGS_COPY = \{/.test(line));
+    const enStart = lines.findIndex(line => line.startsWith(`const ${table} = {`));
     const enEnd = lines.findIndex((line, index) => index > enStart && /^} as const;/.test(line));
-    if (enStart === -1 || enEnd === -1) throw new Error('English subtitle settings copy table not found');
+    if (enStart === -1 || enEnd === -1) throw new Error(`English copy table ${table} not found`);
     const keys = [...lines.slice(enStart + 1, enEnd).join('\n').matchAll(/^ {4}([A-Za-z][A-Za-z0-9_]*)\s*:/gm)]
         .map(match => match[1]);
     return { consumer: '', keys };
@@ -77,7 +78,8 @@ describe('i18n en copy keys', () => {
     it('are all referenced by consumer code (no orphans)', () => {
         const inventories = [
             i18nConsumerText(readFileSync(I18N_PATH, 'utf8')),
-            subtitleSettingsCopyInventory(readFileSync(SUBTITLE_SETTINGS_COPY_PATH, 'utf8')),
+            copyLeafInventory(readFileSync(SUBTITLE_SETTINGS_COPY_PATH, 'utf8'), 'EN_SUBTITLE_SETTINGS_COPY'),
+            copyLeafInventory(readFileSync(OCR_STATUS_COPY_PATH, 'utf8'), 'EN_OCR_STATUS_COPY'),
         ];
         const keys = inventories.flatMap(inventory => inventory.keys);
         expect(keys.length).toBeGreaterThan(500);

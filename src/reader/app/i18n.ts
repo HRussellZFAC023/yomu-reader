@@ -10,6 +10,7 @@ import { PRACTICE_SESSION_COPY } from './practice-session-copy';
 import { SAVE_WAIT_COPY } from './save-wait-copy';
 import { GRADING_SERVICE_COPY } from './grading-service-copy';
 import { COLLECTION_COPY } from './collection-copy';
+import { OCR_STATUS_COPY } from './ocr-status-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
@@ -828,13 +829,7 @@ const COPY = {
         ankiMappingConfidenceMedium: 'fuzzy match',
         ankiMappingConfidenceLow: 'unmapped',
         ankiMappingStaleField: 'saved field missing',
-        ocrPlayVideo: 'Play video',
-        ocrPausedFrameScanning: 'Scanning...',
-        ocrPausedFrameReady: 'Text ready',
-        ocrPausedFrameNoText: 'No text found',
-        ocrPausedFrameFailed: 'Could not read text',
-        ocrRetryScan: 'Scan again',
-        ocrNoReadableImages: 'No readable images nearby.',
+        ...OCR_STATUS_COPY.en,
         gradeNothing: 'Grade NOTHING',
         gradeSomething: 'Grade SOMETHING',
         gradeHard: 'Grade HARD',
@@ -1553,13 +1548,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -1718,7 +1706,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja, ...GRADING_SERVICE_COPY.ja, ...COLLECTION_COPY.ja,
+    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja, ...GRADING_SERVICE_COPY.ja, ...COLLECTION_COPY.ja, ...OCR_STATUS_COPY.ja,
 };
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {

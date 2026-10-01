@@ -172,6 +172,10 @@ function pageCanvas(left: number, top: number, width = 420, height = 560): HTMLC
     return canvas;
 }
 
+function visibleCanvasTapHint(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('.jpdb-ocr-canvas-tap-hint:not([hidden])');
+}
+
 function dispatchCanvasPointer(canvas: HTMLCanvasElement, type: 'pointerdown' | 'pointermove' | 'pointerover'): void {
     const event = new Event(type, { bubbles: true }) as Event & Partial<PointerEvent>;
     Object.defineProperties(event, {
@@ -2335,26 +2339,128 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
-    it('does not auto-capture a reader canvas that has not opted in while generic image OCR is suppressed', async () => {
-        // The auto result for such a canvas is suppressed at render time, so an
-        // auto capture here only uploads the page to the OCR provider and churns
-        // a status pill every poll. The learner's tap stays the way to read it.
+    it.each([
+        ['google-lens', {}],
+        ['cloud-vision', { ocrCloudVisionApiKey: 'test-key' }],
+    ] as const)('never sends an unopted reader canvas to %s in the background, offering the tap hint instead', async (ocrProvider, providerSettings) => {
+        // Image OCR is suppressed on this page, so a cloud provider must not
+        // receive the page until the learner taps it; the once-per-site hint says so.
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
         const canvas = pageCanvas(24, 20);
+        const capturePage = vi.fn(() => 'data:image/jpeg;base64,AAAA');
+        canvas.toDataURL = capturePage;
         document.body.append(canvas);
         expect(collectCanvasReaderSurfaces()).toEqual([canvas]);
-        const controller = createController({}, undefined, undefined, () => false);
+        const controller = createController({ ocrProvider, ...providerSettings }, undefined, undefined, () => false);
         try {
+            await waitForExpect(() => {
+                expect(visibleCanvasTapHint()?.textContent).toContain('Tap the page to read it');
+            });
             await new Promise(resolve => setTimeout(resolve, 60));
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
-            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status:not(.jpdb-ocr-canvas-tap-hint)')).toBeNull();
+            expect(capturePage).not.toHaveBeenCalled();
 
             dispatchCanvasPointer(canvas, 'pointerdown');
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
             });
+            expect(capturePage).toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('offers no tap hint when a tap could not read the page', async () => {
+        // Cloud Vision without a key has no recognizer, so the hint would promise nothing.
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        document.body.append(pageCanvas(24, 20));
+        const controller = createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' }, undefined, undefined, () => false);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 60));
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps a dismissed tap hint away without reading the page', async () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const canvas = pageCanvas(24, 20);
+        document.body.append(canvas);
+        const controller = createController({}, undefined, undefined, () => false);
+        try {
+            await waitForExpect(() => expect(visibleCanvasTapHint()).not.toBeNull());
+            visibleCanvasTapHint()!.querySelector<HTMLButtonElement>('.jpdb-ocr-canvas-tap-hint-dismiss')!.click();
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+
+            window.dispatchEvent(new Event('scroll'));
+            await new Promise(resolve => setTimeout(resolve, 320));
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+
+        // A later visit to the same site does not show it again.
+        const revisit = createController({}, undefined, undefined, () => false);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 60));
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+        } finally {
+            revisit.destroy();
+        }
+    });
+
+    it('reads a reader canvas automatically with the learner\'s own OCR service while generic image OCR is suppressed', async () => {
+        // Nothing leaves the learner's machine, so the canvas gate lets the page
+        // through and its result renders instead of waiting for a tap.
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const canvas = pageCanvas(24, 20);
+        document.body.append(canvas);
+        const controller = createController({ ocrProvider: 'local-service' }, undefined, undefined, () => false);
+        const recognizeImage = vi.fn(async () => ({ width: 1200, height: 1600, lines: [
+            { text: 'ページ移動方向', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },
+        ] } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(recognizeImage).toHaveBeenCalledTimes(1);
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            });
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it.each([
+        ['local-service', '.jpdb-ocr-canvas-frame'],
+        ['google-lens', '.jpdb-ocr-canvas-tap-hint:not([hidden])'],
+    ] as const)('answers a reader canvas that mounts after startup on a page image OCR does not auto-scan (%s)', async (ocrProvider, expected) => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const controller = createController({ ocrProvider }, undefined, undefined, () => false);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 20));
+            document.body.append(pageCanvas(24, 20));
+
+            await waitForExpect(() => expect(document.querySelector(expected)).not.toBeNull());
         } finally {
             controller.destroy();
         }

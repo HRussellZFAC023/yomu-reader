@@ -59,6 +59,7 @@ implementation coverage and unfinished work belong in the rebuild ledger.
 - Shadowing Panel: The subtitle drawer view for current-line speaking practice with replay, cue looping, hide/reveal controls, parsed target-language text, and optional secondary-subtitle support.
 - Batch Mining Panel: The subtitle drawer view that parses a loaded transcript into deduplicated vocabulary candidates, ranks i+1 lines first, and sends a reviewed batch to the configured study target.
 - OCR Region: A user-selected screen area sent to a configured OCR provider and normalized into lookup lines.
+- Learner OCR Service: The `local-service` OCR provider, an endpoint the learner runs and controls. On a page image OCR does not auto-scan, it is the only provider that reads a reader canvas without a tap (`ocr/canvas-auto-read.ts`). Google Lens and Cloud Vision wait for the learner's tap or pointer there, and the first such canvas on a site shows the one-time "Tap the page to read it" hint instead of a background upload.
 - Gaming Text Bridge: A local-first Reader Surface for game dialogue that receives user-provided, OCR-helper, clipboard, texthooker, or future Decky/Electron helper text without owning native capture itself.
 - JPDB Bridge: The page-side connection that reads or drives JPDB review and vocabulary pages.
 - New Tab Review: The hosted/new-tab study surface that combines JPDB, local dictionaries, kanji drilldown, pitch listening, doodles, and review actions.

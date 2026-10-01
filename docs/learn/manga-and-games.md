@@ -19,7 +19,7 @@ Press a panel or use Scan images. Yomu can use Google Lens, your Google Cloud Vi
 
 Compatible local endpoints include MangaOCR, PaddleOCR, Apple Vision-style wrappers and services that return Yomu's supported JSON shape. Choose the provider and endpoint under Settings → Images. A local OCR endpoint can run on your own computer; Google Lens and Cloud Vision are network services.
 
-Image reading is request-driven. A page image is not sent for recognition until you press it or choose a scan command. The provider you chose receives the requested image. Embedded OCR and local services keep that work on the device or endpoint you control.
+With "Image OCR scanning" set to "Auto", Yomu reads images by itself on pages with text in your learning language, on pages built around one large image and on BookWalker. Anywhere else, a manga page drawn on a canvas goes to Google Lens or Cloud Vision only when you tap it or point at it, and the first such page on each site shows a "Tap the page to read it" hint. A local OCR service reads those pages without waiting, because the image goes only to the endpoint you control. Embedded OCR never leaves the page.
 
 Stylised lettering, tiny furigana, sound effects and text crossing artwork can confuse any OCR system. Check the sentence when a result looks wrong. A lookup tool cannot repair a bad scan.
 

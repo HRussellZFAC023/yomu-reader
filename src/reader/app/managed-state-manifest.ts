@@ -101,6 +101,8 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v1' },
     { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v2' },
     { owner: 'ocr/canvas-mirror', kind: 'session', key: 'yomu:bw:mirror-loadguard' },
+    // Deliberately per-origin: the one-time reader-canvas tap hint appears once per site.
+    { owner: 'ocr/reader-canvas-tap-hint', kind: 'local', key: 'yomu:ocr-canvas-tap-hint-seen:v1' },
 
     // Reader CSS last-good cache. v3 is deliberately version-independent (see
     // styles/index) so an upgrade does not start cold; the v2 prefix family

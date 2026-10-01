@@ -63,6 +63,8 @@ import {
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
+import { canAutoRefreshOcrAfterMutation, hasCanvasOcrOptInSurface, readsReaderCanvasWithoutTap } from './canvas-auto-read';
+import { ReaderCanvasTapHint } from './reader-canvas-tap-hint';
 import {
     canonicalBookwalkerAssetUrl,
     canvasMirrorContentToken,
@@ -119,6 +121,7 @@ import {
     isInsideHiddenAncestor,
     isNearViewport,
     isVisibleOcrImage,
+    visibleViewportIntersection,
 } from './surface-visibility';
 import {
     OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR,
@@ -417,6 +420,7 @@ export class ImageOcrController {
     private readonly readerRasterProviderRetryTimers = new Map<string, number>();
     // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
     private readonly canvasTapRecapture = new Map<HTMLCanvasElement, number>();
+    private readonly canvasTapHint = new ReaderCanvasTapHint();
     private readonly ocrWordRenderStates = new OcrWordRenderStateRegistry();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private readonly replacementOcrLines = new WeakMap<HTMLElement, HTMLElement>();
@@ -635,8 +639,13 @@ export class ImageOcrController {
         }
         if (!batch.touchesRenderableMedia) return;
         this.schedulePosition();
-        if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-        this.scheduleRefresh(batch.addedImage ? 0 : 40);
+        if (canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) {
+            this.scheduleRefresh(batch.addedImage ? 0 : 40);
+        } else if (settings.ocrAutoScanImages && !this.isProvenRasterFreePage()) {
+            // A reader canvas mounting late where image OCR does not auto-scan still needs
+            // the canvas gate: the learner's own OCR service reads it, or it gets the tap hint.
+            this.scheduleReaderRasterRefresh(40);
+        }
     }
 
     private invalidatePositionTransformsForMutations(batch: RenderableMediaMutationBatch): void {
@@ -956,6 +965,7 @@ export class ImageOcrController {
             this.lastPointerMoveReaderSurface = undefined;
             this.lastPointerMoveReaderSurfaceKey = undefined;
         }
+        this.canvasTapHint.dismiss();
         void this.snapshotReaderSurface(surface, settings);
         return true;
     }
@@ -1201,13 +1211,13 @@ export class ImageOcrController {
         return !manualRequested
             && !state.overlayRequested
             && !inlineFallback
-            && !this.isReaderRasterOcrOptInFrame(state.image)
+            && !this.readsReaderRasterFrameWithoutTap(state.image)
             && this.options.shouldAutoScan?.() === false;
     }
 
-    private isReaderRasterOcrOptInFrame(image: HTMLImageElement): boolean {
+    private readsReaderRasterFrameWithoutTap(image: HTMLImageElement): boolean {
         const canvas = this.canvasFrameSources.get(image);
-        return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
+        return Boolean(canvas && readsReaderCanvasWithoutTap(canvas, this.options.getSettings()));
     }
 
     private async renderOcrFailure(
@@ -2204,16 +2214,17 @@ export class ImageOcrController {
         const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false
             && settings.ocrAutoScanImages
             && !userRequested;
-        const ocrOptInCanvases = nativeTextLayerBlocksAutoScan
-            ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces().filter(isCanvasOcrOptInSurface), settings, userRequested)
-            : undefined;
-        if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
+        const readerCanvases = nativeTextLayerBlocksAutoScan ? collectCanvasReaderSurfaces() : undefined;
+        const autoReadCanvases = readerCanvases && activeReaderRasterSurfaces(
+            readerCanvases.filter(canvas => readsReaderCanvasWithoutTap(canvas, settings)), settings, userRequested);
+        this.canvasTapHint.update(readerCanvasWaitingForTap(readerCanvases, autoReadCanvases, settings), settings);
+        if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, autoReadCanvases)) return;
         if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
             this.releaseAllCanvasFrames();
             return;
         }
         this.startReaderRasterPollingIfNeeded();
-        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        const canvases = autoReadCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
         const signature = this.registerCanvasReaderPageSignature(canvases);
         if (signature === null) return;
         // Tap/manual mode: never spend OCR calls on the poll. Detection above already
@@ -2229,11 +2240,11 @@ export class ImageOcrController {
 
     private handleNativeTextLayerCanvasGate(
         nativeTextLayerBlocksAutoScan: boolean,
-        ocrOptInCanvases: HTMLCanvasElement[] | undefined,
+        autoReadCanvases: HTMLCanvasElement[] | undefined,
     ): boolean {
-        if (!nativeTextLayerBlocksAutoScan || ocrOptInCanvases?.length) return false;
-        // Image OCR is suppressed and no canvas opted in: never auto-capture (the result
-        // would be hidden at render) and keep only a tapped frame until a page turn.
+        if (!nativeTextLayerBlocksAutoScan || autoReadCanvases?.length) return false;
+        // Image OCR is suppressed and no canvas may be read without a tap: never auto-capture
+        // (the result would be hidden at render) and keep only a tapped frame until a page turn.
         if (!isReaderRasterPage()) {
             this.releaseAllCanvasFrames();
             return true;
@@ -2949,7 +2960,7 @@ export class ImageOcrController {
         if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
         card.hidden = false;
         this.canvasPendingStatusKeys.set(canvas, canvasSurfaceSnapshotKey(canvas));
-        positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+        positionOcrImageStatus(card, visibleViewportIntersection(rect) ?? rect);
     }
 
     private removeCanvasPendingStatus(canvas: HTMLCanvasElement): void {
@@ -3056,7 +3067,7 @@ export class ImageOcrController {
             this.discardCanvasPendingStatus(canvas);
             return;
         }
-        const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+        const rect = visibleViewportIntersection(canvas.getBoundingClientRect());
         if (!rect) {
             this.hideUnavailableCanvasPendingStatus(canvas, status);
             return;
@@ -3210,19 +3221,6 @@ export class ImageOcrController {
             fractions.width * canvasRect.width,
             fractions.height * canvasRect.height,
         );
-    }
-
-    private visibleViewportIntersection(rect: DOMRect): DOMRect | undefined {
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (!viewportWidth || !viewportHeight) return undefined;
-        const left = Math.max(0, rect.left);
-        const top = Math.max(0, rect.top);
-        const right = Math.min(viewportWidth, rect.right);
-        const bottom = Math.min(viewportHeight, rect.bottom);
-        const width = right - left;
-        const height = bottom - top;
-        return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : undefined;
     }
 
     private refreshBackgroundImageReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
@@ -3491,6 +3489,7 @@ export class ImageOcrController {
     }
 
     private clear(): void {
+        this.canvasTapHint.remove();
         this.observer?.disconnect();
         this.observer = undefined;
         this.observerMargin = '';
@@ -4273,19 +4272,6 @@ function isIconLikeImage(image: HTMLImageElement, rect = image.getBoundingClient
     return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
 }
 
-function canAutoRefreshOcrAfterMutation(settings: ReaderSettings, shouldAutoScan: (() => boolean) | undefined): boolean {
-    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-}
-
-function hasCanvasOcrOptInSurface(): boolean {
-    return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
-}
-
-function isCanvasOcrOptInSurface(canvas: HTMLCanvasElement): boolean {
-    return canvas.dataset.yomuCanvasOcr === 'on'
-        || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
-}
-
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     return settings.ocrProvider !== 'off'
         && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
@@ -4353,6 +4339,16 @@ function activeReaderRasterSurfaces<T extends Element>(surfaces: T[], settings: 
     if (!userRequested && isBookwalkerViewerHost()) return activeBookwalkerReaderRasterSurfaces(active, settings);
     const limit = readerRasterMaxSurfaces(settings, userRequested);
     return active.slice(0, limit);
+}
+
+// A reader canvas nothing reads without a tap gets the one-time hint, never a background upload.
+function readerCanvasWaitingForTap(
+    readerCanvases: HTMLCanvasElement[] | undefined,
+    autoReadCanvases: HTMLCanvasElement[] | undefined,
+    settings: ReaderSettings,
+): HTMLCanvasElement | undefined {
+    if (!readerCanvases || autoReadCanvases?.length || !isOcrProviderConfigured(settings)) return undefined;
+    return activeReaderRasterSurfaces(readerCanvases, settings, false)[0];
 }
 
 function readerRasterCaptureMargin(settings: ReaderSettings, userRequested: boolean): number {
