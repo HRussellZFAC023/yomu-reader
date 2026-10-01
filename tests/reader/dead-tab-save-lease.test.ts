@@ -145,11 +145,11 @@ async function storedWords(tab: Tab): Promise<string[]> {
 }
 
 /** Every userscript storage call answers `latencyMs` late, as slow extension messaging or a busy page makes it. */
-function slowStorage(latencyMs: number | (() => number)): void {
+function slowStorage(latencyMs: number | ((name: string) => number)): void {
     const latency = typeof latencyMs === 'number' ? () => latencyMs : latencyMs;
     for (const name of ['GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_listValues']) {
         const call = (globalThis as Record<string, unknown>)[name] as (...args: unknown[]) => unknown;
-        vi.stubGlobal(name, (...args: unknown[]) => new Promise(answer => setTimeout(() => answer(call(...args)), latency())));
+        vi.stubGlobal(name, (...args: unknown[]) => new Promise(answer => setTimeout(() => answer(call(...args)), latency(name))));
     }
 }
 
@@ -367,6 +367,30 @@ describe('a save while storage answers slowly', () => {
             await vi.advanceTimersByTimeAsync(120_000);
             const result = await save;
             if (result !== 'saved') failures.push(`${turnsSlowAt} ms: ${result}`);
+        }
+        expect(failures).toEqual([]);
+    }, 60_000);
+
+    // A claim sized from the faster of its write and confirming read stayed at
+    // five seconds while reads took 800 ms, and the holder lapsed itself.
+    it('adds the word when reads take 800 ms and writes 10 ms', async () => {
+        openProfile(DECK_INDEX_KEY);
+        slowStorage(name => (name === 'GM_setValue' ? 10 : 800));
+        const save = addWord(await openTab(), '本', 'ほん');
+        await vi.advanceTimersByTimeAsync(120_000);
+        expect(await save).toBe('saved');
+    });
+
+    it('adds both words when two tabs save at once and storage calls take 10 or 800 ms at random', async () => {
+        const failures: string[] = [];
+        for (let seed = 1; seed <= 12; seed++) {
+            openProfile(DECK_INDEX_KEY);
+            let state = seed;
+            slowStorage(() => ((state = (state * 48271) % 2147483647) % 2 ? 800 : 10));
+            const saves = Promise.all([addWord(await openTab(), '本', 'ほん'), addWord(await openTab(), '読む', 'よむ')]);
+            await vi.advanceTimersByTimeAsync(180_000);
+            const results = await saves;
+            if (results.some(result => result !== 'saved')) failures.push(`seed ${seed}: ${results.join(' / ')}`);
         }
         expect(failures).toEqual([]);
     }, 60_000);

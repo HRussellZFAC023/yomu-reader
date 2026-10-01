@@ -438,6 +438,27 @@ describe('storage lease liveness', () => {
         },
     );
 
+    // The second save stops waiting at the web lock after one lease and queues
+    // on the claims, where its own tab's first claim must not count as another
+    // tab's while it is being deleted.
+    it.each([400, 800])('does not tell a caller behind its own tab\'s save that outlasts the web-lock wait (%i ms a call)', async latencyMs => {
+        const told: number[] = [];
+        // Wherever the first save ends against the second's polls.
+        for (let extraMs = 0; extraMs < 3_000; extraMs += 250) {
+            stubWebLocks();
+            values.clear();
+            const tab = await openTab(values, latencyMs);
+            const first = lease(tab, () => sleep(workLeaseMs + extraMs));
+            await vi.advanceTimersByTimeAsync(0);
+            const onWait = vi.fn();
+            const second = lease(tab, async () => undefined, onWait);
+            await vi.advanceTimersByTimeAsync(90_000);
+            await Promise.all([first, second]);
+            if (onWait.mock.calls.length) told.push(extraMs);
+        }
+        expect(told).toEqual([]);
+    }, 60_000);
+
     it('has managed storage refuse a guarded write from a tab whose lease lapsed while it was frozen', async () => {
         installGmStorageFixture(values);
         vi.stubGlobal('GM_listValues', () => [...values.keys()]);

@@ -301,13 +301,15 @@ class StorageLeaseClaimant {
             await this.waitForTurn();
             return await this.hold(operation);
         } finally {
-            realmClaimOwners.delete(this.claim.owner);
             const { getValue, deleteValue } = this.lease.io;
             try {
                 await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
             } catch (error) {
                 debugStorageLeaseError('GM storage lease release failed', this.key, error);
             }
+            // Only once the claim is gone: until then this realm's next save
+            // would read it as another tab's turn.
+            realmClaimOwners.delete(this.claim.owner);
         }
     }
 
@@ -377,9 +379,7 @@ class StorageLeaseClaimant {
             const landedAt = Date.now();
             this.liveUntil = next.leaseUntil;
             await assertStorageLeaseClaimOwned(this.key, next, getValue);
-            // The faster of the write and the read confirming it: one call that
-            // a frozen tab held up is not slow storage.
-            this.roundTripMs = Math.min(landedAt - writtenAt, Date.now() - landedAt);
+            this.roundTripMs = storageRoundTripMs(landedAt - writtenAt, Date.now() - landedAt, this.lease.leaseMs);
         } catch (error) {
             await this.rollBack();
             throw error;
@@ -553,6 +553,16 @@ function boundedLeaseOption(value: number | undefined, fallback: number, minimum
 
 function storageLeaseDelay(milliseconds: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+/**
+ * One storage round trip, from a claim write and the read confirming it: the
+ * slower call, so storage that is only sometimes slow still stretches the
+ * claim, unless it took a quarter of the lease, when a frozen tab held it up.
+ */
+function storageRoundTripMs(writeMs: number, readMs: number, leaseMs: number): number {
+    const slower = Math.max(writeMs, readMs);
+    return slower <= leaseMs / 4 ? slower : Math.min(writeMs, readMs);
 }
 
 interface WebLockManager {
