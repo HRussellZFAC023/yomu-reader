@@ -398,7 +398,9 @@ class Journey {
         await recovery.save.click();
         const waitingStatus = await waitForToast(page, SAVE_WAITING_STATUS, DEAD_TAB_SAVE_BOUND_MS)
             .then(() => toastTexts(page), () => []);
-        await waitUntil(() => readDeck(profile).revision > revision, DEAD_TAB_SAVE_BOUND_MS, 'the save after the other tab closed');
+        // The bound counts from the click, not from when the status appeared.
+        await waitUntil(() => readDeck(profile).revision > revision, DEAD_TAB_SAVE_BOUND_MS - (Date.now() - started),
+            'the save after the other tab closed');
         const recoveryMs = Date.now() - started;
         await waitForToast(page, /Added to Academy/u);
         const statusCleared = await page.waitForFunction(source => ![...document.querySelectorAll('.jpdb-reader-toast')]
@@ -408,6 +410,8 @@ class Journey {
         assert(waitingStatus.some(text => SAVE_WAITING_STATUS.test(text)),
             'The save held up by another tab did not say it was waiting', { waitingStatus });
         assert(statusCleared, 'The waiting status stayed after the save completed');
+        assert(recoveryMs <= DEAD_TAB_SAVE_BOUND_MS, 'The save after another tab died waited past the short storage lease',
+            { recoveryMs, boundMs: DEAD_TAB_SAVE_BOUND_MS });
         const recovered = readDeck(profile);
         assert(recovered.ids.length === 3 && recovered.cards[cardId(WORDS.like)]?.reviewEnabled === false && !recovered.torn.length,
             'Saving after interrupted writes did not add exactly one unscheduled word', recovered);

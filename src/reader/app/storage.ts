@@ -36,7 +36,7 @@ import {
     managedLocalStorage, managedSessionStorage, managedLocalStorageKeys, managedWebStorageResetKeys,
 } from './managed-web-storage';
 import {
-    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId, fenceStorageLeaseWrite,
+    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId, fenceStorageLeaseWrite, isStorageLeaseLapsed,
     withGmStorageLeaseCore, withManagedStateEpochControlLeaseCore, type GmStorageLeaseOptions,
 } from './gm-storage-lease';
 import { isManagedStorageBackupKey } from './managed-storage-backup-policy';
@@ -588,7 +588,8 @@ async function setSharedManagedValue(
         epoch = await assertRealmManagedStateEpoch(getValue);
         await writeManagedGmValue(key, value, epoch, getValue, setValue);
     } catch (error) {
-        if (isStaleManagedStateEpochError(error)) throw error;
+        // Fencing refusals keep their type: callers tell a stale writer from a broken store.
+        if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
         throw storageWriteError(key, 'GM storage write failed', error);
     }
 }
@@ -686,7 +687,7 @@ export async function gmStorageDelete(key: string): Promise<void> {
             const epoch = await assertRealmManagedStateEpoch(getValue);
             await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
         } catch (error) {
-            if (isStaleManagedStateEpochError(error)) throw error;
+            if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
             debugStorageError('GM storage delete failed', key, error);
             throw storageWriteError(key, 'GM storage delete failed', error);
         }

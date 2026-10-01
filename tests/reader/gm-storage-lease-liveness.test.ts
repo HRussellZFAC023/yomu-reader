@@ -17,13 +17,15 @@ interface Tab {
     thaw(): void;
 }
 
-async function openTab(values: Map<string, unknown>): Promise<Tab> {
+/** `latencyMs` is how long each storage call takes to answer, as GM messaging does. */
+async function openTab(values: Map<string, unknown>, latencyMs = 0): Promise<Tab> {
     vi.resetModules();
     const realm = await import('../../src/reader/app/gm-storage-lease');
     let parked: Array<() => void> | null = null;
     const settle = <T>(run: () => T): Promise<T> => new Promise<T>(resolve => {
         const answer = (): void => resolve(run());
         if (parked) parked.push(answer);
+        else if (latencyMs) setTimeout(answer, latencyMs);
         else queueMicrotask(answer);
     });
     const backend: GmStorageLeaseBackend = {
@@ -72,6 +74,45 @@ async function startThrottled(
     for (let turn = 0; turn < 20; turn++) await vi.advanceTimersByTimeAsync(0);
     throttled.mockRestore();
     return { done };
+}
+
+/**
+ * Runs the holder's renewal timer as a browser might: on time, except that one
+ * tick fires `lateMs` late (a busy main thread, a throttled background tab).
+ */
+function delayRenewalTick(tick: number, lateMs: number): void {
+    const timers = new Map<number, ReturnType<typeof setTimeout>>();
+    let nextId = 1;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((callback: () => void, everyMs: number) => {
+        const id = nextId++;
+        let ticks = 0;
+        const schedule = (): void => {
+            timers.set(id, setTimeout(() => {
+                callback();
+                schedule();
+            }, everyMs + (++ticks === tick ? lateMs : 0)));
+        };
+        schedule();
+        return id;
+    }) as typeof setInterval);
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(((id: number) => {
+        clearTimeout(timers.get(id));
+        timers.delete(id);
+    }) as typeof clearInterval);
+}
+
+/** Same-origin tabs share one queue of web locks per name. */
+function stubWebLocks(): void {
+    let tail = Promise.resolve();
+    vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, callback: () => Promise<T>) => {
+        const next = tail.then(callback);
+        tail = next.then(() => undefined, () => undefined);
+        return next;
+    } } });
+}
+
+function sleep(milliseconds: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
 describe('storage lease liveness', () => {
@@ -180,6 +221,49 @@ describe('storage lease liveness', () => {
         expect(otherEntered).toBe(true);
     });
 
+    // Real storage answers in a millisecond or two, so a renewal lands a little
+    // after the tick that asked for it. Every tick must still renew: renewing on
+    // every other tick leaves a live holder under a second of slack.
+    it.each([[1, 800], [2, 800], [3, 800], [2, 1_200], [2, 2_000]])(
+        'keeps an uncontested holder whose renewal tick %i fires %i ms late',
+        async (tick, lateMs) => {
+            const tab = await openTab(values, 2);
+            delayRenewalTick(tick, lateMs);
+            const holding = lease(tab, async () => {
+                await sleep(4 * workLeaseMs);
+                await guardedWrite(tab, 'saved');
+            });
+            await vi.advanceTimersByTimeAsync(4 * workLeaseMs + 100);
+            await expect(holding).resolves.toBeUndefined();
+            expect(values.get(GUARDED)).toBe('saved');
+        },
+    );
+
+    // A waiter renews its claim only once half of it is spent, so it can enter
+    // with anything from half to all of its lease left. Wherever the holder
+    // releases, the save it then makes must go through.
+    it('lets a waiter that enters with a part-spent claim finish its save, wherever the holder releases', async () => {
+        const failures: Array<{ releaseAt: number; error: string }> = [];
+        for (let releaseAt = 2_000; releaseAt <= 5_000; releaseAt += 25) {
+            values.clear();
+            const [holderTab, waiterTab] = [await openTab(values, 2), await openTab(values, 2)];
+            let active = 0;
+            const section = async (work: () => Promise<void>): Promise<void> => {
+                expect(++active).toBe(1);
+                try { await work(); } finally { active--; }
+            };
+            const holding = lease(holderTab, () => section(() => sleep(releaseAt)));
+            await vi.advanceTimersByTimeAsync(20);
+            const waiting = lease(waiterTab, () => section(async () => {
+                await sleep(1_600);
+                await guardedWrite(waiterTab, releaseAt);
+            })).catch((error: unknown) => { failures.push({ releaseAt, error: String(error) }); });
+            await vi.advanceTimersByTimeAsync(releaseAt + 2 * workLeaseMs);
+            await Promise.all([holding, waiting]);
+        }
+        expect(failures).toEqual([]);
+    }, 60_000);
+
     it('refuses a write from a holder whose lease lapsed while it was frozen', async () => {
         const [frozen, next] = [await openTab(values), await openTab(values)];
         const resumed = deferred();
@@ -259,12 +343,7 @@ describe('storage lease liveness', () => {
     });
 
     it('also tells a caller held up at the web lock by a same-origin tab', async () => {
-        let tail = Promise.resolve();
-        vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, callback: () => Promise<T>) => {
-            const next = tail.then(callback);
-            tail = next.then(() => undefined, () => undefined);
-            return next;
-        } } });
+        stubWebLocks();
         const [holderTab, waitingTab] = [await openTab(values), await openTab(values)];
         const release = deferred();
         const holding = lease(holderTab, () => release.promise);
@@ -279,6 +358,35 @@ describe('storage lease liveness', () => {
         await Promise.all([holding, waiting]);
         expect(onWait.mock.calls).toEqual([[true], [false]]);
     });
+
+    // Safari can take seconds to wake an extension's background page. That is
+    // slow storage, not another tab, and the status must not blame one.
+    it('does not tell a caller whose storage is merely slow', async () => {
+        const tab = await openTab(values, 400);
+        const onWait = vi.fn();
+        let enteredAt = Number.NaN;
+        const startedAt = Date.now();
+        const saving = lease(tab, async () => { enteredAt = Date.now(); }, onWait);
+        await vi.advanceTimersByTimeAsync(10_000);
+        await saving;
+        expect(enteredAt - startedAt).toBeGreaterThan(2_000);
+        expect(onWait).not.toHaveBeenCalled();
+    });
+
+    it.each([['the storage claims', false], ['the web lock', true]] as const)(
+        'does not tell a caller queued at %s behind its own tab\'s slower save',
+        async (_where, webLocks) => {
+            if (webLocks) stubWebLocks();
+            const tab = await openTab(values);
+            const first = lease(tab, () => sleep(3_000));
+            await vi.advanceTimersByTimeAsync(0);
+            const onWait = vi.fn();
+            const second = lease(tab, async () => undefined, onWait);
+            await vi.advanceTimersByTimeAsync(3_500);
+            await Promise.all([first, second]);
+            expect(onWait).not.toHaveBeenCalled();
+        },
+    );
 
     it('has managed storage refuse a guarded write from a tab whose lease lapsed while it was frozen', async () => {
         installGmStorageFixture(values);

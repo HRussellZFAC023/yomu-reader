@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { uiText } from '../../src/reader/app/i18n';
 import { reportSaveWaitingForAnotherTab } from '../../src/reader/app/save-wait';
-import type { InterfaceLanguage } from '../../src/reader/app/types';
+import type { InterfaceLanguage, JPDBCard } from '../../src/reader/app/types';
 import { runCardActionOperation } from '../../src/reader/cards/action-operation';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { allowSyntheticReaderInteractionsForTests, dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary } from '../../src/reader/ui/trusted-interaction';
+import { newTabPromptController, newTabTestCard, renderEnabledNewTabRoot } from './new-tab-review/fixtures';
 import {
     createSettingsDialog,
     resetSettingsDialogTestEnvironment,
@@ -114,5 +120,92 @@ describe('Settings Save waiting for another tab', () => {
         expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
         await waitForCondition(() => !settingsElement<HTMLButtonElement>(form, 'button[type="submit"]').disabled);
         await vi.waitFor(() => expect(statuses()).toEqual([]));
+    });
+});
+
+// Study's Library "Add to review" and its grades save to the local deck too.
+describe('Study saves waiting for another tab', () => {
+    beforeEach(() => { setActiveLearningTargetLanguage('ja'); });
+    afterEach(() => {
+        vi.restoreAllMocks();
+        allowSyntheticReaderInteractionsForTests(true);
+        resetActiveLearningTargetLanguage();
+        document.body.replaceChildren();
+        localStorage.clear();
+    });
+
+    /** A save held up by another tab until `proceed`, as the deck's storage lease reports it. */
+    function heldUpSave(): { wait: () => Promise<void>; proceed: () => void } {
+        const proceeded = deferred();
+        return {
+            wait: async () => {
+                reportSaveWaitingForAnotherTab(true);
+                await proceeded.promise;
+                reportSaveWaitingForAnotherTab(false);
+            },
+            proceed: proceeded.resolve,
+        };
+    }
+
+    it('says so while "Add to review" waits, then reports it as usual', async () => {
+        allowSyntheticReaderInteractionsForTests(false);
+        const boundary = new AbortController();
+        installTrustedReaderRootBoundary(document, boundary.signal);
+        const repository = new LocalYomuSrsRepository();
+        await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+        const startReview = repository.startReview.bind(repository);
+        const heldUp = heldUpSave();
+        vi.spyOn(repository, 'startReview').mockImplementation(async cardId => {
+            await heldUp.wait();
+            return startReview(cardId);
+        });
+        const toast = vi.fn();
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, {
+            srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(repository) }, toast,
+        });
+        const probe = controller as unknown as {
+            state: typeof DEFAULT_NEW_TAB_UI_STATE;
+            browsePool: JPDBCard[];
+            srsAdapterBrowsePoolProvider(source: 'yomu-local'): { load(): Promise<JPDBCard[]> };
+            bindRootEvents(root: HTMLElement): void;
+            renderBrowseResults(root: HTMLElement): void;
+        };
+        try {
+            probe.state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'search', source: 'yomu-local' };
+            probe.browsePool = await probe.srsAdapterBrowsePoolProvider('yomu-local').load();
+            const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+            probe.bindRootEvents(root);
+            probe.renderBrowseResults(root.querySelector<HTMLElement>('[data-newtab-search-results]')!);
+            dispatchAuthorizedReaderControlClick(root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]')!);
+
+            await vi.waitFor(() => expect(statuses()).toEqual([uiText('en', 'saveWaitingForAnotherTab')]));
+            expect(toast).not.toHaveBeenCalled();
+            heldUp.proceed();
+            await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to review.'));
+            await vi.waitFor(() => expect(statuses()).toEqual([]));
+        } finally { controller.destroy(); boundary.abort(); }
+    });
+
+    it('says so while a grade waits, and stops when it proceeds', async () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true });
+        const internals = controller as unknown as {
+            submitGrade(): Promise<null>;
+            submitCurrentGrade(target: { root: HTMLElement; card: JPDBCard }, grade: 'pass', selectedTarget: undefined,
+                isCorrection: boolean, reviewOp: { superseded: boolean }, providerContexts: object): Promise<boolean>;
+        };
+        const heldUp = heldUpSave();
+        vi.spyOn(internals, 'submitGrade').mockImplementation(async () => {
+            await heldUp.wait();
+            return null;
+        });
+        try {
+            // A superseded grade stops right after its save: only the wait is under test.
+            const grading = internals.submitCurrentGrade({ root: document.createElement('main'), card: newTabTestCard() },
+                'pass', undefined, false, { superseded: true }, {});
+            await vi.waitFor(() => expect(statuses()).toEqual([uiText('en', 'saveWaitingForAnotherTab')]));
+            heldUp.proceed();
+            expect(await grading).toBe(false);
+            await vi.waitFor(() => expect(statuses()).toEqual([]));
+        } finally { controller.destroy(); }
     });
 });

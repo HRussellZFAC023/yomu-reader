@@ -1,4 +1,4 @@
-import { createStorageCoordinationId } from '../app/gm-storage-lease';
+import { createStorageCoordinationId, isStorageLeaseLapsed } from '../app/gm-storage-lease';
 import { gmStorageDelete, gmStorageGetStrict, gmStorageSet, withGmStorageLease } from '../app/storage';
 import type { JPDBCard, JPDBGrade } from '../app/types';
 import { cardKey } from '../cards/utils';
@@ -222,16 +222,21 @@ export class NewTabGradeQueue {
         contextFor: (target: NewTabReviewTarget) => string,
     ): Promise<LiveReviewClaim | null> {
         const claim = { id: createStorageCoordinationId(), keys: targets.map(target => `${contextFor(target)}:${target}:${cardKey(card)}`) };
-        try {
-            return await this.liveReviews((records, now) => {
-                // Check every key, so each settled claim this refusal answers is passed.
-                const blocking = claim.keys.filter(key => records[key] && this.liveReviewBlocks(records[key], now));
-                if (blocking.length) return null;
-                for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
-                return claim;
-            });
-        } catch {
+        let refused = false;
+        const claimOnce = () => this.liveReviews((records, now) => {
+            // Check every key, so each settled claim this refusal answers is passed.
+            refused = claim.keys.filter(key => records[key] && this.liveReviewBlocks(records[key], now)).length > 0;
+            if (refused) return null;
+            for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
             return claim;
+        });
+        try {
+            return await claimOnce();
+        } catch (error) {
+            // This tab stalled and another took the lease: the claims it read may be
+            // stale and its own was not written, so it asks again rather than send.
+            if (!isStorageLeaseLapsed(error)) return claim;
+            return refused ? null : claimOnce().catch(() => claim);
         }
     }
 

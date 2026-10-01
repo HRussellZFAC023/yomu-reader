@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { showReaderToast } from '../../src/reader/ui/toast';
+import { holdReaderToast, showReaderToast } from '../../src/reader/ui/toast';
 
 describe('reader toast stack', () => {
     afterEach(() => {
@@ -34,6 +34,42 @@ describe('reader toast stack', () => {
         vi.advanceTimersByTime(500);
         expect(document.querySelector('.jpdb-reader-toast')).not.toBeNull();
         vi.advanceTimersByTime(800);
+        expect(document.querySelector('.jpdb-reader-toast')).toBeNull();
+    });
+
+    it('brings back a toast that was leaving when the same message is shown again', () => {
+        vi.useFakeTimers();
+        showReaderToast('same message', 1000);
+        vi.advanceTimersByTime(1100);
+        expect(document.querySelector('.jpdb-reader-toast')?.classList.contains('is-visible')).toBe(false);
+        showReaderToast('same message', 1000);
+
+        vi.advanceTimersByTime(500);
+        const toast = document.querySelector('.jpdb-reader-toast');
+        expect(toast?.classList.contains('is-visible')).toBe(true);
+        vi.advanceTimersByTime(800);
+        expect(document.querySelector('.jpdb-reader-toast')).toBeNull();
+    });
+
+    it('keeps a held status until its last holder releases it, even if one releases as another takes it', () => {
+        vi.useFakeTimers();
+        const releaseFirst = holdReaderToast('waiting');
+        releaseFirst();
+        vi.advanceTimersByTime(100);
+        const releaseSecond = holdReaderToast('waiting');
+        const releaseThird = holdReaderToast('waiting');
+        vi.advanceTimersByTime(1000);
+        expect(document.querySelectorAll('.jpdb-reader-toast')).toHaveLength(1);
+        expect(document.querySelector('.jpdb-reader-toast')?.classList.contains('is-visible')).toBe(true);
+
+        releaseSecond();
+        releaseSecond();
+        showReaderToast('waiting', 100);
+        vi.advanceTimersByTime(1000);
+        expect(document.querySelector('.jpdb-reader-toast')?.textContent).toBe('waiting');
+
+        releaseThird();
+        vi.advanceTimersByTime(300);
         expect(document.querySelector('.jpdb-reader-toast')).toBeNull();
     });
 });

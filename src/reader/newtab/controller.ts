@@ -372,6 +372,7 @@ import { NewTabTargetResources } from './target-resources';
 import { captureActiveTarget, isCurrentActiveTarget, type ActiveTargetSnapshot } from './target-scope';
 import { nearestNewTabAction, newTabAction, newTabActionSelector, type NewTabAction } from './actions';
 import { isNewTabEnterRevealKey, isNewTabKeyboardCaptureBlockedTarget, isNewTabRevealKey, isNewTabStudyInteractiveTarget } from './study-keys';
+import { withSaveWaitStatus } from '../ui/save-wait-status';
 
 export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
@@ -7709,7 +7710,7 @@ export class NewTabController {
         if (!button || button.disabled || card?.source !== 'yomu-local' || !card.sourceCardKey || !adapter?.startReview) return;
         button.disabled = true;
         try {
-            await adapter.startReview(card.sourceCardKey);
+            await withSaveWaitStatus(this.language(), adapter.startReview.bind(adapter, card.sourceCardKey));
             if (this.destroyed) return;
             this.invalidateSourceResultCache('yomu-local');
             this.allWords = []; // Returning to Study reloads its queue, so the word just added is there to review.
@@ -8448,7 +8449,7 @@ export class NewTabController {
         providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
         this.setStatus(target.root, this.text('grading'));
-        const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
+        const submittedTarget = await withSaveWaitStatus(this.language(), () => this.submitGrade(target.card, grade, selectedTarget));
         if (reviewOp.superseded || !this.gradeProvidersAreCurrent(providerContexts, target.card, selectedTarget)) return false;
         // A landed submit proves the connection is back even if no
         // 'online' event fired; the next outage must ask again.

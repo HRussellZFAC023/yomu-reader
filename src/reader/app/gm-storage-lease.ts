@@ -67,6 +67,7 @@ interface StorageLeaseSpec extends Pick<GmStorageLeaseOptions, 'guards'> {
     readonly pollMs: number;
     readonly timeoutMs: number;
     readonly timeoutMessage: string;
+    readonly wait?: StorageLeaseWait;
 }
 
 /** A held lease with `guards`: managed writes of its keys fence through it. */
@@ -83,9 +84,22 @@ class StorageLeaseLapsedError extends Error {
     }
 }
 
+/**
+ * The holder stalled and another tab took the lease, so what it read inside
+ * may be stale and its writes were refused. Matched by name: a bundle can
+ * carry its own copy of this module.
+ */
+export function isStorageLeaseLapsed(error: unknown): boolean {
+    return error instanceof Error && error.name === 'StorageLeaseLapsedError';
+}
+
 // The guarding leases this realm holds. Each tab is its own realm, so a write
 // only ever fences the leases of the tab that makes it.
 const guardingLeases = new Set<GuardingStorageLease>();
+// This realm's claimants (by owner) and web lock requests (by name): waiting
+// behind one of them is waiting for this tab's own save, not another tab's.
+const realmClaimOwners = new Set<string>();
+const realmWebLockRequests = new Map<string, number>();
 
 /**
  * Managed storage calls this synchronously before it issues a write of `key`,
@@ -110,31 +124,50 @@ export async function withGmStorageLeaseCore<T, Epoch>(
     environment: GmStorageLeaseEnvironment<Epoch>,
 ): Promise<T> {
     // A same-origin tab holds this realm up at the web lock, any other at the GM claims.
-    const wait = storageLeaseWait(options.onWait);
+    const wait = new StorageLeaseWait(options.onWait);
     try {
         return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
             wait.end();
             return operation();
-        }, options, environment));
+        }, options, environment, wait), wait);
     } finally {
         wait.end();
     }
 }
 
-/** Tells `onWait` once the caller has waited ~1.5 s for its turn, and again when the wait ends. */
-function storageLeaseWait(onWait: GmStorageLeaseOptions['onWait']): { end(): void } {
-    let state: 'waiting' | 'told' | 'ended' = 'waiting';
-    const timer = onWait && setTimeout(() => {
-        state = 'told';
-        onWait(true);
-    }, WAIT_NOTICE_MS);
-    return {
-        end: () => {
-            clearTimeout(timer);
-            if (state === 'told') onWait?.(false);
-            state = 'ended';
-        },
-    };
+/**
+ * Tells `onWait` once another tab has kept the caller waiting ~1.5 s, and again
+ * when the wait ends. Only another tab's turn counts: slow storage, or this
+ * tab's own earlier save, is not a wait for another tab.
+ */
+class StorageLeaseWait {
+    private state: 'running' | 'blocked' | 'told' | 'ended' = 'running';
+    private timer: ReturnType<typeof setTimeout> | undefined;
+
+    constructor(private readonly onWait: GmStorageLeaseOptions['onWait']) {}
+
+    /** Another tab holds the lease, or is ahead in its queue. */
+    blocked(): void {
+        if (!this.onWait || this.state !== 'running') return;
+        this.state = 'blocked';
+        this.timer = setTimeout(() => {
+            this.state = 'told';
+            this.onWait?.(true);
+        }, WAIT_NOTICE_MS);
+    }
+
+    /** The caller got past what blocked it; a wait it was not yet told about starts over. */
+    passed(): void {
+        if (this.state !== 'blocked') return;
+        clearTimeout(this.timer);
+        this.state = 'running';
+    }
+
+    end(): void {
+        clearTimeout(this.timer);
+        if (this.state === 'told') this.onWait?.(false);
+        this.state = 'ended';
+    }
 }
 
 async function withSharedStorageLease<T, Epoch>(
@@ -142,6 +175,7 @@ async function withSharedStorageLease<T, Epoch>(
     operation: () => Promise<T>,
     options: GmStorageLeaseOptions,
     environment: GmStorageLeaseEnvironment<Epoch>,
+    wait: StorageLeaseWait,
 ): Promise<T> {
     const { getValue, setValue, deleteValue, listValues } = environment.backend;
     const epoch = await environment.captureEpoch(getValue);
@@ -163,6 +197,7 @@ async function withSharedStorageLease<T, Epoch>(
         pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1_000),
         timeoutMs: boundedLeaseOption(options.timeoutMs, 90_000, leaseMs, 15 * 60_000),
         timeoutMessage: `Timed out waiting for storage lease: ${name}`,
+        wait,
     }).run(operation);
 }
 
@@ -231,10 +266,12 @@ class StorageLeaseClaimant {
     }
 
     async run<T>(operation: () => Promise<T>): Promise<T> {
+        realmClaimOwners.add(this.claim.owner);
         try {
             await this.waitForTurn();
             return await this.hold(operation);
         } finally {
+            realmClaimOwners.delete(this.claim.owner);
             const { getValue, deleteValue } = this.lease.io;
             try {
                 await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
@@ -261,7 +298,9 @@ class StorageLeaseClaimant {
                 if (error instanceof StorageLeaseLapsedError) continue;
                 throw error;
             }
-            if (!await this.othersAhead() && this.live()) return;
+            const ahead = await this.claimsAhead();
+            if (!ahead.length && this.live()) return;
+            if (ahead.some(other => !realmClaimOwners.has(other.owner))) lease.wait?.blocked();
             await storageLeaseDelay(lease.pollMs);
         }
     }
@@ -274,11 +313,11 @@ class StorageLeaseClaimant {
         await this.writeClaim({ choosing: false, ticket: highestTicket + 1 });
     }
 
-    private async othersAhead(): Promise<boolean> {
+    private async claimsAhead(): Promise<StorageLeaseClaim[]> {
         const { prefix, epoch, io: { listValues, getValue } } = this.lease;
         const { owner, ticket } = this.claim;
         const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
-        return claims.some(other => other.owner !== owner && (
+        return claims.filter(other => other.owner !== owner && (
             other.choosing
             || other.ticket < ticket
             || (other.ticket === ticket && other.owner.localeCompare(owner) < 0)
@@ -317,8 +356,11 @@ class StorageLeaseClaimant {
         let held = true;
         let lost: { readonly error: unknown } | undefined;
         let renewal: Promise<void> | undefined;
+        // Due on every tick: half a period of slack absorbs the time the last
+        // renewal took to land. A tick may then run up to
+        // leaseMs - renewEveryMs - landingMs late (2.3 s of a 5 s lease).
         const renewIfDue = (): void => {
-            if (!held || lost || renewal || this.liveUntil - Date.now() > lease.leaseMs - renewEveryMs) return;
+            if (!held || lost || renewal || this.liveUntil - Date.now() > lease.leaseMs - renewEveryMs / 2) return;
             renewal = (async () => {
                 await assertStorageLeaseClaimOwned(key, this.claim, getValue);
                 await this.writeClaim();
@@ -337,6 +379,8 @@ class StorageLeaseClaimant {
         };
         if (guarding) guardingLeases.add(guarding);
         const timer = setInterval(renewIfDue, renewEveryMs);
+        // A waiter may enter with half its claim spent: renew before the first tick.
+        renewIfDue();
         let outcome: { readonly value: T } | { readonly error: unknown };
         try {
             await lease.fence();
@@ -432,13 +476,28 @@ function storageLeaseDelay(milliseconds: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-async function withWebStorageLock<T>(name: string, operation: () => Promise<T>): Promise<T> {
+async function withWebStorageLock<T>(name: string, operation: () => Promise<T>, wait?: StorageLeaseWait): Promise<T> {
     const lockManager = typeof navigator === 'undefined'
         ? undefined
         : (navigator as Navigator & {
             locks?: { request<Result>(name: string, callback: () => Promise<Result>): Promise<Result> };
         }).locks;
-    return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+    if (!lockManager) return operation();
+    const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
+    const requests = realmWebLockRequests.get(lockName) ?? 0;
+    // A free lock is granted at once, so a wait that lasts is another tab's turn.
+    if (!requests) wait?.blocked();
+    realmWebLockRequests.set(lockName, requests + 1);
+    try {
+        return await lockManager.request(lockName, () => {
+            wait?.passed();
+            return operation();
+        });
+    } finally {
+        const left = (realmWebLockRequests.get(lockName) ?? 1) - 1;
+        if (left > 0) realmWebLockRequests.set(lockName, left);
+        else realmWebLockRequests.delete(lockName);
+    }
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
