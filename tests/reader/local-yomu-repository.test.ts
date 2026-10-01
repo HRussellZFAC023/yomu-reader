@@ -294,6 +294,25 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         expect((await reloaded.queue()).cards).toEqual([]);
     });
 
+    it('keeps the page title with the link it names when a word is saved again', async () => {
+        const pageA = 'https://reader-fixture.example/a.html';
+        const pageB = 'https://reader-fixture.example/b.html';
+        const id = canonicalStudyCardKey('読む', 'よむ');
+        const repository = new LocalYomuSrsRepository(() => 1_000_000);
+        const stored = async () => (await new LocalYomuSrsRepository(() => 1_000_000).snapshot()).cards[id];
+        // Saved before cards kept a title: the link alone.
+        await repository.importBatch(yomuSrsImportBatch('legacy', [{ expression: '読む', reading: 'よむ', sourceUrl: pageA }], 1_000_000));
+
+        await repository.mine({ expression: '読む', reading: 'よむ', sourceUrl: pageB, sourceTitle: 'Page B' });
+        expect(await stored()).toMatchObject({ sourceUrl: pageA });
+        expect((await stored())!.sourceTitle).toBeUndefined();
+
+        await repository.mine({ expression: '読む', reading: 'よむ', sourceUrl: pageA, sourceTitle: '  Page A  ' });
+        await repository.mine({ expression: '読む', reading: 'よむ', sourceUrl: pageB, sourceTitle: 'Page B' });
+        expect(await stored()).toMatchObject({ sourceUrl: pageA, sourceTitle: 'Page A' });
+        expect((await repository.collection())[0]).toMatchObject({ sourceUrl: pageA, sourceTitle: 'Page A' });
+    });
+
     it('reports hosted Study quota exhaustion without announcing a saved mine', async () => {
         const originalSetItem = Storage.prototype.setItem;
         vi.stubGlobal('GM_getValue', undefined);

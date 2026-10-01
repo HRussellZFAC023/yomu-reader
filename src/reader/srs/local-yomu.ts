@@ -275,6 +275,7 @@ export class LocalYomuSrsRepository {
                 meanings: request.meaning ? [request.meaning] : [],
                 sentence: request.sentence,
                 sourceUrl: request.sourceUrl,
+                sourceTitle: request.sourceTitle,
             }, now);
             if (!candidate) throw new TypeError('Vocabulary expression is required.');
             candidate.reviewEnabled = false;
@@ -357,6 +358,7 @@ export class LocalYomuSrsRepository {
             sourceProviderId: item.sourceProviderId,
             sourceCardId: item.sourceCardId,
             sourceUrl: item.sourceUrl,
+            sourceTitle: item.sourceTitle?.trim() || undefined,
             tags: uniqueStrings(item.tags ?? []),
             dueAt: item.dueAt ?? now,
             lastReviewAt: null,
@@ -386,6 +388,7 @@ export class LocalYomuSrsRepository {
             sourceProviderId: card.providerId,
             sourceCardId: card.providerCardId,
             sourceUrl: card.sourceUrl,
+            sourceTitle: card.sourceTitle,
             dueAt: card.dueAt ?? now,
             lastReviewAt: card.lastReviewAt ?? null,
             createdAt: now,
@@ -416,6 +419,7 @@ export class LocalYomuSrsRepository {
             dueAt: card.reviewEnabled === false ? undefined : card.dueAt,
             lastReviewAt: card.lastReviewAt,
             sourceUrl: card.sourceUrl,
+            sourceTitle: card.sourceTitle,
             raw: card,
         };
     }

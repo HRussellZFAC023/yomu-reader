@@ -29,6 +29,7 @@ export interface YomuSrsReviewable {
     dueAt?: number | null;
     lastReviewAt?: number | null;
     sourceUrl?: string;
+    sourceTitle?: string;
     raw?: unknown;
 }
 
@@ -103,6 +104,7 @@ export interface YomuSrsImportItem {
     sourceProviderId?: YomuSrsProviderId;
     sourceCardId?: string;
     sourceUrl?: string;
+    sourceTitle?: string;
     tags?: string[];
     dueAt?: number | null;
 }

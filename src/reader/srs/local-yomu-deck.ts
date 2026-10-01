@@ -21,6 +21,8 @@ export interface StoredYomuSrsCard {
     sourceProviderId?: string;
     sourceCardId?: string;
     sourceUrl?: string;
+    /** Title of the page at sourceUrl; missing on cards saved before titles were kept. */
+    sourceTitle?: string;
     tags?: string[];
     dueAt: number;
     /** False for saved material not yet enrolled; existing learner schedules remain active. */
@@ -150,7 +152,7 @@ export function mergeStoredYomuSrsCards(
         sentence: existing.sentence || incoming.sentence,
         sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
         sourceCardId: existing.sourceCardId || incoming.sourceCardId,
-        sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+        ...mergedSource(existing, incoming),
         tags: uniqueText([...(existing.tags ?? []), ...(incoming.tags ?? [])]),
         createdAt: Math.min(existing.createdAt, incoming.createdAt),
         updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
@@ -306,6 +308,7 @@ function normalizeStoredCard(value: unknown): StoredYomuSrsCard | null {
         ...(cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {}),
         ...(cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {}),
         ...(cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {}),
+        ...(cleanOptional(value.sourceTitle) ? { sourceTitle: cleanOptional(value.sourceTitle) } : {}),
         tags: stringArray(value.tags),
         dueAt: finiteNumber(value.dueAt, createdAt),
         ...(value.reviewEnabled === false ? { reviewEnabled: false } : {}),
@@ -320,6 +323,15 @@ function normalizeStoredCard(value: unknown): StoredYomuSrsCard | null {
             ? value.retainWithoutAcademyProvenance
             : true,
         academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt),
+    };
+}
+
+/** A page title stays with the link it names: a merge never labels one page's link with another's title. */
+function mergedSource(existing: StoredYomuSrsCard, incoming: StoredYomuSrsCard): Pick<StoredYomuSrsCard, 'sourceUrl' | 'sourceTitle'> {
+    const [kept, other] = existing.sourceUrl || !incoming.sourceUrl ? [existing, incoming] : [incoming, existing];
+    return {
+        sourceUrl: kept.sourceUrl,
+        sourceTitle: kept.sourceTitle || (other.sourceUrl === kept.sourceUrl ? other.sourceTitle : undefined),
     };
 }
 

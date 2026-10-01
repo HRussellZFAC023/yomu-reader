@@ -16,6 +16,7 @@ const INDEX_KEY = 'yomu:srs-local:v2:index';
 const CARD_PREFIX = 'yomu:srs-local:v2:card:';
 const SENTENCE = '毎晩、本を読むのが好きです。';
 const SOURCE_URL = 'https://reader-fixture.example/articles/evening-reading.html';
+const SOURCE_TITLE = 'Evening reading';
 const READ = canonicalStudyCardKey('読む', 'よむ');
 const BOOK = canonicalStudyCardKey('本', 'ほん');
 const NOW = Date.parse('2026-09-30T10:00:00.000Z');
@@ -44,8 +45,8 @@ function openProfile(values = new Map<string, unknown>()) {
 async function collectAndExport() {
     openProfile();
     const repository = new LocalYomuSrsRepository(() => NOW);
-    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: SENTENCE, sourceUrl: SOURCE_URL });
-    await repository.mine({ expression: '本', reading: 'ほん', meaning: 'book', sentence: SENTENCE, sourceUrl: SOURCE_URL });
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: SENTENCE, sourceUrl: SOURCE_URL, sourceTitle: SOURCE_TITLE });
+    await repository.mine({ expression: '本', reading: 'ほん', meaning: 'book', sentence: SENTENCE, sourceUrl: SOURCE_URL, sourceTitle: SOURCE_TITLE });
     await repository.startReview(READ);
     return (await exportSettingsBackupSnapshot(await loadSettings())).storage;
 }
@@ -59,7 +60,7 @@ async function library() {
     const repository = createYomuLocalSrsAdapter(new LocalYomuSrsRepository(() => NOW));
     return {
         collection: (await repository.collection!()).map(card => ({
-            expression: card.expression, sentence: card.sentence, sourceUrl: card.sourceUrl, level: card.srsLevel, dueAt: card.dueAt,
+            expression: card.expression, sentence: card.sentence, sourceUrl: card.sourceUrl, sourceTitle: card.sourceTitle, level: card.srsLevel, dueAt: card.dueAt,
         })),
         queue: (await repository.queue()).cards.map(card => card.expression),
     };
@@ -76,15 +77,15 @@ describe('local collection export and recovery', () => {
     it('restores saved context into a fresh profile, scheduling only the word added to review', async () => {
         const backup = await collectAndExport();
         expect(backup[INDEX_KEY]).toMatchObject({ cardIds: [BOOK, READ] });
-        expect(backup[`${CARD_PREFIX}${encodeURIComponent(BOOK)}`]).toMatchObject({ sentence: SENTENCE, sourceUrl: SOURCE_URL, reviewEnabled: false });
+        expect(backup[`${CARD_PREFIX}${encodeURIComponent(BOOK)}`]).toMatchObject({ sentence: SENTENCE, sourceUrl: SOURCE_URL, sourceTitle: SOURCE_TITLE, reviewEnabled: false });
 
         openProfile();
         await restore(backup);
 
         expect(await library()).toEqual({
             collection: expect.arrayContaining([
-                { expression: '本', sentence: SENTENCE, sourceUrl: SOURCE_URL, level: 'Saved', dueAt: undefined },
-                { expression: '読む', sentence: SENTENCE, sourceUrl: SOURCE_URL, level: 'New', dueAt: NOW },
+                { expression: '本', sentence: SENTENCE, sourceUrl: SOURCE_URL, sourceTitle: SOURCE_TITLE, level: 'Saved', dueAt: undefined },
+                { expression: '読む', sentence: SENTENCE, sourceUrl: SOURCE_URL, sourceTitle: SOURCE_TITLE, level: 'New', dueAt: NOW },
             ]),
             queue: ['読む'],
         });
