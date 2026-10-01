@@ -1815,6 +1815,57 @@ describe('hover lookup', () => {
         }
     });
 
+    // Every popup section header is a lookup-free <summary data-jpdb-reader-surface-ignore>.
+    // That marker keeps lookups off reader chrome; it must not read as "the pointer left
+    // the popup" (1.8.80: only actually leaving the panel closes a hover popup).
+    function hoverPopoverWithSectionHeader(app: ReaderApp) {
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.innerHTML = '<details data-immersion-kit><summary data-jpdb-reader-surface-ignore="true">Immersion Kit</summary></details>';
+        const academyControl = document.createElement('button');
+        academyControl.dataset.jpdbReaderInteractionIgnore = '';
+        document.body.append(popover, academyControl);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        return { internals, popover, academyControl, summary: popover.querySelector<HTMLElement>('summary')! };
+    }
+
+    it('keeps a hover popover open while the pointer rests on a section header inside it', () => {
+        const app = new ReaderApp();
+        const { internals, popover, academyControl, summary } = hoverPopoverWithSectionHeader(app);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(summary, 'mouse', 'pointermove'));
+
+            expect(popover.isConnected).toBe(true);
+            expect(internals.activePopoverMode).toBe('hover');
+
+            internals.handleHoverPointer(hoverPointerEvent(academyControl, 'mouse', 'pointermove'));
+
+            expect(popover.isConnected).toBe(false);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('pins a hover popover when a press lands on a section header inside it', () => {
+        const app = new ReaderApp();
+        const { internals, popover, summary } = hoverPopoverWithSectionHeader(app);
+        internals.bindEvents();
+
+        try {
+            summary.dispatchEvent(hoverPointerEvent(summary, 'mouse', 'pointerdown'));
+
+            expect(popover.isConnected).toBe(true);
+            expect(internals.activePopoverMode).toBe('modal');
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('leaves a hover popover transient when pointerdown lands outside it', () => {
         const app = new ReaderApp();
         const popover = document.createElement('div');

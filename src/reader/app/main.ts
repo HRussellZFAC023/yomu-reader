@@ -3275,12 +3275,7 @@ export class ReaderApp {
             this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             if ([
                 () => miningDrawerHandleForPointerEvent(event),
-                () => {
-                    if (!this.isLookupInteractionIgnoredTarget(event.target)) return false;
-                    this.cancelPendingHoverLookup();
-                    if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
-                    return true;
-                },
+                () => this.retireHoverForLookupFreeTarget(event.target),
             ].some(handle => handle())) return;
             this.suppressHoverAfterPenContact(event);
             if (this.handleOcrReaderWordPointerDown(event)) return;
@@ -4525,11 +4520,7 @@ export class ReaderApp {
 
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
         if (this.isDestroyed || this.pressLookup?.source === 'middle' || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
-        if (this.isLookupInteractionIgnoredTarget(event.target)) {
-            this.cancelPendingHoverLookup();
-            if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
-            return true;
-        }
+        if (this.retireHoverForLookupFreeTarget(event.target)) return true;
         // A held button means the pointer is DRAGGING (resizing the subtitle
         // panel, selecting text, scrubbing), not hovering to read. Running the
         // hover lookup then is pure waste — and live profiling showed it was a
@@ -4544,6 +4535,17 @@ export class ReaderApp {
         if (!this.hasStickyModalPopover()) return false;
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
+        return true;
+    }
+
+    // Lookup-free chrome outside the popup (Academy controls) retires a hover popup.
+    // The same marker on the popup's own section headers is the learner using the
+    // popup, which only actually leaving the panel may close (1.8.80); a press
+    // there pins it like any other press inside.
+    private retireHoverForLookupFreeTarget(target: EventTarget | null): boolean {
+        if (!this.isLookupInteractionIgnoredTarget(target) || this.isInsideActivePopover(target as Node | null)) return false;
+        this.cancelPendingHoverLookup();
+        if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
         return true;
     }
 
