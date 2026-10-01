@@ -236,16 +236,13 @@ it('opens Library on the saved words whatever chip or search narrowed it before'
 it('opens Library on the saved words behind more than a page of scheduled Academy cards', async () => {
     setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
-    await repository.importBatch({ source: 'fixture', importedAt: Date.now(), items: Array.from({ length: 55 }, (_, index) => ({
-        expression: `語${index}`, reading: `ご${index}`, meanings: ['word'], dueAt: Date.now() + 86_400_000 + index,
-    })) });
-    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
-    await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+    const scheduled = Array.from({ length: 55 }, (_, index) => ({ expression: `語${index}`, reading: `ご${index}`, meanings: ['word'], dueAt: Date.now() + 86_400_000 + index }));
+    await repository.importBatch({ source: 'fixture', importedAt: Date.now(), items: scheduled });
+    for (const [expression, reading] of [['書く', 'かく'], ['見る', 'みる']]) await repository.mine({ expression, reading, meaning: 'saved' });
     const controller = academyStatsController(repository);
     try {
         const root = await renderLoadedApiStats(controller);
-        expect(metric(root, 'Saved')).toBe('2');
-
+        expect([metric(root, 'Cards'), metric(root, 'Saved')]).toEqual(['55', '2']);
         savedTile(root)!.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
         expect(libraryAddToReview(root, '見る')).not.toBeNull();

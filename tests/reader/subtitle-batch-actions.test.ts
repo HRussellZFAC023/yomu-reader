@@ -64,7 +64,9 @@ function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> 
     panel.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => internals.handleClick(event)));
     internals.renderBatchMiningPanel();
     cleanups.push(() => controller.destroy());
-    return { controller, internals, panel, settings, actions, selected, jitenReview, jpdbReview, jitenParse, jpdbParse, jitenAdd, jpdbAdd, ankiAdd, ankiFind, toast };
+    return { controller, internals, panel, settings, actions, selected, jitenReview, jpdbReview, jitenParse, jpdbParse, jitenAdd, jpdbAdd, ankiAdd, ankiFind, toast,
+        /** Every save to either service, so a test can say none happened. */
+        saves: () => [...jitenAdd.mock.calls, ...jpdbAdd.mock.calls] };
 }
 
 describe('subtitle prepared batch actions through the controller', () => {
@@ -169,7 +171,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.jitenParse.mock.calls).toEqual([[['語43']]]);
         expect(f.jitenReview.mock.calls.map(([card]) => card.vid)).toEqual([42, 4300]);
         expect(f.jpdbReview).not.toHaveBeenCalled();
-        expect([...f.jitenAdd.mock.calls, ...f.jpdbAdd.mock.calls]).toEqual([]);
+        expect(f.saves()).toEqual([]);
     });
 
     it('never adds a Jiten identity to JPDB: a JPDB grade adds and reviews the resolved JPDB word once', async () => {
@@ -255,7 +257,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
         await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith(toast));
 
-        expect([...f.jitenAdd.mock.calls, ...f.jpdbAdd.mock.calls]).toEqual([]);
+        expect(f.saves()).toEqual([]);
         expect(f.selected.size).toBe(0);
         expect(f.panel.querySelector('[role="listitem"]')!.querySelectorAll('[data-action="bm-grade"]')).toHaveLength(0);
         // Selected again, the word offers no save that is bound to fail.
@@ -283,7 +285,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.jitenParse.mock.calls).toEqual([[['語51', '語52', '語53']]]);
         expect(f.jitenReview.mock.calls.map(([card, grade]) => [card.vid, grade])).toEqual([[5100, 'hard'], [5300, 'hard']]);
         expect(f.jpdbReview).not.toHaveBeenCalled();
-        expect([...f.jitenAdd.mock.calls, ...f.jpdbAdd.mock.calls]).toEqual([]);
+        expect(f.saves()).toEqual([]);
         expect(f.selected.size).toBe(0);
         // The graded words keep the colour of the service that parsed them, even
         // though Jiten now holds them in another state (ADR-0021).

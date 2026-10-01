@@ -275,14 +275,15 @@ export function collectionDestinationsForCard(
     const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
     const grading = resolveOn ?? apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
     const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter(id => id !== grading)] : COLLECTION_FALLBACK_ORDER;
-    return order.filter(id => canCollectTo(id, card, settings, isJpdbBackedCard, resolveOn));
+    const accepts = (id: ApiSrsProviderId): boolean => id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
+    return order.filter(id => canCollectTo(id, settings, accepts));
 }
 
-function canCollectTo(id: CollectionDestinationId, card: JPDBCard, settings: ReaderSettings, isJpdbBackedCard: (card: JPDBCard) => boolean, resolveOn: ApiSrsProviderId | null): boolean {
+function canCollectTo(id: CollectionDestinationId, settings: ReaderSettings, accepts: (id: ApiSrsProviderId) => boolean): boolean {
     if (id === 'anki') return settings.ankiEnabled;
     return isApiSrsProviderEnabled(settings, id)
         && apiSrsProviderView(id, settings).hasApiKey
-        && (id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard));
+        && accepts(id);
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {

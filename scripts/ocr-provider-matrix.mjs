@@ -121,18 +121,23 @@ async function tapHintState(page) {
         const overlaps = (a, b) => Boolean(a && b) && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
         const hintBox = box(hint);
         const controls = Array.from(document.querySelectorAll('#toolbar button')).map(box);
-        const ink = element => element ? [getComputedStyle(element).color, getComputedStyle(element).webkitTextFillColor] : [];
         return {
             text: hint?.textContent ?? '',
-            // The pill is dark in every theme, so its label and dismiss "×" carry light ink.
-            labelInk: ink(hint?.querySelector('.jpdb-ocr-video-frame-status-label')),
-            dismissInk: ink(hint?.querySelector('.jpdb-ocr-canvas-tap-hint-dismiss')),
-            theme: document.documentElement.className.match(/jpdb-reader-theme-\w+/u)?.[0] ?? '',
             canvasFrames: document.querySelectorAll('.jpdb-ocr-canvas-frame').length,
             scanningPills: document.querySelectorAll('.jpdb-ocr-video-frame-status:not(.jpdb-ocr-canvas-tap-hint)').length,
             coversControl: controls.some(control => overlaps(hintBox, control)),
             insideCanvas: overlaps(hintBox, box(document.querySelector('canvas.default'))),
         };
+    }, TAP_HINT);
+}
+
+// The pill is dark in every theme, so its label and dismiss "×" carry light ink
+// (text and fill colour) rather than the theme's text colour.
+async function tapHintInk(page) {
+    return page.evaluate(selector => {
+        const ink = [...document.querySelectorAll(`${selector} :is(.jpdb-ocr-video-frame-status-label, .jpdb-ocr-canvas-tap-hint-dismiss)`)]
+            .map(element => `${getComputedStyle(element).color} / ${getComputedStyle(element).webkitTextFillColor}`);
+        return { ink: ink.join(', '), light: ink.length === 2 && ink.every(colours => colours === 'rgb(245, 247, 255) / rgb(245, 247, 255)') };
     }, TAP_HINT);
 }
 
@@ -175,9 +180,8 @@ async function runGenericCloudProvider({ label, settings, expectUrl, real }) {
     pass(`${label}: nothing sent before the tap`, !requests.some(u => expectUrl.test(u)), requests.join(' ').slice(0, 120));
     pass(`${label}: nothing captured before the tap`, before.canvasFrames === 0 && before.scanningPills === 0);
     pass(`${label}: hint sits on the page, clear of the reader's controls`, before.insideCanvas && !before.coversControl);
-    const lightInk = ['rgb(245, 247, 255)', 'rgb(245, 247, 255)'];
-    pass(`${label}: label and dismiss "×" carry the pill's light ink (${before.theme})`,
-        [before.labelInk, before.dismissInk].every(ink => JSON.stringify(ink) === JSON.stringify(lightInk)), JSON.stringify([before.labelInk, before.dismissInk]));
+    const ink = await tapHintInk(page);
+    pass(`${label}: label and dismiss "×" carry the pill's light ink`, ink.light, ink.ink);
     const target = await dismissTargetSize(page);
     pass(`${label}: a finger-sized dismiss target around the same glyph`, target.width >= 44 && target.height >= 44 && target.glyph === 20, JSON.stringify(target));
     await page.screenshot({ path: `/tmp/yomu-recon/ocr-${label}-hint.png` });

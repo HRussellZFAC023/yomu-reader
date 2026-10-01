@@ -1,4 +1,4 @@
-import { STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
+import { isStorageLeaseLapsed, STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
 import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
 import { withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
@@ -31,7 +31,7 @@ import type {
     YomuSrsReviewable,
     YomuSrsStatsSnapshot,
 } from './types';
-import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError, isLocalYomuSrsStorageKey, LocalYomuSrsStorageError, LocalYomuSrsStore } from './local-yomu-store';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageKey, LocalYomuSrsStorageError, LocalYomuSrsStore } from './local-yomu-store';
 
 export type {
     AcademyVocabularyInput,
@@ -335,10 +335,7 @@ export class LocalYomuSrsRepository {
                     await this.writeDeck(previous, attempt.save.next);
                 }, LOCAL_DECK_LEASE);
             } catch (error) {
-                if (!attempt.save || !isLocalYomuSrsSaveInterrupted(error)) throw error;
-                if (!await this.landedBeforeInterruption(attempt.save).catch(() => false)) {
-                    throw isLocalYomuSrsStorageError(error) ? error : new LocalYomuSrsStorageError({ cause: error });
-                }
+                await this.confirmInterruptedSave(attempt.save, error);
             }
             const save = attempt.save!;
             if (notifyMutations) notifyLocalDeckMutations(changedCardIds(save.previous, save.next));
@@ -354,6 +351,11 @@ export class LocalYomuSrsRepository {
     // store it, the save happened, so this commits the index rather than report
     // a failure the learner would repeat, scheduling the card twice. A save
     // whose records did not all land failed, and saving again is safe.
+    private async confirmInterruptedSave(save: DeckSave<unknown> | undefined, error: unknown): Promise<void> {
+        const landed = save && isLocalYomuSrsSaveInterrupted(error) && await this.landedBeforeInterruption(save).catch(() => false);
+        if (!landed) throw deckSaveError(error);
+    }
+
     private landedBeforeInterruption(save: DeckSave<unknown>): Promise<boolean> {
         return withGmStorageLease('local-yomu-srs-deck', async () => {
             const stored = await this.readDeckUncoordinated();
@@ -462,6 +464,11 @@ interface DeckSave<Result> {
     readonly value: Result;
     readonly previous: StoredYomuSrsDeck;
     readonly next: StoredYomuSrsDeck;
+}
+
+// A lapse that reached the deck unwrapped is still its save failing.
+function deckSaveError(error: unknown): unknown {
+    return isStorageLeaseLapsed(error) ? new LocalYomuSrsStorageError({ cause: error }) : error;
 }
 
 function deckRecordsDiffer(left: StoredYomuSrsDeck, right: StoredYomuSrsDeck, id: string): boolean {

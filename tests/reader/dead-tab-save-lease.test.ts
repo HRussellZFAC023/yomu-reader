@@ -135,13 +135,22 @@ async function expectSavedWithinShortLease(save: Promise<unknown>, startedAt: nu
     await save;
 }
 
-describe('a save after another tab died mid-save', () => {
+/** The words a fresh read of the deck finds. */
+async function storedWords(tab: Tab): Promise<string[]> {
+    return Object.values((await new tab.store.LocalYomuSrsStore().read()).cards).map(card => card.expression);
+}
+
+function useFakeClock(): void {
     beforeEach(() => { vi.useFakeTimers({ now: NOW }); });
     afterEach(() => {
         vi.useRealTimers();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
+}
+
+describe('a save after another tab died mid-save', () => {
+    useFakeClock();
 
     it('adds the word to the local deck within the short lease and says it is waiting meanwhile', async () => {
         const profile = openProfile(DECK_INDEX_KEY);
@@ -185,12 +194,7 @@ describe('a save after another tab died mid-save', () => {
 // it stalled is stale, so none of its writes may land over the save another
 // tab made meanwhile.
 describe('a tab that resumes after another tab saved in its place', () => {
-    beforeEach(() => { vi.useFakeTimers({ now: NOW }); });
-    afterEach(() => {
-        vi.useRealTimers();
-        vi.restoreAllMocks();
-        vi.unstubAllGlobals();
-    });
+    useFakeClock();
 
     it('cannot write its stale deck over the word another tab added, and says the save was interrupted', async () => {
         const profile = openProfile(DECK_INDEX_KEY);
@@ -207,8 +211,7 @@ describe('a tab that resumes after another tab saved in its place', () => {
         const error = await stale.then(() => null, (failure: unknown) => failure);
         // Storage is fine, so the learner is not told to free some.
         expect(learnerText(stalled, error)).toEqual(SAVE_INTERRUPTED);
-        const deck = await new tab.store.LocalYomuSrsStore().read();
-        expect(Object.values(deck.cards).map(card => card.expression)).toEqual(['本']);
+        expect(await storedWords(tab)).toEqual(['本']);
     });
 
     // ADR-0019 decision 4: one tab, suspended mid-save, with no other tab involved.
@@ -243,7 +246,7 @@ describe('a tab that resumes after another tab saved in its place', () => {
 
         expect(learnerText(tab, await save)).toEqual(SAVE_INTERRUPTED);
         expect(profile.values.get(DECK_INDEX_KEY)).toEqual(index);
-        expect(Object.values((await new tab.store.LocalYomuSrsStore().read()).cards).map(card => card.expression)).toEqual(['本']);
+        expect(await storedWords(tab)).toEqual(['本']);
     });
 
     it('cannot write its stale settings over the choice another tab saved', async () => {

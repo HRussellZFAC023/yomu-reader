@@ -328,8 +328,8 @@ function receiptItem(entry: Entry, action: BatchMutation): BatchReceiptItem {
 }
 
 function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, reviewProvider: ApiSrsProviderAdapter | null): Record<BatchStage, string> {
-    const collect = receiptAccount(card, settings, provider, 'collect');
-    const review = receiptAccount(card, settings, reviewProvider, 'review');
+    const collect = serviceAccount(card, settings, provider, 'collect');
+    const review = serviceAccount(card, settings, reviewProvider, 'review');
     return {
         review: sensitiveFingerprint(JSON.stringify(['review', review.account])),
         'api-collection': sensitiveFingerprint(JSON.stringify(['collect', collect.account, collect.deck])),
@@ -339,13 +339,18 @@ function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsP
     };
 }
 
+// A word the service has not identified yet is never keyed as one of its
+// words: a JPDB vid is not a Jiten word id.
+function serviceAccount(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, use: BatchMutation): { account: unknown[]; deck: string } {
+    const account = receiptAccount(card, settings, provider, use);
+    return provider && !provider.supportsCard(card) ? { ...account, account: ['unidentified', card.source, ...account.account] } : account;
+}
+
 function receiptAccount(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, use: BatchMutation): { account: unknown[]; deck: string } {
     const credentials = { jiten: effectiveJitenApiKey(settings), jpdb: effectiveJpdbApiKey(settings),
         bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)], wanikani: effectiveWanikaniApiToken(settings), 'yomu-local': settings.activeLanguageProfileId };
-    // A word the service has not identified yet is never keyed as one of its words.
     // Bunpro answers one review item but saves any word its catalogue has, so a save is keyed by the word.
-    const identity = provider && !provider.supportsCard(card) ? ['unidentified', card.source, card.vid, card.sid, card.spelling, card.reading]
-        : provider?.id === 'jiten' ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid]
+    const identity = provider?.id === 'jiten' ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid]
         : provider?.id === 'bunpro' && use === 'review' ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint]
         : provider?.id === 'wanikani' ? [card.wanikaniAssignmentId]
         : [card.vid, card.sid, card.spelling, card.reading];

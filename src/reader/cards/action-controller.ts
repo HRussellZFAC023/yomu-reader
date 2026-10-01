@@ -468,12 +468,16 @@ export class CardActionController {
     // An ordinary page renders this save and can read what it reports (ADR-0020):
     // a confirmation or failure there names no service, deck or Anki state.
     private async addToPrivateDefaultDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
-        if (this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted()) return this.addToDefaultDestination(card, sentence, context);
+        if (this.accountDataSurfaceTrusted()) return this.addToDefaultDestination(card, sentence, context);
         try {
             await this.addToDefaultDestination(card, sentence, { ...context, privately: true });
         } catch (error) {
             throw privateCollectionFailure(error);
         }
+    }
+
+    private accountDataSurfaceTrusted(): boolean {
+        return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
     }
 
     private async addToDefaultDestination(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
