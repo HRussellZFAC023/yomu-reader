@@ -172,9 +172,11 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
     } finally { controller.destroy(); }
 });
 
-// "Add to deck +" in Study's lookup popup saves to Academy after Stats and the
-// Library its tile opens have loaded: both must count the new word.
-it('counts a word saved from the Study lookup popup in Stats and the Library the tile opens', async () => {
+/**
+ * Stats loaded with one saved Academy word (読む) while `saveMore` saves 書く:
+ * Stats must count it, and its Saved tile open Library on both words.
+ */
+async function savedWordReachesStats(saveMore: (root: HTMLElement, controller: ReturnType<typeof academyStatsController>, repository: LocalYomuSrsRepository) => Promise<number>): Promise<void> {
     setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
@@ -182,24 +184,42 @@ it('counts a word saved from the Study lookup popup in Stats and the Library the
     try {
         const root = await renderLoadedApiStats(controller);
         expect(metric(root, 'Saved')).toBe('1');
-        savedTile(root)!.click();
-        await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).not.toBeNull());
-        openView(root, 'word');
-
-        // The popup's save, then the card-changed notice the Study runtime passes on.
-        await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
-        controller.refreshBrowseAfterCardMutation();
-        openView(root, 'stats');
-        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
-        // A save that lands while Stats is open (a grade still being written,
-        // say) shows there at once, and does not leave Stats loading.
-        await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
-        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('3'));
+        const saved = await saveMore(root, controller, repository);
+        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe(String(saved)));
         savedTile(root)!.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
         expect(libraryAddToReview(root, '読む')).not.toBeNull();
     } finally { controller.destroy(); }
-});
+}
+
+// "Add to deck +" in Study's lookup popup saves to Academy after Stats and the
+// Library its tile opens have loaded: both must count the new word.
+it('counts a word saved from the Study lookup popup in Stats and the Library the tile opens', () => savedWordReachesStats(async (root, controller, repository) => {
+    savedTile(root)!.click();
+    await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).not.toBeNull());
+    openView(root, 'word');
+
+    // The popup's save, then the card-changed notice the Study runtime passes on.
+    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    controller.refreshBrowseAfterCardMutation();
+    openView(root, 'stats');
+    await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
+    // A save that lands while Stats is open (a grade still being written,
+    // say) shows there at once, and does not leave Stats loading.
+    await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+    return 3;
+}));
+
+// Reading in one tab with Study open in another: a save there reaches this
+// tab only as a change to the shared deck, not through this tab's own signal.
+it('counts a word saved in another tab in Stats and the Library the tile opens', () => savedWordReachesStats(async () => {
+    vi.resetModules();
+    const otherTab = await import('../../src/reader/srs/local-yomu');
+    await new otherTab.LocalYomuSrsRepository().mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    const index = 'yomu:srs-local:v2:index';
+    window.dispatchEvent(new StorageEvent('storage', { key: index, newValue: localStorage.getItem(index), storageArea: localStorage }));
+    return 2;
+}));
 
 // With "Enable Academy" off, Library cannot list Academy words, so Stats must
 // not count them either: a Saved tile would lead to an empty Library.

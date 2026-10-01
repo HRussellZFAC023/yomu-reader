@@ -1,6 +1,6 @@
 import { isStorageLeaseLapsed, STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
 import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
-import { withGmStorageLease } from '../app/storage';
+import { subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
@@ -31,7 +31,7 @@ import type {
     YomuSrsReviewable,
     YomuSrsStatsSnapshot,
 } from './types';
-import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageKey, LocalYomuSrsStorageError, LocalYomuSrsStore } from './local-yomu-store';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageKey, LOCAL_YOMU_SRS_INDEX_KEY, LocalYomuSrsStorageError, LocalYomuSrsStore } from './local-yomu-store';
 
 export type {
     AcademyVocabularyInput,
@@ -57,6 +57,17 @@ const localDeckMutationListeners = new Set<(cardIds: readonly string[]) => void>
 export function subscribeLocalYomuSrsMutations(listener: (cardIds: readonly string[]) => void): () => void {
     localDeckMutationListeners.add(listener);
     return () => localDeckMutationListeners.delete(listener);
+}
+
+/**
+ * This tab's deck saves, and those of another tab or of a Reader in another
+ * world (a userscript or extension beside the page), which this module's own
+ * listeners cannot hear: they arrive as a change to the shared deck index.
+ */
+export function subscribeAcademyDeckChanges(inThisTab: () => void, elsewhere: () => void): () => void {
+    const stopLocal = subscribeLocalYomuSrsMutations(inThisTab);
+    const stopShared = subscribeToStoredValueChanges(LOCAL_YOMU_SRS_INDEX_KEY, (_index, source) => { if (source.remote) elsewhere(); });
+    return () => { stopLocal(); stopShared(); };
 }
 
 export interface AcademyVocabularyCollectionResult {

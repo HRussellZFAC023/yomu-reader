@@ -258,7 +258,7 @@ import {
     reportBrowsePool,
     selectedScopedBrowsePool,
 } from './browse-pool-policy';
-import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError, subscribeLocalYomuSrsMutations } from '../srs/local-yomu';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError, subscribeAcademyDeckChanges } from '../srs/local-yomu';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
 import { StudyExamples } from './study-examples';
@@ -955,7 +955,7 @@ export class NewTabController {
         if (startup.routeSearchQuery) this.searchController.setInitialQuery(startup.routeSearchQuery);
         this.stateChannel = newTabControllerStateChannel(options.surface, state => { void this.applyExternalState(state); });
         this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate(status => this.applyJpdbBridgeStatus(status));
-        this.unsubscribeAcademyMutations = subscribeLocalYomuSrsMutations(() => this.refreshStatsAfterAcademyMutation());
+        this.unsubscribeAcademyMutations = subscribeAcademyDeckChanges(() => this.refreshStatsAfterAcademyMutation(), () => this.refreshAfterAcademySaveElsewhere());
         this.kanjiDetailSource = new KanjiDetailSource({
             getSettings: () => this.dependencies.getSettings(),
             jpdbKanji: this.dependencies.jpdbKanji,
@@ -7782,6 +7782,9 @@ export class NewTabController {
         const root = this.currentRoot();
         if (root && this.state.route === 'stats') void this.loadStatsInto(root);
     }
+
+    // A save in another tab: Study's Academy words, Library and Stats load again.
+    private refreshAfterAcademySaveElsewhere(): void { this.invalidateSourceResultCache('yomu-local'); this.refreshBrowseAfterCardMutation(); this.refreshStatsAfterAcademyMutation(); }
 
     private dropStaleBrowsePool(): void {
         if (this.browsePoolStale) this.invalidateBrowsePool();

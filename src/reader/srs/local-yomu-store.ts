@@ -17,6 +17,8 @@ import {
 const LEGACY_DECK_KEY = 'yomu:srs-local:v1';
 const DECK_KEY_PREFIX = 'yomu:srs-local:v2:';
 const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+/** Every committed deck save rewrites the index, so it is the key that says the deck changed. */
+export const LOCAL_YOMU_SRS_INDEX_KEY = DECK_INDEX_KEY;
 const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
 const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 

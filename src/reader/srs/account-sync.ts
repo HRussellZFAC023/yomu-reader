@@ -18,13 +18,13 @@ import type { JPDBCard } from '../app/types';
 import { requestPrivateApi } from '../network/private-request';
 import { LocalYomuSrsRepository, subscribeLocalYomuSrsMutations } from './local-yomu';
 import { mergeStoredYomuSrsDecks, type StoredYomuSrsCard, type StoredYomuSrsDeck } from './local-yomu-deck';
+import { LOCAL_YOMU_SRS_INDEX_KEY } from './local-yomu-store';
 import type { YomuSrsLookupItem } from './types';
 
 const API_ORIGIN = 'https://yomureader.com';
 const DEVICE_STATE_KEY = 'yomu:private:academy-device:v1';
 const PENDING_CLAIM_KEY = 'yomu:private:academy-device-pending:v1';
 const EVENT_PURPOSE = 'reader-srs-event';
-const LOCAL_DECK_STORAGE_KEY = 'yomu:srs-local:v2:index';
 // A push uses two D1 statements per envelope. Twenty stays below the Workers
 // Free plan's 50-query invocation ceiling after authentication/rate limiting.
 const PUSH_BATCH_SIZE = 20;
@@ -205,7 +205,7 @@ export function installAcademyReaderSrsSync(): void {
     // Academy runs in the page bundle while the Reader may run in a userscript
     // or extension context. Observe the shared deck store so those mutations
     // are reconciled even though module-local listeners cannot cross worlds.
-    subscribeToStoredValueChanges(LOCAL_DECK_STORAGE_KEY, reconcileAndSchedule);
+    subscribeToStoredValueChanges(LOCAL_YOMU_SRS_INDEX_KEY, reconcileAndSchedule);
     window.addEventListener('online', scheduleAcademyReaderSrsSync);
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') scheduleAcademyReaderSrsSync();
