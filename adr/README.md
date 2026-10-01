@@ -23,6 +23,7 @@ Reviewed 18 September 2026. Historical “accepted” labels are not fresh verif
 | 0017: hosted page bridges | Adopt one announced installed Reader per page, single-responder bridges and v1.9.3 origin stores. | Installed-browser proof with extension, userscript and both. |
 | 0018: review delivery | Adopt: claim only when deliverable, retry the certainly undelivered, hold only unknown outcomes with Check again/Discard. | Route online grades through the owner; real-provider interruption proof. |
 | 0019: storage leases | Adopt: five-second, fenced leases for storage-only saves; one minute for leases held across provider requests. | Installed-browser proof of a suspended tab resuming mid-save on iOS and Safari. |
+| 0019: provider-neutral word state | Adopt: ordinary-page word decoration never names a review provider; the Anki colour channel paints there through the provider-neutral review lane. | Installed-browser proof with extension and userscript; extend the lane, never `anki-*` classes, for new provider-specific paint. |
 | 0021: grading service | Adopt: with JPDB and Jiten both connected, Automatic parsing and grades on page and subtitle words follow the chosen service; an unmatched word is not graded anywhere; Study review cards keep their owner and ⇄ switches one word. | Real-account proof that resolved grades land on the matching word. |
 
 This review changes design guidance, not runtime completion status. Exact local test and package evidence lives in `REBUILD.md`; the full product scope remains open.
