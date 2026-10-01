@@ -185,7 +185,7 @@ class Journey {
         const read = afterFirst.cards[cardId(WORDS.read)];
         assert(afterFirst.ids.length === 1 && read, 'Saving from the popup did not store exactly one local card', afterFirst);
         assert(read.expression === WORDS.read.surface && read.reading === WORDS.read.reading
-            && read.sentence === SENTENCE && read.sourceUrl === ARTICLE_URL
+            && read.sentence === SENTENCE && read.sourceUrl === ARTICLE_URL && read.sourceTitle === ARTICLE_TITLE
             && read.meanings.includes(WORDS.read.meaning), 'The saved card lost its word, sentence, or source context', { read });
         assert(read.reviewEnabled === false && read.reviews === 0 && read.lastReviewAt === null,
             'Saving scheduled or graded the word instead of only collecting it', { read });
@@ -207,13 +207,14 @@ class Journey {
             counts: await this.studyCounts(page),
             library: await this.libraryRows(page, 2),
         }));
-        assert(study.counts.statsDueNow === 0, 'Saved words became Study homework before the learner added them to review', study);
+        assert(study.counts.statsDueNow === 0 && study.counts.statsCards === 0,
+            'Saved words became Study homework before the learner added them to review', study);
         assert(sameMembers(study.library.map(row => row.expression), [WORDS.read.surface, WORDS.book.surface])
             && study.library.every(row => row.addToReview), 'Library did not list both saved words with Add to review', study);
         return {
             saveLabel: first.label,
             saveDrawerCollapsedByDefault: first.drawerCollapsedByDefault,
-            savedCard: pick(read, ['expression', 'reading', 'sentence', 'sourceUrl', 'reviewEnabled', 'reviews']),
+            savedCard: pick(read, ['expression', 'reading', 'sentence', 'sourceUrl', 'sourceTitle', 'reviewEnabled', 'reviews']),
             duplicateSave: { cards: afterSecond.ids.length, dueAtUnchanged: readAgain.dueAt === read.dueAt },
             studyBefore: baseline,
             studyAfterSaving: study,
@@ -244,7 +245,7 @@ class Journey {
             'Add to review did not schedule the chosen word', { read });
         assert(book?.reviewEnabled === false, 'Add to review scheduled a word the learner did not choose', { book });
         const counts = await this.studyCounts(page);
-        assert(counts.statsDueNow === 1, 'Study did not count exactly the one word added to review as due', counts);
+        assert(counts.statsDueNow === 1 && counts.statsCards === 1, 'Study did not count exactly the one word added to review as due', counts);
 
         // Straight back to Study: the word just added is what the learner
         // reviews, shown with the sentence it was saved from.
@@ -257,7 +258,8 @@ class Journey {
         assert(reviewed.dueAt > Date.now() + DAY_MS / 2, 'Grading the enrolled word did not schedule it into the future', { reviewed });
         await page.close();
         const afterGrade = await this.withStudy(profile, study => this.studyCounts(study));
-        assert(afterGrade.statsDueNow === 0, 'Study due count was wrong after the review', afterGrade);
+        // Reviewed and no longer due, the word is still one of the learner's cards.
+        assert(afterGrade.statsDueNow === 0 && afterGrade.statsCards === 1, 'Study due or card count was wrong after the review', afterGrade);
         return {
             studyCardBeforeAdding: before.prompt,
             enrolled: pick(read, ['expression', 'reviews', 'dueAt']),
@@ -295,9 +297,9 @@ class Journey {
         const read = storage[cardStorageKey(cardId(WORDS.read))];
         const book = storage[cardStorageKey(cardId(WORDS.book))];
         assert(index && sameMembers(index.cardIds, [cardId(WORDS.read), cardId(WORDS.book)]), 'Backup did not include the local deck index', { index });
-        assert(read?.sentence === SENTENCE && read.sourceUrl === ARTICLE_URL && read.reviews === 1,
+        assert(read?.sentence === SENTENCE && read.sourceUrl === ARTICLE_URL && read.sourceTitle === ARTICLE_TITLE && read.reviews === 1,
             'Backup did not include the reviewed word with its context', { read });
-        assert(book?.sentence === SENTENCE && book.sourceUrl === ARTICLE_URL && book.reviewEnabled === false,
+        assert(book?.sentence === SENTENCE && book.sourceUrl === ARTICLE_URL && book.sourceTitle === ARTICLE_TITLE && book.reviewEnabled === false,
             'Backup did not include the saved-only word with its context', { book });
         return {
             text,
@@ -306,7 +308,7 @@ class Journey {
                 fileName: download.suggestedFilename(),
                 formatName: backup.formatName,
                 deckIds: index.cardIds,
-                savedOnly: pick(book, ['expression', 'sentence', 'sourceUrl', 'reviewEnabled']),
+                savedOnly: pick(book, ['expression', 'sentence', 'sourceUrl', 'sourceTitle', 'reviewEnabled']),
                 reviewed: pick(read, ['expression', 'sentence', 'reviews', 'dueAt']),
             },
         };
@@ -463,7 +465,7 @@ class Journey {
         }, null, { timeout: 15_000 });
         const metrics = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.jpdb-reader-stats-metric')]
             .map(metric => [metric.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() ?? '', metric.querySelector('strong')?.textContent?.trim() ?? ''])));
-        // For Academy, Stats' Cards figure is the due queue it loaded, not the whole deck.
+        // Cards counts every word in review, due or not; saved words wait in Library.
         return { statsDueNow: Number(metrics['Due now']), statsCards: Number(metrics.Cards) };
     }
 
@@ -675,9 +677,9 @@ function assertRestored(deck, library, label) {
     const read = deck.cards[cardId(WORDS.read)];
     const book = deck.cards[cardId(WORDS.book)];
     assert(deck.ids.length === 2 && !deck.torn.length, `${label} did not restore exactly the two saved words`, deck);
-    assert(read?.reviews === 1 && read.dueAt > Date.now() && read.sentence === SENTENCE && read.sourceUrl === ARTICLE_URL,
-        `${label} lost the reviewed word's schedule or context`, { read });
-    assert(book?.reviewEnabled === false && book.sentence === SENTENCE && book.sourceUrl === ARTICLE_URL,
+    assert(read?.reviews === 1 && read.dueAt > Date.now() && read.sentence === SENTENCE && read.sourceUrl === ARTICLE_URL
+        && read.sourceTitle === ARTICLE_TITLE, `${label} lost the reviewed word's schedule or context`, { read });
+    assert(book?.reviewEnabled === false && book.sentence === SENTENCE && book.sourceUrl === ARTICLE_URL && book.sourceTitle === ARTICLE_TITLE,
         `${label} scheduled or lost the saved-only word`, { book });
     const rows = Object.fromEntries(library.map(row => [row.expression, row]));
     assert(library.length === 2 && rows[WORDS.book.surface]?.addToReview && rows[WORDS.read.surface] && !rows[WORDS.read.surface].addToReview,
