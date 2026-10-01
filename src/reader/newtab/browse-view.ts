@@ -11,6 +11,7 @@ import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 import { newTabAction } from './actions';
 import { newTabCardIdentityLanguage, newTabCardTarget } from './study-queue';
+import { isSavedOnlyNewTabCard } from './srs-card-adapter';
 
 export type BrowseFilter = 'all' | CardState;
 export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
@@ -344,7 +345,7 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
             cardStateLabel(state, language),
             browseStateDetails(card, dueIn),
         )),
-        startReview && card.source === 'yomu-local' && card.dueAt == null
+        startReview && isSavedOnlyNewTabCard(card)
             ? el('button', {
                 type: 'button',
                 dataset: { newtabAction: newTabAction('browse-start-review'), browseCardKey: cardKey(card) },

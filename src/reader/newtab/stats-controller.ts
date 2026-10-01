@@ -14,6 +14,7 @@ import { effectiveJitenApiKey, hasJpdbApiCredential, hasJitenApiCredential } fro
 import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { dedupeWords } from './card-selection';
+import { isSavedOnlyNewTabCard } from './srs-card-adapter';
 import {
     JPDB_ALL_DECKS,
     JPDB_DECK_SAMPLE_LIMIT,
@@ -48,7 +49,7 @@ const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1000;
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
 type NewTabSrsAdapterSource = Extract<NewTabConcreteSource, 'bunpro' | 'wanikani' | 'yomu-local'>;
-type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
+type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'collection' | 'review'>;
 
 // A single labelled card fetcher used to build a stats pool. Also the shape of
 // the controller's My-Cards browse-pool providers, hence exported.
@@ -99,6 +100,13 @@ type NewTabStatsAction = Extract<NewTabAction, `stats-${string}`>;
 
 function isNewTabStatsAction(action: NewTabAction | undefined): action is NewTabStatsAction {
     return action !== undefined && action.startsWith('stats-');
+}
+
+/** Every card an adapter can list, as Library reads it; the due queue only where that is all it offers. */
+async function srsStatsReviewables(adapter: NewTabSrsQueueAdapter): Promise<YomuSrsReviewable[]> {
+    return adapter.collection
+        ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT)
+        : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT)).cards;
 }
 
 interface StatsClickRequest {
@@ -431,13 +439,14 @@ export class NewTabStatsController {
             return emptyStatsSource(source, label, source === 'yomu-local' ? this.deps.text('statsNoData') : this.deps.text('statsApiKeyMissing'), 'setup');
         }
         try {
-            const [stats, queue] = await Promise.all([
+            const [stats, reviewables] = await Promise.all([
                 adapter.stats(),
-                adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT),
+                srsStatsReviewables(adapter),
             ]);
-            const cards = queue.cards
+            // Stats describe review work: a word Library still offers to "Add to review" is not a card yet.
+            const cards = reviewables
                 .map((card: YomuSrsReviewable) => this.deps.srsReviewableToNewTabCard(card))
-                .filter((card): card is JPDBCard => card !== null);
+                .filter((card): card is JPDBCard => card !== null && !isSavedOnlyNewTabCard(card));
             const snapshot = statsFromApiCards(cards, label, this.apiLoadedMessage(label, cards.length), source);
             return {
                 ...snapshot,

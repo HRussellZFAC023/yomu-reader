@@ -95,6 +95,11 @@ export function newTabSrsSourceHasCredential(adapter?: LabelledCredentialSource)
     return adapter?.hasCredential() === true;
 }
 
+/** A local word saved to Library but not in review: it has no schedule until "Add to review" or a grade. */
+export function isSavedOnlyNewTabCard(card: JPDBCard): boolean {
+    return card.source === 'yomu-local' && card.dueAt == null;
+}
+
 export function canBrowseNewTabSrsSource(source: NewTabSrsAdapterSource, localSourceAvailable: boolean): boolean {
     return source !== 'yomu-local' || localSourceAvailable;
 }
