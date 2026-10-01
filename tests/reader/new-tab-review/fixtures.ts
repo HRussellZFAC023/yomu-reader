@@ -433,7 +433,7 @@ export type NewTabLookupRenderData = {
 };
 export type NewTabLookupRuntimeInternals<T extends NewTabLookupRenderData> = {
     settings: NewTabSettings;
-    cardRenderData: { load(): { localEntries: Promise<unknown[]>; all: Promise<T> } };
+    cardRenderData: { load(): { localEntries: Promise<unknown[]>; all: Promise<T> }; clear(): void };
     parser: { canParse(): boolean; isJpdbBackedCard(card: JPDBCard): boolean };
     showLookupCard(card: JPDBCard, sentence?: string): Promise<void>;
 };
@@ -745,6 +745,8 @@ export function setupNewTabLookupRuntime<T extends NewTabLookupRenderData>(
     };
     internals.cardRenderData = {
         load: () => ({ localEntries: Promise.resolve([]), all: Promise.resolve(renderData) }),
+        // A save clears the cached data before the popup refreshes.
+        clear: () => undefined,
     };
     internals.parser = {
         canParse: () => false,

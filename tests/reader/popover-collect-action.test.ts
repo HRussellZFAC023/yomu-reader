@@ -407,6 +407,36 @@ describe('popup collect action', () => {
         }
     });
 
+    // The deck picker takes focus while it is open and closes when a deck is
+    // chosen: a keyboard learner lands back on "Add to deck +", not on the popup.
+    it('returns keyboard focus to "Add to deck +" after a save chosen in the Study deck picker', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        const runtime = new NewTabRuntime();
+        const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
+            settings: { ...KEYLESS, ankiEnabled: true },
+            isJpdbBackedCard: () => false,
+        }) as ReturnType<typeof setupNewTabLookupRuntime> & { activeLookupPopover?: HTMLElement };
+        const collect = (): HTMLButtonElement | null => internals.activeLookupPopover!.querySelector('.jpdb-reader-collect [data-action="deck-picker"]');
+        try {
+            await internals.showLookupCard(newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '本を読む。' }), '本を読む。');
+            const opened = collect()!;
+            opened.focus();
+            opened.click();
+            const picker = internals.activeLookupPopover!.querySelector<HTMLSelectElement>('.jpdb-reader-collect [data-add-deck-select]')!;
+            expect(document.activeElement).toBe(picker);
+            picker.selectedIndex = [...picker.options].findIndex(option => option.dataset.deckSource === 'yomu-local');
+            picker.dispatchEvent(new Event('change'));
+
+            // The save refreshes the popup, replacing the button.
+            await vi.waitFor(() => expect(collect()).not.toBe(opened));
+            await vi.waitFor(() => expect(document.activeElement).toBe(collect()));
+            expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toEqual(['Added to Academy.']);
+        } finally {
+            runtime.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('saves exactly once to the local deck, without scheduling it, only on trusted input, and keeps keyboard focus on it', async () => {
         setActiveLearningTargetLanguage('ja');
         allowSyntheticReaderInteractionsForTests(false);

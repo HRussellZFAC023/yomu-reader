@@ -48,13 +48,12 @@ export function openDeckPickerForCardAdd(
     const controller = new AbortController();
     const cleanup = (): void => closeDeckPicker(picker, wrapper, toggle, controller);
     picker.addEventListener('change', trustedReaderEventHandler(() => {
-        const option = picker.selectedOptions[0];
-        const deck = readDeckChoiceCapability(option);
-        if (!deck?.id) {
-            cleanup();
-            return;
-        }
+        const deck = readDeckChoiceCapability(picker.selectedOptions[0]);
         cleanup();
+        if (!deck?.id) return;
+        // The picker closed with focus on it: focus goes back to the button that
+        // opened it, where the save's own focus keeping expects to find it.
+        button.focus({ preventScroll: true });
         void performAction(button, card, sentence, {
             kind: 'card-action',
             action: 'add',
