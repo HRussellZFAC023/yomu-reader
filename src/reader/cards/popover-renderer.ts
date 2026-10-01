@@ -8,7 +8,7 @@ import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
 import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
-import { cardStateLabel, formatUiText, uiText } from '../app/i18n';
+import { cardStateLabel, formatUiText, providerCardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
@@ -690,7 +690,7 @@ function renderPopoverFrequencyMeta(card: JPDBCard, provider: ApiSrsProviderView
 
 function renderPopoverProviderMeta(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, settings: ReaderSettings, trusted: boolean): string {
     if (!provider || !popoverProviderStatusIsVisible(card, provider, trusted)) return '';
-    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider.label)} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>`;
+    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider.label)} ${escapeHtml(providerCardStateLabel(provider.id, state, settings.interfaceLanguage))}</span>`;
 }
 
 function popoverProviderStatusIsVisible(card: JPDBCard, provider: ApiSrsProviderView, trusted: boolean): boolean {

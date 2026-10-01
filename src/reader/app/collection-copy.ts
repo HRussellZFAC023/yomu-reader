@@ -21,6 +21,8 @@ const EN = {
     yomuLocalSrsStorageFailed: 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.',
     yomuLocalSrsSaveInterrupted: 'Your Academy deck was not saved because saving was interrupted. Try again.',
     addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+    // An Academy word kept without a schedule (Library, Stats and the popups).
+    savedWord: 'Saved',
 } as const;
 
 const JA: Record<keyof typeof EN, string> = {
@@ -41,6 +43,7 @@ const JA: Record<keyof typeof EN, string> = {
     yomuLocalSrsStorageFailed: 'Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。',
     yomuLocalSrsSaveInterrupted: '保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。',
     addedToYomuLocal: 'Academyに追加しました。',
+    savedWord: '保存済み',
 };
 
 export const COLLECTION_COPY = { en: EN, ja: JA };

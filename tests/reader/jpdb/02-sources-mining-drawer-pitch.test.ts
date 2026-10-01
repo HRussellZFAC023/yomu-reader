@@ -889,6 +889,21 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).not.toContain('#400');
     });
 
+    // Library and Stats call an Academy word saved without a schedule "Saved".
+    it.each([['en', 'Academy Saved'], ['ja', 'Academy 保存済み']] as const)('names a saved Academy word as Library does (%s)', (interfaceLanguage, label) => {
+        const renderer = testCardPopoverRenderer({ apiKey: '', jitenApiKey: '', yomuLocalSrsEnabled: true, interfaceLanguage });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            source: 'yomu-local',
+            reviewSource: 'yomu-local',
+            cardState: ['in-deck'],
+        }, '説明する。');
+
+        expect(document.querySelector('.jpdb-reader-provider-status')?.textContent).toBe(label);
+        expect(document.querySelector('.jpdb-reader-provider-status .jpdb-reader-state-dot.jpdb-in-deck')).not.toBeNull();
+    });
+
     it('suppresses alternate reading metadata when wordWithReading renders as headword ruby', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',

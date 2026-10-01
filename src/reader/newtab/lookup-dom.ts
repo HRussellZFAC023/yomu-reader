@@ -1,12 +1,11 @@
 import type { AnkiLookupResult } from '../anki/index';
 import { escapeHtml } from '../dom/index';
-import { cardStateLabel, uiText } from '../app/i18n';
+import { cardStateLabel, providerCardStateLabel, uiText } from '../app/i18n';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { ApiSrsProviderView } from '../cards/srs-providers';
 import type { PopoverReviewControls } from '../cards/popover-renderer';
 import { isTargetLanguageText } from '../lookup/target-text';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
-import { newTabText } from './i18n';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import {
@@ -158,17 +157,12 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
 // Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
 function newTabLookupProviderStatusLabel(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
     if (!provider?.hasApiKey || !providerOwnsCard(provider, card)) return '';
-    return `${provider.label} ${providerStateLabel(provider, state, settings.interfaceLanguage)}`;
+    return `${provider.label} ${providerCardStateLabel(provider.id, state, settings.interfaceLanguage)}`;
 }
 
 // Academy is named only on a card it holds.
 function providerOwnsCard(provider: ApiSrsProviderView, card: JPDBCard): boolean {
     return provider.id !== 'yomu-local' || card.source === 'yomu-local' || card.reviewSource === 'yomu-local';
-}
-
-// Academy keeps a word saved but not in review "in deck"; Library and Stats call it "Saved".
-function providerStateLabel(provider: ApiSrsProviderView, state: string, language: InterfaceLanguage): string {
-    return provider.id === 'yomu-local' && state === 'in-deck' ? newTabText(language, 'savedWord') : cardStateLabel(state, language);
 }
 
 function newTabLookupAnkiStatusLabel(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {

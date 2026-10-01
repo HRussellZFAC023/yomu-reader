@@ -4,7 +4,7 @@
 // filters, queue-order sorting and an opt-in select mode. Pure helpers — the
 // controller owns data loading and event dispatch.
 import { el } from '../dom/builder';
-import { cardStateLabel } from '../app/i18n';
+import { cardStateLabel, uiText } from '../app/i18n';
 import { firstCardMeaning } from './index';
 import { primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
@@ -12,7 +12,6 @@ import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 import { newTabAction } from './actions';
 import { newTabCardIdentityLanguage, newTabCardTarget } from './study-queue';
 import { isSavedOnlyNewTabCard } from './srs-card-adapter';
-import { newTabText } from './i18n';
 
 /** A Library state chip: a card state, or "Saved" for a Saved Word, as Stats counts it. */
 export type BrowseStateKey = CardState | 'saved';
@@ -199,7 +198,7 @@ export function renderBrowseChips(
     allLabel: string,
 ): HTMLElement {
     const counts = browseStateCounts(cards);
-    const label = (state: BrowseStateKey): string => state === 'saved' ? newTabText(language, 'savedWord') : cardStateLabel(state, language);
+    const label = (state: BrowseStateKey): string => state === 'saved' ? uiText(language, 'savedWord') : cardStateLabel(state, language);
     const chip = (filter: BrowseFilter, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
         type: 'button',
         class: 'jpdb-reader-newtab-browse-chip',
@@ -374,7 +373,7 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
 
 // A saved Academy word is named as Stats' Saved tile names it, not as a deck state.
 function browseStateLabel(card: JPDBCard, state: CardState, language: ReaderSettings['interfaceLanguage']): string {
-    return isSavedOnlyNewTabCard(card) ? newTabText(language, 'savedWord') : cardStateLabel(state, language);
+    return isSavedOnlyNewTabCard(card) ? uiText(language, 'savedWord') : cardStateLabel(state, language);
 }
 
 function browseReading(card: JPDBCard): string {
