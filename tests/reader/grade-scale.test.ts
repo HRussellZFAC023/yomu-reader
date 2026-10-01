@@ -5,7 +5,7 @@ import { renderReviewButtons } from '../../src/reader/anki/render';
 import { setInnerHtml } from '../../src/reader/dom';
 import { readCardCommandCapability, readPrivateReviewTarget } from '../../src/reader/dom/private-command-capabilities';
 import { reviewShortcutButton } from '../../src/reader/dom/review-shortcuts';
-import { renderNewTabLookupReviewButtons } from '../../src/reader/newtab/lookup-dom';
+import { renderNewTabLookupReviewControls } from '../../src/reader/newtab/lookup-dom';
 import { updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
 import { renderNewTabGradeControlButtons, selectedNewTabMainGradeTarget, summarizeNewTabReviewSources, updateNewTabMainGradeTargetLabel } from '../../src/reader/newtab/review-controls';
 import type { JPDBCard } from '../../src/reader/app/types';
@@ -110,10 +110,11 @@ describe('shared provider grade scale', () => {
     it('ignores unhidden off-target rows and forged option/profile attributes in hosted lookup', () => {
         const root = document.createElement('div');
         root.className = 'jpdb-reader-actions';
-        setInnerHtml(root, renderNewTabLookupReviewButtons(reviewGradeScale(settings, 'jiten').grades, [
+        const controls = renderNewTabLookupReviewControls(reviewGradeScale(settings, 'jiten').grades, [
             { id: 'jiten', kind: 'jiten', label: 'Grades Jiten', shortLabel: 'Jiten' },
             { id: 'anki:42', kind: 'anki', label: 'Grades Anki', shortLabel: 'Anki', ankiCardId: 42 },
-        ], { settings, card }));
+        ], { settings, card });
+        setInnerHtml(root, `${controls.gutter}${controls.buttons}`);
         const select = root.querySelector('select')!;
         const offTarget = root.querySelector<HTMLElement>('[data-review-grade-profile="anki"]')!;
         offTarget.hidden = false;

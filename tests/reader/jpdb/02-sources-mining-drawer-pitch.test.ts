@@ -1457,7 +1457,7 @@ describe('reader helpers', () => {
             dictionarySourceAttributes: () => '',
             dictionaryLabel: name => name,
             accountDataSurfaceTrusted: () => true,
-            renderReviewButtonsFallback: () => '<div data-fallback-review><button data-action="grade" data-grade="pass">Pass</button></div>',
+            renderReviewButtonsFallback: () => ({ gutter: '', buttons: '<div data-fallback-review><button data-action="grade" data-grade="pass">Pass</button></div>' }),
         });
 
         const html = renderer.render({ ...card, reviewSource: 'jpdb-live' }, '漢字です。', 'modal', {

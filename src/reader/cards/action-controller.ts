@@ -460,7 +460,7 @@ export class CardActionController {
         const settings = this.options.getSettings();
         const destination = this.privateDefaultDestination(card, settings);
         if (destination === 'anki') return this.addToAnki(card, sentence, settings.ankiDeck, context);
-        if (!destination) throw userFacingError('batchMiningNoDestination');
+        if (!destination) throw userFacingError('collectNoDestination');
         const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
         if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
         await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings);

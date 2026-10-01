@@ -9,13 +9,14 @@ import { SETTINGS_RECOVERY_COPY } from './settings-recovery-copy';
 import { PRACTICE_SESSION_COPY } from './practice-session-copy';
 import { SAVE_WAIT_COPY } from './save-wait-copy';
 import { GRADING_SERVICE_COPY } from './grading-service-copy';
+import { COLLECTION_COPY } from './collection-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
 type UiLanguage = 'en' | 'ja';
 const COPY = {
     en: {
-        ...PRACTICE_SESSION_COPY.en,
+        ...PRACTICE_SESSION_COPY.en, ...COLLECTION_COPY.en,
         settingsTitle: `${APP_NAME} Settings`,
         welcomeLabel: `${APP_NAME} welcome`,
         onboardingEyebrow: '{language}, wherever it appears',
@@ -754,7 +755,6 @@ const COPY = {
         subtitleLines: 'Lines',
         shadow: 'Shadow',
         subtitleTracks: 'Tracks',
-        batchMiningNoDestination: 'Enable JPDB/Jiten API mining or Anki mining first.',
         subtitleTrackTiming: 'Subtitle timing',
         subtitleOffsetPrevious: 'Align previous subtitle to current time',
         subtitleOffsetNext: 'Align next subtitle to current time',
@@ -1065,19 +1065,9 @@ const COPY = {
         jpdbRequestTimedOutError: 'JPDB took too long to respond. Try again.',
         jpdbRequestFailedError: 'JPDB request failed. Try again.',
         jpdbDeckStateApiKeyRequired: 'Add a JPDB API key to change JPDB deck state.',
-        jpdbAddApiKeyRequired: 'Add a JPDB API key, or use Add to Anki.',
-        addedToJpdb: 'Added to JPDB.',
         jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
-        jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
-        bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
         wanikaniAddApiKeyRequired: 'Add a WaniKani personal access token to review due assignments.',
-        yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-        yomuLocalSrsStorageFailed: 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.',
-        chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
-        addedToJiten: 'Added to Jiten.',
-        addedToBunpro: 'Added to Bunpro.',
         addedToWanikani: 'Recorded on WaniKani.',
-        addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
         loadingDictionaryDetails: 'Loading dictionary details...',
         jitenCompositeWords: 'Composite words',
@@ -1521,7 +1511,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -1677,19 +1666,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -1739,7 +1718,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja, ...GRADING_SERVICE_COPY.ja,
+    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja, ...GRADING_SERVICE_COPY.ja, ...COLLECTION_COPY.ja,
 };
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {

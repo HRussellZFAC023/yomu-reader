@@ -147,7 +147,7 @@ async function mineBunproCard(client: BunproClient, request: YomuSrsMiningReques
     const rawSearch = await client.search(request.expression, { grammar: request.kind !== 'vocabulary', vocab: request.kind !== 'grammar', limit: 12 });
     const requestedKind = request.kind === 'grammar' ? 'grammar' : 'vocabulary';
     const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
-    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
+    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`, undefined, 'bunproNoMatchingWord');
     if (reviewable.kind !== 'vocabulary' && reviewable.kind !== 'grammar') {
         throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
     }

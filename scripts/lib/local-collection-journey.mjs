@@ -183,6 +183,7 @@ class Journey {
         }
         await waitUntil(() => readDeck(profile).revision > revision, timeout, `saving ${word.surface}`);
         await waitForToast(page, /Added to Academy/u);
+        if (keyboard) action.keyboard.focusAfterSave = await focusAfterSave(page);
         return action;
     }
 
@@ -600,8 +601,8 @@ function wordSelector(surface) {
 }
 
 // Every visible control stays inside the action row and the viewport, the
-// save's label is not cut off, and the save sits above the grades rather than
-// over them. Other cut-off labels are reported, not failed.
+// save's label is not cut off, nothing covers the save, and the save sits above
+// the grades rather than over them. Other cut-off labels are reported, not failed.
 async function actionRowLayout(popover) {
     return popover.locator('.jpdb-reader-actions').evaluate(actions => {
         const row = actions.getBoundingClientRect();
@@ -621,6 +622,9 @@ async function actionRowLayout(popover) {
         const saveButton = actions.querySelector('.jpdb-reader-collect [data-action="add-default"]');
         const save = saveButton?.getBoundingClientRect();
         const firstGrade = actions.querySelector('[data-action="grade"]')?.getBoundingClientRect();
+        // Nothing, such as a target bar over the row, sits on top of the save.
+        const saveUncovered = Boolean(save && [save.top + 2, save.top + save.height / 2]
+            .every(y => saveButton.contains(document.elementFromPoint(save.left + save.width / 2, y))));
         const label = control => control.textContent.replace(/\s+/gu, ' ').trim();
         const layout = {
             viewport: { width: innerWidth, height: innerHeight },
@@ -628,15 +632,26 @@ async function actionRowLayout(popover) {
             lowestControlBottom: Math.round(Math.max(...controls.map(control => control.getBoundingClientRect().bottom))),
             save: save && { width: Math.round(save.width), height: Math.round(save.height) },
             saveAboveGrades: Boolean(save && firstGrade && save.bottom <= firstGrade.top + 0.5),
+            saveUncovered,
             outside: outside.map(label),
             clipped: clipped.map(label),
         };
         return {
             ...layout,
             fits: layout.row.scrollOverflow <= 0 && row.left >= -0.5 && row.right <= innerWidth + 0.5
-                && !outside.length && !clipped.includes(saveButton) && layout.saveAboveGrades,
+                && !outside.length && !clipped.includes(saveButton) && layout.saveAboveGrades && saveUncovered,
         };
     });
+}
+
+// The save re-renders the popup, replacing the button; a keyboard learner stays
+// on the save instead of starting again from the top of the page.
+async function focusAfterSave(page) {
+    const onSave = () => Boolean(document.activeElement?.matches('.jpdb-reader-popover .jpdb-reader-collect [data-action="add-default"]'));
+    await page.waitForFunction(onSave, null, { timeout: 5_000 }).catch(() => undefined);
+    const focused = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 160) ?? '');
+    assert(await page.evaluate(onSave), 'Keyboard focus left the save after the popup refreshed', { focused });
+    return 'save';
 }
 
 async function closePopup(page) {

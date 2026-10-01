@@ -1,6 +1,7 @@
 import { requestHttp } from '../network/http-request';
 import type { ReaderHttpOptions } from '../network/http-options';
 import { httpStatusFromError } from '../network/error-status';
+import type { UiCopyKey } from '../app/i18n';
 
 const BUNPRO_FRONTEND_API_BASE_URL = 'https://api.bunpro.jp/api/frontend';
 
@@ -47,7 +48,8 @@ export interface BunproReviewActionRequest {
 export type BunproReviewEndpoint = 'review' | 'ghost-review' | 'self-study-review';
 
 export class BunproApiError extends Error {
-    constructor(message: string, readonly status?: number) {
+    /** `yomuUiCopyKey` names the message a learner sees instead of a generic failure. */
+    constructor(message: string, readonly status?: number, readonly yomuUiCopyKey?: UiCopyKey) {
         super(message);
         this.name = 'BunproApiError';
     }

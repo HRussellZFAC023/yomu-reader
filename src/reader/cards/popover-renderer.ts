@@ -72,7 +72,11 @@ interface ReviewButtonsRenderOptions {
     language: InterfaceLanguage;
 }
 
-interface PopoverReviewControls {
+/**
+ * A grade row split into the target bar that sits over the action row and the
+ * controls beneath it, so the popup can place the bar ahead of "Add to deck +".
+ */
+export interface PopoverReviewControls {
     /** The target bar over the action row; only a switchable target has one. */
     gutter: string;
     buttons: string;
@@ -103,7 +107,8 @@ export interface CardPopoverRendererDependencies {
     renderDefinitionSources: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: BunproDefinitionInfo | null, extraSections?: Record<string, string>) => string;
     dictionarySourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
-    renderReviewButtonsFallback?: (card: JPDBCard, data: CardRenderData & { loading: boolean }) => string;
+    /** Study's own grade row for its current review card, used while the popup cannot grade it itself. */
+    renderReviewButtonsFallback?: (card: JPDBCard, data: CardRenderData & { loading: boolean }) => PopoverReviewControls;
     accountDataSurfaceTrusted?: () => boolean;
 }
 
@@ -370,7 +375,7 @@ export class CardPopoverRenderer {
     private renderReviewControls(options: ReviewButtonsRenderOptions, trustedAccountDataSurface: boolean): PopoverReviewControls {
         return trustedAccountDataSurface
             ? this.renderTrustedReviewControls(options)
-            : { gutter: '', buttons: this.renderPublicReviewButtons(options) };
+            : buttonsOnly(this.renderPublicReviewButtons(options));
     }
 
     private renderPublicReviewButtons(options: ReviewButtonsRenderOptions): string {
@@ -388,16 +393,16 @@ export class CardPopoverRenderer {
     private renderTrustedReviewControls(options: ReviewButtonsRenderOptions): PopoverReviewControls {
         const { card, data, provider, reviewBlockReason, language } = options;
         const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
-        if (earlyResult !== undefined) return { gutter: '', buttons: earlyResult };
+        if (earlyResult) return earlyResult;
         const targets = this.popoverReviewTargets(card, data, provider, language);
         if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
-        return { gutter: '', buttons: this.renderUntargetedReviewButtons(options) };
+        return this.renderUntargetedReviewControls(options);
     }
 
-    private renderUntargetedReviewButtons(options: ReviewButtonsRenderOptions): string {
+    private renderUntargetedReviewControls(options: ReviewButtonsRenderOptions): PopoverReviewControls {
         const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
         if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
-        return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
+        return buttonsOnly(this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language));
     }
 
     private shouldUseFallbackReviewButtons(card: JPDBCard, data: CardRenderData & { loading: boolean }, provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
@@ -405,18 +410,17 @@ export class CardPopoverRenderer {
             || !this.shouldRenderReviewButtons(data, provider, reviewBlockReason);
     }
 
-    private renderReviewButtonsFallback(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
-        const renderer = this.dependencies.renderReviewButtonsFallback;
-        return renderer ? renderer(card, data) : '';
+    private renderReviewButtonsFallback(card: JPDBCard, data: CardRenderData & { loading: boolean }): PopoverReviewControls {
+        return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? buttonsOnly('');
     }
 
     private reviewButtonsEarlyResult(
         card: JPDBCard,
         data: CardRenderData & { loading: boolean },
         reviewBlockReason: string,
-    ): string | undefined {
-        if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`;
-        if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
+    ): PopoverReviewControls | undefined {
+        if (reviewBlockReason) return buttonsOnly(`<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`);
+        if (data.loading || !this.settings().enableReviews) return this.renderReviewButtonsFallback(card, data);
         return undefined;
     }
 
@@ -587,13 +591,13 @@ export class CardPopoverRenderer {
     ): PopoverReviewControls {
         const settings = this.settings();
         const selected = targets[0];
-        if (!selected) return { gutter: '', buttons: '' };
+        if (!selected) return buttonsOnly('');
         const reviewGroup = canSwitchTarget ? Symbol('review-group') : undefined;
         const profiles = new Set((canSwitchTarget ? targets : [selected]).map(target => target.gradeProfile));
         const gradeRows = [...profiles].map(profile => renderTargetedGradeRow(
             reviewGradeScale(settings, profile), selected, profile, selected.gradeProfile !== profile, settings, reviewGroup,
         )).join('');
-        if (!gradeRows) return { gutter: '', buttons: '' };
+        if (!gradeRows) return buttonsOnly('');
         const selector = reviewGroup ? renderReviewTargetSelector(targets, language, reviewGroup) : '';
         return {
             gutter: renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget),
@@ -776,6 +780,10 @@ function renderTargetedGradeRow(
     </div>`;
 }
 
+function buttonsOnly(buttons: string): PopoverReviewControls {
+    return { gutter: '', buttons };
+}
+
 export function togglePopoverReviewTargetSelection(button: HTMLButtonElement): void {
     const select = button.closest<HTMLElement>('.jpdb-reader-actions')
         ?.querySelector<HTMLSelectElement>('[data-review-target-select]');
@@ -869,11 +877,13 @@ function renderApiMiningActions(
     // An ordinary page owns this DOM: it gets one provider-neutral save whose
     // destination the controller resolves from the same list.
     if (!trustedAccountDataSurface) return { collect: destinations.length ? renderPrivateCollectAction(language) : '', deckState: '' };
+    // Every deck offered is one the word can be saved to, so with no deck there is
+    // nothing for "Add to deck +" to do and it is not shown.
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider, destinations);
-    if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return { collect: '', deckState: '' };
+    const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
     return {
-        collect: renderCollectAction(`${renderApiDeckAddButton(provider, addDeckSelect, language)}${addDeckSelect}`),
-        deckState: canToggleApiDeckState(card, settings) ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : '',
+        collect: addDeckSelect ? renderCollectAction(`${renderApiDeckAddButton(addDeckSelect, destinations[0], language)}${addDeckSelect}`) : '',
+        deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : '',
     };
 }
 
@@ -924,20 +934,23 @@ function renderAddDeckSelect(
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiDeckAddButton(provider: ApiSrsProviderView | null, addDeckSelect: string, language: InterfaceLanguage): string {
+function renderApiDeckAddButton(addDeckSelect: string, defaultDestination: CollectionDestinationId | undefined, language: InterfaceLanguage): string {
     const label = collectButtonLabel(language);
-    if (!isDirectApiDeckAdd(provider, addDeckSelect)) {
+    const deckSource = directCollection(addDeckSelect, defaultDestination);
+    if (!deckSource) {
         return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${label}</button>`;
     }
-    const deckSource = provider?.id === 'bunpro' ? 'bunpro' : 'yomu-local';
     return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: 'card-action', action: 'add', deckSource })}>${label}</button>`;
 }
 
-// Bunpro and the Yomu deck are single collections: with nothing else to choose
-// from, "Add to deck +" saves straight away instead of opening the picker.
-function isDirectApiDeckAdd(provider: ApiSrsProviderView | null, addDeckSelect: string): boolean {
-    if (provider?.id !== 'bunpro' && provider?.id !== 'yomu-local') return false;
-    return (addDeckSelect.match(/data-deck-source=/g)?.length ?? 0) <= 1;
+// Bunpro and the Yomu deck are single collections: when the default destination
+// is one of them and is the only choice, "Add to deck +" saves there straight
+// away instead of opening a picker with one choice. A default whose decks have
+// not loaded yet, such as Jiten's, keeps the picker.
+function directCollection(addDeckSelect: string, defaultDestination: CollectionDestinationId | undefined): 'bunpro' | 'yomu-local' | undefined {
+    if (defaultDestination !== 'bunpro' && defaultDestination !== 'yomu-local') return undefined;
+    const sources = addDeckSelect.match(/data-deck-source="[^"]*"/g) ?? [];
+    return sources.length === 1 && sources[0] === `data-deck-source="${defaultDestination}"` ? defaultDestination : undefined;
 }
 
 function renderApiDeckStateActions(state: MiningActionState, language: InterfaceLanguage): string {

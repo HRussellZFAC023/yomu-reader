@@ -1,0 +1,35 @@
+import { ACADEMY_SRS_LABEL } from './constants';
+
+// Saving a looked-up word to a collection destination: each destination's
+// confirmation, and why a save could not happen.
+const EN = {
+    collectNoDestination: 'None of your decks can take this word. Turn one on in Settings.',
+    jpdbAddApiKeyRequired: 'Add a JPDB API key, or use Add to Anki.',
+    addedToJpdb: 'Added to JPDB.',
+    jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
+    chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
+    addedToJiten: 'Added to Jiten.',
+    bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
+    bunproNoMatchingWord: 'Bunpro has no entry for this word.',
+    addedToBunpro: 'Added to Bunpro.',
+    yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+    yomuLocalSrsStorageFailed: 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.',
+    addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+} as const;
+
+const JA: Record<keyof typeof EN, string> = {
+    collectNoDestination: 'この単語を追加できるデッキがありません。設定でデッキを有効にしてください。',
+    jpdbAddApiKeyRequired: 'JPDB APIキーかAnki追加が必要です。',
+    addedToJpdb: 'JPDBに追加しました。',
+    jitenAddApiKeyRequired: 'Jiten APIキーかAnki追加が必要です。',
+    chooseJitenStudyDeck: '先にJiten学習デッキを選択してください。',
+    addedToJiten: 'Jitenに追加しました。',
+    bunproAddApiKeyRequired: 'Bunproのfrontend_api_tokenかAnki追加が必要です。',
+    bunproNoMatchingWord: 'この単語はBunproに見つかりませんでした。',
+    addedToBunpro: 'Bunproに追加しました。',
+    yomuLocalSrsDisabled: '先に設定でAcademyを有効にしてください。',
+    yomuLocalSrsStorageFailed: 'Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。',
+    addedToYomuLocal: 'Academyに追加しました。',
+};
+
+export const COLLECTION_COPY = { en: EN, ja: JA };

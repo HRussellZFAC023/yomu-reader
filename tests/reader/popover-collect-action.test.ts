@@ -9,10 +9,14 @@ import { createBunproSrsAdapter } from '../../src/reader/srs/bunpro';
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import type { YomuSrsAdapter } from '../../src/reader/srs/types';
 import type { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
+import { runCardActionOperation } from '../../src/reader/cards/action-operation';
 import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../src/reader/dom';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { openDeckPickerForCardAdd } from '../../src/reader/study/mining-controls';
+import { reviewGradeScale } from '../../src/reader/cards/grade-scale';
+import { renderNewTabLookupReviewControls } from '../../src/reader/newtab/lookup-dom';
+import type { NewTabLookupReviewTarget } from '../../src/reader/newtab/review-controls';
 import {
     allowSyntheticReaderInteractionsForTests,
     dispatchAuthorizedReaderControlClick,
@@ -49,6 +53,11 @@ const BUNPRO_ONLY: Partial<ReaderSettings> = {
     enableReviews: true,
 };
 
+const STUDY_REVIEW_TARGETS: NewTabLookupReviewTarget[] = [
+    { id: 'jpdb', kind: 'jpdb', label: 'Grades JPDB', shortLabel: 'JPDB' },
+    { id: 'anki:404', kind: 'anki', label: 'Grades Anki', shortLabel: 'Anki', ankiCardId: 404 },
+];
+
 afterEach(() => {
     allowSyntheticReaderInteractionsForTests(true);
     resetActiveLearningTargetLanguage();
@@ -56,16 +65,17 @@ afterEach(() => {
     localStorage.clear();
 });
 
-function renderActions(settings: Partial<ReaderSettings>, overrides: Parameters<typeof testCardPopoverRenderer>[1] = {}, data = emptyCardRenderData()): HTMLElement {
-    const html = testCardPopoverRenderer(settings, overrides).render(WORD, SENTENCE, 'modal', data);
+function renderActions(settings: Partial<ReaderSettings>, overrides: Parameters<typeof testCardPopoverRenderer>[1] = {}, data = emptyCardRenderData(), word = WORD): HTMLElement {
+    const html = testCardPopoverRenderer(settings, overrides).render(word, SENTENCE, 'modal', data);
     setInnerHtml(document.body, `<div class="jpdb-reader-popover">${html}</div>`);
     return document.querySelector<HTMLElement>('.jpdb-reader-actions')!;
 }
 
 /** Focusable controls a learner can reach without opening the drawer, in tab order. */
 function reachableControls(actions: HTMLElement): HTMLElement[] {
+    const collapsed = actions.classList.contains('jpdb-reader-actions-mining-collapsed');
     return [...actions.querySelectorAll<HTMLElement>('button, select')]
-        .filter(control => !control.closest(`${COLLAPSED_DRAWER}, [hidden]`));
+        .filter(control => !control.closest('[hidden]') && !(collapsed && control.closest(COLLAPSED_DRAWER)));
 }
 
 function accessibleText(element: HTMLElement): string {
@@ -176,6 +186,36 @@ describe('popup collect action', () => {
         expect(mine).not.toHaveBeenCalled();
     });
 
+    it('tells the learner why a save could not happen, in their language', async () => {
+        // Through the shared card-action lifecycle, as the popup reports a failed save.
+        const toasts = async (error: unknown): Promise<string[]> => {
+            const toast = vi.fn();
+            for (const language of ['en', 'ja'] as const) {
+                await runCardActionOperation(document.createElement('button'), () => Promise.reject(error),
+                    { logger: { warn: () => undefined }, warning: 'Card action failed', action: 'add-default', term: WORD.spelling, language, toast }, () => undefined);
+            }
+            return toast.mock.calls.map(([message]) => String(message));
+        };
+        const collect = renderActions(BUNPRO_ONLY, ORDINARY_PAGE).querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
+        // Bunpro's catalogue has no vocabulary item for this word.
+        const request = vi.fn(async (url: string) => url.endsWith('/search/reviewables_v1_1') ? { vocabs: { data: [] } } : { ok: true });
+        const bunproOnly = testCardActionController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ...BUNPRO_ONLY }),
+            srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'bunpro-token', requestImpl: request })) },
+        });
+        const notInBunpro = await bunproOnly.perform(readCardCommandCapability(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error);
+        expect(await toasts(notInBunpro)).toEqual(['Bunpro has no entry for this word.', 'この単語はBunproに見つかりませんでした。']);
+        expect(request.mock.calls.filter(([url]) => url.endsWith('/reviews/update_via_action_type'))).toHaveLength(0);
+
+        // Bunpro was switched off after the popup offered the save.
+        const switchedOff = testCardActionController({ getSettings: () => ({ ...DEFAULT_SETTINGS, ...BUNPRO_ONLY, bunproMiningEnabled: false }) });
+        const noDestination = await switchedOff.perform(readCardCommandCapability(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error);
+        expect(await toasts(noDestination)).toEqual([
+            'None of your decks can take this word. Turn one on in Settings.',
+            'この単語を追加できるデッキがありません。設定でデッキを有効にしてください。',
+        ]);
+    });
+
     it('offers no save when the only destination cannot take the word', () => {
         const expired = { ...BUNPRO_ONLY, bunproFrontendApiTokenExpiresAt: '2020-01-01T00:00:00Z' };
         expect(renderActions(expired, ORDINARY_PAGE).querySelector('[data-action="add-default"]')).toBeNull();
@@ -184,7 +224,64 @@ describe('popup collect action', () => {
         expect(html).not.toContain('data-action="add-default"');
     });
 
-    it('saves exactly once to the local deck, without scheduling it, and only on trusted input', async () => {
+    it('offers no save on a trusted surface when no enabled destination can take the word', () => {
+        // WaniKani grades its own due assignments but has no API to add a word.
+        const wanikaniOnly: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: '', yomuLocalSrsEnabled: false, ankiEnabled: false, bunproMiningEnabled: false, wanikaniReviewEnabled: true, wanikaniApiToken: 'wanikani-token', enableReviews: true };
+        const assignment: JPDBCard = { ...WORD, source: 'wanikani', wanikaniSubjectId: 1, wanikaniAssignmentId: 7 };
+        expect(renderActions(wanikaniOnly, {}, emptyCardRenderData(), assignment).querySelector('.jpdb-reader-collect')).toBeNull();
+
+        // A Jiten-only learner saves into a Jiten study deck, so the save waits until there is one.
+        const jitenOnly: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, yomuLocalSrsEnabled: false, ankiEnabled: false, enableReviews: true };
+        const jitenWord: JPDBCard = { ...WORD, source: 'jiten', jitenWordId: 9, jitenReadingIndex: 0 };
+        expect(renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [] }), jitenWord).querySelector('.jpdb-reader-collect')).toBeNull();
+        const withDeck = renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [{ id: 'study', name: 'Mining' }] }), jitenWord);
+        expect(withDeck.querySelector('.jpdb-reader-collect [data-add-deck-select] [data-deck-source="jiten"]')).not.toBeNull();
+    });
+
+    it('saves straight to Bunpro or the Yomu deck only when it is the default and the only choice', () => {
+        const collectRow = (settings: Partial<ReaderSettings>, word = WORD): HTMLElement => renderActions(settings, {}, emptyCardRenderData(), word).querySelector<HTMLElement>('.jpdb-reader-collect')!;
+        const offered = (row: HTMLElement): Array<string | undefined> => [...row.querySelectorAll<HTMLOptionElement>('option[data-deck-source]')].map(option => option.dataset.deckSource);
+
+        // JPDB grades this word, but the learner collects only into the Yomu deck, or only into Bunpro.
+        const yomuOnly = collectRow({ interfaceLanguage: 'en', apiKey: 'jpdb-lookup-key', jpdbMiningEnabled: false, yomuLocalSrsEnabled: true, ankiEnabled: false, enableReviews: true });
+        expect(yomuOnly.querySelector('button')?.dataset).toMatchObject({ action: 'add', deckSource: 'yomu-local' });
+        expect(collectRow(BUNPRO_ONLY).querySelector('button')?.dataset).toMatchObject({ action: 'add', deckSource: 'bunpro' });
+
+        // A sentence from the learner's Bunpro reviews: Bunpro grades it, only Anki can save it.
+        const sentence: JPDBCard = { ...WORD, source: 'bunpro', bunproReviewableType: 'sentence', bunproReviewId: '5', bunproReviewSessionId: '9', bunproReviewInputMode: 'regular', bunproReviewEndpoint: 'review' };
+        const ankiOnly = collectRow({ ...BUNPRO_ONLY, apiKey: '', ankiEnabled: true }, sentence);
+        expect(ankiOnly.querySelector('button')?.dataset.action).toBe('deck-picker');
+        expect(offered(ankiOnly)).toEqual(['anki']);
+
+        // Jiten grades and takes this word, but its study decks have not loaded:
+        // the save waits in the picker instead of going to the Yomu deck.
+        const jitenWord: JPDBCard = { ...WORD, source: 'jiten', jitenWordId: 9, jitenReadingIndex: 0 };
+        const jitenLoading = collectRow({ interfaceLanguage: 'en', apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, yomuLocalSrsEnabled: true, ankiEnabled: false, enableReviews: true }, jitenWord);
+        expect(jitenLoading.querySelector('button')?.dataset.action).toBe('deck-picker');
+        expect(offered(jitenLoading)).toEqual(['yomu-local']);
+    });
+
+    // Study grades its current review card from that card's lookup popover. While
+    // the popover loads, Study's own grade row stands in; with two review targets
+    // it carries the ⇄ target bar that sits over the action row.
+    it.each([
+        ['a JPDB learner', { interfaceLanguage: 'en', apiKey: 'jpdb-key', jpdbMiningEnabled: true, ankiEnabled: true, enableReviews: true }],
+        ['a Yomu-deck learner', KEYLESS],
+    ] as Array<[string, Partial<ReaderSettings>]>)('keeps one Study target bar over the row and the save before the grades for %s', (_learner, learner) => {
+        const settings = { ...DEFAULT_SETTINGS, ...learner };
+        const actions = renderActions(settings, {
+            renderReviewButtonsFallback: () => renderNewTabLookupReviewControls(reviewGradeScale(settings, 'standard').grades, STUDY_REVIEW_TARGETS, { settings, card: WORD }),
+        }, emptyCardRenderData({ loading: true }));
+
+        expect(actions.querySelectorAll('.jpdb-reader-actions-gutter')).toHaveLength(1);
+        expect(actions.querySelectorAll('[data-action="mining-collapse"]')).toHaveLength(1);
+        // The collapsed drawer leaves room for the bar and hides the target selector.
+        expect(actions.classList.contains('jpdb-reader-actions-has-mining')).toBe(true);
+        expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+        expectCollectActionBesideGrades(actions, actions.querySelector<HTMLElement>('.jpdb-reader-collect .jpdb-reader-mining-title')!);
+    });
+
+    it('saves exactly once to the local deck, without scheduling it, only on trusted input, and keeps keyboard focus on it', async () => {
         setActiveLearningTargetLanguage('ja');
         allowSyntheticReaderInteractionsForTests(false);
         const boundary = new AbortController();
@@ -199,7 +296,6 @@ describe('popup collect action', () => {
             installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, ...KEYLESS };
-        internals.showCard = vi.fn(async () => undefined);
         const toast = vi.fn();
         internals.toast = toast;
         const mine = vi.spyOn(internals.yomuLocalSrs, 'mine');
@@ -207,7 +303,15 @@ describe('popup collect action', () => {
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         popover.dataset.jpdbReaderRoot = 'true';
-        setInnerHtml(popover, internals.cardPopoverRenderer.render(WORD, SENTENCE, 'modal', emptyCardRenderData()));
+        const renderPopover = (): void => setInnerHtml(popover, internals.cardPopoverRenderer.render(WORD, SENTENCE, 'modal', emptyCardRenderData()));
+        // Like the real refresh after a save, this re-renders the popup, replacing
+        // the save button, and focuses the popup itself.
+        popover.tabIndex = -1;
+        internals.showCard = vi.fn(async () => {
+            renderPopover();
+            popover.focus();
+        });
+        renderPopover();
         document.body.append(popover);
         internals.installCardPopoverHandlers(popover, WORD, SENTENCE, undefined, 'modal');
         const collect = popover.querySelector<HTMLButtonElement>('.jpdb-reader-collect [data-action="add-default"]')!;
@@ -216,8 +320,13 @@ describe('popup collect action', () => {
             await new Promise(resolve => setTimeout(resolve, 20));
             expect(mine).not.toHaveBeenCalled();
 
+            collect.focus();
             dispatchAuthorizedReaderControlClick(collect);
             await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to Academy.'));
+            // A keyboard learner keeps their place on the refreshed save.
+            const refreshed = popover.querySelector('.jpdb-reader-collect [data-action="add-default"]');
+            expect(refreshed).not.toBe(collect);
+            await vi.waitFor(() => expect(document.activeElement).toBe(refreshed));
 
             expect(mine).toHaveBeenCalledTimes(1);
             expect(review).not.toHaveBeenCalled();

@@ -8,7 +8,7 @@ import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
 import { refreshAfterCardAction, runCardActionOperation } from '../cards/action-operation';
-import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection, type PopoverReviewControls } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { apiSrsProviderViewForCard } from '../cards/srs-providers';
@@ -47,7 +47,7 @@ import {
     newTabLookupMetaItems,
     newTabLookupReviewTargetSelection,
     parsedWordLookupSentence,
-    renderNewTabLookupReviewButtons as renderNewTabLookupReviewButtonsHtml,
+    renderNewTabLookupReviewControls as renderNewTabLookupReviewControlsHtml,
     updateKanjiLookupMiningControls,
 } from './lookup-dom';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -360,7 +360,7 @@ export class NewTabRuntime {
         renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
-        renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data),
+        renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewControls(card, data),
     });
     private activeLookupPopover?: HTMLElement;
     private activeLookupBackdrop?: HTMLElement;
@@ -1301,21 +1301,20 @@ export class NewTabRuntime {
     }
 
     private renderKanjiLookupActionBar(card: JPDBCard): string {
-        const reviewButtons = this.renderNewTabLookupReviewButtons(card);
-        const hasReviewTargetGutter = reviewButtons.includes('data-review-target-gutter');
+        const { gutter, buttons } = this.renderNewTabLookupReviewControls(card);
         return `
-            <div class="jpdb-reader-actions${kanjiLookupActionsClass(hasReviewTargetGutter)}" data-kanji-actions${kanjiLookupReviewAttributes(reviewButtons)}>
-                ${renderKanjiLookupMiningGutter(hasReviewTargetGutter, this.text('showMiningActions'))}
+            <div class="jpdb-reader-actions${kanjiLookupActionsClass(Boolean(gutter))}" data-kanji-actions${kanjiLookupReviewAttributes(buttons)}>
+                ${gutter || renderKanjiLookupMiningGutter(this.text('showMiningActions'))}
                 <div data-kanji-mining-mount hidden></div>
-                ${reviewButtons}
+                ${buttons}
             </div>
         `;
     }
 
-    private renderNewTabLookupReviewButtons(card: JPDBCard, data?: CardRenderData | null): string {
+    private renderNewTabLookupReviewControls(card: JPDBCard, data?: CardRenderData | null): PopoverReviewControls {
         const grades = this.newTab?.lookupGradeOptions(card) ?? [];
         const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
-        return renderNewTabLookupReviewButtonsHtml(grades, targets, { settings: this.settings, card });
+        return renderNewTabLookupReviewControlsHtml(grades, targets, { settings: this.settings, card });
     }
 
     private resetLookupHandlers(): AbortSignal {
@@ -2479,8 +2478,7 @@ function kanjiLookupReviewAttributes(reviewButtons: string): string {
     return reviewButtons ? ' data-kanji-has-review="true"' : ' data-kanji-has-review="false" hidden';
 }
 
-function renderKanjiLookupMiningGutter(hasReviewTargetGutter: boolean, label: string): string {
-    if (hasReviewTargetGutter) return '';
+function renderKanjiLookupMiningGutter(label: string): string {
     return `<div class="jpdb-reader-actions-gutter" hidden>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button>
     </div>`;
