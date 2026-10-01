@@ -56,7 +56,7 @@ import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabu
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { kanjiFrequencyRanks } from '../cards/frequency-ranks';
 import { runJitenKanjiWordsAction, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
-import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import { renderedJpdbRelatedWords } from '../jpdb/jpdb-related-words';
@@ -64,7 +64,7 @@ import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import { jpdbAudioCard } from '../jpdb/jpdb-page-targets';
 import { createJpdbReviewBridgeClient } from '../jpdb/jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
+import type { KanjiVGInfo } from '../kanji/vg';
 import type { KanjiSourceInfo } from '../kanji/origin';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { configureLogger, Logger } from '../app/logger';
@@ -159,7 +159,8 @@ import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/type
 import { addWindowEventListener } from '../platform/window-events';
 import { subscribeToReaderSettingsChanges } from '../app/settings-storage-subscription';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
-import type { RtkClient, RtkInfo } from '../kanji/rtk';
+import type { RtkInfo } from '../kanji/rtk';
+import { createNoopJpdbKanjiClient, createNoopKanjiVGClient, createNoopRtkClient, noopKanjiPracticeDoodle } from './missing-kanji-study-clients';
 import { BunproClient } from '../bunpro/bunpro';
 import { createBunproSrsAdapter, createWanikaniSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
 import { installAcademyReaderSrsSync } from '../srs/account-sync';
@@ -189,30 +190,6 @@ const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
 type NewTabRuntimeTextKey = UiCopyKey | NewTabCopyKey;
-
-function createNoopJpdbKanjiClient(): JpdbKanjiClient {
-    return {
-        lookup: () => Promise.resolve(null),
-        performAction: () => Promise.reject(new Error('Yomu Kanji/Study companion is missing.')),
-    } as unknown as JpdbKanjiClient;
-}
-
-function createNoopKanjiVGClient(): KanjiVGClient {
-    return {
-        lookup: () => Promise.resolve(null),
-    } as unknown as KanjiVGClient;
-}
-
-function createNoopRtkClient(): RtkClient {
-    return {
-        lookup: () => Promise.resolve(null),
-    } as unknown as RtkClient;
-}
-
-function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => void } {
-    const noop = (): void => undefined;
-    return { reassess: noop, clear: noop };
-}
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -531,6 +508,7 @@ export class NewTabRuntime {
         refreshNewTabIfCurrent: () => {
             if (this.newTab?.isCurrentPage()) void this.newTab.renderPage();
         },
+        onStoredDataRestored: () => this.refreshExternalData(),
         clearDictionarySourceOpenOverrides: () => undefined,
         resetAllData: () => this.factoryReset.resetAllData(),
         beginSettingsPreview: (accent, _language, theme) => {
@@ -778,13 +756,18 @@ export class NewTabRuntime {
     private installExternalRefreshListener(): void {
         this.externalRefreshController?.abort();
         const controller = new AbortController();
-        addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
-            this.audio.clearCaches();
-            this.jpdbVocabulary.clear();
-            this.cardRenderData.clear();
-            if (this.newTab?.isCurrentPage()) void this.newTab.refreshExternalData();
-        }, { signal: controller.signal });
+        addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => this.refreshExternalData(), { signal: controller.signal });
         this.externalRefreshController = controller;
+    }
+
+    // The installed Reader's bridge became ready, or a restore replaced stored
+    // learner data: drop what was loaded before it and reload Study's views.
+    private refreshExternalData(): void {
+        this.audio.clearCaches();
+        this.jpdbVocabulary.clear();
+        this.cardRenderData.clear();
+        this.parseContentCache.clear();
+        if (this.newTab?.isCurrentPage()) void this.newTab.refreshExternalData();
     }
 
     private createNewTabController(): NewTabController {

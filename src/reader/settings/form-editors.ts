@@ -9,7 +9,7 @@ import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
 import { lookupSiteComponents, missingLookupComponents, type LookupLinkComponent } from './lookup-links';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
-import type { AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage } from '../app/types';
+import type { AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage, ReaderSettings } from '../app/types';
 
 type SettingsTextKey = Parameters<typeof uiText>[1];
 
@@ -335,6 +335,38 @@ function addAudioSourceRow(sources: AudioSourceSetting[]): void {
 
 function removeAudioSourceRow(sources: AudioSourceSetting[], index: number): void {
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
+}
+
+// An audio preview plays only the row whose preview button was pressed.
+export function focusPreviewAudioSource(form: HTMLFormElement, button: HTMLButtonElement | null, previewSettings: ReaderSettings): void {
+    const row = button?.closest<HTMLElement>('[data-audio-source-row]');
+    if (!row) return;
+    const source = previewSettings.audioSources[sourceRowIndex(form, row)];
+    if (!source) return;
+    previewSettings.audioSources = [{ ...source, enabled: true }];
+    previewSettings.audioEnableDefaultSources = false;
+}
+
+function sourceRowIndex(form: HTMLFormElement, row: HTMLElement): number {
+    return Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
+}
+
+// Only enabled aggregator rows carrying a usable absolute URL are worth
+// probing: a half-typed URL would burn a lookup on a certain failure, and a
+// switched-off row is not resolving audio for anyone.
+export function probeableAudioSourceUrl(row: HTMLElement): string {
+    if (row.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value !== 'custom-json') return '';
+    if (row.querySelector<HTMLInputElement>('input[name$=".enabled"]')?.checked === false) return '';
+    const url = row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.trim() ?? '';
+    return isProbeableAudioSourceUrl(url) ? url : '';
+}
+
+function isProbeableAudioSourceUrl(url: string): boolean {
+    try {
+        return ['http:', 'https:'].includes(new URL(url).protocol);
+    } catch {
+        return false;
+    }
 }
 
 export function renderDictionaryLookupLinkEditor(

@@ -1113,17 +1113,17 @@ export class NewTabController {
         if (root) delete root.dataset.newtabBound;
     }
 
+    // Learner data changed outside Study (a Backup & sync restore, or the installed
+    // Reader's bridge became ready): reload every view from it, as a page reload would.
     async refreshExternalData(): Promise<void> {
-        const root = this.currentRoot();
-        if (!root) return;
+        if (!this.currentRoot()) return;
+        this.loadGeneration++;
         this.dependencies.dictionaries.invalidateCaches?.();
         this.clearSourceResultCache();
-        this.clearReviewHistory();
-        this.allWords = [];
-        this.visibleWords = [];
-        this.visiblePoolSignature = '';
-        this.navigationSupplementPromise = null;
-        await this.loadWordsInto(root, true);
+        this.resetLoadedSourceState();
+        this.invalidateBrowsePool();
+        this.statsController.reset();
+        await this.renderPage();
     }
 
     async refreshBunproQueueAfterExternalGrade(): Promise<void> {

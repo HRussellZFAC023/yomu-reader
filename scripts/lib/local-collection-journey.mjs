@@ -314,12 +314,17 @@ class Journey {
         };
     }
 
-    // The learner restores from Study's landing page and then opens Library.
-    // (A Library already opened before the restore keeps its earlier list until
-    // Study reloads; that refresh is not part of this proof.)
+    // The learner opens Library in the fresh profile (it lists nothing), then
+    // restores from Settings on top of it. Closing Settings shows the restored
+    // words in that same Library, with no reload; opening Library again after
+    // the import, and reloading Study, show them too.
     async restoreBackup(profile, backup) {
         assert(readDeck(profile).ids.length === 0, 'The fresh profile already had saved words', readDeck(profile));
         const page = await this.openStudy(profile);
+        await this.openLibrary(page, 0);
+        await page.locator('[data-newtab-search-results] .jpdb-reader-newtab-browse-empty').waitFor({ timeout: 15_000 });
+        const libraryBeforeImport = await listedLibraryRows(page);
+        assert(!libraryBeforeImport.length, 'The fresh profile\'s Library listed words before the import', { libraryBeforeImport });
         await openBackupSettings(page);
         const chooserReady = page.waitForEvent('filechooser');
         await page.locator('[data-action="import-reader-settings"]').click();
@@ -327,6 +332,9 @@ class Journey {
         await chooser.setFiles({ name: backup.fileName, mimeType: 'application/json', buffer: Buffer.from(backup.text, 'utf8') });
         await waitForToast(page, /Settings imported/u, 30_000);
         await closeSettings(page);
+        await waitForLibraryRows(page, 2);
+        const libraryUnderImport = await listedLibraryRows(page);
+        assertRestored(readDeck(profile), libraryUnderImport, 'Import with Library already open');
         const library = await this.libraryRows(page, 2);
         await page.close();
         assertRestored(readDeck(profile), library, 'Import');
@@ -337,7 +345,7 @@ class Journey {
         }));
         assertRestored(readDeck(profile), reloaded.library, 'Reload after import');
         assert(reloaded.counts.statsDueNow === 0, 'Restoring the backup changed what is due', reloaded.counts);
-        return { libraryAfterImport: library, reloaded };
+        return { libraryBeforeImport, libraryUnderImport, libraryAfterImport: library, reloaded };
     }
 
     // ---- Interrupted writes ------------------------------------------------------
@@ -428,19 +436,12 @@ class Journey {
 
     async openLibrary(page, expectedRows) {
         await newTabModeButton(page, 'search').click();
-        await page.waitForFunction(count => document.querySelectorAll('[data-newtab-search-results] .jpdb-reader-newtab-browse-item').length === count,
-            expectedRows, { timeout: 15_000 }).catch(() => undefined);
+        await waitForLibraryRows(page, expectedRows);
     }
 
-    // Waits for the rows the learner should see; on a mismatch the caller's
-    // assertion reports what Library actually listed.
     async libraryRows(page, expectedRows) {
         await this.openLibrary(page, expectedRows);
-        return page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-newtab-browse-item')].map(item => ({
-            expression: item.querySelector('[data-expression]')?.getAttribute('data-expression') ?? '',
-            state: item.querySelector('[data-browse-state]')?.getAttribute('data-browse-state') ?? '',
-            addToReview: Boolean(item.querySelector('[data-newtab-action="browse-start-review"]')),
-        })));
+        return listedLibraryRows(page);
     }
 
     // Stats load once per visit, so press its refresh control and read the
@@ -563,6 +564,21 @@ async function closePopup(page) {
     if (!await page.locator('.jpdb-reader-popover').count()) return;
     await page.locator('.jpdb-reader-backdrop').last().click({ position: { x: 2, y: 2 } }).catch(() => undefined);
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 5_000 });
+}
+
+// Waits for the rows the learner should see; on a mismatch the caller's
+// assertion reports what Library actually listed.
+async function waitForLibraryRows(page, expectedRows) {
+    await page.waitForFunction(count => document.querySelectorAll('[data-newtab-search-results] .jpdb-reader-newtab-browse-item').length === count,
+        expectedRows, { timeout: 15_000 }).catch(() => undefined);
+}
+
+function listedLibraryRows(page) {
+    return page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-newtab-browse-item')].map(item => ({
+        expression: item.querySelector('[data-expression]')?.getAttribute('data-expression') ?? '',
+        state: item.querySelector('[data-browse-state]')?.getAttribute('data-browse-state') ?? '',
+        addToReview: Boolean(item.querySelector('[data-newtab-action="browse-start-review"]')),
+    })));
 }
 
 function libraryRow(page, expression) {

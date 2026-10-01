@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { JPDBCard } from '../../src/reader/app/types';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
-import { loadSettings } from '../../src/reader/settings';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
+import type { NewTabController } from '../../src/reader/newtab/controller';
+import { NewTabRuntime } from '../../src/reader/newtab/runtime';
+import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
+import { DEFAULT_SETTINGS, loadSettings } from '../../src/reader/settings';
 import { exportSettingsBackupSnapshot } from '../../src/reader/settings/settings-backup';
 import { runSettingsRestoreTransaction } from '../../src/reader/settings/settings-restore-transaction';
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import { LocalYomuSrsStore } from '../../src/reader/srs/local-yomu-store';
 import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
+import { newTabPromptController, newTabTestCard } from './new-tab-review/fixtures';
 
 // C04 recovery through the real backup and storage layers: a Backup & sync
 // export restores saved context into a fresh profile, and a restore or save
@@ -70,9 +76,74 @@ function deckRecordKeys(values: Map<string, unknown>): string[] {
     return [...values.keys()].filter(key => key.startsWith('yomu:srs-local:')).sort();
 }
 
+// What the learner sees on the Study page: Library rows and the Stats due count.
+function libraryRows(): string[] {
+    return [...document.querySelectorAll('.jpdb-reader-newtab-browse-item [data-expression]')]
+        .map(row => row.getAttribute('data-expression') ?? '').sort();
+}
+
+// The due count once Stats has loaded the local deck ('' until then).
+function statsDueNow(): string {
+    const deck = document.querySelector('.jpdb-reader-stats-connection.is-yomu-local')?.getAttribute('data-stats-status');
+    if (!deck || deck === 'setup' || deck === 'loading') return '';
+    const metric = [...document.querySelectorAll('.jpdb-reader-stats-metric')]
+        .find(item => item.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() === 'Due now');
+    return metric?.querySelector('strong')?.textContent?.trim() ?? '';
+}
+
 describe('local collection export and recovery', () => {
     beforeEach(() => localStorage.clear());
-    afterEach(() => { vi.unstubAllGlobals(); });
+    afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); resetActiveLearningTargetLanguage(); });
+
+    it('refreshes a Study page that loaded Library, Stats and a queue before the restore, as a reload would', async () => {
+        const backup = await collectAndExport();
+        openProfile();
+        setActiveLearningTargetLanguage('ja');
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, {
+            srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(new LocalYomuSrsRepository(() => NOW)) },
+        });
+        const study = controller as unknown as { state: typeof DEFAULT_NEW_TAB_UI_STATE; allWords: JPDBCard[] };
+        const open = (mode: 'word' | 'search' | 'stats') => document.querySelector<HTMLButtonElement>(
+            `.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="${mode}"]`,
+        )!.click();
+        try {
+            // The fresh profile's Study page reopens on Stats with its queue
+            // already built; the learner then opens Library.
+            study.state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'stats', source: 'auto' };
+            study.allWords = [newTabTestCard({ spelling: '電話', reading: 'でんわ' })];
+            await controller.renderPage();
+            await vi.waitFor(() => expect(statsDueNow()).toBe('0'));
+            open('search');
+            await vi.waitFor(() => expect(document.querySelector('.jpdb-reader-newtab-browse-empty')).not.toBeNull());
+
+            await restore(backup);
+            await controller.refreshExternalData();
+
+            await vi.waitFor(() => expect(libraryRows()).toEqual(['本', '読む']));
+            open('stats');
+            await vi.waitFor(() => expect(statsDueNow()).toBe('1'));
+            open('word');
+            await vi.waitFor(() => expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む'));
+        } finally { controller.destroy(); }
+    });
+
+    it('has a restore from Study Settings refresh the Study page under the dialog', () => {
+        const runtime = new NewTabRuntime();
+        const internals = runtime as unknown as {
+            newTab: Pick<NewTabController, 'isCurrentPage' | 'refreshExternalData' | 'destroy'>;
+            parseContentCache: { clear(): void };
+            settingsDialog: { applySettingsRestoreEffects(refreshOcr: boolean): void };
+        };
+        const refreshExternalData = vi.fn(async () => undefined);
+        internals.newTab = { isCurrentPage: () => true, refreshExternalData, destroy: vi.fn() };
+        const clearParsedStudyText = vi.spyOn(internals.parseContentCache, 'clear');
+        try {
+            // What both the file import and the cloud restore run once they commit.
+            internals.settingsDialog.applySettingsRestoreEffects(false);
+            expect(refreshExternalData).toHaveBeenCalledOnce();
+            expect(clearParsedStudyText).toHaveBeenCalled();
+        } finally { runtime.destroy(); }
+    });
 
     it('restores saved context into a fresh profile, scheduling only the word added to review', async () => {
         const backup = await collectAndExport();

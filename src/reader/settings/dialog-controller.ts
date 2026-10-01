@@ -68,6 +68,7 @@ import {
     updateSourceRowEditor,
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
+import { focusPreviewAudioSource, probeableAudioSourceUrl } from './form-editors';
 import { installCatalogBrowseFilter } from './catalog-browse-filter';
 import {
     COLLAPSED_CATALOG_BROWSE_RENDER,
@@ -164,6 +165,8 @@ interface SettingsDialogDependencies {
     refreshDictionaryStyles: () => Promise<void>;
     scheduleDictionaryRescan: () => void;
     refreshNewTabIfCurrent: () => void;
+    // A restore replaced stored learner data; the host reloads views it loaded from storage.
+    onStoredDataRestored?: () => void;
     clearDictionarySourceOpenOverrides: () => void;
     resetAllData: () => void | Promise<void>;
     beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
@@ -217,37 +220,6 @@ const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-function focusPreviewAudioSource(form: HTMLFormElement, button: HTMLButtonElement | null, previewSettings: ReaderSettings): void {
-    const row = button?.closest<HTMLElement>('[data-audio-source-row]');
-    if (!row) return;
-    const source = previewSettings.audioSources[sourceRowIndex(form, row)];
-    if (!source) return;
-    previewSettings.audioSources = [{ ...source, enabled: true }];
-    previewSettings.audioEnableDefaultSources = false;
-}
-
-function sourceRowIndex(form: HTMLFormElement, row: HTMLElement): number {
-    return Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
-}
-
-// Only enabled aggregator rows carrying a usable absolute URL are worth
-// probing: a half-typed URL would burn a lookup on a certain failure, and a
-// switched-off row is not resolving audio for anyone.
-function probeableAudioSourceUrl(row: HTMLElement): string {
-    if (row.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value !== 'custom-json') return '';
-    if (row.querySelector<HTMLInputElement>('input[name$=".enabled"]')?.checked === false) return '';
-    const url = row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.trim() ?? '';
-    return isProbeableAudioSourceUrl(url) ? url : '';
-}
-
-function isProbeableAudioSourceUrl(url: string): boolean {
-    try {
-        return ['http:', 'https:'].includes(new URL(url).protocol);
-    } catch {
-        return false;
-    }
-}
-
 function recommendedDictionaryForControl(control: HTMLElement | null | undefined): RecommendedDictionary {
     const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : undefined;
     if (!dictionary) throw new Error('Recommended dictionary not found.');
@@ -2714,6 +2686,7 @@ export class SettingsDialogController {
             ['subtitle refresh', () => this.dependencies.subtitles.refresh()],
             ['YouTube refresh', () => this.dependencies.youtube.refresh()],
             ['preview cleanup', () => this.dependencies.clearSettingsPreview()],
+            ['stored data reload', () => this.dependencies.onStoredDataRestored?.()],
             ['settings dialog refresh', () => this.open(panel)],
         ];
         if (refreshOcr) effects.splice(5, 0, ['OCR refresh', () => this.dependencies.ocr.refresh()]);

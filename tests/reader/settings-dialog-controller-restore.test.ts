@@ -754,6 +754,23 @@ describe('settings dialog restore and save interlocks', () => {
         expect(dependencies.toast).not.toHaveBeenCalledWith('Action failed.');
     });
 
+    it('has the host reload views of stored learner data once a restore commits, never after a failed one', async () => {
+        const deck = { 'yomu:srs-local:v2:index': { version: 1, revision: 1, cardIds: [] } };
+        const failed = deferred<void>();
+        const onStoredDataRestored = vi.fn();
+        const rejected = createSettingsRestoreFixture(DEFAULT_SETTINGS, vi.fn(() => failed.promise), { onStoredDataRestored });
+        await beginSettingsFileImport(rejected.form, { ...DEFAULT_SETTINGS, accentColor: '#123456' }, { storage: deck });
+        await waitForCondition(() => rejected.saveSettings.mock.calls.length === 1);
+        await rejectSettingsPersistence(failed, rejected.dependencies.toast);
+        expect(onStoredDataRestored).not.toHaveBeenCalled();
+
+        resetSettingsDialogTestEnvironment();
+        const committed = createSettingsRestoreFixture(DEFAULT_SETTINGS, vi.fn().mockResolvedValue(undefined), { onStoredDataRestored });
+        await beginSettingsFileImport(committed.form, { ...DEFAULT_SETTINGS, accentColor: '#123456' }, { storage: deck });
+        await expectSettingsImportSucceeded(committed.dependencies.toast);
+        expect(onStoredDataRestored).toHaveBeenCalledOnce();
+    });
+
     it('keeps committed import success visible when a post-commit UI refresh throws', async () => {
         const onSettingsPersistenceFailed = vi.fn();
         const fixture = createSettingsRestoreFixture(
