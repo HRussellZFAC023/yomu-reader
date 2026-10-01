@@ -19,6 +19,9 @@ import { refreshReaderWordContrast } from '../../src/reader/dom/word-contrast';
 import { reviewShortcutButton } from '../../src/reader/dom/review-shortcuts';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { testCardActionController } from './jpdb/fixtures';
+import { showReaderToast } from '../../src/reader/ui/toast';
+import { userFacingError, userFacingErrorText } from '../../src/reader/app/user-facing-errors';
+import { LocalYomuSrsStorageError } from '../../src/reader/srs/local-yomu';
 
 const PRIVATE_DECK = 'Private::Deck Ω';
 const PRIVATE_MODEL = 'Private Model Ω';
@@ -238,6 +241,55 @@ describe('offhost account-data privacy', () => {
 
         expect(neutralButton.attributes).toHaveLength(0);
         expect(addToDeck).toHaveBeenCalledWith('private-jpdb-deck-id', card, '機密語を読む。');
+    });
+
+    // An ordinary page can read every toast. Whatever destination "Add to deck +"
+    // reaches, and however it fails, what it reports names no service, deck or
+    // Anki state; Study keeps the named copy.
+    describe('collection outcomes', () => {
+        const keyless = { ...settings, apiKey: '', jitenApiKey: '', jpdbMiningEnabled: false, ankiEnabled: false, yomuLocalSrsEnabled: false, localDictionariesEnabled: false, audioEnabled: false };
+        const jitenCard: JPDBCard = { ...card, source: 'jiten', jitenWordId: 77, jitenReadingIndex: 0 };
+        const miningContext = async (word: JPDBCard, sentence?: string) => ({ term: word.spelling, sentence: sentence ?? '', sourceKind: 'page' as const, sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 });
+        const anki = (existing: boolean, addCard: () => Promise<number>) => ({ findExistingCards: async () => existing ? lookup : { state: 'not-in-deck', notes: [], primary: null }, addCard });
+        const destinations: Array<[string, Partial<ReaderSettings>, Partial<Parameters<typeof testCardActionController>[0]>, JPDBCard?]> = [
+            ['JPDB', { apiKey: 'private-jpdb-key', jpdbMiningEnabled: true }, { jpdb: { addToDeck: async () => undefined } as never }],
+            ['Jiten', { jitenApiKey: 'private-jiten-key', jpdbMiningEnabled: true }, { jiten: { addToStudyDeck: async () => undefined, listStudyDecks: async () => [{ id: 3, name: PRIVATE_DECK }] } as never }, jitenCard],
+            ['Jiten without a study deck', { jitenApiKey: 'private-jiten-key', jpdbMiningEnabled: true }, { jiten: { listStudyDecks: async () => [] } as never }, jitenCard],
+            ['Bunpro', { bunproMiningEnabled: true, bunproFrontendApiToken: 'private-bunpro-token' }, { srsAdapters: { bunpro: { id: 'bunpro', hasCredential: () => true, mine: async () => ({}) } as never } }],
+            ['Bunpro without the word', { bunproMiningEnabled: true, bunproFrontendApiToken: 'private-bunpro-token' }, { srsAdapters: { bunpro: { id: 'bunpro', hasCredential: () => true, mine: async () => { throw userFacingError('bunproNoMatchingWord'); } } as never } }],
+            ['Academy', { yomuLocalSrsEnabled: true }, { srsAdapters: { 'yomu-local': { id: 'yomu-local', hasCredential: () => true, mine: async () => ({}) } as never } }],
+            ['Academy storage failure', { yomuLocalSrsEnabled: true }, { srsAdapters: { 'yomu-local': { id: 'yomu-local', hasCredential: () => true, mine: async () => { throw new LocalYomuSrsStorageError(); } } as never } }],
+            ['Anki', { ankiEnabled: true }, { anki: anki(false, async () => 1001) as never }],
+            ['Anki, already holding the word', { ankiEnabled: true }, { anki: anki(true, async () => 1001) as never }],
+            ['Anki, duplicate', { ankiEnabled: true }, { anki: anki(false, async () => { throw Object.assign(new Error('duplicate'), { name: 'AnkiDuplicateNoteError' }); }) as never }],
+            ['Anki unreachable', { ankiEnabled: true }, { anki: anki(false, async () => { throw new Error(`AnkiConnect refused ${PRIVATE_DECK}`); }) as never }],
+        ];
+
+        async function saveOnPage(language: 'en' | 'ja', learner: Partial<ReaderSettings>, services: Partial<Parameters<typeof testCardActionController>[0]>, word: JPDBCard, trusted = false): Promise<string[]> {
+            document.body.replaceChildren();
+            const chosen = { ...keyless, ...learner, interfaceLanguage: language };
+            const controller = testCardActionController({ getSettings: () => chosen, toast: message => showReaderToast(message), resolveMiningContext: miningContext,
+                isJpdbBackedCard: candidate => candidate.source === 'jpdb', accountDataSurfaceTrusted: () => trusted, ...services });
+            await controller.perform({ kind: 'card-action', action: 'add-default' }, document.createElement('button'), { ...word }, '機密語を読む。')
+                .catch((error: unknown) => showReaderToast(userFacingErrorText(language, 'actionFailed', error)));
+            return [...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent ?? '');
+        }
+
+        const cases = destinations.flatMap(([name, learner, services, word = card]) => (['en', 'ja'] as const)
+            .map(language => ({ name, language, learner, services, word })));
+        it.each(cases)('names no service for $name ($language)', async ({ language, learner, services, word }) => {
+            const toasts = await saveOnPage(language, learner, services, word);
+            expect(toasts.length).toBeGreaterThan(0);
+            for (const toast of toasts) {
+                expect(toast).not.toMatch(/anki|jpdb|jiten|bunpro|wanikani|academy/i);
+                expect(toast).not.toContain(PRIVATE_DECK);
+                expect(toast).not.toContain('未翻訳');
+            }
+        });
+
+        it('keeps the named confirmation on Study', async () => {
+            expect(await saveOnPage('en', destinations[0]![1], destinations[0]![2], card, true)).toEqual(['Added to JPDB.']);
+        });
     });
 
     it('keeps annotated-word identity private offhost while preserving generic state and membership styling', () => {

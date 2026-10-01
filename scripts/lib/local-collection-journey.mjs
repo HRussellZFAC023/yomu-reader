@@ -179,11 +179,11 @@ class Journey {
         else await action.save.click();
         action.pending = await whilePending?.(action.save);
         if (fails) {
-            await waitForToast(page, /could not be saved/u, timeout);
+            await waitForToast(page, /This word was not saved/u, timeout);
             return action;
         }
         await waitUntil(() => readDeck(profile).revision > revision, timeout, `saving ${word.surface}`);
-        await waitForToast(page, /Added to Academy/u);
+        await waitForToast(page, /Added to deck/u);
         if (keyboard) action.keyboard.focusAfterSave = await focusAfterSave(page);
         return action;
     }
@@ -455,7 +455,7 @@ class Journey {
         await waitUntil(() => readDeck(profile).revision > revision, DEAD_TAB_SAVE_BOUND_MS - (Date.now() - started),
             'the save after the other tab closed');
         const recoveryMs = Date.now() - started;
-        await waitForToast(page, /Added to Academy/u);
+        await waitForToast(page, /Added to deck/u);
         const statusCleared = await page.waitForFunction(source => ![...document.querySelectorAll('.jpdb-reader-toast')]
             .some(node => new RegExp(source, 'u').test(node.textContent ?? '')), SAVE_WAITING_STATUS.source, { timeout: 2_000 })
             .then(() => true, () => false);

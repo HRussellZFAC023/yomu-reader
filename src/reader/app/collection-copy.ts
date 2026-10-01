@@ -5,6 +5,10 @@ import { ACADEMY_SRS_LABEL } from './constants';
 const EN = {
     collectNoDestination: 'None of your decks can take this word. Turn one on in Settings.',
     collectWordNotFound: 'Not saved: this word was not found in your preferred grading service.',
+    // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
+    collectAlreadySaved: 'Already in one of your decks. Open Study to edit it.',
+    collectHandoffOpened: 'Opened your deck app. Finish saving there.',
+    collectNotSaved: 'This word was not saved. Try again, or open Study for details.',
     jpdbAddApiKeyRequired: 'Add a JPDB API key, or use Add to Anki.',
     addedToJpdb: 'Added to JPDB.',
     jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
@@ -21,6 +25,9 @@ const EN = {
 const JA: Record<keyof typeof EN, string> = {
     collectNoDestination: 'この単語を追加できるデッキがありません。設定でデッキを有効にしてください。',
     collectWordNotFound: '優先採点サービスでこの単語が見つからなかったため、保存していません。',
+    collectAlreadySaved: 'すでにデッキにあります。編集はStudyで行えます。',
+    collectHandoffOpened: 'デッキのアプリを開きました。そちらで保存を完了してください。',
+    collectNotSaved: 'この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。',
     jpdbAddApiKeyRequired: 'JPDB APIキーかAnki追加が必要です。',
     addedToJpdb: 'JPDBに追加しました。',
     jitenAddApiKeyRequired: 'Jiten APIキーかAnki追加が必要です。',

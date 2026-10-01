@@ -9,7 +9,8 @@ import { JpdbClient } from '../jpdb/jpdb';
 import { jitenSentenceTtsUrl, jitenTtsVoicesForSettings, jitenWordTtsUrl } from '../audio/jiten-tts';
 import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render';
 import { formatUiText, uiList, uiText, type UiCopyKey } from '../app/i18n';
-import { userFacingError } from '../app/user-facing-errors';
+import { userFacingCopyKeyOf, userFacingError } from '../app/user-facing-errors';
+import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
 import type { MiningContext } from '../study/mining-context';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import {
@@ -70,10 +71,14 @@ interface CardActionControllerOptions {
     invalidateCardData?: () => void;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
     onApiCardStateChanged?: (card: JPDBCard) => void;
+    /** Study and the new tab. Defaults to the current document's surface. */
+    accountDataSurfaceTrusted?: () => boolean;
 }
 
 interface CardActionContext {
     sentenceTarget?: string;
+    /** An ordinary page can read this save's toasts, so they name no service, deck or Anki state (ADR-0020). */
+    privately?: boolean;
 }
 
 type StudyActionHandler = () => boolean | Promise<boolean>;
@@ -460,7 +465,18 @@ export class CardActionController {
         await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(provider, card));
     }
 
+    // An ordinary page renders this save and can read what it reports (ADR-0020):
+    // a confirmation or failure there names no service, deck or Anki state.
     private async addToPrivateDefaultDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
+        if (this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted()) return this.addToDefaultDestination(card, sentence, context);
+        try {
+            await this.addToDefaultDestination(card, sentence, { ...context, privately: true });
+        } catch (error) {
+            throw privateCollectionFailure(error);
+        }
+    }
+
+    private async addToDefaultDestination(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
         const destination = this.privateDefaultDestination(card, settings);
         if (destination === 'anki') return this.addToAnki(card, sentence, settings.ankiDeck, context);
@@ -511,7 +527,7 @@ export class CardActionController {
         // image or audio for this mine and no Anki note carries it, say so
         // instead of silently dropping it.
         const droppedMedia = await this.apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence);
-        const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
+        const addedToast = uiText(settings.interfaceLanguage, context.privately ? 'addedToDeckToast' : provider.addedToastKey);
         this.options.toast(apiMiningToast(addedToast, droppedMedia, settings));
         this.notifyApiCardStateChanged(word);
     }
@@ -695,15 +711,19 @@ export class CardActionController {
     private async addToAnki(card: JPDBCard, sentence?: string, deckName?: string, context: CardActionContext = {}): Promise<void> {
         const settings = this.options.getSettings();
         if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings, context)) return;
-        if (await this.showExistingAnkiCardIfPresent(card, sentence)) return;
+        if (await this.showExistingAnkiCardIfPresent(card, sentence, context)) return;
 
         const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, context);
         const noteId = await this.addPreparedAnkiCard(card, prepared);
-        if (noteId === 'duplicate') return this.showExistingAnkiCard(card, sentence);
-        if (noteId === null) return this.toastMobileAnkiHandoff(settings);
+        if (noteId === 'duplicate') return this.showExistingAnkiCard(card, sentence, context);
+        if (noteId === null) return this.toastMobileAnkiHandoff(context);
 
         this.notifyAnkiStatusChanged(card);
-        this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
+        this.collectionToast(context, ankiSentToast(prepared.context, settings, prepared.hasWordAudio), 'addedToDeckToast');
+    }
+
+    private collectionToast(context: CardActionContext, named: string, neutral: UiCopyKey): void {
+        this.options.toast(context.privately ? uiText(this.options.getSettings().interfaceLanguage, neutral) : named);
     }
 
     private async addToAnkiForBatch(card: JPDBCard, sentence: string | undefined, deckName: string, assertCurrent: () => void): Promise<boolean> {
@@ -727,14 +747,14 @@ export class CardActionController {
             dictionaryPreferences: settings.dictionaryPreferences,
             sentenceTarget: context.sentenceTarget,
         });
-        this.toastMobileAnkiHandoff(settings);
+        this.toastMobileAnkiHandoff(context);
         return true;
     }
 
-    private async showExistingAnkiCardIfPresent(card: JPDBCard, sentence?: string): Promise<boolean> {
+    private async showExistingAnkiCardIfPresent(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean> {
         const existing: AnkiLookupResult = await this.options.anki.findExistingCards(card);
         if (!existing.primary) return false;
-        await this.showExistingAnkiCard(card, sentence);
+        await this.showExistingAnkiCard(card, sentence, context);
         return true;
     }
 
@@ -780,8 +800,8 @@ export class CardActionController {
         return { dictionaryContext, context, wordAudio };
     }
 
-    private toastMobileAnkiHandoff(settings: ReaderSettings): void {
-        this.options.toast(uiText(settings.interfaceLanguage, 'openedMobileAnkiHandoff'));
+    private toastMobileAnkiHandoff(context: CardActionContext): void {
+        this.collectionToast(context, uiText(this.options.getSettings().interfaceLanguage, 'openedMobileAnkiHandoff'), 'collectHandoffOpened');
     }
 
     private notifyAnkiStatusChanged(card: JPDBCard): void {
@@ -800,9 +820,9 @@ export class CardActionController {
         publishCardStateSignal(card);
     }
 
-    private async showExistingAnkiCard(card: JPDBCard, sentence?: string): Promise<void> {
+    private async showExistingAnkiCard(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
-        this.options.toast(uiText(settings.interfaceLanguage, 'alreadyInAnki'));
+        this.collectionToast(context, uiText(settings.interfaceLanguage, 'alreadyInAnki'), 'collectAlreadySaved');
         await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
             trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
@@ -870,6 +890,15 @@ const PROVIDER_ADD_API_KEY_REQUIRED_KEYS: Record<ApiSrsDeckSource, UiCopyKey> = 
 
 function providerAddApiKeyRequiredKey(provider: ApiSrsProviderAdapter | null, source: ApiSrsDeckSource): UiCopyKey {
     return provider ? provider.addApiKeyRequiredKey : PROVIDER_ADD_API_KEY_REQUIRED_KEYS[source];
+}
+
+// All an ordinary page learns about a failed save: whether any deck could take
+// the word, and whether the grading service has it. Neither names a service.
+const PRIVATE_COLLECTION_FAILURES: ReadonlySet<UiCopyKey> = new Set(['collectNoDestination', 'collectWordNotFound']);
+
+function privateCollectionFailure(error: unknown): unknown {
+    const copyKey = userFacingCopyKeyOf(error);
+    return copyKey && PRIVATE_COLLECTION_FAILURES.has(copyKey) ? error : userFacingError('collectNotSaved', { cause: error });
 }
 
 function acceptsForCollection(provider: ApiSrsProviderAdapter, card: JPDBCard): boolean {

@@ -163,7 +163,8 @@ describe('popup collect action', () => {
         expect(adds).toHaveLength(1);
         expect(JSON.parse(String(adds[0][1]?.data))).toMatchObject({ action_type: 'add', reviewables: [['Vocab', 42]] });
         expect(jpdbAddToDeck).not.toHaveBeenCalled();
-        expect(toast).toHaveBeenCalledWith('Added to Bunpro.');
+        // The page can read the toast, so it does not say where the word went.
+        expect(toast).toHaveBeenCalledWith('Added to deck.');
     });
 
     it('keeps Anki ahead of the default-on Yomu deck when the grading service cannot take the word', async () => {
@@ -200,12 +201,20 @@ describe('popup collect action', () => {
         const collect = renderActions(BUNPRO_ONLY, ORDINARY_PAGE).querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
         // Bunpro's catalogue has no vocabulary item for this word.
         const request = vi.fn(async (url: string) => url.endsWith('/search/reviewables_v1_1') ? { vocabs: { data: [] } } : { ok: true });
-        const bunproOnly = testCardActionController({
+        const bunproOnlyServices = {
             getSettings: () => ({ ...DEFAULT_SETTINGS, ...BUNPRO_ONLY }),
             srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'bunpro-token', requestImpl: request })) },
-        });
+        };
+        const bunproOnly = testCardActionController(bunproOnlyServices);
         const notInBunpro = await bunproOnly.perform(readCardCommandCapability(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error);
-        expect(await toasts(notInBunpro)).toEqual(['Bunpro has no entry for this word.', 'この単語はBunproに見つかりませんでした。']);
+        // On an ordinary page the reason names no service; Study says Bunpro has no entry.
+        expect(await toasts(notInBunpro)).toEqual([
+            'This word was not saved. Try again, or open Study for details.',
+            'この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。',
+        ]);
+        const onStudy = testCardActionController({ ...bunproOnlyServices, accountDataSurfaceTrusted: () => true });
+        expect(await toasts(await onStudy.perform(readCardCommandCapability(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error)))
+            .toEqual(['Bunpro has no entry for this word.', 'この単語はBunproに見つかりませんでした。']);
         expect(request.mock.calls.filter(([url]) => url.endsWith('/reviews/update_via_action_type'))).toHaveLength(0);
 
         // Bunpro was switched off after the popup offered the save.
@@ -411,7 +420,7 @@ describe('popup collect action', () => {
 
             collect.focus();
             dispatchAuthorizedReaderControlClick(collect);
-            await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to Academy.'));
+            await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to deck.'));
             // A keyboard learner keeps their place on the refreshed save.
             const refreshed = popover.querySelector('.jpdb-reader-collect [data-action="add-default"]');
             expect(refreshed).not.toBe(collect);
