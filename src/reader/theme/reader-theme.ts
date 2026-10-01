@@ -34,6 +34,7 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     if (!root) return theme;
     toggleClassIfChanged(root, 'jpdb-reader-theme-dark', settings.theme === 'dark');
     toggleClassIfChanged(root, 'jpdb-reader-theme-light', settings.theme === 'light');
+    syncHostedPageTheme(settings, root);
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
     applyReaderImageTextOverlaySettings(settings, root);
@@ -68,6 +69,20 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
     guardReaderRootClasses(root);
     return theme;
+}
+
+// Hosted pages (Study, the PDF reader, the video player) style themselves from the
+// yomu-page-theme-* class their pre-paint boot resolves (core/hosted-appearance-boot.ts).
+// A theme picked after load must move that class too, or the page's light rules and
+// a light-tuned accent stay on a dark shell until the next reload. Ordinary pages
+// never carry the class and are left alone.
+function syncHostedPageTheme(settings: ReaderSettings, root: HTMLElement): void {
+    if (!root.classList.contains('yomu-page-theme-dark') && !root.classList.contains('yomu-page-theme-light')) return;
+    const dark = settings.theme === 'auto'
+        ? typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
+        : settings.theme === 'dark';
+    toggleClassIfChanged(root, 'yomu-page-theme-dark', dark);
+    toggleClassIfChanged(root, 'yomu-page-theme-light', !dark);
 }
 
 function paintsReviewLane(theme: AppliedReaderTheme): boolean {

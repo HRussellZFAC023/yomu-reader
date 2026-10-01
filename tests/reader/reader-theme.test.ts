@@ -1193,6 +1193,33 @@ describe('reader theme', () => {
         }
     });
 
+    // Hosted pages (Study, PDF reader, video player) style themselves from the
+    // pre-paint boot's yomu-page-theme-* class. Switching theme in the page kept the
+    // boot's class, so on a light system the switch to Dark left light page rules
+    // and a light-tuned accent on the dark shell until the next reload.
+    it('moves a hosted page theme class with the theme the learner picks', () => {
+        const root = document.documentElement;
+        root.classList.add('yomu-page-theme-light');
+
+        applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'dark' });
+
+        expect(root.classList.contains('yomu-page-theme-dark')).toBe(true);
+        expect(root.classList.contains('yomu-page-theme-light')).toBe(false);
+
+        applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'light' });
+
+        expect(root.classList.contains('yomu-page-theme-light')).toBe(true);
+        expect(root.classList.contains('yomu-page-theme-dark')).toBe(false);
+    });
+
+    it('never adds a hosted page theme class to an ordinary page', () => {
+        const root = document.documentElement;
+
+        applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'dark' });
+
+        expect([...root.classList].some(className => className.startsWith('yomu-page-theme-'))).toBe(false);
+    });
+
     // Dictionary tags (N5, noun, ...) paint the readable accent on an accent tint.
     // That tint must be one the readable accent is computed against, or the label
     // lands under 4.5:1 (4.41:1 measured on light Study, lower on light popups).
