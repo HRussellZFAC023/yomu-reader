@@ -45,9 +45,10 @@ function hostedStudyAssetPath(pathname) {
 /**
  * Imports one Yomitan dictionary through the open Settings dialog's import
  * button, and waits for the durable postcondition: the installed Reader's saved
- * settings carry a preference row for `title`.
+ * settings carry a preference row for `title`. `kanji` rows make it a kanji
+ * dictionary instead of a terms one.
  */
-export async function importYomitanDictionaryThroughSettings(page, { title, terms, gmStoragePrefix, revision = 'smoke-1' }) {
+export async function importYomitanDictionaryThroughSettings(page, { title, terms, kanji, gmStoragePrefix, revision = 'smoke-1' }) {
     const importButton = page.locator('.jpdb-reader-settings [data-action="import-yomitan-dictionary"]');
     await importButton.scrollIntoViewIfNeeded();
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 10_000 });
@@ -58,7 +59,7 @@ export async function importYomitanDictionaryThroughSettings(page, { title, term
         mimeType: 'application/zip',
         buffer: yomitanZipBuffer({
             'index.json': { title, format: 3, revision },
-            'term_bank_1.json': terms,
+            ...(kanji ? { 'kanji_bank_1.json': kanji } : { 'term_bank_1.json': terms }),
         }),
     });
     await page.waitForFunction(({ storageKey, expected }) => {

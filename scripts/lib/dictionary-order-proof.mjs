@@ -2,7 +2,8 @@
 // learner gives the definition sources in Settings must decide the order of the
 // popup's sections AND which imported dictionary answers a word, and it must
 // survive a reload, a second tab and an untouched Save. A later import only
-// joins the end.
+// joins the end. A kanji dictionary orders the kanji section instead, so it is
+// shown and ordered in the Kanji editor alone, with the same guarantees.
 //
 // Settings and imports run where a learner runs them since 1.9.1: hosted Study
 // with the built userscript installed, driven with trusted clicks. The popup
@@ -51,6 +52,10 @@ const JAPAN = '日本';
 const ALPHA = dictionary('Alpha Dict', [[LIBRARY, 'としょかん', 'library (Alpha)'], [JAPAN, 'にほん', 'Japan (Alpha)']]);
 const BETA = dictionary('Beta Dict', [[LIBRARY, 'としょかん', 'library (Beta)'], [JAPAN, 'にっぽん', 'Japan (Beta)']]);
 const GAMMA = dictionary('Gamma Dict', [[LIBRARY, 'としょかん', 'library (Gamma)']]);
+const KANJI = { title: 'Kanji Fixture', kanji: [['館', 'カン', 'やかた たて', '', ['building', 'mansion'], {}]] };
+const KANJI_ROW = `__kanji_dictionary__:${KANJI.title}`;
+const SOURCES_EDITOR = '[data-definition-source-editor]';
+const KANJI_EDITOR = '.jpdb-reader-kanji-priorities';
 const SETTINGS = {
     onboardingSeen: true,
     learningTargetChosen: true,
@@ -74,10 +79,11 @@ export async function proveDictionaryOrder(browser) {
     const server = await startLoopbackServer(serveFixturePage, 'Could not bind dictionary order fixture server');
     try {
         const study = await proveOrderOnStudy(browser);
+        const kanji = await proveKanjiDictionaryOrderOnStudy(browser);
         const beforeReorder = await lookUpOnOrdinaryPage(browser, server.origin, study.gmAfterImport, [ALPHA, BETA], 'after-import');
         const afterReorder = await lookUpOnOrdinaryPage(browser, server.origin, study.gmAfterAppend, [ALPHA, BETA, GAMMA], 'after-reorder');
         assertOrdinaryLookups(study, beforeReorder, afterReorder);
-        return { study: study.evidence, ordinary: { beforeReorder, afterReorder } };
+        return { study: study.evidence, kanji, ordinary: { beforeReorder, afterReorder } };
     } finally {
         await closeServer(server.server);
     }
@@ -173,6 +179,50 @@ async function proveOrderOnStudy(browser) {
     }
 }
 
+// The kanji dictionary used to be a Sources row too, under the same form field
+// names; Save read the Sources copy, so moving it in the Kanji editor saved
+// nothing and it fell back to the end.
+async function proveKanjiDictionaryOrderOnStudy(browser) {
+    const context = await browser.newContext({ bypassCSP: true, serviceWorkers: 'block', viewport: { width: 1100, height: 900 } });
+    try {
+        await installStudyContext(context);
+        const page = await newStudyTab(context, 'kanji');
+
+        await openSettings(page, 'backup');
+        await importYomitanDictionaryThroughSettings(page, { ...KANJI, gmStoragePrefix: GM_STORAGE_PREFIX });
+        const sources = await openSettings(page, 'dictionaries');
+        const imported = await sourceRows(page, KANJI_EDITOR);
+        assert(imported.at(-1) === KANJI_ROW, 'A kanji import did not join the end of the Kanji editor', { imported });
+        const importedRecord = storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX));
+        const firstSave = await saveSettings(page);
+        const firstSaveDiff = recordDifferences(importedRecord, firstSave);
+        assert(!firstSaveDiff.length, 'The first untouched Save after a kanji import changed the stored settings or intent records', firstSaveDiff);
+
+        await openSettings(page, 'dictionaries');
+        await moveRow(page, KANJI_ROW, 'up', rows => rows[0] === KANJI_ROW, KANJI_EDITOR);
+        const chosen = await sourceRows(page, KANJI_EDITOR);
+        const saved = await saveSettings(page);
+        const reopenedSources = await openSettings(page, 'dictionaries');
+        const reopened = await sourceRows(page, KANJI_EDITOR);
+        assert(sameList(reopened, chosen), 'A kanji dictionary moved in the Kanji editor did not keep its place', { chosen, reopened });
+        assert(!sources.includes(KANJI.title), 'The Sources editor listed a kanji dictionary', { sources });
+        assert(sameList(reopenedSources, sources), 'Moving a kanji dictionary changed the Sources editor', { sources, reopenedSources });
+        const untouched = await saveSettings(page);
+        const untouchedDiff = recordDifferences(saved, untouched);
+        assert(!untouchedDiff.length, 'An untouched Save after a kanji move changed the stored settings or intent records', untouchedDiff);
+        return {
+            sources,
+            imported,
+            chosen,
+            reopened,
+            firstSaveAfterImport: { byteIdenticalApartFromCommitId: true, commitIds: [importedRecord.commit, firstSave.commit] },
+            untouchedSave: { byteIdenticalApartFromCommitId: true, commitIds: [saved.commit, untouched.commit] },
+        };
+    } finally {
+        await context.close();
+    }
+}
+
 async function installStudyContext(context) {
     await context.route(url => url.origin !== HOSTED_STUDY_ORIGIN, route => {
         const response = externalResponse(route.request().url());
@@ -219,21 +269,23 @@ async function openSettingsFromStudyMenu(page) {
 }
 
 async function waitForSourceRows(page) {
-    await page.locator('[data-settings-panel="dictionaries"]:not([hidden]) [data-definition-source-editor] [data-source-row]').first()
-        .waitFor({ state: 'visible', timeout: 30_000 });
+    for (const editor of [SOURCES_EDITOR, KANJI_EDITOR]) {
+        await page.locator(`[data-settings-panel="dictionaries"]:not([hidden]) ${editor} [data-source-row]`).first()
+            .waitFor({ state: 'visible', timeout: 30_000 });
+    }
     return sourceRows(page);
 }
 
-function sourceRows(page) {
-    return page.locator('[data-definition-source-editor] [data-source-row]')
+function sourceRows(page, editor = SOURCES_EDITOR) {
+    return page.locator(`${editor} [data-source-row]`)
         .evaluateAll(rows => rows.map(row => row.getAttribute('data-source-id') ?? ''));
 }
 
-async function moveRow(page, sourceId, direction, done) {
-    for (let step = 0; step < 20 && !done(await sourceRows(page)); step += 1) {
-        await page.locator(`[data-definition-source-editor] [data-source-row][data-source-id="${sourceId}"] [data-action="dictionary-source-${direction}"]`).click();
+async function moveRow(page, sourceId, direction, done, editor = SOURCES_EDITOR) {
+    for (let step = 0; step < 20 && !done(await sourceRows(page, editor)); step += 1) {
+        await page.locator(`${editor} [data-source-row][data-source-id="${sourceId}"] [data-action="dictionary-source-${direction}"]`).click();
     }
-    assert(done(await sourceRows(page)), `Could not move ${sourceId} ${direction}`, { rows: await sourceRows(page) });
+    assert(done(await sourceRows(page, editor)), `Could not move ${sourceId} ${direction}`, { rows: await sourceRows(page, editor) });
 }
 
 /** Presses Save and waits until the settings/intent pair carries a new commit. */
