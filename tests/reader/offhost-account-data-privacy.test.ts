@@ -14,6 +14,8 @@ import {
 import { renderedWordElementKey } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
+import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
+import { refreshReaderWordContrast } from '../../src/reader/dom/word-contrast';
 import { reviewShortcutButton } from '../../src/reader/dom/review-shortcuts';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { testCardActionController } from './jpdb/fixtures';
@@ -291,7 +293,7 @@ describe('offhost account-data privacy', () => {
     });
 });
 
-// ADR-0019: a colour source the learner chose must paint. On an ordinary page
+// ADR-0020: a colour source the learner chose must paint. On an ordinary page
 // the "Anki" channel paints the word's Anki state through the provider-neutral
 // review lane, and only Anki state reaches that lane.
 describe('offhost Anki colour channel', () => {
@@ -304,7 +306,17 @@ describe('offhost Anki colour channel', () => {
         wordHighlightColorSource: 'off',
         wordUnderlineColorSource: 'off',
     };
+    const noAnkiColour: ReaderSettings = {
+        ...settings,
+        wordTextColorSource: 'status',
+        wordHighlightColorSource: 'jpdb',
+        wordUnderlineColorSource: 'pitch',
+        subtitleTextColorSource: 'status',
+        subtitleHighlightColorSource: 'jpdb',
+        subtitleUnderlineColorSource: 'pitch',
+    };
     const jpdbUnknownCard: JPDBCard = { ...card, cardState: ['not-in-deck'] };
+    const noAnkiCard: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: true };
     const STUDY_URL = 'https://yomureader.com/study/';
 
     beforeEach(() => {
@@ -337,7 +349,7 @@ describe('offhost Anki colour channel', () => {
         applyReaderTheme(ankiTextColour);
         const word = renderedWord(card);
 
-        applyAnkiLookupToRenderedWord(word, { state: 'not-in-deck', notes: [], primary: null, trusted: true }, 'en');
+        applyAnkiLookupToRenderedWord(word, noAnkiCard, 'en');
 
         expect(word.classList.contains('jpdb-due')).toBe(true);
         expect(wordTextColour(word)).toBe('currentColor');
@@ -349,7 +361,7 @@ describe('offhost Anki colour channel', () => {
         const word = renderedWord(jpdbUnknownCard);
         applyAnkiLookupToRenderedWord(word, lookup, 'en');
 
-        applyAnkiLookupToRenderedWord(word, { state: 'not-in-deck', notes: [], primary: null, trusted: true }, 'en');
+        applyAnkiLookupToRenderedWord(word, noAnkiCard, 'en');
 
         expect(word.classList.contains('jpdb-due')).toBe(false);
         expect(wordTextColour(word)).toBe('currentColor');
@@ -370,10 +382,72 @@ describe('offhost Anki colour channel', () => {
         const word = renderedWord(jpdbUnknownCard);
         applyAnkiLookupToRenderedWord(word, lookup, 'en');
 
-        applyAnkiLookupToRenderedWord(word, { state: 'not-in-deck', notes: [], primary: null, trusted: true }, 'en', { preserveExistingEmpty: true });
+        applyAnkiLookupToRenderedWord(word, noAnkiCard, 'en', { preserveExistingEmpty: true });
 
         expect(wordTextColour(word)).toBe(rootValue('--jpdb-reader-state-due-readable'));
         expectPageCarriesNoProviderIdentity(word);
+    });
+
+    // Only a channel that paints the "Anki" source may mark which words Anki
+    // holds a card for; otherwise the page could read the learner's collection
+    // word by word with nothing on screen.
+    it('marks no word with Anki state while no colour channel paints the Anki source', () => {
+        applyReaderTheme(noAnkiColour);
+        const word = renderedWord(jpdbUnknownCard);
+
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        expect(word.className).not.toMatch(/review/u);
+        // "Text colour: Status" still shows the state, through the projection
+        // every provider shares.
+        expect(word.classList.contains('jpdb-due')).toBe(true);
+        expect(wordTextColour(word)).toBe(rootValue('--jpdb-reader-state-due-readable'));
+    });
+
+    it('keeps a word\'s Anki state through an empty lookup without marking the word on the page', () => {
+        applyReaderTheme(noAnkiColour);
+        const word = renderedWord(jpdbUnknownCard);
+        const pageAttributes = word.getAttributeNames().sort();
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+
+        applyAnkiLookupToRenderedWord(word, noAnkiCard, 'en', { preserveExistingEmpty: true });
+
+        expect(renderedWordPrivateValue(word, 'ankiState')).toBe('due');
+        expect(word.getAttributeNames().sort()).toEqual(pageAttributes);
+    });
+
+    it('holds the kept Anki contrast for exactly one refresh', () => {
+        applyReaderTheme(ankiTextColour);
+        const word = renderedWord(jpdbUnknownCard);
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+        word.style.setProperty('--jpdb-reader-word-accessible-color', '#123456');
+
+        applyAnkiLookupToRenderedWord(word, noAnkiCard, 'en', { preserveExistingEmpty: true });
+        refreshReaderWordContrast(document);
+        const preserved = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        refreshReaderWordContrast(document);
+
+        expect(preserved).toBe('#123456');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('#123456');
+    });
+
+    it('repaints the Anki colour when the learner switches the text colour to Anki and back', () => {
+        applyReaderTheme(noAnkiColour);
+        const word = renderedWord(jpdbUnknownCard);
+        const shadowWord = renderedShadowWord(jpdbUnknownCard);
+        applyAnkiLookupToRenderedWord(word, lookup, 'en');
+        applyAnkiLookupToRenderedWord(shadowWord, lookup, 'en');
+
+        applyReaderTheme(ankiTextColour);
+
+        expect(wordTextColour(word)).toBe(rootValue('--jpdb-reader-state-due-readable'));
+        expect(shadowWord.className).toBe(word.className);
+        expectPageCarriesNoProviderIdentity(word);
+
+        applyReaderTheme(noAnkiColour);
+
+        expect([word.className, shadowWord.className].join(' ')).not.toMatch(/review/u);
+        expect(word.classList.contains('jpdb-due')).toBe(true);
     });
 
     it('keeps Study on its Anki classes and colours', () => {
@@ -391,6 +465,23 @@ describe('offhost Anki colour channel', () => {
     });
 
     function renderedWord(wordCard: JPDBCard, containerClass = 'yomu-test-page-text'): HTMLElement {
+        const container = wordContainer(wordCard, containerClass);
+        document.body.replaceChildren(container);
+        return container.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    }
+
+    // A word in a page's open shadow root the reader has scanned.
+    function renderedShadowWord(wordCard: JPDBCard): HTMLElement {
+        const host = document.createElement('div');
+        document.body.append(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+        noteScannedShadowRoot(shadow);
+        const container = wordContainer(wordCard, 'yomu-test-page-text');
+        shadow.append(container);
+        return container.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    }
+
+    function wordContainer(wordCard: JPDBCard, containerClass: string): HTMLElement {
         const token = {
             card: wordCard,
             start: 0,
@@ -403,8 +494,7 @@ describe('offhost Anki colour channel', () => {
         const container = document.createElement('div');
         container.className = containerClass;
         setInnerHtml(container, renderTokensToHtml(wordCard.spelling, [token], ankiTextColour));
-        document.body.replaceChildren(container);
-        return container.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        return container;
     }
 });
 

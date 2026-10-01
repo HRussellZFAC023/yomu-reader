@@ -254,7 +254,7 @@ const STUDY_LAUNCHER_SELECTOR ='.jpdb-reader-popover [data-account-private-launc
 const PRIVATE_ANKI_DETAIL_TERMS = ['Mining', 'よむ Japanese', 'to read', '今日は本を読む', '12 reviews'];
 // Anki on an ordinary page (the reader fixtures). Since 1.9.1 the page owns
 // this DOM, so Anki account detail stays off it
-// (tests/reader/offhost-account-data-privacy.test.ts, ADR-0019): a word's Anki
+// (tests/reader/offhost-account-data-privacy.test.ts, ADR-0020): a word's Anki
 // state is projected into the provider-neutral jpdb-* state family plus
 // yomu-deck-member, and onto the provider-neutral review lane
 // (yomu-review-<state>) that the "Anki" colour channel paints. The
@@ -267,6 +267,17 @@ const ORDINARY_PAGE_ANKI_SETTINGS = {
     ankiSectionEnabled: true,
     // "Text colour: Anki", the default, must paint the Anki state here too.
     wordTextColorSource: 'anki',
+};
+// No word or subtitle channel paints the "Anki" source, so nothing on the page
+// may mark which words Anki holds a card for (ADR-0020).
+const NO_ANKI_COLOUR_SETTINGS = {
+    ...ORDINARY_PAGE_ANKI_SETTINGS,
+    wordTextColorSource: 'status',
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    subtitleTextColorSource: 'status',
+    subtitleHighlightColorSource: 'jpdb',
+    subtitleUnderlineColorSource: 'pitch',
 };
 const MOBILE_HANDOFF_SETTINGS = {
     ...ORDINARY_PAGE_ANKI_SETTINGS,
@@ -836,6 +847,35 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         ankiActions: ankiActions(requests),
         sideEffects: requests.filter(item => item.kind === 'anki-side-effect').map(item => item.action),
     };
+}
+
+// "Text colour: Status" still shows the Anki-due word as due through the
+// shared projection, but the word carries no review-lane class.
+async function runNoAnkiColourLaneSmoke(browser, baseUrl) {
+    const requests = [];
+    const page = await newMockedPage(browser, requests, { ...baseSettings, ...NO_ANKI_COLOUR_SETTINGS });
+    await page.goto(`${baseUrl}/reader-anki.html`, { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await page.waitForFunction(() => {
+        const word = [...document.querySelectorAll('main .jpdb-reader-word')].find(element => element.dataset.expression === '読む');
+        return word instanceof HTMLElement && ['jpdb-due', 'yomu-deck-member'].every(className => word.classList.contains(className));
+    }, null, { timeout: 12000 });
+    const state = await page.evaluate(() => {
+        const reading = [...document.querySelectorAll('main .jpdb-reader-word')].find(element => element.dataset.expression === '読む');
+        return {
+            rootClasses: document.documentElement.className,
+            laneWords: document.querySelectorAll('.jpdb-reader-word[class*="yomu-review-"]').length,
+            reading: reading?.className ?? '',
+            colorSource: reading ? getComputedStyle(reading).getPropertyValue('--jpdb-reader-word-color-source').trim() : '',
+            dueColor: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-state-due-readable').trim(),
+        };
+    });
+    await page.close();
+    assert(hasExactAnkiStatusLookup(ankiActions(requests)), 'The page with no Anki colour channel did not look up Anki state', { requests });
+    assert(!state.rootClasses.includes('-review'), 'A colour channel selected the review lane with no channel set to Anki', state);
+    assert(state.laneWords === 0, 'Words carried a review-lane class while no colour channel paints the Anki source', state);
+    assert(state.colorSource.toLowerCase() === state.dueColor.toLowerCase(), 'Text colour: Status did not show the Anki-due word as due', state);
+    return state;
 }
 
 async function runLocalRootReaderSmoke(browser, baseUrl) {
@@ -1672,6 +1712,7 @@ async function main() {
     const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
     try {
         const reader = await runReaderMiningSmoke(browser, baseUrl);
+        const noAnkiColour = await runNoAnkiColourLaneSmoke(browser, baseUrl);
         const localRoot = await runLocalRootReaderSmoke(browser, baseUrl);
         const mobileHandoff = await runMobileAnkiHandoffSmoke(browser, baseUrl);
         const androidHandoff = await runAndroidAnkiDroidHandoffSmoke(browser, baseUrl);
@@ -1683,7 +1724,7 @@ async function main() {
         const mobileNewtab = await runMobileNewTabLayoutSmoke(browser, baseUrl);
         const newtabMultiDeck = await runNewTabMultiDeckAnkiSmoke(browser, baseUrl);
         const jpdbMixedQueue = await runNewTabJpdbMixedQueueSmoke(browser, baseUrl);
-        console.log(JSON.stringify({ reader, localRoot, mobileHandoff, androidHandoff, desktopNewtabLayout, newtab, mobileNewtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
+        console.log(JSON.stringify({ reader, noAnkiColour, localRoot, mobileHandoff, androidHandoff, desktopNewtabLayout, newtab, mobileNewtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
     } finally {
         await browser.close().catch(() => undefined);
         await closeServer(server);

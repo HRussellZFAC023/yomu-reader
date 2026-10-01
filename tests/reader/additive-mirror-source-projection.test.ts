@@ -268,7 +268,7 @@ describe('additive text-mirror source projection', () => {
     });
 
     // Ordinary pages read the mirror word's inline style, so the Anki colour
-    // channel reaches it as the provider-neutral review lane (ADR-0019).
+    // channel reaches it as the provider-neutral review lane (ADR-0020).
     it('bridges the Anki colour channel onto mirror words as the review lane', () => {
         const { host, mirror, word } = scene();
         const channels = (['underline', 'highlight'] as const).map(channel => colorSourceClassName('word', channel, 'anki'));

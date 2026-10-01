@@ -12,6 +12,7 @@ import {
 import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
 import { colorSourceClassName } from './color-source-classes';
+import { setReviewLanePainted } from '../dom/review-lane';
 import { READER_THEME_COLOR_TOKENS } from './color-tokens';
 import type { ReaderColorSource, ReaderSettings } from '../app/types';
 
@@ -64,8 +65,13 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     if (legacyClasses.length) root.classList.remove(...legacyClasses);
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);
+    if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
     guardReaderRootClasses(root);
     return theme;
+}
+
+function paintsReviewLane(theme: AppliedReaderTheme): boolean {
+    return [theme.wordColorSources, theme.subtitleColorSources].some(sources => Object.values(sources).includes('anki'));
 }
 
 function toggleClassIfChanged(root: HTMLElement, className: string, enabled: boolean): void {

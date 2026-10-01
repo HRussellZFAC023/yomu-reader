@@ -5,7 +5,7 @@ import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
 import { isParticleCard } from './token-text-rendering';
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
-import { REVIEW_LANE_CLASS_PREFIX } from '../theme/color-source-classes';
+import { isReviewLaneClass } from './review-lane';
 import {
     renderedWordPrivateStateForCard,
     renderedWordPrivateValue,
@@ -41,8 +41,6 @@ const RENDERED_WORD_DECK_SOURCE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback'
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(['new', 'not-in-deck', 'in-deck']);
 // States a Bunpro match may colour over: the parse provider had no opinion.
 const BUNPRO_FILLABLE_CARD_STATES = new Set(['', 'not-in-deck']);
-// Study names the Anki lane anki-<state>; ordinary pages see the neutral lane.
-const ANKI_STATE_CLASS_PREFIXES = ['anki-', REVIEW_LANE_CLASS_PREFIX];
 
 export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
@@ -68,8 +66,9 @@ export function renderedWordHasAnkiState(word: HTMLElement): boolean {
         || Array.from(word.classList).some(isAnkiStateClass));
 }
 
+// Study names the Anki state anki-<state>; ordinary pages see the review lane.
 function isAnkiStateClass(className: string): boolean {
-    return ANKI_STATE_CLASS_PREFIXES.some(prefix => className.startsWith(prefix));
+    return className.startsWith('anki-') || isReviewLaneClass(className);
 }
 
 export function renderedWordCardKey(vid: number, sid: number): string {

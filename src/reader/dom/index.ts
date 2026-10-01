@@ -66,6 +66,7 @@ import {
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
+import { selectedWordColorSourceToken } from '../theme/color-source-classes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 export { remintRenderedWordPrivateTokens, renderedWordPrivateValue } from './rendered-word-private-state';
 export { renderedWordsInRoot } from './rendered-word-state';
@@ -4192,18 +4193,18 @@ function removeAttributeIfPresent(element: HTMLElement, name: string): void {
     element.removeAttribute(name);
 }
 
-type AdditiveDecorationSource = 'status' | 'jpdb' | 'review' | 'pitch';
-const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'review', 'pitch'];
+const ADDITIVE_DECORATION_SOURCES = ['status', 'jpdb', 'anki', 'pitch'] as const;
 const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => source !== 'pitch');
 
 // A document-root mode selector cannot cross into an open shadow root. The
 // shadow stylesheet supplies the word/state variables, while this small inline
 // contract supplies the active channel to the shared synthetic underline.
-// Sources are root-class tokens (theme/color-source-classes) in cascade order (pitch last).
+// Source order deliberately matches the stylesheet cascade (pitch is last).
 function styleAdditiveMirrorPaint(root: HTMLElement, projectedWordsOnly = false): void {
     if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
     setInlineStyleIfChanged(root, '-webkit-text-fill-color', 'transparent', 'important');
-    const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+    const documentElement = root.ownerDocument.documentElement;
+    const source = selectedWordColorSourceToken(documentElement, ['highlight', 'underline', 'text'], ADDITIVE_DECORATION_SOURCES);
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     // The injected shadow stylesheet owns glyph suppression and word
     // decoration geometry. Document-level mode selectors cannot cross a shadow
@@ -4213,7 +4214,7 @@ function styleAdditiveMirrorPaint(root: HTMLElement, projectedWordsOnly = false)
     const paint = source
         ? `var(--jpdb-reader-source-${source}-decoration, transparent)`
         : 'transparent';
-    const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+    const highlightSource = selectedWordColorSourceToken(documentElement, ['highlight'], ADDITIVE_HIGHLIGHT_SOURCES);
     const softPaint = highlightSource
         ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)`
         : '';
@@ -4235,23 +4236,6 @@ function styleAdditiveMirrorWordPaint(
     const visibleSoftPaint = visible ? softPaint : '';
     if (visibleSoftPaint) setInlineStyleIfChanged(word, '--jpdb-reader-mirror-status-soft', visibleSoftPaint);
     else removeInlineStyleIfPresent(word, '--jpdb-reader-mirror-status-soft');
-}
-
-function activeAdditiveHighlightSource(documentElement: HTMLElement): AdditiveDecorationSource | null {
-    let active: AdditiveDecorationSource | null = null;
-    for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
-        if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
-    }
-    return active;
-}
-
-function activeAdditiveDecorationSource(documentElement: HTMLElement): AdditiveDecorationSource | null {
-    let active: AdditiveDecorationSource | null = null;
-    for (const source of ADDITIVE_DECORATION_SOURCES) {
-        if (['highlight', 'underline', 'text'].some(channel => documentElement.classList
-            .contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
-    }
-    return active;
 }
 
 // Detached readings are projected from exact source rectangles after layout.

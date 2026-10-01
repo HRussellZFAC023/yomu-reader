@@ -371,7 +371,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 /* The review lane (the "Anki" colour source): Study words carry anki-<state>;
    ordinary pages own their DOM, so there the same state is the
-   provider-neutral yomu-review-<state> (ADR-0019). */
+   provider-neutral yomu-review-<state> (ADR-0020). */
 .jpdb-reader-word:is(.anki-new, .yomu-review-new) {
   --jpdb-reader-review-color: var(--jpdb-reader-state-new);
   --jpdb-reader-review-readable: var(--jpdb-reader-state-new-readable);

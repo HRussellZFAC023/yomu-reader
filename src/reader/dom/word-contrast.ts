@@ -121,13 +121,22 @@ function hasAnkiAccessibleWordColor(word: HTMLElement): boolean {
     ].every(Boolean);
 }
 
+// Words whose Anki colour an empty lookup must not reset. Kept off the DOM:
+// only words Anki holds a card for are ever marked, and the page must not read
+// that (ADR-0020).
+const preservedAnkiContrastWords = new WeakSet<HTMLElement>();
+
+export function preserveAnkiContrastOnNextRefresh(word: HTMLElement): void {
+    preservedAnkiContrastWords.add(word);
+}
+
 function preserveExistingAnkiContrast(word: HTMLElement, hasAccessibleColor: boolean, hasInlineTextColor: boolean): boolean {
     const preserve = [
-        word.dataset.yomuPreserveContrast === 'true',
+        preservedAnkiContrastWords.has(word),
         hasAccessibleColor,
         !hasInlineTextColor,
     ].every(Boolean);
-    if (preserve) delete word.dataset.yomuPreserveContrast;
+    if (preserve) preservedAnkiContrastWords.delete(word);
     return preserve;
 }
 

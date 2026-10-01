@@ -22,7 +22,8 @@ import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState, renderedWordsInRoot, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue, updateRenderedWordPrivateState } from '../dom/rendered-word-private-state';
 import { currentAccountDataSurfaceIsTrusted } from './account-data-surface';
-import { reviewLaneClassName } from '../theme/color-source-classes';
+import { syncWordReviewLane } from '../dom/review-lane';
+import { preserveAnkiContrastOnNextRefresh } from '../dom/word-contrast';
 import type { AnkiLookupResult } from '../anki/index';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
@@ -321,7 +322,7 @@ function applyEmptyAnkiLookupToRenderedWord(
 ): void {
     if (ankiLookup.trusted === false) return;
     if ([options.preserveExistingEmpty, renderedWordHasAnkiState(word)].every(Boolean)) {
-        word.dataset.yomuPreserveContrast = 'true';
+        preserveAnkiContrastOnNextRefresh(word);
         return;
     }
     clearRenderedWordAnkiState(word);
@@ -344,10 +345,9 @@ function applyRenderedWordAnkiState(word: HTMLElement, state: string, language: 
     updateRenderedWordPrivateState(word, { ankiState: state, ankiDecks: deckNames.join(', ') || undefined });
     if (!currentAccountDataSurfaceIsTrusted()) {
         // The status and JPDB channels read the projected state; the Anki
-        // channel reads only the provider-neutral review lane (ADR-0019).
+        // channel reads only the provider-neutral review lane (ADR-0020).
         word.classList.add(`jpdb-${state}`);
-        const lane = reviewLaneClassName(state);
-        if (lane) word.classList.add(lane);
+        syncWordReviewLane(word);
         word.removeAttribute('title');
         return;
     }
