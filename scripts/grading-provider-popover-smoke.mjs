@@ -12,7 +12,8 @@
 // Decision 2 phases: with the DEFAULT parser the page is parsed by the chosen
 // grading service itself, and with an explicit Jiten parser a JPDB grade first
 // resolves the word on JPDB; either way exactly one review reaches only the
-// chosen service.
+// chosen service. When JPDB does not have the word, the grade reaches neither
+// service and the page says so without naming one.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -44,6 +45,7 @@ const JITEN_FREQUENCY_RANK = 12435;
 // Only the Jiten mocks report this rank (JPDB's mock rank is 1200), so
 // its pill proves the Jiten identity was enriched onto the JPDB-parsed card.
 const JITEN_RANK_LABEL = `#${JITEN_FREQUENCY_RANK}`;
+const NOT_GRADED = 'Not graded: this word was not found in your preferred grading service.';
 const NATIVE_GRADES = {
     jpdb: ['nothing', 'something', 'hard', 'okay', 'easy'],
     jiten: ['nothing', 'hard', 'okay', 'easy'],
@@ -110,6 +112,8 @@ let jitenParseCalls = 0;
 // A transient Jiten miss on the first reader parse (the enrichment request
 // when JPDB parses the page); phases where Jiten may parse the page skip it.
 let jitenTransientMiss = true;
+// The unmatched phase: JPDB has no exact match for the graded word.
+let jpdbLacksTerm = false;
 const parsedTexts = { jpdb: [], jiten: [] };
 
 try {
@@ -120,7 +124,9 @@ try {
     const defaultParserJitenRun = await runGradingProviderPhase({ name: 'default-parser-jiten', grading: 'jiten', parser: 'default', pageParsedBy: 'jiten' });
     // An explicit Jiten parser stays Jiten; the JPDB grade resolves the word on JPDB.
     const resolvedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb' });
-    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, browserEvents };
+    // ...and when JPDB does not have it, nothing is graded anywhere.
+    const unmatchedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb-unmatched', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb', unmatched: true });
+    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, browserEvents };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({
         ok: true,
@@ -136,6 +142,7 @@ try {
             jitenGrading: { pageParsedBy: defaultParserJitenRun.pageParsedBy, reviewRequests: defaultParserJitenRun.reviewRequests },
         },
         jitenParserJpdbGrading: { pageParsedBy: resolvedRun.pageParsedBy, resolvedWith: resolvedRun.resolvedWith, reviewRequests: resolvedRun.reviewRequests },
+        unmatchedJpdbGrading: { toast: unmatchedRun.toast, reviewRequests: unmatchedRun.reviewRequests },
     }, null, 2));
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
@@ -149,6 +156,7 @@ async function runGradingProviderPhase(phase) {
     jitenKnownState = [0];
     jitenParseCalls = 0;
     jitenTransientMiss = phase.parser === 'jpdb';
+    jpdbLacksTerm = phase.unmatched === true;
     parsedTexts.jpdb.length = 0;
     parsedTexts.jiten.length = 0;
     const label = provider === 'jpdb' ? 'JPDB' : 'Jiten';
@@ -191,12 +199,7 @@ async function runGradingProviderPhase(phase) {
     assert(state.gradeValues.join() === NATIVE_GRADES[provider].join(), `Grade buttons are not ${label}'s own scale`, state);
 
     await page.locator('.jpdb-reader-actions [data-action="grade"][data-grade="okay"]').first().click();
-    await withPopoverTimeoutReport(page, `${provider}-review-timeout`, () => waitForReviewRequest(provider));
-    // Both services would be called from the same grade click, so a stray
-    // second review is already recorded once the chosen one has landed.
-    await page.waitForTimeout(600);
-    assert(reviewRequestCount(otherProvider) === 0, `A ${label} grade was also sent to the other connected service`, { requests: summarizeRequests() });
-    assert(reviewRequestCount(provider) === 1, `The ${label} grade was not sent exactly once`, { requests: summarizeRequests() });
+    const toast = phase.unmatched ? await assertNothingGraded(page) : await assertGradedOnceOn(page, provider, label, otherProvider);
     const pageParsedBy = phase.pageParsedBy ? assertPageParsedBy(phase.pageParsedBy) : null;
     const resolvedWith = phase.resolvesOn ? assertGradeResolvedOn(phase.resolvesOn) : null;
 
@@ -208,6 +211,7 @@ async function runGradingProviderPhase(phase) {
         state: reportedState,
         pageParsedBy,
         resolvedWith,
+        toast,
         repaintState,
         kanjiSourceTitle,
         reviewRequests: reviewRequestCount(provider),
@@ -216,6 +220,29 @@ async function runGradingProviderPhase(phase) {
     };
     await context.close();
     return result;
+}
+
+async function assertGradedOnceOn(page, provider, label, otherProvider) {
+    await withPopoverTimeoutReport(page, `${provider}-review-timeout`, () => waitForReviewRequest(provider));
+    // Both services would be called from the same grade click, so a stray
+    // second review is already recorded once the chosen one has landed.
+    await page.waitForTimeout(600);
+    assert(reviewRequestCount(otherProvider) === 0, `A ${label} grade was also sent to the other connected service`, { requests: summarizeRequests() });
+    assert(reviewRequestCount(provider) === 1, `The ${label} grade was not sent exactly once`, { requests: summarizeRequests() });
+    return null;
+}
+
+// The learner is told, in words that name no service, and no review is sent.
+async function assertNothingGraded(page) {
+    await withPopoverTimeoutReport(page, 'not-graded-timeout', () => page.waitForFunction(
+        text => [...document.querySelectorAll('.jpdb-reader-toast')].some(toast => toast.textContent?.includes(text)),
+        NOT_GRADED,
+        { timeout: 8_000 },
+    ));
+    await page.waitForTimeout(600);
+    assert(reviewRequestCount('jpdb') === 0 && reviewRequestCount('jiten') === 0, 'A word the grading service lacks was graded somewhere', { requests: summarizeRequests() });
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'jiten-parser-jpdb-unmatched-toast.png'), fullPage: false });
+    return NOT_GRADED;
 }
 
 // 'default' drops parserProvider, so normalization applies the real default.
@@ -433,7 +460,10 @@ function handleRequest(request) {
 }
 
 function mockJpdb(pathname, body) {
-    if (pathname.endsWith('/parse')) return jsonHttpResponse(mockJpdbParseFromVocabulary(body, JPDB_VOCAB));
+    if (pathname.endsWith('/parse')) {
+        const lacksTerm = jpdbLacksTerm && body.text?.length === 1 && body.text[0] === TERM;
+        return jsonHttpResponse(mockJpdbParseFromVocabulary(body, lacksTerm ? JPDB_VOCAB.filter(([surface]) => surface !== TERM) : JPDB_VOCAB));
+    }
     if (pathname.endsWith('/list-user-decks')) return jsonHttpResponse({ decks: [] });
     if (pathname.endsWith('/ping')) return jsonHttpResponse({});
     // review / deck add+remove / set-card-sentence / lookup-vocabulary etc.
