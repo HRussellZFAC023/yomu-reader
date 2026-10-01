@@ -592,35 +592,13 @@ export function installMiningDrawerHandle(
     let suppressNextHandleClick = false;
     let cleanedUp = false;
 
-    const getHandleFromElement = (event: Element): HTMLButtonElement | null => {
-        const target = event.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-        if (!target || !root.contains(target)) return null;
-        const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR)
-            ? target as HTMLButtonElement
-            : target.querySelector<HTMLButtonElement>(MINING_DRAWER_HANDLE_SELECTOR);
-        if (!handle) return null;
-        return handle;
-    };
-    const getHandleFromEventTarget = (event: EventTarget | null): HTMLButtonElement | null => {
-        return event instanceof Element ? getHandleFromElement(event) : null;
-    };
-    const getHandleFromPoint = (x: number, y: number): HTMLButtonElement | null => {
-        if (typeof document.elementsFromPoint !== 'function') return null;
-        for (const element of document.elementsFromPoint(x, y)) {
-            const handle = getHandleFromElement(element);
-            if (handle) return handle;
-        }
-        return null;
-    };
-    const getHandleFromPointerEvent = (event: PointerEvent | MouseEvent): HTMLButtonElement | null => {
-        return getHandleFromEventTarget(event.target)
-            ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
-    };
+    const ownsTarget = (target: HTMLElement): boolean => root.contains(target);
+    const getHandleFromPointerEvent = (event: PointerEvent | MouseEvent): HTMLButtonElement | null => miningDrawerHandleForPointerEvent(event, ownsTarget);
     const getHandleFromTouchEvent = (event: TouchEvent): HTMLButtonElement | null => {
-        const direct = getHandleFromEventTarget(event.target);
+        const direct = miningDrawerHandleFromTarget(event.target, ownsTarget);
         if (direct) return direct;
         const touch = firstChangedTouch(event);
-        return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
+        return touch ? miningDrawerHandleAtPoint(touch.clientX, touch.clientY, ownsTarget) : null;
     };
     const isInteractiveGutterChild = (eventTarget: EventTarget | null): boolean => {
         if (!(eventTarget instanceof Element)) return false;
@@ -699,8 +677,44 @@ export function installMiningDrawerHandle(
     document.addEventListener('touchstart', handleTouchStart, { capture: true, passive: false });
 }
 
-function eventHasPointTarget(event: MouseEvent | PointerEvent): boolean {
+/** Whether a mouse event carries real coordinates; a keyboard-synthesised click sits at 0,0 with no detail. */
+export function eventHasPointTarget(event: MouseEvent | PointerEvent): boolean {
     return event.type !== 'click' || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+}
+
+/**
+ * The mining-drawer handle a press or click lands on: the event target first, then
+ * the point stack, since the drawer gutter can sit under another reader layer. By
+ * default any handle inside a reader root or popover counts; one drawer's own
+ * listeners pass `owns` to answer only for their root.
+ */
+export function miningDrawerHandleForPointerEvent(
+    event: MouseEvent | PointerEvent,
+    owns: (target: HTMLElement) => boolean = isReaderOwnedMiningDrawerTarget,
+): HTMLButtonElement | null {
+    return miningDrawerHandleFromTarget(event.target, owns)
+        ?? (eventHasPointTarget(event) ? miningDrawerHandleAtPoint(event.clientX, event.clientY, owns) : null);
+}
+
+function miningDrawerHandleFromTarget(target: EventTarget | null, owns: (target: HTMLElement) => boolean): HTMLButtonElement | null {
+    const drawerTarget = target instanceof Element ? target.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR) : null;
+    if (!drawerTarget || !owns(drawerTarget)) return null;
+    return drawerTarget.matches(MINING_DRAWER_HANDLE_SELECTOR)
+        ? drawerTarget as HTMLButtonElement
+        : drawerTarget.querySelector<HTMLButtonElement>(MINING_DRAWER_HANDLE_SELECTOR);
+}
+
+function miningDrawerHandleAtPoint(x: number, y: number, owns: (target: HTMLElement) => boolean): HTMLButtonElement | null {
+    if (typeof document.elementsFromPoint !== 'function') return null;
+    for (const element of document.elementsFromPoint(x, y)) {
+        const handle = miningDrawerHandleFromTarget(element, owns);
+        if (handle) return handle;
+    }
+    return null;
+}
+
+function isReaderOwnedMiningDrawerTarget(target: HTMLElement): boolean {
+    return target.isConnected && Boolean(target.closest('[data-jpdb-reader-root], .jpdb-reader-popover'));
 }
 
 export function shouldUseSheet(

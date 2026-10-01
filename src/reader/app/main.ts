@@ -293,7 +293,7 @@ import {
     type ActivePointerTextLookup,
     type PointerTextLookup,
 } from '../lookup/pointer-text-lookup';
-import { capturePopoverScrollOffset, clearDocumentSelection, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, restorePopoverScrollOffsetSoon, shouldUseSheet } from '../popup/shell';
+import { capturePopoverScrollOffset, clearDocumentSelection, createReaderBackdrop, createReaderPopover, eventHasPointTarget, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, miningDrawerHandleForPointerEvent, refreshForcedReaderPopoverSurface, restorePopoverScrollOffsetSoon, shouldUseSheet } from '../popup/shell';
 import { addViewportChangeListeners } from '../popup/handle-drag';
 import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS, isActiveHoverPopoverPointerContext, isHoverPopoverTransitActive, type HoverPopoverPointerState } from '../popup/hover-transit';
 import { domHoverCloseTimers, HoverCloseController, type HoverContextQuery } from '../popup/hover-close';
@@ -3273,7 +3273,7 @@ export class ReaderApp {
             this.primeLookupAudioFromFirstGesture();
             this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             if ([
-                () => this.isMiningDrawerHandlePointerEvent(event),
+                () => miningDrawerHandleForPointerEvent(event),
                 () => {
                     if (!this.isLookupInteractionIgnoredTarget(event.target)) return false;
                     this.cancelPendingHoverLookup();
@@ -3364,7 +3364,7 @@ export class ReaderApp {
     }
     private documentClickTarget(event: MouseEvent): HTMLElement | null {
         if (this.isDestroyed) return null;
-        if (this.isMiningDrawerHandlePointerEvent(event)) return null;
+        if (miningDrawerHandleForPointerEvent(event)) return null;
         const target = event.target as HTMLElement;
         return this.documentClickTargetIgnored(target) ? null : target;
     }
@@ -4642,37 +4642,6 @@ export class ReaderApp {
         return readerWordSourcePointScore(word, x, y) !== null;
     }
 
-    private isMiningDrawerHandlePointerEvent(event: MouseEvent | PointerEvent): boolean {
-        return Boolean(this.miningDrawerHandleFromEventTarget(event.target)
-            ?? (this.eventHasPointTarget(event) ? this.miningDrawerHandleFromPoint(event.clientX, event.clientY) : null));
-    }
-
-    private eventHasPointTarget(event: MouseEvent | PointerEvent): boolean {
-        return event.type !== 'click' || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
-    }
-
-    private miningDrawerHandleFromEventTarget(target: EventTarget | null): HTMLButtonElement | null {
-        return target instanceof Element ? this.miningDrawerHandleFromElement(target) : null;
-    }
-
-    private miningDrawerHandleFromPoint(x: number, y: number): HTMLButtonElement | null {
-        if (typeof document.elementsFromPoint !== 'function') return null;
-        for (const element of document.elementsFromPoint(x, y)) {
-            const handle = this.miningDrawerHandleFromElement(element);
-            if (handle) return handle;
-        }
-        return null;
-    }
-
-    private miningDrawerHandleFromElement(element: Element): HTMLButtonElement | null {
-        const target = element.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-        const handle = target?.matches(MINING_DRAWER_HANDLE_SELECTOR)
-            ? target as HTMLButtonElement
-            : target?.querySelector<HTMLButtonElement>(MINING_DRAWER_HANDLE_SELECTOR) ?? null;
-        if (!handle?.isConnected) return null;
-        return handle.closest('[data-jpdb-reader-root], .jpdb-reader-popover') ? handle : null;
-    }
-
     private ocrLineWordForPointer(target: Element | null, x: number, y: number): HTMLElement | null {
         const line = (target?.closest?.('.jpdb-ocr-line')
             ?? document.elementFromPoint(x, y)?.closest?.('.jpdb-ocr-line')) as HTMLElement | null;
@@ -4758,7 +4727,7 @@ export class ReaderApp {
 
     private renderedWordLookupCandidateForActivation(word: HTMLElement, event: MouseEvent): PointerTextLookup | null {
         const candidate = this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
-        if (candidate || this.eventHasPointTarget(event)) return candidate;
+        if (candidate || eventHasPointTarget(event)) return candidate;
         return pointerTextLookupFromRenderedWordStart(word);
     }
 
