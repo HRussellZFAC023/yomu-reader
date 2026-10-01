@@ -1057,7 +1057,7 @@ export class NewTabController {
             return true;
         }
         if (this.state.route === 'stats') {
-            this.renderStats(root);
+            this.statsController.render(root);
             void this.loadStatsInto(root);
             return true;
         }
@@ -1350,7 +1350,7 @@ export class NewTabController {
             this.searchController.renderSearch(root);
             return;
         }
-        if (this.state.route === 'stats') return this.renderStats(root);
+        if (this.state.route === 'stats') return this.statsController.render(root);
         this.applyWords(root, false);
     }
 
@@ -3008,11 +3008,6 @@ export class NewTabController {
         this.renderEmpty(root, APP_NAME, this.text(this.emptyLoadMessageKey ?? this.emptyStudyMessageKey()));
     }
 
-    // Thin forwarder: the mode-switch / render paths paint the stats dashboard.
-    private renderStats(root: HTMLElement): void {
-        this.statsController.render(root);
-    }
-
     // Thin forwarder: the mode-switch / render paths kick off the stats load.
     private loadStatsInto(root: HTMLElement, force = false): Promise<void> {
         return this.statsController.loadInto(root, force);
@@ -4099,7 +4094,7 @@ export class NewTabController {
             return;
         }
         if (this.state.route === 'stats') {
-            this.renderStats(root);
+            this.statsController.render(root);
             void this.loadStatsInto(root);
             return;
         }
@@ -7699,6 +7694,7 @@ export class NewTabController {
             await withSaveWaitStatus(this.language(), adapter.startReview.bind(adapter, card.sourceCardKey));
             if (this.destroyed) return;
             this.invalidateSourceResultCache('yomu-local');
+            this.statsController.reset(); // Stats now counts the word in "Cards", no longer as "Saved".
             this.allWords = []; // Returning to Study reloads its queue, so the word just added is there to review.
             this.refreshBrowseAfterCardMutation(card);
             this.showToast('browseReviewAdded');

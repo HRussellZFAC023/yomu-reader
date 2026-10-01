@@ -152,6 +152,26 @@
   overflow-wrap: anywhere;
 }
 
+/* The Saved tile opens Library; it reads as a metric and acts as a button. */
+.jpdb-reader-stats-metric-link {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.jpdb-reader-stats-metric-link:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 761px) {
+  .jpdb-reader-stats-metrics:has(> .jpdb-reader-stats-metric-link) {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
 .jpdb-reader-stats-panel {
   display: grid;
   gap: 14px;
@@ -709,6 +729,7 @@
   .jpdb-reader-stats-activity-tabs button:hover,
   .jpdb-reader-stats-panel-button:hover,
   .jpdb-reader-stats-connection-actions button:hover,
+  .jpdb-reader-stats-metric-link:hover,
   .jpdb-reader-stats-heatmap-cell:hover {
     border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
     background: color-mix(in srgb, var(--jpdb-reader-surface-2) 78%, var(--jpdb-reader-accent) 12%);

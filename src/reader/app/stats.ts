@@ -55,6 +55,9 @@ export interface StatsSourceSnapshot {
     // Upcoming scheduled reviews (Jiten Today-panel parity). Only providers
     // whose scheduler can answer exactly populate it (Anki via prop:due).
     dueForecast?: StatsDueForecast;
+    // Academy words saved to Library but not in review. They are not cards yet:
+    // Library offers them "Add to review", and only Academy has such words.
+    savedOnly?: number;
 }
 
 export interface StatsDueForecast {
@@ -254,6 +257,7 @@ export function combineStatsSources(...sources: StatsSourceSnapshot[]): StatsCom
     const combinedSources = active.length ? active : sources;
     const daily = mergeDailyPoints(...combinedSources.map(source => source.daily));
     const dueForecast = addDueForecasts(combinedSources);
+    const savedOnly = combinedSources.reduce((sum, source) => sum + (source.savedOnly ?? 0), 0);
     return finalizeCombinedStatsSource({
         id: 'combined',
         label: 'Combined',
@@ -268,6 +272,7 @@ export function combineStatsSources(...sources: StatsSourceSnapshot[]): StatsCom
         longestStreak: 0,
         updatedAt: Math.max(0, ...combinedSources.map(source => source.updatedAt ?? 0)) || null,
         ...(dueForecast ? { dueForecast } : {}),
+        ...(savedOnly ? { savedOnly } : {}),
     });
 }
 

@@ -153,9 +153,8 @@ export class LocalYomuSrsRepository {
 
     async collection(limit = 50, options: YomuSrsQueueOptions = {}): Promise<YomuSrsReviewable[]> {
         const now = this.now();
-        const language = options.language ? canonicalLanguageTag(options.language) : '';
         return Object.values((await this.readDeck()).cards)
-            .filter(card => !language || canonicalLanguageTag(card.language ?? 'ja') === language)
+            .filter(inRequestedLanguage(options))
             .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
             .slice(0, normalizedQueueLimit(limit))
             .map(card => this.toReviewable(card, now));
@@ -163,10 +162,9 @@ export class LocalYomuSrsRepository {
 
     async queue(limit = 50, options: YomuSrsQueueOptions = {}): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
-        const language = options.language ? canonicalLanguageTag(options.language) : '';
         const cards = Object.values((await this.readDeck()).cards)
             .filter(card => card.reviewEnabled !== false)
-            .filter(card => !language || canonicalLanguageTag(card.language ?? 'ja') === language);
+            .filter(inRequestedLanguage(options));
         const cap = normalizedQueueLimit(limit);
         const byDue = (a: StoredYomuSrsCard, b: StoredYomuSrsCard): number => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
         const due = cards.filter(card => card.dueAt <= now).sort(byDue);
@@ -183,9 +181,11 @@ export class LocalYomuSrsRepository {
         };
     }
 
-    async stats(): Promise<YomuSrsStatsSnapshot> {
+    async stats(options: YomuSrsQueueOptions = {}): Promise<YomuSrsStatsSnapshot> {
         const now = this.now();
-        const cards = Object.values((await this.readDeck()).cards).filter(card => card.reviewEnabled !== false);
+        const cards = Object.values((await this.readDeck()).cards)
+            .filter(card => card.reviewEnabled !== false)
+            .filter(inRequestedLanguage(options));
         const today = startOfLocalDay(now);
         return {
             providerId: 'yomu-local',
@@ -447,7 +447,7 @@ export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepositor
         capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
         hasCredential: () => true,
         verify: async () => true,
-        stats: () => repository.stats(),
+        stats: options => repository.stats(options),
         queue: (limit, options) => repository.queue(limit, options),
         collection: (limit, options) => repository.collection(limit, options),
         startReview: cardId => repository.startReview(cardId),
@@ -518,6 +518,12 @@ function startOfLocalDay(now: number): number {
     return date.getTime();
 }
 
+
+/** Cards whose identity belongs to the requested target; legacy cards without a language are Japanese. */
+function inRequestedLanguage(options: YomuSrsQueueOptions): (card: StoredYomuSrsCard) => boolean {
+    const language = options.language ? canonicalLanguageTag(options.language) : '';
+    return card => !language || canonicalLanguageTag(card.language ?? 'ja') === language;
+}
 
 function normalizedQueueLimit(limit: number): number {
     if (Number.isNaN(limit) || limit <= 0) return 0;

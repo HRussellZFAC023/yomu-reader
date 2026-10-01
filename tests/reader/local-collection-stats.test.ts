@@ -12,11 +12,25 @@ function metric(root: HTMLElement, label: string): string {
     return tile?.querySelector('strong')?.textContent ?? '';
 }
 
-async function loadAcademyStats(repository: LocalYomuSrsRepository): Promise<HTMLElement> {
-    const controller = newTabApiSourceController(
-        { ...DEFAULT_SETTINGS, apiKey: '', learningTargetChosen: true, yomuLocalSrsEnabled: true },
+function savedTile(root: HTMLElement): HTMLButtonElement | null {
+    return root.querySelector<HTMLButtonElement>('.jpdb-reader-stats-metric-link');
+}
+
+function libraryAddToReview(root: HTMLElement, expression: string): HTMLButtonElement | null {
+    return [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-item')]
+        .find(row => row.querySelector(`[data-expression="${expression}"]`))
+        ?.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]') ?? null;
+}
+
+function academyStatsController(repository: LocalYomuSrsRepository, interfaceLanguage: 'en' | 'ja' = 'en') {
+    return newTabApiSourceController(
+        { ...DEFAULT_SETTINGS, apiKey: '', interfaceLanguage, learningTargetChosen: true, yomuLocalSrsEnabled: true },
         { srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(repository) } },
     );
+}
+
+async function loadAcademyStats(repository: LocalYomuSrsRepository, interfaceLanguage: 'en' | 'ja' = 'en'): Promise<HTMLElement> {
+    const controller = academyStatsController(repository, interfaceLanguage);
     try {
         return await renderLoadedApiStats(controller);
     } finally { controller.destroy(); }
@@ -80,4 +94,96 @@ it('keeps a late Stats load from replacing Library after the learner leaves Stat
         await loading;
         expect(surface.textContent).toBe('Library');
     } finally { controller.destroy(); }
+});
+
+// Saved words are not review work, so they are not "Cards", but Stats still
+// says how many wait in Library: one "Saved" tile, only when there are some.
+it('counts saved words in a Saved tile, shown only when there are any', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.review({ card: read.card!, grade: 'good' });
+
+    const none = await loadAcademyStats(repository);
+    expect(metric(none, 'Cards')).toBe('1');
+    expect(savedTile(none)).toBeNull();
+    expect(metric(none, 'Saved')).toBe('');
+
+    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+    document.body.replaceChildren();
+    const saved = await loadAcademyStats(repository);
+    expect(metric(saved, 'Saved')).toBe('2');
+    expect(metric(saved, 'Cards')).toBe('1');
+    expect(savedTile(saved)?.textContent).toContain('Add to review in Library');
+    // Saved words are not a stage of review, so the distribution leaves them out.
+    expect(saved.querySelector('.jpdb-reader-stats-legend')?.textContent).toBe('Learning 1');
+});
+
+// The tile is the way to those words. Adding one to review there makes it a
+// card, and Stats shows that the next time the learner opens it.
+it('opens Library from the Saved tile, and Add to review moves the word to Cards', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    const controller = academyStatsController(repository);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(metric(root, 'Saved')).toBe('2');
+        expect(metric(root, 'Cards')).toBe('0');
+        const tile = savedTile(root)!;
+        // A native button: Tab reaches it, and Enter or Space opens Library.
+        expect(tile.tagName).toBe('BUTTON');
+        expect(tile.type).toBe('button');
+
+        tile.click();
+        const addToReview = await vi.waitFor(() => {
+            const button = libraryAddToReview(root, '読む');
+            expect(button).not.toBeNull();
+            return button!;
+        });
+        expect(root.classList.contains('jpdb-reader-newtab-search-mode')).toBe(true);
+        addToReview.click();
+        await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).toBeNull());
+        expect(libraryAddToReview(root, '書く')).not.toBeNull();
+
+        root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="stats"]')!.click();
+        await vi.waitFor(() => expect(metric(root, 'Cards')).toBe('1'));
+        expect(metric(root, 'Saved')).toBe('1');
+    } finally { controller.destroy(); }
+});
+
+// Study and Library read Academy for the active learning target, so Stats does
+// too: "Saved" is then exactly what Library offers to add to review.
+it('counts Academy words of the active learning target only', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    const write = await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    await repository.review({ card: write.card!, grade: 'good' });
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.mine({ expression: 'comer', reading: 'comer', meaning: 'to eat', language: 'es' });
+    await repository.startReview(canonicalStudyCardKey('comer', 'comer', { language: 'es' }));
+    await repository.mine({ expression: 'leer', reading: 'leer', meaning: 'to read', language: 'es' });
+    await repository.mine({ expression: 'ver', reading: 'ver', meaning: 'to see', language: 'es' });
+
+    const japanese = await loadAcademyStats(repository);
+    expect([metric(japanese, 'Due now'), metric(japanese, 'Cards'), metric(japanese, 'Saved')]).toEqual(['0', '1', '1']);
+
+    setActiveLearningTargetLanguage('es');
+    document.body.replaceChildren();
+    const spanish = await loadAcademyStats(repository);
+    expect([metric(spanish, 'Due now'), metric(spanish, 'Cards'), metric(spanish, 'Saved')]).toEqual(['1', '1', '2']);
+});
+
+it('labels the Saved tile in Japanese', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+
+    const root = await loadAcademyStats(repository, 'ja');
+    expect(metric(root, '保存済み')).toBe('1');
+    expect(savedTile(root)?.textContent).toContain('単語帳で復習に追加できます');
+    expect(root.textContent).not.toContain('未翻訳');
+    expect(root.textContent).not.toContain('Add to review in Library');
 });

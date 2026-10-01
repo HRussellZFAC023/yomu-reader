@@ -1,6 +1,7 @@
 // Built-browser proof of deliberate local collection (BACKLOG-V2 C04): a
-// keyless learner saves words from the lookup popup on an ordinary page, finds
-// them in Study's Library, adds exactly one to review, exports a backup from
+// keyless learner saves words from the lookup popup on an ordinary page, sees
+// them in Stats' Saved tile, follows it to Study's Library, adds exactly one to
+// review (Stats then counts it in Cards), exports a backup from
 // Settings → Backup & sync, restores it into a fresh profile, reloads, and
 // survives interrupted saves.
 //
@@ -202,7 +203,7 @@ class Journey {
 
     async collect(profile) {
         const baseline = await this.withStudy(profile, study => this.studyCounts(study));
-        assert(baseline.statsDueNow === 0, 'A fresh keyless profile did not start with nothing due', baseline);
+        assert(baseline.statsDueNow === 0 && baseline.statsSaved === 0, 'A fresh keyless profile did not start with nothing due or saved', baseline);
 
         const page = await this.openArticle(profile);
         const first = await this.saveFromPopup(profile, page, WORDS.read, { keyboard: true });
@@ -237,6 +238,7 @@ class Journey {
         }));
         assert(study.counts.statsDueNow === 0 && study.counts.statsCards === 0,
             'Saved words became Study homework before the learner added them to review', study);
+        assert(study.counts.statsSaved === 2, 'Stats did not count the two saved words in its Saved tile', study);
         assert(sameMembers(study.library.map(row => row.expression), [WORDS.read.surface, WORDS.book.surface])
             && study.library.every(row => row.addToReview), 'Library did not list both saved words with Add to review', study);
         return {
@@ -253,11 +255,21 @@ class Journey {
 
     async addOneToReview(profile) {
         // The learner lands on Study first (its queue loads with nothing due),
-        // then goes to Library to choose a word.
+        // checks Stats, and follows its Saved tile, by keyboard, to Library to
+        // choose a word.
         const page = await this.openStudy(profile);
         await newTabModeButton(page, 'word').click();
         const before = await waitForStudyCard(page);
-        await this.openLibrary(page, 2);
+        const savedBefore = await this.studyCounts(page);
+        assert(savedBefore.statsSaved === 2 && savedBefore.statsCards === 0, 'Stats did not show both words as saved, not as cards', savedBefore);
+        const savedTile = page.locator('.jpdb-reader-stats-metric-link');
+        const savedTileAria = await savedTile.ariaSnapshot();
+        assert(/button "Saved 2 Add to review in Library"/u.test(savedTileAria), 'The Saved tile is not a button named by its count', { savedTileAria });
+        await savedTile.focus();
+        await page.keyboard.press('Enter');
+        await waitForLibraryRows(page, 2);
+        const library = await listedLibraryRows(page);
+        assert(library.length === 2 && library.every(row => row.addToReview), 'The Saved tile did not open Library on the saved words', library);
         await libraryRow(page, WORDS.read.surface).locator('[data-newtab-action="browse-start-review"]').click();
         await waitForToast(page, /Added to review/u);
         await page.waitForFunction(({ enrolled, saved }) => {
@@ -272,8 +284,13 @@ class Journey {
         assert(read && !('reviewEnabled' in read) && read.dueAt <= Date.now() && read.reviews === 0,
             'Add to review did not schedule the chosen word', { read });
         assert(book?.reviewEnabled === false, 'Add to review scheduled a word the learner did not choose', { book });
+        // Back in Stats without its refresh control, the word has moved from Saved to Cards.
+        await newTabModeButton(page, 'stats').click();
+        const revisited = await waitForStatsMetrics(page, metrics => metrics.statsCards === 1 && metrics.statsSaved === 1);
+        assert(revisited.statsCards === 1 && revisited.statsSaved === 1, 'Stats still counted the word as saved after Add to review', revisited);
         const counts = await this.studyCounts(page);
-        assert(counts.statsDueNow === 1 && counts.statsCards === 1, 'Study did not count exactly the one word added to review as due', counts);
+        assert(counts.statsDueNow === 1 && counts.statsCards === 1 && counts.statsSaved === 1,
+            'Study did not count exactly the one word added to review as due, with the other still saved', counts);
 
         // Straight back to Study: the word just added is what the learner
         // reviews, shown with the sentence it was saved from.
@@ -290,8 +307,12 @@ class Journey {
         assert(afterGrade.statsDueNow === 0 && afterGrade.statsCards === 1, 'Study due or card count was wrong after the review', afterGrade);
         return {
             studyCardBeforeAdding: before.prompt,
+            statsBeforeAdding: savedBefore,
+            savedTileAria,
+            libraryFromSavedTile: library.map(row => row.expression),
             enrolled: pick(read, ['expression', 'reviews', 'dueAt']),
             leftSaved: pick(book, ['expression', 'reviewEnabled']),
+            statsRevisitedAfterAdd: revisited,
             statsAfterAdd: counts,
             studyCardAfterAdding: current,
             reviewed: pick(reviewed, ['reviews', 'intervalDays', 'dueAt', 'lastReviewAt']),
@@ -504,10 +525,7 @@ class Journey {
             const statuses = window.__yomuJourneyStatsStatuses;
             return statuses.includes('loading') && statuses.at(-1) !== 'loading';
         }, null, { timeout: 15_000 });
-        const metrics = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.jpdb-reader-stats-metric')]
-            .map(metric => [metric.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() ?? '', metric.querySelector('strong')?.textContent?.trim() ?? ''])));
-        // Cards counts every word in review, due or not; saved words wait in Library.
-        return { statsDueNow: Number(metrics['Due now']), statsCards: Number(metrics.Cards) };
+        return statsMetrics(page);
     }
 
     route(route) {
@@ -665,6 +683,26 @@ async function closePopup(page) {
 async function waitForLibraryRows(page, expectedRows) {
     await page.waitForFunction(count => document.querySelectorAll('[data-newtab-search-results] .jpdb-reader-newtab-browse-item').length === count,
         expectedRows, { timeout: 15_000 }).catch(() => undefined);
+}
+
+// Cards counts every word in review, due or not; saved words wait in Library,
+// and Stats shows them only in its Saved tile, which is absent at zero.
+async function statsMetrics(page) {
+    const metrics = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.jpdb-reader-stats-metric')]
+        .map(metric => [metric.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() ?? '', metric.querySelector('strong')?.textContent?.trim() ?? ''])));
+    return { statsDueNow: Number(metrics['Due now']), statsCards: Number(metrics.Cards), statsSaved: Number(metrics.Saved ?? 0) };
+}
+
+// Polls the painted metrics until they match; on a timeout the caller's
+// assertion reports what Stats actually showed.
+async function waitForStatsMetrics(page, matches, timeout = 10_000) {
+    const deadline = Date.now() + timeout;
+    let metrics = await statsMetrics(page);
+    while (!matches(metrics) && Date.now() < deadline) {
+        await page.waitForTimeout(100);
+        metrics = await statsMetrics(page);
+    }
+    return metrics;
 }
 
 function listedLibraryRows(page) {

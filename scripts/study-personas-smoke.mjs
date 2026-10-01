@@ -5,8 +5,8 @@
 //      clear labels and WITHOUT the review-fallback notice.
 //   2. degraded reviewer — Jiten key configured but the API is down: practice
 //      words must load WITH the "No reviews ready" notice (trust fix).
-//   3. keyless collector — saves words from the userscript popup, adds one to
-//      review from Study's Library, exports, restores into a fresh profile and
+//   3. keyless collector — saves words from the userscript popup, follows Stats'
+//      Saved tile to Library, adds one to review there, exports, restores into a fresh profile and
 //      survives interrupted saves (scripts/lib/local-collection-journey.mjs).
 // Reports friction feedback (timings, label text, console errors) as JSON.
 import { existsSync } from 'node:fs';

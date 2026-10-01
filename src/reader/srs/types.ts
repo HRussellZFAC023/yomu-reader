@@ -129,7 +129,7 @@ export interface YomuSrsAdapter {
     capabilities: YomuSrsAdapterCapabilities;
     hasCredential(): boolean;
     verify(): Promise<boolean>;
-    stats(): Promise<YomuSrsStatsSnapshot>;
+    stats(options?: YomuSrsQueueOptions): Promise<YomuSrsStatsSnapshot>;
     queue(limit?: number, options?: YomuSrsQueueOptions): Promise<YomuSrsQueueSnapshot>;
     collection?(limit?: number, options?: YomuSrsQueueOptions): Promise<YomuSrsReviewable[]>;
     startReview?(cardId: string): Promise<YomuSrsReviewable>;

@@ -1,7 +1,7 @@
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JitenApiClient } from '../dictionaries/jiten';
-import type { YomuSrsAdapter, YomuSrsReviewable } from '../srs/types';
+import type { YomuSrsAdapter, YomuSrsQueueOptions, YomuSrsReviewable } from '../srs/types';
 import type { resolveUiLanguage, UiCopyKey } from '../app/i18n';
 import type { NewTabCopyKey } from './i18n';
 import type { NewTabConcreteSource } from './source';
@@ -15,6 +15,7 @@ import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { dedupeWords } from './card-selection';
 import { isSavedOnlyNewTabCard } from './srs-card-adapter';
+import { activeLearningTargetLanguage } from '../languages/target-runtime';
 import {
     JPDB_ALL_DECKS,
     JPDB_DECK_SAMPLE_LIMIT,
@@ -103,10 +104,10 @@ function isNewTabStatsAction(action: NewTabAction | undefined): action is NewTab
 }
 
 /** Every card an adapter can list, as Library reads it; the due queue only where that is all it offers. */
-async function srsStatsReviewables(adapter: NewTabSrsQueueAdapter): Promise<YomuSrsReviewable[]> {
+async function srsStatsReviewables(adapter: NewTabSrsQueueAdapter, options: YomuSrsQueueOptions): Promise<YomuSrsReviewable[]> {
     return adapter.collection
-        ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT)
-        : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT)).cards;
+        ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)
+        : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)).cards;
 }
 
 interface StatsClickRequest {
@@ -442,17 +443,21 @@ export class NewTabStatsController {
             return emptyStatsSource(source, label, source === 'yomu-local' ? this.deps.text('statsNoData') : this.deps.text('statsApiKeyMissing'), 'setup');
         }
         try {
+            // The active target only, as Study and Library read these providers.
+            const options = { language: activeLearningTargetLanguage() };
             const [stats, reviewables] = await Promise.all([
-                adapter.stats(),
-                srsStatsReviewables(adapter),
+                adapter.stats(options),
+                srsStatsReviewables(adapter, options),
             ]);
-            // Stats describe review work: a word Library still offers to "Add to review" is not a card yet.
-            const cards = reviewables
+            const listed = reviewables
                 .map((card: YomuSrsReviewable) => this.deps.srsReviewableToNewTabCard(card))
-                .filter((card): card is JPDBCard => card !== null && !isSavedOnlyNewTabCard(card));
+                .filter((card): card is JPDBCard => card !== null);
+            // Stats describe review work: a word Library still offers to "Add to review" is not a card yet.
+            const cards = listed.filter(card => !isSavedOnlyNewTabCard(card));
             const snapshot = statsFromApiCards(cards, label, this.apiLoadedMessage(label, cards.length), source);
             return {
                 ...snapshot,
+                savedOnly: listed.length - cards.length,
                 message: cards.length || stats.reviewsDue || stats.reviewsToday ? snapshot.message : this.deps.text('statsNoData'),
                 reviewsToday: stats.reviewsToday ?? snapshot.reviewsToday,
                 cards: {

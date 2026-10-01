@@ -112,7 +112,19 @@ function renderStatsMetrics(context: NewTabStatsRenderContext): HTMLElement {
         renderStatsMetric(text('statsRetention'), formatPercent(source.retention), text('statsTotalReviews')),
         renderStatsMetric(text('statsAverageSpeed'), formatStatsSpeed(speed), text('statsCardsPerMinute')),
         renderStatsMetric(text('statsCards'), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text)),
+        renderStatsSavedMetric(context),
     );
+}
+
+// Saved words are not review work, so they are not "Cards". The tile is the
+// way to them: it opens Library, where "Add to review" schedules each one.
+function renderStatsSavedMetric({ source, text }: NewTabStatsRenderContext): HTMLElement | null {
+    if (!source.savedOnly) return null;
+    return el('button', {
+        type: 'button',
+        class: 'jpdb-reader-stats-metric jpdb-reader-stats-metric-link',
+        dataset: { newtabAction: newTabAction('mode'), mode: 'search' },
+    }, statsMetricContent(text('statsSaved'), formatCompactNumber(source.savedOnly), text('statsSavedDetail')));
 }
 
 function reviewsTodayDetail(context: NewTabStatsRenderContext): string {
@@ -123,11 +135,15 @@ function reviewsTodayDetail(context: NewTabStatsRenderContext): string {
 }
 
 function renderStatsMetric(label: string, value: string, detail: string): HTMLElement {
-    return el('section', { class: 'jpdb-reader-stats-metric' },
+    return el('section', { class: 'jpdb-reader-stats-metric' }, statsMetricContent(label, value, detail));
+}
+
+function statsMetricContent(label: string, value: string, detail: string): HTMLElement[] {
+    return [
         el('span', { class: 'jpdb-reader-stats-metric-label' }, label),
         el('strong', {}, value),
         el('span', { class: 'jpdb-reader-stats-metric-detail' }, detail),
-    );
+    ];
 }
 
 function renderStatsActivity(context: NewTabStatsRenderContext): HTMLElement {
