@@ -883,7 +883,7 @@ function renderApiMiningActions(
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider, destinations);
     const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
     return {
-        collect: addDeckSelect ? renderCollectAction(`${renderApiDeckAddButton(addDeckSelect, destinations[0], language)}${addDeckSelect}`) : '',
+        collect: addDeckSelect ? renderCollectAction(renderApiDeckAdd(addDeckSelect, destinations[0], language)) : '',
         deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : '',
     };
 }
@@ -935,11 +935,13 @@ function renderAddDeckSelect(
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiDeckAddButton(addDeckSelect: string, defaultDestination: CollectionDestinationId | undefined, language: InterfaceLanguage): string {
+// A direct save renders no picker: both runtimes open the row's picker for an
+// "add" when there is one, so a one-choice select beside it would open instead.
+function renderApiDeckAdd(addDeckSelect: string, defaultDestination: CollectionDestinationId | undefined, language: InterfaceLanguage): string {
     const label = collectButtonLabel(language);
     const deckSource = directCollection(addDeckSelect, defaultDestination);
     if (!deckSource) {
-        return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${label}</button>`;
+        return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${label}</button>${addDeckSelect}`;
     }
     return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: 'card-action', action: 'add', deckSource })}>${label}</button>`;
 }

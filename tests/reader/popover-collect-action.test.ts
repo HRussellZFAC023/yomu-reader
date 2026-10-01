@@ -33,6 +33,7 @@ import {
     testCardPopoverRenderer,
 } from './jpdb/fixtures';
 import type { JPDBCard, ReaderSettings } from './jpdb/fixtures';
+import { NewTabRuntime, newTabLookupRenderData, newTabTestCard, setupNewTabLookupRuntime } from './new-tab-review/fixtures';
 
 const SENTENCE = '毎日ご飯を食べる。';
 const WORD: JPDBCard = { ...card, meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }] };
@@ -342,8 +343,11 @@ describe('popup collect action', () => {
 
         // JPDB grades this word, but the learner collects only into the Yomu deck, or only into Bunpro.
         const yomuOnly = collectRow({ interfaceLanguage: 'en', apiKey: 'jpdb-lookup-key', jpdbMiningEnabled: false, yomuLocalSrsEnabled: true, ankiEnabled: false, enableReviews: true });
+        const bunproOnly = collectRow(BUNPRO_ONLY);
         expect(yomuOnly.querySelector('button')?.dataset).toMatchObject({ action: 'add', deckSource: 'yomu-local' });
-        expect(collectRow(BUNPRO_ONLY).querySelector('button')?.dataset).toMatchObject({ action: 'add', deckSource: 'bunpro' });
+        expect(bunproOnly.querySelector('button')?.dataset).toMatchObject({ action: 'add', deckSource: 'bunpro' });
+        // No one-choice picker sits beside a direct save for a runtime to open instead.
+        expect([yomuOnly, bunproOnly].map(row => row.querySelector('[data-add-deck-select]'))).toEqual([null, null]);
 
         // A sentence from the learner's Bunpro reviews: Bunpro grades it, only Anki can save it.
         const sentence: JPDBCard = { ...WORD, source: 'bunpro', bunproReviewableType: 'sentence', bunproReviewId: '5', bunproReviewSessionId: '9', bunproReviewInputMode: 'regular', bunproReviewEndpoint: 'review' };
@@ -377,6 +381,30 @@ describe('popup collect action', () => {
         expect(actions.classList.contains('jpdb-reader-actions-has-mining')).toBe(true);
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
         expectCollectActionBesideGrades(actions, actions.querySelector<HTMLElement>('.jpdb-reader-collect .jpdb-reader-mining-title')!);
+    });
+
+    // Study's lookup popup is a trusted surface: a learner whose only deck is
+    // Academy saves there with one press, as on an ordinary page.
+    it('saves straight to Academy from a Study lookup popup, opening no picker', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        const runtime = new NewTabRuntime();
+        const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
+            settings: { ...KEYLESS, enableReviews: true },
+            isJpdbBackedCard: () => false,
+        }) as ReturnType<typeof setupNewTabLookupRuntime> & { activeLookupPopover?: HTMLElement };
+        try {
+            await internals.showLookupCard(newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '本を読む。' }), '本を読む。');
+            const save = internals.activeLookupPopover!.querySelector<HTMLButtonElement>('.jpdb-reader-collect [data-action="add"]')!;
+            expect(save.dataset.deckSource).toBe('yomu-local');
+            save.click();
+
+            await vi.waitFor(async () => expect(Object.values((await new LocalYomuSrsRepository().snapshot()).cards)).toHaveLength(1));
+            await vi.waitFor(() => expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toContain('Added to Academy.'));
+            expect(document.querySelector('.jpdb-reader-add-deck-select-open, [data-add-deck-select]')).toBeNull();
+        } finally {
+            runtime.destroy();
+            vi.unstubAllGlobals();
+        }
     });
 
     it('saves exactly once to the local deck, without scheduling it, only on trusted input, and keeps keyboard focus on it', async () => {
