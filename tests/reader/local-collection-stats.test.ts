@@ -161,7 +161,7 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
         expect(root.classList.contains('jpdb-reader-newtab-search-mode')).toBe(true);
         // Library names the words as Stats did, and shows Academy's words.
         expect([libraryState(root, '読む'), libraryState(root, '書く')]).toEqual(['Saved', 'Saved']);
-        expect(pressedChips(root)).toEqual(['Academy 2', 'All 2']);
+        expect(pressedChips(root)).toEqual(['Academy 2', 'Saved 2']);
         addToReview.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).toBeNull());
         expect(libraryAddToReview(root, '書く')).not.toBeNull();
@@ -224,8 +224,33 @@ it('opens Library on the saved words whatever chip or search narrowed it before'
             expect(libraryAddToReview(root, '書く')).not.toBeNull();
             expect(libraryAddToReview(root, '見る')).not.toBeNull();
         });
-        expect(pressedChips(root)).toEqual(['Academy 3', 'All 3']);
+        expect(pressedChips(root)).toEqual(['Academy 3', 'Saved 2']);
+        // The word already in review is not one the tile promised.
+        expect(libraryRow(root, '読む')).toBeUndefined();
         expect(root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.value).toBe('');
+    } finally { controller.destroy(); }
+});
+
+// Saved words have no due date, so in queue order they come after every
+// scheduled card: past a page of those, the tile must still open on them.
+it('opens Library on the saved words behind more than a page of scheduled Academy cards', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.importBatch({ source: 'fixture', importedAt: Date.now(), items: Array.from({ length: 55 }, (_, index) => ({
+        expression: `語${index}`, reading: `ご${index}`, meanings: ['word'], dueAt: Date.now() + 86_400_000 + index,
+    })) });
+    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+    const controller = academyStatsController(repository);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(metric(root, 'Saved')).toBe('2');
+
+        savedTile(root)!.click();
+        await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
+        expect(libraryAddToReview(root, '見る')).not.toBeNull();
+        expect(root.querySelectorAll('.jpdb-reader-newtab-browse-item')).toHaveLength(2);
+        expect(pressedChips(root)).toEqual(['Academy 57', 'Saved 2']);
     } finally { controller.destroy(); }
 });
 

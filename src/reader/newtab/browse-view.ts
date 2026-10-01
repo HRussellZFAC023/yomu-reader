@@ -14,15 +14,18 @@ import { newTabCardIdentityLanguage, newTabCardTarget } from './study-queue';
 import { isSavedOnlyNewTabCard } from './srs-card-adapter';
 import { newTabText } from './i18n';
 
-export type BrowseFilter = 'all' | CardState;
+/** A Library state chip: a card state, or "Saved" for a Saved Word, as Stats counts it. */
+export type BrowseStateKey = CardState | 'saved';
+export type BrowseFilter = 'all' | BrowseStateKey;
 export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
 export type BrowseSourceChip = 'all' | BrowseSourceFilter;
 export type BrowseSortKey = 'queue' | 'alpha' | 'frequency' | 'history';
 
 const BROWSE_PAGE_SIZE = 50;
 
-// JPDB deck-browse "Show only" order.
-const BROWSE_FILTER_ORDER: CardState[] = [
+// JPDB deck-browse "Show only" order, after the words saved for review.
+const BROWSE_FILTER_ORDER: BrowseStateKey[] = [
+    'saved',
     'new',
     'learning',
     'due',
@@ -35,13 +38,18 @@ const BROWSE_FILTER_ORDER: CardState[] = [
     'redundant',
 ];
 
-export function browseStateCounts(cards: JPDBCard[]): Map<CardState, number> {
-    const counts = new Map<CardState, number>();
+export function browseStateCounts(cards: JPDBCard[]): Map<BrowseStateKey, number> {
+    const counts = new Map<BrowseStateKey, number>();
     for (const card of cards) {
-        const state = primaryCardState(card.cardState);
+        const state = browseStateKey(card);
         counts.set(state, (counts.get(state) ?? 0) + 1);
     }
     return counts;
+}
+
+// The predicate Stats' Saved tile counts with, so the chip lists what it promised.
+function browseStateKey(card: JPDBCard): BrowseStateKey {
+    return isSavedOnlyNewTabCard(card) ? 'saved' : primaryCardState(card.cardState);
 }
 
 export function browseSourceForCard(card: JPDBCard): BrowseSourceFilter {
@@ -74,13 +82,13 @@ export function toggleBrowseChip<T extends string>(active: Set<T>, chip: T | 'al
 // substring matches (typing よ surfaces words STARTING with よ first).
 export function filterBrowseCards(
     cards: JPDBCard[],
-    filters: ReadonlySet<CardState>,
+    filters: ReadonlySet<BrowseStateKey>,
     query: string,
     sourceFilters: ReadonlySet<BrowseSourceFilter> = new Set(),
 ): JPDBCard[] {
     const trimmed = query.trim();
     const sourceMatched = cards.filter(card => !sourceFilters.size || sourceFilters.has(browseSourceForCard(card)));
-    const stateMatched = sourceMatched.filter(card => !filters.size || filters.has(primaryCardState(card.cardState)));
+    const stateMatched = sourceMatched.filter(card => !filters.size || filters.has(browseStateKey(card)));
     if (!trimmed) return stateMatched;
     const prefix: JPDBCard[] = [];
     const partial: JPDBCard[] = [];
@@ -186,11 +194,12 @@ function queueOrderValue(card: JPDBCard): number {
 
 export function renderBrowseChips(
     cards: JPDBCard[],
-    active: ReadonlySet<CardState>,
+    active: ReadonlySet<BrowseStateKey>,
     language: ReaderSettings['interfaceLanguage'],
     allLabel: string,
 ): HTMLElement {
     const counts = browseStateCounts(cards);
+    const label = (state: BrowseStateKey): string => state === 'saved' ? newTabText(language, 'savedWord') : cardStateLabel(state, language);
     const chip = (filter: BrowseFilter, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
         type: 'button',
         class: 'jpdb-reader-newtab-browse-chip',
@@ -201,7 +210,7 @@ export function renderBrowseChips(
         chip('all', allLabel, cards.length, active.size === 0),
         ...BROWSE_FILTER_ORDER
             .filter(state => (counts.get(state) ?? 0) > 0)
-            .map(state => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0, active.has(state))),
+            .map(state => chip(state, label(state), counts.get(state) ?? 0, active.has(state))),
     );
 }
 

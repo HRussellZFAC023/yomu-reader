@@ -274,15 +274,15 @@ class Journey {
         const library = await listedLibraryRows(page);
         assert(library.length === 2 && library.every(row => row.addToReview && row.label === 'Saved'),
             'The Saved tile did not open Library on the saved words, named as Stats names them', library);
-        const libraryChips = await page.locator('.jpdb-reader-newtab-browse-source-chips [aria-pressed="true"]').allTextContents();
-        assert(libraryChips.length === 1 && /^Academy 2$/u.test(libraryChips[0].trim()), 'The Saved tile did not open Library on Academy words', { libraryChips });
+        const libraryChips = (await page.locator('.jpdb-reader-newtab-browse-chip[aria-pressed="true"]').allTextContents()).map(chip => chip.trim());
+        assert(libraryChips.join('|') === 'Academy 2|Saved 2', 'The Saved tile did not open Library on the saved Academy words', { libraryChips });
         await libraryRow(page, WORDS.read.surface).locator('[data-newtab-action="browse-start-review"]').click();
         await waitForToast(page, /Added to review/u);
+        // The word in review leaves the Saved list; the other is still offered.
         await page.waitForFunction(({ enrolled, saved }) => {
             const rows = [...document.querySelectorAll('.jpdb-reader-newtab-browse-item')];
             const row = expression => rows.find(item => item.querySelector(`[data-expression="${expression}"]`));
-            return row(enrolled) && !row(enrolled).querySelector('[data-newtab-action="browse-start-review"]')
-                && row(saved)?.querySelector('[data-newtab-action="browse-start-review"]');
+            return !row(enrolled) && row(saved)?.querySelector('[data-newtab-action="browse-start-review"]');
         }, { enrolled: WORDS.read.surface, saved: WORDS.book.surface }, { timeout: 10_000 });
         const deck = readDeck(profile);
         const read = deck.cards[cardId(WORDS.read)];
@@ -294,6 +294,12 @@ class Journey {
         await newTabModeButton(page, 'stats').click();
         const revisited = await waitForStatsMetrics(page, metrics => metrics.statsCards === 1 && metrics.statsSaved === 1);
         assert(revisited.statsCards === 1 && revisited.statsSaved === 1, 'Stats still counted the word as saved after Add to review', revisited);
+        // The tile now leads to the one word still saved, not the one in review.
+        await page.locator('.jpdb-reader-stats-metric-link').click();
+        await waitForLibraryRows(page, 1);
+        const stillSaved = await listedLibraryRows(page);
+        assert(stillSaved.length === 1 && stillSaved[0].expression === WORDS.book.surface && stillSaved[0].addToReview,
+            'The Saved tile listed a word already in review', stillSaved);
         const counts = await this.studyCounts(page);
         assert(counts.statsDueNow === 1 && counts.statsCards === 1 && counts.statsSaved === 1,
             'Study did not count exactly the one word added to review as due, with the other still saved', counts);

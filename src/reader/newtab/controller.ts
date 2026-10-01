@@ -8,6 +8,7 @@ import {
     sortBrowseCards,
     toggleBrowseChip,
     type BrowseFilter,
+    type BrowseStateKey,
     type BrowseSortKey,
     type BrowseSourceFilter,
     type BrowseSourceChip,
@@ -862,7 +863,7 @@ export class NewTabController {
     private browsePoolGeneration = 0;
     private browsePoolLoad?: { generation: number; key: string; promise: Promise<JPDBCard[]> };
     private browseFilterGeneration = 0;
-    private browseFilters = new Set<CardState>();
+    private browseFilters = new Set<BrowseStateKey>();
     private browseSourceFilters = new Set<BrowseSourceFilter>();
     private browseSort: BrowseSortKey = 'queue';
     private browseSortDescending = false;
@@ -7640,9 +7641,10 @@ export class NewTabController {
         return this.refreshBrowseAfterChipChange(root);
     }
 
-    // Stats' Saved tile: Library on Academy words, with no earlier chip or search hiding them.
+    // Stats' Saved tile: Library on the saved words alone, from the first page, with
+    // no earlier chip or search hiding them; scheduled Academy cards would sort first.
     private openSavedWords(root: HTMLElement): void {
-        this.browseFilters.clear();
+        this.browseFilters = new Set(['saved']);
         this.browseSourceFilters = new Set(['yomu-local']);
         this.browsePage = 0;
         this.searchController.setInitialQuery('');
