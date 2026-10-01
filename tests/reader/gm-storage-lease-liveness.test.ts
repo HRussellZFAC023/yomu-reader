@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GmStorageLeaseBackend, GmStorageLeaseEnvironment } from '../../src/reader/app/gm-storage-lease';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
+import { stubWebLocks } from './helpers/browser-fixtures';
 
 // Each tab is its own realm with its own copy of the lease module, sharing one
 // GM store. A frozen tab's storage calls stop settling until it thaws; a tab
@@ -103,31 +104,6 @@ function delayRenewalTick(tick: number, lateMs: number): void {
         clearTimeout(timers.get(id));
         timers.delete(id);
     }) as typeof clearInterval);
-}
-
-/**
- * Every script of the origin shares one queue of web locks per name, page
- * scripts included. A request whose signal aborts before it is granted leaves
- * the queue.
- */
-function stubWebLocks(): void {
-    let tail = Promise.resolve();
-    vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, ...args: unknown[]) => {
-        const callback = args.pop() as () => Promise<T>;
-        const signal = (args[0] as { signal?: AbortSignal } | undefined)?.signal;
-        const turn = tail;
-        let held = false;
-        const granted = new Promise<T>((resolve, reject) => {
-            signal?.addEventListener('abort', () => { if (!held) reject(signal.reason); });
-            void turn.then(() => {
-                if (signal?.aborted) return;
-                held = true;
-                callback().then(resolve, reject);
-            });
-        });
-        tail = turn.then(() => (held ? granted.then(() => undefined, () => undefined) : undefined));
-        return granted;
-    } } });
 }
 
 function sleep(milliseconds: number): Promise<void> {

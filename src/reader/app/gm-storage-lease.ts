@@ -50,6 +50,12 @@ export interface GmStorageLeaseEnvironment<Epoch> {
     readonly captureEpoch: (getValue: GmLeaseGetValue | null) => Promise<Epoch>;
     readonly assertMutationFence: (getValue: GmLeaseGetValue | null, epoch: Epoch) => Promise<void>;
     readonly epochToken: (epoch: Epoch) => string;
+    /**
+     * The page is on よむ's own site. Its pages can run without the GM claims,
+     * with the web lock as all that serializes them, and no foreign script runs
+     * there to take that lock and keep it.
+     */
+    readonly hostedOrigin?: boolean;
 }
 
 interface StorageLeaseClaim {
@@ -136,8 +142,10 @@ export async function withGmStorageLeaseCore<T, Epoch>(
     const wait = new StorageLeaseWait(options.onWait);
     // The GM claims serialize every tab without the web lock, and any script on
     // the page can take that lock and keep it: a caller with the claims waits
-    // for the lock for one lease at most.
-    const lockWaitMs = storageLeaseIo(environment.backend) ? options.leaseMs ?? DEFAULT_LEASE_MS : undefined;
+    // for the lock for one lease at most, except on よむ's own site, where a
+    // tab without claims may hold it.
+    const boundedLockWait = !environment.hostedOrigin && storageLeaseIo(environment.backend);
+    const lockWaitMs = boundedLockWait ? options.leaseMs ?? DEFAULT_LEASE_MS : undefined;
     try {
         return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
             wait.end();

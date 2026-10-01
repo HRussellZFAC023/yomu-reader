@@ -469,6 +469,7 @@ export async function withGmStorageLease<T>(
         captureEpoch: assertRealmManagedStateEpoch,
         assertMutationFence: assertManagedStateMutationFence,
         epochToken: managedStateEpochToken,
+        hostedOrigin: isHostedYomuOrigin(),
     });
 }
 

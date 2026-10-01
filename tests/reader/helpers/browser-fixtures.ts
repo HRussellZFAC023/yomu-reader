@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 export type PointerEventInitLike = {
     button?: number;
     clientX?: number;
@@ -95,4 +97,32 @@ export function restoreWindowDescriptor(key: keyof Window, descriptor: PropertyD
         return;
     }
     delete (window as unknown as Record<PropertyKey, unknown>)[key];
+}
+
+/**
+ * Every script of the origin shares one queue of web locks per name, page
+ * scripts included. A request whose signal aborts before it is granted leaves
+ * the queue. Returns the names requested, in order.
+ */
+export function stubWebLocks(): string[] {
+    const names: string[] = [];
+    const tails = new Map<string, Promise<void>>();
+    vi.stubGlobal('navigator', { locks: { request: <T>(name: string, ...args: unknown[]) => {
+        names.push(name);
+        const callback = args.pop() as () => Promise<T>;
+        const signal = (args[0] as { signal?: AbortSignal } | undefined)?.signal;
+        const turn = tails.get(name) ?? Promise.resolve();
+        let held = false;
+        const granted = new Promise<T>((resolve, reject) => {
+            signal?.addEventListener('abort', () => { if (!held) reject(signal.reason); });
+            void turn.then(() => {
+                if (signal?.aborted) return;
+                held = true;
+                callback().then(resolve, reject);
+            });
+        });
+        tails.set(name, turn.then(() => (held ? granted.then(() => undefined, () => undefined) : undefined)));
+        return granted;
+    } } });
+    return names;
 }
