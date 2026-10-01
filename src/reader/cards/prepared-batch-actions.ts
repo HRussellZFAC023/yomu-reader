@@ -4,23 +4,28 @@ import { effectiveJitenApiKey, effectiveJpdbApiKey, effectiveBunproFrontendApiTo
 import { reviewGradeProfile, reviewGradeScale } from './grade-scale';
 import { normalizeCardStates } from './state';
 import { BatchReceiptLedger, type BatchReceiptItem } from './batch-receipt-ledger';
-import { isApiMiningEnabled, isApiSrsProviderEnabled, shouldMineAnkiAlongsideApi, type ApiSrsProviderAdapter } from './srs-providers';
+import { isApiSrsProviderEnabled, shouldMineAnkiAlongsideApi, type ApiSrsProviderAdapter } from './srs-providers';
+import { userFacingCopyKeyOf } from '../app/user-facing-errors';
 
 export interface BatchMiningCardCandidate { card: JPDBCard; sentence?: string }
 export type BatchMutation = 'collect' | 'review';
 export type BatchStage = 'api-collection' | 'anki-collection' | 'review-collection' | 'review';
 export type BatchGrades = ReadonlyArray<readonly [JPDBGrade, string]>;
+/** Where "Add selected" saves a word: a service, Anki, or nowhere when no enabled destination takes it. */
+type BatchCollectionDestination = ApiSrsProviderAdapter | 'anki' | null;
 export interface PreparedBatchPlan {
     readonly token: symbol;
     readonly grades: BatchGrades;
     readonly canCollect: boolean;
+    /** No enabled destination can take this word, so "Add selected" skips it (ADR-0016). */
+    readonly noDestination: boolean;
     readonly uncertain: boolean;
     /** The grading service does not have this word, so it cannot be graded (ADR-0021). */
     readonly unmatched: boolean;
 }
 export interface BatchItemOutcome {
     token: symbol;
-    state: 'completed' | 'failed' | 'uncertain' | 'unattempted' | 'stale' | 'unmatched';
+    state: 'completed' | 'failed' | 'uncertain' | 'unattempted' | 'stale' | 'unmatched' | 'no-destination';
     completedStages: readonly BatchStage[];
 }
 export interface BatchMutationResult {
@@ -29,9 +34,10 @@ export interface BatchMutationResult {
 }
 interface BatchDependencies {
     getSettings(): ReaderSettings;
-    resolveProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null;
-    /** Where grades go, when that is not the collection provider (the chosen grading service). */
-    resolveReviewProvider?(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null;
+    /** The popup's default save for this word (collectionDestinationsForCard): one save, no schedule. */
+    resolveCollectionDestination(card: JPDBCard, settings: ReaderSettings): BatchCollectionDestination;
+    /** Where grades go: the chosen grading service (ADR-0021). */
+    resolveReviewProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null;
     collectionDeck(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string>;
     collectAnki(card: JPDBCard, sentence: string | undefined, deck: string, assertCurrent: () => void): Promise<boolean>;
     collectForReview(card: JPDBCard, sentence: string | undefined, deck: string): Promise<void>;
@@ -49,7 +55,7 @@ interface Entry {
     states: string;
     context: string;
     settings: ReaderSettings;
-    provider: ApiSrsProviderAdapter | null;
+    destination: BatchCollectionDestination;
     reviewProvider: ApiSrsProviderAdapter | null;
     collectApi: boolean;
     collectAnki: boolean;
@@ -93,18 +99,18 @@ export class PreparedBatchActions {
         const context = batchContext(settings);
         return candidates.map(candidate => {
             const identity = batchCardIdentity(candidate.card);
-            const provider = this.deps.resolveProvider(candidate.card, settings);
-            const reviewProvider = this.reviewProvider(candidate.card, settings);
-            const collectApi = Boolean(isApiMiningEnabled(settings) && providerEnabled(provider, settings)
-                && (provider?.supportsMiningCard?.(candidate.card) ?? true));
+            const destination = this.deps.resolveCollectionDestination(candidate.card, settings);
+            const provider = destination === 'anki' ? null : destination;
+            const reviewProvider = this.deps.resolveReviewProvider(candidate.card, settings);
             const blocked = normalizeCardStates(candidate.card.cardState).some(state => ['blacklisted', 'never-forget', 'redundant', 'suspended'].includes(state));
             const grades = settings.enableReviews && providerEnabled(reviewProvider, settings) && !blocked
                 ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, reviewProvider!.id)).grades : [];
             const entry: Entry = {
                 token: Symbol('batch-plan'), source: candidate.card, card: { ...candidate.card, cardState: [...candidate.card.cardState] }, sentence: candidate.sentence,
                 states: JSON.stringify(candidate.card.cardState),
-                identity, context, settings: { ...settings }, provider, reviewProvider, collectApi,
-                collectAnki: collectApi ? shouldMineAnkiAlongsideApi(settings) : settings.ankiEnabled,
+                identity, context, settings: { ...settings }, destination, reviewProvider, collectApi: Boolean(provider),
+                // As in the popup, a save to a service also goes to Anki when the learner mines to both.
+                collectAnki: destination === 'anki' || Boolean(provider && shouldMineAnkiAlongsideApi(settings)),
                 grades, receipts: receiptKeys(candidate.card, settings, provider, reviewProvider),
             };
             this.entries.set(entry.token, entry);
@@ -119,8 +125,10 @@ export class PreparedBatchActions {
         const batch = entries as Entry[];
         if (new Set(batch.map(entry => entry.receipts[action === 'review' ? 'review' : entry.collectApi ? 'api-collection' : 'anki-collection'])).size !== batch.length) return this.reject(tokens, 'stale');
         if (action === 'review' && (!grade || !commonBatchGrades(batch.map(entry => this.view(entry))).some(([value]) => value === grade))) return this.reject(tokens, 'incompatible');
-        if (action === 'collect' && batch.some(entry => !this.view(entry).canCollect)) return this.reject(tokens, 'unavailable');
-        const operation = this.receipts.reserve(batch.map(entry => receiptItem(entry, action)));
+        // A word no enabled destination can take is skipped; the rest still save.
+        const writes = action === 'collect' ? batch.filter(hasDestination) : batch;
+        if (action === 'collect' && (!writes.length || writes.some(entry => !this.view(entry).canCollect))) return this.reject(tokens, 'unavailable');
+        const operation = this.receipts.reserve(writes.map(entry => receiptItem(entry, action)));
         if (!operation) return this.reject(tokens, 'capacity');
         this.busy = true;
         const items: BatchItemOutcome[] = [];
@@ -132,10 +140,17 @@ export class PreparedBatchActions {
                     if (action === 'review' && !entry.reviewProvider!.supportsCard(entry.card)) await (matching ??= this.matchOnGradingService(batch));
                     // A word the grading service does not have is not graded anywhere; the rest still are.
                     if (action === 'review' && this.unmatched.has(entry.receipts.review)) { items.push(this.outcome(entry, 'unmatched')); continue; }
+                    if (action === 'collect' && !hasDestination(entry)) { items.push(this.outcome(entry, 'no-destination')); continue; }
                     if (action === 'collect') await this.collect(entry);
                     else await this.review(entry, grade!);
                     items.push(this.outcome(entry, 'completed'));
                 } catch (error) {
+                    // Bunpro takes a word only when its catalogue has it. Nothing was saved, so the word is skipped the same way.
+                    if (action === 'collect' && userFacingCopyKeyOf(error) === 'bunproNoMatchingWord') {
+                        this.receipts.release(operation, receiptItem(entry, action).id);
+                        items.push(this.outcome(entry, 'no-destination'));
+                        continue;
+                    }
                     const state = this.completed(entry, action) ? 'completed' : error instanceof StaleBatchPlan ? 'stale'
                         : this.receipts.get(entry.receipts.review) === 'uncertain' ? 'uncertain' : 'failed';
                     items.push(this.outcome(entry, state));
@@ -157,8 +172,9 @@ export class PreparedBatchActions {
         return Object.freeze({
             token: entry.token,
             grades: Object.freeze((stages.includes('review') || reviewUncertain || unmatched ? [] : entry.grades).map(pair => Object.freeze([...pair] as [JPDBGrade, string]))),
-            canCollect: (entry.collectApi || entry.collectAnki)
+            canCollect: hasDestination(entry)
                 && !((!entry.collectApi || stages.includes('api-collection')) && (!entry.collectAnki || stages.includes('anki-collection'))),
+            noDestination: !hasDestination(entry),
             uncertain: reviewUncertain,
             unmatched,
         });
@@ -178,11 +194,12 @@ export class PreparedBatchActions {
     }
 
     private async collect(entry: Entry): Promise<void> {
-        if (entry.collectApi && !this.completedStages(entry).includes('api-collection')) {
-            const deck = await this.deps.collectionDeck(entry.provider!, entry.settings);
+        const provider = entry.destination === 'anki' ? null : entry.destination;
+        if (provider && !this.completedStages(entry).includes('api-collection')) {
+            const deck = await this.deps.collectionDeck(provider, entry.settings);
             this.assertCurrent(entry);
             if (!deck) throw new Error('No collection deck');
-            await entry.provider!.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+            await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
             this.receipts.set(entry.receipts['api-collection'], 'completed');
             this.assertCurrent(entry);
             this.deps.notify(entry.card);
@@ -220,15 +237,12 @@ export class PreparedBatchActions {
 
     private current(entry: Entry): boolean {
         const settings = this.deps.getSettings();
-        const provider = this.deps.resolveProvider(entry.source, settings);
-        const reviewProvider = this.reviewProvider(entry.source, settings);
+        const destination = this.deps.resolveCollectionDestination(entry.source, settings);
+        const reviewProvider = this.deps.resolveReviewProvider(entry.source, settings);
         return this.entries.get(entry.token) === entry && entry.context === batchContext(settings)
             && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState)
-            && provider?.id === entry.provider?.id && provider?.hasApiKey === entry.provider?.hasApiKey
+            && destinationKey(destination) === destinationKey(entry.destination)
             && reviewProvider?.id === entry.reviewProvider?.id && reviewProvider?.hasApiKey === entry.reviewProvider?.hasApiKey;
-    }
-    private reviewProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
-        return this.deps.resolveReviewProvider ? this.deps.resolveReviewProvider(card, settings) : this.deps.resolveProvider(card, settings);
     }
     private assertCurrent(entry: Entry): void { if (!this.current(entry)) throw new StaleBatchPlan(); }
     private outcome(entry: Entry, state: BatchItemOutcome['state']): BatchItemOutcome {
@@ -253,6 +267,14 @@ function providerEnabled(provider: ApiSrsProviderAdapter | null, settings: Reade
     return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
 }
 
+function hasDestination(entry: Entry): boolean {
+    return entry.collectApi || entry.collectAnki;
+}
+
+function destinationKey(destination: BatchCollectionDestination): string {
+    return destination === 'anki' || !destination ? String(destination) : `${destination.id}:${destination.hasApiKey}`;
+}
+
 function receiptItem(entry: Entry, action: BatchMutation): BatchReceiptItem {
     const stages: BatchStage[] = action === 'review' ? ['review-collection', 'review']
         : [...(entry.collectApi ? ['api-collection' as const] : []), ...(entry.collectAnki ? ['anki-collection' as const] : [])];
@@ -263,8 +285,8 @@ function receiptItem(entry: Entry, action: BatchMutation): BatchReceiptItem {
 }
 
 function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, reviewProvider: ApiSrsProviderAdapter | null): Record<BatchStage, string> {
-    const collect = receiptAccount(card, settings, provider);
-    const review = receiptAccount(card, settings, reviewProvider);
+    const collect = receiptAccount(card, settings, provider, 'collect');
+    const review = receiptAccount(card, settings, reviewProvider, 'review');
     return {
         review: sensitiveFingerprint(JSON.stringify(['review', review.account])),
         'api-collection': sensitiveFingerprint(JSON.stringify(['collect', collect.account, collect.deck])),
@@ -274,11 +296,12 @@ function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsP
     };
 }
 
-function receiptAccount(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null): { account: unknown[]; deck: string } {
+function receiptAccount(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, use: BatchMutation): { account: unknown[]; deck: string } {
     const credentials = { jiten: effectiveJitenApiKey(settings), jpdb: effectiveJpdbApiKey(settings),
         bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)], wanikani: effectiveWanikaniApiToken(settings), 'yomu-local': settings.activeLanguageProfileId };
+    // Bunpro answers one review item but saves any word its catalogue has, so a save is keyed by the word.
     const identity = provider?.id === 'jiten' ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid]
-        : provider?.id === 'bunpro' ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint]
+        : provider?.id === 'bunpro' && use === 'review' ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint]
         : provider?.id === 'wanikani' ? [card.wanikaniAssignmentId]
         : [card.vid, card.sid, card.spelling, card.reading];
     return {

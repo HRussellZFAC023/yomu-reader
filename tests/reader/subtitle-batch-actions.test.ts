@@ -8,6 +8,7 @@ import { readSubtitleCommandCapability } from '../../src/reader/dom/private-comm
 import { allowSyntheticReaderInteractionsForTests, trustedReaderEventHandler } from '../../src/reader/ui/trusted-interaction';
 import { waitForExpect } from './test-utils';
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { BunproApiError } from '../../src/reader/bunpro/bunpro';
 
 const cleanups: Array<() => void> = [];
 afterEach(() => { cleanups.splice(0).forEach(cleanup => cleanup()); document.body.replaceChildren(); vi.unstubAllGlobals(); });
@@ -246,6 +247,47 @@ describe('subtitle prepared batch actions through the controller', () => {
         const [graded] = await repository.lookupCards([{ expression: '語42', reading: 'ご' }]);
         expect(graded).toMatchObject({ state: ['learning'], srsLevel: 'Learning' });
         expect(f.toast).not.toHaveBeenCalledWith(expect.stringContaining('not enrolled'));
+    });
+
+    // ADR-0016: "Add selected" saves each word where the popup's "Add to deck +"
+    // would. JPDB parses the subtitles, but this learner saves only to Bunpro,
+    // and Bunpro has no entry for one of the words.
+    it.each([
+        ['en', 'Added 2 words. None of your decks could take these, so not added: 語82.'],
+        ['ja', '2語を追加しました。追加できるデッキがなかったため、追加していません：語82'],
+    ] as const)('adds JPDB-parsed words to the learner\'s only deck and names the one it cannot take (%s)', async (interfaceLanguage, toast) => {
+        const mine = vi.fn(async (request: { expression: string }) => {
+            if (request.expression === '語82') throw new BunproApiError('No Bunpro item found.', undefined, 'bunproNoMatchingWord');
+            return {};
+        });
+        const f = setup([candidate(81, 'jpdb'), candidate(82, 'jpdb'), candidate(83, 'jpdb')],
+            { interfaceLanguage, jitenApiKey: '', jpdbMiningEnabled: false, yomuLocalSrsEnabled: false, bunproMiningEnabled: true, bunproFrontendApiToken: 'bunpro-private-token' },
+            { srsAdapters: { bunpro: { hasCredential: () => true, mine } as never } });
+        const add = f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!;
+        expect(add.disabled).toBe(false);
+
+        add.click();
+        await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith(toast));
+
+        expect(mine.mock.calls.map(([request]) => request.expression)).toEqual(['語81', '語82', '語83']);
+        expect(f.add).not.toHaveBeenCalled();
+        expect(f.jpdbReview).not.toHaveBeenCalled();
+        expect(f.selected.size).toBe(0);
+        expect(f.panel.textContent).not.toMatch(/JPDB|Jiten|Bunpro|未翻訳/);
+        expect(f.panel.innerHTML).not.toMatch(/private-key|private-token/);
+    });
+
+    it('keeps "Add selected" for the words a deck can take when one selected word has no deck', async () => {
+        // Only Jiten collects, and a dictionary-only word has no Jiten identity.
+        const f = setup([candidate(91), candidate(92, 'local'), candidate(93)], { apiKey: '', yomuLocalSrsEnabled: false });
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
+        await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith('Added 2 words. None of your decks could take these, so not added: 語92.'));
+        expect(f.add.mock.calls.map(([, word]) => (word as JPDBCard).vid)).toEqual([91, 93]);
+        expect(f.selected.size).toBe(0);
+        // A selection no deck can take has nothing to add.
+        f.selected.add('private-key-92');
+        f.internals.renderBatchMiningPanel();
+        expect(f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')?.disabled).toBe(true);
     });
 
     it('consults Anki again in a new generation, preserving word dedupe and allowing a deleted note to be mined', async () => {

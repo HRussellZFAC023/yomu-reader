@@ -30,6 +30,11 @@ export class BatchReceiptLedger {
         return operation;
     }
 
+    /** A word turned away before anything was written leaves the operation: there is nothing to finish. */
+    release(operation: ReceiptGroup, id: string): void {
+        operation.delete(id);
+    }
+
     finish(operation: ReceiptGroup): void {
         if ([...operation.values()].every(item => item.required.every(key => this.values.get(key) === 'completed'))) {
             this.unresolved.delete(operation);

@@ -110,7 +110,8 @@ export class CardActionController {
     constructor(private options: CardActionControllerOptions) {
         this.batchMining = new PreparedBatchActions({
             getSettings: () => this.options.getSettings(),
-            resolveProvider: (card, settings) => this.apiProviderForCard(card, settings),
+            // "Add selected" saves each word where the popup's "Add to deck +" would.
+            resolveCollectionDestination: (card, settings) => this.privateDefaultDestination(card, settings),
             resolveReviewProvider: (card, settings) => this.gradingProviderForCard(card, settings),
             collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
             collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),

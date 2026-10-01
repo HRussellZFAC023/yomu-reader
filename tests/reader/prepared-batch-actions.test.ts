@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PreparedBatchActions, commonBatchGrades } from '../../src/reader/cards/prepared-batch-actions';
-import type { ApiSrsProviderAdapter } from '../../src/reader/cards/srs-providers';
+import { isApiSrsProviderEnabled, type ApiSrsProviderAdapter } from '../../src/reader/cards/srs-providers';
+import { BunproApiError } from '../../src/reader/bunpro/bunpro';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { testCardActionController } from './jpdb/fixtures';
@@ -19,7 +20,9 @@ function fixture(receiptLimit?: number) {
     const collectAnki = vi.fn(async () => true);
     const collectionDeck = vi.fn(async () => 'private-deck');
     const collectForReview = vi.fn(async (): Promise<void> => {});
-    const batch = new PreparedBatchActions({ getSettings: () => settings, resolveProvider: () => destination,
+    // The popup's destination rule in miniature: the reviewing service while it is on, otherwise Anki.
+    const batch = new PreparedBatchActions({ getSettings: () => settings, resolveReviewProvider: () => destination,
+        resolveCollectionDestination: () => isApiSrsProviderEnabled(settings, destination.id) ? destination : settings.ankiEnabled ? 'anki' : null,
         review, collectAnki, collectionDeck, collectForReview, findOnGradingService: vi.fn(), notify: vi.fn() }, receiptLimit);
     return { batch, review, collectAnki, collectionDeck, collectForReview,
         get settings() { return settings; }, set settings(value) { settings = value; },
@@ -323,5 +326,74 @@ describe('prepared batch mutations', () => {
         f.batch.beginGeneration();
         expect(f.batch.prepare([{ card: item }])[0]).toMatchObject({ uncertain: true, grades: [] });
         expect(f.review).toHaveBeenCalledTimes(1);
+    });
+});
+
+// ADR-0016: "Add selected" saves each word where the popup's "Add to deck +"
+// would (collectionDestinationsForCard), once and without a schedule. JPDB
+// stays connected for lookups; JPDB mining is off.
+describe('batch collection follows the popup destination', () => {
+    const JPDB_LOOKUPS_ONLY = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-lookup-key', jitenApiKey: '', jpdbMiningEnabled: false, ankiEnabled: false, enableReviews: true };
+    const words = () => [81, 82, 83].map(vid => ({ card: card(vid, { source: 'jpdb', cardState: ['not-in-deck'] }), sentence: `語${vid}を読む。` }));
+
+    it.each([
+        ['Bunpro', 'bunpro', { bunproMiningEnabled: true, bunproFrontendApiToken: 'bunpro-token', yomuLocalSrsEnabled: false }],
+        ['the Yomu deck', 'yomu-local', { bunproMiningEnabled: false, yomuLocalSrsEnabled: true }],
+    ] as const)('saves JPDB-parsed words to %s, once each, without grading them', async (_name, id, learner) => {
+        const mine = vi.fn(async (_request: { expression: string }) => ({}));
+        const jpdbAdd = vi.fn();
+        const review = vi.fn();
+        const controller = testCardActionController({ getSettings: () => ({ ...JPDB_LOOKUPS_ONLY, ...learner }),
+            jpdb: { addToDeck: jpdbAdd, reviewCard: review } as never,
+            srsAdapters: { [id]: { hasCredential: () => true, mine, review } } as never });
+        const plans = controller.batchMining.prepare(words());
+        expect(plans.map(plan => [plan.canCollect, plan.noDestination])).toEqual([[true, false], [true, false], [true, false]]);
+
+        const result = await controller.batchMining.execute(plans.map(plan => plan.token), 'collect');
+
+        expect(result.items.map(item => item.state)).toEqual(['completed', 'completed', 'completed']);
+        expect(mine.mock.calls.map(([request]) => request.expression)).toEqual(['語81', '語82', '語83']);
+        expect(jpdbAdd).not.toHaveBeenCalled();
+        expect(review).not.toHaveBeenCalled();
+    });
+
+    it('skips a word no enabled destination can take and still saves the rest', async () => {
+        const addToStudyDeck = vi.fn(async (_deck: string, _word: JPDBCard) => undefined);
+        const controller = testCardActionController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, yomuLocalSrsEnabled: false }),
+            jiten: { addToStudyDeck, listStudyDecks: async () => [{ id: 12, name: 'Reading' }] } as never,
+            isJpdbBackedCard: () => false,
+        });
+        // Only Jiten collects here, and it needs its own identity for a word.
+        const candidates = [card(91), card(92, { source: 'local' }), card(93)].map(item => ({ card: item }));
+        const plans = controller.batchMining.prepare(candidates);
+        expect(plans.map(plan => plan.noDestination)).toEqual([false, true, false]);
+
+        const result = await controller.batchMining.execute(plans.map(plan => plan.token), 'collect');
+
+        expect(result.items.map(item => item.state)).toEqual(['completed', 'no-destination', 'completed']);
+        expect(addToStudyDeck.mock.calls.map(([, word]) => word.vid)).toEqual([91, 93]);
+        expect((await controller.batchMining.execute([plans[1]!.token], 'collect')).rejected).toBe('unavailable');
+    });
+
+    it('skips a word Bunpro has no entry for without holding the batch open', async () => {
+        const mine = vi.fn(async (request: { expression: string }) => {
+            if (request.expression === '語82') throw new BunproApiError('No Bunpro item found.', undefined, 'bunproNoMatchingWord');
+            return {};
+        });
+        const controller = testCardActionController({
+            getSettings: () => ({ ...JPDB_LOOKUPS_ONLY, bunproMiningEnabled: true, bunproFrontendApiToken: 'bunpro-token', yomuLocalSrsEnabled: false }),
+            srsAdapters: { bunpro: { hasCredential: () => true, mine } as never },
+        });
+        const candidates = words();
+        const plans = controller.batchMining.prepare(candidates);
+
+        const result = await controller.batchMining.execute(plans.map(plan => plan.token), 'collect');
+
+        expect(result.items.map(item => item.state)).toEqual(['completed', 'no-destination', 'completed']);
+        expect(mine).toHaveBeenCalledTimes(3);
+        // Nothing was saved for the word Bunpro lacks, so a fresh scan starts clean.
+        expect(controller.batchMining.beginGeneration()).toBe(true);
+        expect(controller.batchMining.prepare(candidates).map(plan => plan.canCollect)).toEqual([true, true, true]);
     });
 });

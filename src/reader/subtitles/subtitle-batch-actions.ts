@@ -64,7 +64,8 @@ export class SubtitleBatchActions {
         this.view = {
             batchGroup: Symbol('batch-view'), candidatePlans, selectedPlans: chosen.flatMap(plan => plan ? [plan.token] : []),
             reviewGrades: grades.map(([grade, label]) => ({ grade, label })),
-            canCollect: complete && chosen.every(plan => plan.canCollect),
+            // A word no enabled destination can take does not block the others.
+            canCollect: complete && chosen.some(plan => plan.canCollect) && chosen.every(plan => plan.canCollect || plan.noDestination),
             incompatible: chosen.length > 0 && (!complete || !grades.length), busy: false,
         };
         return this.view;
@@ -84,21 +85,21 @@ export class SubtitleBatchActions {
         try {
             const result = await execute(plans, action, command.grade);
             let completed = 0;
-            const notFound: string[] = [];
+            const skipped: string[] = [];
             for (const item of result.items) {
                 const candidate = this.candidates.get(item.token);
-                if (!candidate || (item.state !== 'completed' && item.state !== 'unmatched')) continue;
+                if (!candidate || !['completed', 'unmatched', 'no-destination'].includes(item.state)) continue;
                 if (item.state === 'completed') completed += 1;
-                else notFound.push(candidate.card.spelling);
-                // A word the grading service does not have leaves the selection too:
-                // retrying cannot grade it, and its row now says why.
+                else skipped.push(candidate.card.spelling);
+                // A word the grading service does not have, or no deck can take,
+                // leaves the selection too: retrying cannot change it.
                 const current = this.deps.getCandidates().find(current => current.key === candidate.key && current.card === candidate.card);
                 if (current) {
                     current.state = primaryCardState(current.card.cardState);
                     this.deps.getSelected().delete(candidate.key);
                 }
             }
-            this.deps.toast(batchResultMessage(language, action, result, { completed, total: plans.length, notFound }));
+            this.deps.toast(batchResultMessage(language, action, result, { completed, total: plans.length, skipped }));
         } catch {
             this.deps.toast(subtitleText(language, action === 'collect' ? 'bmAddFailed' : 'bmGradeFailed'));
         } finally {
@@ -123,17 +124,17 @@ function batchResultMessage(
     language: InterfaceLanguage,
     action: BatchMutation,
     result: BatchMutationResult,
-    counts: { completed: number; total: number; notFound: string[] },
+    counts: { completed: number; total: number; skipped: string[] },
 ): string {
     if (result.rejected) {
         return subtitleText(language, result.rejected === 'busy' ? 'bmBusy' : result.rejected === 'capacity' ? 'bmCapacity'
             : result.rejected === 'stale' ? 'bmPlanChanged' : 'bmIncompatible');
     }
-    const { completed, total, notFound } = counts;
-    const outcome = completed + notFound.length < total ? formatSubtitleText(language, 'bmPartial', { count: completed, total })
+    const { completed, total, skipped } = counts;
+    const outcome = completed + skipped.length < total ? formatSubtitleText(language, 'bmPartial', { count: completed, total })
         : completed ? formatSubtitleText(language, action === 'collect' ? 'bmAdded' : 'bmGraded', { count: completed }) : '';
-    if (!notFound.length) return outcome;
-    const missing = formatSubtitleText(language, 'bmNotFound', { words: uiList(language, notFound) });
+    if (!skipped.length) return outcome;
+    const missing = formatSubtitleText(language, action === 'collect' ? 'bmNoDestination' : 'bmNotFound', { words: uiList(language, skipped) });
     // Japanese sentences follow one another without a space.
     return outcome ? `${outcome}${outcome.endsWith('。') ? '' : ' '}${missing}` : missing;
 }
