@@ -72,7 +72,7 @@ describe('reader canvas tap hint', () => {
         hint.update(canvas, testEnSettings());
 
         expect(visibleHint()).not.toBeNull();
-        expect(visibleHint()!.style.top).toBe(`${20 + (560 - 32) / 2}px`);
+        expect(visibleHint()!.style.top).toBe(`${20 + (560 - 34) / 2}px`);
 
         hint.remove();
         localStorage.removeItem(READER_CANVAS_TAP_HINT_SEEN_KEY);
@@ -84,6 +84,18 @@ describe('reader canvas tap hint', () => {
 
         expect(visibleHint()).toBeNull();
         expect(managedLocalStorage.getItem(READER_CANVAS_TAP_HINT_SEEN_KEY)).toBeNull();
+    });
+
+    it('keeps its dismiss button\'s touch target off a host control just below the pill', () => {
+        const canvas = readerCanvas();
+        // A slim control 4-14px under where the pill would sit (y 32-66): not under the
+        // pill itself, but inside the finger-sized target around its dismiss button.
+        hostButtonWhere((_x, y) => y >= 70 && y < 80, canvas);
+        const hint = new ReaderCanvasTapHint();
+
+        hint.update(canvas, testEnSettings());
+
+        expect(visibleHint()!.style.top).toBe(`${20 + (560 - 34) / 2}px`);
     });
 
     it('speaks Japanese in Japanese mode', () => {

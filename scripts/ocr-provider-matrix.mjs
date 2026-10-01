@@ -13,6 +13,8 @@
 // Japanese DOM text, which image OCR does not auto-scan. There the learner's own
 // local service still reads it by itself, while a cloud provider receives nothing
 // until a tap and the site shows the one-time "Tap the page to read it" hint.
+// With a mouse, pointing at that page sends nothing either: only a click reads it.
+// The hint's dismiss button takes a 44px finger or a 24px mouse press.
 import { chromium, devices } from 'playwright';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -48,10 +50,11 @@ const failures = [];
 const pass = (name, cond, detail = '') => { console.log(`${cond ? 'PASS' : 'FAIL'}: ${name}${detail ? ` — ${detail}` : ''}`); if (!cond) failures.push(name); };
 
 const ipad = devices['iPad Pro 11'];
+const desktop = devices['Desktop Chrome'];
 const browser = await chromium.launch({ headless: true });
 
-async function openReaderPage({ url, settings, real }) {
-    const context = await browser.newContext({ ...ipad, locale: 'en-US', bypassCSP: true });
+async function openReaderPage({ url, settings, real, device = ipad }) {
+    const context = await browser.newContext({ ...device, locale: 'en-US', bypassCSP: true });
     const page = await context.newPage();
     const requests = [];
     await page.exposeFunction(BRIDGE, async request => {
@@ -128,6 +131,23 @@ async function tapHintState(page) {
     }, TAP_HINT);
 }
 
+// How far around its glyph the hint's dismiss button still takes a press.
+async function dismissTargetSize(page) {
+    return page.evaluate(selector => {
+        const button = document.querySelector(`${selector} .jpdb-ocr-canvas-tap-hint-dismiss`);
+        if (!button) return { width: 0, height: 0 };
+        const box = button.getBoundingClientRect();
+        const centreX = box.left + box.width / 2;
+        const centreY = box.top + box.height / 2;
+        const reach = (dx, dy) => {
+            let distance = 0;
+            while (distance < 40 && document.elementFromPoint(centreX + dx * (distance + 1), centreY + dy * (distance + 1)) === button) distance++;
+            return distance;
+        };
+        return { glyph: Math.round(box.width), width: reach(-1, 0) + reach(1, 0) + 1, height: reach(0, -1) + reach(0, 1) + 1 };
+    }, TAP_HINT);
+}
+
 // Outside BookWalker: the learner's own service reads the canvas page by itself.
 async function runGenericLocalService({ label, settings, expectUrl }) {
     const { context, page, requests } = await openReaderPage({ url: GENERIC_READER_URL, settings });
@@ -150,6 +170,8 @@ async function runGenericCloudProvider({ label, settings, expectUrl, real }) {
     pass(`${label}: nothing sent before the tap`, !requests.some(u => expectUrl.test(u)), requests.join(' ').slice(0, 120));
     pass(`${label}: nothing captured before the tap`, before.canvasFrames === 0 && before.scanningPills === 0);
     pass(`${label}: hint sits on the page, clear of the reader's controls`, before.insideCanvas && !before.coversControl);
+    const target = await dismissTargetSize(page);
+    pass(`${label}: a finger-sized dismiss target around the same glyph`, target.width >= 44 && target.height >= 44 && target.glyph === 20, JSON.stringify(target));
     await page.screenshot({ path: `/tmp/yomu-recon/ocr-${label}-hint.png` });
 
     await page.tap('canvas.default');
@@ -167,6 +189,32 @@ async function runGenericCloudProvider({ label, settings, expectUrl, real }) {
     await context.close();
 }
 
+// Outside BookWalker with a mouse: a cloud provider receives nothing while the
+// pointer crosses the page, the hint stays up, and only a click reads the page.
+async function runGenericCloudProviderWithMouse({ label, settings, expectUrl, real }) {
+    const { context, page, requests } = await openReaderPage({ url: GENERIC_READER_URL, settings, real, device: desktop });
+    const hintShown = await page.waitForSelector(TAP_HINT, { timeout: MOCK_RESULT_TIMEOUT_MS }).then(() => true, () => false);
+    const canvas = await page.locator('canvas.default').boundingBox();
+    // The page is taller than a desktop viewport: cross the part on screen.
+    const onScreenHeight = Math.min(canvas.height, page.viewportSize().height - canvas.y);
+    for (const fraction of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+        await page.mouse.move(canvas.x + canvas.width * fraction, canvas.y + onScreenHeight * fraction, { steps: 6 });
+    }
+    await page.waitForTimeout(BACKGROUND_SETTLE_MS);
+    const target = await dismissTargetSize(page);
+    console.log(`\n[${label}] after pointing: hint=${await page.locator(TAP_HINT).count()} target=${JSON.stringify(target)} reqs=${requests.length}`);
+    pass(`${label}: tap hint shown`, hintShown);
+    pass(`${label}: pointing at the page sends nothing`, !requests.some(u => expectUrl.test(u)), requests.join(' ').slice(0, 120));
+    pass(`${label}: pointing leaves the hint up`, await page.locator(TAP_HINT).count() === 1);
+    pass(`${label}: a mouse-sized dismiss target around the same glyph`, target.width >= 24 && target.height >= 24 && target.glyph === 20, JSON.stringify(target));
+
+    await page.mouse.click(canvas.x + canvas.width / 2, canvas.y + onScreenHeight / 2);
+    await readOcrResult(page, { label, requests, expectUrl, real });
+    pass(`${label}: the click retires the hint`, await page.locator('.jpdb-ocr-canvas-tap-hint').count() === 0);
+    await page.screenshot({ path: `/tmp/yomu-recon/ocr-${label}.png` });
+    await context.close();
+}
+
 const base = { onboardingSeen: true, interfaceLanguage: 'en', apiKey: '', ankiEnabled: false, audioEnabled: false, enableLogging: false, ocrEnabled: true, ocrAutoScanImages: true, ocrShowTextOverlay: true };
 
 await runProvider({ label: 'local-service', expectUrl: /127\.0\.0\.1:7331\/ocr/, settings: { ...base, ocrProvider: 'local-service', ocrEndpointUrl: 'http://127.0.0.1:7331/ocr' } });
@@ -176,6 +224,8 @@ await runProvider({ label: 'google-lens', real: LENS_REAL, expectUrl: /lensfront
 await runGenericLocalService({ label: 'generic-canvas-local-service', expectUrl: /127\.0\.0\.1:7331\/ocr/, settings: { ...base, ocrProvider: 'local-service', ocrEndpointUrl: 'http://127.0.0.1:7331/ocr' } });
 await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
 await runGenericCloudProvider({ label: 'generic-canvas-google-lens', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com|lens\.google\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
+await runGenericCloudProviderWithMouse({ label: 'generic-canvas-cloud-vision-mouse', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
+await runGenericCloudProviderWithMouse({ label: 'generic-canvas-google-lens-mouse', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com|lens\.google\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
 
 await browser.close();
 console.log(failures.length ? `\nFAILURES: ${failures.join('; ')}` : '\nALL PROVIDERS PASS');

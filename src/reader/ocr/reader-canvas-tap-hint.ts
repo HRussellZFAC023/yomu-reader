@@ -15,10 +15,13 @@ import { visibleViewportIntersection } from './surface-visibility';
 
 export const READER_CANVAS_TAP_HINT_SEEN_KEY = 'yomu:ocr-canvas-tap-hint-seen:v1';
 const INSET_PX = 12;
-// The pill's CSS max-width and a generous height, so the clearance probe
-// covers the whole hint before it has ever been laid out.
+// The pill's CSS max-width and laid-out height, so the clearance probe covers the
+// whole hint before it has ever been laid out. Its dismiss button's touch target
+// reaches up to DISMISS_HIT_SLOP_PX past the pill (reader-words-ocr.css), and the
+// probe keeps that clear of host controls too.
 const HINT_WIDTH_PX = 260;
-const HINT_HEIGHT_PX = 32;
+const HINT_HEIGHT_PX = 34;
+const DISMISS_HIT_SLOP_PX = 12;
 const PROBE_STEP_PX = 32;
 const HOST_CONTROL_SELECTOR = 'a[href],button,input,select,textarea,summary,label,[contenteditable="true"],'
     + '[role="button"],[role="link"],[role="slider"],[role="tab"],[role="menuitem"],[role="checkbox"],[role="switch"]';
@@ -87,7 +90,8 @@ function createHint(settings: ReaderSettings, onDismiss: () => void): HTMLElemen
 }
 
 // Where Yomu's scan status pill sits first, then the top centre, then the page
-// centre; the first spot whose whole box covers no host control wins.
+// centre; the first spot whose whole box, dismiss target included, covers no
+// host control wins.
 function spotClearOfHostControls(canvas: HTMLCanvasElement, hint: HTMLElement): HintSpot | undefined {
     const visible = visibleViewportIntersection(canvas.getBoundingClientRect());
     if (!visible || visible.height < HINT_HEIGHT_PX + INSET_PX * 2) return undefined;
@@ -103,8 +107,11 @@ function spotClearOfHostControls(canvas: HTMLCanvasElement, hint: HTMLElement): 
 }
 
 function coversHostControl(spot: HintSpot, width: number, hint: HTMLElement): boolean {
-    const columns = Array.from({ length: Math.ceil(width / PROBE_STEP_PX) + 1 }, (_, index) => spot.left + Math.min(index * PROBE_STEP_PX, width));
-    return [spot.top, spot.top + HINT_HEIGHT_PX / 2, spot.top + HINT_HEIGHT_PX].some(top => columns.some(left => {
+    const reach = width + DISMISS_HIT_SLOP_PX;
+    const bottom = spot.top + HINT_HEIGHT_PX;
+    const rows = [spot.top - DISMISS_HIT_SLOP_PX, spot.top, spot.top + HINT_HEIGHT_PX / 2, bottom, bottom + DISMISS_HIT_SLOP_PX];
+    const columns = Array.from({ length: Math.ceil(reach / PROBE_STEP_PX) + 1 }, (_, index) => spot.left + Math.min(index * PROBE_STEP_PX, reach));
+    return rows.some(top => columns.some(left => {
         const hit = document.elementFromPoint(left, top);
         return Boolean(hit && !hint.contains(hit) && hit.closest(HOST_CONTROL_SELECTOR));
     }));

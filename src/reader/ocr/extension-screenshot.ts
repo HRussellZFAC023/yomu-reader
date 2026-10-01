@@ -1,4 +1,5 @@
 import { isPromiseLike } from '../core/async-utils';
+import { visibleViewportIntersection } from './surface-visibility';
 const CAPTURE_VISIBLE_TAB_MESSAGE = 'yomu.captureVisibleTab';
 const SCREENSHOT_HIDE_STYLE_ID = 'yomu-extension-screenshot-hide-style';
 const SCREENSHOT_MESSAGE_TIMEOUT_MS = 6000;
@@ -169,19 +170,6 @@ function animationFrame(): Promise<void> {
             finish();
         }
     });
-}
-
-function visibleViewportIntersection(rect: DOMRect): ViewportRect | null {
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return null;
-    const left = Math.max(0, rect.left);
-    const top = Math.max(0, rect.top);
-    const right = Math.min(viewportWidth, rect.right);
-    const bottom = Math.min(viewportHeight, rect.bottom);
-    const width = right - left;
-    const height = bottom - top;
-    return width > 0 && height > 0 ? { left, top, width, height } : null;
 }
 
 async function cropVisibleTabScreenshot(dataUrl: string, rect: ViewportRect, maxPixels: number): Promise<string | undefined> {

@@ -1529,7 +1529,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: none !important;
 }
 
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint {
+  overflow: visible;
+}
+
 .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss {
+  position: relative;
   pointer-events: auto;
   display: inline-grid;
   place-items: center;
@@ -1544,6 +1549,21 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss:focus-visible {
   outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
   outline-offset: 1px;
+}
+
+/* A 24px target for a mouse and 44px for a finger around the same 20px glyph, so a
+   near miss dismisses the hint instead of reading the page. The hint keeps this
+   whole target off the host's controls (DISMISS_HIT_SLOP_PX in reader-canvas-tap-hint.ts). */
+.jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+}
+
+@media (pointer: coarse) {
+  .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss::before {
+    inset: -12px;
+  }
 }
 
 @keyframes jpdb-ocr-video-frame-status-spin {

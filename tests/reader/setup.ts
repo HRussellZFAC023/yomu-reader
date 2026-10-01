@@ -5,7 +5,6 @@ import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language-impl';
 import { resetMediaActivationForTests } from '../../src/reader/audio/media-activation';
 import { resetOcrCacheStoreForTests } from '../../src/reader/ocr/ocr-cache-store';
-import { READER_CANVAS_TAP_HINT_SEEN_KEY } from '../../src/reader/ocr/reader-canvas-tap-hint';
 import { recaptureInitialWindowMethodsForTests } from '../../src/reader/platform/window-events';
 import {
     MANAGED_STATE_EPOCH_KEY,
@@ -85,8 +84,9 @@ if (typeof NativeBroadcastChannel === 'function') {
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
-// The OCR result cache and the one-time reader-canvas tap hint persist per origin.
-const OCR_PERSISTED_KEYS = ['yomu-ocr-cache-v1', 'yomu-ocr-cache-v2', READER_CANVAS_TAP_HINT_SEEN_KEY] as const;
+// The OCR result cache and the one-time reader-canvas tap hint
+// (ocr/reader-canvas-tap-hint.ts) persist per origin.
+const OCR_PERSISTED_KEYS = ['yomu-ocr-cache-v1', 'yomu-ocr-cache-v2', 'yomu:ocr-canvas-tap-hint-seen:v1'] as const;
 const MANAGED_WEB_STORAGE_EPOCH_KEYS = new Set([
     'yomu:web-storage-epoch:v1:local',
     'yomu:web-storage-epoch:v1:session',

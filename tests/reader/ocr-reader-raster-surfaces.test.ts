@@ -176,16 +176,18 @@ function visibleCanvasTapHint(): HTMLElement | null {
     return document.querySelector<HTMLElement>('.jpdb-ocr-canvas-tap-hint:not([hidden])');
 }
 
-function dispatchCanvasPointer(canvas: HTMLCanvasElement, type: 'pointerdown' | 'pointermove' | 'pointerover'): void {
+function dispatchPointer(surface: HTMLElement, type: 'pointerdown' | 'pointermove' | 'pointerover', pointerType = 'mouse'): void {
     const event = new Event(type, { bubbles: true }) as Event & Partial<PointerEvent>;
     Object.defineProperties(event, {
         clientX: { value: 40 },
         clientY: { value: 48 },
         button: { value: 0 },
-        pointerType: { value: 'mouse' },
+        pointerType: { value: pointerType },
     });
-    canvas.dispatchEvent(event);
+    surface.dispatchEvent(event);
 }
+
+const dispatchCanvasPointer = (canvas: HTMLCanvasElement, type: 'pointerdown' | 'pointermove' | 'pointerover') => dispatchPointer(canvas, type);
 
 function mokuroBackgroundPage(): HTMLElement {
     const page = document.createElement('div');
@@ -2374,6 +2376,56 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
+    it.each([
+        ['canvas page', '.jpdb-ocr-canvas-frame', true, () => {
+            stubReadableCanvas();
+            const canvas = pageCanvas(24, 20);
+            document.body.append(canvas);
+            return canvas;
+        }],
+        ['CSS background page', '.jpdb-ocr-background-frame', false, mokuroBackgroundPage],
+    ] as const)('waits for a press, not a passing mouse, before sending a %s to the cloud', async (_kind, frame, hinted, mount) => {
+        // The reader page fills the view, so a mouse crossing it is not the learner
+        // choosing to upload it. Only a press (a tap or a click) reads it here.
+        stubLocation('hrussellzfac023.github.io');
+        const surface = mount();
+        const controller = createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' }, undefined, undefined, () => false);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 40));
+            dispatchPointer(surface, 'pointerover');
+            dispatchPointer(surface, 'pointermove');
+            dispatchPointer(surface, 'pointermove', 'pen');
+            await new Promise(resolve => setTimeout(resolve, 120));
+            expect(document.querySelector(frame)).toBeNull();
+            expect(Boolean(visibleCanvasTapHint())).toBe(hinted);
+
+            dispatchPointer(surface, 'pointerdown');
+            await waitForExpect(() => expect(document.querySelector(frame)).not.toBeNull());
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('retires the tap hint when the learner reads the page with "Scan images"', async () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        document.body.append(pageCanvas(24, 20));
+        const controller = createController({}, undefined, undefined, () => false);
+        try {
+            await waitForExpect(() => expect(visibleCanvasTapHint()).not.toBeNull());
+
+            controller.refresh({ userRequested: true });
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull());
+            window.dispatchEvent(new Event('scroll'));
+            await new Promise(resolve => setTimeout(resolve, 320));
+
+            expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('offers no tap hint when a tap could not read the page', async () => {
         // Cloud Vision without a key has no recognizer, so the hint would promise nothing.
         stubLocation('hrussellzfac023.github.io');
@@ -2449,6 +2501,36 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
+    it('never sends a page captured for the learner\'s own OCR service to a cloud provider they switch to', async () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        document.body.append(pageCanvas(24, 20));
+        const settings: Partial<ReaderSettings> = { ocrProvider: 'local-service' };
+        const controller = createController(settings, undefined, undefined, () => false);
+        const recognizeImage = vi.fn(async () => ({ width: 1200, height: 1600, lines: [
+            { text: 'ページ移動方向', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },
+        ] } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            // The captured page is still waiting to be read when the learner picks Google Lens.
+            settings.ocrProvider = 'google-lens';
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+            await new Promise(resolve => setTimeout(resolve, 160));
+
+            expect(recognizeImage).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it.each([
         ['local-service', '.jpdb-ocr-canvas-frame'],
         ['google-lens', '.jpdb-ocr-canvas-tap-hint:not([hidden])'],
@@ -2461,6 +2543,36 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             document.body.append(pageCanvas(24, 20));
 
             await waitForExpect(() => expect(document.querySelector(expected)).not.toBeNull());
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps a tapped CSS background page while the host loads media on a page image OCR does not auto-scan', async () => {
+        // The tap already sent this page to the cloud provider. Dropping its frame
+        // when an unrelated thumbnail loads, or on the next reader poll, discards
+        // that result and makes the learner upload the same page again.
+        stubLocation('hrussellzfac023.github.io');
+        const page = mokuroBackgroundPage();
+        const controller = createController({ ocrProvider: 'google-lens' }, undefined, undefined, () => false);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(document.querySelector('.jpdb-ocr-background-frame')).toBeNull();
+
+            dispatchPointer(page, 'pointerdown');
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-background-frame')).not.toBeNull());
+            const frame = document.querySelector('.jpdb-ocr-background-frame');
+
+            document.body.append(Object.assign(document.createElement('img'), { src: 'https://example.test/thumb.jpg' }));
+            await new Promise(resolve => setTimeout(resolve, 200));
+            expect(document.querySelector('.jpdb-ocr-background-frame')).toBe(frame);
+
+            await new Promise(resolve => setTimeout(resolve, 1300));
+            expect(document.querySelector('.jpdb-ocr-background-frame')).toBe(frame);
+
+            // A page turn retires it; the next page waits for its own tap.
+            page.style.backgroundImage = 'url("blob:https://reader.mokuro.app/page-7")';
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-background-frame')).toBeNull());
         } finally {
             controller.destroy();
         }
