@@ -6,7 +6,7 @@ import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
 import { userFacingError } from '../app/user-facing-errors';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
-import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import type {
     YomuSrsAdapter,
     YomuSrsMiningRequest,
@@ -506,7 +506,8 @@ async function localYomuMutation<Result>(
         return await operation();
     } catch (error) {
         if (isLocalYomuSrsStorageError(error)) {
-            throw userFacingError('yomuLocalSrsStorageFailed', { cause: error });
+            // Another tab saved first, or this one was suspended mid-save: storage is fine.
+            throw userFacingError(isLocalYomuSrsSaveInterrupted(error) ? 'yomuLocalSrsSaveInterrupted' : 'yomuLocalSrsStorageFailed', { cause: error });
         }
         throw error;
     }

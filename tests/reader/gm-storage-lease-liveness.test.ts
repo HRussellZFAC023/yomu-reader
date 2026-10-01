@@ -17,21 +17,21 @@ interface Tab {
     thaw(): void;
 }
 
-/** `latencyMs` is how long each storage call takes to answer, as GM messaging does. */
-async function openTab(values: Map<string, unknown>, latencyMs = 0): Promise<Tab> {
+/** `latencyMs` is how long each storage call takes to answer, as GM messaging does; writes may answer sooner. */
+async function openTab(values: Map<string, unknown>, latencyMs = 0, writeLatencyMs = latencyMs): Promise<Tab> {
     vi.resetModules();
     const realm = await import('../../src/reader/app/gm-storage-lease');
     let parked: Array<() => void> | null = null;
-    const settle = <T>(run: () => T): Promise<T> => new Promise<T>(resolve => {
+    const settle = <T>(run: () => T, delayMs = latencyMs): Promise<T> => new Promise<T>(resolve => {
         const answer = (): void => resolve(run());
         if (parked) parked.push(answer);
-        else if (latencyMs) setTimeout(answer, latencyMs);
+        else if (delayMs) setTimeout(answer, delayMs);
         else queueMicrotask(answer);
     });
     const backend: GmStorageLeaseBackend = {
         getValue: <T>(key: string, fallback: T) => settle(() => (values.has(key) ? structuredClone(values.get(key)) : fallback) as T),
-        setValue: (key, value) => settle(() => { values.set(key, structuredClone(value)); }),
-        deleteValue: key => settle(() => { values.delete(key); }),
+        setValue: (key, value) => settle(() => { values.set(key, structuredClone(value)); }, writeLatencyMs),
+        deleteValue: key => settle(() => { values.delete(key); }, writeLatencyMs),
         listValues: () => settle(() => [...values.keys()]),
     };
     return {
@@ -279,6 +279,22 @@ describe('storage lease liveness', () => {
         resumed.resolve();
         await expect(stale.done).rejects.toThrow('lapsed');
         expect(values.get(GUARDED)).toBe('newer save');
+    });
+
+    // The save's write renewed the lease on its way out; the tab froze before the
+    // renewal's read answered, so the renewal failed. Every write had landed
+    // while the lease was live: the save happened, and reporting it failed
+    // would have the learner make a non-idempotent save (a grade) again.
+    it('keeps a save whose writes all landed live, though the renewal it started failed after a freeze', async () => {
+        const tab = await openTab(values, 50, 1);
+        const saving = lease(tab, async () => {
+            await sleep(1_000);
+            await guardedWrite(tab, 'committed');
+            vi.setSystemTime(Date.now() + workLeaseMs + 1_000);
+        });
+        await vi.advanceTimersByTimeAsync(2_000);
+        await expect(saving).resolves.toBeUndefined();
+        expect(values.get(GUARDED)).toBe('committed');
     });
 
     it('queues a waiter whose place lapsed again instead of letting it in beside the holder', async () => {

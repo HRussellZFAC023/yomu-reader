@@ -6,6 +6,7 @@ import {
     gmStorageSet,
 } from '../app/storage';
 import { registerManagedState } from '../app/managed-state-registry';
+import { isStorageLeaseLapsed } from '../app/gm-storage-lease';
 import {
     mergeStoredYomuSrsDecks,
     normalizeStoredYomuSrsDeck,
@@ -40,7 +41,9 @@ interface StoredYomuSrsIndex {
 
 export class LocalYomuSrsStorageError extends Error {
     constructor(options?: ErrorOptions) {
-        super('Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.', options);
+        super(isStorageLeaseLapsed(options?.cause)
+            ? 'Your Academy deck was not saved because saving was interrupted. Try again.'
+            : 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.', options);
         this.name = 'LocalYomuSrsStorageError';
     }
 }
@@ -48,6 +51,14 @@ export class LocalYomuSrsStorageError extends Error {
 export function isLocalYomuSrsStorageError(error: unknown): error is LocalYomuSrsStorageError {
     return error instanceof LocalYomuSrsStorageError
         || Boolean(error && typeof error === 'object' && (error as { name?: unknown }).name === 'LocalYomuSrsStorageError');
+}
+
+/**
+ * The save lost its storage lease before it finished, as a tab suspended
+ * mid-save does (ADR-0019): storage is fine and saving again is safe.
+ */
+export function isLocalYomuSrsSaveInterrupted(error: unknown): boolean {
+    return isStorageLeaseLapsed(error) || (isLocalYomuSrsStorageError(error) && isStorageLeaseLapsed(error.cause));
 }
 
 export async function enumerateLocalYomuSrsStorageKeys(): Promise<string[]> {
@@ -108,11 +119,15 @@ export class LocalYomuSrsStore {
             // even when the id set is unchanged.
             await gmStorageSet(DECK_INDEX_KEY, nextIndex);
         } catch (error) {
-            await Promise.all(newlyCreatedKeys.map(key => gmStorageDelete(key)));
+            // A lapsed lease refuses the rollback too; the records it leaves are
+            // unreferenced (ADR-0019). A refused delete never hides the cause.
+            if (!isStorageLeaseLapsed(error)) await Promise.allSettled(newlyCreatedKeys.map(key => gmStorageDelete(key)));
             throw new LocalYomuSrsStorageError({ cause: error });
         }
 
-        await Promise.all([
+        // The committed index no longer references these, so one that cannot be
+        // deleted is left behind rather than failing a save that has committed.
+        await Promise.allSettled([
             ...previousIndex.cardIds
                 .filter(id => !next.cards[id])
                 .map(id => gmStorageDelete(cardStorageKey(id))),

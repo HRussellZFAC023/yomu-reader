@@ -257,7 +257,7 @@ import {
     reportBrowsePool,
     selectedScopedBrowsePool,
 } from './browse-pool-policy';
-import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
 import { StudyExamples } from './study-examples';
@@ -8462,7 +8462,7 @@ export class NewTabController {
     ): Promise<boolean> {
         log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
         if (this.localYomuStorageFailure(error)) {
-            this.reportLocalYomuGradeFailure(target.root);
+            this.reportLocalYomuGradeFailure(target.root, error);
             return false;
         }
         if (isSessionBunproCard(target.card)
@@ -8480,8 +8480,10 @@ export class NewTabController {
         return this.resolveOrQueueFailedGrade(target, grade, selectedTarget, isCorrection, error, reviewOp, providerContexts, queueTargets);
     }
 
-    private reportLocalYomuGradeFailure(root: HTMLElement): void {
-        const message = this.text('yomuLocalSrsStorageFailed');
+    // A save interrupted mid-write (ADR-0019) did not land, and storage is fine: grading again is safe.
+    private reportLocalYomuGradeFailure(root: HTMLElement, error: unknown): void {
+        const causes = error instanceof NewTabGradeSubmissionError ? error.failures.map(failure => failure.error) : [error];
+        const message = this.text(causes.some(isLocalYomuSrsSaveInterrupted) ? 'yomuLocalSrsSaveInterrupted' : 'yomuLocalSrsStorageFailed');
         this.setStatus(root, message);
         this.dependencies.toast?.(message);
     }

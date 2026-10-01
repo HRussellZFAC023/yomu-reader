@@ -19,6 +19,7 @@ const EN = {
     addedToBunpro: 'Added to Bunpro.',
     yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
     yomuLocalSrsStorageFailed: 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.',
+    yomuLocalSrsSaveInterrupted: 'Your Academy deck was not saved because saving was interrupted. Try again.',
     addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
 } as const;
 
@@ -38,6 +39,7 @@ const JA: Record<keyof typeof EN, string> = {
     addedToBunpro: 'Bunproに追加しました。',
     yomuLocalSrsDisabled: '先に設定でAcademyを有効にしてください。',
     yomuLocalSrsStorageFailed: 'Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。',
+    yomuLocalSrsSaveInterrupted: '保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。',
     addedToYomuLocal: 'Academyに追加しました。',
 };
 

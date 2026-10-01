@@ -30,6 +30,7 @@ import type {
     JPDBGrade,
 } from './fixtures';
 import { newTabReviewProviderContext } from '../../../src/reader/newtab/provider-context-policy';
+import { createYomuLocalSrsAdapter, LocalYomuSrsRepository, LocalYomuSrsStorageError } from '../../../src/reader/srs/local-yomu';
 
 describe('new tab review — offline grades, Bunpro & dual-source grading', () => {
     registerNewTabReviewCleanup();
@@ -482,6 +483,31 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             expect(queue[0]).toMatchObject({ target: 'yomu-local', grade: 'okay' });
         } finally {
             onLine.mockRestore();
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    // ADR-0019: a tab suspended mid-save loses its lease. The grade did not land,
+    // storage is fine, and replaying it from the queue is not how it is retried.
+    it('says an interrupted Academy grade was not saved, without blaming storage or queueing it', async () => {
+        const card = newTabTestCard({ vid: 5, sid: 1, spelling: '中断', reading: 'ちゅうだん', source: 'local', reviewSource: 'yomu-local' });
+        const lapsed = Object.assign(new Error('Storage lease lapsed before it was renewed'), { name: 'StorageLeaseLapsedError' });
+        const review = vi.fn(async () => { throw new LocalYomuSrsStorageError({ cause: lapsed }); });
+        const toast = vi.fn();
+        const { controller, root } = newTabVisibleWordFixture(() => ({ ...DEFAULT_SETTINGS, yomuLocalSrsEnabled: true, immersionKitEnabled: false }), {
+            card,
+            sourceLabel: 'Academy',
+            source: 'yomu-local',
+            controllerOverrides: { toast, srsAdapters: { 'yomu-local': { ...createYomuLocalSrsAdapter(new LocalYomuSrsRepository()), review } } },
+        });
+        try {
+            await (controller as unknown as { gradeCurrentCard(grade: JPDBGrade): Promise<boolean> }).gradeCurrentCard('okay');
+            expect(review).toHaveBeenCalledTimes(1);
+            expect(toast).toHaveBeenCalledWith('Your Academy deck was not saved because saving was interrupted. Try again.');
+            expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('storage may be full'));
+            expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
+        } finally {
             controller.destroy();
             root.remove();
         }

@@ -355,6 +355,8 @@ class StorageLeaseClaimant {
         const renewEveryMs = Math.max(250, Math.floor(lease.leaseMs / 3));
         let held = true;
         let lost: { readonly error: unknown } | undefined;
+        // A guarded write was refused, as against a renewal that failed after the last write.
+        let refused = false;
         let renewal: Promise<void> | undefined;
         // Due on every tick: half a period of slack absorbs the time the last
         // renewal took to land. A tick may then run up to
@@ -373,7 +375,10 @@ class StorageLeaseClaimant {
             guards: lease.guards,
             fenceWrite: () => {
                 if (!lost && !this.live()) lost = { error: new StorageLeaseLapsedError(key) };
-                if (lost) throw lost.error;
+                if (lost) {
+                    refused = true;
+                    throw lost.error;
+                }
                 renewIfDue();
             },
         };
@@ -398,7 +403,12 @@ class StorageLeaseClaimant {
             await renewal;
         }
         if ('error' in outcome) throw outcome.error;
-        if (lost) throw lost.error;
+        // A lapsed claim is never renewed, so a guarded write that passed the
+        // fence was made while the lease was live, as was everything before it.
+        // When none was refused, the operation finished under the lease, and a
+        // renewal that failed after its last write (a tab frozen with one in
+        // flight) does not turn a finished save into a failure.
+        if (lost && (!guarding || refused)) throw lost.error;
         return outcome.value;
     }
 }

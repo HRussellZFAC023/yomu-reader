@@ -30,15 +30,52 @@ function openProfile(dyingWriteKey: string) {
 
 async function openTab() {
     vi.resetModules();
-    const [deck, store, settings, saveWait] = await Promise.all([
+    const [deck, store, settings, saveWait, providers, errors] = await Promise.all([
         import('../../src/reader/srs/local-yomu'),
         import('../../src/reader/srs/local-yomu-store'),
         import('../../src/reader/settings'),
         import('../../src/reader/app/save-wait'),
+        import('../../src/reader/cards/srs-providers'),
+        import('../../src/reader/app/user-facing-errors'),
     ]);
     const waits: boolean[] = [];
     saveWait.watchSavesWaitingForAnotherTab(waiting => waits.push(waiting));
-    return { deck, store, settings, waits };
+    return { deck, store, settings, waits, providers, errors };
+}
+
+type Tab = Awaited<ReturnType<typeof openTab>>;
+
+/** "Add to deck +" saving to the Academy deck, as the popup does. */
+function saveToAcademy(tab: Tab, spelling: string, reading: string): Promise<void> {
+    const academy = tab.providers.createApiSrsProviderAdapters({
+        jpdb: {} as never,
+        yomuLocal: tab.deck.createYomuLocalSrsAdapter(new tab.deck.LocalYomuSrsRepository(() => NOW)),
+        isJpdbBackedCard: () => false,
+    }, { ...DEFAULT_SETTINGS, yomuLocalSrsEnabled: true }).find(provider => provider.id === 'yomu-local')!;
+    return academy.addToDeck('yomu-local', { vid: 0, sid: 0, rid: 0, spelling, reading, frequencyRank: null, partOfSpeech: [],
+        meanings: [{ glosses: ['gloss'], partOfSpeech: [] }], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null });
+}
+
+/** What the learner is told about a failed save, in English and Japanese. */
+function learnerText(tab: Tab, error: unknown): string[] {
+    return (['en', 'ja'] as const).map(language => tab.errors.userFacingErrorText(language, 'actionFailed', error));
+}
+
+const SAVE_INTERRUPTED = [
+    'Your Academy deck was not saved because saving was interrupted. Try again.',
+    '保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。',
+];
+
+/** The OS suspends the tab for longer than its lease right after its next card record lands. */
+function suspendAfterNextCardWrite(): void {
+    const write = (globalThis as { GM_setValue?: unknown }).GM_setValue as (key: string, value: unknown) => Promise<void>;
+    let armed = true;
+    vi.stubGlobal('GM_setValue', async (key: string, value: unknown) => {
+        await write(key, value);
+        if (!armed || !key.startsWith('yomu:srs-local:v2:card:')) return;
+        armed = false;
+        vi.setSystemTime(Date.now() + STORAGE_WORK_LEASE_MS + 1_000);
+    });
 }
 
 /** Starts a save in a tab that dies at the profile's dying write, and returns once it has died. */
@@ -155,21 +192,58 @@ describe('a tab that resumes after another tab saved in its place', () => {
         vi.unstubAllGlobals();
     });
 
-    it('cannot write its stale deck over the word another tab added', async () => {
+    it('cannot write its stale deck over the word another tab added, and says the save was interrupted', async () => {
         const profile = openProfile(DECK_INDEX_KEY);
         const stalled = await openTab();
         const tab = await openTab();
         const { stale, resume } = await stallAfterRead(profile, DECK_INDEX_KEY, 'local-yomu-srs-deck',
-            () => new stalled.deck.LocalYomuSrsRepository(() => NOW).mine({ expression: '読む', reading: 'よむ', meaning: 'to read' }));
+            () => saveToAcademy(stalled, '読む', 'よむ'));
 
         const save = new tab.deck.LocalYomuSrsRepository(() => NOW).mine({ expression: '本', reading: 'ほん', meaning: 'book' });
         await vi.advanceTimersByTimeAsync(STORAGE_WORK_LEASE_MS + 500);
         await save;
         resume();
         await vi.advanceTimersByTimeAsync(100);
-        await expect(stale).rejects.toThrow();
+        const error = await stale.then(() => null, (failure: unknown) => failure);
+        // Storage is fine, so the learner is not told to free some.
+        expect(learnerText(stalled, error)).toEqual(SAVE_INTERRUPTED);
         const deck = await new tab.store.LocalYomuSrsStore().read();
         expect(Object.values(deck.cards).map(card => card.expression)).toEqual(['本']);
+    });
+
+    // ADR-0019 decision 4: one tab, suspended mid-save, with no other tab involved.
+    it('grades a card once when the tab is suspended between its card write and the index commit', async () => {
+        const profile = openProfile(DECK_INDEX_KEY);
+        const tab = await openTab();
+        const repository = new tab.deck.LocalYomuSrsRepository(() => NOW);
+        const { card } = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+        const reviewable = await repository.startReview(card!.providerCardId);
+        const revision = (profile.values.get(DECK_INDEX_KEY) as { revision: number }).revision;
+
+        suspendAfterNextCardWrite();
+        const review = repository.review({ card: reviewable, grade: 'okay' });
+        await vi.advanceTimersByTimeAsync(500);
+
+        // The grade landed before the lease lapsed: it is reported as saved, so
+        // neither the learner nor a queued retry grades the card a second time.
+        await expect(review).resolves.toMatchObject({ card: { expression: '読む' } });
+        expect(Object.values((await repository.snapshot()).cards)).toMatchObject([{ expression: '読む', reviews: 1 }]);
+        expect((profile.values.get(DECK_INDEX_KEY) as { revision: number }).revision).toBeGreaterThan(revision);
+    });
+
+    it('leaves the deck as it was when a new word\'s save is interrupted, and says so', async () => {
+        const profile = openProfile(DECK_INDEX_KEY);
+        const tab = await openTab();
+        await saveToAcademy(tab, '本', 'ほん');
+        const index = profile.values.get(DECK_INDEX_KEY);
+
+        suspendAfterNextCardWrite();
+        const save = saveToAcademy(tab, '読む', 'よむ').then(() => null, (failure: unknown) => failure);
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(learnerText(tab, await save)).toEqual(SAVE_INTERRUPTED);
+        expect(profile.values.get(DECK_INDEX_KEY)).toEqual(index);
+        expect(Object.values((await new tab.store.LocalYomuSrsStore().read()).cards).map(card => card.expression)).toEqual(['本']);
     });
 
     it('cannot write its stale settings over the choice another tab saved', async () => {

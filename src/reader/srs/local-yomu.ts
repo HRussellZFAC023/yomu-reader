@@ -31,7 +31,7 @@ import type {
     YomuSrsReviewable,
     YomuSrsStatsSnapshot,
 } from './types';
-import { isLocalYomuSrsStorageKey, LocalYomuSrsStore } from './local-yomu-store';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError, isLocalYomuSrsStorageKey, LocalYomuSrsStorageError, LocalYomuSrsStore } from './local-yomu-store';
 
 export type {
     AcademyVocabularyInput,
@@ -41,6 +41,7 @@ export type {
 } from './local-yomu-deck';
 export {
     LocalYomuSrsStorageError,
+    isLocalYomuSrsSaveInterrupted,
     isLocalYomuSrsStorageError,
 } from './local-yomu-store';
 
@@ -322,27 +323,44 @@ export class LocalYomuSrsRepository {
     }
 
     private mutateDeck<Result>(operation: (deck: StoredYomuSrsDeck) => Result, notifyMutations = true): Promise<Result> {
-        const result = localDeckMutation.then(() => withGmStorageLease('local-yomu-srs-deck', async () => {
-            const deck = await this.readDeckUncoordinated();
-            const previousDeck = structuredClone(deck);
-            // Compare against the clone: operations such as startReview edit cards in place.
-            const previousCards = new Map(Object.entries(previousDeck.cards));
-            const previousTombstones = { ...(previousDeck.tombstones ?? {}) };
-            const value = operation(deck);
-            await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
-            const changedCardIds = new Set([...previousCards.keys(), ...Object.keys(deck.cards),
-                ...Object.keys(previousTombstones), ...Object.keys(deck.tombstones ?? {})]);
-            const changed = [...changedCardIds].filter(id => !sameStoredCard(previousCards.get(id), deck.cards[id])
-                || previousTombstones[id] !== deck.tombstones?.[id]);
-            if (notifyMutations) {
-                localDeckMutationListeners.forEach(listener => {
-                    try { listener(changed); } catch { /* local persistence already succeeded */ }
-                });
+        const result = localDeckMutation.then(async () => {
+            const attempt: { save?: DeckSave<Result> } = {};
+            try {
+                await withGmStorageLease('local-yomu-srs-deck', async () => {
+                    const deck = await this.readDeckUncoordinated();
+                    // Compare against the clone: operations such as startReview edit cards in place.
+                    const previous = structuredClone(deck);
+                    const value = operation(deck);
+                    attempt.save = { value, previous, next: normalizeStoredYomuSrsDeck(deck) };
+                    await this.writeDeck(previous, attempt.save.next);
+                }, LOCAL_DECK_LEASE);
+            } catch (error) {
+                if (!attempt.save || !isLocalYomuSrsSaveInterrupted(error)) throw error;
+                if (!await this.landedBeforeInterruption(attempt.save).catch(() => false)) {
+                    throw isLocalYomuSrsStorageError(error) ? error : new LocalYomuSrsStorageError({ cause: error });
+                }
             }
-            return value;
-        }, LOCAL_DECK_LEASE));
+            const save = attempt.save!;
+            if (notifyMutations) notifyLocalDeckMutations(changedCardIds(save.previous, save.next));
+            return save.value;
+        });
         localDeckMutation = result.then(() => undefined, () => undefined);
         return result;
+    }
+
+    // A tab suspended mid-save has its remaining writes refused (ADR-0019), but
+    // what already landed stays: a grade overwrites its card in place before the
+    // index write. When every record the save changed is stored as it meant to
+    // store it, the save happened, so this commits the index rather than report
+    // a failure the learner would repeat, scheduling the card twice. A save
+    // whose records did not all land failed, and saving again is safe.
+    private landedBeforeInterruption(save: DeckSave<unknown>): Promise<boolean> {
+        return withGmStorageLease('local-yomu-srs-deck', async () => {
+            const stored = await this.readDeckUncoordinated();
+            if (changedCardIds(save.previous, save.next).some(id => deckRecordsDiffer(stored, save.next, id))) return false;
+            await this.writeDeck(stored, stored);
+            return true;
+        }, LOCAL_DECK_LEASE);
     }
 
     private cardFromImportItem(item: YomuSrsImportItem, now: number): StoredYomuSrsCard | null {
@@ -437,6 +455,29 @@ function sameStoredCard(left: StoredYomuSrsCard | undefined, right: StoredYomuSr
     if (left === right) return true;
     if (!left || !right) return false;
     return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** One deck save: what it read, what it meant to store, and what it returns. */
+interface DeckSave<Result> {
+    readonly value: Result;
+    readonly previous: StoredYomuSrsDeck;
+    readonly next: StoredYomuSrsDeck;
+}
+
+function deckRecordsDiffer(left: StoredYomuSrsDeck, right: StoredYomuSrsDeck, id: string): boolean {
+    return !sameStoredCard(left.cards[id], right.cards[id]) || left.tombstones?.[id] !== right.tombstones?.[id];
+}
+
+function changedCardIds(previous: StoredYomuSrsDeck, next: StoredYomuSrsDeck): string[] {
+    const ids = new Set([...Object.keys(previous.cards), ...Object.keys(next.cards),
+        ...Object.keys(previous.tombstones ?? {}), ...Object.keys(next.tombstones ?? {})]);
+    return [...ids].filter(id => deckRecordsDiffer(previous, next, id));
+}
+
+function notifyLocalDeckMutations(changed: readonly string[]): void {
+    localDeckMutationListeners.forEach(listener => {
+        try { listener(changed); } catch { /* local persistence already succeeded */ }
+    });
 }
 
 export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()): YomuSrsAdapter {
