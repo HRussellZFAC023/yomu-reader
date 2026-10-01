@@ -18,6 +18,7 @@ import {
     routeMockedHttpRequests,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { splitLongTasksAt } from './lib/long-task-budget.mjs';
 import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
@@ -39,6 +40,23 @@ const TRY_ME_TARGET_EXPRESSION = '喫茶店';
 // transient runner contention.
 const LONG_TASK_BUDGET_MS = 300;
 const FIRST_HOVER_BUDGET_MS = 1000;
+// The budget covers Yomu's runtime work, not the one-time parse/compile/evaluate
+// of the bundle. Each script below is pushed inline through Playwright, which
+// serialises megabytes of text over CDP and compiles it on the main thread;
+// neither a userscript manager (@run-at document-start) nor the hosted docs
+// loader (<script src>, streamed compile) does that. A 2026-10-01 trace at the
+// CI-matching throttle found the two tasks that failed every nightly there:
+// the runtime companion's delivery and evaluation (~335 ms, no microtasks),
+// then core's (~150 ms) with ~200 ms of reader init microtasks in the same
+// task. The mark appended to core's own text splits that task, so init,
+// scanning and annotation stay inside the budget and the evaluation before the
+// mark is only reported (bundleEvaluationLongTasks).
+const BUNDLE_EVALUATED_MARK = 'yomu-smoke:bundle-evaluated';
+// YOMU_JA_DOCS_PERF_CPU_THROTTLE=2.5 on an Apple-silicon Mac reproduces the
+// ubuntu-latest evaluation tasks (CI 337-438/300-343 ms, locally 329-372/
+// 308-347 ms) and overstates the DOM-heavy apply task (CI 155-213 ms, locally
+// 244-298 ms), so it is a slightly pessimistic stand-in for the nightly runner.
+const CPU_THROTTLE_RATE = cpuThrottleRate(process.env.YOMU_JA_DOCS_PERF_CPU_THROTTLE);
 
 const settings = {
     onboardingSeen: true,
@@ -152,6 +170,10 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
     const requests = [];
     const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
+    if (CPU_THROTTLE_RATE > 1) {
+        const client = await context.newCDPSession(page);
+        await client.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE_RATE });
+    }
     await routeMockedHttpRequests(page, {
         requests,
         mockHttpRequest: mockedRequest,
@@ -181,8 +203,10 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
     try {
         await page.goto(`${fixtureServer.origin}${DOCS_PATH}`, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ path: CSS_PATH });
-        const runtimeStart = await page.evaluate(() => performance.now());
-        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+        const injectionStart = await page.evaluate(() => performance.now());
+        await addScriptTagWithCspFallback(page, SCRIPT_PATH, {
+            epilogue: `performance.mark(${JSON.stringify(BUNDLE_EVALUATED_MARK)});`,
+        });
         try {
             await page.waitForFunction(targetExpression => {
                 const words = [...document.querySelectorAll('[data-try-me-sentence] .jpdb-reader-word')];
@@ -211,12 +235,12 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
                     .filter(word => !word.closest('.yomu-try-me-text, [data-jpdb-reader-root]')).length >= 120;
             }, undefined, { timeout: 20_000 });
         } catch (error) {
-            const partial = await page.evaluate(auditFromDom, runtimeStart);
+            const partial = await readAudit(page, injectionStart);
             throw new Error(`Content-column annotation never reached volume: ${JSON.stringify(partial)}`, { cause: error });
         }
         await page.waitForTimeout(1500);
 
-        const audit = await page.evaluate(auditFromDom, runtimeStart);
+        const audit = await readAudit(page, injectionStart);
         assert(audit.navWordCount === 0,
             `Navigation chrome outside the declared surfaces was annotated (${audit.navWordCount} words)`, audit);
         assert(audit.contentWordCount >= 120,
@@ -232,16 +256,27 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
             `First hover latency ${hover.latencyMs}ms exceeded ${FIRST_HOVER_BUDGET_MS}ms`, hover);
 
         await page.screenshot({ path: path.join(ARTIFACTS, 'ja-docs-annotation-perf-smoke.png'), fullPage: false });
-        return { ok: true, ...audit, firstHoverMs: hover.latencyMs };
+        return { ok: true, cpuThrottleRate: CPU_THROTTLE_RATE, ...audit, firstHoverMs: hover.latencyMs };
     } finally {
         await context.close();
     }
 }
 
-function auditFromDom(runtimeStart) {
+async function readAudit(page, injectionStart) {
+    const { longTaskEntries, bundleEvaluatedAt, ...audit } = await page.evaluate(auditFromDom,
+        { injectionStart, mark: BUNDLE_EVALUATED_MARK });
+    // Without the mark (core threw first), every task since injection counts.
+    const { before, after } = splitLongTasksAt(longTaskEntries, bundleEvaluatedAt ?? injectionStart);
+    return { ...audit, longTasks: roundedTasks(after), bundleEvaluationLongTasks: roundedTasks(before) };
+}
+
+function roundedTasks(tasks) {
+    return tasks.map(task => ({ duration: Math.round(task.duration), startTime: Math.round(task.startTime) }));
+}
+
+function auditFromDom({ injectionStart, mark }) {
     const allWords = [...document.querySelectorAll('.jpdb-reader-word')];
     const content = document.getElementById('VPContent');
-    const longTasks = (window.__yomuLongTasks ?? []).filter(task => task.startTime >= runtimeStart);
     return {
         totalWordCount: allWords.length,
         tryMeWordCount: document.querySelectorAll('[data-try-me-sentence] .jpdb-reader-word').length,
@@ -250,8 +285,15 @@ function auditFromDom(runtimeStart) {
                 .filter(word => !word.closest('.yomu-try-me-text, [data-jpdb-reader-root]')).length
             : 0,
         navWordCount: document.querySelectorAll('.VPNav .jpdb-reader-word').length,
-        longTasks: longTasks.map(task => ({ duration: Math.round(task.duration), startTime: Math.round(task.startTime) })),
+        longTaskEntries: (window.__yomuLongTasks ?? []).filter(task => task.startTime >= injectionStart),
+        bundleEvaluatedAt: performance.getEntriesByName(mark, 'mark')[0]?.startTime,
     };
+}
+
+function cpuThrottleRate(value = '1') {
+    const rate = Number(value);
+    if (Number.isNaN(rate) || rate < 1) throw new Error(`YOMU_JA_DOCS_PERF_CPU_THROTTLE must be a number >= 1, got "${value}"`);
+    return rate;
 }
 
 async function measureFirstHover(page) {

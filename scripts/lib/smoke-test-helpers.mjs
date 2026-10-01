@@ -23,11 +23,14 @@ export async function installUserscriptCssResource(page, cssPath, resourceName =
     return css;
 }
 
-export async function addScriptTagWithCspFallback(page, scriptPath) {
+// `epilogue` is a statement appended to core's own script text, so it runs the
+// moment core's synchronous evaluation ends and before any microtask that
+// evaluation queued. A separate script would only run after those microtasks.
+export async function addScriptTagWithCspFallback(page, scriptPath, { epilogue } = {}) {
     for (const companionPath of userscriptCompanionPaths(scriptPath)) {
         await addSingleScriptTagWithCspFallback(page, companionPath);
     }
-    await addSingleScriptTagWithCspFallback(page, scriptPath);
+    await addSingleScriptTagWithCspFallback(page, scriptPath, epilogue);
 }
 
 export async function addUserscriptGraphInitScripts(page, scriptPath, options = {}) {
@@ -94,18 +97,22 @@ export function userscriptCompanionPaths(userscriptPath) {
         });
 }
 
-async function addSingleScriptTagWithCspFallback(page, scriptPath) {
+async function addSingleScriptTagWithCspFallback(page, scriptPath, epilogue) {
+    // The text Playwright builds for { path }: the source plus a sourceURL tag
+    // for stack traces and profiles, with the optional epilogue before the tag.
+    const source = readFileSync(scriptPath, 'utf8');
+    const content = taggedUserscriptGraph(epilogue === undefined ? source : `${source}\n;${epilogue}`, scriptPath);
     try {
-        await page.addScriptTag({ path: scriptPath });
-    } catch (error) {
-        await evaluateScriptWithCspBypass(page, scriptPath);
+        await page.addScriptTag({ content });
+    } catch {
+        await evaluateScriptWithCspBypass(page, content);
     }
 }
 
-async function evaluateScriptWithCspBypass(page, scriptPath) {
+async function evaluateScriptWithCspBypass(page, expression) {
     const client = await page.context().newCDPSession(page);
     await client.send('Runtime.evaluate', {
-        expression: readFileSync(scriptPath, 'utf8'),
+        expression,
         awaitPromise: false,
         allowUnsafeEvalBlockedByCSP: true,
         replMode: true,
