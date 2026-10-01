@@ -15,10 +15,12 @@ export interface PreparedBatchPlan {
     readonly grades: BatchGrades;
     readonly canCollect: boolean;
     readonly uncertain: boolean;
+    /** The grading service does not have this word, so it cannot be graded (ADR-0019). */
+    readonly unmatched: boolean;
 }
 export interface BatchItemOutcome {
     token: symbol;
-    state: 'completed' | 'failed' | 'uncertain' | 'unattempted' | 'stale';
+    state: 'completed' | 'failed' | 'uncertain' | 'unattempted' | 'stale' | 'unmatched';
     completedStages: readonly BatchStage[];
 }
 export interface BatchMutationResult {
@@ -33,6 +35,8 @@ interface BatchDependencies {
     collectionDeck(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string>;
     collectAnki(card: JPDBCard, sentence: string | undefined, deck: string, assertCurrent: () => void): Promise<boolean>;
     collectForReview(card: JPDBCard, sentence: string | undefined, deck: string): Promise<void>;
+    /** The same words on a grading service that has not identified them, in one request; null where it has none. */
+    findOnGradingService(provider: ApiSrsProviderAdapter, cards: readonly JPDBCard[]): Promise<Array<JPDBCard | null>>;
     review(provider: ApiSrsProviderAdapter, card: JPDBCard, grade: JPDBGrade, sentence: string | undefined, assertCurrent: () => void, onReviewed: () => void): Promise<void>;
     notify(card: JPDBCard): void;
 }
@@ -66,6 +70,8 @@ const MAX_BATCH_RECEIPT_KEYS = 4096;
 export class PreparedBatchActions {
     private entries = new Map<symbol, Entry>();
     private receipts: BatchReceiptLedger;
+    // Review receipts of words the grading service does not have, until a rescan.
+    private unmatched = new Set<string>();
     private busy = false;
     constructor(private deps: BatchDependencies, receiptLimit = MAX_BATCH_RECEIPT_KEYS) {
         this.receipts = new BatchReceiptLedger(receiptLimit);
@@ -76,6 +82,7 @@ export class PreparedBatchActions {
         if (this.busy) return false;
         this.entries.clear();
         this.receipts.beginGeneration();
+        this.unmatched.clear();
         return true;
     }
 
@@ -117,10 +124,14 @@ export class PreparedBatchActions {
         if (!operation) return this.reject(tokens, 'capacity');
         this.busy = true;
         const items: BatchItemOutcome[] = [];
+        let matching: Promise<void> | undefined;
         try {
             for (const entry of batch) {
                 if (!this.current(entry)) { items.push(this.outcome(entry, 'stale')); break; }
                 try {
+                    if (action === 'review' && !entry.reviewProvider!.supportsCard(entry.card)) await (matching ??= this.matchOnGradingService(batch));
+                    // A word the grading service does not have is not graded anywhere; the rest still are.
+                    if (action === 'review' && this.unmatched.has(entry.receipts.review)) { items.push(this.outcome(entry, 'unmatched')); continue; }
                     if (action === 'collect') await this.collect(entry);
                     else await this.review(entry, grade!);
                     items.push(this.outcome(entry, 'completed'));
@@ -142,12 +153,27 @@ export class PreparedBatchActions {
     private view(entry: Entry): PreparedBatchPlan {
         const stages = this.completedStages(entry);
         const reviewUncertain = this.receipts.get(entry.receipts.review) === 'uncertain';
+        const unmatched = this.unmatched.has(entry.receipts.review);
         return Object.freeze({
             token: entry.token,
-            grades: Object.freeze((stages.includes('review') || reviewUncertain ? [] : entry.grades).map(pair => Object.freeze([...pair] as [JPDBGrade, string]))),
+            grades: Object.freeze((stages.includes('review') || reviewUncertain || unmatched ? [] : entry.grades).map(pair => Object.freeze([...pair] as [JPDBGrade, string]))),
             canCollect: (entry.collectApi || entry.collectAnki)
                 && !((!entry.collectApi || stages.includes('api-collection')) && (!entry.collectAnki || stages.includes('anki-collection'))),
             uncertain: reviewUncertain,
+            unmatched,
+        });
+    }
+
+    // Words the grading service has not identified (another service parsed
+    // them) are found on it in one request before any is graded. Every entry
+    // shares the plan's settings, so they all resolve on the same service.
+    private async matchOnGradingService(batch: readonly Entry[]): Promise<void> {
+        const pending = batch.filter(entry => !entry.reviewProvider!.supportsCard(entry.card));
+        const matches = await this.deps.findOnGradingService(pending[0]!.reviewProvider!, pending.map(entry => entry.card));
+        pending.forEach((entry, index) => {
+            const match = matches[index];
+            if (match) entry.card = { ...match, cardState: [...match.cardState] };
+            else this.unmatched.add(entry.receipts.review);
         });
     }
 
@@ -172,9 +198,7 @@ export class PreparedBatchActions {
 
     private async review(entry: Entry, grade: JPDBGrade): Promise<void> {
         this.assertCurrent(entry);
-        // A word JPDB has not identified yet is resolved by the grade itself,
-        // which adds the resolved word before reviewing it.
-        if (entry.reviewProvider?.id === 'jpdb' && entry.reviewProvider.supportsCard(entry.card) && entry.card.cardState.includes('not-in-deck')) {
+        if (entry.reviewProvider?.id === 'jpdb' && entry.card.cardState.includes('not-in-deck')) {
             if (!this.completedStages(entry).includes('review-collection')) {
                 await this.deps.collectForReview(entry.card, entry.sentence, entry.settings.miningDeck || 'forq');
                 this.receipts.set(entry.receipts['review-collection'], 'completed');

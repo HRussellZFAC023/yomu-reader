@@ -145,6 +145,7 @@ function renderBatchMiningIPlusOneBadge(candidate: SubtitleBatchMiningCandidate,
 function renderBatchMiningCandidateGrades(candidate: SubtitleBatchMiningCandidate, state: SubtitleBatchMiningPanelRenderState): string {
     const plan = state.candidatePlans?.get(candidate.key);
     if (plan?.uncertain) return `<p class="jpdb-reader-help">${escapeHtml(subtitleText(state.language, 'bmUncertain'))}</p>`;
+    if (plan?.unmatched) return `<p class="jpdb-reader-help">${escapeHtml(uiText(state.language, 'gradingServiceWordNotFound'))}</p>`;
     if (!plan?.grades.length) return '';
     const label = `${subtitleText(state.language, 'bmGradeWord')}: ${candidate.card.spelling}`;
     return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({

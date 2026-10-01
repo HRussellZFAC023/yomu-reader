@@ -20,7 +20,7 @@ function fixture(receiptLimit?: number) {
     const collectionDeck = vi.fn(async () => 'private-deck');
     const collectForReview = vi.fn(async (): Promise<void> => {});
     const batch = new PreparedBatchActions({ getSettings: () => settings, resolveProvider: () => destination,
-        review, collectAnki, collectionDeck, collectForReview, notify: vi.fn() }, receiptLimit);
+        review, collectAnki, collectionDeck, collectForReview, findOnGradingService: vi.fn(), notify: vi.fn() }, receiptLimit);
     return { batch, review, collectAnki, collectionDeck, collectForReview,
         get settings() { return settings; }, set settings(value) { settings = value; },
         get destination() { return destination; }, set destination(value) { destination = value; } };

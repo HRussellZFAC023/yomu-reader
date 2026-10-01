@@ -437,10 +437,6 @@ export class NewTabRuntime {
         parsePopoverJapanese: popover => this.parseNewTabContent(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
-        setApiGradingProvider: provider => {
-            this.settings.apiGradingProvider = provider;
-            void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-        },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => this.handleApiCardStateChanged(card),
     });

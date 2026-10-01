@@ -10,7 +10,10 @@ import { subtitleParseSourceSignature } from '../../src/reader/subtitles/subtitl
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { JpdbClient } from '../../src/reader/jpdb/jpdb';
 import type { JitenApiClient } from '../../src/reader/dictionaries/jiten';
+import { newTabLookupReviewTargetSelection } from '../../src/reader/newtab/lookup-dom';
 import { card as baseCard, emptyCardRenderData, jitenTestCard, testCardActionController } from './jpdb/fixtures';
+import { NewTabRuntime, newTabLookupRenderData, newTabTestCard, newTabVisibleWordFixture, registerNewTabReviewCleanup, setupNewTabLookupRuntime } from './new-tab-review/fixtures';
+import type { CardActionController } from '../../src/reader/cards/action-controller';
 
 /**
  * Decision 2: with both JPDB and Jiten connected, grades go to the service the
@@ -86,10 +89,12 @@ describe('automatic parsing follows the grading service', () => {
             .toMatchObject({ service: 'jiten' });
     });
 
-    it('re-parses cached subtitles when the grading service changes', () => {
+    // Subtitle parsing requires JPDB identity whatever the grading service, so a
+    // service change must not throw away every cached subtitle line.
+    it('keeps cached subtitles when only the grading service changes', () => {
         const settings = { ...DEFAULT_SETTINGS, ...BOTH_KEYS, parserProvider: 'auto' as const };
         expect(subtitleParseSourceSignature({ ...settings, apiGradingProvider: 'jpdb' }))
-            .not.toBe(subtitleParseSourceSignature({ ...settings, apiGradingProvider: 'jiten' }));
+            .toBe(subtitleParseSourceSignature({ ...settings, apiGradingProvider: 'jiten' }));
     });
 });
 
@@ -154,6 +159,27 @@ describe('a grade reaches only the chosen grading service', () => {
         expect(f.onApiCardStateChanged).not.toHaveBeenCalled();
     });
 
+    it('never matches a word whose reading is unknown, so it sends nothing', async () => {
+        const f = gradingController({ parserProvider: 'jiten', apiGradingProvider: 'jpdb' }, { jpdb: [{ ...jpdbYomu }] });
+
+        const error = await f.controller.reviewGrade('okay', { ...jitenYomu, reading: '' }).catch((failure: unknown) => failure);
+
+        expect(userFacingErrorText('en', 'actionFailed', error)).toBe('Not graded: this word was not found in your preferred grading service.');
+        expect(f.jpdb.parse).not.toHaveBeenCalled();
+        expect(f.jpdb.reviewCard).not.toHaveBeenCalled();
+        expect(f.jiten.reviewCard).not.toHaveBeenCalled();
+    });
+
+    it('keeps a word the Study toggle switched to the other service on that service', async () => {
+        const f = gradingController({ apiGradingProvider: 'jpdb' });
+
+        await f.controller.reviewGrade('okay', { ...jitenYomu, apiGradingProviderOverride: 'jiten' });
+
+        expect(f.jpdb.parse).not.toHaveBeenCalled();
+        expect(f.jiten.reviewCard).toHaveBeenCalledTimes(1);
+        expect(f.jpdb.reviewCard).not.toHaveBeenCalled();
+    });
+
     it('grades a word the chosen service already identifies without resolving it', async () => {
         const f = gradingController({ apiGradingProvider: 'jiten' });
 
@@ -162,6 +188,103 @@ describe('a grade reaches only the chosen grading service', () => {
         expect(f.jiten.parse).not.toHaveBeenCalled();
         expect(f.jiten.reviewCard).toHaveBeenCalledTimes(1);
         expect(f.jpdb.reviewCard).not.toHaveBeenCalled();
+    });
+});
+
+// ADR-0016/0019: a Study review card belongs to the queue it came from. Study
+// opens it in the lookup popover, and a grade there must reach that queue
+// whatever the preferred grading service, exactly like Study's own grade bar.
+describe('a Study review card keeps its owner', () => {
+    registerNewTabReviewCleanup();
+    const jpdbDue = (): JPDBCard => newTabTestCard({ vid: 12000, sid: 1, rid: 8800, spelling: '読む', reading: 'よむ', sentence: '本を読む。',
+        source: 'jpdb', reviewSource: 'jpdb-api', jpdbReviewId: 'jpdb-review-8800', cardState: ['due'] });
+    const jitenDue = (): JPDBCard => newTabTestCard({ vid: 4300, sid: 2, rid: 9900, spelling: '試験', reading: 'しけん', sentence: '試験を受ける。',
+        source: 'jiten', reviewSource: 'jiten-api', jitenWordId: 4300, jitenReadingIndex: 2, cardState: ['due'] });
+
+    it.each([
+        ['JPDB', 'jiten', jpdbDue, 'jpdb'],
+        ['JPDB', 'jpdb', jpdbDue, 'jpdb'],
+        ['Jiten', 'jpdb', jitenDue, 'jiten'],
+        ['Jiten', 'jiten', jitenDue, 'jiten'],
+    ] as const)('grades a due %s card opened from Study with a %s preference into its own queue once', async (_label, apiGradingProvider, dueCard, owner) => {
+        const card = dueCard();
+        const settings: ReaderSettings = { ...DEFAULT_SETTINGS, ...BOTH_KEYS, apiGradingProvider, immersionKitEnabled: false, interfaceLanguage: 'en' };
+        const reviewCard = { jpdb: vi.fn(async () => undefined), jiten: vi.fn(async () => undefined) };
+        const parse = { jpdb: vi.fn(async () => [[]]), jiten: vi.fn(async () => [[]]) };
+        const showLookupCard = vi.fn();
+        const { controller, root } = newTabVisibleWordFixture(settings, {
+            card,
+            sourceLabel: owner === 'jpdb' ? 'JPDB' : 'Jiten',
+            controllerOverrides: {
+                showLookupCard,
+                jpdb: { reviewCard: reviewCard.jpdb, parse: parse.jpdb } as never,
+                jiten: { reviewCard: reviewCard.jiten, parse: parse.jiten, refreshCardState: vi.fn(async () => undefined) } as never,
+            },
+        });
+        try {
+            (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+            root.querySelector<HTMLElement>('[data-newtab-prompt]')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            const [shown] = showLookupCard.mock.calls[0] as [JPDBCard];
+            // Study is a trusted surface, so its popover row names the service.
+            const popover = document.createElement('div');
+            popover.innerHTML = new CardPopoverRenderer({
+                getSettings: () => settings,
+                isJpdbBackedCard,
+                renderWordHistory: () => '',
+                renderWordPills: () => '',
+                renderDefinitionSources: () => '',
+                dictionarySourceAttributes: () => '',
+                dictionaryLabel: name => name,
+                accountDataSurfaceTrusted: () => true,
+            }).render(shown, shown.sentence, 'modal', emptyCardRenderData());
+            document.body.append(popover);
+            const grades = [...popover.querySelectorAll<HTMLButtonElement>('[data-action="grade"][data-grade]')];
+
+            expect(grades.map(button => button.dataset.reviewTarget)).toEqual(grades.map(() => owner));
+            expect(grades.map(button => button.dataset.grade)).toEqual(owner === 'jpdb'
+                ? ['nothing', 'something', 'hard', 'okay', 'easy'] : ['nothing', 'hard', 'okay', 'easy']);
+            const okay = grades.find(button => button.dataset.grade === 'okay')!;
+            await expect(controller.gradeFromLookup('okay', newTabLookupReviewTargetSelection(okay), shown)).resolves.toEqual({ preserveLookup: false });
+
+            expect(reviewCard[owner]).toHaveBeenCalledTimes(1);
+            expect(reviewCard[owner === 'jpdb' ? 'jiten' : 'jpdb']).not.toHaveBeenCalled();
+            expect(parse.jpdb).not.toHaveBeenCalled();
+            expect(parse.jiten).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+});
+
+// The ⇄ toggle in Study switches one word. The stored preference decides
+// Automatic parsing and every page grade, which never name a service, so only
+// Settings may change it: a toggle that rewrote it would silently re-target them.
+describe('the Study grading-service toggle', () => {
+    registerNewTabReviewCleanup();
+
+    it('switches only that word and leaves the preferred grading service as Settings set it', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        const runtime = new NewTabRuntime();
+        const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
+            settings: { ...BOTH_KEYS, apiGradingProvider: 'jiten' },
+            isJpdbBackedCard,
+        }) as ReturnType<typeof setupNewTabLookupRuntime> & { cardActions: CardActionController; jpdb: JpdbClient };
+        const showLookupCard = vi.fn(async () => undefined);
+        internals.showLookupCard = showLookupCard;
+        Object.assign(internals.cardRenderData, { clear: vi.fn() });
+        Object.assign(internals.jpdb, {
+            parse: vi.fn(async (terms: string[]) => terms.map(() => [token({ ...jpdbYomu })])),
+            refreshCardState: vi.fn(async () => undefined),
+        });
+        try {
+            await internals.cardActions.perform({ kind: 'card-action', action: 'grade-provider-toggle' }, document.createElement('button'), { ...jitenYomu }, '本を読む。');
+
+            expect(showLookupCard).toHaveBeenCalledWith(expect.objectContaining({ vid: 777, apiGradingProviderOverride: 'jpdb' }), '本を読む。', undefined, expect.anything());
+            expect(internals.settings.apiGradingProvider).toBe('jiten');
+        } finally {
+            runtime.destroy();
+        }
     });
 });
 

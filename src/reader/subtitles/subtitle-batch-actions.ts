@@ -1,4 +1,5 @@
-import type { ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
+import { uiList } from '../app/i18n';
 import type { SubtitleCommandCapability } from '../dom/private-command-capabilities';
 import { commonBatchGrades, type BatchMutation, type BatchMutationResult, type PreparedBatchPlan } from '../cards/prepared-batch-actions';
 import type { SubtitleBatchMiningCandidate } from './subtitle-batch-mining';
@@ -83,23 +84,21 @@ export class SubtitleBatchActions {
         try {
             const result = await execute(plans, action, command.grade);
             let completed = 0;
+            const notFound: string[] = [];
             for (const item of result.items) {
                 const candidate = this.candidates.get(item.token);
-                if (item.state !== 'completed' || !candidate) continue;
-                completed += 1;
+                if (!candidate || (item.state !== 'completed' && item.state !== 'unmatched')) continue;
+                if (item.state === 'completed') completed += 1;
+                else notFound.push(candidate.card.spelling);
+                // A word the grading service does not have leaves the selection too:
+                // retrying cannot grade it, and its row now says why.
                 const current = this.deps.getCandidates().find(current => current.key === candidate.key && current.card === candidate.card);
                 if (current) {
                     current.state = primaryCardState(current.card.cardState);
                     this.deps.getSelected().delete(candidate.key);
                 }
             }
-            const message = result.rejected === 'busy' ? subtitleText(language, 'bmBusy')
-                : result.rejected === 'capacity' ? subtitleText(language, 'bmCapacity')
-                : result.rejected === 'stale' ? subtitleText(language, 'bmPlanChanged')
-                : result.rejected ? subtitleText(language, 'bmIncompatible')
-                : completed === plans.length ? formatSubtitleText(language, action === 'collect' ? 'bmAdded' : 'bmGraded', { count: completed })
-                : formatSubtitleText(language, 'bmPartial', { count: completed, total: plans.length });
-            this.deps.toast(message);
+            this.deps.toast(batchResultMessage(language, action, result, { completed, total: plans.length, notFound }));
         } catch {
             this.deps.toast(subtitleText(language, action === 'collect' ? 'bmAddFailed' : 'bmGradeFailed'));
         } finally {
@@ -118,4 +117,23 @@ export class SubtitleBatchActions {
                 return planned && this.deps.getCandidates().some(candidate => candidate.key === planned.key && candidate.card === planned.card);
             });
     }
+}
+
+function batchResultMessage(
+    language: InterfaceLanguage,
+    action: BatchMutation,
+    result: BatchMutationResult,
+    counts: { completed: number; total: number; notFound: string[] },
+): string {
+    if (result.rejected) {
+        return subtitleText(language, result.rejected === 'busy' ? 'bmBusy' : result.rejected === 'capacity' ? 'bmCapacity'
+            : result.rejected === 'stale' ? 'bmPlanChanged' : 'bmIncompatible');
+    }
+    const { completed, total, notFound } = counts;
+    const outcome = completed + notFound.length < total ? formatSubtitleText(language, 'bmPartial', { count: completed, total })
+        : completed ? formatSubtitleText(language, action === 'collect' ? 'bmAdded' : 'bmGraded', { count: completed }) : '';
+    if (!notFound.length) return outcome;
+    const missing = formatSubtitleText(language, 'bmNotFound', { words: uiList(language, notFound) });
+    // Japanese sentences follow one another without a space.
+    return outcome ? `${outcome}${outcome.endsWith('。') ? '' : ' '}${missing}` : missing;
 }

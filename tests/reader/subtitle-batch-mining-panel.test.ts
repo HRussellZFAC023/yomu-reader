@@ -91,7 +91,7 @@ describe('subtitle batch mining panel', () => {
             status: 'ready',
             candidates: [candidate],
             selectedKeys: new Set([candidate.key]),
-            candidatePlans: new Map([[candidate.key, { token: Symbol(), grades: [['fail', 'Fail'], ['pass', 'Pass']], canCollect: true, uncertain: false }]]),
+            candidatePlans: new Map([[candidate.key, { token: Symbol(), grades: [['fail', 'Fail'], ['pass', 'Pass']], canCollect: true, uncertain: false, unmatched: false }]]),
             reviewGrades: [
                 { grade: 'fail', label: 'Fail' },
                 { grade: 'pass', label: 'Pass' },

@@ -2,6 +2,7 @@ import { ANKI_NEVER_FORGET_TAG, AnkiConnectClient, canUseMobileAnkiHandoff, isAn
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { copyText } from '../ui/browser';
 import { PreparedBatchActions } from './prepared-batch-actions';
+import { findWordsOnService } from './grading-service-word';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -67,7 +68,6 @@ interface CardActionControllerOptions {
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
     invalidateCardData?: () => void;
-    setApiGradingProvider?: (provider: ReaderSettings['apiGradingProvider']) => void;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
     onApiCardStateChanged?: (card: JPDBCard) => void;
 }
@@ -115,6 +115,7 @@ export class CardActionController {
             collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
             collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
             collectForReview: (card, sentence, deck) => this.options.jpdb.addToDeck(deck, card, sentence),
+            findOnGradingService: (provider, cards) => this.findOnService(provider, cards),
             review: (provider, card, grade, sentence, assertCurrent, onReviewed) => this.reviewApiCard(grade, card, sentence, { providerId: provider.id, deckId: defaultJpdbDeckId(this.options.getSettings()), suppressToast: true, assertCurrent, onReviewed }),
             notify: card => this.notifyApiCardStateChanged(card),
         });
@@ -301,7 +302,9 @@ export class CardActionController {
 
     // Cycle the popover through the SRS services that can grade this word
     // (JPDB / Jiten, plus Bunpro when the card carries a Bunpro identity) and
-    // re-render so the deck and grade buttons act on the chosen service.
+    // re-render so the deck and grade buttons act on the chosen service. The
+    // choice is this word's alone (ADR-0019): the preferred grading service,
+    // which every other grade and Automatic parsing follow, changes only in Settings.
     private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
         const settings = this.options.getSettings();
         const current = this.gradingProviderForCard(card, settings);
@@ -312,13 +315,10 @@ export class CardActionController {
         if (!next || next === current.id || next === 'yomu-local') return;
         const provider = this.apiProviders(settings).find(p => p.id === next && p.hasApiKey);
         if (!provider) return;
-        const target = provider.supportsCard(card)
-            ? card
-            : await this.resolveProviderCard(card, next);
-        if (!target || !provider.supportsCard(target)) return;
-        // The jpdb/jiten choice stays the global preference for every word;
-        // Bunpro only ever applies per card, via the override below.
-        if (next === 'jpdb' || next === 'jiten') this.options.setApiGradingProvider?.(next);
+        const [target] = provider.supportsCard(card)
+            ? [card]
+            : await this.findOnService(provider, [card]).catch(() => [null]);
+        if (!target) return;
         // Resolving the other service re-parses the word into a fresh card; keep
         // the Bunpro identity on it so the cycle can come back to Bunpro.
         if (target !== card) copyBunproIdentity(card, target);
@@ -336,16 +336,13 @@ export class CardActionController {
         });
     }
 
-    private async resolveProviderCard(card: JPDBCard, id: ApiSrsProviderId): Promise<JPDBCard | null> {
-        if (id === 'yomu-local') return card;
-        try {
-            const [tokens = []] = id === 'jiten'
-                ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([] as JPDBToken[][]))
-                : await this.options.jpdb.parse([card.spelling]);
-            return exactCard(card, tokens);
-        } catch {
-            return null;
-        }
+    // The same word on a service that has not identified it, in one parse request
+    // (exact spelling and reading: findWordsOnService).
+    private findOnService(provider: ApiSrsProviderAdapter, cards: readonly JPDBCard[]): Promise<Array<JPDBCard | null>> {
+        const parse = (terms: string[]): Promise<JPDBToken[][]> => provider.id === 'jiten'
+            ? this.options.jiten?.parse?.(terms) ?? Promise.resolve([])
+            : this.options.jpdb.parse(terms);
+        return findWordsOnService(cards, parse, candidate => provider.supportsCard(candidate));
     }
 
     private async refreshProviderState(card: JPDBCard, providerId: ApiSrsProviderId): Promise<void> {
@@ -658,20 +655,12 @@ export class CardActionController {
     }
 
     // The chosen grading service grades a word another service identified only
-    // after matching it by exact spelling and reading: a homograph's other
-    // reading is another word. No match sends nothing, to either service.
+    // after finding it by exact spelling and reading. No match sends nothing,
+    // to either service.
     private async resolveWordOnGradingService(card: JPDBCard, provider: ApiSrsProviderAdapter): Promise<JPDBCard> {
-        const spelling = card.spelling.trim();
-        const reading = card.reading.trim();
-        const parse = (terms: string[]) => provider.id === 'jiten'
-            ? this.options.jiten?.parse(terms) ?? Promise.resolve([])
-            : this.options.jpdb.parse(terms);
-        const [tokens = []] = spelling ? await parse([spelling]) : [];
-        const match = tokens.find(({ card: candidate }) => candidate.spelling.trim() === spelling
-            && (!reading || candidate.reading.trim() === reading)
-            && provider.supportsCard(candidate));
+        const [match] = await this.findOnService(provider, [card]);
         if (!match) throw userFacingError('gradingServiceWordNotFound');
-        return match.card;
+        return match;
     }
 
     // Jiten Reader parity: optionally add every reviewed word to the mining
@@ -1005,14 +994,6 @@ function selectedReviewTarget(selected: ReturnType<typeof readReviewTargetCapabi
 
 function selectedReviewAnkiCardId(selected: ReturnType<typeof readReviewTargetCapability>, command: CardCommandCapability): number | undefined {
     return selected ? selected.ankiCardId : command.ankiCardId;
-}
-
-function exactCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
-    const s = source.spelling.trim();
-    const r = source.reading.trim();
-    return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card
-        ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card
-        ?? null;
 }
 
 function copyBunproIdentity(source: JPDBCard, target: JPDBCard): void {

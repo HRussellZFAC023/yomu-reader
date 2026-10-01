@@ -119,6 +119,16 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
     return targets;
 }
 
+// A Study review card keeps its owner (ADR-0016, ADR-0019): when only JPDB or
+// only Jiten holds it, its lookup popover grades that service, never the
+// preferred grading service. A card both hold (UT-60) follows the preference,
+// and a per-word ⇄ choice already made stands.
+export function keepReviewObligationOwner(card: JPDBCard, targets: readonly NewTabReviewTarget[]): JPDBCard {
+    const jpdb = targets.some(target => target === 'jpdb-api' || target === 'jpdb-live');
+    if (!card.apiGradingProviderOverride && jpdb !== targets.includes('jiten-api')) card.apiGradingProviderOverride = jpdb ? 'jpdb' : 'jiten';
+    return card;
+}
+
 export function queueableNewTabReviewTargets(targets: NewTabReviewTarget[]): QueuedNewTabGradeTarget[] {
     return targets.filter((target): target is QueuedNewTabGradeTarget => target === 'anki'
         || target === 'jpdb-api'

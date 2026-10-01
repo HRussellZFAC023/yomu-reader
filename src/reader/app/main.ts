@@ -678,10 +678,6 @@ export class ReaderApp {
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
-        setApiGradingProvider: provider => {
-            this.settings.apiGradingProvider = provider;
-            void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-        },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => {
             this.applyPublicVocabularyToRenderedWords(card, card);

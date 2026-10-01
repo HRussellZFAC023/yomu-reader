@@ -177,9 +177,55 @@ describe('subtitle prepared batch actions through the controller', () => {
         row.querySelector<HTMLButtonElement>('[data-action="bm-grade"][data-grade="okay"]')!.click();
         await waitForExpect(() => expect(f.selected.size).toBe(0));
         expect(f.jpdbParse.mock.calls).toEqual([[['語42']]]);
-        expect(f.add.mock.calls).toEqual([[DEFAULT_SETTINGS.miningDeck, resolved, '単語を読む。']]);
-        expect(f.jpdbReview.mock.calls).toEqual([[resolved, 'okay']]);
+        // The resolved JPDB word, never the Jiten one, goes through the batch's
+        // own add-then-review stages, each exactly once.
+        const jpdbWord = expect.objectContaining({ source: 'jpdb', vid: 9042, sid: 1, spelling: '語42', reading: 'ご' });
+        expect(f.add.mock.calls).toEqual([[DEFAULT_SETTINGS.miningDeck, jpdbWord, '単語を読む。']]);
+        expect(f.jpdbReview.mock.calls).toEqual([[jpdbWord, 'okay']]);
         expect(f.jitenReview).not.toHaveBeenCalled();
+    });
+
+    // ADR-0019: subtitle words are JPDB-parsed, the default grading service is
+    // Jiten. One request finds them all on Jiten; a word Jiten lacks is not
+    // graded anywhere, but it never stops the words after it.
+    it.each([
+        ['en', 'Graded 2 words. Not found in your preferred grading service, so not graded: 語52.',
+            'Not graded: this word was not found in your preferred grading service.'],
+        ['ja', '2語を評価しました。優先採点サービスで見つからなかったため、採点していません：語52',
+            '優先採点サービスでこの単語が見つからなかったため、採点していません。'],
+    ] as const)('grades the words the grading service has and names the one it lacks (%s)', async (interfaceLanguage, toast, rowNote) => {
+        const f = setup([candidate(51, 'jpdb'), candidate(52, 'jpdb'), candidate(53, 'jpdb')], { interfaceLanguage });
+        const onJiten = (vid: number): JPDBToken => ({ card: { ...candidate(vid * 100).card, spelling: `語${vid}` }, start: 0, end: 3, length: 3, rubies: [], pitchClass: '', sentence: `語${vid}` });
+        f.jitenParse.mockResolvedValueOnce([[onJiten(51)], [], [onJiten(53)]]);
+
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-grade-selected"][data-grade="hard"]')!.click();
+        await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith(toast));
+
+        expect(f.jitenParse.mock.calls).toEqual([[['語51', '語52', '語53']]]);
+        expect(f.jitenReview.mock.calls.map(([card, grade]) => [card.vid, grade])).toEqual([[5100, 'hard'], [5300, 'hard']]);
+        expect(f.jpdbReview).not.toHaveBeenCalled();
+        expect(f.add).not.toHaveBeenCalled();
+        expect(f.selected.size).toBe(0);
+        // The row says why it has no grade buttons, naming no service, and the
+        // word cannot be bulk-graded into a request that is bound to fail.
+        const unmatched = f.panel.querySelectorAll('[role="listitem"]')[1]!;
+        expect(unmatched.querySelectorAll('[data-action="bm-grade"]')).toHaveLength(0);
+        expect(unmatched.textContent).toContain(rowNote);
+        expect(f.panel.textContent).not.toMatch(/JPDB|Jiten/);
+        expect(f.panel.textContent).not.toContain('未翻訳');
+    });
+
+    it('stops a batch at a lookup failure rather than reading it as a missing word', async () => {
+        const f = setup([candidate(61, 'jpdb'), candidate(62, 'jpdb')]);
+        f.jitenParse.mockRejectedValueOnce(new Error('network'));
+
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-grade-selected"][data-grade="hard"]')!.click();
+        await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith('Completed 0 of 2 words. Unfinished words remain selected.'));
+
+        expect(f.jitenReview).not.toHaveBeenCalled();
+        expect(f.jpdbReview).not.toHaveBeenCalled();
+        expect(f.selected.size).toBe(2);
+        expect(f.panel.querySelectorAll('[data-action="bm-grade"]')).toHaveLength(8);
     });
 
     it('grades a word just added to the local deck from the subtitle batch', async () => {

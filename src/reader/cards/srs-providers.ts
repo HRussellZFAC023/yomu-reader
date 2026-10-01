@@ -213,8 +213,9 @@ export function apiSrsProviderViewForCard(
 // Grades follow the chosen grading service (chosenWordGradingService), even for
 // a word only the other service identified: a pinned parser, a JPDB-first
 // subtitle parse or a Jiten-resolved fallback word. Returns that service when
-// the card must first be resolved on it, else null. A per-card toggle and
-// exclusive Bunpro/WaniKani obligations keep their own provider.
+// the card must first be resolved on it, else null. A per-card choice (the ⇄
+// toggle, or Study pinning a JPDB/Jiten review card to its queue) and exclusive
+// Bunpro/WaniKani obligations keep their own provider.
 export function apiGradingServiceToResolve(
     card: JPDBCard,
     settings: ReaderSettings,

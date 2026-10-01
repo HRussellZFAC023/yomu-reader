@@ -134,7 +134,7 @@ import {
     type NewTabLoadAccumulator,
     type NewTabLoadResult,
 } from './source-orchestrator';
-import { newTabSourceLoadPlan, type NewTabConcreteSource, type NewTabSourceLoadPlan } from './source';
+import { newTabSourceForCard, newTabSourceLoadPlan, type NewTabConcreteSource, type NewTabSourceLoadPlan } from './source';
 import { NewTabStudyPool } from './study-pool';
 import { NewTabStatsController, loadNewTabStatsApiProvider, type NewTabStatsApiProvider } from './stats-controller';
 import { NewTabSearchController } from './search-controller';
@@ -266,6 +266,7 @@ import {
     isJitenSrsCard,
     isPositiveJpdbCard,
     isReviewSource,
+    keepReviewObligationOwner,
     newTabCardSourceLabel,
     NewTabGradeSubmissionError,
     newTabGradeOptions,
@@ -2927,8 +2928,9 @@ export class NewTabController {
     private sourceReviewLookupCard(card: JPDBCard | undefined): JPDBCard | undefined {
         const sourceCard = this.sourceCardForVisibleCard(card);
         const sharedCardWithExactPitch = Boolean(card?.sourceCardKey && sourceCard?.pitchAccent.length);
+        // The popover grades a review card into the queue that holds it.
         return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch)
-            ? sourceCard
+            ? keepReviewObligationOwner(sourceCard, this.reviewTargetsForCard(sourceCard))
             : undefined;
     }
 
@@ -3978,7 +3980,7 @@ export class NewTabController {
     private isRenderedReviewSource(source: ConcreteNewTabWordSource): boolean {
         if (this.sourceLabelReviewSource() === source) return true;
         const words = this.allWords.length ? this.allWords : this.visibleWords;
-        return words.length > 0 && words.every(card => this.cardPrimaryNewTabSource(card) === source);
+        return words.length > 0 && words.every(card => newTabSourceForCard(card) === source);
     }
 
     private async switchReviewSource(root: HTMLElement, source: ConcreteNewTabWordSource): Promise<void> {
@@ -4013,7 +4015,7 @@ export class NewTabController {
 
     private canUseCachedResultForSourceSwitch(result: NewTabLoadResult, source: ConcreteNewTabWordSource): boolean {
         if (!result.cards.length) return this.emptyCachedResultMatchesSource(result, source);
-        return result.cards.every(card => this.cardPrimaryNewTabSource(card) === source);
+        return result.cards.every(card => newTabSourceForCard(card) === source);
     }
 
     private emptyCachedResultMatchesSource(result: NewTabLoadResult, source: ConcreteNewTabWordSource): boolean {
@@ -4023,22 +4025,6 @@ export class NewTabController {
         if (source === 'wanikani') return result.sourceLabel.startsWith('WaniKani');
         if (source === 'yomu-local') return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
         return result.sourceLabel === this.text('dictionary');
-    }
-
-    // fallow-ignore-next-line complexity, code-duplication
-    private cardPrimaryNewTabSource(card: JPDBCard): ConcreteNewTabWordSource {
-        if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
-        if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'bunpro';
-        if (card.source === 'wanikani' || card.reviewSource === 'wanikani-api') return 'wanikani';
-        if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return 'yomu-local';
-        if (card.source === 'jpdb'
-            || card.source === 'jiten'
-            || card.reviewSource === 'jpdb-api'
-            || card.reviewSource === 'jpdb-live'
-            || card.reviewSource === 'jiten-api') {
-            return 'jpdb';
-        }
-        return 'dictionary';
     }
 
     private syncSourceFromSettings(settings = this.dependencies.getSettings()): void {
