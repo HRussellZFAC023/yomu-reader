@@ -191,7 +191,7 @@ describe('a grade reaches only the chosen grading service', () => {
     });
 });
 
-// ADR-0016/0019: a Study review card belongs to the queue it came from. Study
+// ADR-0016/0021: a Study review card belongs to the queue it came from. Study
 // opens it in the lookup popover, and a grade there must reach that queue
 // whatever the preferred grading service, exactly like Study's own grade bar.
 describe('a Study review card keeps its owner', () => {
