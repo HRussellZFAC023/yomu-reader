@@ -13,6 +13,7 @@ import {
     newAutoClosingPage,
     startLoopbackServer,
 } from './lib/smoke-harness.mjs';
+import { userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 loadLocalEnv(ROOT);
@@ -20,14 +21,6 @@ const DIST = path.join(ROOT, 'dist');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
 const CSS_PATH = path.join(DIST, 'yomu.css');
-const COMPANION_SCRIPT_PATHS = [
-    path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-kanji-study.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-ocr-manga.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-ui-copy.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-video.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-anki.user.js'),
-];
 const SCRIPT_FALLBACK_PATHS = [
     SCRIPT_PATH,
     path.join(ROOT, 'docs', '.vitepress', 'dist', 'yomu.user.js'),
@@ -184,8 +177,10 @@ async function readBuiltReaderCss() {
     }
 }
 
+// The companions the built userscript @requires, in its order: the list a
+// userscript manager runs, not a copy of it that goes stale.
 async function readBuiltCompanionScripts() {
-    return Promise.all(COMPANION_SCRIPT_PATHS.map(async filePath => ({
+    return Promise.all(userscriptCompanionPaths(SCRIPT_PATH).map(async filePath => ({
         name: path.basename(filePath),
         script: await readFile(filePath, 'utf8'),
     })));
