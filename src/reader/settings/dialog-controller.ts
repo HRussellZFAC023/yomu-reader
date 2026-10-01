@@ -2,6 +2,7 @@ import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
 import { copyText, openUrlInNewTab } from '../ui/browser';
+import { ankiScanConfidenceForModel, isAnkiFieldMappingRole } from './anki-scan-confidence';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
 import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_TITLE } from '../app/constants';
@@ -183,7 +184,6 @@ type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
 type AnkiConnectionAction = 'test-anki' | 'prepare-anki' | 'update-anki-model';
 type AnkiStatusTone = 'pending' | 'success' | 'error';
 type AnkiStatusSetter = (message: string, tone: AnkiStatusTone, action?: SettingsStatusAction) => void;
-type AnkiScanConfidence = 'high' | 'medium' | 'low';
 
 interface AnkiScanFormControls {
     deck: AnkiScanSelectableInput | null;
@@ -217,8 +217,6 @@ interface DictionaryImportReport {
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
 const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
-const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
-const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
 function recommendedDictionaryForControl(control: HTMLElement | null | undefined): RecommendedDictionary {
     const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : undefined;
@@ -312,22 +310,6 @@ function ankiStatusSetter(status: HTMLElement | null): AnkiStatusSetter {
 
 function statusLanguage(status: HTMLElement): InterfaceLanguage {
     return (status.closest<HTMLFormElement>('form')?.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.value as InterfaceLanguage | undefined) ?? 'en';
-}
-
-function isAnkiFieldMappingRole(role: string): role is AnkiFieldMappingRole {
-    return ANKI_FIELD_MAPPING_ROLES.has(role as AnkiFieldMappingRole);
-}
-
-function isAnkiScanConfidence(value: unknown): value is AnkiScanConfidence {
-    return typeof value === 'string' && ANKI_SCAN_CONFIDENCE_VALUES.has(value as AnkiScanConfidence);
-}
-
-function ankiScanConfidenceEntries(confidence: Partial<Record<AnkiFieldMappingRole, unknown>>): Array<[AnkiFieldMappingRole, AnkiScanConfidence]> {
-    const entries: Array<[AnkiFieldMappingRole, AnkiScanConfidence]> = [];
-    for (const [role, value] of Object.entries(confidence)) {
-        if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries.push([role, value]);
-    }
-    return entries;
 }
 
 function readNewTabAnkiDisabledDecks(form: HTMLFormElement): string[] {
@@ -2216,7 +2198,7 @@ export class SettingsDialogController {
             modelName,
             this.ankiScanFieldsForModel(form, modelName),
             getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
-            this.ankiScanConfidenceForModel(form, modelName),
+            ankiScanConfidenceForModel(form.querySelector<HTMLInputElement>('[data-anki-scan-confidence]')?.value ?? '', modelName),
         ));
     }
 
@@ -2247,18 +2229,6 @@ export class SettingsDialogController {
             return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
         } catch {
             return [];
-        }
-    }
-
-    private ankiScanConfidenceForModel(form: HTMLFormElement, modelName: string): Partial<Record<AnkiFieldMappingRole, 'high' | 'medium' | 'low'>> {
-        const input = form.querySelector<HTMLInputElement>('[data-anki-scan-confidence]');
-        if (!input?.value.trim()) return {};
-        try {
-            const parsed = JSON.parse(input.value) as Record<string, Partial<Record<AnkiFieldMappingRole, unknown>>>;
-            const confidence = parsed[modelName] ?? {};
-            return Object.fromEntries(ankiScanConfidenceEntries(confidence));
-        } catch {
-            return {};
         }
     }
 

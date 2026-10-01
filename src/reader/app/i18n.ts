@@ -1,5 +1,5 @@
-import { ACADEMY_SRS_LABEL, APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
-import { requestJson } from '../network/http';
+import { ACADEMY_SRS_LABEL, APP_NAME, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
+import { loadJaGrammarRuleCopy } from './ja-grammar-rule-copy';
 import { formatIsolated, isRtlInterface } from '../locales/direction';
 import { GRAMMAR_UI_COPY } from '../study/grammar-copy';
 import { SUBTITLE_SETTINGS_COPY } from './subtitle-settings-copy';
@@ -2433,15 +2433,7 @@ export interface GrammarRuleCopy {
     short: string;
     detail: string;
 }
-const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
-let jaGrammarRuleCopyPromise: Promise<Record<string, GrammarRuleCopy>> | undefined;
-
-// Test seam: lets tests re-run the copy load against fresh request stubs
-// without vi.resetModules(), whose cold re-import of this module's graph
-// races the test timeout on loaded CI runners. Tree-shaken from builds.
-export function resetJaGrammarRuleCopyCacheForTests(): void {
-    jaGrammarRuleCopyPromise = undefined;
-}
+export { resetJaGrammarRuleCopyCacheForTests } from './ja-grammar-rule-copy';
 
 export function resolveUiLanguage(language: InterfaceLanguage): UiLanguage {
     if (language === 'ja' || language === 'en') return language;
@@ -2549,41 +2541,3 @@ const AUDIO_SOURCE_LABEL_KEYS: Record<AudioSourceType, UiCopyKey> = {
     custom: 'audioSourceCustom',
     'custom-json': 'audioSourceCustomJson',
 };
-
-async function loadJaGrammarRuleCopy(): Promise<Record<string, GrammarRuleCopy>> {
-    jaGrammarRuleCopyPromise ??= requestJson(JA_GRAMMAR_RULE_COPY_URL, {
-        failureLabel: 'Japanese grammar copy request',
-        timeoutMs: 15000,
-        allowDirectCrossOrigin: true,
-        credentials: 'omit',
-        anonymous: true,
-    })
-        .then(normalizeGrammarRuleCopy)
-        .catch(() => {
-            jaGrammarRuleCopyPromise = undefined;
-            return {};
-        });
-    return jaGrammarRuleCopyPromise;
-}
-
-function normalizeGrammarRuleCopy(value: unknown): Record<string, GrammarRuleCopy> {
-    if (!isGrammarRuleCopyRecord(value)) return {};
-    const copy: Record<string, GrammarRuleCopy> = {};
-    for (const [ruleId, item] of Object.entries(value)) {
-        const ruleCopy = normalizeGrammarRuleCopyItem(item);
-        if (!ruleCopy) continue;
-        copy[ruleId] = ruleCopy;
-    }
-    return copy;
-}
-function normalizeGrammarRuleCopyItem(value: unknown): GrammarRuleCopy | null {
-    if (!isGrammarRuleCopyRecord(value)) return null;
-    const kind = grammarRuleCopyText(value.kind);
-    const short = grammarRuleCopyText(value.short);
-    const detail = grammarRuleCopyText(value.detail);
-    if (kind === undefined || short === undefined || detail === undefined) return null;
-    return { kind, short, detail };
-}
-function grammarRuleCopyText(value: unknown): string | undefined { return typeof value === 'string' ? value : undefined; }
-
-function isGrammarRuleCopyRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
