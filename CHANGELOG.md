@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.3] - 2026-10-01
+
+### Fixed
+
+- Moving an imported kanji dictionary under "Kanji" in Settings now sticks. It used to jump back to the end after "Save". Kanji dictionaries are now listed and ordered only under "Kanji", not also under "Sources", where their place never changed anything.
+- Restoring a backup from Settings → "Backup & sync" now updates the Study page you restored it from: "Library", the Study queue and "Stats" show the restored words right away instead of the old list until a reload.
+- Study's Stats now count every Academy word you are reviewing in "Cards" and "Card distribution", not only the ones due now, so reviewing a word no longer drops the count to 0. Words saved to Library are counted once you choose "Add to review".
+- Saving a word to the Yomu deck now also keeps the title of the page you found it on, alongside its sentence and link, and backups keep it too.
+- Leaving Stats while it is still loading no longer lets it replace the Library or Study view you moved to.
+
 ## [2.0.2] - 2026-10-01
 
 ### Fixed
