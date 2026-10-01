@@ -935,6 +935,7 @@ export class NewTabController {
             syncThemeToggle: root => this.syncThemeToggle(root),
             showSettings: tab => this.dependencies.showSettings(tab),
             hasCoarsePointer: () => this.hasCoarsePointer(),
+            statsVisible: () => this.state.route === 'stats' && !this.practiceVisible,
             studyTroubleCards: root => this.studyStatsTroubleCards(root),
         });
         this.ownsSessionClock = startup.ownsSessionClock;
@@ -3003,8 +3004,7 @@ export class NewTabController {
         this.renderEmpty(root, APP_NAME, this.text(this.emptyLoadMessageKey ?? this.emptyStudyMessageKey()));
     }
 
-    // Thin forwarder: the mode-switch / render paths call this to paint the
-    // stats dashboard.
+    // Thin forwarder: the mode-switch / render paths paint the stats dashboard.
     private renderStats(root: HTMLElement): void {
         this.statsController.render(root);
     }

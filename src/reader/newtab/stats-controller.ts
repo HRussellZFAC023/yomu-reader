@@ -149,6 +149,9 @@ export interface NewTabStatsControllerDeps {
     syncThemeToggle(root: HTMLElement): void;
     showSettings(tab: 'api' | 'mining'): void;
     hasCoarsePointer(): boolean;
+    // False once the learner has left Stats: a load that finishes later keeps
+    // its data for the next visit but must not paint over Library or Study.
+    statsVisible(): boolean;
     // "Study these" from the stats page: switches the study surface to the
     // selected source's trouble cards. Stays a controller concern because it
     // rewrites study state (pool, mode, word load).
@@ -237,7 +240,7 @@ export class NewTabStatsController {
         const settings = this.deps.getSettings();
         const statsOp = this.operations.begin('stats');
         this.snapshot = this.loadingSnapshot(settings);
-        this.render(root);
+        if (this.deps.statsVisible()) this.render(root);
         const [history, jpdb, jiten, bunpro, wanikani, yomuLocal, anki] = await Promise.all([
             this.readJpdbHistory(),
             this.loadJpdbSource(),
@@ -260,7 +263,7 @@ export class NewTabStatsController {
             combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, wanikani, anki),
         };
         this.loaded = true;
-        this.render(root);
+        if (this.deps.statsVisible()) this.render(root);
     }
 
     private shouldSkipLoad(force: boolean): boolean {

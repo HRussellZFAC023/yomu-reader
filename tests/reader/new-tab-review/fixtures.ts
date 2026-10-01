@@ -1105,10 +1105,13 @@ export function newTabApiSourceController(
 export async function renderLoadedApiStats(controller: NewTabController): Promise<HTMLElement> {
     const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
     const internals = controller as unknown as {
+        state: { route: string };
         bindRootEvents(root: HTMLElement): void;
         loadStatsInto(root: HTMLElement, force?: boolean): Promise<void>;
     };
     internals.bindRootEvents(root);
+    // Stats loads on the Stats route; it paints only while that view is open.
+    internals.state.route = 'stats';
     await internals.loadStatsInto(root, true);
     return root;
 }

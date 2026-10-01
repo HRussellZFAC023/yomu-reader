@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter } from '../../src/reader/srs/local-yomu';
 import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
-import { DEFAULT_SETTINGS, newTabApiSourceController, renderLoadedApiStats } from './new-tab-review/fixtures';
+import { DEFAULT_SETTINGS, newTabApiSourceController, renderEnabledNewTabRoot, renderLoadedApiStats } from './new-tab-review/fixtures';
 
 afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); resetActiveLearningTargetLanguage(); });
 
@@ -43,4 +43,41 @@ it('counts every Academy card in review, not only the due queue', async () => {
     expect(metric(added, 'Cards')).toBe('2');
     const legend = [...added.querySelectorAll('.jpdb-reader-stats-legend span')].map(item => item.textContent);
     expect(legend).toEqual(expect.arrayContaining(['New 1', 'Learning 1']));
+});
+
+// A slow Stats load must not paint over the view the learner moved to.
+it('keeps a late Stats load from replacing Library after the learner leaves Stats', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    const adapter = createYomuLocalSrsAdapter(repository);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const controller = newTabApiSourceController(
+        { ...DEFAULT_SETTINGS, apiKey: '', learningTargetChosen: true, yomuLocalSrsEnabled: true },
+        { srsAdapters: { 'yomu-local': {
+            ...adapter,
+            stats: async () => { await gate; return adapter.stats(); },
+            queue: async (...args: Parameters<typeof adapter.queue>) => { await gate; return adapter.queue(...args); },
+            collection: async (...args: Parameters<NonNullable<typeof adapter.collection>>) => { await gate; return adapter.collection!(...args); },
+        } } },
+    );
+    try {
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const internals = controller as unknown as {
+            state: { route: string };
+            loadStatsInto(root: HTMLElement, force?: boolean): Promise<void>;
+        };
+        internals.state.route = 'stats';
+        const loading = internals.loadStatsInto(root, true);
+        // The loading dashboard is up; the Academy data is still on its way.
+        await vi.waitFor(() => expect(root.querySelector('.jpdb-reader-stats-metric')).not.toBeNull());
+        // The learner opens Library, which paints into the same surface.
+        internals.state.route = 'search';
+        const surface = root.querySelector<HTMLElement>('[data-newtab-study]')!;
+        surface.replaceChildren(Object.assign(document.createElement('p'), { textContent: 'Library' }));
+        release();
+        await loading;
+        expect(surface.textContent).toBe('Library');
+    } finally { controller.destroy(); }
 });
