@@ -383,6 +383,21 @@ describe('popup collect action', () => {
         expectCollectActionBesideGrades(actions, actions.querySelector<HTMLElement>('.jpdb-reader-collect .jpdb-reader-mining-title')!);
     });
 
+    // A screen reader names the ⇄ bar's controls in the learner's language,
+    // with the words the userscript popup's own bar uses.
+    it.each([
+        ['en', 'Switch review target', 'Grade target'],
+        ['ja', '採点先を切り替える', '採点先'],
+    ] as const)('names the Study target bar controls in the interface language (%s)', (interfaceLanguage, switchName, selectName) => {
+        const settings = { ...DEFAULT_SETTINGS, ...KEYLESS, interfaceLanguage };
+        const controls = renderNewTabLookupReviewControls(reviewGradeScale(settings, 'standard').grades, STUDY_REVIEW_TARGETS, { settings, card: WORD });
+        setInnerHtml(document.body, `${controls.gutter}${controls.buttons}`);
+        const toggle = document.querySelector<HTMLButtonElement>('[data-action="review-target-toggle"]')!;
+        expect([toggle.getAttribute('aria-label'), toggle.title]).toEqual([switchName, switchName]);
+        expect(document.querySelector('[data-review-target-select]')?.getAttribute('aria-label')).toBe(selectName);
+        expect(document.body.innerHTML).not.toContain('未翻訳');
+    });
+
     // Study's lookup popup is a trusted surface: a learner whose only deck is
     // Academy saves there with one press, as on an ordinary page.
     it('saves straight to Academy from a Study lookup popup, opening no picker', async () => {

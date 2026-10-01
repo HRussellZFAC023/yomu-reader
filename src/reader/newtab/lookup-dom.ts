@@ -1,13 +1,13 @@
 import type { AnkiLookupResult } from '../anki/index';
 import { escapeHtml } from '../dom/index';
-import { cardStateLabel } from '../app/i18n';
+import { cardStateLabel, uiText } from '../app/i18n';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { ApiSrsProviderView } from '../cards/srs-providers';
 import type { PopoverReviewControls } from '../cards/popover-renderer';
 import { isTargetLanguageText } from '../lookup/target-text';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import { newTabText } from './i18n';
-import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import {
     privateCommandAttributes,
@@ -82,7 +82,8 @@ export function renderNewTabLookupReviewControls(
     const rows = [...new Set(profiles)].map(profile => renderLookupReviewTargetButtons(selected,
         reviewGradeScale(context.settings, profile).grades, { profile, settings: context.settings, hidden: profile !== profiles[0] }, reviewGroup)).join('');
     if (!reviewGroup) return { gutter: '', buttons: rows };
-    return { gutter: renderLookupReviewTargetGutter(selected), buttons: `${renderLookupReviewTargetSelector(targets, reviewGroup, profiles)}${rows}` };
+    const language = context.settings.interfaceLanguage;
+    return { gutter: renderLookupReviewTargetGutter(selected, language), buttons: `${renderLookupReviewTargetSelector(targets, reviewGroup, profiles, language)}${rows}` };
 }
 
 export function updateKanjiLookupMiningControls(
@@ -188,17 +189,18 @@ function renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grade
     `;
 }
 
-function renderLookupReviewTargetGutter(target: NewTabLookupReviewTarget): string {
+function renderLookupReviewTargetGutter(target: NewTabLookupReviewTarget, language: InterfaceLanguage): string {
+    const switchLabel = escapeHtml(uiText(language, 'switchReviewTarget'));
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
-        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: 'card-ui', action: 'review-target-toggle' })} title="Switch review target" aria-label="Switch review target">⇄</button>
+        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: 'card-ui', action: 'review-target-toggle' })} title="${switchLabel}" aria-label="${switchLabel}">⇄</button>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}"></button>
     </div>`;
 }
 
-function renderLookupReviewTargetSelector(targets: NewTabLookupReviewTarget[], reviewGroup: symbol, profiles: ReviewGradeProfile[]): string {
+function renderLookupReviewTargetSelector(targets: NewTabLookupReviewTarget[], reviewGroup: symbol, profiles: ReviewGradeProfile[], language: InterfaceLanguage): string {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target"${privateCommandAttributes({ kind: 'review-selector', reviewGroup })}>
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(uiText(language, 'gradeTargetSelector'))}"${privateCommandAttributes({ kind: 'review-selector', reviewGroup })}>
             ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''}${privateCommandAttributes({ kind: 'review-target', target: target.kind, gradeProfile: profiles[index] ?? 'standard', reviewGroup, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
     </div>`;
