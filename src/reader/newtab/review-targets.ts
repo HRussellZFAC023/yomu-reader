@@ -119,7 +119,7 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
     return targets;
 }
 
-// A Study review card keeps its owner (ADR-0016, ADR-0019): when only JPDB or
+// A Study review card keeps its owner (ADR-0016, ADR-0021): when only JPDB or
 // only Jiten holds it, its lookup popover grades that service, never the
 // preferred grading service. A card both hold (UT-60) follows the preference,
 // and a per-word ⇄ choice already made stands.

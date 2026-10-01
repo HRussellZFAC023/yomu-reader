@@ -189,7 +189,7 @@ describe('reader helpers', () => {
         await expect(controller.perform({ kind: 'card-action', action: 'grade-provider-toggle' }, button, sourceCard, '本を読む。')).resolves.toBe(false);
 
         expect(parse).toHaveBeenCalledWith(['読む']);
-        // ADR-0019: the toggle is this word's choice; every other grade and
+        // ADR-0021: the toggle is this word's choice; every other grade and
         // Automatic parsing keep following the preference set in Settings.
         expect(jpdbCard.apiGradingProviderOverride).toBe('jpdb');
         expect(settings.apiGradingProvider).toBe('jiten');

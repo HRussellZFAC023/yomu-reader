@@ -1,7 +1,7 @@
 import type { JPDBCard, JPDBToken } from '../app/types';
 
 /**
- * Finding a word on a grading service that has not identified it (ADR-0019).
+ * Finding a word on a grading service that has not identified it (ADR-0021).
  * Only an exact spelling AND reading match counts: a homograph's other reading
  * is another word, and a word whose reading is unknown cannot be matched safely.
  */

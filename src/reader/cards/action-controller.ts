@@ -303,7 +303,7 @@ export class CardActionController {
     // Cycle the popover through the SRS services that can grade this word
     // (JPDB / Jiten, plus Bunpro when the card carries a Bunpro identity) and
     // re-render so the deck and grade buttons act on the chosen service. The
-    // choice is this word's alone (ADR-0019): the preferred grading service,
+    // choice is this word's alone (ADR-0021): the preferred grading service,
     // which every other grade and Automatic parsing follow, changes only in Settings.
     private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
         const settings = this.options.getSettings();

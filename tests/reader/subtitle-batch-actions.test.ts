@@ -185,7 +185,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.jitenReview).not.toHaveBeenCalled();
     });
 
-    // ADR-0019: subtitle words are JPDB-parsed, the default grading service is
+    // ADR-0021: subtitle words are JPDB-parsed, the default grading service is
     // Jiten. One request finds them all on Jiten; a word Jiten lacks is not
     // graded anywhere, but it never stops the words after it.
     it.each([

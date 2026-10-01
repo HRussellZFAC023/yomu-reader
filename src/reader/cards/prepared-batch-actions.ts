@@ -15,7 +15,7 @@ export interface PreparedBatchPlan {
     readonly grades: BatchGrades;
     readonly canCollect: boolean;
     readonly uncertain: boolean;
-    /** The grading service does not have this word, so it cannot be graded (ADR-0019). */
+    /** The grading service does not have this word, so it cannot be graded (ADR-0021). */
     readonly unmatched: boolean;
 }
 export interface BatchItemOutcome {
