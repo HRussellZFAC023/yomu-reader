@@ -425,9 +425,12 @@ export class CardActionController {
             : this.apiProviderForCard(card, settings);
     }
 
+    // The grading service also takes a word another service identified: the
+    // save finds it there first (wordOnCollectionService), as a grade does.
     private apiProviderForDeckSource(source: ApiSrsDeckSource, card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
+        const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
         return this.apiProviders(settings).find(provider => provider.deckSource === source
-            && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
+            && (provider.id === resolveOn || acceptsForCollection(provider, card))) ?? null;
     }
 
     private assertApiProviderActionAllowed(provider: ApiSrsProviderAdapter | null, copyKey: UiCopyKey): asserts provider is ApiSrsProviderAdapter {
@@ -454,7 +457,7 @@ export class CardActionController {
         this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, deck.source));
         const selectedDeckId = provider.selectedDeckId(deck.id, settings);
         if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-        await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
+        await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(provider, card));
     }
 
     private async addToPrivateDefaultDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
@@ -464,7 +467,14 @@ export class CardActionController {
         if (!destination) throw userFacingError('collectNoDestination');
         const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
         if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
-        await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings);
+        await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(destination, card));
+    }
+
+    // A save follows the grade row (ADR-0016): the grading service saves a word
+    // another service identified only after finding it, and no match saves
+    // nothing anywhere (ADR-0021).
+    private wordOnCollectionService(provider: ApiSrsProviderAdapter, card: JPDBCard): Promise<JPDBCard> {
+        return acceptsForCollection(provider, card) ? Promise.resolve(card) : this.resolveWordOnGradingService(card, provider, 'collectWordNotFound');
     }
 
     // The popup renders "Add to deck +" from the same destination list, so the
@@ -484,6 +494,7 @@ export class CardActionController {
         return String(decks?.[0]?.id ?? '');
     }
 
+    // `word` is the provider's own copy of `card` when the save had to find it there.
     private async addToApiProviderDeck(
         provider: ApiSrsProviderAdapter,
         selectedDeckId: string,
@@ -491,8 +502,9 @@ export class CardActionController {
         sentence: string | undefined,
         context: CardActionContext,
         settings: ReaderSettings,
+        word = card,
     ): Promise<void> {
-        await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
+        await provider.addToDeck(selectedDeckId, word, sentence, { sourceTitle: document.title, sourceUrl: location.href });
         const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
         if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
         // Jiten/JPDB deck APIs cannot store media: when the user captured an
@@ -501,7 +513,7 @@ export class CardActionController {
         const droppedMedia = await this.apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence);
         const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
         this.options.toast(apiMiningToast(addedToast, droppedMedia, settings));
-        this.notifyApiCardStateChanged(card);
+        this.notifyApiCardStateChanged(word);
     }
 
     private async apiMiningDroppedMedia(provider: ApiSrsProviderAdapter, minedToAnkiToo: boolean, card: JPDBCard, sentence: string | undefined): Promise<boolean> {
@@ -656,9 +668,9 @@ export class CardActionController {
     // The chosen grading service grades a word another service identified only
     // after finding it by exact spelling and reading. No match sends nothing,
     // to either service.
-    private async resolveWordOnGradingService(card: JPDBCard, provider: ApiSrsProviderAdapter): Promise<JPDBCard> {
+    private async resolveWordOnGradingService(card: JPDBCard, provider: ApiSrsProviderAdapter, notFound: UiCopyKey = 'gradingServiceWordNotFound'): Promise<JPDBCard> {
         const [match] = await this.findOnService(provider, [card]);
-        if (!match) throw userFacingError('gradingServiceWordNotFound');
+        if (!match) throw userFacingError(notFound);
         return match;
     }
 
@@ -858,6 +870,10 @@ const PROVIDER_ADD_API_KEY_REQUIRED_KEYS: Record<ApiSrsDeckSource, UiCopyKey> = 
 
 function providerAddApiKeyRequiredKey(provider: ApiSrsProviderAdapter | null, source: ApiSrsDeckSource): UiCopyKey {
     return provider ? provider.addApiKeyRequiredKey : PROVIDER_ADD_API_KEY_REQUIRED_KEYS[source];
+}
+
+function acceptsForCollection(provider: ApiSrsProviderAdapter, card: JPDBCard): boolean {
+    return provider.supportsMiningCard?.(card) ?? provider.supportsCard(card);
 }
 
 function missingProviderDeckKey(provider: ApiSrsProviderAdapter): UiCopyKey {

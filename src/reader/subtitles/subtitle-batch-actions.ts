@@ -85,12 +85,12 @@ export class SubtitleBatchActions {
         try {
             const result = await execute(plans, action, command.grade);
             let completed = 0;
-            const skipped: string[] = [];
+            const skipped: SkippedWords = { unmatched: [], 'no-destination': [] };
             for (const item of result.items) {
                 const candidate = this.candidates.get(item.token);
                 if (!candidate || !['completed', 'unmatched', 'no-destination'].includes(item.state)) continue;
                 if (item.state === 'completed') completed += 1;
-                else skipped.push(candidate.card.spelling);
+                else skipped[item.state as keyof SkippedWords].push(candidate.card.spelling);
                 // A word the grading service does not have, or no deck can take,
                 // leaves the selection too: retrying cannot change it.
                 const current = this.deps.getCandidates().find(current => current.key === candidate.key && current.card === candidate.card);
@@ -124,17 +124,22 @@ function batchResultMessage(
     language: InterfaceLanguage,
     action: BatchMutation,
     result: BatchMutationResult,
-    counts: { completed: number; total: number; skipped: string[] },
+    counts: { completed: number; total: number; skipped: SkippedWords },
 ): string {
     if (result.rejected) {
         return subtitleText(language, result.rejected === 'busy' ? 'bmBusy' : result.rejected === 'capacity' ? 'bmCapacity'
             : result.rejected === 'stale' ? 'bmPlanChanged' : 'bmIncompatible');
     }
     const { completed, total, skipped } = counts;
-    const outcome = completed + skipped.length < total ? formatSubtitleText(language, 'bmPartial', { count: completed, total })
+    const outcome = completed + skipped.unmatched.length + skipped['no-destination'].length < total ? formatSubtitleText(language, 'bmPartial', { count: completed, total })
         : completed ? formatSubtitleText(language, action === 'collect' ? 'bmAdded' : 'bmGraded', { count: completed }) : '';
-    if (!skipped.length) return outcome;
-    const missing = formatSubtitleText(language, action === 'collect' ? 'bmNoDestination' : 'bmNotFound', { words: uiList(language, skipped) });
+    // A word the grading service lacks is named apart from one no deck can take.
+    const notes = [
+        [action === 'collect' ? 'bmNotFoundAdd' : 'bmNotFound', skipped.unmatched] as const,
+        ['bmNoDestination', skipped['no-destination']] as const,
+    ].filter(([, words]) => words.length).map(([key, words]) => formatSubtitleText(language, key, { words: uiList(language, words) }));
     // Japanese sentences follow one another without a space.
-    return outcome ? `${outcome}${outcome.endsWith('。') ? '' : ' '}${missing}` : missing;
+    return [outcome, ...notes].reduce((message, next) => !next ? message : !message ? next : `${message}${message.endsWith('。') ? '' : ' '}${next}`, '');
 }
+
+type SkippedWords = Record<'unmatched' | 'no-destination', string[]>;

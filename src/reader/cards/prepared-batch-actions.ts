@@ -50,6 +50,8 @@ interface Entry {
     token: symbol;
     source: JPDBCard;
     card: JPDBCard;
+    /** `card` is the grading service's own copy of the word, not the page word's (ADR-0021). */
+    resolved?: boolean;
     sentence?: string;
     identity: string;
     states: string;
@@ -137,10 +139,11 @@ export class PreparedBatchActions {
             for (const entry of batch) {
                 if (!this.current(entry)) { items.push(this.outcome(entry, 'stale')); break; }
                 try {
-                    if (action === 'review' && !entry.reviewProvider!.supportsCard(entry.card)) await (matching ??= this.matchOnGradingService(batch));
-                    // A word the grading service does not have is not graded anywhere; the rest still are.
-                    if (action === 'review' && this.unmatched.has(entry.receipts.review)) { items.push(this.outcome(entry, 'unmatched')); continue; }
                     if (action === 'collect' && !hasDestination(entry)) { items.push(this.outcome(entry, 'no-destination')); continue; }
+                    const onService = this.goesToGradingService(entry, action);
+                    if (onService && needsMatch(entry)) await (matching ??= this.matchOnGradingService(batch, action));
+                    // A word the grading service does not have is not graded or saved anywhere; the rest still are.
+                    if (onService && this.unmatched.has(entry.receipts.review)) { items.push(this.outcome(entry, 'unmatched')); continue; }
                     if (action === 'collect') await this.collect(entry);
                     else await this.review(entry, grade!);
                     items.push(this.outcome(entry, 'completed'));
@@ -169,37 +172,50 @@ export class PreparedBatchActions {
         const stages = this.completedStages(entry);
         const reviewUncertain = this.receipts.get(entry.receipts.review) === 'uncertain';
         const unmatched = this.unmatched.has(entry.receipts.review);
+        const due = (entry.collectApi && !stages.includes('api-collection')) || (entry.collectAnki && !stages.includes('anki-collection'));
         return Object.freeze({
             token: entry.token,
             grades: Object.freeze((stages.includes('review') || reviewUncertain || unmatched ? [] : entry.grades).map(pair => Object.freeze([...pair] as [JPDBGrade, string]))),
-            canCollect: hasDestination(entry)
-                && !((!entry.collectApi || stages.includes('api-collection')) && (!entry.collectAnki || stages.includes('anki-collection'))),
+            // The grading service cannot save a word it does not have either.
+            canCollect: due && !(unmatched && this.goesToGradingService(entry, 'collect')),
             noDestination: !hasDestination(entry),
             uncertain: reviewUncertain,
             unmatched,
         });
     }
 
-    // Words the grading service has not identified (another service parsed
-    // them) are found on it in one request before any is graded. Every entry
-    // shares the plan's settings, so they all resolve on the same service.
-    private async matchOnGradingService(batch: readonly Entry[]): Promise<void> {
-        const pending = batch.filter(entry => !entry.reviewProvider!.supportsCard(entry.card));
+    // A grade, and a save to the service the grades go to (ADR-0016), first
+    // finds the words the grading service has not identified (another service
+    // parsed them).
+    private goesToGradingService(entry: Entry, action: BatchMutation): boolean {
+        if (action === 'review') return true;
+        const provider = collectProvider(entry);
+        return Boolean(provider && provider.id === entry.reviewProvider?.id && !this.completedStages(entry).includes('api-collection'));
+    }
+
+    // The words are found in one request before any is graded or saved. Every
+    // entry shares the plan's settings, so they all resolve on the same service.
+    private async matchOnGradingService(batch: readonly Entry[], action: BatchMutation): Promise<void> {
+        const pending = batch.filter(entry => this.goesToGradingService(entry, action) && needsMatch(entry));
         const matches = await this.deps.findOnGradingService(pending[0]!.reviewProvider!, pending.map(entry => entry.card));
         pending.forEach((entry, index) => {
             const match = matches[index];
-            if (match) entry.card = { ...match, cardState: [...match.cardState] };
+            if (match) Object.assign(entry, { card: { ...match, cardState: [...match.cardState] }, resolved: true });
             else this.unmatched.add(entry.receipts.review);
         });
     }
 
     private async collect(entry: Entry): Promise<void> {
-        const provider = entry.destination === 'anki' ? null : entry.destination;
+        const provider = collectProvider(entry);
         if (provider && !this.completedStages(entry).includes('api-collection')) {
-            const deck = await this.deps.collectionDeck(provider, entry.settings);
-            this.assertCurrent(entry);
-            if (!deck) throw new Error('No collection deck');
-            await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+            const word = this.serviceReceipt(entry, 'api-collection');
+            if (this.receipts.get(word) !== 'completed') {
+                const deck = await this.deps.collectionDeck(provider, entry.settings);
+                this.assertCurrent(entry);
+                if (!deck) throw new Error('No collection deck');
+                await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+                this.receipts.set(word, 'completed');
+            }
             this.receipts.set(entry.receipts['api-collection'], 'completed');
             this.assertCurrent(entry);
             this.deps.notify(entry.card);
@@ -210,11 +226,29 @@ export class PreparedBatchActions {
             this.receipts.set(entry.receipts['anki-collection'], 'completed');
         }
         this.assertCurrent(entry);
-        entry.source.cardState = entry.card.cardState;
+        this.keepPageState(entry);
+    }
+
+    // A resolved word changed the grading service's record: the page word keeps
+    // the state of the service that parsed it (ADR-0021).
+    private keepPageState(entry: Entry): void {
+        if (!entry.resolved) entry.source.cardState = entry.card.cardState;
+    }
+
+    // Two rows can be one word on the service that changes: a homograph, or a
+    // word both services parsed. That word is saved or graded once (ADR-0021).
+    private serviceReceipt(entry: Entry, stage: 'api-collection' | 'review'): string {
+        return receiptKeys(entry.card, entry.settings, collectProvider(entry), entry.reviewProvider)[stage];
     }
 
     private async review(entry: Entry, grade: JPDBGrade): Promise<void> {
         this.assertCurrent(entry);
+        const word = this.serviceReceipt(entry, 'review');
+        const reviewed = (): void => { this.receipts.set(entry.receipts.review, 'completed'); this.receipts.set(word, 'completed'); };
+        if (this.receipts.get(word) === 'completed') {
+            reviewed();
+            return;
+        }
         if (entry.reviewProvider?.id === 'jpdb' && entry.card.cardState.includes('not-in-deck')) {
             if (!this.completedStages(entry).includes('review-collection')) {
                 await this.deps.collectForReview(entry.card, entry.sentence, entry.settings.miningDeck || 'forq');
@@ -224,15 +258,15 @@ export class PreparedBatchActions {
             entry.card.cardState = [...entry.card.cardState.filter(state => state !== 'not-in-deck'), 'in-deck'];
         }
         try {
-            await this.deps.review(entry.reviewProvider!, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), () => this.receipts.set(entry.receipts.review, 'completed'));
-            this.receipts.set(entry.receipts.review, 'completed');
+            await this.deps.review(entry.reviewProvider!, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), reviewed);
+            reviewed();
         } catch (error) {
             // A consumed server session cannot be replayed after an ambiguous response.
             if (entry.reviewProvider?.id === 'bunpro' && !this.completedStages(entry).includes('review')) this.receipts.set(entry.receipts.review, 'uncertain');
             throw error;
         }
         this.assertCurrent(entry);
-        entry.source.cardState = entry.card.cardState;
+        this.keepPageState(entry);
     }
 
     private current(entry: Entry): boolean {
@@ -271,6 +305,15 @@ function hasDestination(entry: Entry): boolean {
     return entry.collectApi || entry.collectAnki;
 }
 
+function collectProvider(entry: Entry): ApiSrsProviderAdapter | null {
+    return entry.destination === 'anki' ? null : entry.destination;
+}
+
+/** The grading service has not identified this word yet (ADR-0021). */
+function needsMatch(entry: Entry): boolean {
+    return Boolean(entry.reviewProvider && !entry.reviewProvider.supportsCard(entry.card));
+}
+
 function destinationKey(destination: BatchCollectionDestination): string {
     return destination === 'anki' || !destination ? String(destination) : `${destination.id}:${destination.hasApiKey}`;
 }
@@ -299,8 +342,10 @@ function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsP
 function receiptAccount(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, use: BatchMutation): { account: unknown[]; deck: string } {
     const credentials = { jiten: effectiveJitenApiKey(settings), jpdb: effectiveJpdbApiKey(settings),
         bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)], wanikani: effectiveWanikaniApiToken(settings), 'yomu-local': settings.activeLanguageProfileId };
+    // A word the service has not identified yet is never keyed as one of its words.
     // Bunpro answers one review item but saves any word its catalogue has, so a save is keyed by the word.
-    const identity = provider?.id === 'jiten' ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid]
+    const identity = provider && !provider.supportsCard(card) ? ['unidentified', card.source, card.vid, card.sid, card.spelling, card.reading]
+        : provider?.id === 'jiten' ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid]
         : provider?.id === 'bunpro' && use === 'review' ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint]
         : provider?.id === 'wanikani' ? [card.wanikaniAssignmentId]
         : [card.vid, card.sid, card.spelling, card.reading];

@@ -29,15 +29,18 @@ function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> 
     const settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-private-key', jitenApiKey: 'jiten-private-key', ankiEnabled: false, localDictionariesEnabled: false, audioEnabled: false, ...overrides };
     const jitenReview = vi.fn(async (_card: JPDBCard, _grade: string): Promise<void> => {});
     const jpdbReview = vi.fn(async (_card: JPDBCard, _grade: string): Promise<void> => {});
-    const add = vi.fn(async (..._args: unknown[]): Promise<void> => {});
+    const jitenAdd = vi.fn(async (..._args: unknown[]): Promise<void> => {});
+    const jpdbAdd = vi.fn(async (..._args: unknown[]): Promise<void> => {});
+    // As production does after a review or save: the card takes Jiten's own state.
+    const jitenRefresh = vi.fn(async (card: JPDBCard): Promise<void> => { card.cardState = ['learning']; });
     const jitenParse = vi.fn(async (terms: string[]): Promise<JPDBToken[][]> => terms.map(() => []));
     const jpdbParse = vi.fn(async (terms: string[]): Promise<JPDBToken[][]> => terms.map(() => []));
     const ankiAdd = vi.fn(async (_card: JPDBCard, _sentence?: string, _options?: unknown) => 1001);
     const ankiFind = vi.fn(async (_card: JPDBCard): Promise<{ primary: object | null; notes: unknown[]; state: string }> => ({ primary: null, notes: [], state: 'not-found' }));
     const toast = vi.fn();
     const actions = testCardActionController({ getSettings: () => settings,
-        jiten: { reviewCard: jitenReview, addToStudyDeck: add, listStudyDecks: async () => [{ id: 12, name: 'Private deck' }], parse: jitenParse } as never,
-        jpdb: { reviewCard: jpdbReview, addToDeck: add, parse: jpdbParse } as never,
+        jiten: { reviewCard: jitenReview, addToStudyDeck: jitenAdd, refreshCardState: jitenRefresh, listStudyDecks: async () => [{ id: 12, name: 'Private deck' }], parse: jitenParse } as never,
+        jpdb: { reviewCard: jpdbReview, addToDeck: jpdbAdd, parse: jpdbParse } as never,
         anki: { findExistingCards: ankiFind, addCard: ankiAdd } as never,
         resolveMiningContext: async (card, sentence) => ({ term: card.spelling, sentence: sentence ?? '', sourceKind: 'page', sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 }),
         isJpdbBackedCard: card => card.source === 'jpdb',
@@ -61,7 +64,7 @@ function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> 
     panel.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => internals.handleClick(event)));
     internals.renderBatchMiningPanel();
     cleanups.push(() => controller.destroy());
-    return { controller, internals, panel, settings, actions, selected, jitenReview, jpdbReview, jitenParse, jpdbParse, add, ankiAdd, ankiFind, toast };
+    return { controller, internals, panel, settings, actions, selected, jitenReview, jpdbReview, jitenParse, jpdbParse, jitenAdd, jpdbAdd, ankiAdd, ankiFind, toast };
 }
 
 describe('subtitle prepared batch actions through the controller', () => {
@@ -100,7 +103,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         f.panel.querySelector<HTMLButtonElement>('[data-action="bm-grade-selected"][data-grade="easy"]')!.click();
         f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
         expect(f.jitenReview).toHaveBeenCalledTimes(1);
-        expect(f.add).not.toHaveBeenCalled();
+        expect(f.jitenAdd).not.toHaveBeenCalled();
         resolve();
         await waitForExpect(() => expect(f.selected.size).toBe(0));
         const fresh = setup([candidate(77)], { enableReviews: false });
@@ -108,7 +111,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         collect.dataset.action = 'bm-grade';
         collect.dataset.grade = 'easy';
         collect.click();
-        await waitForExpect(() => expect(fresh.add).toHaveBeenCalledTimes(1));
+        await waitForExpect(() => expect(fresh.jitenAdd).toHaveBeenCalledTimes(1));
         expect(fresh.jitenReview).not.toHaveBeenCalled();
     });
 
@@ -118,12 +121,12 @@ describe('subtitle prepared batch actions through the controller', () => {
         f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
         await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith('Completed 0 of 1 words. Unfinished words remain selected.'));
         expect(f.selected.size).toBe(1);
-        expect(f.add).toHaveBeenCalledTimes(1);
+        expect(f.jitenAdd).toHaveBeenCalledTimes(1);
         f.settings.ankiConnectUrl = 'http://corrected-anki';
         f.internals.renderBatchMiningPanel();
         f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
         await waitForExpect(() => expect(f.selected.size).toBe(0));
-        expect(f.add).toHaveBeenCalledTimes(1);
+        expect(f.jitenAdd).toHaveBeenCalledTimes(1);
         expect(f.ankiAdd).toHaveBeenCalledTimes(2);
         expect(f.jitenReview).not.toHaveBeenCalled();
     });
@@ -166,7 +169,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.jitenParse.mock.calls).toEqual([[['語43']]]);
         expect(f.jitenReview.mock.calls.map(([card]) => card.vid)).toEqual([42, 4300]);
         expect(f.jpdbReview).not.toHaveBeenCalled();
-        expect(f.add).not.toHaveBeenCalled();
+        expect([...f.jitenAdd.mock.calls, ...f.jpdbAdd.mock.calls]).toEqual([]);
     });
 
     it('never adds a Jiten identity to JPDB: a JPDB grade adds and reviews the resolved JPDB word once', async () => {
@@ -181,9 +184,46 @@ describe('subtitle prepared batch actions through the controller', () => {
         // The resolved JPDB word, never the Jiten one, goes through the batch's
         // own add-then-review stages, each exactly once.
         const jpdbWord = expect.objectContaining({ source: 'jpdb', vid: 9042, sid: 1, spelling: '語42', reading: 'ご' });
-        expect(f.add.mock.calls).toEqual([[DEFAULT_SETTINGS.miningDeck, jpdbWord, '単語を読む。']]);
+        expect(f.jpdbAdd.mock.calls).toEqual([[DEFAULT_SETTINGS.miningDeck, jpdbWord, '単語を読む。']]);
         expect(f.jpdbReview.mock.calls).toEqual([[jpdbWord, 'okay']]);
         expect(f.jitenReview).not.toHaveBeenCalled();
+        // The page word Jiten parsed keeps Jiten's state, not the JPDB word's.
+        expect(f.internals.batchMiningCandidates[0]!.card.cardState).toEqual(['new']);
+    });
+
+    // ADR-0016: "Add selected" saves where the grades in the same row go.
+    it('saves a JPDB-parsed word to the grading service, found there first, and never to JPDB', async () => {
+        const f = setup([candidate(71, 'jpdb')]);
+        const onJiten: JPDBToken = { card: { ...candidate(7100).card, spelling: '語71' }, start: 0, end: 3, length: 3, rubies: [], pitchClass: '', sentence: '語71' };
+        f.jitenParse.mockResolvedValueOnce([[onJiten]]);
+
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
+        await waitForExpect(() => expect(f.selected.size).toBe(0));
+
+        expect(f.jitenParse.mock.calls).toEqual([[['語71']]]);
+        expect(f.jitenAdd.mock.calls).toEqual([['12', expect.objectContaining({ vid: 7100, spelling: '語71' }), '単語を読む。', expect.anything()]]);
+        expect(f.jpdbAdd).not.toHaveBeenCalled();
+        expect(f.toast).toHaveBeenCalledWith('Added 1 words.');
+        // The JPDB word on the page keeps JPDB's state.
+        expect(f.internals.batchMiningCandidates[0]!.card.cardState).toEqual(['new']);
+    });
+
+    it.each([
+        ['en', 'Not found in your preferred grading service, so not added: 語72.'],
+        ['ja', '優先採点サービスで見つからなかったため、追加していません：語72'],
+    ] as const)('adds nothing anywhere for a word the grading service lacks (%s)', async (interfaceLanguage, toast) => {
+        const f = setup([candidate(72, 'jpdb')], { interfaceLanguage });
+
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
+        await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith(toast));
+
+        expect([...f.jitenAdd.mock.calls, ...f.jpdbAdd.mock.calls]).toEqual([]);
+        expect(f.selected.size).toBe(0);
+        expect(f.panel.querySelector('[role="listitem"]')!.querySelectorAll('[data-action="bm-grade"]')).toHaveLength(0);
+        // Selected again, the word offers no save that is bound to fail.
+        f.selected.add('private-key-72');
+        f.internals.renderBatchMiningPanel();
+        expect(f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.disabled).toBe(true);
     });
 
     // ADR-0021: subtitle words are JPDB-parsed, the default grading service is
@@ -205,8 +245,11 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.jitenParse.mock.calls).toEqual([[['語51', '語52', '語53']]]);
         expect(f.jitenReview.mock.calls.map(([card, grade]) => [card.vid, grade])).toEqual([[5100, 'hard'], [5300, 'hard']]);
         expect(f.jpdbReview).not.toHaveBeenCalled();
-        expect(f.add).not.toHaveBeenCalled();
+        expect([...f.jitenAdd.mock.calls, ...f.jpdbAdd.mock.calls]).toEqual([]);
         expect(f.selected.size).toBe(0);
+        // The graded words keep the colour of the service that parsed them, even
+        // though Jiten now holds them in another state (ADR-0021).
+        expect(f.internals.batchMiningCandidates.map(row => [row.card.cardState, row.state])).toEqual([[['new'], 'new'], [['new'], 'new'], [['new'], 'new']]);
         // The row says why it has no grade buttons, naming no service, and the
         // word cannot be bulk-graded into a request that is bound to fail.
         const unmatched = f.panel.querySelectorAll('[role="listitem"]')[1]!;
@@ -270,7 +313,8 @@ describe('subtitle prepared batch actions through the controller', () => {
         await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith(toast));
 
         expect(mine.mock.calls.map(([request]) => request.expression)).toEqual(['語81', '語82', '語83']);
-        expect(f.add).not.toHaveBeenCalled();
+        expect(f.jitenAdd).not.toHaveBeenCalled();
+        expect(f.jpdbAdd).not.toHaveBeenCalled();
         expect(f.jpdbReview).not.toHaveBeenCalled();
         expect(f.selected.size).toBe(0);
         expect(f.panel.textContent).not.toMatch(/JPDB|Jiten|Bunpro|未翻訳/);
@@ -282,7 +326,7 @@ describe('subtitle prepared batch actions through the controller', () => {
         const f = setup([candidate(91), candidate(92, 'local'), candidate(93)], { apiKey: '', yomuLocalSrsEnabled: false });
         f.panel.querySelector<HTMLButtonElement>('[data-action="bm-add"]')!.click();
         await waitForExpect(() => expect(f.toast).toHaveBeenCalledWith('Added 2 words. None of your decks could take these, so not added: 語92.'));
-        expect(f.add.mock.calls.map(([, word]) => (word as JPDBCard).vid)).toEqual([91, 93]);
+        expect(f.jitenAdd.mock.calls.map(([, word]) => (word as JPDBCard).vid)).toEqual([91, 93]);
         expect(f.selected.size).toBe(0);
         // A selection no deck can take has nothing to add.
         f.selected.add('private-key-92');

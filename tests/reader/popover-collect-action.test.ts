@@ -10,6 +10,7 @@ import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import type { YomuSrsAdapter } from '../../src/reader/srs/types';
 import type { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
 import { runCardActionOperation } from '../../src/reader/cards/action-operation';
+import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../src/reader/dom';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
@@ -214,6 +215,94 @@ describe('popup collect action', () => {
             'None of your decks can take this word. Turn one on in Settings.',
             'この単語を追加できるデッキがありません。設定でデッキを有効にしてください。',
         ]);
+    });
+
+    // A default dual-key learner: JPDB parses the word, Jiten is the preferred
+    // grading service. The save goes where the grade beside it goes (ADR-0016),
+    // found there the way a grade finds it, and never lands on the other service.
+    describe('with both JPDB and Jiten connected', () => {
+        const DUAL_KEY: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: 'jpdb-key', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, yomuLocalSrsEnabled: true, ankiEnabled: false, enableReviews: true };
+        const isJpdbBackedCard = (word: JPDBCard): boolean => word.source === 'jpdb';
+        const JPDB_WORD: JPDBCard = { ...WORD, source: 'jpdb', vid: 777, sid: 1 };
+        const JITEN_WORD: JPDBCard = { ...WORD, source: 'jiten', vid: 0, sid: 0, jitenWordId: 9001, jitenReadingIndex: 0, cardState: ['new'] };
+        const token = (word: JPDBCard) => ({ card: word, start: 0, end: 3, length: 3, rubies: [], pitchClass: '', sentence: word.spelling });
+
+        function dualKeyController(grading: 'jpdb' | 'jiten', found: { jpdb?: JPDBCard; jiten?: JPDBCard } = {}) {
+            const services = {
+                jpdb: { addToDeck: vi.fn(async () => undefined), parse: vi.fn(async (terms: string[]) => terms.map(() => found.jpdb ? [token(found.jpdb)] : [])) },
+                jiten: { addToStudyDeck: vi.fn(async () => undefined), listStudyDecks: async () => [{ id: 12, name: 'Mining' }], parse: vi.fn(async (terms: string[]) => terms.map(() => found.jiten ? [token(found.jiten)] : [])) },
+            };
+            const settings = { ...DEFAULT_SETTINGS, ...DUAL_KEY, apiGradingProvider: grading };
+            const controller = testCardActionController({ getSettings: () => settings, isJpdbBackedCard, jpdb: services.jpdb as never, jiten: services.jiten as never,
+                resolveMiningContext: async (word, sentence) => ({ term: word.spelling, sentence: sentence ?? '', sourceKind: 'page', sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 }) });
+            return { controller, ...services, settings };
+        }
+
+        function saveFromOrdinaryPage(grading: 'jpdb' | 'jiten', word: JPDBCard): HTMLButtonElement {
+            return renderActions({ ...DUAL_KEY, apiGradingProvider: grading }, { ...ORDINARY_PAGE, isJpdbBackedCard }, emptyCardRenderData(), word)
+                .querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
+        }
+
+        it('saves a JPDB-parsed word to Jiten, the service its grades go to', async () => {
+            const collect = saveFromOrdinaryPage('jiten', JPDB_WORD);
+            const f = dualKeyController('jiten', { jiten: JITEN_WORD });
+
+            await f.controller.perform(readCardCommandCapability(collect), collect, { ...JPDB_WORD }, SENTENCE);
+
+            expect(f.jiten.parse.mock.calls).toEqual([[['食べる']]]);
+            expect(f.jiten.addToStudyDeck).toHaveBeenCalledTimes(1);
+            expect(f.jiten.addToStudyDeck).toHaveBeenCalledWith('12', expect.objectContaining({ jitenWordId: 9001, spelling: '食べる', reading: 'たべる' }), SENTENCE, expect.anything());
+            expect(f.jpdb.addToDeck).not.toHaveBeenCalled();
+        });
+
+        it('saves nothing anywhere when the grading service does not have the word', async () => {
+            const collect = saveFromOrdinaryPage('jiten', JPDB_WORD);
+            const f = dualKeyController('jiten');
+
+            const refused = await f.controller.perform(readCardCommandCapability(collect), collect, { ...JPDB_WORD }, SENTENCE).catch((error: unknown) => error);
+
+            expect(userFacingErrorText('en', 'actionFailed', refused)).toBe('Not saved: this word was not found in your preferred grading service.');
+            expect(userFacingErrorText('ja', 'actionFailed', refused)).toBe('優先採点サービスでこの単語が見つからなかったため、保存していません。');
+            expect(f.jiten.addToStudyDeck).not.toHaveBeenCalled();
+            expect(f.jpdb.addToDeck).not.toHaveBeenCalled();
+        });
+
+        it('saves a Jiten-parsed word to JPDB when JPDB grades', async () => {
+            const collect = saveFromOrdinaryPage('jpdb', JITEN_WORD);
+            const f = dualKeyController('jpdb', { jpdb: JPDB_WORD });
+
+            await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE);
+
+            expect(f.jpdb.parse.mock.calls).toEqual([[['食べる']]]);
+            expect(f.jpdb.addToDeck).toHaveBeenCalledWith(DEFAULT_SETTINGS.miningDeck, expect.objectContaining({ vid: 777, source: 'jpdb' }), SENTENCE);
+            expect(f.jiten.addToStudyDeck).not.toHaveBeenCalled();
+        });
+
+        it('offers the decks of the service the Study grade row names, and follows the ⇄ toggle', async () => {
+            const decks = emptyCardRenderData({
+                jpdbDecks: [{ id: 'forq', name: 'FORQ' }, { id: 'mining', name: 'Mining JPDB' }] as never,
+                jitenDecks: [{ id: '12', name: 'Mining' }],
+            });
+            const offered = (word: JPDBCard): string[] => [...renderActions({ ...DUAL_KEY, apiGradingProvider: 'jiten' }, { isJpdbBackedCard }, decks, word)
+                .querySelectorAll<HTMLOptionElement>('.jpdb-reader-collect option[data-deck-source]')].map(option => option.dataset.deckSource!);
+            const grades = (): string[] => [...document.querySelectorAll<HTMLButtonElement>('.jpdb-reader-actions [data-action="grade"]')]
+                .map(button => readCardCommandCapability(button)?.reviewTarget ?? '');
+
+            expect(new Set(offered(JPDB_WORD))).toEqual(new Set(['jiten', 'yomu-local']));
+            expect(new Set(grades())).toEqual(new Set(['jiten']));
+
+            // ⇄ to JPDB for this word: the deck choice switches with the grades.
+            expect(new Set(offered({ ...JPDB_WORD, apiGradingProviderOverride: 'jpdb' }))).toEqual(new Set(['jpdb', 'yomu-local']));
+            expect(new Set(grades())).toEqual(new Set(['jpdb']));
+
+            // The chosen Jiten deck receives the word found on Jiten.
+            const picker = document.querySelector<HTMLButtonElement>('.jpdb-reader-collect [data-action="deck-picker"]');
+            expect(picker).not.toBeNull();
+            const f = dualKeyController('jiten', { jiten: JITEN_WORD });
+            await f.controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jiten', deckId: '12' }, picker!, { ...JPDB_WORD }, SENTENCE);
+            expect(f.jiten.addToStudyDeck).toHaveBeenCalledWith('12', expect.objectContaining({ jitenWordId: 9001 }), SENTENCE, expect.anything());
+            expect(f.jpdb.addToDeck).not.toHaveBeenCalled();
+        });
     });
 
     it('offers no save when the only destination cannot take the word', () => {

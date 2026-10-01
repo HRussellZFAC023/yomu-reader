@@ -260,25 +260,29 @@ const COLLECTION_FALLBACK_ORDER: readonly CollectionDestinationId[] = ['anki', '
 /**
  * The learner's enabled collection destinations that can take this word, the
  * default first. The default is the service the grade row beside "Add to deck
- * +" uses, so saving is grading without the schedule. The learner's settings
- * decide the rest, not the dictionary that supplied the word: with JPDB mining
- * off, a JPDB-parsed word can still go to Anki, the Yomu deck or Bunpro.
+ * +" uses, so saving is grading without the schedule (ADR-0016). With both keys
+ * set that is the preferred grading service, which takes a word another service
+ * identified once the save finds it there, as a grade does (ADR-0021). The
+ * learner's settings decide the rest, not the dictionary that supplied the
+ * word: with JPDB mining off, a JPDB-parsed word can still go to Anki, the Yomu
+ * deck or Bunpro.
  */
 export function collectionDestinationsForCard(
     card: JPDBCard,
     settings: ReaderSettings,
     isJpdbBackedCard: (card: JPDBCard) => boolean,
 ): CollectionDestinationId[] {
-    const grading = apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+    const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
+    const grading = resolveOn ?? apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
     const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter(id => id !== grading)] : COLLECTION_FALLBACK_ORDER;
-    return order.filter(id => canCollectTo(id, card, settings, isJpdbBackedCard));
+    return order.filter(id => canCollectTo(id, card, settings, isJpdbBackedCard, resolveOn));
 }
 
-function canCollectTo(id: CollectionDestinationId, card: JPDBCard, settings: ReaderSettings, isJpdbBackedCard: (card: JPDBCard) => boolean): boolean {
+function canCollectTo(id: CollectionDestinationId, card: JPDBCard, settings: ReaderSettings, isJpdbBackedCard: (card: JPDBCard) => boolean, resolveOn: ApiSrsProviderId | null): boolean {
     if (id === 'anki') return settings.ankiEnabled;
     return isApiSrsProviderEnabled(settings, id)
         && apiSrsProviderView(id, settings).hasApiKey
-        && COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
+        && (id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard));
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {

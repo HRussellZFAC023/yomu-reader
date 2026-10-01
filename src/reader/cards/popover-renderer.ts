@@ -162,11 +162,12 @@ export class CardPopoverRenderer {
         const language = settings.interfaceLanguage;
         const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
         const provider = this.apiProviderForCard(card);
-        // Grades follow the chosen grading service, which may resolve the word first.
+        // Grades follow the chosen grading service, which may resolve the word
+        // first, and so does "Add to deck +" beside them (ADR-0016).
         const gradingProvider = apiSrsGradingProviderViewForCard(card, settings, this.dependencies.isJpdbBackedCard);
         const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
         const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language);
-        const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider, trustedAccountDataSurface);
+        const miningActions = this.renderApiMiningActions(card, cardStates, language, data, gradingProvider, trustedAccountDataSurface);
         const reviewControls = this.renderReviewControls({
             card,
             cardStates,

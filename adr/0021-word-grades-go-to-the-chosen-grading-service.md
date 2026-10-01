@@ -17,5 +17,5 @@ A learner can connect both JPDB and Jiten. Settings call the one they grade word
 ## Consequences
 
 - A grade on a word the grading service did not parse costs one extra lookup request (one per subtitle batch). Automatic parsing avoids it on ordinary pages; JPDB-first subtitle and Study lookups, popover example parses, pinned parsers and Jiten fallback resolution still pay it. Making those flows follow the grading service would change the subtitle parse source for most dual-key learners and is a separate decision.
-- After a resolved grade, words on the page keep the colour of the service that parsed them; the grade changes the other service's record.
-- Adding to a deck and the Never forget and Blacklist actions still use the word's own service. This decision covers grades only.
+- After a resolved grade or save, words on the page keep the colour of the service that parsed them; it changes the other service's record.
+- Adding to a deck follows the grade row and is resolved the same way (ADR-0016), so a save never lands on a service the grades beside it skip. The Never forget and Blacklist actions still use the word's own service.
