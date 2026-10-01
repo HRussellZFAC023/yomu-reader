@@ -1119,7 +1119,7 @@ const COPY = {
         removeImportedDictionary: 'Remove imported dictionary',
         customAdvanced: '{label} (advanced)',
         importLocalDefinitionsHelp: 'Import Yomitan for local definitions.',
-        frequencyMetadataHelp: 'Frequency, pitch, and kanji metadata for badges.',
+        metadataDictionariesHelp: 'Metadata dictionaries appear as badges or kanji data.',
         sourceHelpJpdb: 'JPDB meanings from the current card.',
         sourceHelpJiten: 'Jiten meanings, examples, and related words.',
         sourceHelpBunpro: 'Bunpro vocabulary and grammar meanings, nuance, and examples.',
@@ -2348,7 +2348,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。

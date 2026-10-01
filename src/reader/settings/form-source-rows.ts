@@ -1,5 +1,7 @@
 import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
 import { miniIcon } from './form-controls';
+import type { InterfaceLanguage } from '../app/types';
 import type { SettingsSourceRow } from '../sources/sections';
 
 type SourceRowsListOptions = { sourceLabel: string; countName?: string; countValue?: number; showAlias: boolean };
@@ -25,6 +27,15 @@ const SOURCE_ROW_COPY_KEYS_BY_ID: Record<string, SourceRowCopyKeys> = {
     __kanji_origins__: { nameKey: 'originStructure', helpKey: 'sourceHelpComponentGraph' },
 };
 const SOURCE_ROW_ORDER_LABELS = { drag: 'Drag to reorder', up: 'Move up', down: 'Move down' };
+
+/**
+ * A Sources help line, keyed so a live interface-language switch relabels it,
+ * and written in the learner's language because the shelf re-renders these
+ * rows after an import or removal without relabelling the form.
+ */
+export function renderSourceRowsHelp(language: InterfaceLanguage, key: 'importLocalDefinitionsHelp' | 'metadataDictionariesHelp'): string {
+    return `<div class="jpdb-reader-help" data-help-key="${key}">${escapeHtml(uiText(language, key))}</div>`;
+}
 
 export function miniIconButton(icon: MiniIconName, label: string, attributes: string): string {
     const dragClass = icon === 'drag' ? ' jpdb-reader-drag-handle' : '';

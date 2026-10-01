@@ -15,7 +15,7 @@ import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, 
 import { CUSTOM_FONT_FAMILY_VALUE, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { FONT_FAMILY_PRESETS } from './font-presets';
-import { renderSourceRowsList } from './form-source-rows';
+import { renderSourceRowsHelp, renderSourceRowsList } from './form-source-rows';
 import { CLOUD_SETTINGS_SYNC_ENABLED } from './cloud-sync';
 import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './anki-mining-panel';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
@@ -2073,8 +2073,6 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
         const key = element.dataset.sourceHelpKey;
         if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
-    replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text('importLocalDefinitionsHelp'));
-    replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text('frequencyMetadataHelp'));
     // Keep these fallback English names paired with the sourceName*/sourceHelp* i18n keys.
     const rows: Array<[string, SettingsTextKey, SettingsTextKey]> = [
         ['Translation', 'sourceNameTranslation', 'sourceHelpTranslation'],
@@ -2695,10 +2693,8 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
             <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml(preference.type ?? 'terms')}">
         `).join('');
-    const importHelp = visibleNames.size ? '' : '<div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>';
-    const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size
-        ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>'
-        : '';
+    const importHelp = visibleNames.size ? '' : renderSourceRowsHelp(settings.interfaceLanguage, 'importLocalDefinitionsHelp');
+    const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? renderSourceRowsHelp(settings.interfaceLanguage, 'metadataDictionariesHelp') : '';
     return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
 }
 
