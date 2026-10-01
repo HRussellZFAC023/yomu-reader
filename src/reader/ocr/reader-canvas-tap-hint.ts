@@ -4,16 +4,19 @@
 // auto-scan waits for a tap (canvas-auto-read.ts). The first such canvas gets
 // this hint instead of a background upload. It wears the canvas status pill,
 // lets taps fall through to the page, captures nothing, stays clear of the
-// host's controls, and is remembered in this site's Yomu storage so it
-// appears once per site.
+// host's controls, and appears once per site. That record lives in Yomu's own
+// GM/extension storage under a hash of the origin, never in the page's storage:
+// there it would tell the site, on every later visit, that this visitor runs
+// Yomu with a cloud OCR provider.
 import { uiText } from '../app/i18n';
-import { ensureManagedWebStorageCurrentSync, managedLocalStorage } from '../app/storage';
+import { gmPrivateStorageGet, gmPrivateStorageSet } from '../app/storage';
 import type { ReaderSettings } from '../app/types';
+import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import { appendOcrArtifactToRoot, removeOcrArtifact } from './ocr-artifact-surface';
 import { setOcrArtifactPosition } from './ocr-position-pass';
 import { visibleViewportIntersection } from './surface-visibility';
 
-export const READER_CANVAS_TAP_HINT_SEEN_KEY = 'yomu:ocr-canvas-tap-hint-seen:v1';
+const READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX = 'yomu:private:ocr-canvas-tap-hint-seen:v1:';
 const INSET_PX = 12;
 // The pill's CSS max-width and laid-out height, so the clearance probe covers the
 // whole hint before it has ever been laid out. Its dismiss button's touch target
@@ -31,23 +34,45 @@ interface HintSpot { left: number; top: number }
 export class ReaderCanvasTapHint {
     private element: HTMLElement | undefined;
     private done = false;
+    // Private storage answers asynchronously: the first canvas waiting for a tap
+    // starts the site check, and the latest one gets the hint when it answers.
+    private siteCheck: 'not-started' | 'running' | 'answered' = 'not-started';
+    private waiting: [HTMLCanvasElement | undefined, ReaderSettings] | undefined;
 
     /** Point the hint at the first reader canvas waiting for a tap, or hide it while none waits. */
     update(canvas: HTMLCanvasElement | undefined, settings: ReaderSettings): void {
-        if (!this.element && !this.mayShow(canvas)) return;
+        if (!this.element && !this.mayShow(canvas, settings)) return;
         const element = this.element ??= createHint(settings, () => this.dismiss());
+        this.pointAt(element, canvas);
+    }
+
+    private pointAt(element: HTMLElement, canvas: HTMLCanvasElement | undefined): void {
         const spot = canvas && spotClearOfHostControls(canvas, element);
         element.hidden = !spot;
         if (!spot) return;
         setOcrArtifactPosition(element, spot.left, spot.top);
-        if (!this.done) rememberHintSeen();
+        if (!this.done) void rememberHintSeen();
         this.done = true;
     }
 
-    private mayShow(canvas: HTMLCanvasElement | undefined): boolean {
-        if (!canvas || this.done) return false;
-        this.done = hintSeenOnThisSite();
-        return !this.done;
+    private mayShow(canvas: HTMLCanvasElement | undefined, settings: ReaderSettings): boolean {
+        if (this.done) return false;
+        if (this.siteCheck === 'answered') return Boolean(canvas);
+        this.waiting = [canvas, settings];
+        if (this.siteCheck === 'not-started') void this.checkSite(canvas);
+        return false;
+    }
+
+    private async checkSite(canvas: HTMLCanvasElement | undefined): Promise<void> {
+        // Only a canvas waiting for a tap is worth a storage read.
+        if (!canvas) return;
+        this.siteCheck = 'running';
+        const seen = await hintSeenOnThisSite();
+        this.siteCheck = 'answered';
+        this.done ||= seen;
+        const waiting = this.waiting;
+        this.waiting = undefined;
+        if (waiting) this.update(...waiting);
     }
 
     /** The learner dismissed the hint or read a page, so it has done its job here. */
@@ -57,6 +82,7 @@ export class ReaderCanvasTapHint {
     }
 
     remove(): void {
+        this.waiting = undefined;
         if (this.element) removeOcrArtifact(this.element);
         this.element = undefined;
     }
@@ -117,21 +143,23 @@ function coversHostControl(spot: HintSpot, width: number, hint: HTMLElement): bo
     }));
 }
 
-function hintSeenOnThisSite(): boolean {
+// Once per site, under a key that names no site.
+function hintSeenKey(): string {
+    return `${READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX}${sensitiveFingerprint(location.origin)}`;
+}
+
+async function hintSeenOnThisSite(): Promise<boolean> {
     try {
-        // The OCR companion can run before, or in another realm from, the boot that
-        // passes this site's storage barrier; passing it again is idempotent.
-        ensureManagedWebStorageCurrentSync();
-        return managedLocalStorage.getItem(READER_CANVAS_TAP_HINT_SEEN_KEY) !== null;
+        return await gmPrivateStorageGet(hintSeenKey(), false) === true;
     } catch {
         // Without storage the hint could not stay one-time. A tap still reads the page.
         return true;
     }
 }
 
-function rememberHintSeen(): void {
+async function rememberHintSeen(): Promise<void> {
     try {
-        managedLocalStorage.setItem(READER_CANVAS_TAP_HINT_SEEN_KEY, '1');
+        await gmPrivateStorageSet(hintSeenKey(), true);
     } catch {
         // Shown once for this page; nothing else depends on the record.
     }

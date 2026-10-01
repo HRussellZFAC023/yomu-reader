@@ -14,7 +14,9 @@
 // local service still reads it by itself, while a cloud provider receives nothing
 // until a tap and the site shows the one-time "Tap the page to read it" hint.
 // With a mouse, pointing at that page sends nothing either: only a click reads it.
-// The hint's dismiss button takes a 44px finger or a 24px mouse press.
+// The hint's dismiss button takes a 44px finger or a 24px mouse press, and the
+// site's own storage never learns the hint was shown: Yomu's private GM storage
+// remembers it, keyed by a hash of the origin.
 import { chromium, devices } from 'playwright';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -28,6 +30,10 @@ const BW_FIXTURE_HTML = readFileSync(new URL('./fixtures/bookwalker-viewer.html'
 const BW_VIEWER_URL = 'https://viewer.bookwalker.jp/de_ocr-provider-matrix/';
 const GENERIC_READER_URL = 'https://manga-reader.example/ocr-provider-matrix/';
 const TAP_HINT = '.jpdb-ocr-canvas-tap-hint:not([hidden])';
+// The harness keeps its emulated GM store in the page's localStorage under this
+// prefix (a real userscript manager or extension keeps it out of the page), so
+// the page's own storage is every other key.
+const GM_STORAGE_PREFIX = '__yomu_ocr_matrix_gm__:';
 // Long enough for boot, the canvas gate and several scroll/mutation passes: a
 // cloud provider must still have received nothing when it ends.
 const BACKGROUND_SETTLE_MS = 3_000;
@@ -71,7 +77,7 @@ async function openReaderPage({ url, settings, real, device = ipad }) {
         }
         return { status: 503, responseText: '' };
     });
-    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings, requestBridgeName: BRIDGE });
+    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings, requestBridgeName: BRIDGE, storagePrefix: GM_STORAGE_PREFIX });
     await context.route(url, route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: BW_FIXTURE_HTML }));
     const load = async () => {
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
@@ -141,6 +147,27 @@ async function tapHintInk(page) {
     }, TAP_HINT);
 }
 
+// The dismiss button takes a press at least `minimum` px across around the same 20px glyph.
+const dismissTargetFits = (target, minimum) => target.width >= minimum && target.height >= minimum && target.glyph === 20;
+
+// After a reload: only Yomu's private storage remembers the hint was shown, under
+// a key that names no site, and the page's own storage holds no trace of it.
+async function checkHintRememberedPrivately(page, label) {
+    const records = await page.evaluate(prefix => {
+        const local = Object.keys(localStorage);
+        const pageKeys = [...local.filter(key => !key.startsWith(prefix)), ...Object.keys(sessionStorage)];
+        const gmKeys = local.filter(key => key.startsWith(prefix)).map(key => decodeURIComponent(key.slice(prefix.length)));
+        return {
+            inPage: pageKeys.filter(key => decodeURIComponent(key).includes('tap-hint')),
+            inGm: gmKeys.filter(key => key.includes('ocr-canvas-tap-hint-seen')),
+        };
+    }, GM_STORAGE_PREFIX);
+    pass(`${label}: the page's own storage holds no record of the hint`, records.inPage.length === 0, records.inPage.join(', '));
+    pass(`${label}: Yomu's private storage remembers the hint, under a key that names no site`,
+        records.inGm.length === 1 && !records.inGm[0].includes('manga-reader'), records.inGm.join(', '));
+    pass(`${label}: hint stays dismissed on this site after a reload`, await page.locator('.jpdb-ocr-canvas-tap-hint').count() === 0);
+}
+
 // How far around its glyph the hint's dismiss button still takes a press.
 async function dismissTargetSize(page) {
     return page.evaluate(selector => {
@@ -183,7 +210,7 @@ async function runGenericCloudProvider({ label, settings, expectUrl, real }) {
     const ink = await tapHintInk(page);
     pass(`${label}: label and dismiss "×" carry the pill's light ink`, ink.light, ink.ink);
     const target = await dismissTargetSize(page);
-    pass(`${label}: a finger-sized dismiss target around the same glyph`, target.width >= 44 && target.height >= 44 && target.glyph === 20, JSON.stringify(target));
+    pass(`${label}: a finger-sized dismiss target around the same glyph`, dismissTargetFits(target, 44), JSON.stringify(target));
     await page.screenshot({ path: `/tmp/yomu-recon/ocr-${label}-hint.png` });
 
     await page.tap('canvas.default');
@@ -194,9 +221,7 @@ async function runGenericCloudProvider({ label, settings, expectUrl, real }) {
     const sentBeforeReload = requests.length;
     await reload();
     await page.waitForTimeout(BACKGROUND_SETTLE_MS);
-    const remembered = await page.evaluate(() => Object.keys(localStorage).some(key => key.includes('ocr-canvas-tap-hint-seen')));
-    pass(`${label}: the site remembers the hint was shown`, remembered);
-    pass(`${label}: hint stays dismissed on this site after a reload`, await page.locator('.jpdb-ocr-canvas-tap-hint').count() === 0);
+    await checkHintRememberedPrivately(page, label);
     pass(`${label}: nothing sent in the background after a reload`, !requests.slice(sentBeforeReload).some(u => expectUrl.test(u)));
     await context.close();
 }
@@ -218,7 +243,7 @@ async function runGenericCloudProviderWithMouse({ label, settings, expectUrl, re
     pass(`${label}: tap hint shown`, hintShown);
     pass(`${label}: pointing at the page sends nothing`, !requests.some(u => expectUrl.test(u)), requests.join(' ').slice(0, 120));
     pass(`${label}: pointing leaves the hint up`, await page.locator(TAP_HINT).count() === 1);
-    pass(`${label}: a mouse-sized dismiss target around the same glyph`, target.width >= 24 && target.height >= 24 && target.glyph === 20, JSON.stringify(target));
+    pass(`${label}: a mouse-sized dismiss target around the same glyph`, dismissTargetFits(target, 24), JSON.stringify(target));
 
     await page.mouse.click(canvas.x + canvas.width / 2, canvas.y + onScreenHeight / 2);
     await readOcrResult(page, { label, requests, expectUrl, real });

@@ -13,6 +13,7 @@ import { setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../../sr
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { ocrTargetCacheKey } from '../../src/reader/ocr/target-context';
 import { waitForExpect } from './test-utils';
+import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 import {
     createPrivateRasterImage,
     privateRasterHost,
@@ -2442,6 +2443,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
     it('keeps a dismissed tap hint away without reading the page', async () => {
         stubLocation('hrussellzfac023.github.io');
+        // Yomu's own GM storage, where the hint remembers each site it has shown on.
+        installGmStorageFixture();
         stubReadableCanvas();
         const canvas = pageCanvas(24, 20);
         document.body.append(canvas);

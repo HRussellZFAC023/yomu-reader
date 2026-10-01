@@ -84,9 +84,8 @@ if (typeof NativeBroadcastChannel === 'function') {
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
-// The OCR result cache and the one-time reader-canvas tap hint
-// (ocr/reader-canvas-tap-hint.ts) persist per origin.
-const OCR_PERSISTED_KEYS = ['yomu-ocr-cache-v1', 'yomu-ocr-cache-v2', 'yomu:ocr-canvas-tap-hint-seen:v1'] as const;
+// The OCR result cache persists per origin.
+const OCR_PERSISTED_KEYS = ['yomu-ocr-cache-v1', 'yomu-ocr-cache-v2'] as const;
 const MANAGED_WEB_STORAGE_EPOCH_KEYS = new Set([
     'yomu:web-storage-epoch:v1:local',
     'yomu:web-storage-epoch:v1:session',
