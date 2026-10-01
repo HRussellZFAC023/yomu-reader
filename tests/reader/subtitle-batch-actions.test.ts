@@ -191,6 +191,44 @@ describe('subtitle prepared batch actions through the controller', () => {
         expect(f.internals.batchMiningCandidates[0]!.card.cardState).toEqual(['new']);
     });
 
+    // ADR-0021 decision 3: two rows that are one word on the grading service
+    // (JPDB homographs, or a word both services parsed) send it one review.
+    describe('two rows that are one word on the grading service', () => {
+        const sameWord = (row: SubtitleBatchMiningCandidate): SubtitleBatchMiningCandidate => ({ ...row, card: { ...row.card, spelling: '語5' } });
+        const onJiten: JPDBToken = { card: { ...candidate(5000).card, spelling: '語5' }, start: 0, end: 2, length: 2, rubies: [], pitchClass: '', sentence: '語5' };
+        const gradeSelected = async (f: ReturnType<typeof setup>): Promise<void> => {
+            f.panel.querySelector<HTMLButtonElement>('[data-action="bm-grade-selected"][data-grade="hard"]')!.click();
+            await waitForExpect(() => expect(f.selected.size).toBe(0));
+            expect(f.panel.querySelectorAll('[data-action="bm-grade"]')).toHaveLength(0);
+        };
+
+        it('grades two JPDB rows Jiten finds as one word once', async () => {
+            const f = setup([sameWord(candidate(51, 'jpdb')), sameWord(candidate(52, 'jpdb'))]);
+            f.jitenParse.mockResolvedValueOnce([[onJiten], [onJiten]]);
+            await gradeSelected(f);
+            expect(f.jitenReview.mock.calls.map(([card, grade]) => [card.vid, grade])).toEqual([[5000, 'hard']]);
+        });
+
+        it.each([
+            ['the Jiten row first', [sameWord(candidate(5000)), sameWord(candidate(52, 'jpdb'))]],
+            ['the JPDB row first', [sameWord(candidate(52, 'jpdb')), sameWord(candidate(5000))]],
+        ] as const)('grades a word both services parsed once, %s', async (_order, rows) => {
+            const f = setup([...rows]);
+            f.jitenParse.mockResolvedValueOnce([[onJiten]]);
+            await gradeSelected(f);
+            expect(f.jitenReview.mock.calls.map(([card]) => card.vid)).toEqual([5000]);
+        });
+
+        it('adds and grades one JPDB word once when JPDB grades', async () => {
+            const f = setup([sameWord(candidate(61)), sameWord(candidate(62))], { apiGradingProvider: 'jpdb' });
+            const onJpdb: JPDBToken = { ...onJiten, card: { ...candidate(9005, 'jpdb').card, spelling: '語5', cardState: ['not-in-deck'] } };
+            f.jpdbParse.mockResolvedValueOnce([[onJpdb], [onJpdb]]);
+            await gradeSelected(f);
+            expect(f.jpdbAdd).toHaveBeenCalledTimes(1);
+            expect(f.jpdbReview.mock.calls.map(([card]) => card.vid)).toEqual([9005]);
+        });
+    });
+
     // ADR-0016: "Add selected" saves where the grades in the same row go.
     it('saves a JPDB-parsed word to the grading service, found there first, and never to JPDB', async () => {
         const f = setup([candidate(71, 'jpdb')]);
