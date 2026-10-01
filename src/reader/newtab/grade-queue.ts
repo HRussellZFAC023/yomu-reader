@@ -89,7 +89,8 @@ export const HELD_REVIEW_SETTLE_MS = 5 * 60_000;
 const NEW_TAB_LIVE_REVIEW_KEY = 'yomu:newtab-live-review:v1';
 // Its own lease: the grade-queue lease is held across provider requests.
 const LIVE_REVIEW_LEASE = 'newtab-live-review';
-const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5_000, timeoutMs: 5_000 };
+// Its writes are fenced: a tab whose claim lapsed cannot write back a stale record set.
+const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5_000, timeoutMs: 5_000, guards: (key: string) => key === NEW_TAB_LIVE_REVIEW_KEY };
 /**
  * How long a live review keeps other Study tabs from grading their copy: long
  * enough for a tab left open behind another, short enough that a card due

@@ -13,7 +13,7 @@ import {
 import { installLocalTapActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary, isTrustedReaderInteraction, trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { CardActionController } from '../cards/action-controller';
-import { refreshAfterCardAction, reportCardActionFailure, runCardActionOperation } from '../cards/action-operation';
+import { refreshAfterCardAction, runCardActionOperation } from '../cards/action-operation';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { reviewShortcutButton } from '../dom/review-shortcuts';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
@@ -9537,7 +9537,7 @@ export class ReaderApp {
                 () => this.dismissAfterReview(),
                 () => this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: 'preserve', preservePosition: true }),
             ),
-            error => reportCardActionFailure({ logger: log, warning: 'Card action failed', action, term: card.spelling, language: this.settings.interfaceLanguage, toast: message => this.toast(message) }, error),
+            { logger: log, warning: 'Card action failed', action, term: card.spelling, language: this.settings.interfaceLanguage, toast: message => this.toast(message) },
             done,
         );
     }

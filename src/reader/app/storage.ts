@@ -36,7 +36,7 @@ import {
     managedLocalStorage, managedSessionStorage, managedLocalStorageKeys, managedWebStorageResetKeys,
 } from './managed-web-storage';
 import {
-    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId,
+    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX, createStorageCoordinationId as createFactoryResetId, fenceStorageLeaseWrite,
     withGmStorageLeaseCore, withManagedStateEpochControlLeaseCore, type GmStorageLeaseOptions,
 } from './gm-storage-lease';
 import { isManagedStorageBackupKey } from './managed-storage-backup-policy';
@@ -168,6 +168,7 @@ async function writeManagedGmValue(
     await assertManagedStateMutationFence(getValue, epoch);
     const stored = managedStateStoredValue(value, epoch);
     const storageKey = managedStateStorageKey(key, epoch);
+    fenceStorageLeaseWrite(key);
     await setValue(storageKey, stored);
     await assertManagedStateMutationFence(getValue, epoch);
 }
@@ -187,6 +188,7 @@ async function deleteManagedGmValue(
         await assertRealmManagedStateEpoch(getValue);
         return;
     }
+    fenceStorageLeaseWrite(key);
     if (storageKey === key) {
         if (!deleteValue) throw new Error('Managed storage cannot delete its legacy value.');
         await deleteValue(key);

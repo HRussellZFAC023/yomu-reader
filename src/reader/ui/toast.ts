@@ -10,13 +10,22 @@ const TOAST_EXIT_MS = 220;
 const toastTimers = new WeakMap<HTMLElement, number>();
 
 export function showReaderToast(message: string, durationMs = 3200): void {
+    scheduleToastRemoval(readerToast(message), durationMs);
+}
+
+/** A status that stays until the returned release is called, then leaves like any toast. */
+export function holdReaderToast(message: string): () => void {
+    const toast = readerToast(message);
+    window.clearTimeout(toastTimers.get(toast));
+    toastTimers.delete(toast);
+    return () => scheduleToastRemoval(toast, 0);
+}
+
+function readerToast(message: string): HTMLElement {
     const stack = ensureReaderToastStack();
     const existing = Array.from(stack.children)
         .find((node): node is HTMLElement => node instanceof HTMLElement && node.textContent === message);
-    if (existing) {
-        scheduleToastRemoval(existing, durationMs);
-        return;
-    }
+    if (existing) return existing;
     const toast = document.createElement('div');
     toast.className = 'jpdb-reader-toast';
     toast.setAttribute('role', 'status');
@@ -28,7 +37,7 @@ export function showReaderToast(message: string, durationMs = 3200): void {
     } else {
         toast.classList.add(TOAST_VISIBLE_CLASS);
     }
-    scheduleToastRemoval(toast, durationMs);
+    return toast;
 }
 
 function ensureReaderToastStack(): HTMLElement {

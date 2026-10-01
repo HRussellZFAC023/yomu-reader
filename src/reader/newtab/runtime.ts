@@ -7,7 +7,7 @@ import { newTabAnkiClient } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { refreshAfterCardAction, reportCardActionFailure, runCardActionOperation } from '../cards/action-operation';
+import { refreshAfterCardAction, runCardActionOperation } from '../cards/action-operation';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
@@ -1859,7 +1859,7 @@ export class NewTabRuntime {
                 () => this.dismissLookupPopover(),
                 () => this.showLookupCard(card, sentence, anchor, { navigation: 'preserve', reuseActivePopover: true, autoPlay: false }),
             ),
-            error => reportCardActionFailure({ logger: log, warning: 'New tab card action failed', action, term: card.spelling, language: this.settings.interfaceLanguage, toast: message => this.toast(message) }, error),
+            { logger: log, warning: 'New tab card action failed', action, term: card.spelling, language: this.settings.interfaceLanguage, toast: message => this.toast(message) },
             done,
         );
     }

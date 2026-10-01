@@ -1,0 +1,305 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GmStorageLeaseBackend, GmStorageLeaseEnvironment } from '../../src/reader/app/gm-storage-lease';
+import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
+
+// Each tab is its own realm with its own copy of the lease module, sharing one
+// GM store. A frozen tab's storage calls stop settling until it thaws; a tab
+// that never thaws is dead. Fake timers stand in for the browser's clock.
+type LeaseRealm = typeof import('../../src/reader/app/gm-storage-lease');
+
+const LEASE = 'local-yomu-srs-deck';
+const GUARDED = 'yomu:srs-local:v2:index';
+
+interface Tab {
+    readonly realm: LeaseRealm;
+    readonly environment: GmStorageLeaseEnvironment<string>;
+    freeze(): void;
+    thaw(): void;
+}
+
+async function openTab(values: Map<string, unknown>): Promise<Tab> {
+    vi.resetModules();
+    const realm = await import('../../src/reader/app/gm-storage-lease');
+    let parked: Array<() => void> | null = null;
+    const settle = <T>(run: () => T): Promise<T> => new Promise<T>(resolve => {
+        const answer = (): void => resolve(run());
+        if (parked) parked.push(answer);
+        else queueMicrotask(answer);
+    });
+    const backend: GmStorageLeaseBackend = {
+        getValue: <T>(key: string, fallback: T) => settle(() => (values.has(key) ? structuredClone(values.get(key)) : fallback) as T),
+        setValue: (key, value) => settle(() => { values.set(key, structuredClone(value)); }),
+        deleteValue: key => settle(() => { values.delete(key); }),
+        listValues: () => settle(() => [...values.keys()]),
+    };
+    return {
+        realm,
+        environment: { backend, captureEpoch: async () => 'epoch', assertMutationFence: async () => undefined, epochToken: epoch => epoch },
+        freeze: () => { parked ??= []; },
+        thaw: () => {
+            const answers = parked ?? [];
+            parked = null;
+            answers.forEach(answer => answer());
+        },
+    };
+}
+
+/** A guarded write as managed storage makes it: fence, then write. */
+async function guardedWrite(tab: Tab, value: unknown): Promise<void> {
+    tab.realm.fenceStorageLeaseWrite(GUARDED);
+    await tab.environment.backend.setValue!(GUARDED, value);
+}
+
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>(done => { resolve = done; });
+    return { promise, resolve };
+}
+
+/**
+ * Starts a lease in a background tab whose renewal timer is throttled: it
+ * fires every `everyMs`, or never. Storage messaging still answers.
+ */
+async function startThrottled(
+    start: () => Promise<void>,
+    everyMs = Number.POSITIVE_INFINITY,
+): Promise<{ readonly done: Promise<void> }> {
+    const realSetInterval = globalThis.setInterval;
+    const throttled = vi.spyOn(globalThis, 'setInterval').mockImplementation(((callback: () => void) => (
+        Number.isFinite(everyMs) ? realSetInterval(callback, everyMs) : 0
+    )) as typeof setInterval);
+    const done = start();
+    for (let turn = 0; turn < 20; turn++) await vi.advanceTimersByTimeAsync(0);
+    throttled.mockRestore();
+    return { done };
+}
+
+describe('storage lease liveness', () => {
+    let values: Map<string, unknown>;
+    let workLeaseMs: number;
+
+    beforeEach(async () => {
+        vi.useFakeTimers();
+        values = new Map();
+        ({ STORAGE_WORK_LEASE_MS: workLeaseMs } = await import('../../src/reader/app/gm-storage-lease'));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+
+    function lease(tab: Tab, operation: () => Promise<void>, onWait?: (waiting: boolean) => void): Promise<void> {
+        return tab.realm.withGmStorageLeaseCore(LEASE, operation, {
+            leaseMs: workLeaseMs,
+            guards: key => key.startsWith('yomu:srs-local:'),
+            onWait,
+        }, tab.environment);
+    }
+
+    it('keeps a live holder in the lease across a section far longer than the lease', async () => {
+        const [first, second] = [await openTab(values), await openTab(values)];
+        const release = deferred();
+        let active = 0;
+        const entries: string[] = [];
+        const section = async (name: string, wait?: Promise<void>): Promise<void> => {
+            entries.push(`${name}:start`);
+            expect(++active).toBe(1);
+            await wait;
+            active--;
+            entries.push(`${name}:end`);
+        };
+        const holding = lease(first, () => section('first', release.promise));
+        await vi.advanceTimersByTimeAsync(0);
+        const waiting = lease(second, () => section('second'));
+
+        await vi.advanceTimersByTimeAsync(12 * workLeaseMs);
+        expect(entries).toEqual(['first:start']);
+
+        release.resolve();
+        await vi.advanceTimersByTimeAsync(100);
+        await Promise.all([holding, waiting]);
+        expect(entries).toEqual(['first:start', 'first:end', 'second:start', 'second:end']);
+    });
+
+    it('lets another tab take over a dead holder within the short lease', async () => {
+        const [dead, next] = [await openTab(values), await openTab(values)];
+        void lease(dead, () => new Promise(() => undefined)).catch(() => undefined);
+        await vi.advanceTimersByTimeAsync(0);
+        dead.freeze();
+
+        const startedAt = Date.now();
+        let enteredAt = Number.NaN;
+        const taking = lease(next, async () => { enteredAt = Date.now(); });
+        await vi.advanceTimersByTimeAsync(workLeaseMs + 100);
+        await taking;
+
+        expect(enteredAt - startedAt).toBeGreaterThan(workLeaseMs / 2);
+        expect(enteredAt - startedAt).toBeLessThanOrEqual(workLeaseMs + 100);
+    });
+
+    it('keeps a holder whose timers are throttled while its own saving renews the lease', async () => {
+        const [saving, other] = [await openTab(values), await openTab(values)];
+        const steps = Array.from({ length: 30 }, deferred);
+        let otherEntered = false;
+        const holding = await startThrottled(() => lease(saving, async () => {
+            for (const [index, step] of steps.entries()) {
+                await step.promise;
+                expect(otherEntered).toBe(false);
+                await guardedWrite(saving, { revision: index });
+            }
+        }));
+        const waiting = lease(other, async () => { otherEntered = true; });
+
+        // Each storage reply arrives over messaging, a second apart: no timer of the holder runs.
+        for (const step of steps) {
+            await vi.advanceTimersByTimeAsync(1_000);
+            step.resolve();
+        }
+        await vi.advanceTimersByTimeAsync(0);
+        await holding.done;
+        expect(values.get(GUARDED)).toEqual({ revision: 29 });
+        await vi.advanceTimersByTimeAsync(100);
+        await waiting;
+        expect(otherEntered).toBe(true);
+    });
+
+    it('keeps a holder whose renewal timer fires late but before its lease lapses', async () => {
+        const [slow, other] = [await openTab(values), await openTab(values)];
+        const release = deferred();
+        const holding = await startThrottled(() => lease(slow, () => release.promise), workLeaseMs * 0.7);
+        let otherEntered = false;
+        const waiting = lease(other, async () => { otherEntered = true; });
+
+        await vi.advanceTimersByTimeAsync(10 * workLeaseMs);
+        expect(otherEntered).toBe(false);
+        release.resolve();
+        await vi.advanceTimersByTimeAsync(100);
+        await Promise.all([holding.done, waiting]);
+        expect(otherEntered).toBe(true);
+    });
+
+    it('refuses a write from a holder whose lease lapsed while it was frozen', async () => {
+        const [frozen, next] = [await openTab(values), await openTab(values)];
+        const resumed = deferred();
+        const stale = await startThrottled(() => lease(frozen, async () => {
+            await resumed.promise;
+            await guardedWrite(frozen, 'stale snapshot');
+        }));
+        const overtaking = lease(next, () => guardedWrite(next, 'newer save'));
+        await vi.advanceTimersByTimeAsync(workLeaseMs + 100);
+        await overtaking;
+        expect(values.get(GUARDED)).toBe('newer save');
+
+        resumed.resolve();
+        await expect(stale.done).rejects.toThrow('lapsed');
+        expect(values.get(GUARDED)).toBe('newer save');
+    });
+
+    it('queues a waiter whose place lapsed again instead of letting it in beside the holder', async () => {
+        // Claims are created in this order; the newcomer's owner id sorts after the waiter's.
+        const ids = ['0-holder', 'claim-a', '1-waiter', 'claim-b', '2-newcomer', 'claim-c'];
+        vi.spyOn(crypto, 'randomUUID').mockImplementation(() => ids.shift() as ReturnType<typeof crypto.randomUUID>);
+        const [holderTab, waiterTab, newcomerTab] = [await openTab(values), await openTab(values), await openTab(values)];
+        let active = 0;
+        let mostActive = 0;
+        const section = (wait?: Promise<void>) => async (): Promise<void> => {
+            mostActive = Math.max(mostActive, ++active);
+            await wait;
+            active--;
+        };
+        const holderDone = deferred();
+        const newcomerDone = deferred();
+        const holder = lease(holderTab, section(holderDone.promise));
+        await vi.advanceTimersByTimeAsync(0);
+        const waiter = lease(waiterTab, section());
+        await vi.advanceTimersByTimeAsync(50);
+
+        // The waiting tab stalls mid-poll for longer than its claim lives, and a
+        // newcomer queues meanwhile, behind the holder only.
+        waiterTab.freeze();
+        await vi.advanceTimersByTimeAsync(workLeaseMs + 1_000);
+        const newcomer = lease(newcomerTab, section(newcomerDone.promise));
+        await vi.advanceTimersByTimeAsync(50);
+        holderDone.resolve();
+        await vi.advanceTimersByTimeAsync(50);
+        expect(active).toBe(1);
+
+        // It resumes while the newcomer holds the lease: its old ticket must not let it in.
+        waiterTab.thaw();
+        await vi.advanceTimersByTimeAsync(200);
+        expect(mostActive).toBe(1);
+        newcomerDone.resolve();
+        await vi.advanceTimersByTimeAsync(200);
+        await Promise.all([holder, newcomer, waiter]);
+        expect(mostActive).toBe(1);
+    });
+
+    it('tells a caller kept waiting by another tab, and stops when it proceeds', async () => {
+        const [holderTab, waitingTab] = [await openTab(values), await openTab(values)];
+        const release = deferred();
+        const holding = lease(holderTab, () => release.promise);
+        await vi.advanceTimersByTimeAsync(0);
+        const onWait = vi.fn();
+        const waiting = lease(waitingTab, async () => { expect(onWait).toHaveBeenLastCalledWith(false); }, onWait);
+
+        await vi.advanceTimersByTimeAsync(1_400);
+        expect(onWait).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(200);
+        expect(onWait.mock.calls).toEqual([[true]]);
+        release.resolve();
+        await vi.advanceTimersByTimeAsync(100);
+        await Promise.all([holding, waiting]);
+        expect(onWait.mock.calls).toEqual([[true], [false]]);
+
+        const quick = vi.fn();
+        await lease(waitingTab, async () => undefined, quick);
+        expect(quick).not.toHaveBeenCalled();
+    });
+
+    it('also tells a caller held up at the web lock by a same-origin tab', async () => {
+        let tail = Promise.resolve();
+        vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, callback: () => Promise<T>) => {
+            const next = tail.then(callback);
+            tail = next.then(() => undefined, () => undefined);
+            return next;
+        } } });
+        const [holderTab, waitingTab] = [await openTab(values), await openTab(values)];
+        const release = deferred();
+        const holding = lease(holderTab, () => release.promise);
+        await vi.advanceTimersByTimeAsync(0);
+        const onWait = vi.fn();
+        const waiting = lease(waitingTab, async () => undefined, onWait);
+
+        await vi.advanceTimersByTimeAsync(1_600);
+        expect(onWait.mock.calls).toEqual([[true]]);
+        release.resolve();
+        await vi.advanceTimersByTimeAsync(100);
+        await Promise.all([holding, waiting]);
+        expect(onWait.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('has managed storage refuse a guarded write from a tab whose lease lapsed while it was frozen', async () => {
+        installGmStorageFixture(values);
+        vi.stubGlobal('GM_listValues', () => [...values.keys()]);
+        const storageTab = async () => {
+            vi.resetModules();
+            return import('../../src/reader/app/storage');
+        };
+        const [frozen, next] = [await storageTab(), await storageTab()];
+        const options = { leaseMs: workLeaseMs, guards: (key: string) => key === GUARDED };
+        const resumed = deferred();
+        const stale = await startThrottled(() => frozen.withGmStorageLease(LEASE, async () => {
+            await resumed.promise;
+            await frozen.gmStorageSet(GUARDED, 'stale snapshot');
+        }, options));
+        const overtaking = next.withGmStorageLease(LEASE, () => next.gmStorageSet(GUARDED, 'newer save'), options);
+        await vi.advanceTimersByTimeAsync(workLeaseMs + 100);
+        await overtaking;
+
+        resumed.resolve();
+        await expect(stale.done).rejects.toThrow();
+        expect(await next.gmStorageGet(GUARDED, null)).toBe('newer save');
+    });
+});

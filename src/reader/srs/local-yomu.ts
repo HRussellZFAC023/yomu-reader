@@ -1,3 +1,5 @@
+import { STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
+import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
 import { withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
@@ -29,7 +31,7 @@ import type {
     YomuSrsReviewable,
     YomuSrsStatsSnapshot,
 } from './types';
-import { LocalYomuSrsStore } from './local-yomu-store';
+import { isLocalYomuSrsStorageKey, LocalYomuSrsStore } from './local-yomu-store';
 
 export type {
     AcademyVocabularyInput,
@@ -43,6 +45,12 @@ export {
 } from './local-yomu-store';
 
 let localDeckMutation = Promise.resolve();
+// A deck save is storage work only: a tab that dies mid-save blocks the others briefly.
+const LOCAL_DECK_LEASE: GmStorageLeaseOptions = {
+    leaseMs: STORAGE_WORK_LEASE_MS,
+    guards: isLocalYomuSrsStorageKey,
+    onWait: reportSaveWaitingForAnotherTab,
+};
 const localDeckMutationListeners = new Set<(cardIds: readonly string[]) => void>();
 
 export function subscribeLocalYomuSrsMutations(listener: (cardIds: readonly string[]) => void): () => void {
@@ -332,7 +340,7 @@ export class LocalYomuSrsRepository {
                 });
             }
             return value;
-        }));
+        }, LOCAL_DECK_LEASE));
         localDeckMutation = result.then(() => undefined, () => undefined);
         return result;
     }

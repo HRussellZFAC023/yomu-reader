@@ -15,14 +15,22 @@ import {
     parseSettingsIntentLedger,
     type SettingsIntentLedger,
 } from './intent-ledger';
-import { createStorageCoordinationId } from '../app/gm-storage-lease';
+import { createStorageCoordinationId, STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
+import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
 import {
     EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    isSettingsAuthorityStorageKey,
     SETTINGS_STORAGE_KEY,
 } from './settings-authority-storage-keys';
 
 export { EXPLICIT_USER_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
 export const SETTINGS_PERSISTENCE_STORAGE_LEASE = 'reader-settings-persistence';
+/** A settings save is storage work only: a tab that dies mid-save blocks the others briefly. */
+export const SETTINGS_PERSISTENCE_LEASE_OPTIONS: GmStorageLeaseOptions = {
+    leaseMs: STORAGE_WORK_LEASE_MS,
+    guards: isSettingsAuthorityStorageKey,
+    onWait: reportSaveWaitingForAnotherTab,
+};
 
 const TRANSACTION_FIELD = '__yomuSettingsPersistenceTransactionV1';
 

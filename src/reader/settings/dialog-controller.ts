@@ -2,6 +2,7 @@ import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
 import { copyText, openUrlInNewTab } from '../ui/browser';
+import { withSaveWaitStatus } from '../ui/save-wait-status';
 import { ankiScanConfidenceForModel, isAnkiFieldMappingRole } from './anki-scan-confidence';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
@@ -691,7 +692,7 @@ export class SettingsDialogController {
                 if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
                     this.dependencies.clearDictionarySourceOpenOverrides();
                 }
-                return this.saveCurrentSettings(previousSettings).then(() => {
+                return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
                     this.afterSettingsSaved(form, saveRequestId);
                 });
             })

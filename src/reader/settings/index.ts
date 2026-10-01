@@ -18,7 +18,7 @@ import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
 import { normalizeLearningTargetChosen } from './learning-target-choice';
-import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsIntentLedgerForWrite, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
+import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsIntentLedgerForWrite, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_LEASE_OPTIONS, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
 import { gmStorageDelete, gmStorageGetSharedStrict, gmStorageGetStrict, isHostedYomuOrigin, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguageWithSettings, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
@@ -1437,7 +1437,7 @@ async function persistSettings(
         const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
         await persistSettingsStorageTransaction(nextLedger, supportedSettings);
         storedSettings = supportedSettings;
-    });
+    }, SETTINGS_PERSISTENCE_LEASE_OPTIONS);
     dispatchSettingsChange(storedSettings);
 }
 

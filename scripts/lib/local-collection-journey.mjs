@@ -42,6 +42,10 @@ const REQUEST_BRIDGE = '__yomuLocalCollectionRequest';
 const GM_SYNC_BRIDGE = '__yomuLocalCollectionGmWrite';
 const CLOSE_BRIDGE = '__yomuLocalCollectionClosePage';
 const DAY_MS = 86_400_000;
+// A tab that dies mid-save holds the deck's storage lease for STORAGE_WORK_LEASE_MS
+// (5 s, src/reader/app/gm-storage-lease.ts) at most; allow the save's own work on top.
+const DEAD_TAB_SAVE_BOUND_MS = 5_000 + 3_000;
+const SAVE_WAITING_STATUS = /Waiting for another \S+ tab to finish saving/u;
 const CONTENT_TYPES = new Map([['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'],
     ['.css', 'text/css; charset=utf-8'], ['.svg', 'image/svg+xml'], ['.png', 'image/png'], ['.webmanifest', 'application/manifest+json']]);
 // A learner who has never connected an account: no JPDB/Jiten/Anki keys, the
@@ -161,11 +165,10 @@ class Journey {
 
     // A successful save is observed as a committed deck revision (the index is
     // the commit record), then its confirmation; a failed one by its message.
-    async saveFromPopup(profile, page, word, { fails = false, timeout = 12_000, whilePending } = {}) {
+    async saveFromPopup(profile, page, word, { fails = false, timeout = 12_000 } = {}) {
         const action = await this.openSaveAction(page, word);
         const revision = readDeck(profile).revision;
         await action.save.click();
-        action.pending = await whilePending?.(action.save);
         if (fails) {
             await waitForToast(page, /could not be saved/u, timeout);
             return action;
@@ -379,24 +382,32 @@ class Journey {
         assert(sameMembers(study.library.map(row => row.expression), [WORDS.read.surface, WORDS.book.surface])
             && study.counts.statsDueNow === 0, 'Study did not open the intact collection after an interrupted save', study);
 
-        // 3. Recovery: saving again completes once the closed page's storage
-        //    lease lapses, and the collection grows by exactly one word.
+        // 3. Recovery: a page that is open when another tab is cut off mid-save
+        //    saves the word at once. It says it is waiting for the other tab,
+        //    completes once that tab's short storage lease lapses (not after a
+        //    minute), and the collection grows by exactly one word.
         page = await this.openArticle(profile);
+        const recovery = await this.openSaveAction(page, WORDS.like);
+        const dying = await this.openArticle(profile);
+        const dyingClosed = new Promise(resolve => dying.once('close', resolve));
+        await installIndexWriteFault(dying, 'close');
+        await (await this.openSaveAction(dying, WORDS.like)).save.click();
+        await withTimeout(dyingClosed, 30_000, 'the other tab to reach its index commit');
+        const revision = readDeck(profile).revision;
         const started = Date.now();
-        const recovery = await this.saveFromPopup(profile, page, WORDS.like, {
-            timeout: 90_000,
-            // What the learner sees while the save waits: recorded, not judged.
-            whilePending: async save => {
-                await page.waitForTimeout(2_000);
-                return {
-                    committed: readDeck(profile).ids.includes(cardId(WORDS.like)),
-                    button: await save.evaluate(button => ({ text: button.textContent?.trim(), disabled: button.disabled, busy: button.getAttribute('aria-busy') })),
-                    messages: await page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-toast, [role="status"], [role="alert"]')].map(node => node.textContent?.trim()).filter(Boolean)),
-                };
-            },
-        });
+        await recovery.save.click();
+        const waitingStatus = await waitForToast(page, SAVE_WAITING_STATUS, DEAD_TAB_SAVE_BOUND_MS)
+            .then(() => toastTexts(page), () => []);
+        await waitUntil(() => readDeck(profile).revision > revision, DEAD_TAB_SAVE_BOUND_MS, 'the save after the other tab closed');
         const recoveryMs = Date.now() - started;
+        await waitForToast(page, /Added to Academy/u);
+        const statusCleared = await page.waitForFunction(source => ![...document.querySelectorAll('.jpdb-reader-toast')]
+            .some(node => new RegExp(source, 'u').test(node.textContent ?? '')), SAVE_WAITING_STATUS.source, { timeout: 2_000 })
+            .then(() => true, () => false);
         await page.close();
+        assert(waitingStatus.some(text => SAVE_WAITING_STATUS.test(text)),
+            'The save held up by another tab did not say it was waiting', { waitingStatus });
+        assert(statusCleared, 'The waiting status stayed after the save completed');
         const recovered = readDeck(profile);
         assert(recovered.ids.length === 3 && recovered.cards[cardId(WORDS.like)]?.reviewEnabled === false && !recovered.torn.length,
             'Saving after interrupted writes did not add exactly one unscheduled word', recovered);
@@ -410,7 +421,7 @@ class Journey {
             throwOnIndexWrite: { ids: afterThrow.ids, orphanIds: afterThrow.orphanIds, torn: afterThrow.torn },
             closeBeforeIndexCommit: { ids: afterClose.ids, orphanIds: afterClose.orphanIds, torn: afterClose.torn, study },
             recoverySaveMs: recoveryMs,
-            recoveryPendingAfter2s: recovery.pending,
+            recoveryWaitingStatus: waitingStatus,
             finalStudy,
         };
     }
@@ -605,6 +616,10 @@ async function waitUntil(condition, timeout, label) {
         if (Date.now() > deadline) throw new Error(`Timed out ${label}`);
         await new Promise(resolve => setTimeout(resolve, 50));
     }
+}
+
+function toastTexts(page) {
+    return page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-toast')].map(node => node.textContent?.trim() ?? ''));
 }
 
 async function waitForToast(page, pattern, timeout = 12_000) {

@@ -14,16 +14,22 @@ import {
 } from './local-yomu-deck';
 
 const LEGACY_DECK_KEY = 'yomu:srs-local:v1';
-const DECK_INDEX_KEY = 'yomu:srs-local:v2:index';
-const CARD_KEY_PREFIX = 'yomu:srs-local:v2:card:';
-const TOMBSTONE_KEY_PREFIX = 'yomu:srs-local:v2:tombstone:';
+const DECK_KEY_PREFIX = 'yomu:srs-local:v2:';
+const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
+const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 
 registerManagedState({
     owner: 'srs/local-yomu-store',
     kind: 'gm',
-    prefix: 'yomu:srs-local:v2:',
+    prefix: DECK_KEY_PREFIX,
     enumerate: enumerateLocalYomuSrsStorageKeys,
 });
+
+/** Every key a deck write touches: the deck lease guards exactly these. */
+export function isLocalYomuSrsStorageKey(key: string): boolean {
+    return key === LEGACY_DECK_KEY || key.startsWith(DECK_KEY_PREFIX);
+}
 
 interface StoredYomuSrsIndex {
     readonly version: 2;
