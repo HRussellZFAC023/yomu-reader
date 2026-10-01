@@ -7,7 +7,7 @@ import { publishSettingsChange } from '../../src/reader/settings/settings-change
 import { ReaderApp } from '../../src/reader/app/main';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
-import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
+import { applyReaderTheme, applyResolvedReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshContrastForChangedWords, refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, normalizeReaderSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -1167,6 +1167,29 @@ describe('reader theme', () => {
             });
         });
         expect(root.style.getPropertyValue('--jpdb-reader-pitch-kifuku-readable')).toBe('');
+    });
+
+    // theme:'auto' computes the readable colours against whatever surface is
+    // live (an OS dark preference, with no class yet); an ordinary light page
+    // then resolves the light class. The colours must follow it, or "Add to
+    // deck +" kept the pale dark-theme green on the light popup (1.7:1).
+    it('re-derives readable colours when an ordinary host resolves the auto theme', () => {
+        const settings = { ...DEFAULT_SETTINGS, theme: 'auto' as const };
+        const root = document.documentElement;
+        applyReaderTheme(settings);
+        const lightSurfaces = ['#fbfcfe', '#f4f7fa', '#e8edf3'];
+        const accent = () => root.style.getPropertyValue('--jpdb-reader-accent-readable');
+        expect(contrastRatio(accent(), lightSurfaces[0])).toBeLessThan(4.5);
+
+        applyResolvedReaderTheme(settings, 'light', root);
+
+        expect(root.classList.contains('jpdb-reader-theme-light')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-theme-dark')).toBe(false);
+        for (const variable of ['--jpdb-reader-accent-readable', '--jpdb-reader-state-new-readable', '--jpdb-reader-pitch-heiban-readable']) {
+            lightSurfaces.forEach(surface => {
+                expect(contrastRatio(root.style.getPropertyValue(variable), surface), `${variable} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+            });
+        }
     });
 
     it('defaults popup Japanese text to the jpdb.io font stack', () => {

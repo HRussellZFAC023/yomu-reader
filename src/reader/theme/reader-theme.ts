@@ -137,6 +137,22 @@ function applyReaderSubtitleSettings(settings: ReaderSettings, root: HTMLElement
     root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
 }
 
+/**
+ * Applies the light or dark theme an ordinary host resolved for theme:'auto'.
+ * The readable accent, word-state and pitch colours are pinned inline on the
+ * root for the surface they were computed against, so switching the class
+ * alone left them readable only on the previous theme: an OS dark preference
+ * over a light page painted pale "Add to deck +" text on the light popup.
+ */
+export function applyResolvedReaderTheme(settings: ReaderSettings, theme: 'dark' | 'light', root: HTMLElement): void {
+    const other = theme === 'dark' ? 'jpdb-reader-theme-light' : 'jpdb-reader-theme-dark';
+    if (root.classList.contains(`jpdb-reader-theme-${theme}`) && !root.classList.contains(other)) return;
+    root.classList.add(`jpdb-reader-theme-${theme}`);
+    root.classList.remove(other);
+    applyReaderAccentColor(settings.accentColor, root);
+    applyReaderWordColors(settings, root);
+}
+
 export function applyReaderAccentColor(color: string, root = document.documentElement): void {
     const accentColor = sanitizeAccentColor(color);
     root.style.setProperty('--jpdb-reader-accent', accentColor, 'important');

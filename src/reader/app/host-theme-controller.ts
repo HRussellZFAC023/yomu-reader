@@ -9,7 +9,7 @@ import {
     observeHostTheme,
     type HostTheme,
 } from '../theme/host-theme';
-import { applyReaderTheme } from '../theme/reader-theme';
+import { applyReaderTheme, applyResolvedReaderTheme } from '../theme/reader-theme';
 import { HOST_THEME_ENFORCE_STEPS, HOST_THEME_ENFORCE_STEP_MS } from './main-runtime-support';
 import { isYomuHostedPassivePage } from './pages';
 import type { ReaderSettings } from './types';
@@ -77,7 +77,7 @@ export class HostThemeController {
 
     private syncAuthoritative(settings: ReaderSettings): void {
         const hostTheme = detectHostTheme();
-        this.applyClasses(hostTheme);
+        this.applyClasses(hostTheme, settings);
         if (settings !== this.options.getSettings() || settings.theme === 'auto' || settings.theme === hostTheme) return;
         this.options.adoptTheme(hostTheme);
         this.options.publishThemeChange();
@@ -91,14 +91,12 @@ export class HostThemeController {
 
     private applyAmbient(settings: ReaderSettings): void {
         if (settings.theme === 'dark' || settings.theme === 'light') return;
-        this.applyClasses(documentBackgroundLooksDark() ? 'dark' : 'light');
+        this.applyClasses(documentBackgroundLooksDark() ? 'dark' : 'light', settings);
     }
 
-    applyClasses(theme: HostTheme): void {
+    applyClasses(theme: HostTheme, settings = this.options.getSettings()): void {
         const root = document.documentElement;
-        if (!root) return;
-        root.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
-        root.classList.toggle('jpdb-reader-theme-light', theme === 'light');
+        if (root) applyResolvedReaderTheme(settings, theme, root);
     }
 
     private handleChange(hostTheme: HostTheme): void {
