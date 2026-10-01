@@ -6,6 +6,7 @@ import type { ApiSrsProviderView } from '../cards/srs-providers';
 import type { PopoverReviewControls } from '../cards/popover-renderer';
 import { isTargetLanguageText } from '../lookup/target-text';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
+import { newTabText } from './i18n';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import {
@@ -156,18 +157,17 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
 // Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
 function newTabLookupProviderStatusLabel(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
     if (!provider?.hasApiKey) return '';
-    if (provider.id === 'yomu-local' && card.source !== 'yomu-local' && card.reviewSource !== 'yomu-local') return '';
-    return `${provider.label} ${lookupStateLabel(state, settings.interfaceLanguage)}`;
+    const academy = provider.id === 'yomu-local';
+    if (academy && card.source !== 'yomu-local' && card.reviewSource !== 'yomu-local') return '';
+    // Academy keeps a word saved but not in review "in deck"; Library and Stats call it "Saved".
+    const label = academy && state === 'in-deck' ? newTabText(settings.interfaceLanguage, 'savedWord') : cardStateLabel(state, settings.interfaceLanguage);
+    return `${provider.label} ${label}`;
 }
 
 function newTabLookupAnkiStatusLabel(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
     if (!settings.ankiEnabled) return '';
     if (ankiLookup.trusted === false && !ankiLookup.primary) return '';
-    return `Anki ${lookupStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
-}
-
-function lookupStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
-    return cardStateLabel(state, language);
+    return `Anki ${cardStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
 }
 
 function renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grades: Array<[JPDBGrade, string]>, context: { profile: ReviewGradeProfile; settings: ReaderSettings; hidden: boolean }, reviewGroup?: symbol): string {
