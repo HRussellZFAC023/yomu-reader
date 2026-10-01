@@ -1,6 +1,7 @@
 import type { AnkiLookupResult } from '../anki/index';
 import { escapeHtml } from '../dom/index';
-import { cardStateLabel, providerCardStateLabel, uiText } from '../app/i18n';
+import { cardStateLabel, uiText } from '../app/i18n';
+import { providerCardStateLabel } from '../app/provider-state-label';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { ApiSrsProviderView } from '../cards/srs-providers';
 import type { PopoverReviewControls } from '../cards/popover-renderer';

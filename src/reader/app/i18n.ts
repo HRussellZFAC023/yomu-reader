@@ -2465,11 +2465,6 @@ export function cardStateLabel(state: string, language: InterfaceLanguage, fallb
     return key ? uiText(language, key) : fallback;
 }
 
-/** A provider's state for a word: Academy keeps a saved word "in deck" with no schedule, which Library and Stats call "Saved". */
-export function providerCardStateLabel(providerId: string, state: string, language: InterfaceLanguage): string {
-    return providerId === 'yomu-local' && state === 'in-deck' ? uiText(language, 'savedWord') : cardStateLabel(state, language);
-}
-
 export function audioSourceLabel(language: InterfaceLanguage, type: AudioSourceType): string {
     return uiText(language, AUDIO_SOURCE_LABEL_KEYS[type]);
 }
