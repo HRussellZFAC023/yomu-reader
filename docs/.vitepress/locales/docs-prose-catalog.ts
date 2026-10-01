@@ -4692,6 +4692,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Study's Stats now count every Academy word you are reviewing in \"Cards\" and \"Card distribution\", not only the ones due now, so reviewing a word no longer drops the count to 0. Words saved to Library are counted once you choose \"Add to review\".": 'Studyの統計の「カード」と「カード分布」で、期限の来たものだけでなく、復習中のAcademyの単語をすべて数えるようになりました。単語を復習しても数が0に戻らなくなりました。単語帳に保存した単語は、「復習に追加」を選ぶと数に入ります。',
     'Saving a word to the Yomu deck now also keeps the title of the page you found it on, alongside its sentence and link, and backups keep it too.': 'よむデッキに単語を保存すると、例文とリンクに加えて、見つけたページのタイトルも保存されるようになりました。バックアップにも含まれます。',
     'Leaving Stats while it is still loading no longer lets it replace the Library or Study view you moved to.': '統計の読み込み中に別の画面へ移っても、移った先の単語帳やStudyの画面が統計に置き換えられなくなりました。',
+    'Yomu Gaming: pressing the capture shortcut before you have chosen a learning language now always opens the language choice. If the window was still loading, it used to open without it.': 'Yomu Gaming：学習言語を選ぶ前にキャプチャのショートカットを押すと、必ず言語の選択が開くようになりました。以前はウィンドウの読み込み中だと、言語の選択が開かないことがありました。',
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

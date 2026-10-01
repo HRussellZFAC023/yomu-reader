@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.4] - 2026-10-01
+
+### Fixed
+
+- Yomu Gaming: pressing the capture shortcut before you have chosen a learning language now always opens the language choice. If the window was still loading, it used to open without it.
+
 ## [2.0.3] - 2026-10-01
 
 ### Fixed
