@@ -164,7 +164,8 @@
   white-space: nowrap;
 }
 .jpdb-reader-example-count {
-  color: var(--jpdb-reader-faint);
+  /* Text, so muted rather than faint: faint is under 4.5:1 in both themes. */
+  color: var(--jpdb-reader-muted);
   font-size: 10.5px;
   font-weight: 850;
   line-height: 1.2;
