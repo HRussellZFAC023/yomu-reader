@@ -258,7 +258,10 @@ async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
     const save = popover.locator('.jpdb-reader-collect [data-action="add-default"]');
     assert(actions.save && await save.isVisible(), 'A Bunpro-only learner had no visible "Add to deck +" for a word Bunpro can take', actions);
     await save.click();
-    await popover.page().waitForFunction(() => /Bunproに追加しました/u.test(document.body.textContent ?? ''), null, { timeout: 10_000 });
+    // The page can read the confirmation, so it says where the word went no more than the button does.
+    await popover.page().waitForFunction(() => /デッキに追加しました/u.test(document.body.textContent ?? ''), null, { timeout: 10_000 });
+    const toasts = await popover.page().locator('.jpdb-reader-toast').allTextContents();
+    assert(!toasts.some(text => /bunpro/iu.test(text)), 'The ordinary-page save named the learner\'s collection service in its confirmation', toasts);
     await popover.page().waitForTimeout(600);
     const writes = bunproWrites();
     assert(writes.length === 1 && writes[0].path === '/api/frontend/reviews/update_via_action_type'
