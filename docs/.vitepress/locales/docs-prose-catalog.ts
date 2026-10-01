@@ -4719,6 +4719,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "In Settings → \"Sources\", the help line about metadata dictionaries appears in Japanese when the interface is in Japanese.": "「設定」→「ソース」のメタデータ辞書に関する説明が、日本語表示のときは日本語で表示されるようになりました。",
     "In Japanese, the ⇄ button in a Study lookup popup is now named \"採点先を切り替える\" for its tooltip and screen readers, and its list of services \"採点先\". Both were in English before.": "日本語表示で、学習ページのルックアップのポップアップにある「⇄」ボタンの名前とツールチップが「採点先を切り替える」に、採点先の一覧の名前が「採点先」になりました。以前は英語のままでした。",
     "A web page that takes and keeps the lock Yomu uses for saving can no longer stop your word or Settings saves on that page from finishing. Yomu waits a few seconds, then saves anyway, still one tab at a time.": "よむが保存に使うロックをWebページが握ったまま離さなくても、そのページでの単語や設定の保存が終わらなくなることはなくなりました。数秒待ってから、ほかのタブと順番を守って保存します。",
+    "Words you save in another tab, for example while reading a page, now show in Study's \"Library\" and \"Stats\" without reloading Study.": "別のタブ（たとえば読んでいるページ）で保存した単語が、学習ページを再読み込みしなくても「単語帳」と「統計」に表示されるようになりました。",
+    "In Study's \"Library\", a word with a long meaning no longer pushes \"Add to review\" past the edge of the page, and \"Add to review\" now looks like a button.": "学習ページの「単語帳」で、意味の長い単語があっても「復習に追加」がページの端からはみ出さなくなり、ボタンとして表示されるようになりました。",
+    "The lookup popup on yomureader.com's own pages now calls a saved Academy word \"Saved\", as \"Library\" and \"Stats\" do, instead of \"In deck\".": "yomureader.com のページのルックアップのポップアップでも、保存した Academy の単語を「単語帳」や「統計」と同じく「保存済み」と表示するようになりました。以前は「デッキ内」と表示されていました。",
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

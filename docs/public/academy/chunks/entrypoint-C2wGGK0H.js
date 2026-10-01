@@ -34049,6 +34049,7 @@ function nonNegativeInteger$1(value) {
 const LEGACY_DECK_KEY = "yomu:srs-local:v1";
 const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
 const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+const LOCAL_YOMU_SRS_INDEX_KEY = DECK_INDEX_KEY;
 const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
 const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 registerManagedState({
@@ -34180,6 +34181,16 @@ const localDeckMutationListeners = /* @__PURE__ */ new Set();
 function subscribeLocalYomuSrsMutations(listener) {
   localDeckMutationListeners.add(listener);
   return () => localDeckMutationListeners.delete(listener);
+}
+function subscribeAcademyDeckChanges(inThisTab, elsewhere) {
+  const stopLocal = subscribeLocalYomuSrsMutations(inThisTab);
+  const stopShared = subscribeToStoredValueChanges(LOCAL_YOMU_SRS_INDEX_KEY, (_index, source2) => {
+    if (source2.remote) elsewhere();
+  });
+  return () => {
+    stopLocal();
+    stopShared();
+  };
 }
 class LocalYomuSrsRepository {
   constructor(now = () => Date.now()) {
@@ -39408,7 +39419,9 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  // An Academy word kept without a schedule (Library, Stats and the popups).
+  savedWord: "Saved"
 };
 const JA = {
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
@@ -39427,7 +39440,8 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。"
+  addedToYomuLocal: "Academyに追加しました。",
+  savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
 const EN_OCR_STATUS_COPY = {
@@ -266345,7 +266359,6 @@ const NEW_TAB_COPY = {
     statsCardsPerMinute: "cards/min",
     statsEstimatedDueTime: "Due estimate",
     statsCards: "Cards",
-    savedWord: "Saved",
     statsSavedDetail: "Add to review in Library",
     statsDailyActivity: "Daily activity",
     statsMonthlyHeatmap: "Monthly heatmap",
@@ -266646,7 +266659,6 @@ const JA_NEW_TAB_COPY = {
   statsCardsPerMinute: "カード/分",
   statsEstimatedDueTime: "期限分の目安",
   statsCards: "カード",
-  savedWord: "保存済み",
   statsSavedDetail: "単語帳で復習に追加できます",
   statsDailyActivity: "日別アクティビティ",
   statsMonthlyHeatmap: "月別ヒートマップ",
@@ -267059,7 +267071,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-VWC3qq1B.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-B_MXoN2K.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -273416,24 +273428,24 @@ export {
   bytesToBase64 as cd,
   speakerIcon as ce,
   renderedWordPrivateAttributesForState as cf,
-  gmStorageGetSync as cg,
-  gmStorageSetSync as ch,
-  isNonNullObject as ci,
-  uniqueNonEmptyStrings$1 as cj,
-  pitchNumberForReading as ck,
-  pitchPatternFromPosition as cl,
-  KANA as cm,
-  COMBINING_KANA_MARKS as cn,
-  collectPitchVariants as co,
-  splitMorae as cp,
-  pitchLevelsForDisplay as cq,
-  pitchClassNameForPattern as cr,
-  learningTargetModuleFor as cs,
-  defaultLearningTargetModule as ct,
-  languageDisplayName as cu,
-  resolveUiLanguage as cv,
-  primaryCardState as cw,
-  cardStateLabel as cx,
+  cardStateLabel as cg,
+  gmStorageGetSync as ch,
+  gmStorageSetSync as ci,
+  isNonNullObject as cj,
+  uniqueNonEmptyStrings$1 as ck,
+  pitchNumberForReading as cl,
+  pitchPatternFromPosition as cm,
+  KANA as cn,
+  COMBINING_KANA_MARKS as co,
+  collectPitchVariants as cp,
+  splitMorae as cq,
+  pitchLevelsForDisplay as cr,
+  pitchClassNameForPattern as cs,
+  learningTargetModuleFor as ct,
+  defaultLearningTargetModule as cu,
+  languageDisplayName as cv,
+  resolveUiLanguage as cw,
+  primaryCardState as cx,
   ConcurrencyGate as cy,
   KANA_ONLY_RUN_RE as cz,
   tlCatalog as d,
@@ -273448,9 +273460,9 @@ export {
   commitManagedStateResetEpoch as d7,
   clearFactoryResetSignal as d8,
   managedStateResetEpochMayHaveCommitted as d9,
-  collectFragmentTextTargetsIn as dA,
-  collectFormControlTextTargetsIn as dB,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as dC,
+  collectFormControlTextTargetsIn as dA,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as dB,
+  newTabText as dC,
   CARD_STATE_LABEL_KEYS as dD,
   readKanjiCommandCapability as dE,
   dispatchPrivateCommand as dF,
@@ -273490,16 +273502,16 @@ export {
   renderImmersionSearchLinksHtml as dm,
   renderTokensToHtml as dn,
   readPrivateReviewTarget as dp,
-  newTabText as dq,
-  runLimited as dr,
-  isManagedStorageKey as ds,
-  managedLocalStorage as dt,
-  readJitenKanjiWordsCommandCapability as du,
-  bindPrivateCommandCapability as dv,
-  parseHtmlDocument as dw,
-  isCurrentScanTarget as dx,
-  applyTokensToScanTarget as dy,
-  unwrapReaderWords as dz,
+  runLimited as dq,
+  isManagedStorageKey as dr,
+  managedLocalStorage as ds,
+  readJitenKanjiWordsCommandCapability as dt,
+  bindPrivateCommandCapability as du,
+  parseHtmlDocument as dv,
+  isCurrentScanTarget as dw,
+  applyTokensToScanTarget as dx,
+  unwrapReaderWords as dy,
+  collectFragmentTextTargetsIn as dz,
   esCatalog as e,
   COPY_LOOKUP_LINK as e$,
   withGmStorageLease as e0,
@@ -273507,7 +273519,7 @@ export {
   DEFAULT_SETTINGS as e2,
   renderImmersionSearchLinks as e3,
   createStudySessionClock as e4,
-  subscribeLocalYomuSrsMutations as e5,
+  subscribeAcademyDeckChanges as e5,
   readJpdbKanjiCommandCapability as e6,
   isNewTabCopyKey as e7,
   nextExplicitUiLanguage as e8,
@@ -273566,7 +273578,7 @@ export {
   effectiveReaderTextColorSource as ey,
   effectiveReaderColorSource as ez,
   shCatalog as f,
-  ankiIcon as f$,
+  loadSettings as f$,
   exportManagedStoredValues as f0,
   RETIRED_SETTINGS_STORAGE_KEYS as f1,
   SETTINGS_STORAGE_KEY as f2,
@@ -273580,30 +273592,30 @@ export {
   gmPrivateStorageDelete as fA,
   gmPrivateStorageGet as fB,
   subscribeToSettingsChanges as fC,
-  LocalYomuSrsRepository as fD,
-  unwrapProfileKey as fE,
-  parseAcademyPairingTicket as fF,
-  wrapProfileKey as fG,
-  decryptProfileEvent as fH,
-  encryptProfileEvent as fI,
-  mergeStoredYomuSrsDecks as fJ,
-  settingsPanelHash as fK,
-  readTrustedYomuUrl as fL,
-  isPrivilegedYomuLocalDevelopmentOrigin as fM,
-  settingsPanelFromHash as fN,
-  SETTINGS_TITLE as fO,
-  learningTargetRosterEntry as fP,
-  NEW_TAB_VERSION_URL as fQ,
-  NO_EXPLICIT_USER_CHOICE as fR,
-  normalizeAudioSubSources as fS,
-  publishSettingsChange as fT,
-  mergeApiCredentialValues as fU,
-  configureLogger as fV,
-  localeDirection as fW,
-  subscribeToSettingsStorageChanges as fX,
-  isHostedYomuOrigin as fY,
-  loadSettings as fZ,
-  copyIcon as f_,
+  subscribeLocalYomuSrsMutations as fD,
+  LocalYomuSrsRepository as fE,
+  unwrapProfileKey as fF,
+  parseAcademyPairingTicket as fG,
+  wrapProfileKey as fH,
+  LOCAL_YOMU_SRS_INDEX_KEY as fI,
+  decryptProfileEvent as fJ,
+  encryptProfileEvent as fK,
+  mergeStoredYomuSrsDecks as fL,
+  settingsPanelHash as fM,
+  readTrustedYomuUrl as fN,
+  isPrivilegedYomuLocalDevelopmentOrigin as fO,
+  settingsPanelFromHash as fP,
+  SETTINGS_TITLE as fQ,
+  learningTargetRosterEntry as fR,
+  NEW_TAB_VERSION_URL as fS,
+  NO_EXPLICIT_USER_CHOICE as fT,
+  normalizeAudioSubSources as fU,
+  publishSettingsChange as fV,
+  mergeApiCredentialValues as fW,
+  configureLogger as fX,
+  localeDirection as fY,
+  subscribeToSettingsStorageChanges as fZ,
+  isHostedYomuOrigin as f_,
   audioSourceLabel as fa,
   lookupSiteComponents as fb,
   DEFAULT_POPUP_FONT_FAMILY as fc,
@@ -273631,17 +273643,19 @@ export {
   LEARNER_LANGUAGES as fy,
   PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as fz,
   getPitchClass as g,
-  createYomuLocalSrsAdapter as g0,
-  yomuOnboardingController as g1,
-  clearManagedBrowserCaches as g2,
-  unregisterManagedServiceWorkers as g3,
-  setRenderedWordCardIdentity as g4,
-  renderedWordCardKey as g5,
-  renderedWordsInRoot as g6,
-  renderedWordElementKey as g7,
-  applyInterfaceLocaleToRoot as g8,
-  applyInterfaceLocaleToDocument as g9,
-  ensureManagedWebStorageCurrent as ga,
+  copyIcon as g0,
+  ankiIcon as g1,
+  createYomuLocalSrsAdapter as g2,
+  yomuOnboardingController as g3,
+  clearManagedBrowserCaches as g4,
+  unregisterManagedServiceWorkers as g5,
+  setRenderedWordCardIdentity as g6,
+  renderedWordCardKey as g7,
+  renderedWordsInRoot as g8,
+  renderedWordElementKey as g9,
+  applyInterfaceLocaleToRoot as ga,
+  applyInterfaceLocaleToDocument as gb,
+  ensureManagedWebStorageCurrent as gc,
   roCatalog as h,
   plCatalog as i,
   faCatalog as j,

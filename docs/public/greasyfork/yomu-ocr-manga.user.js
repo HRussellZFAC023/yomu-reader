@@ -8631,7 +8631,9 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  // An Academy word kept without a schedule (Library, Stats and the popups).
+  savedWord: "Saved"
 };
 const JA = {
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
@@ -8650,7 +8652,8 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。"
+  addedToYomuLocal: "Academyに追加しました。",
+  savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
 const EN_OCR_STATUS_COPY = {

@@ -1063,6 +1063,8 @@
 
 .jpdb-reader-newtab-search-results {
   display: grid;
+  /* A row's unwrapped gloss must not widen the column past the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   width: 100%;
   min-width: 0;
@@ -5595,6 +5597,22 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-browse-item .jpdb-reader-newtab-browse-row {
   flex: 1;
+  min-width: 0;
+}
+
+/* A saved word's "Add to review", styled as Library's other row controls. */
+
+.jpdb-reader-newtab-browse-start-review {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--jpdb-reader-accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: var(--jpdb-reader-accent-readable);
+  font: 600 12px/1 var(--jpdb-reader-font);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 @media (pointer: coarse) {

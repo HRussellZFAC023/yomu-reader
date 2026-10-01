@@ -4611,7 +4611,9 @@
     yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
     yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
     yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-    addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+    addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+    // An Academy word kept without a schedule (Library, Stats and the popups).
+    savedWord: "Saved"
   };
   const JA = {
     collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
@@ -4630,7 +4632,8 @@
     yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
     yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
     yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-    addedToYomuLocal: "Academyに追加しました。"
+    addedToYomuLocal: "Academyに追加しました。",
+    savedWord: "保存済み"
   };
   const COLLECTION_COPY = { en: EN, ja: JA };
   const EN_OCR_STATUS_COPY = {
@@ -70110,6 +70113,7 @@ ${reading}`);
   const LEGACY_DECK_KEY = "yomu:srs-local:v1";
   const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
   const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+  const LOCAL_YOMU_SRS_INDEX_KEY = DECK_INDEX_KEY;
   const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
   const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
   registerManagedState({
@@ -70241,6 +70245,16 @@ ${reading}`);
   function subscribeLocalYomuSrsMutations(listener) {
     localDeckMutationListeners.add(listener);
     return () => localDeckMutationListeners.delete(listener);
+  }
+  function subscribeAcademyDeckChanges(inThisTab, elsewhere) {
+    const stopLocal = subscribeLocalYomuSrsMutations(inThisTab);
+    const stopShared = subscribeToStoredValueChanges(LOCAL_YOMU_SRS_INDEX_KEY, (_index, source) => {
+      if (source.remote) elsewhere();
+    });
+    return () => {
+      stopLocal();
+      stopShared();
+    };
   }
   class LocalYomuSrsRepository {
     constructor(now = () => Date.now()) {
@@ -84801,7 +84815,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.0.5".trim() ? "2.0.5".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.6".trim() ? "2.0.6".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -127230,7 +127244,6 @@ ${reading}`);
   const DEVICE_STATE_KEY = "yomu:private:academy-device:v1";
   const PENDING_CLAIM_KEY = "yomu:private:academy-device-pending:v1";
   const EVENT_PURPOSE = "reader-srs-event";
-  const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v2:index";
   const PUSH_BATCH_SIZE = 20;
   let pending = Promise.resolve(void 0);
   let scheduled = false;
@@ -127335,7 +127348,7 @@ ${reading}`);
       void enqueue(() => markDirtyCards(cardIds));
       scheduleAcademyReaderSrsSync();
     });
-    subscribeToStoredValueChanges(LOCAL_DECK_STORAGE_KEY, reconcileAndSchedule);
+    subscribeToStoredValueChanges(LOCAL_YOMU_SRS_INDEX_KEY, reconcileAndSchedule);
     window.addEventListener("online", scheduleAcademyReaderSrsSync);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") scheduleAcademyReaderSrsSync();
@@ -134101,6 +134114,9 @@ ${reading}`);
       return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$2(pitchClass)}">${content}</span>`;
     }).join("");
   }
+  function providerCardStateLabel(providerId, state2, language2) {
+    return providerId === "yomu-local" && state2 === "in-deck" ? uiText(language2, "savedWord") : cardStateLabel(state2, language2);
+  }
   function pickTokenForSelection(tokens = [], selected) {
     const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
     if (exact) {
@@ -134771,7 +134787,7 @@ ${reading}`);
   }
   function renderPopoverProviderMeta(card, provider, state2, settings, trusted) {
     if (!provider || !popoverProviderStatusIsVisible(card, provider, trusted)) return "";
-    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$2(provider.label)} ${escapeHtml$2(cardStateLabel(state2, settings.interfaceLanguage))}</span>`;
+    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$2(provider.label)} ${escapeHtml$2(providerCardStateLabel(provider.id, state2, settings.interfaceLanguage))}</span>`;
   }
   function popoverProviderStatusIsVisible(card, provider, trusted) {
     if (!trusted || !provider.hasApiKey) return false;
@@ -138553,7 +138569,6 @@ ${component.reading}`;
       statsCardsPerMinute: "cards/min",
       statsEstimatedDueTime: "Due estimate",
       statsCards: "Cards",
-      savedWord: "Saved",
       statsSavedDetail: "Add to review in Library",
       statsDailyActivity: "Daily activity",
       statsMonthlyHeatmap: "Monthly heatmap",
@@ -138854,7 +138869,6 @@ ${component.reading}`;
     statsCardsPerMinute: "カード/分",
     statsEstimatedDueTime: "期限分の目安",
     statsCards: "カード",
-    savedWord: "保存済み",
     statsSavedDetail: "単語帳で復習に追加できます",
     statsDailyActivity: "日別アクティビティ",
     statsMonthlyHeatmap: "月別ヒートマップ",
@@ -139175,13 +139189,10 @@ ${component.reading}`;
   }
   function newTabLookupProviderStatusLabel(card, provider, settings, state2) {
     if (!provider?.hasApiKey || !providerOwnsCard(provider, card)) return "";
-    return `${provider.label} ${providerStateLabel(provider, state2, settings.interfaceLanguage)}`;
+    return `${provider.label} ${providerCardStateLabel(provider.id, state2, settings.interfaceLanguage)}`;
   }
   function providerOwnsCard(provider, card) {
     return provider.id !== "yomu-local" || card.source === "yomu-local" || card.reviewSource === "yomu-local";
-  }
-  function providerStateLabel(provider, state2, language2) {
-    return provider.id === "yomu-local" && state2 === "in-deck" ? newTabText(language2, "savedWord") : cardStateLabel(state2, language2);
   }
   function newTabLookupAnkiStatusLabel(ankiLookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -140169,7 +140180,7 @@ ${entry.url}`),
   }
   function renderBrowseChips(cards, active, language2, allLabel) {
     const counts = browseStateCounts(cards);
-    const label = (state2) => state2 === "saved" ? newTabText(language2, "savedWord") : cardStateLabel(state2, language2);
+    const label = (state2) => state2 === "saved" ? uiText(language2, "savedWord") : cardStateLabel(state2, language2);
     const chip = (filter, label2, count, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip",
@@ -140316,12 +140327,13 @@ ${entry.url}`),
       ),
       startReview && isSavedOnlyNewTabCard(card) ? el("button", {
         type: "button",
+        class: "jpdb-reader-newtab-browse-start-review",
         dataset: { newtabAction: newTabAction("browse-start-review"), browseCardKey: cardKey(card) }
       }, startReview) : null
     );
   }
   function browseStateLabel(card, state2, language2) {
-    return isSavedOnlyNewTabCard(card) ? newTabText(language2, "savedWord") : cardStateLabel(state2, language2);
+    return isSavedOnlyNewTabCard(card) ? uiText(language2, "savedWord") : cardStateLabel(state2, language2);
   }
   function browseReading(card) {
     return card.reading && card.reading !== card.spelling ? card.reading : "";
@@ -150274,7 +150286,7 @@ ${options.version}`;
         void this.applyExternalState(state2);
       });
       this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate((status) => this.applyJpdbBridgeStatus(status));
-      this.unsubscribeAcademyMutations = subscribeLocalYomuSrsMutations(() => this.refreshStatsAfterAcademyMutation());
+      this.unsubscribeAcademyMutations = subscribeAcademyDeckChanges(() => this.refreshStatsAfterAcademyMutation(), () => this.refreshAfterAcademySaveElsewhere());
       this.kanjiDetailSource = new KanjiDetailSource({
         getSettings: () => this.dependencies.getSettings(),
         jpdbKanji: this.dependencies.jpdbKanji,
@@ -156189,6 +156201,12 @@ ${options.version}`;
       this.statsController.reset();
       const root = this.currentRoot();
       if (root && this.state.route === "stats") void this.loadStatsInto(root);
+    }
+    // A save in another tab: Study's Academy words, Library and Stats load again.
+    refreshAfterAcademySaveElsewhere() {
+      this.invalidateSourceResultCache("yomu-local");
+      this.refreshBrowseAfterCardMutation();
+      this.refreshStatsAfterAcademyMutation();
     }
     dropStaleBrowsePool() {
       if (this.browsePoolStale) this.invalidateBrowsePool();

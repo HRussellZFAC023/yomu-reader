@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.6] - 2026-10-01
+
+### Fixed
+
+- Words you save in another tab, for example while reading a page, now show in Study's "Library" and "Stats" without reloading Study.
+- In Study's "Library", a word with a long meaning no longer pushes "Add to review" past the edge of the page, and "Add to review" now looks like a button.
+- The lookup popup on yomureader.com's own pages now calls a saved Academy word "Saved", as "Library" and "Stats" do, instead of "In deck".
+
 ## [2.0.5] - 2026-10-01
 
 ### Changed

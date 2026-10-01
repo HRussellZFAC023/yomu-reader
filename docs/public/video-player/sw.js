@@ -3,11 +3,11 @@ importScripts('../hosted-reader-worker.js');
 const APPEARANCE_REVISION = '96ca131614dc';
 
 // yomu:runtime-cache:start
-const CACHE_NAME = 'yomu-video-player-6ea8677df612';
+const CACHE_NAME = 'yomu-video-player-ff9a4f05255b';
 // yomu:runtime-cache:end
 const RUNTIME_GRAPH = [
   // yomu:runtime-companions:start
-  '/greasyfork/yomu-runtime.5b0ffd762fec.user.js',
+  '/greasyfork/yomu-runtime.5a98b24d144d.user.js',
   // yomu:runtime-companions:end
 ];
 

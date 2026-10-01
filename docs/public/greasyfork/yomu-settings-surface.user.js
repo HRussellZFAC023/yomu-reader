@@ -7567,7 +7567,9 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  // An Academy word kept without a schedule (Library, Stats and the popups).
+  savedWord: "Saved"
 };
 const JA = {
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
@@ -7586,7 +7588,8 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。"
+  addedToYomuLocal: "Academyに追加しました。",
+  savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
 const EN_OCR_STATUS_COPY = {
@@ -18247,7 +18250,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.0.5".trim() ? "2.0.5".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.6".trim() ? "2.0.6".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -62518,6 +62521,7 @@ function nonNegativeInteger(value) {
 const LEGACY_DECK_KEY = "yomu:srs-local:v1";
 const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
 const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+const LOCAL_YOMU_SRS_INDEX_KEY = DECK_INDEX_KEY;
 const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
 const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 registerManagedState({
@@ -63068,7 +63072,6 @@ const API_ORIGIN = "https://yomureader.com";
 const DEVICE_STATE_KEY = "yomu:private:academy-device:v1";
 const PENDING_CLAIM_KEY = "yomu:private:academy-device-pending:v1";
 const EVENT_PURPOSE = "reader-srs-event";
-const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v2:index";
 const PUSH_BATCH_SIZE = 20;
 let pending = Promise.resolve(void 0);
 let scheduled = false;
@@ -63173,7 +63176,7 @@ function installAcademyReaderSrsSync() {
   void enqueue(() => markDirtyCards(cardIds));
   scheduleAcademyReaderSrsSync();
   });
-  subscribeToStoredValueChanges(LOCAL_DECK_STORAGE_KEY, reconcileAndSchedule);
+  subscribeToStoredValueChanges(LOCAL_YOMU_SRS_INDEX_KEY, reconcileAndSchedule);
   window.addEventListener("online", scheduleAcademyReaderSrsSync);
   document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") scheduleAcademyReaderSrsSync();
