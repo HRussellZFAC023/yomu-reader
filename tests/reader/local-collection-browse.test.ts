@@ -56,6 +56,8 @@ it.each([false, true])('enrolls only on an explicit collection action and report
         probe.renderBrowseResults(root.querySelector<HTMLElement>('[data-newtab-search-results]')!);
         const button = root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]')!;
         expect(button?.textContent).toBe('Add to review');
+        // Styled as Library's other row controls, not a bare text button.
+        expect(button.classList.contains('jpdb-reader-newtab-browse-start-review')).toBe(true);
         expect(enroll).not.toHaveBeenCalled();
         button.click();
         expect(enroll).not.toHaveBeenCalled();

@@ -365,6 +365,7 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
         startReview && isSavedOnlyNewTabCard(card)
             ? el('button', {
                 type: 'button',
+                class: 'jpdb-reader-newtab-browse-start-review',
                 dataset: { newtabAction: newTabAction('browse-start-review'), browseCardKey: cardKey(card) },
             }, startReview)
             : null,
