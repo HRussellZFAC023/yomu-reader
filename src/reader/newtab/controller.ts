@@ -862,6 +862,7 @@ export class NewTabController {
     private browsePool?: JPDBCard[];
     private browsePoolKey = '';
     private browsePoolGeneration = 0;
+    private browsePoolStale = false;
     private browsePoolLoad?: { generation: number; key: string; promise: Promise<JPDBCard[]> };
     private browseFilterGeneration = 0;
     private browseFilters = new Set<BrowseStateKey>();
@@ -1718,14 +1719,9 @@ export class NewTabController {
         // Non-study filters browse the FULL pool (the scheduled-queue
         // loader drops known/blacklisted cards), so merge the browse
         // pool in before applying — same data the My Cards browser uses.
+        this.dropStaleBrowsePool();
         const browseGeneration = this.browsePoolGeneration;
-        void this.loadBrowsePool().then(cards => this.applyLoadedBrowseFilter(
-            cards,
-            filter,
-            filterGeneration,
-            browseGeneration,
-            root,
-        ));
+        void this.loadBrowsePool().then(cards => this.applyLoadedBrowseFilter(cards, filter, filterGeneration, browseGeneration, root));
     }
 
     private applyLoadedBrowseFilter(
@@ -1740,11 +1736,7 @@ export class NewTabController {
         this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
     }
 
-    private canApplyLoadedBrowseFilter(
-        filterGeneration: number,
-        browseGeneration: number,
-        root: HTMLElement,
-    ): boolean {
+    private canApplyLoadedBrowseFilter(filterGeneration: number, browseGeneration: number, root: HTMLElement): boolean {
         return [
             filterGeneration === this.browseFilterGeneration,
             browseGeneration === this.browsePoolGeneration,
@@ -7762,6 +7754,7 @@ export class NewTabController {
     private async renderBrowseInto(root: HTMLElement): Promise<void> {
         const results = this.searchResultsMount(root);
         if (!results) return;
+        this.dropStaleBrowsePool();
         if (!this.browsePool) replaceChildrenWith(results, el('div', { class: 'jpdb-reader-newtab-search-empty' }, this.text('loading')));
         await this.loadBrowsePool(() => {
             const mount = this.searchResultsMount(root);
@@ -7774,9 +7767,10 @@ export class NewTabController {
         this.renderBrowseResults(mount);
     }
 
-    // From any view: a lookup popup on Study changes a card that Library, opened later, must show changed.
+    // A card changed: Library loads its words again now if it is open, or else when
+    // next used, so that a Show-only filter still loading on Study keeps its result.
     refreshBrowseAfterCardMutation(_card?: JPDBCard): void {
-        this.invalidateBrowsePool();
+        this.browsePoolStale = true;
         const root = this.currentRoot();
         if (root && this.state.route === 'search') void this.renderBrowseInto(root);
     }
@@ -7789,7 +7783,12 @@ export class NewTabController {
         if (root && this.state.route === 'stats') void this.loadStatsInto(root);
     }
 
+    private dropStaleBrowsePool(): void {
+        if (this.browsePoolStale) this.invalidateBrowsePool();
+    }
+
     private invalidateBrowsePool(): void {
+        this.browsePoolStale = false;
         this.browsePoolGeneration += 1;
         this.browsePool = undefined;
         this.browsePoolKey = '';

@@ -794,6 +794,48 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         }
     });
 
+    it('keeps a Show-only selection when a lookup popup changes a card while its pool loads', async () => {
+        resetNewTabReviewStorage();
+        const pool = deferred<JPDBCard[]>();
+        const due = newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 12, source: 'jpdb', reviewSource: 'jpdb-api' });
+        const known = newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 11, source: 'jpdb', reviewSource: 'jpdb-api' });
+        const savedFromPopup = newTabTestCard({ spelling: '見る', reading: 'みる', cardState: ['known'], vid: 14, source: 'jpdb', reviewSource: 'jpdb-api' });
+        const listDeckCards = vi.fn()
+            .mockResolvedValueOnce([due])
+            .mockImplementationOnce(() => pool.promise)
+            .mockResolvedValue([known, savedFromPopup, due]);
+        const controller = newTabJpdbBrowseController(listDeckCards);
+        const internals = controller as unknown as {
+            state: { filter: string };
+            visibleWords: Array<{ spelling: string }>;
+        };
+        const showOnly = (value: string): void => {
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-filter-select]')!;
+            select.value = value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        try {
+            await controller.renderPage();
+            showOnly('known');
+            await waitForExpect(() => expect(listDeckCards).toHaveBeenCalledTimes(2));
+
+            // NewTabRuntime's call after a popup grade or save lands mid-load.
+            controller.refreshBrowseAfterCardMutation();
+            pool.resolve([known, due]);
+            await waitForExpect(() => {
+                expect(internals.state.filter).toBe('known');
+                expect(internals.visibleWords.map(card => card.spelling)).toEqual(['読む']);
+            });
+
+            // The next Show-only choice loads the words again, with the popup's change.
+            showOnly('study');
+            showOnly('known');
+            await waitForExpect(() => expect(internals.visibleWords.map(card => card.spelling).sort()).toEqual(['見る', '読む'].sort()));
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('hides the Show-only state filter when no provider credential exists (keyless)', async () => {
         resetNewTabReviewStorage();
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false });
