@@ -436,6 +436,41 @@ function stubElementFromPoint(element: Element): () => void {
     };
 }
 
+function offsetWordSweepFixture(app: ReaderApp, hoverOpenDelayMs: number) {
+    const sentence = '今日は静かな喫茶店';
+    const offsetWord = (surface: string, vid: string) => {
+        const word = readerWordFixture(sentence, surface);
+        word.dataset.vid = vid;
+        word.dataset.tokenStart = String(sentence.indexOf(surface));
+        word.dataset.tokenEnd = String(sentence.indexOf(surface) + surface.length);
+        word.getBoundingClientRect = () => new DOMRect(0, 0, 80, 48);
+        return word;
+    };
+    const firstWord = offsetWord('今日', '1');
+    const secondWord = offsetWord('静か', '3');
+    const internals = app as unknown as HoverLookupInternals;
+    const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
+    let restorers: Array<() => void> = [];
+    const restore = () => {
+        restorers.forEach(restoreStub => restoreStub());
+        restorers = [];
+    };
+    const pointAt = (word: HTMLElement) => {
+        restore();
+        restorers = [stubElementFromPoint(word), stubElementsFromPoint([word])];
+    };
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        lookupOnHover: true,
+        hoverOpenDelayMs,
+        shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+    };
+    internals.showLookupCandidate = showLookupCandidate;
+    internals.lastPointerPosition = { x: 40, y: 24 };
+    pointAt(firstWord);
+    return { internals, sentence, firstWord, secondWord, showLookupCandidate, pointAt, restore };
+}
+
 function stubElementsFromPoint(elements: Element[]): () => void {
     const originalElementsFromPoint = document.elementsFromPoint;
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -2050,6 +2085,73 @@ describe('hover lookup', () => {
         } finally {
             restorePoint();
             restoreStack();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
+    // 1.4.161 promised that the open delay follows a moving pointer instead of
+    // restarting on every word. Since 1.8.79 every word with source offsets goes
+    // through the pointer-text scheduler, so drive the production pointer handler
+    // rather than calling scheduleHoverLookup directly.
+    it('keeps the open delay running when the pointer sweeps onto another word with source offsets', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const sweep = offsetWordSweepFixture(app, 80);
+
+        try {
+            sweep.internals.handleHoverPointer(hoverPointerEvent(sweep.firstWord, 'mouse', 'pointermove'));
+            await vi.advanceTimersByTimeAsync(30);
+            sweep.pointAt(sweep.secondWord);
+            sweep.internals.handleHoverPointer(hoverPointerEvent(sweep.secondWord, 'mouse', 'pointermove'));
+            await vi.advanceTimersByTimeAsync(49);
+            expect(sweep.showLookupCandidate).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(1);
+
+            expect(sweep.showLookupCandidate).toHaveBeenCalledTimes(1);
+            expect(sweep.showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: sweep.sentence, anchor: sweep.secondWord }),
+                'hover',
+                expect.any(Object),
+            );
+        } finally {
+            sweep.restore();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
+    // The retarget is for the learner's FIRST open delay only. Moving an open hover
+    // popup to the next word keeps restarting its 50ms coalescing floor, which is
+    // what collapses a sweep into one lookup on the word the pointer stops on.
+    it('still restarts the anchor-switch floor while a hover popup is open', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const sweep = offsetWordSweepFixture(app, 0);
+        const { popover } = appendActivePopoverBody();
+        sweep.internals.activePopover = popover;
+        sweep.internals.activePopoverMode = 'hover';
+        const candidate = (anchor: HTMLElement, offset: number) => ({ text: sweep.sentence, offset, start: 0, end: sweep.sentence.length, anchor });
+
+        try {
+            sweep.internals.schedulePointerTextLookup(candidate(sweep.firstWord, 0), hoverPointerEvent(sweep.firstWord, 'mouse', 'pointermove'));
+            await vi.advanceTimersByTimeAsync(30);
+            sweep.pointAt(sweep.secondWord);
+            sweep.internals.schedulePointerTextLookup(candidate(sweep.secondWord, 4), hoverPointerEvent(sweep.secondWord, 'mouse', 'pointermove'));
+            await vi.advanceTimersByTimeAsync(20);
+            expect(sweep.showLookupCandidate).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(30);
+
+            expect(sweep.showLookupCandidate).toHaveBeenCalledTimes(1);
+            expect(sweep.showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ anchor: sweep.secondWord }),
+                'hover',
+                expect.any(Object),
+            );
+        } finally {
+            sweep.restore();
             vi.useRealTimers();
             cleanupReaderApp(app);
         }

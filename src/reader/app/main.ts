@@ -843,6 +843,7 @@ export class ReaderApp {
     private hoverResizeStickyExpiry = 0;
     private hoverPendingWord?: HTMLElement;
     private hoverPendingLookupKey = '';
+    private pendingPointerTextLookup?: { candidate: PointerTextLookup; generation: number };
     private hoverLookupInFlightKey = '';
     private hoverLookupGeneration = 0;
     private activeHoverWord?: HTMLElement;
@@ -5171,8 +5172,11 @@ export class ReaderApp {
         const hoverLookupKey = this.pendingPointerTextLookupKey(candidate);
         if (this.isPointerTextLookupAlreadyQueued(hoverLookupKey)) return;
         this.cancelHoverClose();
+        if (this.retargetPendingPointerTextLookup(candidate, hoverLookupKey, options.minimumDelayMs)) return;
         window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
+        const pending = { candidate, generation: hoverLookupGeneration };
+        this.pendingPointerTextLookup = pending;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = hoverLookupKey;
         const runLookup = () => {
@@ -5182,12 +5186,14 @@ export class ReaderApp {
             }
             this.hoverLookupTimer = undefined;
             this.hoverPendingLookupKey = '';
-            if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
+            const target = pending.candidate;
+            if (!target.anchor.isConnected || !this.settings.lookupOnHover) return;
             if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
-            if (!this.isCurrentPointerTextHoverCandidate(candidate)) return;
-            if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-            void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => {
-                if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
+            if (!this.isCurrentPointerTextHoverCandidate(target)) return;
+            const inFlightKey = this.pendingPointerTextLookupKey(target);
+            this.hoverLookupInFlightKey = inFlightKey;
+            void this.showLookupCandidate(target, 'hover', { hoverLookupGeneration }).finally(() => {
+                if (this.hoverLookupInFlightKey === inFlightKey) this.hoverLookupInFlightKey = '';
             });
         };
         this.startHoverLookupAfterDelay(runLookup, hoverLookupScheduleDelay({
@@ -5195,6 +5201,21 @@ export class ReaderApp {
             hoverOpenDelayMs: this.settings.hoverOpenDelayMs,
             minimumDelayMs: options.minimumDelayMs,
         }));
+    }
+
+    // The pointer-text twin of retargetPendingHoverLookup, and the path every word
+    // with source offsets takes since 1.8.79: a pointer sweeping toward its word
+    // keeps the learner's open delay running and only moves the target (1.4.161),
+    // instead of restarting the delay per word and never opening mid-sweep. Anchor
+    // switches on an open popup keep restarting: that 50ms coalescing floor is what
+    // collapses a sweep into one lookup (see hover-scheduler.ts).
+    private retargetPendingPointerTextLookup(candidate: PointerTextLookup, hoverLookupKey: string, minimumDelayMs?: number): boolean {
+        const pending = this.pendingPointerTextLookup;
+        if (minimumDelayMs !== undefined || this.activePopoverMode === 'hover' || !this.hoverLookupTimer) return false;
+        if (pending?.generation !== this.hoverLookupGeneration) return false;
+        pending.candidate = candidate;
+        this.hoverPendingLookupKey = hoverLookupKey;
+        return true;
     }
 
     private isPointerTextLookupAlreadyQueued(hoverLookupKey: string): boolean {
