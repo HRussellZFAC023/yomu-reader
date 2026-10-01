@@ -1343,15 +1343,10 @@ export class NewTabController {
         this.offlineWarmRetryTimer = undefined;
     }
 
+    // Stats reloads here too: its figures belong to the target just left.
     private renderAfterTargetInvalidation(): void {
         const root = this.currentRoot();
-        if (!root) return;
-        if (this.state.route === 'search') {
-            this.searchController.renderSearch(root);
-            return;
-        }
-        if (this.state.route === 'stats') return this.statsController.render(root);
-        this.applyWords(root, false);
+        if (root && !this.renderNonStudyRoute(root)) this.applyWords(root, false);
     }
 
     private renderEnabledContent(): DocumentFragment {

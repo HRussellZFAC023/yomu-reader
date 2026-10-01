@@ -180,6 +180,25 @@ it('leaves Academy out of Stats while Academy is turned off', async () => {
     } finally { controller.destroy(); }
 });
 
+// Changing the learning target while Stats is open shows the new target's
+// figures straight away, not an empty dashboard waiting for a refresh.
+it('reloads Stats for the new learning target while Stats is open', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.mine({ expression: 'leer', reading: 'leer', meaning: 'to read', language: 'es' });
+    await repository.mine({ expression: 'ver', reading: 'ver', meaning: 'to see', language: 'es' });
+    const controller = academyStatsController(repository);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(metric(root, 'Saved')).toBe('1');
+
+        setActiveLearningTargetLanguage('es');
+        controller.invalidateForTargetChange();
+        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
+    } finally { controller.destroy(); }
+});
+
 // Study and Library read Academy for the active learning target, so Stats does
 // too: "Saved" is then exactly what Library offers to add to review.
 it('counts Academy words of the active learning target only', async () => {
