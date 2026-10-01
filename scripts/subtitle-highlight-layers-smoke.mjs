@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, webkit } from 'playwright';
+import { colorSourceClassName } from '../src/reader/theme/color-source-classes.ts';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const css = readFileSync(path.join(ROOT, 'dist', 'yomu.css'), 'utf8');
@@ -41,8 +42,10 @@ const SURFACES = [
 ];
 
 // Each channel mode paints through its own rule set, so all of them are checked.
+// The class names come from the module the reader sets them with: the "Anki"
+// source's root class is provider-neutral, so a hand-built name drifts.
 const MODES = ['highlight', 'underline'].flatMap(family =>
-    ['status', 'jpdb', 'anki', 'pitch'].map(source => `jpdb-reader-subtitle-${family}-${source}`));
+    ['status', 'jpdb', 'anki', 'pitch'].map(source => colorSourceClassName('subtitle', family, source)));
 
 const WORD_CLASSES = 'jpdb-reader-word jpdb-reader-has-furi jpdb-reader-known jpdb-pitch-heiban';
 const WORD_ATTRIBUTES = 'data-pitch-class="heiban" data-card-state="known" data-expression="連続" tabindex="-1"';
