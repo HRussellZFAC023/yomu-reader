@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.4
+// @version 2.0.5
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.03c424534b12.user.js#sha256=A8QkU0sSQnLR5e38vKMEWYHjTlso+wJ76K4bE9ryv1w=
-// @resource yomuCss  https://yomureader.com/yomu.ebfeb8423b4e.css#sha256=6/64QjtOg2TMygyMO9Tmh6tenwid7veJVRohvIbwESM=
+// @require https://yomureader.com/greasyfork/yomu-runtime.5b0ffd762fec.user.js#sha256=Ww/9di/scVbouborPVu2tt1+EaUlDZS83C8qOhE9iuU=
+// @resource yomuCss  https://yomureader.com/yomu.4fab884b5334.css#sha256=T6uIS1M0i8fENfC7N/wfgKfUM6jqw6tCOKL7j8AFuS0=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -1459,6 +1459,7 @@ enumerate: enumerateDictionaryArchiveStorageKeys
 { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
 { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
 { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+{ owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
 { owner: "styles/index", kind: "gm", key: "yomu:reader-css-cache:v3" },
 { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
 { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
@@ -1949,124 +1950,92 @@ throw new Error(`${label} could not be removed.`, { cause: error });
 }
 const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+const STORAGE_WORK_LEASE_MS = 5e3;
+const DEFAULT_LEASE_MS = 6e4;
+const LEASE_ROUND_TRIPS = 20;
+const WAIT_NOTICE_MS = 1500;
+class StorageLeaseLapsedError extends Error {
+name = "StorageLeaseLapsedError";
+constructor(key) {
+super(`Storage lease lapsed before it was renewed: ${key}`);
+}
+}
+function isStorageLeaseLapsed(error) {
+return error instanceof Error && error.name === "StorageLeaseLapsedError";
+}
+const guardingLeases = new Set();
+const realmClaimOwners = new Set();
+const realmWebLockRequests = new Map();
+function fenceStorageLeaseWrite(key) {
+for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
+}
 async function withGmStorageLeaseCore(name, operation, options, environment) {
-return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
+const wait = new StorageLeaseWait(options.onWait);
+const boundedLockWait = !environment.hostedOrigin && storageLeaseIo(environment.backend);
+const lockWaitMs = boundedLockWait ? options.leaseMs ?? DEFAULT_LEASE_MS : void 0;
+try {
+return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
+wait.end();
+return operation();
+}, options, environment, wait), wait, lockWaitMs);
+} finally {
+wait.end();
 }
-async function withSharedStorageLease(name, operation, options, environment) {
-const { getValue, setValue, deleteValue, listValues } = environment.backend;
-if (!getValue || !setValue || !deleteValue || !listValues) {
-const epoch2 = await environment.captureEpoch(getValue);
-await environment.assertMutationFence(getValue, epoch2);
-const result = await operation();
-await environment.assertMutationFence(getValue, epoch2);
-return result;
 }
+class StorageLeaseWait {
+constructor(onWait) {
+this.onWait = onWait;
+}
+state = "running";
+timer;
+/** Another tab holds the lease, or is ahead in its queue. */
+blocked() {
+if (!this.onWait || this.state !== "running") return;
+this.state = "blocked";
+this.timer = setTimeout(() => {
+this.state = "told";
+this.onWait?.(true);
+}, WAIT_NOTICE_MS);
+}
+/** The caller got past what blocked it; a wait it was not yet told about starts over. */
+passed() {
+if (this.state !== "blocked") return;
+clearTimeout(this.timer);
+this.state = "running";
+}
+end() {
+clearTimeout(this.timer);
+if (this.state === "told") this.onWait?.(false);
+this.state = "ended";
+}
+}
+async function withSharedStorageLease(name, operation, options, environment, wait) {
+const { getValue } = environment.backend;
 const epoch = await environment.captureEpoch(getValue);
 await environment.assertMutationFence(getValue, epoch);
-const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
-const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
-const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
-const owner = createStorageCoordinationId();
-const claimId = createStorageCoordinationId();
-const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
-const key = `${prefix}${owner}`;
-const startedAt = Date.now();
-let claim = {
-version: 1,
-claimId,
-owner,
-epoch: environment.epochToken(epoch),
-choosing: true,
-ticket: 0,
-leaseUntil: startedAt + leaseMs
-};
-const writeClaim = async (nextClaim) => {
+const io = storageLeaseIo(environment.backend);
+if (!io) {
+const result = await operation();
 await environment.assertMutationFence(getValue, epoch);
-try {
-await setValue(key, nextClaim);
-await environment.assertMutationFence(getValue, epoch);
-await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
-} catch (error) {
-await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-debugStorageLeaseError("GM storage lease rollback failed", key, cleanupError);
-});
-throw error;
-}
-};
-await writeClaim(claim);
-try {
-const initialClaims = await readStorageLeaseClaims(
-prefix,
-listValues,
-getValue,
-environment.epochToken(epoch),
-Date.now()
-);
-const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
-claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-await writeClaim(claim);
-while (true) {
-await environment.assertMutationFence(getValue, epoch);
-const now = Date.now();
-if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
-const claims = await readStorageLeaseClaims(
-prefix,
-listValues,
-getValue,
-environment.epochToken(epoch),
-now
-);
-const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-if (!blocked) break;
-if (claim.leaseUntil - now <= leaseMs / 2) {
-claim = { ...claim, leaseUntil: now + leaseMs };
-await writeClaim(claim);
-}
-await storageLeaseDelay(pollMs);
-}
-let renewalStopped = false;
-let renewal = Promise.resolve();
-let leaseLost;
-let leaseWasLost = false;
-const renewalTimer = setInterval(() => {
-renewal = renewal.then(async () => {
-if (renewalStopped || leaseLost) return;
-await assertStorageLeaseClaimOwned(key, claim, getValue);
-claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-await writeClaim(claim);
-}).catch((error) => {
-leaseLost = error;
-leaseWasLost = true;
-debugStorageLeaseError("GM storage lease renewal failed", key, error);
-});
-}, Math.max(250, Math.floor(leaseMs / 3)));
-let result;
-let operationError;
-let operationFailed = false;
-try {
-await environment.assertMutationFence(getValue, epoch);
-await assertStorageLeaseClaimOwned(key, claim, getValue);
-result = await operation();
-await environment.assertMutationFence(getValue, epoch);
-await assertStorageLeaseClaimOwned(key, claim, getValue);
-} catch (error) {
-operationFailed = true;
-operationError = error;
-} finally {
-renewalStopped = true;
-clearInterval(renewalTimer);
-await renewal;
-}
-if (operationFailed) throw operationError;
-if (leaseWasLost) throw leaseLost;
 return result;
-} finally {
-try {
-await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue);
-} catch (error) {
-debugStorageLeaseError("GM storage lease release failed", key, error);
 }
+const leaseMs = boundedLeaseOption(options.leaseMs, DEFAULT_LEASE_MS, 1e3, 10 * 6e4);
+return new StorageLeaseClaimant({
+guards: options.guards,
+prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
+epoch: environment.epochToken(epoch),
+io,
+fence: () => environment.assertMutationFence(getValue, epoch),
+leaseMs,
+pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1e3),
+timeoutMs: boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4),
+timeoutMessage: `Timed out waiting for storage lease: ${name}`,
+wait
+}).run(operation);
 }
+function storageLeaseIo(backend) {
+const { getValue, setValue, deleteValue, listValues } = backend;
+return [getValue, setValue, deleteValue, listValues].every(Boolean) ? backend : null;
 }
 async function withManagedStateEpochControlLeaseCore(operation, environment) {
 const { getValue, setValue, deleteValue, listValues } = environment.backend;
@@ -2075,97 +2044,197 @@ if (available === 0) return withWebStorageLock("managed-state-epoch-control", op
 if (!getValue || !setValue || !deleteValue || !listValues) {
 throw new Error("Managed storage cannot serialize epoch reconciliation without GM_listValues.");
 }
-const leaseMs = 3e4;
-const pollMs = 10;
-const timeoutMs = 9e4;
+return new StorageLeaseClaimant({
+prefix: MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+epoch: "epoch-control:v1",
+io: { getValue, setValue, deleteValue, listValues },
+fence: async () => void 0,
+leaseMs: 3e4,
+pollMs: 10,
+timeoutMs: 9e4,
+timeoutMessage: "Timed out waiting for the managed-state epoch lease."
+}).run(operation);
+}
+class StorageLeaseClaimant {
+constructor(lease) {
+this.lease = lease;
 const owner = createStorageCoordinationId();
-const key = `${MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX}${owner}`;
-const startedAt = Date.now();
-let claim = {
+this.key = `${lease.prefix}${owner}`;
+this.promptLandingMs = Math.min(1e3, Math.floor(lease.leaseMs / 5));
+this.claim = {
 version: 1,
 claimId: createStorageCoordinationId(),
 owner,
-epoch: "epoch-control:v1",
+epoch: lease.epoch,
 choosing: true,
 ticket: 0,
-leaseUntil: startedAt + leaseMs
+leaseUntil: 0
 };
-const writeClaim = async (nextClaim) => {
+}
+key;
+startedAt = Date.now();
+promptLandingMs;
+claim;
+liveUntil = 0;
+roundTripMs = 0;
+async run(operation) {
+realmClaimOwners.add(this.claim.owner);
 try {
-await setValue(key, nextClaim);
-await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
+await this.waitForTurn();
+return await this.hold(operation);
+} finally {
+const { getValue, deleteValue } = this.lease.io;
+try {
+await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
 } catch (error) {
-await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-debugStorageLeaseError("Raw GM storage lease rollback failed", key, cleanupError);
-});
+debugStorageLeaseError("GM storage lease release failed", this.key, error);
+}
+realmClaimOwners.delete(this.claim.owner);
+}
+}
+/**
+* A claim must outlast the storage round trips its holder makes before it
+* renews, so slow storage stretches it by LEASE_ROUND_TRIPS of them, up to
+* the default lease: slowness delays a save instead of lapsing it.
+*/
+leaseMs() {
+const { leaseMs } = this.lease;
+return Math.min(leaseMs + LEASE_ROUND_TRIPS * this.roundTripMs, Math.max(leaseMs, DEFAULT_LEASE_MS));
+}
+live() {
+return Date.now() + Math.max(this.promptLandingMs, 2 * this.roundTripMs) < this.liveUntil;
+}
+async waitForTurn() {
+const { lease } = this;
+while (true) {
+await lease.fence();
+if (Date.now() - this.startedAt >= lease.timeoutMs) throw new Error(lease.timeoutMessage);
+try {
+if (!this.live()) await this.queue();
+else if (this.liveUntil - Date.now() <= this.leaseMs() / 2) await this.writeClaim();
+} catch (error) {
+if (error instanceof StorageLeaseLapsedError) continue;
 throw error;
 }
-};
-await writeClaim(claim);
-try {
-const initialClaims = await readStorageLeaseClaims(
-MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
-listValues,
-getValue,
-claim.epoch,
-Date.now()
-);
-const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
-claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-await writeClaim(claim);
-while (true) {
-const now = Date.now();
-if (now - startedAt >= timeoutMs) throw new Error("Timed out waiting for the managed-state epoch lease.");
-const claims = await readStorageLeaseClaims(
-MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
-listValues,
-getValue,
-claim.epoch,
-now
-);
-const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-if (!blocked) break;
-if (claim.leaseUntil - now <= leaseMs / 2) {
-claim = { ...claim, leaseUntil: now + leaseMs };
-await writeClaim(claim);
+const ahead = await this.claimsAhead();
+if (!ahead.length && this.live()) return;
+if (ahead.some((other) => !realmClaimOwners.has(other.owner))) lease.wait?.blocked();
+await storageLeaseDelay(lease.pollMs);
 }
-await storageLeaseDelay(pollMs);
 }
-let stopped = false;
-let lost = false;
-let lostError;
-let renewal = Promise.resolve();
-const timer = setInterval(() => {
-renewal = renewal.then(async () => {
-if (stopped || lost) return;
-await assertStorageLeaseClaimOwned(key, claim, getValue);
-claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-await writeClaim(claim);
-}).catch((error) => {
-lost = true;
-lostError = error;
-});
-}, Math.floor(leaseMs / 3));
-let result;
-let failed = false;
-let operationError;
+async queue() {
+const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+await this.writeClaim({ choosing: true, ticket: 0 }, true);
+const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+const highestTicket = claims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+await this.writeClaim({ choosing: false, ticket: highestTicket + 1 });
+}
+async claimsAhead() {
+const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+const { owner, ticket } = this.claim;
+const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+return claims.filter((other) => other.owner !== owner && (other.choosing || other.ticket < ticket || other.ticket === ticket && other.owner.localeCompare(owner) < 0));
+}
+/** `requeue` writes a new place in the queue instead of extending the live claim. */
+async writeClaim(changes = {}, requeue = false) {
+const { getValue, setValue } = this.lease.io;
+if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
+const writtenAt = Date.now();
+const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
+this.claim = next;
 try {
-await assertStorageLeaseClaimOwned(key, claim, getValue);
-result = await operation();
-await assertStorageLeaseClaimOwned(key, claim, getValue);
+await setValue(this.key, next);
+const landedAt = Date.now();
+this.liveUntil = next.leaseUntil;
+await assertStorageLeaseClaimOwned(this.key, next, getValue);
+this.roundTripMs = storageRoundTripMs(landedAt - writtenAt, Date.now() - landedAt, this.lease.leaseMs);
 } catch (error) {
-failed = true;
-operationError = error;
+await this.rollBack();
+throw error;
+}
+}
+/** Deletes the claim this realm wrote, unless another has taken its key. */
+async rollBack() {
+const { getValue, deleteValue } = this.lease.io;
+await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue).catch((error) => {
+debugStorageLeaseError("GM storage lease rollback failed", this.key, error);
+});
+}
+/**
+* A holder's renewal. A factory reset in another tab deletes every claim,
+* then checks that none is left while this section may still be running:
+* a renewal reads the claim first and never writes back one that is gone,
+* and takes back one the reset deleted while the write was in flight, which
+* the fence after it reveals. The renewal on entry skips the read: the
+* waiter's last poll fenced a moment ago, and once storage turns slow it
+* may enter with little of its claim left.
+*/
+async renew(due, entry) {
+if (!entry) await assertStorageLeaseClaimOwned(this.key, this.claim, this.lease.io.getValue);
+do
+await this.writeClaim();
+while (due());
+await this.lease.fence().catch(async (error) => {
+await this.rollBack();
+throw error;
+});
+}
+/**
+* Runs the operation while a timer renews the claim and, for a lease with
+* `guards`, while each guarded write renews it too: those writes reach
+* storage over messaging, so throttled timers cannot starve them.
+*/
+async hold(operation) {
+const { lease, key } = this;
+const { getValue } = lease.io;
+const renewEveryMs = Math.max(250, Math.floor(lease.leaseMs / 3));
+let held = true;
+let lost;
+let refused = false;
+let renewal;
+const due = () => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
+const renewIfDue = (entry = false) => {
+if (lost || renewal || !due()) return;
+renewal = this.renew(due, entry).catch((error) => {
+lost ??= { error };
+debugStorageLeaseError("GM storage lease renewal failed", key, error);
+}).finally(() => {
+renewal = void 0;
+});
+};
+const guarding = lease.guards && {
+guards: lease.guards,
+fenceWrite: () => {
+if (!lost && !this.live()) lost = { error: new StorageLeaseLapsedError(key) };
+if (lost) {
+refused = true;
+throw lost.error;
+}
+renewIfDue();
+}
+};
+if (guarding) guardingLeases.add(guarding);
+const timer = setInterval(() => renewIfDue(), renewEveryMs);
+renewIfDue(true);
+let outcome;
+try {
+await lease.fence();
+await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+const value = await operation();
+await lease.fence();
+await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+outcome = { value };
+} catch (error) {
+outcome = { error };
 } finally {
-stopped = true;
+held = false;
+if (guarding) guardingLeases.delete(guarding);
 clearInterval(timer);
 await renewal;
 }
-if (failed) throw operationError;
-if (lost) throw lostError;
-return result;
-} finally {
-await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue).catch((error) => debugStorageLeaseError("Managed-state epoch lease release failed", key, error));
+if ("error" in outcome) throw outcome.error;
+if (lost && (!guarding || refused)) throw lost.error;
+return outcome.value;
 }
 }
 async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
@@ -2214,9 +2283,50 @@ return value;
 function storageLeaseDelay(milliseconds) {
 return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
-async function withWebStorageLock(name, operation) {
-const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
-return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+function storageRoundTripMs(writeMs, readMs, leaseMs) {
+const slower = Math.max(writeMs, readMs);
+return slower <= leaseMs / 4 ? slower : Math.min(writeMs, readMs);
+}
+function webLockManager() {
+return typeof navigator === "undefined" ? void 0 : navigator.locks;
+}
+async function withWebStorageLock(name, operation, wait, waitMs) {
+const lockManager = webLockManager();
+if (!lockManager) return operation();
+const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
+if (!countRealmWebLockRequest(lockName, 1)) wait?.blocked();
+try {
+return await requestWebLock(lockManager, lockName, () => {
+wait?.passed();
+return operation();
+}, waitMs);
+} finally {
+countRealmWebLockRequest(lockName, -1);
+}
+}
+function countRealmWebLockRequest(lockName, change) {
+const before = realmWebLockRequests.get(lockName) ?? 0;
+if (before + change > 0) realmWebLockRequests.set(lockName, before + change);
+else realmWebLockRequests.delete(lockName);
+return before;
+}
+async function requestWebLock(locks, name, operation, waitMs) {
+if (waitMs === void 0) return locks.request(name, {}, operation);
+const giveUp = new AbortController();
+const timer = setTimeout(() => giveUp.abort(), waitMs);
+let granted = false;
+try {
+return await locks.request(name, { signal: giveUp.signal }, () => {
+granted = true;
+clearTimeout(timer);
+return operation();
+});
+} catch (error) {
+if (granted) throw error;
+return operation();
+} finally {
+clearTimeout(timer);
+}
 }
 function isPlainRecord$1(value) {
 return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -2978,11 +3088,13 @@ async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
 await assertManagedStateMutationFence(getValue, epoch);
 const stored = managedStateStoredValue(value, epoch);
 const storageKey = managedStateStorageKey(key, epoch);
+fenceStorageLeaseWrite(key);
 await setValue(storageKey, stored);
 await assertManagedStateMutationFence(getValue, epoch);
 }
 async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
 const storageKey = managedStateStorageKey(key, epoch);
+fenceStorageLeaseWrite(key);
 if (storageKey === key) {
 if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
 await deleteValue(key);
@@ -3184,7 +3296,8 @@ return withGmStorageLeaseCore(name, operation, options, {
 backend: gmStorageLeaseBackend(),
 captureEpoch: assertRealmManagedStateEpoch,
 assertMutationFence: assertManagedStateMutationFence,
-epochToken: managedStateEpochToken
+epochToken: managedStateEpochToken,
+hostedOrigin: isHostedYomuOrigin()
 });
 }
 async function withManagedStateEpochControlLease(operation) {
@@ -3278,7 +3391,7 @@ if (!getValue) throw new Error("Managed storage cannot validate its state epoch.
 epoch = await assertRealmManagedStateEpoch(getValue);
 await writeManagedGmValue(key, value, epoch, getValue, setValue);
 } catch (error) {
-if (isStaleManagedStateEpochError(error)) throw error;
+if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
 throw storageWriteError(key, "GM storage write failed", error);
 }
 }
@@ -3363,7 +3476,7 @@ try {
 const epoch = await assertRealmManagedStateEpoch(getValue);
 await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
 } catch (error) {
-if (isStaleManagedStateEpochError(error)) throw error;
+if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
 debugStorageError("GM storage delete failed", key, error);
 throw storageWriteError(key, "GM storage delete failed", error);
 }
@@ -3730,6 +3843,20 @@ async function managedStoredKeysStillPresent() {
 const keys = await allStorageKeys();
 await clearBridgePrivateManagedValuesForReset();
 return [...new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+}
+const RESET_LEASE_SETTLE_PASSES = 5;
+const RESET_LEASE_SETTLE_MS = 500;
+async function managedStoredKeysLeftAfterReset() {
+let left = await managedStoredKeysStillPresent();
+for (let pass = 0; pass < RESET_LEASE_SETTLE_PASSES && onlyLeaseClaims(left); pass++) {
+await delay(RESET_LEASE_SETTLE_MS);
+for (const key of left) await deleteManagedStoredValue(key);
+left = await managedStoredKeysStillPresent();
+}
+return left;
+}
+function onlyLeaseClaims(keys) {
+return keys.length > 0 && keys.every((key) => key.startsWith(STORAGE_LEASE_KEY_PREFIX));
 }
 function originWebStorageResetKeys() {
 try {
@@ -5358,6 +5485,271 @@ if (trusted && value !== void 0) word.dataset[datasetKey] = value;
 else delete word.dataset[datasetKey];
 }
 }
+const scannedShadowRootRefs = new Set();
+const scannedShadowRootState = new WeakMap();
+let shadowRootScanHook = null;
+const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
+const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+const MAX_PENDING_UPGRADE_NAMES = 64;
+const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = "yomu:open-shadow-root-attached";
+const PAGE_SHADOW_DISCOVERY_KEY = "__yomuOpenShadowRootDiscoveryV1";
+const potentialShadowHosts = new Set();
+let seenPotentialShadowHosts = new WeakSet();
+let potentialShadowHostTimer;
+const subscribedUpgradeNames = new Set();
+let customElementLifecycleGeneration = 0;
+let customElementUpgradeHook = null;
+let pendingUpgradeWakeup = false;
+let acceptPendingUpgradeWakeups = true;
+let openShadowRootDiscoveryUsers = 0;
+function noteScannedShadowRoot(root) {
+noteShadowRoot(root, "scan");
+}
+function noteShadowRoot(root, cause) {
+const active = scannedShadowRootState.get(root);
+if (active) return;
+scannedShadowRootState.set(root, true);
+if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+shadowRootScanHook?.(root, cause);
+}
+function watchPotentialOpenShadowRootHost(host) {
+const root = host.shadowRoot;
+if (root) {
+noteShadowRoot(root, "scan");
+return root;
+}
+const tagName = host.localName.toLowerCase();
+const isCustomElement = tagName.includes("-");
+if (!isCustomElement) return null;
+const registry = customElementRegistry();
+if (registry && !registry.get(tagName)) {
+subscribeToCustomElementUpgrade(registry, tagName);
+return null;
+}
+if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
+seenPotentialShadowHosts.add(host);
+potentialShadowHosts.add({
+ref: new WeakRef(host),
+remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
+});
+schedulePotentialShadowHostPoll();
+return null;
+}
+function installOpenShadowRootDiscovery() {
+openShadowRootDiscoveryUsers += 1;
+if (openShadowRootDiscoveryUsers === 1) {
+installPageOpenShadowRootDiscoveryBridge();
+document.addEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
+try {
+document.querySelectorAll(":not(:defined)").forEach((host) => watchPotentialOpenShadowRootHost(host));
+} catch {
+}
+schedulePotentialShadowHostPoll();
+}
+let disposed = false;
+return () => {
+if (disposed) return;
+disposed = true;
+openShadowRootDiscoveryUsers -= 1;
+if (openShadowRootDiscoveryUsers > 0) return;
+document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
+if (!customElementUpgradeHook) resetPotentialShadowHostTracking();
+};
+}
+function handleOpenShadowRootAttached(event) {
+const host = event.composedPath()[0];
+const root = host instanceof Element ? host.shadowRoot : null;
+if (root) noteShadowRoot(root, "attached");
+}
+function schedulePotentialShadowHostPoll() {
+if (!openShadowRootDiscoveryUsers && !customElementUpgradeHook || potentialShadowHostTimer !== void 0 || !potentialShadowHosts.size || pollSuspendedForHiddenPage()) return;
+potentialShadowHostTimer = window.setTimeout(
+pollPotentialShadowHosts,
+POTENTIAL_SHADOW_HOST_POLL_MS
+);
+}
+function pollSuspendedForHiddenPage() {
+return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+function wakeShadowHostPoll() {
+schedulePotentialShadowHostPoll();
+}
+function pollPotentialShadowHosts() {
+potentialShadowHostTimer = void 0;
+for (const pending of potentialShadowHosts) {
+const host = pending.ref.deref();
+if (!host || !host.isConnected) {
+potentialShadowHosts.delete(pending);
+if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
+continue;
+}
+if (host.shadowRoot) {
+potentialShadowHosts.delete(pending);
+noteShadowRoot(host.shadowRoot, "attached");
+continue;
+}
+if (pending.remainingPolls <= 1) {
+potentialShadowHosts.delete(pending);
+} else {
+pending.remainingPolls -= 1;
+}
+}
+schedulePotentialShadowHostPoll();
+}
+function installPageOpenShadowRootDiscoveryBridge() {
+const sandbox = globalThis;
+const pageWindow = sandbox.unsafeWindow;
+if (pageWindow) {
+const sameRealm = pageWindow.Object === Object;
+if (sameRealm) {
+try {
+pageOpenShadowRootDiscoveryBootstrap(
+pageWindow,
+OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
+PAGE_SHADOW_DISCOVERY_KEY
+);
+return;
+} catch {
+}
+}
+}
+const parent = document.head || document.documentElement;
+if (!parent) return;
+try {
+const script = document.createElement("script");
+const nonceHost = document.querySelector("script[nonce]");
+const nonce = nonceHost?.nonce || nonceHost?.getAttribute("nonce");
+if (nonce) script.setAttribute("nonce", nonce);
+script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
+parent.append(script);
+script.remove();
+} catch {
+}
+}
+function pageOpenShadowRootDiscoveryBootstrap(pageWindow, eventName, stateKey) {
+const state = pageWindow;
+if (state[stateKey]) return;
+const prototype = pageWindow.Element?.prototype;
+const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, "attachShadow");
+const original = descriptor?.value;
+if (!prototype || !descriptor || typeof original !== "function") return;
+const patched = function attachShadow(init) {
+const root = original.call(this, init);
+if (root.mode === "open") {
+this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
+}
+return root;
+};
+Object.defineProperty(prototype, "attachShadow", {
+...descriptor,
+value: patched
+});
+state[stateKey] = true;
+}
+function setShadowRootScanHook(hook) {
+shadowRootScanHook = hook;
+if (hook) forEachScannedShadowRoot((root) => hook(root, "replay"));
+}
+function forEachScannedShadowRoot(callback, includeDetached = false) {
+for (const ref of scannedShadowRootRefs) {
+const root = ref.deref();
+if (!root) {
+scannedShadowRootRefs.delete(ref);
+continue;
+}
+if (!root.host?.isConnected) {
+scannedShadowRootState.set(root, false);
+if (!includeDetached) continue;
+}
+callback(root);
+}
+}
+function sweepDisconnectedShadowRoots() {
+let swept = false;
+for (const ref of scannedShadowRootRefs) {
+const root = ref.deref();
+if (!root) {
+scannedShadowRootRefs.delete(ref);
+continue;
+}
+if (root.host?.isConnected || scannedShadowRootState.get(root) === false) continue;
+scannedShadowRootState.set(root, false);
+swept = true;
+}
+return swept;
+}
+function setCustomElementUpgradeHook(hook) {
+customElementUpgradeHook = hook;
+if (!hook) {
+customElementLifecycleGeneration += 1;
+subscribedUpgradeNames.clear();
+acceptPendingUpgradeWakeups = false;
+pendingUpgradeWakeup = false;
+if (!openShadowRootDiscoveryUsers) resetPotentialShadowHostTracking();
+return;
+}
+acceptPendingUpgradeWakeups = true;
+schedulePotentialShadowHostPoll();
+if (pendingUpgradeWakeup) {
+pendingUpgradeWakeup = false;
+hook();
+}
+}
+function customElementRegistry() {
+const registry = Reflect.get(globalThis, "customElements");
+if (!registry) return null;
+const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+return callableMethods.length === 2 ? registry : null;
+}
+function subscribeToCustomElementUpgrade(registry, tagName) {
+if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+subscribedUpgradeNames.add(tagName);
+const generation = customElementLifecycleGeneration;
+void registry.whenDefined(tagName).then(() => {
+if (generation !== customElementLifecycleGeneration) return;
+subscribedUpgradeNames.delete(tagName);
+notifyCustomElementLifecycle();
+}, () => {
+if (generation !== customElementLifecycleGeneration) return;
+subscribedUpgradeNames.delete(tagName);
+});
+}
+function notifyCustomElementLifecycle() {
+if (customElementUpgradeHook) customElementUpgradeHook();
+else if (acceptPendingUpgradeWakeups) pendingUpgradeWakeup = true;
+}
+function resetPotentialShadowHostTracking() {
+if (potentialShadowHostTimer !== void 0) {
+window.clearTimeout(potentialShadowHostTimer);
+potentialShadowHostTimer = void 0;
+}
+potentialShadowHosts.clear();
+seenPotentialShadowHosts = new WeakSet();
+}
+const LANE_CLASS_STEM = "yomu-review-";
+const ORDINARY_PAGE_WORD_SELECTOR = '.jpdb-reader-word[data-yomu-word="true"]';
+let lanePainted = false;
+function isReviewLaneClass(className) {
+return className.startsWith(LANE_CLASS_STEM);
+}
+function syncWordReviewLane(word) {
+const lane = laneClassName(renderedWordPrivateValue(word, "ankiState"));
+Array.from(word.classList).filter((className) => isReviewLaneClass(className) && className !== lane).forEach((className) => word.classList.remove(className));
+if (lane) word.classList.add(lane);
+}
+function setReviewLanePainted(painted) {
+if (painted === lanePainted) return;
+lanePainted = painted;
+if (currentAccountDataSurfaceIsTrusted()) return;
+const roots = [document];
+forEachScannedShadowRoot((root) => roots.push(root));
+roots.forEach((root) => root.querySelectorAll(ORDINARY_PAGE_WORD_SELECTOR).forEach(syncWordReviewLane));
+}
+function laneClassName(ankiState) {
+const onLane = [lanePainted, Boolean(ankiState), ankiState !== "not-in-deck", !currentAccountDataSurfaceIsTrusted()].every(Boolean);
+return onLane ? `${LANE_CLASS_STEM}${ankiState}` : "";
+}
 function renderedWordNumericIdentity(word) {
 return {
 vid: Number(renderedWordPrivateValue(word, "vid")),
@@ -5426,7 +5818,7 @@ const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback"
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
 const BUNPRO_FILLABLE_CARD_STATES = new Set(["", "not-in-deck"]);
 function clearRenderedWordAnkiState(word) {
-Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+Array.from(word.classList).filter(isAnkiStateClass).forEach((className) => word.classList.remove(className));
 const ankiState = renderedWordPrivateValue(word, "ankiState");
 const cardState = renderedWordPrivateValue(word, "cardState");
 clearOffhostProjectedAnkiState(word, ankiState, cardState);
@@ -5440,7 +5832,10 @@ if (!ankiState || ankiState === cardState) return;
 word.classList.remove(`jpdb-${ankiState}`);
 }
 function renderedWordHasAnkiState(word) {
-return Boolean(renderedWordPrivateValue(word, "ankiState") || renderedWordPrivateValue(word, "ankiDecks") || Array.from(word.classList).some((className) => className.startsWith("anki-")));
+return Boolean(renderedWordPrivateValue(word, "ankiState") || renderedWordPrivateValue(word, "ankiDecks") || Array.from(word.classList).some(isAnkiStateClass));
+}
+function isAnkiStateClass(className) {
+return className.startsWith("anki-") || isReviewLaneClass(className);
 }
 function renderedWordCardKey(vid, sid) {
 return `${vid}:${sid}`;
@@ -6552,6 +6947,25 @@ VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
 current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
 ].some(Boolean);
 }
+const COLOR_SOURCE_CLASS_TOKENS = {
+status: "status",
+jpdb: "jpdb",
+anki: "review",
+pitch: "pitch",
+off: "off"
+};
+function colorSourceClassName(scope, channel, source) {
+return `jpdb-reader-${scope}-${channel}-${COLOR_SOURCE_CLASS_TOKENS[source]}`;
+}
+function selectedWordColorSourceToken(root, channels, sources) {
+let selected = null;
+for (const source of sources) {
+if (channels.some((channel) => root.classList.contains(colorSourceClassName("word", channel, source)))) {
+selected = COLOR_SOURCE_CLASS_TOKENS[source];
+}
+}
+return selected;
+}
 const YOUTUBE_APP_HOSTS = new Set([
 "youtube.com",
 "www.youtube.com",
@@ -6882,248 +7296,6 @@ style.setAttribute(SHADOW_STYLE_MARKER, "true");
 style.textContent = shadowReaderCssText;
 root.append(style);
 clonedShadowStyleNodes.add(new WeakRef(style));
-}
-const scannedShadowRootRefs = new Set();
-const scannedShadowRootState = new WeakMap();
-let shadowRootScanHook = null;
-const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
-const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
-const MAX_POTENTIAL_SHADOW_HOSTS = 160;
-const MAX_PENDING_UPGRADE_NAMES = 64;
-const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = "yomu:open-shadow-root-attached";
-const PAGE_SHADOW_DISCOVERY_KEY = "__yomuOpenShadowRootDiscoveryV1";
-const potentialShadowHosts = new Set();
-let seenPotentialShadowHosts = new WeakSet();
-let potentialShadowHostTimer;
-const subscribedUpgradeNames = new Set();
-let customElementLifecycleGeneration = 0;
-let customElementUpgradeHook = null;
-let pendingUpgradeWakeup = false;
-let acceptPendingUpgradeWakeups = true;
-let openShadowRootDiscoveryUsers = 0;
-function noteScannedShadowRoot(root) {
-noteShadowRoot(root, "scan");
-}
-function noteShadowRoot(root, cause) {
-const active = scannedShadowRootState.get(root);
-if (active) return;
-scannedShadowRootState.set(root, true);
-if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
-shadowRootScanHook?.(root, cause);
-}
-function watchPotentialOpenShadowRootHost(host) {
-const root = host.shadowRoot;
-if (root) {
-noteShadowRoot(root, "scan");
-return root;
-}
-const tagName = host.localName.toLowerCase();
-const isCustomElement = tagName.includes("-");
-if (!isCustomElement) return null;
-const registry = customElementRegistry();
-if (registry && !registry.get(tagName)) {
-subscribeToCustomElementUpgrade(registry, tagName);
-return null;
-}
-if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
-seenPotentialShadowHosts.add(host);
-potentialShadowHosts.add({
-ref: new WeakRef(host),
-remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
-});
-schedulePotentialShadowHostPoll();
-return null;
-}
-function installOpenShadowRootDiscovery() {
-openShadowRootDiscoveryUsers += 1;
-if (openShadowRootDiscoveryUsers === 1) {
-installPageOpenShadowRootDiscoveryBridge();
-document.addEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
-try {
-document.querySelectorAll(":not(:defined)").forEach((host) => watchPotentialOpenShadowRootHost(host));
-} catch {
-}
-schedulePotentialShadowHostPoll();
-}
-let disposed = false;
-return () => {
-if (disposed) return;
-disposed = true;
-openShadowRootDiscoveryUsers -= 1;
-if (openShadowRootDiscoveryUsers > 0) return;
-document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
-if (!customElementUpgradeHook) resetPotentialShadowHostTracking();
-};
-}
-function handleOpenShadowRootAttached(event) {
-const host = event.composedPath()[0];
-const root = host instanceof Element ? host.shadowRoot : null;
-if (root) noteShadowRoot(root, "attached");
-}
-function schedulePotentialShadowHostPoll() {
-if (!openShadowRootDiscoveryUsers && !customElementUpgradeHook || potentialShadowHostTimer !== void 0 || !potentialShadowHosts.size || pollSuspendedForHiddenPage()) return;
-potentialShadowHostTimer = window.setTimeout(
-pollPotentialShadowHosts,
-POTENTIAL_SHADOW_HOST_POLL_MS
-);
-}
-function pollSuspendedForHiddenPage() {
-return typeof document !== "undefined" && document.visibilityState === "hidden";
-}
-function wakeShadowHostPoll() {
-schedulePotentialShadowHostPoll();
-}
-function pollPotentialShadowHosts() {
-potentialShadowHostTimer = void 0;
-for (const pending of potentialShadowHosts) {
-const host = pending.ref.deref();
-if (!host || !host.isConnected) {
-potentialShadowHosts.delete(pending);
-if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
-continue;
-}
-if (host.shadowRoot) {
-potentialShadowHosts.delete(pending);
-noteShadowRoot(host.shadowRoot, "attached");
-continue;
-}
-if (pending.remainingPolls <= 1) {
-potentialShadowHosts.delete(pending);
-} else {
-pending.remainingPolls -= 1;
-}
-}
-schedulePotentialShadowHostPoll();
-}
-function installPageOpenShadowRootDiscoveryBridge() {
-const sandbox = globalThis;
-const pageWindow = sandbox.unsafeWindow;
-if (pageWindow) {
-const sameRealm = pageWindow.Object === Object;
-if (sameRealm) {
-try {
-pageOpenShadowRootDiscoveryBootstrap(
-pageWindow,
-OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
-PAGE_SHADOW_DISCOVERY_KEY
-);
-return;
-} catch {
-}
-}
-}
-const parent = document.head || document.documentElement;
-if (!parent) return;
-try {
-const script = document.createElement("script");
-const nonceHost = document.querySelector("script[nonce]");
-const nonce = nonceHost?.nonce || nonceHost?.getAttribute("nonce");
-if (nonce) script.setAttribute("nonce", nonce);
-script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
-parent.append(script);
-script.remove();
-} catch {
-}
-}
-function pageOpenShadowRootDiscoveryBootstrap(pageWindow, eventName, stateKey) {
-const state = pageWindow;
-if (state[stateKey]) return;
-const prototype = pageWindow.Element?.prototype;
-const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, "attachShadow");
-const original = descriptor?.value;
-if (!prototype || !descriptor || typeof original !== "function") return;
-const patched = function attachShadow(init) {
-const root = original.call(this, init);
-if (root.mode === "open") {
-this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
-}
-return root;
-};
-Object.defineProperty(prototype, "attachShadow", {
-...descriptor,
-value: patched
-});
-state[stateKey] = true;
-}
-function setShadowRootScanHook(hook) {
-shadowRootScanHook = hook;
-if (hook) forEachScannedShadowRoot((root) => hook(root, "replay"));
-}
-function forEachScannedShadowRoot(callback, includeDetached = false) {
-for (const ref of scannedShadowRootRefs) {
-const root = ref.deref();
-if (!root) {
-scannedShadowRootRefs.delete(ref);
-continue;
-}
-if (!root.host?.isConnected) {
-scannedShadowRootState.set(root, false);
-if (!includeDetached) continue;
-}
-callback(root);
-}
-}
-function sweepDisconnectedShadowRoots() {
-let swept = false;
-for (const ref of scannedShadowRootRefs) {
-const root = ref.deref();
-if (!root) {
-scannedShadowRootRefs.delete(ref);
-continue;
-}
-if (root.host?.isConnected || scannedShadowRootState.get(root) === false) continue;
-scannedShadowRootState.set(root, false);
-swept = true;
-}
-return swept;
-}
-function setCustomElementUpgradeHook(hook) {
-customElementUpgradeHook = hook;
-if (!hook) {
-customElementLifecycleGeneration += 1;
-subscribedUpgradeNames.clear();
-acceptPendingUpgradeWakeups = false;
-pendingUpgradeWakeup = false;
-if (!openShadowRootDiscoveryUsers) resetPotentialShadowHostTracking();
-return;
-}
-acceptPendingUpgradeWakeups = true;
-schedulePotentialShadowHostPoll();
-if (pendingUpgradeWakeup) {
-pendingUpgradeWakeup = false;
-hook();
-}
-}
-function customElementRegistry() {
-const registry = Reflect.get(globalThis, "customElements");
-if (!registry) return null;
-const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
-return callableMethods.length === 2 ? registry : null;
-}
-function subscribeToCustomElementUpgrade(registry, tagName) {
-if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
-subscribedUpgradeNames.add(tagName);
-const generation = customElementLifecycleGeneration;
-void registry.whenDefined(tagName).then(() => {
-if (generation !== customElementLifecycleGeneration) return;
-subscribedUpgradeNames.delete(tagName);
-notifyCustomElementLifecycle();
-}, () => {
-if (generation !== customElementLifecycleGeneration) return;
-subscribedUpgradeNames.delete(tagName);
-});
-}
-function notifyCustomElementLifecycle() {
-if (customElementUpgradeHook) customElementUpgradeHook();
-else if (acceptPendingUpgradeWakeups) pendingUpgradeWakeup = true;
-}
-function resetPotentialShadowHostTracking() {
-if (potentialShadowHostTimer !== void 0) {
-window.clearTimeout(potentialShadowHostTimer);
-potentialShadowHostTimer = void 0;
-}
-potentialShadowHosts.clear();
-seenPotentialShadowHosts = new WeakSet();
 }
 function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
 return right > rect.left && bottom > rect.top;
@@ -10102,10 +10274,11 @@ const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source) =
 function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
 if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
 setInlineStyleIfChanged(root, "-webkit-text-fill-color", "transparent", "important");
-const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+const documentElement = root.ownerDocument.documentElement;
+const source = selectedWordColorSourceToken(documentElement, ["highlight", "underline", "text"], ADDITIVE_DECORATION_SOURCES);
 const words = root.querySelectorAll(".jpdb-reader-word");
 const paint = source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
-const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+const highlightSource = selectedWordColorSourceToken(documentElement, ["highlight"], ADDITIVE_HIGHLIGHT_SOURCES);
 const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
 for (const word of words) {
 const visible = !projectedWordsOnly || word.dataset.yomuSourceProjected === "true";
@@ -10119,20 +10292,6 @@ setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", visible ? 
 const visibleSoftPaint = visible ? softPaint : "";
 if (visibleSoftPaint) setInlineStyleIfChanged(word, "--jpdb-reader-mirror-status-soft", visibleSoftPaint);
 else removeInlineStyleIfPresent(word, "--jpdb-reader-mirror-status-soft");
-}
-function activeAdditiveHighlightSource(documentElement) {
-let active = null;
-for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
-if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
-}
-return active;
-}
-function activeAdditiveDecorationSource(documentElement) {
-let active = null;
-for (const source of ADDITIVE_DECORATION_SOURCES) {
-if (["highlight", "underline", "text"].some((channel) => documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
-}
-return active;
 }
 function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
 if (filterWordsToClip && root.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(root, clipRow);
@@ -10551,10 +10710,10 @@ return state;
 function observeControlTextMirrorHost(host, state) {
 const previous = controlTextMirrorHosts.get(host);
 previous?.listeners?.abort();
-const listeners = new AbortController();
-state.listeners = listeners;
-host.addEventListener("change", state.onChange, { signal: listeners.signal });
-host.addEventListener("input", state.onChange, { signal: listeners.signal });
+const listeners2 = new AbortController();
+state.listeners = listeners2;
+host.addEventListener("change", state.onChange, { signal: listeners2.signal });
+host.addEventListener("input", state.onChange, { signal: listeners2.signal });
 controlTextMirrorHosts.set(host, state);
 }
 function removeControlTextMirror(host) {
@@ -13631,6 +13790,10 @@ return Boolean(effectiveJpdbApiKey(settings2));
 function hasJitenApiCredential(settings2) {
 return Boolean(effectiveJitenApiKey(settings2));
 }
+function chosenWordGradingService(settings2) {
+if (!hasJpdbApiCredential(settings2) || !hasJitenApiCredential(settings2)) return null;
+return settings2.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
+}
 function effectiveBunproFrontendApiToken(settings2) {
 return settings2.bunproFrontendApiToken?.trim() ?? "";
 }
@@ -14075,6 +14238,10 @@ related.forEach((group) => this.unresolved.delete(group));
 this.unresolved.add(operation);
 return operation;
 }
+/** A word turned away before anything was written leaves the operation: there is nothing to finish. */
+release(operation, id) {
+operation.delete(id);
+}
 finish(operation) {
 if ([...operation.values()].every((item) => item.required.every((key) => this.values.get(key) === "completed"))) {
 this.unresolved.delete(operation);
@@ -14293,6 +14460,24 @@ return typeof copyKey === "string" ? copyKey : void 0;
 function userFacingCopyKey(error) {
 return userFacingCopyKeyOf(error);
 }
+const listeners = new Set();
+let waits = 0;
+function reportSaveWaitingForAnotherTab(waiting) {
+waits = Math.max(0, waits + (waiting ? 1 : -1));
+for (const listener of listeners) {
+try {
+listener(waits > 0);
+} catch {
+}
+}
+}
+function watchSavesWaitingForAnotherTab(listener) {
+listeners.add(listener);
+if (waits > 0) listener(true);
+return () => {
+listeners.delete(listener);
+};
+}
 function canonicalLanguageTag(value) {
 if (typeof value !== "string") return null;
 const candidate = value.trim().replace(/_/g, "-");
@@ -14350,23 +14535,30 @@ removeAcademyVocabularyProvenance,
 upsertAcademyVocabulary
 } = localYomuDeck;
 const LEGACY_DECK_KEY = "yomu:srs-local:v1";
-const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
-const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
-const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
+const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
+const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 registerManagedState({
 owner: "srs/local-yomu-store",
 kind: "gm",
-prefix: "yomu:srs-local:v2:",
+prefix: DECK_KEY_PREFIX,
 enumerate: enumerateLocalYomuSrsStorageKeys
 });
+function isLocalYomuSrsStorageKey(key) {
+return key === LEGACY_DECK_KEY || key.startsWith(DECK_KEY_PREFIX);
+}
 class LocalYomuSrsStorageError extends Error {
 constructor(options) {
-super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+super(isStorageLeaseLapsed(options?.cause) ? "Your Academy deck was not saved because saving was interrupted. Try again." : "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
 this.name = "LocalYomuSrsStorageError";
 }
 }
 function isLocalYomuSrsStorageError(error) {
 return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+}
+function isLocalYomuSrsSaveInterrupted(error) {
+return isStorageLeaseLapsed(error) || isLocalYomuSrsStorageError(error) && isStorageLeaseLapsed(error.cause);
 }
 async function enumerateLocalYomuSrsStorageKeys() {
 const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
@@ -14412,10 +14604,10 @@ if (previous.tombstones?.[id] === void 0) newlyCreatedKeys.push(key);
 }
 await gmStorageSet(DECK_INDEX_KEY, nextIndex);
 } catch (error) {
-await Promise.all(newlyCreatedKeys.map((key) => gmStorageDelete(key)));
+if (!isStorageLeaseLapsed(error)) await Promise.allSettled(newlyCreatedKeys.map((key) => gmStorageDelete(key)));
 throw new LocalYomuSrsStorageError({ cause: error });
 }
-await Promise.all([
+await Promise.allSettled([
 ...previousIndex.cardIds.filter((id) => !next.cards[id]).map((id) => gmStorageDelete(cardStorageKey(id))),
 ...previousIndex.tombstoneIds.filter((id) => next.tombstones?.[id] === void 0).map((id) => gmStorageDelete(tombstoneStorageKey(id)))
 ]);
@@ -14467,6 +14659,11 @@ function tombstoneStorageKey(id) {
 return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id)}`;
 }
 let localDeckMutation = Promise.resolve();
+const LOCAL_DECK_LEASE = {
+leaseMs: STORAGE_WORK_LEASE_MS,
+guards: isLocalYomuSrsStorageKey,
+onWait: reportSaveWaitingForAnotherTab
+};
 const localDeckMutationListeners = new Set();
 class LocalYomuSrsRepository {
 constructor(now = () => Date.now()) {
@@ -14530,13 +14727,11 @@ reason: result.reason,
 }
 async collection(limit = 50, options = {}) {
 const now = this.now();
-const language = options.language ? canonicalLanguageTag(options.language) : "";
-return Object.values((await this.readDeck()).cards).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
+return Object.values((await this.readDeck()).cards).filter(inRequestedLanguage(options)).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
 }
 async queue(limit = 50, options = {}) {
 const now = this.now();
-const language = options.language ? canonicalLanguageTag(options.language) : "";
-const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language);
+const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter(inRequestedLanguage(options));
 const cap = normalizedQueueLimit(limit);
 const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
 const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -14552,9 +14747,9 @@ newCount: dueNew,
 reviewCount: due.length
 };
 }
-async stats() {
+async stats(options = {}) {
 const now = this.now();
-const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false);
+const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter(inRequestedLanguage(options));
 const today = startOfLocalDay(now);
 return {
 providerId: "yomu-local",
@@ -14677,32 +14872,37 @@ writeDeck(previous, deck) {
 return this.store.write(previous, deck);
 }
 mutateDeck(operation, notifyMutations = true) {
-const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
-const deck = await this.readDeckUncoordinated();
-const previousDeck = structuredClone(deck);
-const previousCards = new Map(Object.entries(previousDeck.cards));
-const previousTombstones = { ...previousDeck.tombstones ?? {} };
-const value = operation(deck);
-await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
-const changedCardIds = new Set([
-...previousCards.keys(),
-...Object.keys(deck.cards),
-...Object.keys(previousTombstones),
-...Object.keys(deck.tombstones ?? {})
-]);
-const changed = [...changedCardIds].filter((id) => !sameStoredCard(previousCards.get(id), deck.cards[id]) || previousTombstones[id] !== deck.tombstones?.[id]);
-if (notifyMutations) {
-localDeckMutationListeners.forEach((listener) => {
+const result = localDeckMutation.then(async () => {
+const attempt2 = {};
 try {
-listener(changed);
-} catch {
+await withGmStorageLease("local-yomu-srs-deck", async () => {
+const deck = await this.readDeckUncoordinated();
+const previous = structuredClone(deck);
+const value = operation(deck);
+attempt2.save = { value, previous, next: normalizeStoredYomuSrsDeck(deck) };
+await this.writeDeck(previous, attempt2.save.next);
+}, LOCAL_DECK_LEASE);
+} catch (error) {
+await this.confirmInterruptedSave(attempt2.save, error);
 }
+const save = attempt2.save;
+if (notifyMutations) notifyLocalDeckMutations(changedCardIds(save.previous, save.next));
+return save.value;
 });
-}
-return value;
-}));
 localDeckMutation = result.then(() => void 0, () => void 0);
 return result;
+}
+async confirmInterruptedSave(save, error) {
+const landed = save && isLocalYomuSrsSaveInterrupted(error) && await this.landedBeforeInterruption(save).catch(() => false);
+if (!landed) throw deckSaveError(error);
+}
+landedBeforeInterruption(save) {
+return withGmStorageLease("local-yomu-srs-deck", async () => {
+const stored = await this.readDeckUncoordinated();
+if (changedCardIds(save.previous, save.next).some((id) => deckRecordsDiffer(stored, save.next, id))) return false;
+await this.writeDeck(stored, stored);
+return true;
+}, LOCAL_DECK_LEASE);
 }
 cardFromImportItem(item, now) {
 let identity;
@@ -14794,6 +14994,29 @@ if (left === right) return true;
 if (!left || !right) return false;
 return JSON.stringify(left) === JSON.stringify(right);
 }
+function deckSaveError(error) {
+return isStorageLeaseLapsed(error) ? new LocalYomuSrsStorageError({ cause: error }) : error;
+}
+function deckRecordsDiffer(left, right, id) {
+return !sameStoredCard(left.cards[id], right.cards[id]) || left.tombstones?.[id] !== right.tombstones?.[id];
+}
+function changedCardIds(previous, next) {
+const ids = new Set([
+...Object.keys(previous.cards),
+...Object.keys(next.cards),
+...Object.keys(previous.tombstones ?? {}),
+...Object.keys(next.tombstones ?? {})
+]);
+return [...ids].filter((id) => deckRecordsDiffer(previous, next, id));
+}
+function notifyLocalDeckMutations(changed) {
+localDeckMutationListeners.forEach((listener) => {
+try {
+listener(changed);
+} catch {
+}
+});
+}
 function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
 return {
 id: "yomu-local",
@@ -14801,7 +15024,7 @@ label: ACADEMY_SRS_LABEL,
 capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
 hasCredential: () => true,
 verify: async () => true,
-stats: () => repository.stats(),
+stats: (options) => repository.stats(options),
 queue: (limit, options) => repository.queue(limit, options),
 collection: (limit, options) => repository.collection(limit, options),
 startReview: (cardId) => repository.startReview(cardId),
@@ -14858,6 +15081,10 @@ function startOfLocalDay(now) {
 const date = new Date(now);
 date.setHours(0, 0, 0, 0);
 return date.getTime();
+}
+function inRequestedLanguage(options) {
+const language = options.language ? canonicalLanguageTag(options.language) : "";
+return (card) => !language || canonicalLanguageTag(card.language ?? "ja") === language;
 }
 function normalizedQueueLimit(limit) {
 if (Number.isNaN(limit) || limit <= 0) return 0;
@@ -15311,13 +15538,17 @@ renderedWordHasAnkiState(word),
 Boolean(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"))
 ].every(Boolean);
 }
+const preservedAnkiContrastWords = new WeakSet();
+function preserveAnkiContrastOnNextRefresh(word) {
+preservedAnkiContrastWords.add(word);
+}
 function preserveExistingAnkiContrast(word, hasAccessibleColor, hasInlineTextColor) {
 const preserve = [
-word.dataset.ankiPreserveContrast === "true",
+preservedAnkiContrastWords.has(word),
 hasAccessibleColor,
 !hasInlineTextColor
 ].every(Boolean);
-if (preserve) delete word.dataset.ankiPreserveContrast;
+if (preserve) preservedAnkiContrastWords.delete(word);
 return preserve;
 }
 function readerWordContrastSurface(word) {
@@ -16318,6 +16549,35 @@ if (bunproBacked) return { ...apiSrsProviderView("bunpro", settings2), hasApiKey
 if (wanikaniBacked) return { ...apiSrsProviderView("wanikani", settings2), hasApiKey: false };
 return null;
 }
+function apiGradingServiceToResolve(card, settings2, isJpdbBackedCard) {
+const chosen = chosenWordGradingService(settings2);
+if (!chosen || card.apiGradingProviderOverride) return null;
+const own = apiSrsProviderViewForCard(card, settings2, isJpdbBackedCard)?.id;
+return (own === "jpdb" || own === "jiten") && own !== chosen ? chosen : null;
+}
+function apiSrsGradingProviderViewForCard(card, settings2, isJpdbBackedCard) {
+const resolveOn = apiGradingServiceToResolve(card, settings2, isJpdbBackedCard);
+return resolveOn ? apiSrsProviderView(resolveOn, settings2) : apiSrsProviderViewForCard(card, settings2, isJpdbBackedCard);
+}
+const COLLECTION_ACCEPTS = {
+jpdb: (card, isJpdbBackedCard) => isJpdbBackedCard(card),
+jiten: isJitenBackedCard,
+"yomu-local": (card) => Boolean(card.spelling.trim()),
+bunpro: isBunproMiningCard,
+wanikani: () => false
+};
+const COLLECTION_FALLBACK_ORDER = ["anki", "jpdb", "jiten", "yomu-local", "bunpro"];
+function collectionDestinationsForCard(card, settings2, isJpdbBackedCard) {
+const resolveOn = apiGradingServiceToResolve(card, settings2, isJpdbBackedCard);
+const grading = resolveOn ?? apiSrsProviderViewForCard(card, settings2, isJpdbBackedCard)?.id;
+const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter((id) => id !== grading)] : COLLECTION_FALLBACK_ORDER;
+const accepts = (id) => id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
+return order.filter((id) => canCollectTo(id, settings2, accepts));
+}
+function canCollectTo(id, settings2, accepts) {
+if (id === "anki") return settings2.ankiEnabled;
+return isApiSrsProviderEnabled(settings2, id) && apiSrsProviderView(id, settings2).hasApiKey && accepts(id);
+}
 function isApiMiningEnabled(settings2) {
 return settings2.jpdbMiningEnabled || settings2.bunproMiningEnabled || settings2.yomuLocalSrsEnabled;
 }
@@ -16510,7 +16770,7 @@ try {
 return await operation();
 } catch (error) {
 if (isLocalYomuSrsStorageError(error)) {
-throw userFacingError("yomuLocalSrsStorageFailed", { cause: error });
+throw userFacingError(isLocalYomuSrsSaveInterrupted(error) ? "yomuLocalSrsSaveInterrupted" : "yomuLocalSrsStorageFailed", { cause: error });
 }
 throw error;
 }
@@ -16685,12 +16945,14 @@ this.receipts = new BatchReceiptLedger(receiptLimit);
 }
 entries = new Map();
 receipts;
+unmatched = new Set();
 busy = false;
 /** A deliberate new scan, not a render or retry, starts a fresh generation. */
 beginGeneration() {
 if (this.busy) return false;
 this.entries.clear();
 this.receipts.beginGeneration();
+this.unmatched.clear();
 return true;
 }
 prepare(candidates) {
@@ -16700,11 +16962,11 @@ const settings2 = this.deps.getSettings();
 const context = batchContext(settings2);
 return candidates.map((candidate) => {
 const identity = batchCardIdentity(candidate.card);
-const provider = this.deps.resolveProvider(candidate.card, settings2);
-const enabled = Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings2, provider.id));
-const collectApi = Boolean(isApiMiningEnabled(settings2) && enabled && (provider?.supportsMiningCard?.(candidate.card) ?? true));
+const destination = this.deps.resolveCollectionDestination(candidate.card, settings2);
+const provider = destination === "anki" ? null : destination;
+const reviewProvider = this.deps.resolveReviewProvider(candidate.card, settings2);
 const blocked = normalizeCardStates(candidate.card.cardState).some((state) => ["blacklisted", "never-forget", "redundant", "suspended"].includes(state));
-const grades = settings2.enableReviews && enabled && !blocked ? reviewGradeScale(settings2, reviewGradeProfile(candidate.card, provider.id)).grades : [];
+const grades = settings2.enableReviews && providerEnabled(reviewProvider, settings2) && !blocked ? reviewGradeScale(settings2, reviewGradeProfile(candidate.card, reviewProvider.id)).grades : [];
 const entry = {
 token: Symbol("batch-plan"),
 source: candidate.card,
@@ -16714,11 +16976,12 @@ states: JSON.stringify(candidate.card.cardState),
 identity,
 context,
 settings: { ...settings2 },
-provider,
-collectApi,
-collectAnki: collectApi ? shouldMineAnkiAlongsideApi(settings2) : settings2.ankiEnabled,
+destination,
+reviewProvider,
+collectApi: Boolean(provider),
+collectAnki: destination === "anki" || Boolean(provider && shouldMineAnkiAlongsideApi(settings2)),
 grades,
-receipts: receiptKeys(candidate.card, settings2, provider)
+receipts: receiptKeys(candidate.card, settings2, provider, reviewProvider)
 };
 this.entries.set(entry.token, entry);
 return this.view(entry);
@@ -16731,11 +16994,13 @@ if (!tokens.length || new Set(tokens).size !== tokens.length || entries2.some((e
 const batch = entries2;
 if (new Set(batch.map((entry) => entry.receipts[action === "review" ? "review" : entry.collectApi ? "api-collection" : "anki-collection"])).size !== batch.length) return this.reject(tokens, "stale");
 if (action === "review" && (!grade || !commonBatchGrades(batch.map((entry) => this.view(entry))).some(([value]) => value === grade))) return this.reject(tokens, "incompatible");
-if (action === "collect" && batch.some((entry) => !this.view(entry).canCollect)) return this.reject(tokens, "unavailable");
-const operation = this.receipts.reserve(batch.map((entry) => receiptItem(entry, action)));
+const writes = action === "collect" ? batch.filter(hasDestination) : batch;
+if (action === "collect" && (!writes.length || writes.some((entry) => !this.view(entry).canCollect))) return this.reject(tokens, "unavailable");
+const operation = this.receipts.reserve(writes.map((entry) => receiptItem(entry, action)));
 if (!operation) return this.reject(tokens, "capacity");
 this.busy = true;
 const items = [];
+let matching;
 try {
 for (const entry of batch) {
 if (!this.current(entry)) {
@@ -16743,10 +17008,25 @@ items.push(this.outcome(entry, "stale"));
 break;
 }
 try {
+if (action === "collect" && !hasDestination(entry)) {
+items.push(this.outcome(entry, "no-destination"));
+continue;
+}
+const onService = this.goesToGradingService(entry, action);
+if (onService && needsMatch(entry)) await (matching ??= this.matchOnGradingService(batch, action));
+if (onService && this.unmatched.has(entry.receipts.review)) {
+items.push(this.outcome(entry, "unmatched"));
+continue;
+}
 if (action === "collect") await this.collect(entry);
 else await this.review(entry, grade);
 items.push(this.outcome(entry, "completed"));
 } catch (error) {
+if (action === "collect" && userFacingCopyKeyOf(error) === "bunproNoMatchingWord") {
+this.receipts.release(operation, receiptItem(entry, action).id);
+items.push(this.outcome(entry, "no-destination"));
+continue;
+}
 const state = this.completed(entry, action) ? "completed" : error instanceof StaleBatchPlan ? "stale" : this.receipts.get(entry.receipts.review) === "uncertain" ? "uncertain" : "failed";
 items.push(this.outcome(entry, state));
 break;
@@ -16762,19 +17042,42 @@ this.busy = false;
 view(entry) {
 const stages = this.completedStages(entry);
 const reviewUncertain = this.receipts.get(entry.receipts.review) === "uncertain";
+const unmatched = this.unmatched.has(entry.receipts.review);
+const due = entry.collectApi && !stages.includes("api-collection") || entry.collectAnki && !stages.includes("anki-collection");
 return Object.freeze({
 token: entry.token,
-grades: Object.freeze((stages.includes("review") || reviewUncertain ? [] : entry.grades).map((pair) => Object.freeze([...pair]))),
-canCollect: (entry.collectApi || entry.collectAnki) && !((!entry.collectApi || stages.includes("api-collection")) && (!entry.collectAnki || stages.includes("anki-collection"))),
-uncertain: reviewUncertain
+grades: Object.freeze((stages.includes("review") || reviewUncertain || unmatched ? [] : entry.grades).map((pair) => Object.freeze([...pair]))),
+canCollect: due && !(unmatched && this.goesToGradingService(entry, "collect")),
+noDestination: !hasDestination(entry),
+uncertain: reviewUncertain,
+unmatched
+});
+}
+goesToGradingService(entry, action) {
+if (action === "review") return true;
+const provider = collectProvider(entry);
+return Boolean(provider && provider.id === entry.reviewProvider?.id && !this.completedStages(entry).includes("api-collection"));
+}
+async matchOnGradingService(batch, action) {
+const pending = batch.filter((entry) => this.goesToGradingService(entry, action) && needsMatch(entry));
+const matches = await this.deps.findOnGradingService(pending[0].reviewProvider, pending.map((entry) => entry.card));
+pending.forEach((entry, index) => {
+const match = matches[index];
+if (match) Object.assign(entry, { card: { ...match, cardState: [...match.cardState] }, resolved: true });
+else this.unmatched.add(entry.receipts.review);
 });
 }
 async collect(entry) {
-if (entry.collectApi && !this.completedStages(entry).includes("api-collection")) {
-const deck = await this.deps.collectionDeck(entry.provider, entry.settings);
+const provider = collectProvider(entry);
+if (provider && !this.completedStages(entry).includes("api-collection")) {
+const word = this.serviceReceipt(entry, "api-collection");
+if (this.receipts.get(word) !== "completed") {
+const deck = await this.deps.collectionDeck(provider, entry.settings);
 this.assertCurrent(entry);
 if (!deck) throw new Error("No collection deck");
-await entry.provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+this.receipts.set(word, "completed");
+}
 this.receipts.set(entry.receipts["api-collection"], "completed");
 this.assertCurrent(entry);
 this.deps.notify(entry.card);
@@ -16785,11 +17088,26 @@ if (!await this.deps.collectAnki(entry.card, entry.sentence, entry.settings.anki
 this.receipts.set(entry.receipts["anki-collection"], "completed");
 }
 this.assertCurrent(entry);
-entry.source.cardState = entry.card.cardState;
+this.keepPageState(entry);
+}
+keepPageState(entry) {
+if (!entry.resolved) entry.source.cardState = entry.card.cardState;
+}
+serviceReceipt(entry, stage) {
+return receiptKeys(entry.card, entry.settings, collectProvider(entry), entry.reviewProvider)[stage];
 }
 async review(entry, grade) {
 this.assertCurrent(entry);
-if (entry.provider?.id === "jpdb" && entry.card.cardState.includes("not-in-deck")) {
+const word = this.serviceReceipt(entry, "review");
+const reviewed = () => {
+this.receipts.set(entry.receipts.review, "completed");
+this.receipts.set(word, "completed");
+};
+if (this.receipts.get(word) === "completed") {
+reviewed();
+return;
+}
+if (entry.reviewProvider?.id === "jpdb" && entry.card.cardState.includes("not-in-deck")) {
 if (!this.completedStages(entry).includes("review-collection")) {
 await this.deps.collectForReview(entry.card, entry.sentence, entry.settings.miningDeck || "forq");
 this.receipts.set(entry.receipts["review-collection"], "completed");
@@ -16798,19 +17116,20 @@ this.assertCurrent(entry);
 entry.card.cardState = [...entry.card.cardState.filter((state) => state !== "not-in-deck"), "in-deck"];
 }
 try {
-await this.deps.review(entry.provider, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), () => this.receipts.set(entry.receipts.review, "completed"));
-this.receipts.set(entry.receipts.review, "completed");
+await this.deps.review(entry.reviewProvider, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), reviewed);
+reviewed();
 } catch (error) {
-if (entry.provider?.id === "bunpro" && !this.completedStages(entry).includes("review")) this.receipts.set(entry.receipts.review, "uncertain");
+if (entry.reviewProvider?.id === "bunpro" && !this.completedStages(entry).includes("review")) this.receipts.set(entry.receipts.review, "uncertain");
 throw error;
 }
 this.assertCurrent(entry);
-entry.source.cardState = entry.card.cardState;
+this.keepPageState(entry);
 }
 current(entry) {
 const settings2 = this.deps.getSettings();
-const provider = this.deps.resolveProvider(entry.source, settings2);
-return this.entries.get(entry.token) === entry && entry.context === batchContext(settings2) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState) && provider?.id === entry.provider?.id && provider?.hasApiKey === entry.provider?.hasApiKey;
+const destination = this.deps.resolveCollectionDestination(entry.source, settings2);
+const reviewProvider = this.deps.resolveReviewProvider(entry.source, settings2);
+return this.entries.get(entry.token) === entry && entry.context === batchContext(settings2) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState) && destinationKey(destination) === destinationKey(entry.destination) && reviewProvider?.id === entry.reviewProvider?.id && reviewProvider?.hasApiKey === entry.reviewProvider?.hasApiKey;
 }
 assertCurrent(entry) {
 if (!this.current(entry)) throw new StaleBatchPlan();
@@ -16831,27 +17150,34 @@ return { rejected, items: tokens.map((token) => ({ token, state: "unattempted", 
 }
 class StaleBatchPlan extends Error {
 }
+function providerEnabled(provider, settings2) {
+return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings2, provider.id));
+}
+function hasDestination(entry) {
+return entry.collectApi || entry.collectAnki;
+}
+function collectProvider(entry) {
+return entry.destination === "anki" ? null : entry.destination;
+}
+function needsMatch(entry) {
+return Boolean(entry.reviewProvider && !entry.reviewProvider.supportsCard(entry.card));
+}
+function destinationKey(destination) {
+return destination === "anki" || !destination ? String(destination) : `${destination.id}:${destination.hasApiKey}`;
+}
 function receiptItem(entry, action) {
 const stages = action === "review" ? ["review-collection", "review"] : [...entry.collectApi ? ["api-collection"] : [], ...entry.collectAnki ? ["anki-collection"] : []];
 const required = action === "review" ? [entry.receipts.review] : stages.map((stage) => entry.receipts[stage]);
 const id = action === "review" ? entry.receipts.review : entry.collectApi ? entry.receipts["api-collection"] : sensitiveFingerprint(JSON.stringify(["anki-item", entry.settings.activeLanguageProfileId, entry.card.spelling, entry.card.reading]));
 return { id, keys: stages.map((stage) => entry.receipts[stage]), required };
 }
-function receiptKeys(card, settings2, provider) {
-const credentials = {
-jiten: effectiveJitenApiKey(settings2),
-jpdb: effectiveJpdbApiKey(settings2),
-bunpro: [effectiveBunproFrontendApiToken(settings2), effectiveBunproLegacyApiKey(settings2)],
-wanikani: effectiveWanikaniApiToken(settings2),
-"yomu-local": settings2.activeLanguageProfileId
-};
-const identity = provider?.id === "jiten" ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid] : provider?.id === "bunpro" ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint] : provider?.id === "wanikani" ? [card.wanikaniAssignmentId] : [card.vid, card.sid, card.spelling, card.reading];
-const account = [provider?.id, provider ? credentials[provider.id] : "", identity];
-const collectionDeck = provider?.id === "jiten" ? "default-study-deck" : settings2.miningDeck;
+function receiptKeys(card, settings2, provider, reviewProvider) {
+const collect = serviceAccount(card, settings2, provider, "collect");
+const review = serviceAccount(card, settings2, reviewProvider, "review");
 return {
-review: sensitiveFingerprint(JSON.stringify(["review", account])),
-"api-collection": sensitiveFingerprint(JSON.stringify(["collect", account, collectionDeck])),
-"review-collection": sensitiveFingerprint(JSON.stringify(["review-collect", account, collectionDeck])),
+review: sensitiveFingerprint(JSON.stringify(["review", review.account])),
+"api-collection": sensitiveFingerprint(JSON.stringify(["collect", collect.account, collect.deck])),
+"review-collection": sensitiveFingerprint(JSON.stringify(["review-collect", review.account, review.deck])),
 "anki-collection": sensitiveFingerprint(JSON.stringify([
 "anki-collect",
 settings2.ankiConnectUrl,
@@ -16861,6 +17187,24 @@ settings2.activeLanguageProfileId,
 card.spelling,
 card.reading
 ]))
+};
+}
+function serviceAccount(card, settings2, provider, use) {
+const account = receiptAccount(card, settings2, provider, use);
+return provider && !provider.supportsCard(card) ? { ...account, account: ["unidentified", card.source, ...account.account] } : account;
+}
+function receiptAccount(card, settings2, provider, use) {
+const credentials = {
+jiten: effectiveJitenApiKey(settings2),
+jpdb: effectiveJpdbApiKey(settings2),
+bunpro: [effectiveBunproFrontendApiToken(settings2), effectiveBunproLegacyApiKey(settings2)],
+wanikani: effectiveWanikaniApiToken(settings2),
+"yomu-local": settings2.activeLanguageProfileId
+};
+const identity = provider?.id === "jiten" ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid] : provider?.id === "bunpro" && use === "review" ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint] : provider?.id === "wanikani" ? [card.wanikaniAssignmentId] : [card.vid, card.sid, card.spelling, card.reading];
+return {
+account: [provider?.id, provider ? credentials[provider.id] : "", identity],
+deck: provider?.id === "jiten" ? "default-study-deck" : settings2.miningDeck
 };
 }
 function batchContext(settings2) {
@@ -16887,6 +17231,17 @@ card.bunproReviewableId,
 card.bunproReviewableType,
 card.wanikaniAssignmentId
 ]);
+}
+function sameWordOnService(word, tokens, identifies) {
+const spelling = word.spelling.trim();
+const reading = word.reading.trim();
+if (!spelling || !reading) return null;
+return tokens.find(({ card }) => card.spelling.trim() === spelling && card.reading.trim() === reading && identifies(card))?.card ?? null;
+}
+async function findWordsOnService(words, parse, identifies) {
+const matchable = words.filter((word) => word.spelling.trim() && word.reading.trim());
+const parsed = matchable.length ? await parse(matchable.map((word) => word.spelling.trim())) : [];
+return words.map((word) => sameWordOnService(word, parsed[matchable.indexOf(word)] ?? [], identifies));
 }
 const JITEN_TTS_API_BASE_URL = "https://api.jiten.moe/api/tts";
 const JITEN_TTS_RANDOM_VOICES = ["female", "female2", "male", "male2", "asmr"];
@@ -16938,10 +17293,12 @@ constructor(options) {
 this.options = options;
 this.batchMining = new PreparedBatchActions({
 getSettings: () => this.options.getSettings(),
-resolveProvider: (card, settings2) => this.apiProviderForCard(card, settings2),
+resolveCollectionDestination: (card, settings2) => this.privateDefaultDestination(card, settings2),
+resolveReviewProvider: (card, settings2) => this.gradingProviderForCard(card, settings2),
 collectionDeck: (provider, settings2) => this.privateDefaultDeckId(provider, settings2),
 collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
 collectForReview: (card, sentence, deck) => this.options.jpdb.addToDeck(deck, card, sentence),
+findOnGradingService: (provider, cards) => this.findOnService(provider, cards),
 review: (provider, card, grade, sentence, assertCurrent, onReviewed) => this.reviewApiCard(grade, card, sentence, { providerId: provider.id, deckId: defaultJpdbDeckId(this.options.getSettings()), suppressToast: true, assertCurrent, onReviewed }),
 notify: (card) => this.notifyApiCardStateChanged(card)
 });
@@ -17101,7 +17458,7 @@ return handlers[command.action];
 }
 async toggleGradingProvider(card, sentence) {
 const settings2 = this.options.getSettings();
-const current = this.apiProviderForCard(card, settings2);
+const current = this.gradingProviderForCard(card, settings2);
 if (!current?.hasApiKey) return;
 const cycle = apiSrsSwitchableProviderIds(card, settings2);
 if (cycle.length < 2) return;
@@ -17109,9 +17466,8 @@ const next = cycle[(cycle.indexOf(current.id) + 1) % cycle.length];
 if (!next || next === current.id || next === "yomu-local") return;
 const provider = this.apiProviders(settings2).find((p) => p.id === next && p.hasApiKey);
 if (!provider) return;
-const target = provider.supportsCard(card) ? card : await this.resolveProviderCard(card, next);
-if (!target || !provider.supportsCard(target)) return;
-if (next === "jpdb" || next === "jiten") this.options.setApiGradingProvider?.(next);
+const [target] = provider.supportsCard(card) ? [card] : await this.findOnService(provider, [card]).catch(() => [null]);
+if (!target) return;
 if (target !== card) copyBunproIdentity(card, target);
 target.apiGradingProviderOverride = next;
 await this.refreshProviderState(target, next);
@@ -17123,14 +17479,9 @@ navigation: "preserve",
 preservePosition: true
 });
 }
-async resolveProviderCard(card, id) {
-if (id === "yomu-local") return card;
-try {
-const [tokens = []] = id === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
-return exactCard(card, tokens);
-} catch {
-return null;
-}
+findOnService(provider, cards) {
+const parse = (terms) => provider.id === "jiten" ? this.options.jiten?.parse?.(terms) ?? Promise.resolve([]) : this.options.jpdb.parse(terms);
+return findWordsOnService(cards, parse, (candidate) => provider.supportsCard(candidate));
 }
 async refreshProviderState(card, providerId) {
 try {
@@ -17188,8 +17539,13 @@ if (preferred) return preferred;
 if (keyed.length) return external[0] ?? keyed[0] ?? null;
 return supporting.find((provider) => provider.id === apiGradingProviderPreference(settings2)) ?? supporting[0] ?? null;
 }
+gradingProviderForCard(card, settings2) {
+const resolveOn = apiGradingServiceToResolve(card, settings2, this.options.isJpdbBackedCard);
+return resolveOn ? this.apiProviders(settings2).find((provider) => provider.id === resolveOn) ?? null : this.apiProviderForCard(card, settings2);
+}
 apiProviderForDeckSource(source, card, settings2) {
-return this.apiProviders(settings2).find((provider) => provider.deckSource === source && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
+const resolveOn = apiGradingServiceToResolve(card, settings2, this.options.isJpdbBackedCard);
+return this.apiProviders(settings2).find((provider) => provider.deckSource === source && (provider.id === resolveOn || acceptsForCollection(provider, card))) ?? null;
 }
 assertApiProviderActionAllowed(provider, copyKey) {
 const settings2 = this.options.getSettings();
@@ -17212,41 +17568,52 @@ const provider = this.apiProviderForDeckSource(deck.source, card, settings2);
 this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, deck.source));
 const selectedDeckId = provider.selectedDeckId(deck.id, settings2);
 if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings2);
+await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings2, await this.wordOnCollectionService(provider, card));
 }
 async addToPrivateDefaultDeck(card, sentence, context) {
+if (this.accountDataSurfaceTrusted()) return this.addToDefaultDestination(card, sentence, context);
+try {
+await this.addToDefaultDestination(card, sentence, { ...context, privately: true });
+} catch (error) {
+throw privateCollectionFailure(error);
+}
+}
+accountDataSurfaceTrusted() {
+return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
+}
+async addToDefaultDestination(card, sentence, context) {
 const settings2 = this.options.getSettings();
-const provider = this.privateDefaultApiProvider(card, settings2);
-if (!provider) {
-return this.addToPrivateFallbackDeck(card, sentence, context, settings2);
+const destination = this.privateDefaultDestination(card, settings2);
+if (destination === "anki") return this.addToAnki(card, sentence, settings2.ankiDeck, context);
+if (!destination) throw userFacingError("collectNoDestination");
+const selectedDeckId = await this.privateDefaultDeckId(destination, settings2);
+if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
+await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings2, await this.wordOnCollectionService(destination, card));
 }
-const selectedDeckId = await this.privateDefaultDeckId(provider, settings2);
-if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings2);
+wordOnCollectionService(provider, card) {
+return acceptsForCollection(provider, card) ? Promise.resolve(card) : this.resolveWordOnGradingService(card, provider, "collectWordNotFound");
 }
-privateDefaultApiProvider(card, settings2) {
-if (!isApiMiningEnabled(settings2)) return null;
-const candidate = this.apiProviderForCard(card, settings2);
-if (!candidate) return null;
-return defaultApiProviderIsAvailable(candidate, settings2) ? candidate : null;
+privateDefaultDestination(card, settings2) {
+const providers = this.apiProviders(settings2).filter((provider) => provider.hasApiKey);
+for (const id of collectionDestinationsForCard(card, settings2, this.options.isJpdbBackedCard)) {
+const destination = id === "anki" ? id : providers.find((candidate) => candidate.id === id);
+if (destination) return destination;
 }
-async addToPrivateFallbackDeck(card, sentence, context, settings2) {
-if (settings2.ankiEnabled) return this.addToAnki(card, sentence, settings2.ankiDeck, context);
-throw userFacingError("batchMiningNoDestination");
+return null;
 }
 async privateDefaultDeckId(provider, settings2) {
 if (provider.id !== "jiten") return provider.selectedDeckId(settings2.miningDeck, settings2);
 const decks = await this.options.jiten?.listStudyDecks?.().catch(() => []);
 return String(decks?.[0]?.id ?? "");
 }
-async addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings2) {
-await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
+async addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings2, word = card) {
+await provider.addToDeck(selectedDeckId, word, sentence, { sourceTitle: document.title, sourceUrl: location.href });
 const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings2);
 if (minedToAnkiToo) await this.addToAnki(card, sentence, settings2.ankiDeck, context);
 const droppedMedia = await this.apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence);
-const addedToast = uiText(settings2.interfaceLanguage, provider.addedToastKey);
+const addedToast = uiText(settings2.interfaceLanguage, context.privately ? "addedToDeckToast" : provider.addedToastKey);
 this.options.toast(apiMiningToast(addedToast, droppedMedia, settings2));
-this.notifyApiCardStateChanged(card);
+this.notifyApiCardStateChanged(word);
 }
 async apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence) {
 if (!providerCanDropMedia(provider, minedToAnkiToo)) return false;
@@ -17359,17 +17726,24 @@ throw userFacingError("missingAnkiCardId");
 }
 async reviewApiCard(grade, card, sentence, options) {
 const settings2 = this.options.getSettings();
-const provider = options.providerId ? this.apiProviders(settings2).find((candidate) => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null : this.apiProviderForCard(card, settings2);
+const resolveOn = apiGradingServiceToResolve(card, settings2, this.options.isJpdbBackedCard);
+const provider = options.providerId ? this.apiProviders(settings2).find((candidate) => candidate.id === options.providerId && (candidate.supportsCard(card) || candidate.id === resolveOn)) ?? null : this.gradingProviderForCard(card, settings2);
 this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview");
-const states = normalizeCardStates(card.cardState);
+const target = provider.supportsCard(card) ? card : await this.resolveWordOnGradingService(card, provider);
+const states = normalizeCardStates(target.cardState);
 assertReviewableApiCardState(states);
-const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
+const result = await provider.reviewCard(target, grade, { sentence, deckId: this.reviewDeckId(options) });
 options.onReviewed?.();
 options.assertCurrent?.();
 if (result.addedBeforeReview) {
 if (!options.suppressToast) this.options.toast(uiText(settings2.interfaceLanguage, "addedToDeckAndReviewed"));
-} else if (settings2.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings2, options.suppressToast === true);
-this.notifyApiCardStateChanged(card);
+} else if (settings2.autoMineOnReview) await this.autoMineReviewedCard(provider, target, sentence, states, settings2, options.suppressToast === true);
+this.notifyApiCardStateChanged(target);
+}
+async resolveWordOnGradingService(card, provider, notFound = "gradingServiceWordNotFound") {
+const [match] = await this.findOnService(provider, [card]);
+if (!match) throw userFacingError(notFound);
+return match;
 }
 async autoMineReviewedCard(provider, card, sentence, states, settings2, suppressToast = false) {
 if (!states.includes("not-in-deck")) return;
@@ -17387,13 +17761,16 @@ return options.deckId || this.options.getSettings().miningDeck || "forq";
 async addToAnki(card, sentence, deckName, context = {}) {
 const settings2 = this.options.getSettings();
 if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings2, context)) return;
-if (await this.showExistingAnkiCardIfPresent(card, sentence)) return;
+if (await this.showExistingAnkiCardIfPresent(card, sentence, context)) return;
 const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings2, context);
 const noteId = await this.addPreparedAnkiCard(card, prepared);
-if (noteId === "duplicate") return this.showExistingAnkiCard(card, sentence);
-if (noteId === null) return this.toastMobileAnkiHandoff(settings2);
+if (noteId === "duplicate") return this.showExistingAnkiCard(card, sentence, context);
+if (noteId === null) return this.toastMobileAnkiHandoff(context);
 this.notifyAnkiStatusChanged(card);
-this.options.toast(ankiSentToast(prepared.context, settings2, prepared.hasWordAudio));
+this.collectionToast(context, ankiSentToast(prepared.context, settings2, prepared.hasWordAudio), "addedToDeckToast");
+}
+collectionToast(context, named, neutral) {
+this.options.toast(context.privately ? uiText(this.options.getSettings().interfaceLanguage, neutral) : named);
 }
 async addToAnkiForBatch(card, sentence, deckName, assertCurrent) {
 const settings2 = this.options.getSettings();
@@ -17415,13 +17792,13 @@ deckName,
 dictionaryPreferences: settings2.dictionaryPreferences,
 sentenceTarget: context.sentenceTarget
 });
-this.toastMobileAnkiHandoff(settings2);
+this.toastMobileAnkiHandoff(context);
 return true;
 }
-async showExistingAnkiCardIfPresent(card, sentence) {
+async showExistingAnkiCardIfPresent(card, sentence, context) {
 const existing = await this.options.anki.findExistingCards(card);
 if (!existing.primary) return false;
-await this.showExistingAnkiCard(card, sentence);
+await this.showExistingAnkiCard(card, sentence, context);
 return true;
 }
 async prepareAnkiAdd(card, sentence, deckName, settings2, actionContext) {
@@ -17459,8 +17836,8 @@ resolveAnkiWordAudio(card, settings2).catch(() => null)
 ]);
 return { dictionaryContext, context, wordAudio };
 }
-toastMobileAnkiHandoff(settings2) {
-this.options.toast(uiText(settings2.interfaceLanguage, "openedMobileAnkiHandoff"));
+toastMobileAnkiHandoff(context) {
+this.collectionToast(context, uiText(this.options.getSettings().interfaceLanguage, "openedMobileAnkiHandoff"), "collectHandoffOpened");
 }
 notifyAnkiStatusChanged(card) {
 this.options.invalidateCardData?.();
@@ -17471,9 +17848,9 @@ this.options.invalidateCardData?.();
 this.options.onApiCardStateChanged?.(card);
 publishCardStateSignal(card);
 }
-async showExistingAnkiCard(card, sentence) {
+async showExistingAnkiCard(card, sentence, context) {
 const settings2 = this.options.getSettings();
-this.options.toast(uiText(settings2.interfaceLanguage, "alreadyInAnki"));
+this.collectionToast(context, uiText(settings2.interfaceLanguage, "alreadyInAnki"), "collectAlreadySaved");
 await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
 autoPlay: false,
 trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
@@ -17526,11 +17903,16 @@ wanikani: "wanikaniAddApiKeyRequired",
 function providerAddApiKeyRequiredKey(provider, source) {
 return provider ? provider.addApiKeyRequiredKey : PROVIDER_ADD_API_KEY_REQUIRED_KEYS[source];
 }
+const PRIVATE_COLLECTION_FAILURES = new Set(["collectNoDestination", "collectWordNotFound"]);
+function privateCollectionFailure(error) {
+const copyKey = userFacingCopyKeyOf(error);
+return copyKey && PRIVATE_COLLECTION_FAILURES.has(copyKey) ? error : userFacingError("collectNotSaved", { cause: error });
+}
+function acceptsForCollection(provider, card) {
+return provider.supportsMiningCard?.(card) ?? provider.supportsCard(card);
+}
 function missingProviderDeckKey(provider) {
 return provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey;
-}
-function defaultApiProviderIsAvailable(provider, settings2) {
-return isApiSrsProviderEnabled(settings2, provider.id) && provider.hasApiKey;
 }
 function providerCanDropMedia(provider, minedToAnkiToo) {
 return provider.id !== "bunpro" && !minedToAnkiToo;
@@ -17636,11 +18018,6 @@ return selected ? selected.target : command.reviewTarget;
 function selectedReviewAnkiCardId(selected, command) {
 return selected ? selected.ankiCardId : command.ankiCardId;
 }
-function exactCard(source, tokens) {
-const s = source.spelling.trim();
-const r = source.reading.trim();
-return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card ?? null;
-}
 function copyBunproIdentity(source, target) {
 if (source.bunproReviewId) target.bunproReviewId = source.bunproReviewId;
 if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
@@ -17683,20 +18060,123 @@ return settings2.ankiDeck || "よむ";
 function defaultJpdbDeckId(settings2) {
 return settings2.miningDeck.trim() || "forq";
 }
-async function runCardActionOperation(button, run, fail, finish) {
+const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
+const TOAST_VISIBLE_CLASS = "is-visible";
+const TOAST_EXIT_MS = 220;
+const toastTimers = new WeakMap();
+const toastHolds = new WeakMap();
+function showReaderToast(message, durationMs = 3200) {
+const toast = readerToast(message);
+if (!toastHolds.has(toast)) scheduleToastRemoval(toast, durationMs);
+}
+function holdReaderToast(message) {
+const toast = readerToast(message);
+toastHolds.set(toast, (toastHolds.get(toast) ?? 0) + 1);
+let held = true;
+return () => {
+if (!held) return;
+held = false;
+const holds = (toastHolds.get(toast) ?? 1) - 1;
+if (holds > 0) {
+toastHolds.set(toast, holds);
+return;
+}
+toastHolds.delete(toast);
+scheduleToastRemoval(toast, 0);
+};
+}
+function readerToast(message) {
+const stack = ensureReaderToastStack();
+const existing = Array.from(stack.children).find((node) => node instanceof HTMLElement && node.textContent === message);
+if (existing) {
+window.clearTimeout(toastTimers.get(existing));
+toastTimers.delete(existing);
+existing.classList.add(TOAST_VISIBLE_CLASS);
+return existing;
+}
+const toast = document.createElement("div");
+toast.className = "jpdb-reader-toast";
+toast.setAttribute("role", "status");
+toast.setAttribute("aria-live", "polite");
+toast.textContent = message;
+stack.append(toast);
+if (typeof requestAnimationFrame === "function") {
+requestAnimationFrame(() => toast.classList.add(TOAST_VISIBLE_CLASS));
+} else {
+toast.classList.add(TOAST_VISIBLE_CLASS);
+}
+return toast;
+}
+function ensureReaderToastStack() {
+const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
+if (existing?.isConnected) {
+applyOverlayPageScale(existing);
+return existing;
+}
+const stack = document.createElement("div");
+stack.className = TOAST_STACK_CLASS;
+stack.dataset.jpdbReaderRoot = "true";
+applyOverlayPageScale(stack);
+document.body.append(stack);
+return stack;
+}
+function scheduleToastRemoval(toast, durationMs) {
+window.clearTimeout(toastTimers.get(toast));
+toastTimers.set(toast, window.setTimeout(() => {
+toast.classList.remove(TOAST_VISIBLE_CLASS);
+toastTimers.set(toast, window.setTimeout(() => {
+toastTimers.delete(toast);
+toast.remove();
+if (typeof document === "undefined") return;
+const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
+if (stack && !stack.childElementCount) stack.remove();
+}, TOAST_EXIT_MS));
+}, durationMs));
+}
+async function withSaveWaitStatus(language, save) {
+let release;
+const stopWatching = watchSavesWaitingForAnotherTab((waiting) => {
+if (waiting) {
+release ??= holdReaderToast(uiText(language, "saveWaitingForAnotherTab"));
+return;
+}
+release?.();
+release = void 0;
+});
+try {
+return await save();
+} finally {
+stopWatching();
+release?.();
+}
+}
+async function runCardActionOperation(button, run, feedback, finish) {
+const restoreFocus = keepKeyboardFocus(button);
 button.disabled = true;
 try {
-await run();
+await withSaveWaitStatus(feedback.language, run);
 } catch (error) {
-fail(error);
+reportCardActionFailure(feedback, error);
 } finally {
 finish();
 button.disabled = false;
+restoreFocus();
 }
 }
-function reportCardActionFailure(failure, error) {
-failure.logger.warn(failure.warning, { action: failure.action, term: failure.term }, error);
-failure.toast(userFacingErrorText(failure.language, "actionFailed", error));
+function keepKeyboardFocus(button) {
+const document2 = button.ownerDocument;
+const action = button.dataset.action;
+if (!action || document2.activeElement !== button) return () => void 0;
+return () => {
+const active = document2.activeElement;
+if (active && active !== document2.body && !active.matches(".jpdb-reader-popover")) return;
+const replacement = button.isConnected ? button : [...document2.querySelectorAll(".jpdb-reader-popover button[data-action]")].reverse().find((candidate) => candidate.dataset.action === action);
+replacement?.focus({ preventScroll: true });
+};
+}
+function reportCardActionFailure(feedback, error) {
+feedback.logger.warn(feedback.warning, { action: feedback.action, term: feedback.term }, error);
+feedback.toast(userFacingErrorText(feedback.language, "actionFailed", error));
 }
 async function refreshAfterCardAction(action, perform, dismissGrade, refresh) {
 if (!await perform()) return;
@@ -20177,10 +20657,19 @@ const settings2 = this.settings();
 const language = settings2.interfaceLanguage;
 const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
 const provider = this.apiProviderForCard(card);
-const selectedDeckLabel = this.selectedDeckLabelForView(provider, data, trustedAccountDataSurface);
+const gradingProvider = apiSrsGradingProviderViewForCard(card, settings2, this.dependencies.isJpdbBackedCard);
+const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
 const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language);
-const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider, trustedAccountDataSurface);
-const ankiActions = renderPopoverAnkiActions(data, settings2, trustedAccountDataSurface);
+const miningActions = this.renderApiMiningActions(card, cardStates, language, data, gradingProvider, trustedAccountDataSurface);
+const reviewControls = this.renderReviewControls({
+card,
+cardStates,
+data,
+provider: gradingProvider,
+selectedDeckLabel,
+reviewBlockReason,
+language
+}, trustedAccountDataSurface);
 return {
 cardStates,
 state,
@@ -20190,17 +20679,11 @@ cardPos: formatPartOfSpeech(card.partOfSpeech),
 cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
 language,
 provider,
-miningActions,
-ankiActions,
-reviewButtons: this.renderReviewButtons({
-card,
-cardStates,
-data,
-provider,
-selectedDeckLabel,
-reviewBlockReason,
-language
-}, trustedAccountDataSurface),
+collectAction: miningActions.collect,
+deckStateActions: miningActions.deckState,
+ankiActions: renderPopoverAnkiActions(data, settings2, trustedAccountDataSurface),
+reviewTargetGutter: reviewControls.gutter,
+reviewButtons: reviewControls.buttons,
 metaItems: this.renderMetaItems(card, provider, state, data, trustedAccountDataSurface),
 loadingDetails: this.renderLoadingDetails(data.loading, language),
 audioButtonDisabled: !settings2.audioEnabled,
@@ -20312,29 +20795,31 @@ dictionaryPreferences: settings2.dictionaryPreferences,
 }, data.ankiFieldTargetPlan, { trustedAccountDataSurface: view.trustedAccountDataSurface });
 }
 renderActions(view) {
-const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
+const hasMiningPanel = Boolean(view.deckStateActions || view.ankiActions) && canExpandMiningDrawer();
 const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
-const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
-const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+const hasDrawer = hasMiningPanel || Boolean(view.reviewTargetGutter);
 const miningClass = hasDrawer ? " jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed" : "";
 return `<div class="jpdb-reader-actions${miningClass}">
-            ${hasReviewTargetGutter ? "" : renderMiningGutter(miningPanel, view.language)}
+            ${view.reviewTargetGutter || renderMiningGutter(miningPanel, view.language)}
             ${miningPanel}
             ${hasMiningPanel ? "" : view.ankiActions}
+            ${view.collectAction}
             ${view.reviewButtons}
         </div>`;
 }
 renderMiningPanel(view) {
 return `<div class="jpdb-reader-mining-panel">
-            ${view.miningActions}
+            ${view.deckStateActions}
             ${view.ankiActions}
         </div>`;
 }
 renderApiMiningActions(card, cardStates, language, data, provider, trustedAccountDataSurface) {
-return renderApiMiningActions(this.settings(), card, cardStates, language, data, provider, trustedAccountDataSurface);
+const settings2 = this.settings();
+const destinations = collectionDestinationsForCard(card, settings2, this.dependencies.isJpdbBackedCard);
+return renderApiMiningActions(settings2, card, cardStates, language, data, provider, destinations, trustedAccountDataSurface);
 }
-renderReviewButtons(options, trustedAccountDataSurface) {
-return trustedAccountDataSurface ? this.renderTrustedReviewButtons(options) : this.renderPublicReviewButtons(options);
+renderReviewControls(options, trustedAccountDataSurface) {
+return trustedAccountDataSurface ? this.renderTrustedReviewControls(options) : buttonsOnly(this.renderPublicReviewButtons(options));
 }
 renderPublicReviewButtons(options) {
 if (!this.canRenderPublicReviewButtons(options)) return "";
@@ -20346,25 +20831,28 @@ if (options.reviewBlockReason) return false;
 if (!this.settings().enableReviews) return false;
 return this.canReviewWithApiProvider(options.provider);
 }
-renderTrustedReviewButtons(options) {
-const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
+renderTrustedReviewControls(options) {
+const { card, data, provider, reviewBlockReason, language } = options;
 const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
-if (earlyResult !== void 0) return earlyResult;
+if (earlyResult) return earlyResult;
 const targets = this.popoverReviewTargets(card, data, provider, language);
 if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
+return this.renderUntargetedReviewControls(options);
+}
+renderUntargetedReviewControls(options) {
+const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
 if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
-return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
+return buttonsOnly(this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language));
 }
 shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason) {
 return isLiveJpdbCardOnAcademy(provider, card) || !this.shouldRenderReviewButtons(data, provider, reviewBlockReason);
 }
 renderReviewButtonsFallback(card, data) {
-const renderer = this.dependencies.renderReviewButtonsFallback;
-return renderer ? renderer(card, data) : "";
+return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? buttonsOnly("");
 }
 reviewButtonsEarlyResult(card, data, reviewBlockReason) {
-if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`;
-if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
+if (reviewBlockReason) return buttonsOnly(`<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`);
+if (data.loading || !this.settings().enableReviews) return this.renderReviewButtonsFallback(card, data);
 return void 0;
 }
 renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language) {
@@ -20491,7 +20979,7 @@ gradeProfile: "anki"
 renderTargetedReviewButtons(targets, language, canSwitchTarget, switchProviderTarget) {
 const settings2 = this.settings();
 const selected = targets[0];
-if (!selected) return "";
+if (!selected) return buttonsOnly("");
 const reviewGroup = canSwitchTarget ? Symbol("review-group") : void 0;
 const profiles = new Set((canSwitchTarget ? targets : [selected]).map((target) => target.gradeProfile));
 const gradeRows = [...profiles].map((profile) => renderTargetedGradeRow(
@@ -20502,14 +20990,12 @@ selected.gradeProfile !== profile,
 settings2,
 reviewGroup
 )).join("");
-if (!gradeRows) return "";
+if (!gradeRows) return buttonsOnly("");
 const selector = reviewGroup ? renderReviewTargetSelector(targets, language, reviewGroup) : "";
-const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
-return `
-            ${targetGutter}
-            ${selector}
-            ${gradeRows}
-        `;
+return {
+gutter: renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget),
+buttons: `${selector}${gradeRows}`
+};
 }
 renderMetaItems(card, provider, state, data, trustedAccountDataSurface) {
 const settings2 = this.settings();
@@ -20647,14 +21133,14 @@ return `<div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades"
   }).join("")}
     </div>`;
 }
+function buttonsOnly(buttons) {
+return { gutter: "", buttons };
+}
 function togglePopoverReviewTargetSelection(button) {
 const select = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
 if (!select || select.options.length < 2) return;
 select.selectedIndex = (select.selectedIndex + 1) % select.options.length;
 updatePopoverReviewTargetSelection(select);
-}
-function reviewButtonsIncludeTargetGutter(reviewButtons) {
-return reviewButtons.includes("data-review-target-gutter");
 }
 function renderReviewTargetGutter(target, language, canSwitchTarget, switchProviderTarget) {
 const label = uiText(language, "showMiningActions");
@@ -20706,21 +21192,23 @@ neverForgetLabel: isNeverForget ? uiText(language, "forget") : uiText(language, 
 blacklistLabel: isBlacklisted ? uiText(language, "unlist") : uiText(language, "blacklist")
 };
 }
-function renderApiMiningActions(settings2, card, cardStates, language, data, provider, trustedAccountDataSurface) {
-if (!trustedAccountDataSurface) return renderPrivateMiningAction(settings2, language, provider);
-const state = miningActionState(cardStates, language);
-const addDeckSelect = renderAddDeckSelect(settings2, card, data, language, provider);
-if (!addDeckSelect && !canRenderApiMiningActions(settings2, provider)) return "";
-return renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleApiDeckState(card, settings2));
+function renderApiMiningActions(settings2, card, cardStates, language, data, provider, destinations, trustedAccountDataSurface) {
+if (!trustedAccountDataSurface) return { collect: destinations.length ? renderPrivateCollectAction(language) : "", deckState: "" };
+const addDeckSelect = renderAddDeckSelect(settings2, data, language, provider, destinations);
+const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings2, provider)) && canToggleApiDeckState(card, settings2);
+return {
+collect: addDeckSelect ? renderCollectAction(renderApiDeckAdd(addDeckSelect, destinations[0], language)) : "",
+deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : ""
+};
 }
-function renderPrivateMiningAction(settings2, language, provider) {
-const apiAvailable = canRenderApiMiningActions(settings2, provider);
-if (!apiAvailable && !settings2.ankiEnabled) return "";
-return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, "deckActions"))}">
-        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 1">
-            <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: "card-action", action: "add-default" })}>${escapeHtml(uiText(language, "addToDeck"))} +</button>
-        </div>
-    </div>`;
+function renderCollectAction(content) {
+return `<div class="jpdb-reader-collect">${content}</div>`;
+}
+function renderPrivateCollectAction(language) {
+return renderCollectAction(`<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: "card-action", action: "add-default" })}>${collectButtonLabel(language)}</button>`);
+}
+function collectButtonLabel(language) {
+return `${escapeHtml(uiText(language, "addToDeck"))} <span aria-hidden="true">+</span>`;
 }
 function canToggleApiDeckState(card, settings2) {
 return apiSrsSwitchableProviderIds(card, settings2).some((id) => id === "jpdb" || id === "jiten");
@@ -20728,59 +21216,38 @@ return apiSrsSwitchableProviderIds(card, settings2).some((id) => id === "jpdb" |
 function canRenderApiMiningActions(settings2, provider) {
 return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings2, provider.id));
 }
-function renderAddDeckSelect(settings2, card, data, language, provider) {
+function renderAddDeckSelect(settings2, data, language, provider, destinations) {
 const deckOptions = renderDeckChoiceOptions(settings2, data.jpdbDecks, data.ankiDecks, {
-includeJpdb: provider?.id === "jpdb",
-includeJiten: provider?.id === "jiten",
-includeBunpro: isBunproMiningCard(card) && settings2.bunproMiningEnabled && hasBunproFrontendCredential(settings2) && !isBunproFrontendCredentialExpired(settings2),
-includeYomuLocal: settings2.yomuLocalSrsEnabled,
+includeJpdb: provider?.id === "jpdb" && destinations.includes("jpdb"),
+includeJiten: provider?.id === "jiten" && destinations.includes("jiten"),
+includeBunpro: destinations.includes("bunpro"),
+includeYomuLocal: destinations.includes("yomu-local"),
 jitenDecks: data.jitenDecks ?? []
 });
 if (!deckOptions) return "";
 return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
 }
-function renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleDeckState) {
-const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
-const directAdd = isDirectApiDeckAdd(provider, addDeckSelect);
-return `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, "deckActions"))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${apiMiningActionColumns(canToggleDeckState)}">
-                        ${renderApiDeckAddButton(provider, directAdd, addToDeckLabel)}${renderApiDeckStateButtons(state, canToggleDeckState)}
-                    </div>
-                    ${addDeckSelect}
-                </div>
-            `;
+function renderApiDeckAdd(addDeckSelect, defaultDestination, language) {
+const label = collectButtonLabel(language);
+const deckSource = directCollection(addDeckSelect, defaultDestination);
+if (!deckSource) {
+return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: "card-ui", action: "deck-picker" })} aria-expanded="false">${label}</button>${addDeckSelect}`;
 }
-function isDirectApiDeckAdd(provider, addDeckSelect) {
-if (!provider) return false;
-const directProviders = new Set(["bunpro", "yomu-local"]);
-if (!directProviders.has(provider.id)) return false;
-return apiDeckSourceCount(addDeckSelect) <= 1;
+return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: "card-action", action: "add", deckSource })}>${label}</button>`;
 }
-function apiDeckSourceCount(addDeckSelect) {
-return addDeckSelect.match(/data-deck-source=/g)?.length ?? 0;
+function directCollection(addDeckSelect, defaultDestination) {
+if (defaultDestination !== "bunpro" && defaultDestination !== "yomu-local") return void 0;
+const sources = addDeckSelect.match(/data-deck-source="[^"]*"/g) ?? [];
+return sources.length === 1 && sources[0] === `data-deck-source="${defaultDestination}"` ? defaultDestination : void 0;
 }
-function apiMiningActionColumns(canToggleDeckState) {
-return canToggleDeckState ? 3 : 1;
-}
-function renderApiDeckAddButton(provider, directAdd, label) {
-return directAdd ? renderDirectApiDeckAddButton(directApiDeckSource(provider), label) : renderApiDeckPickerButton(label);
-}
-function directApiDeckSource(provider) {
-return provider?.id === "bunpro" ? "bunpro" : "yomu-local";
-}
-function renderDirectApiDeckAddButton(deckSource, label) {
-return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: "card-action", action: "add", deckSource })} aria-expanded="false">${escapeHtml(label)}</button>`;
-}
-function renderApiDeckPickerButton(label) {
-return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: "card-ui", action: "deck-picker" })} aria-expanded="false">${escapeHtml(label)}</button>`;
-}
-function renderApiDeckStateButtons(state, canToggleDeckState) {
-if (!canToggleDeckState) return "";
+function renderApiDeckStateActions(state, language) {
 const neverForgetClass = state.isNeverForget ? " danger" : "";
-return `
-                        <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: "card-action", action: "neverforget" })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: "card-action", action: "blacklist" })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>`;
+return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, "deckActions"))}">
+<div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 2">
+<button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: "card-action", action: "neverforget" })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+<button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: "card-action", action: "blacklist" })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+</div>
+</div>`;
 }
 function renderAnkiMeta(lookup, settings2) {
 if (!settings2.ankiEnabled) return "";
@@ -23827,7 +24294,7 @@ function shouldUseJitenParser(settings2, options, jiten) {
 return Boolean(hasJitenApiCredential(settings2) && jiten && !shouldSkipApiParser(options));
 }
 function shouldPreferJitenParser(settings2, options, jiten) {
-return shouldUseJitenParser(settings2, options, jiten) && options.requireJpdb !== true;
+return shouldUseJitenParser(settings2, options, jiten) && options.requireJpdb !== true && chosenWordGradingService(settings2) !== "jpdb";
 }
 function shouldSkipApiParser(options) {
 return Boolean(options.skipApi ?? options.skipJpdb);
@@ -24721,10 +25188,10 @@ publishPublicSettingsProjection(detail);
 }
 function subscribeToSettingsChanges(listener, signal) {
 if (signal?.aborted) return () => void 0;
-const listeners = privateSettingsChangeBus().listeners;
-listeners.add(listener);
+const listeners2 = privateSettingsChangeBus().listeners;
+listeners2.add(listener);
 const unsubscribe = () => {
-listeners.delete(listener);
+listeners2.delete(listener);
 };
 signal?.addEventListener("abort", unsubscribe, { once: true });
 return unsubscribe;
@@ -24995,7 +25462,7 @@ this.scheduleRemoteGuardRelease();
 }
 }
 async assertManagedStateDeleted() {
-const managedKeysStillPresent = await managedStoredKeysStillPresent();
+const managedKeysStillPresent = await managedStoredKeysLeftAfterReset();
 if (!managedKeysStillPresent.length) return;
 log$5.warn("Managed keys remained after reset", { managedKeysStillPresent });
 throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
@@ -29883,7 +30350,7 @@ applyExistingAnkiLookupToRenderedWord(word, ankiLookup.state, ankiLookup.primary
 function applyEmptyAnkiLookupToRenderedWord(word, ankiLookup, language, options) {
 if (ankiLookup.trusted === false) return;
 if ([options.preserveExistingEmpty, renderedWordHasAnkiState(word)].every(Boolean)) {
-word.dataset.ankiPreserveContrast = "true";
+preserveAnkiContrastOnNextRefresh(word);
 return;
 }
 clearRenderedWordAnkiState(word);
@@ -29899,6 +30366,7 @@ function applyRenderedWordAnkiState(word, state, language, deckNames = []) {
 updateRenderedWordPrivateState(word, { ankiState: state, ankiDecks: deckNames.join(", ") || void 0 });
 if (!currentAccountDataSurfaceIsTrusted()) {
 word.classList.add(`jpdb-${state}`);
+syncWordReviewLane(word);
 word.removeAttribute("title");
 return;
 }
@@ -32963,8 +33431,12 @@ const legacyClasses = ["jpdb-reader-highlight-status", "jpdb-reader-highlight-pi
 if (legacyClasses.length) root.classList.remove(...legacyClasses);
 applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
 applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
+if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
 guardReaderRootClasses(root);
 return theme;
+}
+function paintsReviewLane(theme) {
+return [theme.wordColorSources, theme.subtitleColorSources].some((sources) => Object.values(sources).includes("anki"));
 }
 function toggleClassIfChanged(root, className, enabled) {
 if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
@@ -33004,6 +33476,14 @@ root.style.setProperty("--subtitle-outline", sanitizeAccentColor(settings2.subti
 root.style.setProperty("--subtitle-background-rgba", accentToRgba(background, settings2.subtitleBackgroundOpacity));
 root.style.setProperty("--subtitle-family", settings2.subtitleFontFamily);
 root.style.setProperty("--subtitle-weight", String(settings2.subtitleFontWeight));
+}
+function applyResolvedReaderTheme(settings2, theme, root) {
+const other = theme === "dark" ? "jpdb-reader-theme-light" : "jpdb-reader-theme-dark";
+if (root.classList.contains(`jpdb-reader-theme-${theme}`) && !root.classList.contains(other)) return;
+root.classList.add(`jpdb-reader-theme-${theme}`);
+root.classList.remove(other);
+applyReaderAccentColor(settings2.accentColor, root);
+applyReaderWordColors(settings2, root);
 }
 function applyReaderAccentColor(color, root = document.documentElement) {
 const accentColor = sanitizeAccentColor(color);
@@ -33078,7 +33558,7 @@ unknown: { color: sanitizeAccentColor(settings2.pitchColorUnknown), alpha: 0 }
 function applyReaderColorSourceClasses(root, scope, sources) {
 COLOR_CHANNELS.forEach((channel) => {
 COLOR_SOURCE_CLASSES.forEach((source) => {
-toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+toggleClassIfChanged(root, colorSourceClassName(scope, channel, source), sources[channel] === source);
 });
 });
 }
@@ -33122,56 +33602,6 @@ return prefersLightMode() ? READER_THEME_COLORS.light.surface2 : READER_THEME_CO
 }
 function prefersLightMode() {
 return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
-}
-const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
-const TOAST_VISIBLE_CLASS = "is-visible";
-const TOAST_EXIT_MS = 220;
-const toastTimers = new WeakMap();
-function showReaderToast(message, durationMs = 3200) {
-const stack = ensureReaderToastStack();
-const existing = Array.from(stack.children).find((node) => node instanceof HTMLElement && node.textContent === message);
-if (existing) {
-scheduleToastRemoval(existing, durationMs);
-return;
-}
-const toast = document.createElement("div");
-toast.className = "jpdb-reader-toast";
-toast.setAttribute("role", "status");
-toast.setAttribute("aria-live", "polite");
-toast.textContent = message;
-stack.append(toast);
-if (typeof requestAnimationFrame === "function") {
-requestAnimationFrame(() => toast.classList.add(TOAST_VISIBLE_CLASS));
-} else {
-toast.classList.add(TOAST_VISIBLE_CLASS);
-}
-scheduleToastRemoval(toast, durationMs);
-}
-function ensureReaderToastStack() {
-const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
-if (existing?.isConnected) {
-applyOverlayPageScale(existing);
-return existing;
-}
-const stack = document.createElement("div");
-stack.className = TOAST_STACK_CLASS;
-stack.dataset.jpdbReaderRoot = "true";
-applyOverlayPageScale(stack);
-document.body.append(stack);
-return stack;
-}
-function scheduleToastRemoval(toast, durationMs) {
-const pending = toastTimers.get(toast);
-if (pending !== void 0) window.clearTimeout(pending);
-toastTimers.set(toast, window.setTimeout(() => {
-toast.classList.remove(TOAST_VISIBLE_CLASS);
-window.setTimeout(() => {
-toast.remove();
-if (typeof document === "undefined") return;
-const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
-if (stack && !stack.childElementCount) stack.remove();
-}, TOAST_EXIT_MS);
-}, durationMs));
 }
 function parseContentCacheKey(texts, options, settings2) {
 return JSON.stringify({
@@ -33523,8 +33953,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.4"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.4"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.5"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.5"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33667,7 +34097,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.4"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.5"}`;
 } catch {
 return null;
 }
@@ -36780,7 +37210,7 @@ this.applyClasses(theme);
 }
 syncAuthoritative(settings2) {
 const hostTheme = detectHostTheme();
-this.applyClasses(hostTheme);
+this.applyClasses(hostTheme, settings2);
 if (settings2 !== this.options.getSettings() || settings2.theme === "auto" || settings2.theme === hostTheme) return;
 this.options.adoptTheme(hostTheme);
 this.options.publishThemeChange();
@@ -36792,13 +37222,11 @@ this.enforceTimer = window.setTimeout(() => this.enforce(theme, remaining - 1), 
 }
 applyAmbient(settings2) {
 if (settings2.theme === "dark" || settings2.theme === "light") return;
-this.applyClasses(documentBackgroundLooksDark() ? "dark" : "light");
+this.applyClasses(documentBackgroundLooksDark() ? "dark" : "light", settings2);
 }
-applyClasses(theme) {
+applyClasses(theme, settings2 = this.options.getSettings()) {
 const root = document.documentElement;
-if (!root) return;
-root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
-root.classList.toggle("jpdb-reader-theme-light", theme === "light");
+if (root) applyResolvedReaderTheme(settings2, theme, root);
 }
 handleChange(hostTheme) {
 if (this.options.isDestroyed()) return;
@@ -37034,10 +37462,6 @@ detectGrammarHints: (sentence) => this.studySources.detectGrammarHints(sentence)
 parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
 toast: (message) => this.toast(message),
 invalidateCardData: () => this.cardRenderData.clear(),
-setApiGradingProvider: (provider) => {
-this.settings.apiGradingProvider = provider;
-void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-},
 onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
 onApiCardStateChanged: (card) => {
 this.applyPublicVocabularyToRenderedWords(card, card);
@@ -43818,7 +44242,7 @@ command.action,
 () => this.dismissAfterReview(),
 () => this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: "preserve", preservePosition: true })
 ),
-(error) => reportCardActionFailure({ logger: log, warning: "Card action failed", action, term: card.spelling, language: this.settings.interfaceLanguage, toast: (message) => this.toast(message) }, error),
+{ logger: log, warning: "Card action failed", action, term: card.spelling, language: this.settings.interfaceLanguage, toast: (message) => this.toast(message) },
 done
 );
 }

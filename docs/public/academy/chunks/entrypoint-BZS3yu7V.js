@@ -19984,7 +19984,7 @@ function isAcademyJapaneseSurface(element2) {
   if (element2.closest(READER_OWNED_SURFACE_QUERY)) return false;
   return HAS_JAPANESE$2.test(element2.textContent ?? "");
 }
-const EN = {
+const EN$1 = {
   academyName: "よむ Academy",
   languageToggle: "日本語",
   utilityMenu: "Menu",
@@ -20312,7 +20312,7 @@ const EN = {
   classPathPeople: "People",
   classPathEvents: "Events"
 };
-const JA = {
+const JA$1 = {
   academyName: "よむアカデミー",
   languageToggle: "English",
   utilityMenu: "メニュー",
@@ -20641,7 +20641,7 @@ const JA = {
   classPathEvents: "イベント"
 };
 function academyText(language, key2) {
-  return language === "ja" ? JA[key2] : EN[key2];
+  return language === "ja" ? JA$1[key2] : EN$1[key2];
 }
 function screenFrame(options) {
   const screen = element("section", `academy-screen ${options.className}`);
@@ -28624,6 +28624,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  // The one-time reader-canvas tap hint appears once per site. Each site's record
+  // is private and keyed by a hash of its origin, so no page can read it.
+  { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
   // Reader CSS last-good cache. v3 is deliberately version-independent (see
   // styles/index) so an upgrade does not start cold; the v2 prefix family
   // stays registered so the per-version entries older installs left behind
@@ -29127,124 +29130,92 @@ function removeStorageValue(storage, key2, label) {
 }
 const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
-async function withGmStorageLeaseCore(name, operation, options, environment) {
-  return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
-}
-async function withSharedStorageLease(name, operation, options, environment) {
-  const { getValue, setValue, deleteValue, listValues } = environment.backend;
-  if (!getValue || !setValue || !deleteValue || !listValues) {
-    const epoch2 = await environment.captureEpoch(getValue);
-    await environment.assertMutationFence(getValue, epoch2);
-    const result2 = await operation();
-    await environment.assertMutationFence(getValue, epoch2);
-    return result2;
+const STORAGE_WORK_LEASE_MS = 5e3;
+const DEFAULT_LEASE_MS = 6e4;
+const LEASE_ROUND_TRIPS = 20;
+const WAIT_NOTICE_MS = 1500;
+class StorageLeaseLapsedError extends Error {
+  name = "StorageLeaseLapsedError";
+  constructor(key2) {
+    super(`Storage lease lapsed before it was renewed: ${key2}`);
   }
+}
+function isStorageLeaseLapsed(error) {
+  return error instanceof Error && error.name === "StorageLeaseLapsedError";
+}
+const guardingLeases = /* @__PURE__ */ new Set();
+const realmClaimOwners = /* @__PURE__ */ new Set();
+const realmWebLockRequests = /* @__PURE__ */ new Map();
+function fenceStorageLeaseWrite(key2) {
+  for (const lease of guardingLeases) if (lease.guards(key2)) lease.fenceWrite();
+}
+async function withGmStorageLeaseCore(name, operation, options, environment) {
+  const wait = new StorageLeaseWait(options.onWait);
+  const boundedLockWait = !environment.hostedOrigin && storageLeaseIo(environment.backend);
+  const lockWaitMs = boundedLockWait ? options.leaseMs ?? DEFAULT_LEASE_MS : void 0;
+  try {
+    return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
+      wait.end();
+      return operation();
+    }, options, environment, wait), wait, lockWaitMs);
+  } finally {
+    wait.end();
+  }
+}
+class StorageLeaseWait {
+  constructor(onWait) {
+    this.onWait = onWait;
+  }
+  state = "running";
+  timer;
+  /** Another tab holds the lease, or is ahead in its queue. */
+  blocked() {
+    if (!this.onWait || this.state !== "running") return;
+    this.state = "blocked";
+    this.timer = setTimeout(() => {
+      this.state = "told";
+      this.onWait?.(true);
+    }, WAIT_NOTICE_MS);
+  }
+  /** The caller got past what blocked it; a wait it was not yet told about starts over. */
+  passed() {
+    if (this.state !== "blocked") return;
+    clearTimeout(this.timer);
+    this.state = "running";
+  }
+  end() {
+    clearTimeout(this.timer);
+    if (this.state === "told") this.onWait?.(false);
+    this.state = "ended";
+  }
+}
+async function withSharedStorageLease(name, operation, options, environment, wait) {
+  const { getValue } = environment.backend;
   const epoch = await environment.captureEpoch(getValue);
   await environment.assertMutationFence(getValue, epoch);
-  const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
-  const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
-  const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
-  const owner = createStorageCoordinationId();
-  const claimId = createStorageCoordinationId();
-  const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
-  const key2 = `${prefix}${owner}`;
-  const startedAt = Date.now();
-  let claim = {
-    version: 1,
-    claimId,
-    owner,
-    epoch: environment.epochToken(epoch),
-    choosing: true,
-    ticket: 0,
-    leaseUntil: startedAt + leaseMs
-  };
-  const writeClaim = async (nextClaim) => {
+  const io = storageLeaseIo(environment.backend);
+  if (!io) {
+    const result2 = await operation();
     await environment.assertMutationFence(getValue, epoch);
-    try {
-      await setValue(key2, nextClaim);
-      await environment.assertMutationFence(getValue, epoch);
-      await assertStorageLeaseClaimOwned(key2, nextClaim, getValue);
-    } catch (error) {
-      await deleteStorageLeaseClaimIfOwned(key2, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-        debugStorageLeaseError("GM storage lease rollback failed", key2, cleanupError);
-      });
-      throw error;
-    }
-  };
-  await writeClaim(claim);
-  try {
-    const initialClaims = await readStorageLeaseClaims(
-      prefix,
-      listValues,
-      getValue,
-      environment.epochToken(epoch),
-      Date.now()
-    );
-    const highestTicket = initialClaims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
-    claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-    await writeClaim(claim);
-    while (true) {
-      await environment.assertMutationFence(getValue, epoch);
-      const now = Date.now();
-      if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
-      const claims = await readStorageLeaseClaims(
-        prefix,
-        listValues,
-        getValue,
-        environment.epochToken(epoch),
-        now
-      );
-      const blocked2 = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-      if (!blocked2) break;
-      if (claim.leaseUntil - now <= leaseMs / 2) {
-        claim = { ...claim, leaseUntil: now + leaseMs };
-        await writeClaim(claim);
-      }
-      await storageLeaseDelay(pollMs);
-    }
-    let renewalStopped = false;
-    let renewal = Promise.resolve();
-    let leaseLost;
-    let leaseWasLost = false;
-    const renewalTimer = setInterval(() => {
-      renewal = renewal.then(async () => {
-        if (renewalStopped || leaseLost) return;
-        await assertStorageLeaseClaimOwned(key2, claim, getValue);
-        claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-        await writeClaim(claim);
-      }).catch((error) => {
-        leaseLost = error;
-        leaseWasLost = true;
-        debugStorageLeaseError("GM storage lease renewal failed", key2, error);
-      });
-    }, Math.max(250, Math.floor(leaseMs / 3)));
-    let result2;
-    let operationError;
-    let operationFailed = false;
-    try {
-      await environment.assertMutationFence(getValue, epoch);
-      await assertStorageLeaseClaimOwned(key2, claim, getValue);
-      result2 = await operation();
-      await environment.assertMutationFence(getValue, epoch);
-      await assertStorageLeaseClaimOwned(key2, claim, getValue);
-    } catch (error) {
-      operationFailed = true;
-      operationError = error;
-    } finally {
-      renewalStopped = true;
-      clearInterval(renewalTimer);
-      await renewal;
-    }
-    if (operationFailed) throw operationError;
-    if (leaseWasLost) throw leaseLost;
     return result2;
-  } finally {
-    try {
-      await deleteStorageLeaseClaimIfOwned(key2, claim, getValue, deleteValue);
-    } catch (error) {
-      debugStorageLeaseError("GM storage lease release failed", key2, error);
-    }
   }
+  const leaseMs = boundedLeaseOption(options.leaseMs, DEFAULT_LEASE_MS, 1e3, 10 * 6e4);
+  return new StorageLeaseClaimant({
+    guards: options.guards,
+    prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
+    epoch: environment.epochToken(epoch),
+    io,
+    fence: () => environment.assertMutationFence(getValue, epoch),
+    leaseMs,
+    pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1e3),
+    timeoutMs: boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4),
+    timeoutMessage: `Timed out waiting for storage lease: ${name}`,
+    wait
+  }).run(operation);
+}
+function storageLeaseIo(backend) {
+  const { getValue, setValue, deleteValue, listValues } = backend;
+  return [getValue, setValue, deleteValue, listValues].every(Boolean) ? backend : null;
 }
 async function withManagedStateEpochControlLeaseCore(operation, environment) {
   const { getValue, setValue, deleteValue, listValues } = environment.backend;
@@ -29253,97 +29224,201 @@ async function withManagedStateEpochControlLeaseCore(operation, environment) {
   if (!getValue || !setValue || !deleteValue || !listValues) {
     throw new Error("Managed storage cannot serialize epoch reconciliation without GM_listValues.");
   }
-  const leaseMs = 3e4;
-  const pollMs = 10;
-  const timeoutMs = 9e4;
-  const owner = createStorageCoordinationId();
-  const key2 = `${MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX}${owner}`;
-  const startedAt = Date.now();
-  let claim = {
-    version: 1,
-    claimId: createStorageCoordinationId(),
-    owner,
+  return new StorageLeaseClaimant({
+    prefix: MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
     epoch: "epoch-control:v1",
-    choosing: true,
-    ticket: 0,
-    leaseUntil: startedAt + leaseMs
-  };
-  const writeClaim = async (nextClaim) => {
+    io: { getValue, setValue, deleteValue, listValues },
+    fence: async () => void 0,
+    leaseMs: 3e4,
+    pollMs: 10,
+    timeoutMs: 9e4,
+    timeoutMessage: "Timed out waiting for the managed-state epoch lease."
+  }).run(operation);
+}
+class StorageLeaseClaimant {
+  constructor(lease) {
+    this.lease = lease;
+    const owner = createStorageCoordinationId();
+    this.key = `${lease.prefix}${owner}`;
+    this.promptLandingMs = Math.min(1e3, Math.floor(lease.leaseMs / 5));
+    this.claim = {
+      version: 1,
+      claimId: createStorageCoordinationId(),
+      owner,
+      epoch: lease.epoch,
+      choosing: true,
+      ticket: 0,
+      leaseUntil: 0
+    };
+  }
+  key;
+  startedAt = Date.now();
+  // Time for a write to land while the claim it extends is still live, when storage is prompt.
+  promptLandingMs;
+  claim;
+  // The leaseUntil other tabs can already read: a claim counts once its write has landed.
+  liveUntil = 0;
+  // How long storage took to answer one call of the last claim write.
+  roundTripMs = 0;
+  async run(operation) {
+    realmClaimOwners.add(this.claim.owner);
     try {
-      await setValue(key2, nextClaim);
-      await assertStorageLeaseClaimOwned(key2, nextClaim, getValue);
+      await this.waitForTurn();
+      return await this.hold(operation);
+    } finally {
+      const { getValue, deleteValue } = this.lease.io;
+      try {
+        await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
+      } catch (error) {
+        debugStorageLeaseError("GM storage lease release failed", this.key, error);
+      }
+      realmClaimOwners.delete(this.claim.owner);
+    }
+  }
+  /**
+   * A claim must outlast the storage round trips its holder makes before it
+   * renews, so slow storage stretches it by LEASE_ROUND_TRIPS of them, up to
+   * the default lease: slowness delays a save instead of lapsing it.
+   */
+  leaseMs() {
+    const { leaseMs } = this.lease;
+    return Math.min(leaseMs + LEASE_ROUND_TRIPS * this.roundTripMs, Math.max(leaseMs, DEFAULT_LEASE_MS));
+  }
+  // Slow storage takes longer to land a write: allow it two round trips.
+  live() {
+    return Date.now() + Math.max(this.promptLandingMs, 2 * this.roundTripMs) < this.liveUntil;
+  }
+  async waitForTurn() {
+    const { lease } = this;
+    while (true) {
+      await lease.fence();
+      if (Date.now() - this.startedAt >= lease.timeoutMs) throw new Error(lease.timeoutMessage);
+      try {
+        if (!this.live()) await this.queue();
+        else if (this.liveUntil - Date.now() <= this.leaseMs() / 2) await this.writeClaim();
+      } catch (error) {
+        if (error instanceof StorageLeaseLapsedError) continue;
+        throw error;
+      }
+      const ahead = await this.claimsAhead();
+      if (!ahead.length && this.live()) return;
+      if (ahead.some((other) => !realmClaimOwners.has(other.owner))) lease.wait?.blocked();
+      await storageLeaseDelay(lease.pollMs);
+    }
+  }
+  async queue() {
+    const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+    await this.writeClaim({ choosing: true, ticket: 0 }, true);
+    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+    const highestTicket = claims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
+    await this.writeClaim({ choosing: false, ticket: highestTicket + 1 });
+  }
+  async claimsAhead() {
+    const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+    const { owner, ticket } = this.claim;
+    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+    return claims.filter((other) => other.owner !== owner && (other.choosing || other.ticket < ticket || other.ticket === ticket && other.owner.localeCompare(owner) < 0));
+  }
+  /** `requeue` writes a new place in the queue instead of extending the live claim. */
+  async writeClaim(changes = {}, requeue = false) {
+    const { getValue, setValue } = this.lease.io;
+    if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
+    const writtenAt = Date.now();
+    const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
+    this.claim = next;
+    try {
+      await setValue(this.key, next);
+      const landedAt = Date.now();
+      this.liveUntil = next.leaseUntil;
+      await assertStorageLeaseClaimOwned(this.key, next, getValue);
+      this.roundTripMs = storageRoundTripMs(landedAt - writtenAt, Date.now() - landedAt, this.lease.leaseMs);
     } catch (error) {
-      await deleteStorageLeaseClaimIfOwned(key2, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-        debugStorageLeaseError("Raw GM storage lease rollback failed", key2, cleanupError);
-      });
+      await this.rollBack();
       throw error;
     }
-  };
-  await writeClaim(claim);
-  try {
-    const initialClaims = await readStorageLeaseClaims(
-      MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
-      listValues,
-      getValue,
-      claim.epoch,
-      Date.now()
-    );
-    const highestTicket = initialClaims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
-    claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-    await writeClaim(claim);
-    while (true) {
-      const now = Date.now();
-      if (now - startedAt >= timeoutMs) throw new Error("Timed out waiting for the managed-state epoch lease.");
-      const claims = await readStorageLeaseClaims(
-        MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
-        listValues,
-        getValue,
-        claim.epoch,
-        now
-      );
-      const blocked2 = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-      if (!blocked2) break;
-      if (claim.leaseUntil - now <= leaseMs / 2) {
-        claim = { ...claim, leaseUntil: now + leaseMs };
-        await writeClaim(claim);
-      }
-      await storageLeaseDelay(pollMs);
-    }
-    let stopped = false;
-    let lost = false;
-    let lostError;
-    let renewal = Promise.resolve();
-    const timer = setInterval(() => {
-      renewal = renewal.then(async () => {
-        if (stopped || lost) return;
-        await assertStorageLeaseClaimOwned(key2, claim, getValue);
-        claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-        await writeClaim(claim);
-      }).catch((error) => {
-        lost = true;
-        lostError = error;
+  }
+  /** Deletes the claim this realm wrote, unless another has taken its key. */
+  async rollBack() {
+    const { getValue, deleteValue } = this.lease.io;
+    await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue).catch((error) => {
+      debugStorageLeaseError("GM storage lease rollback failed", this.key, error);
+    });
+  }
+  /**
+   * A holder's renewal. A factory reset in another tab deletes every claim,
+   * then checks that none is left while this section may still be running:
+   * a renewal reads the claim first and never writes back one that is gone,
+   * and takes back one the reset deleted while the write was in flight, which
+   * the fence after it reveals. The renewal on entry skips the read: the
+   * waiter's last poll fenced a moment ago, and once storage turns slow it
+   * may enter with little of its claim left.
+   */
+  async renew(due, entry2) {
+    if (!entry2) await assertStorageLeaseClaimOwned(this.key, this.claim, this.lease.io.getValue);
+    do
+      await this.writeClaim();
+    while (due());
+    await this.lease.fence().catch(async (error) => {
+      await this.rollBack();
+      throw error;
+    });
+  }
+  /**
+   * Runs the operation while a timer renews the claim and, for a lease with
+   * `guards`, while each guarded write renews it too: those writes reach
+   * storage over messaging, so throttled timers cannot starve them.
+   */
+  async hold(operation) {
+    const { lease, key: key2 } = this;
+    const { getValue } = lease.io;
+    const renewEveryMs = Math.max(250, Math.floor(lease.leaseMs / 3));
+    let held = true;
+    let lost;
+    let refused = false;
+    let renewal;
+    const due = () => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
+    const renewIfDue = (entry2 = false) => {
+      if (lost || renewal || !due()) return;
+      renewal = this.renew(due, entry2).catch((error) => {
+        lost ??= { error };
+        debugStorageLeaseError("GM storage lease renewal failed", key2, error);
+      }).finally(() => {
+        renewal = void 0;
       });
-    }, Math.floor(leaseMs / 3));
-    let result2;
-    let failed = false;
-    let operationError;
+    };
+    const guarding = lease.guards && {
+      guards: lease.guards,
+      fenceWrite: () => {
+        if (!lost && !this.live()) lost = { error: new StorageLeaseLapsedError(key2) };
+        if (lost) {
+          refused = true;
+          throw lost.error;
+        }
+        renewIfDue();
+      }
+    };
+    if (guarding) guardingLeases.add(guarding);
+    const timer = setInterval(() => renewIfDue(), renewEveryMs);
+    renewIfDue(true);
+    let outcome;
     try {
-      await assertStorageLeaseClaimOwned(key2, claim, getValue);
-      result2 = await operation();
-      await assertStorageLeaseClaimOwned(key2, claim, getValue);
+      await lease.fence();
+      await assertStorageLeaseClaimOwned(key2, this.claim, getValue);
+      const value = await operation();
+      await lease.fence();
+      await assertStorageLeaseClaimOwned(key2, this.claim, getValue);
+      outcome = { value };
     } catch (error) {
-      failed = true;
-      operationError = error;
+      outcome = { error };
     } finally {
-      stopped = true;
+      held = false;
+      if (guarding) guardingLeases.delete(guarding);
       clearInterval(timer);
       await renewal;
     }
-    if (failed) throw operationError;
-    if (lost) throw lostError;
-    return result2;
-  } finally {
-    await deleteStorageLeaseClaimIfOwned(key2, claim, getValue, deleteValue).catch((error) => debugStorageLeaseError("Managed-state epoch lease release failed", key2, error));
+    if ("error" in outcome) throw outcome.error;
+    if (lost && (!guarding || refused)) throw lost.error;
+    return outcome.value;
   }
 }
 async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
@@ -29392,9 +29467,50 @@ function boundedLeaseOption(value, fallback, minimum, maximum) {
 function storageLeaseDelay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
-async function withWebStorageLock(name, operation) {
-  const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
-  return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+function storageRoundTripMs(writeMs, readMs, leaseMs) {
+  const slower = Math.max(writeMs, readMs);
+  return slower <= leaseMs / 4 ? slower : Math.min(writeMs, readMs);
+}
+function webLockManager() {
+  return typeof navigator === "undefined" ? void 0 : navigator.locks;
+}
+async function withWebStorageLock(name, operation, wait, waitMs) {
+  const lockManager = webLockManager();
+  if (!lockManager) return operation();
+  const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
+  if (!countRealmWebLockRequest(lockName, 1)) wait?.blocked();
+  try {
+    return await requestWebLock(lockManager, lockName, () => {
+      wait?.passed();
+      return operation();
+    }, waitMs);
+  } finally {
+    countRealmWebLockRequest(lockName, -1);
+  }
+}
+function countRealmWebLockRequest(lockName, change) {
+  const before = realmWebLockRequests.get(lockName) ?? 0;
+  if (before + change > 0) realmWebLockRequests.set(lockName, before + change);
+  else realmWebLockRequests.delete(lockName);
+  return before;
+}
+async function requestWebLock(locks, name, operation, waitMs) {
+  if (waitMs === void 0) return locks.request(name, {}, operation);
+  const giveUp = new AbortController();
+  const timer = setTimeout(() => giveUp.abort(), waitMs);
+  let granted = false;
+  try {
+    return await locks.request(name, { signal: giveUp.signal }, () => {
+      granted = true;
+      clearTimeout(timer);
+      return operation();
+    });
+  } catch (error) {
+    if (granted) throw error;
+    return operation();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function isPlainRecord$1(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -30158,6 +30274,7 @@ async function writeManagedGmValue(key2, value, epoch, getValue, setValue) {
   await assertManagedStateMutationFence(getValue, epoch);
   const stored = managedStateStoredValue(value, epoch);
   const storageKey = managedStateStorageKey(key2, epoch);
+  fenceStorageLeaseWrite(key2);
   await setValue(storageKey, stored);
   await assertManagedStateMutationFence(getValue, epoch);
 }
@@ -30170,6 +30287,7 @@ async function deleteManagedGmValue(key2, epoch, getValue, setValue, deleteValue
     await assertRealmManagedStateEpoch(getValue);
     return;
   }
+  fenceStorageLeaseWrite(key2);
   if (storageKey === key2) {
     if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
     await deleteValue(key2);
@@ -30358,7 +30476,8 @@ async function withGmStorageLease(name, operation, options = {}) {
     backend: gmStorageLeaseBackend(),
     captureEpoch: assertRealmManagedStateEpoch,
     assertMutationFence: assertManagedStateMutationFence,
-    epochToken: managedStateEpochToken
+    epochToken: managedStateEpochToken,
+    hostedOrigin: isHostedYomuOrigin()
   });
 }
 async function withManagedStateEpochControlLease(operation) {
@@ -30431,7 +30550,7 @@ async function setSharedManagedValue(key2, value, getValue, setValue) {
     epoch = await assertRealmManagedStateEpoch(getValue);
     await writeManagedGmValue(key2, value, epoch, getValue, setValue);
   } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
+    if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
     throw storageWriteError(key2, "GM storage write failed", error);
   }
 }
@@ -30521,7 +30640,7 @@ async function gmStorageDelete(key2) {
       const epoch = await assertRealmManagedStateEpoch(getValue);
       await deleteManagedGmValue(key2, epoch, getValue, setValue, deleteValue);
     } catch (error) {
-      if (isStaleManagedStateEpochError(error)) throw error;
+      if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
       debugStorageError("GM storage delete failed", key2, error);
       throw storageWriteError(key2, "GM storage delete failed", error);
     }
@@ -30883,6 +31002,20 @@ async function managedStoredKeysStillPresent() {
   const keys = await allStorageKeys();
   await clearBridgePrivateManagedValuesForReset();
   return [.../* @__PURE__ */ new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+}
+const RESET_LEASE_SETTLE_PASSES = 5;
+const RESET_LEASE_SETTLE_MS = 500;
+async function managedStoredKeysLeftAfterReset() {
+  let left = await managedStoredKeysStillPresent();
+  for (let pass = 0; pass < RESET_LEASE_SETTLE_PASSES && onlyLeaseClaims(left); pass++) {
+    await delay(RESET_LEASE_SETTLE_MS);
+    for (const key2 of left) await deleteManagedStoredValue(key2);
+    left = await managedStoredKeysStillPresent();
+  }
+  return left;
+}
+function onlyLeaseClaims(keys) {
+  return keys.length > 0 && keys.every((key2) => key2.startsWith(STORAGE_LEASE_KEY_PREFIX));
 }
 function originWebStorageResetKeys() {
   try {
@@ -33614,6 +33747,24 @@ function assertGroundedEvaluation(evaluation, lesson) {
 function sameStrings$1(left, right) {
   return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
 }
+const listeners = /* @__PURE__ */ new Set();
+let waits = 0;
+function reportSaveWaitingForAnotherTab(waiting) {
+  waits = Math.max(0, waits + (waiting ? 1 : -1));
+  for (const listener of listeners) {
+    try {
+      listener(waits > 0);
+    } catch {
+    }
+  }
+}
+function watchSavesWaitingForAnotherTab(listener) {
+  listeners.add(listener);
+  if (waits > 0) listener(true);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 function normalizeStoredYomuSrsDeck(value) {
   if (!isRecord$6(value) || value.version !== 1 || !isRecord$6(value.cards)) return { version: 1, cards: {} };
   const cards = {};
@@ -33896,23 +34047,30 @@ function nonNegativeInteger$1(value) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 const LEGACY_DECK_KEY = "yomu:srs-local:v1";
-const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
-const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
-const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
+const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
+const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 registerManagedState({
   owner: "srs/local-yomu-store",
   kind: "gm",
-  prefix: "yomu:srs-local:v2:",
+  prefix: DECK_KEY_PREFIX,
   enumerate: enumerateLocalYomuSrsStorageKeys
 });
+function isLocalYomuSrsStorageKey(key2) {
+  return key2 === LEGACY_DECK_KEY || key2.startsWith(DECK_KEY_PREFIX);
+}
 class LocalYomuSrsStorageError extends Error {
   constructor(options) {
-    super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+    super(isStorageLeaseLapsed(options?.cause) ? "Your Academy deck was not saved because saving was interrupted. Try again." : "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
     this.name = "LocalYomuSrsStorageError";
   }
 }
 function isLocalYomuSrsStorageError(error) {
   return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+}
+function isLocalYomuSrsSaveInterrupted(error) {
+  return isStorageLeaseLapsed(error) || isLocalYomuSrsStorageError(error) && isStorageLeaseLapsed(error.cause);
 }
 async function enumerateLocalYomuSrsStorageKeys() {
   const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
@@ -33958,10 +34116,10 @@ class LocalYomuSrsStore {
       }
       await gmStorageSet(DECK_INDEX_KEY, nextIndex);
     } catch (error) {
-      await Promise.all(newlyCreatedKeys.map((key2) => gmStorageDelete(key2)));
+      if (!isStorageLeaseLapsed(error)) await Promise.allSettled(newlyCreatedKeys.map((key2) => gmStorageDelete(key2)));
       throw new LocalYomuSrsStorageError({ cause: error });
     }
-    await Promise.all([
+    await Promise.allSettled([
       ...previousIndex.cardIds.filter((id2) => !next.cards[id2]).map((id2) => gmStorageDelete(cardStorageKey(id2))),
       ...previousIndex.tombstoneIds.filter((id2) => next.tombstones?.[id2] === void 0).map((id2) => gmStorageDelete(tombstoneStorageKey(id2)))
     ]);
@@ -34013,6 +34171,11 @@ function tombstoneStorageKey(id2) {
   return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id2)}`;
 }
 let localDeckMutation = Promise.resolve();
+const LOCAL_DECK_LEASE = {
+  leaseMs: STORAGE_WORK_LEASE_MS,
+  guards: isLocalYomuSrsStorageKey,
+  onWait: reportSaveWaitingForAnotherTab
+};
 const localDeckMutationListeners = /* @__PURE__ */ new Set();
 function subscribeLocalYomuSrsMutations(listener) {
   localDeckMutationListeners.add(listener);
@@ -34080,13 +34243,11 @@ class LocalYomuSrsRepository {
   }
   async collection(limit = 50, options = {}) {
     const now = this.now();
-    const language = options.language ? canonicalLanguageTag(options.language) : "";
-    return Object.values((await this.readDeck()).cards).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
+    return Object.values((await this.readDeck()).cards).filter(inRequestedLanguage(options)).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
   }
   async queue(limit = 50, options = {}) {
     const now = this.now();
-    const language = options.language ? canonicalLanguageTag(options.language) : "";
-    const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language);
+    const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter(inRequestedLanguage(options));
     const cap = normalizedQueueLimit(limit);
     const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
     const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -34102,9 +34263,9 @@ class LocalYomuSrsRepository {
       reviewCount: due.length
     };
   }
-  async stats() {
+  async stats(options = {}) {
     const now = this.now();
-    const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false);
+    const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter(inRequestedLanguage(options));
     const today = startOfLocalDay(now);
     return {
       providerId: "yomu-local",
@@ -34227,32 +34388,43 @@ class LocalYomuSrsRepository {
     return this.store.write(previous, deck);
   }
   mutateDeck(operation, notifyMutations = true) {
-    const result2 = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
-      const deck = await this.readDeckUncoordinated();
-      const previousDeck = structuredClone(deck);
-      const previousCards = new Map(Object.entries(previousDeck.cards));
-      const previousTombstones = { ...previousDeck.tombstones ?? {} };
-      const value = operation(deck);
-      await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
-      const changedCardIds = /* @__PURE__ */ new Set([
-        ...previousCards.keys(),
-        ...Object.keys(deck.cards),
-        ...Object.keys(previousTombstones),
-        ...Object.keys(deck.tombstones ?? {})
-      ]);
-      const changed = [...changedCardIds].filter((id2) => !sameStoredCard(previousCards.get(id2), deck.cards[id2]) || previousTombstones[id2] !== deck.tombstones?.[id2]);
-      if (notifyMutations) {
-        localDeckMutationListeners.forEach((listener) => {
-          try {
-            listener(changed);
-          } catch {
-          }
-        });
+    const result2 = localDeckMutation.then(async () => {
+      const attempt2 = {};
+      try {
+        await withGmStorageLease("local-yomu-srs-deck", async () => {
+          const deck = await this.readDeckUncoordinated();
+          const previous = structuredClone(deck);
+          const value = operation(deck);
+          attempt2.save = { value, previous, next: normalizeStoredYomuSrsDeck(deck) };
+          await this.writeDeck(previous, attempt2.save.next);
+        }, LOCAL_DECK_LEASE);
+      } catch (error) {
+        await this.confirmInterruptedSave(attempt2.save, error);
       }
-      return value;
-    }));
+      const save = attempt2.save;
+      if (notifyMutations) notifyLocalDeckMutations(changedCardIds(save.previous, save.next));
+      return save.value;
+    });
     localDeckMutation = result2.then(() => void 0, () => void 0);
     return result2;
+  }
+  // A tab suspended mid-save has its remaining writes refused (ADR-0019), but
+  // what already landed stays: a grade overwrites its card in place before the
+  // index write. When every record the save changed is stored as it meant to
+  // store it, the save happened, so this commits the index rather than report
+  // a failure the learner would repeat, scheduling the card twice. A save
+  // whose records did not all land failed, and saving again is safe.
+  async confirmInterruptedSave(save, error) {
+    const landed = save && isLocalYomuSrsSaveInterrupted(error) && await this.landedBeforeInterruption(save).catch(() => false);
+    if (!landed) throw deckSaveError(error);
+  }
+  landedBeforeInterruption(save) {
+    return withGmStorageLease("local-yomu-srs-deck", async () => {
+      const stored = await this.readDeckUncoordinated();
+      if (changedCardIds(save.previous, save.next).some((id2) => deckRecordsDiffer(stored, save.next, id2))) return false;
+      await this.writeDeck(stored, stored);
+      return true;
+    }, LOCAL_DECK_LEASE);
   }
   cardFromImportItem(item2, now) {
     let identity2;
@@ -34344,6 +34516,29 @@ function sameStoredCard(left, right) {
   if (!left || !right) return false;
   return JSON.stringify(left) === JSON.stringify(right);
 }
+function deckSaveError(error) {
+  return isStorageLeaseLapsed(error) ? new LocalYomuSrsStorageError({ cause: error }) : error;
+}
+function deckRecordsDiffer(left, right, id2) {
+  return !sameStoredCard(left.cards[id2], right.cards[id2]) || left.tombstones?.[id2] !== right.tombstones?.[id2];
+}
+function changedCardIds(previous, next) {
+  const ids2 = /* @__PURE__ */ new Set([
+    ...Object.keys(previous.cards),
+    ...Object.keys(next.cards),
+    ...Object.keys(previous.tombstones ?? {}),
+    ...Object.keys(next.tombstones ?? {})
+  ]);
+  return [...ids2].filter((id2) => deckRecordsDiffer(previous, next, id2));
+}
+function notifyLocalDeckMutations(changed) {
+  localDeckMutationListeners.forEach((listener) => {
+    try {
+      listener(changed);
+    } catch {
+    }
+  });
+}
 function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   return {
     id: "yomu-local",
@@ -34352,7 +34547,7 @@ function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
     capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
     hasCredential: () => true,
     verify: async () => true,
-    stats: () => repository.stats(),
+    stats: (options) => repository.stats(options),
     queue: (limit, options) => repository.queue(limit, options),
     collection: (limit, options) => repository.collection(limit, options),
     startReview: (cardId) => repository.startReview(cardId),
@@ -34409,6 +34604,10 @@ function startOfLocalDay(now) {
   const date = new Date(now);
   date.setHours(0, 0, 0, 0);
   return date.getTime();
+}
+function inRequestedLanguage(options) {
+  const language = options.language ? canonicalLanguageTag(options.language) : "";
+  return (card) => !language || canonicalLanguageTag(card.language ?? "ja") === language;
 }
 function normalizedQueueLimit(limit) {
   if (Number.isNaN(limit) || limit <= 0) return 0;
@@ -35594,6 +35793,10 @@ function hasJpdbApiCredential(settings) {
 function hasJitenApiCredential(settings) {
   return Boolean(effectiveJitenApiKey(settings));
 }
+function chosenWordGradingService(settings) {
+  if (!hasJpdbApiCredential(settings) || !hasJitenApiCredential(settings)) return null;
+  return settings.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
+}
 function effectiveBunproFrontendApiToken(settings) {
   return settings.bunproFrontendApiToken?.trim() ?? "";
 }
@@ -35914,10 +36117,10 @@ function publishSettingsChange(detail) {
 }
 function subscribeToSettingsChanges(listener, signal) {
   if (signal?.aborted) return () => void 0;
-  const listeners = privateSettingsChangeBus().listeners;
-  listeners.add(listener);
+  const listeners2 = privateSettingsChangeBus().listeners;
+  listeners2.add(listener);
   const unsubscribe = () => {
-    listeners.delete(listener);
+    listeners2.delete(listener);
   };
   signal?.addEventListener("abort", unsubscribe, { once: true });
   return unsubscribe;
@@ -39163,9 +39366,100 @@ const PRACTICE_SESSION_COPY = {
     practiceAudio: "問題の音声を再生"
   }
 };
+const SAVE_WAIT_COPY = {
+  en: {
+    saveWaitingForAnotherTab: `Waiting for another ${APP_NAME} tab to finish saving…`
+  },
+  ja: {
+    saveWaitingForAnotherTab: `ほかの${APP_NAME}タブの保存が終わるのを待っています…`
+  }
+};
+const GRADING_SERVICE_COPY = {
+  en: {
+    switchReviewTarget: "Switch review target",
+    switchGradingProvider: "Switch grading provider",
+    apiGradingProvider: "Preferred grading service",
+    apiGradingProviderHelp: "Where grades go when both Jiten and JPDB are connected; Automatic parsing follows it too. Study review cards grade to the service they came from, and the ⇄ toggle next to the grade buttons switches only that word.",
+    gradingServiceWordNotFound: "Not graded: this word was not found in your preferred grading service."
+  },
+  ja: {
+    switchReviewTarget: "採点先を切り替える",
+    switchGradingProvider: "採点サービスを切り替える",
+    apiGradingProvider: "優先採点サービス",
+    apiGradingProviderHelp: "JitenとJPDBの両方を接続しているときの採点先です。解析ソースが「自動」の場合も、この設定に従います。Studyの復習カードは取得元のサービスで採点され、採点ボタン横の⇄はその単語だけを切り替えます。",
+    gradingServiceWordNotFound: "優先採点サービスでこの単語が見つからなかったため、採点していません。"
+  }
+};
+const EN = {
+  collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
+  collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
+  // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
+  collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
+  collectHandoffOpened: "Opened your deck app. Finish saving there.",
+  collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
+  addedToJpdb: "Added to JPDB.",
+  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  addedToJiten: "Added to Jiten.",
+  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+  bunproNoMatchingWord: "Bunpro has no entry for this word.",
+  addedToBunpro: "Added to Bunpro.",
+  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
+  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+};
+const JA = {
+  collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
+  collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
+  collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
+  collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
+  collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
+  addedToJpdb: "JPDBに追加しました。",
+  jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
+  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  addedToJiten: "Jitenに追加しました。",
+  bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
+  bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
+  addedToBunpro: "Bunproに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
+  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "Academyに追加しました。"
+};
+const COLLECTION_COPY = { en: EN, ja: JA };
+const EN_OCR_STATUS_COPY = {
+  ocrPlayVideo: "Play video",
+  ocrPausedFrameScanning: "Scanning...",
+  ocrPausedFrameReady: "Text ready",
+  ocrPausedFrameNoText: "No text found",
+  ocrPausedFrameFailed: "Could not read text",
+  ocrRetryScan: "Scan again",
+  ocrNoReadableImages: "No readable images nearby.",
+  ocrCanvasTapHint: "Tap or click the page to read it",
+  ocrCanvasTapHintDismiss: "Dismiss tip"
+};
+const JA_OCR_STATUS_COPY = {
+  ocrPlayVideo: "動画を再生",
+  ocrPausedFrameScanning: "スキャン中...",
+  ocrPausedFrameReady: "テキスト準備完了",
+  ocrPausedFrameNoText: "テキストが見つかりません",
+  ocrPausedFrameFailed: "テキストを読み取れませんでした",
+  ocrRetryScan: "再スキャン",
+  ocrNoReadableImages: "近くに読み取れる画像がありません。",
+  ocrCanvasTapHint: "ページをタップまたはクリックすると読めます",
+  ocrCanvasTapHintDismiss: "ヒントを閉じる"
+};
+const OCR_STATUS_COPY = {
+  en: EN_OCR_STATUS_COPY,
+  ja: JA_OCR_STATUS_COPY
+};
 const COPY$c = {
   en: {
     ...PRACTICE_SESSION_COPY.en,
+    ...COLLECTION_COPY.en,
     settingsTitle: `${APP_NAME} Settings`,
     welcomeLabel: `${APP_NAME} welcome`,
     onboardingEyebrow: "{language}, wherever it appears",
@@ -39218,6 +39512,7 @@ const COPY$c = {
     settingsSaveFailed: "Settings save failed.",
     settingsCompanionUnavailable: "Settings could not be opened.",
     ...SETTINGS_RECOVERY_COPY.en,
+    ...SAVE_WAIT_COPY.en,
     firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
     firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
     settingsSections: "Settings sections",
@@ -39761,7 +40056,7 @@ const COPY$c = {
     parserProviderJiten: "Jiten API",
     parserProviderJpdb: "JPDB API",
     parserProviderAuto: "Automatic (Jiten/JPDB)",
-    parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
+    parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
     offlineDictionarySetupComplete: "Offline dictionaries installed.",
     offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
     copiesCurrentWord: "Copies the current word",
@@ -39912,7 +40207,6 @@ const COPY$c = {
     subtitleLines: "Lines",
     shadow: "Shadow",
     subtitleTracks: "Tracks",
-    batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
     subtitleTrackTiming: "Subtitle timing",
     subtitleOffsetPrevious: "Align previous subtitle to current time",
     subtitleOffsetNext: "Align next subtitle to current time",
@@ -39986,13 +40280,7 @@ const COPY$c = {
     ankiMappingConfidenceMedium: "fuzzy match",
     ankiMappingConfidenceLow: "unmapped",
     ankiMappingStaleField: "saved field missing",
-    ocrPlayVideo: "Play video",
-    ocrPausedFrameScanning: "Scanning...",
-    ocrPausedFrameReady: "Text ready",
-    ocrPausedFrameNoText: "No text found",
-    ocrPausedFrameFailed: "Could not read text",
-    ocrRetryScan: "Scan again",
-    ocrNoReadableImages: "No readable images nearby.",
+    ...OCR_STATUS_COPY.en,
     gradeNothing: "Grade NOTHING",
     gradeSomething: "Grade SOMETHING",
     gradeHard: "Grade HARD",
@@ -40042,10 +40330,7 @@ const COPY$c = {
     resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
     showMiningActions: "Show mining actions",
     hideMiningActions: "Hide mining actions",
-    switchReviewTarget: "Switch review target",
-    switchGradingProvider: "Switch grading provider",
-    apiGradingProvider: "Preferred grading service",
-    apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
+    ...GRADING_SERVICE_COPY.en,
     jpdbKanjiUpdated: "JPDB kanji updated.",
     jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
     apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -40226,19 +40511,9 @@ const COPY$c = {
     jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
     jpdbRequestFailedError: "JPDB request failed. Try again.",
     jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-    jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
-    addedToJpdb: "Added to JPDB.",
     jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-    jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-    bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
     wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
-    yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-    yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-    chooseJitenStudyDeck: "Choose a Jiten study deck first.",
-    addedToJiten: "Added to Jiten.",
-    addedToBunpro: "Added to Bunpro.",
     addedToWanikani: "Recorded on WaniKani.",
-    addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
     kanjiDetailsUnavailable: "Kanji details are not available yet.",
     loadingDictionaryDetails: "Loading dictionary details...",
     jitenCompositeWords: "Composite words",
@@ -40295,7 +40570,7 @@ const COPY$c = {
     removeImportedDictionary: "Remove imported dictionary",
     customAdvanced: "{label} (advanced)",
     importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
-    frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
+    metadataDictionariesHelp: "Metadata dictionaries appear as badges or kanji data.",
     sourceHelpJpdb: "JPDB meanings from the current card.",
     sourceHelpJiten: "Jiten meanings, examples, and related words.",
     sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
@@ -40472,10 +40747,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -40685,7 +40956,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -40728,13 +40998,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -40841,19 +41104,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -40905,7 +41158,11 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
-  ...PRACTICE_SESSION_COPY.ja
+  ...PRACTICE_SESSION_COPY.ja,
+  ...SAVE_WAIT_COPY.ja,
+  ...GRADING_SERVICE_COPY.ja,
+  ...COLLECTION_COPY.ja,
+  ...OCR_STATUS_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -41419,7 +41676,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -41551,7 +41808,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
@@ -43622,6 +43879,11 @@ function snapshotValue(snapshot) {
   return snapshot.existed ? snapshot.previousValue : null;
 }
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+const SETTINGS_PERSISTENCE_LEASE_OPTIONS = {
+  leaseMs: STORAGE_WORK_LEASE_MS,
+  guards: isSettingsAuthorityStorageKey,
+  onWait: reportSaveWaitingForAnotherTab
+};
 const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
 class InvalidSettingsBackupAuthorityError extends Error {
   name = "InvalidSettingsBackupAuthorityError";
@@ -45127,7 +45389,7 @@ async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUs
     const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
     await persistSettingsStorageTransaction(nextLedger, supportedSettings);
     storedSettings = supportedSettings;
-  });
+  }, SETTINGS_PERSISTENCE_LEASE_OPTIONS);
   dispatchSettingsChange(storedSettings);
 }
 function dispatchSettingsChange(settings) {
@@ -45846,6 +46108,94 @@ function datasetAttributeName(key2) {
 function escapeAttributeValue(value) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+const scannedShadowRootRefs = /* @__PURE__ */ new Set();
+const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
+const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+const MAX_PENDING_UPGRADE_NAMES = 64;
+const potentialShadowHosts = /* @__PURE__ */ new Set();
+let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
+const subscribedUpgradeNames = /* @__PURE__ */ new Set();
+function noteShadowRoot(root, cause) {
+  const active = scannedShadowRootState.get(root);
+  if (active) return;
+  scannedShadowRootState.set(root, true);
+  if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+}
+function watchPotentialOpenShadowRootHost(host2) {
+  const root = host2.shadowRoot;
+  if (root) {
+    noteShadowRoot(root);
+    return root;
+  }
+  const tagName = host2.localName.toLowerCase();
+  const isCustomElement = tagName.includes("-");
+  if (!isCustomElement) return null;
+  const registry = customElementRegistry();
+  if (registry && !registry.get(tagName)) {
+    subscribeToCustomElementUpgrade(registry, tagName);
+    return null;
+  }
+  if (seenPotentialShadowHosts.has(host2) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
+  seenPotentialShadowHosts.add(host2);
+  potentialShadowHosts.add({
+    ref: new WeakRef(host2),
+    remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
+  });
+  return null;
+}
+function forEachScannedShadowRoot(callback2, includeDetached = false) {
+  for (const ref of scannedShadowRootRefs) {
+    const root = ref.deref();
+    if (!root) {
+      scannedShadowRootRefs.delete(ref);
+      continue;
+    }
+    if (!root.host?.isConnected) {
+      scannedShadowRootState.set(root, false);
+      if (!includeDetached) continue;
+    }
+    callback2(root);
+  }
+}
+function customElementRegistry() {
+  const registry = Reflect.get(globalThis, "customElements");
+  if (!registry) return null;
+  const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+  return callableMethods.length === 2 ? registry : null;
+}
+function subscribeToCustomElementUpgrade(registry, tagName) {
+  if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+  subscribedUpgradeNames.add(tagName);
+  void registry.whenDefined(tagName).then(() => {
+    subscribedUpgradeNames.delete(tagName);
+  }, () => {
+    subscribedUpgradeNames.delete(tagName);
+  });
+}
+const LANE_CLASS_STEM = "yomu-review-";
+const ORDINARY_PAGE_WORD_SELECTOR = '.jpdb-reader-word[data-yomu-word="true"]';
+let lanePainted = false;
+function isReviewLaneClass(className) {
+  return className.startsWith(LANE_CLASS_STEM);
+}
+function syncWordReviewLane(word) {
+  const lane = laneClassName(renderedWordPrivateValue(word, "ankiState"));
+  Array.from(word.classList).filter((className) => isReviewLaneClass(className) && className !== lane).forEach((className) => word.classList.remove(className));
+  if (lane) word.classList.add(lane);
+}
+function setReviewLanePainted(painted) {
+  if (painted === lanePainted) return;
+  lanePainted = painted;
+  if (currentAccountDataSurfaceIsTrusted()) return;
+  const roots = [document];
+  forEachScannedShadowRoot((root) => roots.push(root));
+  roots.forEach((root) => root.querySelectorAll(ORDINARY_PAGE_WORD_SELECTOR).forEach(syncWordReviewLane));
+}
+function laneClassName(ankiState) {
+  const onLane = [lanePainted, Boolean(ankiState), ankiState !== "not-in-deck", !currentAccountDataSurfaceIsTrusted()].every(Boolean);
+  return onLane ? `${LANE_CLASS_STEM}${ankiState}` : "";
+}
 const RENDERED_WORD_CARD_STATES = [
   "new",
   "learning",
@@ -45869,7 +46219,7 @@ const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback",
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
 const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
 function clearRenderedWordAnkiState(word) {
-  Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+  Array.from(word.classList).filter(isAnkiStateClass).forEach((className) => word.classList.remove(className));
   const ankiState = renderedWordPrivateValue(word, "ankiState");
   const cardState = renderedWordPrivateValue(word, "cardState");
   clearOffhostProjectedAnkiState(word, ankiState, cardState);
@@ -45883,7 +46233,10 @@ function clearOffhostProjectedAnkiState(word, ankiState, cardState) {
   word.classList.remove(`jpdb-${ankiState}`);
 }
 function renderedWordHasAnkiState(word) {
-  return Boolean(renderedWordPrivateValue(word, "ankiState") || renderedWordPrivateValue(word, "ankiDecks") || Array.from(word.classList).some((className) => className.startsWith("anki-")));
+  return Boolean(renderedWordPrivateValue(word, "ankiState") || renderedWordPrivateValue(word, "ankiDecks") || Array.from(word.classList).some(isAnkiStateClass));
+}
+function isAnkiStateClass(className) {
+  return className.startsWith("anki-") || isReviewLaneClass(className);
 }
 function renderedWordCardKey(vid, sid) {
   return `${vid}:${sid}`;
@@ -47366,6 +47719,25 @@ function isDocumentPortalProseAncestor(current, host2) {
     current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)
   ].some(Boolean);
 }
+const COLOR_SOURCE_CLASS_TOKENS = {
+  status: "status",
+  jpdb: "jpdb",
+  anki: "review",
+  pitch: "pitch",
+  off: "off"
+};
+function colorSourceClassName(scope2, channel, source2) {
+  return `jpdb-reader-${scope2}-${channel}-${COLOR_SOURCE_CLASS_TOKENS[source2]}`;
+}
+function selectedWordColorSourceToken(root, channels, sources) {
+  let selected2 = null;
+  for (const source2 of sources) {
+    if (channels.some((channel) => root.classList.contains(colorSourceClassName("word", channel, source2)))) {
+      selected2 = COLOR_SOURCE_CLASS_TOKENS[source2];
+    }
+  }
+  return selected2;
+}
 function syncProjectedReadings(owner, projections) {
   yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
 }
@@ -47445,71 +47817,6 @@ function ensureReaderStylesInShadowRoot(root) {
   style.textContent = shadowReaderCssText;
   root.append(style);
   clonedShadowStyleNodes.add(new WeakRef(style));
-}
-const scannedShadowRootRefs = /* @__PURE__ */ new Set();
-const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
-const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
-const MAX_POTENTIAL_SHADOW_HOSTS = 160;
-const MAX_PENDING_UPGRADE_NAMES = 64;
-const potentialShadowHosts = /* @__PURE__ */ new Set();
-let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
-const subscribedUpgradeNames = /* @__PURE__ */ new Set();
-function noteShadowRoot(root, cause) {
-  const active = scannedShadowRootState.get(root);
-  if (active) return;
-  scannedShadowRootState.set(root, true);
-  if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
-}
-function watchPotentialOpenShadowRootHost(host2) {
-  const root = host2.shadowRoot;
-  if (root) {
-    noteShadowRoot(root);
-    return root;
-  }
-  const tagName = host2.localName.toLowerCase();
-  const isCustomElement = tagName.includes("-");
-  if (!isCustomElement) return null;
-  const registry = customElementRegistry();
-  if (registry && !registry.get(tagName)) {
-    subscribeToCustomElementUpgrade(registry, tagName);
-    return null;
-  }
-  if (seenPotentialShadowHosts.has(host2) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
-  seenPotentialShadowHosts.add(host2);
-  potentialShadowHosts.add({
-    ref: new WeakRef(host2),
-    remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
-  });
-  return null;
-}
-function forEachScannedShadowRoot(callback2, includeDetached = false) {
-  for (const ref of scannedShadowRootRefs) {
-    const root = ref.deref();
-    if (!root) {
-      scannedShadowRootRefs.delete(ref);
-      continue;
-    }
-    if (!root.host?.isConnected) {
-      scannedShadowRootState.set(root, false);
-      if (!includeDetached) continue;
-    }
-    callback2(root);
-  }
-}
-function customElementRegistry() {
-  const registry = Reflect.get(globalThis, "customElements");
-  if (!registry) return null;
-  const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
-  return callableMethods.length === 2 ? registry : null;
-}
-function subscribeToCustomElementUpgrade(registry, tagName) {
-  if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
-  subscribedUpgradeNames.add(tagName);
-  void registry.whenDefined(tagName).then(() => {
-    subscribedUpgradeNames.delete(tagName);
-  }, () => {
-    subscribedUpgradeNames.delete(tagName);
-  });
 }
 const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
@@ -49900,10 +50207,11 @@ const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source2) 
 function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
   if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
   setInlineStyleIfChanged(root, "-webkit-text-fill-color", "transparent", "important");
-  const source2 = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+  const documentElement = root.ownerDocument.documentElement;
+  const source2 = selectedWordColorSourceToken(documentElement, ["highlight", "underline", "text"], ADDITIVE_DECORATION_SOURCES);
   const words = root.querySelectorAll(".jpdb-reader-word");
   const paint = source2 ? `var(--jpdb-reader-source-${source2}-decoration, transparent)` : "transparent";
-  const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+  const highlightSource = selectedWordColorSourceToken(documentElement, ["highlight"], ADDITIVE_HIGHLIGHT_SOURCES);
   const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
   for (const word of words) {
     const visible = !projectedWordsOnly || word.dataset.yomuSourceProjected === "true";
@@ -49917,20 +50225,6 @@ function styleAdditiveMirrorWordPaint(word, paint, softPaint, visible) {
   const visibleSoftPaint = visible ? softPaint : "";
   if (visibleSoftPaint) setInlineStyleIfChanged(word, "--jpdb-reader-mirror-status-soft", visibleSoftPaint);
   else removeInlineStyleIfPresent(word, "--jpdb-reader-mirror-status-soft");
-}
-function activeAdditiveHighlightSource(documentElement) {
-  let active = null;
-  for (const source2 of ADDITIVE_HIGHLIGHT_SOURCES) {
-    if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source2}`)) active = source2;
-  }
-  return active;
-}
-function activeAdditiveDecorationSource(documentElement) {
-  let active = null;
-  for (const source2 of ADDITIVE_DECORATION_SOURCES) {
-    if (["highlight", "underline", "text"].some((channel) => documentElement.classList.contains(`jpdb-reader-word-${channel}-${source2}`))) active = source2;
-  }
-  return active;
 }
 function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
   if (filterWordsToClip && root.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(root, clipRow);
@@ -50285,10 +50579,10 @@ function styleControlTextMirror(mirror, host2, placeholderOverlay) {
 function observeControlTextMirrorHost(host2, state) {
   const previous = controlTextMirrorHosts.get(host2);
   previous?.listeners?.abort();
-  const listeners = new AbortController();
-  state.listeners = listeners;
-  host2.addEventListener("change", state.onChange, { signal: listeners.signal });
-  host2.addEventListener("input", state.onChange, { signal: listeners.signal });
+  const listeners2 = new AbortController();
+  state.listeners = listeners2;
+  host2.addEventListener("change", state.onChange, { signal: listeners2.signal });
+  host2.addEventListener("input", state.onChange, { signal: listeners2.signal });
   controlTextMirrorHosts.set(host2, state);
 }
 function removeControlTextMirror(host2) {
@@ -94795,7 +95089,7 @@ function resolveStoryVoicePlaybackEntry(catalog2, line2) {
   return catalog2.entries.find((entry2) => entry2.lineId === line2.lineId && entry2.speakerId === line2.speakerId && entry2.japanese === line2.japanese && (line2.band === void 0 || entry2.band === line2.band) && (line2.sourceSha256 === void 0 || entry2.sourceSha256 === line2.sourceSha256)) ?? null;
 }
 function createStoryVoicePlayback(options) {
-  const listeners = /* @__PURE__ */ new Set();
+  const listeners2 = /* @__PURE__ */ new Set();
   const createMedia = options.createMedia ?? ((url) => new Audio(url));
   const catalogPromise = (options.catalog ? Promise.resolve(options.catalog) : options.loadCatalog?.() ?? loadStoryVoicePlaybackCatalog()).then(parseStoryVoicePlaybackCatalog);
   let currentLine = null;
@@ -94811,7 +95105,7 @@ function createStoryVoicePlayback(options) {
       ...currentEntry ? { url: currentEntry.url } : {},
       ...error === void 0 ? {} : { error }
     };
-    for (const listener of listeners) listener({ ...snapshotValue2 });
+    for (const listener of listeners2) listener({ ...snapshotValue2 });
   };
   const releaseActive = (status2, pause, error) => {
     const playback = active;
@@ -94926,9 +95220,9 @@ function createStoryVoicePlayback(options) {
         listener({ ...snapshotValue2 });
         return () => void 0;
       }
-      listeners.add(listener);
+      listeners2.add(listener);
       listener({ ...snapshotValue2 });
-      return () => listeners.delete(listener);
+      return () => listeners2.delete(listener);
     },
     dispose() {
       if (disposed) return;
@@ -94939,7 +95233,7 @@ function createStoryVoicePlayback(options) {
       currentEntry = null;
       unsubscribeDirector();
       emit("disposed");
-      listeners.clear();
+      listeners2.clear();
     }
   };
 }
@@ -266051,6 +266345,8 @@ const NEW_TAB_COPY = {
     statsCardsPerMinute: "cards/min",
     statsEstimatedDueTime: "Due estimate",
     statsCards: "Cards",
+    savedWord: "Saved",
+    statsSavedDetail: "Add to review in Library",
     statsDailyActivity: "Daily activity",
     statsMonthlyHeatmap: "Monthly heatmap",
     statsAccuracy: "Accuracy",
@@ -266350,6 +266646,8 @@ const JA_NEW_TAB_COPY = {
   statsCardsPerMinute: "カード/分",
   statsEstimatedDueTime: "期限分の目安",
   statsCards: "カード",
+  savedWord: "保存済み",
+  statsSavedDetail: "単語帳で復習に追加できます",
   statsDailyActivity: "日別アクティビティ",
   statsMonthlyHeatmap: "月別ヒートマップ",
   statsAccuracy: "正答率",
@@ -266578,7 +266876,7 @@ function createStudySessionClock(options = {}) {
   const schedule = options.schedule ?? defaultSchedule;
   const cancel = options.cancel ?? defaultCancel;
   const pauseReasons = /* @__PURE__ */ new Set();
-  const listeners = /* @__PURE__ */ new Set();
+  const listeners2 = /* @__PURE__ */ new Set();
   let accumulatedMs = 0;
   let runningSince = now();
   let ticker;
@@ -266619,11 +266917,11 @@ function createStudySessionClock(options = {}) {
   };
   const notify2 = () => {
     const snapshot = snapshotAt(now());
-    listeners.forEach((listener) => listener(snapshot));
+    listeners2.forEach((listener) => listener(snapshot));
     return snapshot;
   };
   const startTicker = () => {
-    if (disposed || ticker !== void 0 || !listeners.size) return;
+    if (disposed || ticker !== void 0 || !listeners2.size) return;
     const snapshot = snapshotAt(now());
     if (snapshot.complete) return;
     ticker = schedule(notify2, tickEveryMs);
@@ -266671,14 +266969,14 @@ function createStudySessionClock(options = {}) {
     setVisible: (visible) => visible ? resume("visibility") : pause("visibility"),
     subscribe(listener) {
       if (disposed) throw new Error("Study session clock is disposed.");
-      listeners.add(listener);
+      listeners2.add(listener);
       const snapshot = snapshotAt(now());
       listener(snapshot);
       startTicker();
       return {
         dispose() {
-          listeners.delete(listener);
-          if (!listeners.size) stopTicker();
+          listeners2.delete(listener);
+          if (!listeners2.size) stopTicker();
         }
       };
     },
@@ -266686,7 +266984,7 @@ function createStudySessionClock(options = {}) {
       if (disposed) return;
       disposed = true;
       stopTicker();
-      listeners.clear();
+      listeners2.clear();
       visibility?.removeEventListener("visibilitychange", onVisibilityChange);
     }
   };
@@ -266761,7 +267059,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-2UPVmIom.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-VWC3qq1B.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -273009,7 +273307,7 @@ export {
   preloadableAudioSources as ay,
   cheapCandidatePreloadAudioSources as az,
   KANJI_PATTERN as b,
-  normalizeGenericLookupText as b$,
+  isRecord$6 as b$,
   sharedContrastRatio as b0,
   CORE_COLOR_TOKENS as b1,
   sharedMixHex as b2,
@@ -273020,323 +273318,330 @@ export {
   canonicalStudyCardIdentity as b7,
   applyLocalYomuSrsStateToRenderedWord as b8,
   hasJpdbApiCredential as b9,
-  IMMERSION_KIT_SOURCE_ID as bA,
-  JITEN_DEFINITION_SOURCE_ID as bB,
-  JPDB_DEFINITION_SOURCE_ID as bC,
-  BUNPRO_DEFINITION_SOURCE_ID as bD,
-  WANIKANI_DEFINITION_SOURCE_ID as bE,
-  STUDY_TRANSLATION_SOURCE_ID as bF,
-  ANKI_SOURCE_ID as bG,
-  STUDY_GRAMMAR_SOURCE_ID as bH,
-  LOOKUP_PILL_COLOR_TOKENS as bI,
-  normalizeDictionaryPreferences as bJ,
-  genericLookupTextVariants as bK,
-  yomitanDictionaryIdentity as bL,
-  gmStorageGet as bM,
-  gmStorageSet as bN,
-  gmStorageDelete as bO,
-  assertManagedStateMutationAllowed as bP,
-  managedStateEpochToken as bQ,
-  managedStateEpochTokenRelation as bR,
-  assertManagedStateReadAllowed as bS,
-  normalizeZipKanjiMetaRow as bT,
-  normalizeZipTermMetaRow as bU,
-  normalizeZipKanjiRow as bV,
-  normalizeZipTermRow as bW,
-  isRecord$6 as bX,
-  isJapaneseKanjiCharacter as bY,
-  lookupSpansStartingInRange as bZ,
-  normalizeImportedLookupMeta as b_,
+  cleanCardHighlightValue as bA,
+  renderHighlightedTextHtml as bB,
+  cardHighlightTargets as bC,
+  compactCardHighlightValue as bD,
+  IMMERSION_KIT_SOURCE_ID as bE,
+  JITEN_DEFINITION_SOURCE_ID as bF,
+  JPDB_DEFINITION_SOURCE_ID as bG,
+  BUNPRO_DEFINITION_SOURCE_ID as bH,
+  WANIKANI_DEFINITION_SOURCE_ID as bI,
+  STUDY_TRANSLATION_SOURCE_ID as bJ,
+  ANKI_SOURCE_ID as bK,
+  STUDY_GRAMMAR_SOURCE_ID as bL,
+  LOOKUP_PILL_COLOR_TOKENS as bM,
+  normalizeDictionaryPreferences as bN,
+  genericLookupTextVariants as bO,
+  yomitanDictionaryIdentity as bP,
+  gmStorageGet as bQ,
+  gmStorageSet as bR,
+  gmStorageDelete as bS,
+  assertManagedStateMutationAllowed as bT,
+  managedStateEpochToken as bU,
+  managedStateEpochTokenRelation as bV,
+  assertManagedStateReadAllowed as bW,
+  normalizeZipKanjiMetaRow as bX,
+  normalizeZipTermMetaRow as bY,
+  normalizeZipKanjiRow as bZ,
+  normalizeZipTermRow as b_,
   hasJitenApiCredential as ba,
-  hasBunproFrontendCredential as bb,
-  isBunproFrontendCredentialExpired as bc,
-  hasWanikaniApiCredential as bd,
-  isLocalYomuSrsStorageError as be,
-  activeLearningTargetLanguage as bf,
-  effectiveWanikaniApiToken as bg,
-  effectiveBunproFrontendApiToken as bh,
-  effectiveBunproLegacyApiKey as bi,
-  effectiveJpdbApiKey as bj,
-  effectiveJitenApiKey as bk,
-  yomuKanjiStudyCompanion as bl,
-  activeLearningTarget as bm,
-  isUnifiedIdeograph as bn,
-  readerWordSurfaceText as bo,
-  readAnkiAudioMergeCapability as bp,
-  formatUiText as bq,
-  uiList as br,
-  readReviewTargetCapability as bs,
-  renderKanjiNavigationText as bt,
-  shouldRenderRuby as bu,
-  renderRuby as bv,
-  cleanCardHighlightValue as bw,
-  renderHighlightedTextHtml as bx,
-  cardHighlightTargets as by,
-  compactCardHighlightValue as bz,
+  chosenWordGradingService as bb,
+  hasBunproFrontendCredential as bc,
+  isBunproFrontendCredentialExpired as bd,
+  hasWanikaniApiCredential as be,
+  isLocalYomuSrsStorageError as bf,
+  isLocalYomuSrsSaveInterrupted as bg,
+  activeLearningTargetLanguage as bh,
+  effectiveWanikaniApiToken as bi,
+  effectiveBunproFrontendApiToken as bj,
+  effectiveBunproLegacyApiKey as bk,
+  effectiveJpdbApiKey as bl,
+  effectiveJitenApiKey as bm,
+  yomuKanjiStudyCompanion as bn,
+  activeLearningTarget as bo,
+  isUnifiedIdeograph as bp,
+  readerWordSurfaceText as bq,
+  readAnkiAudioMergeCapability as br,
+  formatUiText as bs,
+  uiList as bt,
+  readReviewTargetCapability as bu,
+  applyOverlayPageScale as bv,
+  watchSavesWaitingForAnotherTab as bw,
+  renderKanjiNavigationText as bx,
+  shouldRenderRuby as by,
+  renderRuby as bz,
   thCatalog as c,
-  delay as c$,
-  splitTags as c0,
-  JAPANESE_RE as c1,
-  codePointBoundaryAtOrAfter as c2,
-  yomitanZipDictionaryName as c3,
-  yomitanZipVersion as c4,
-  countYomitanZipBanks as c5,
-  normalizeImportedLookupTerm as c6,
-  activeLearningTargetGeneration as c7,
-  imageMimeType as c8,
-  bytesToBase64 as c9,
-  inferredInflectedSurfaceRubies as cA,
-  nonOverlappingTokens as cB,
-  READING_KANA_ONLY_RE as cC,
-  HALFWIDTH_KATAKANA as cD,
-  PROLONGED_SOUND_MARK as cE,
-  KATAKANA_MIDDLE_DOT as cF,
-  fallbackLookupTermsForCard as cG,
-  yomuBunproCompanion as cH,
-  shouldLookupAnkiStatus as cI,
-  setRenderedWordPitchClass as cJ,
-  shouldHideFuriganaForCardState as cK,
-  isPopupLookupEnabled as cL,
-  yomuNormalizeOcrRenderedText as cM,
-  replaceRenderedWordFurigana as cN,
-  htmlToFirstElement as cO,
-  clearRenderedWordAnkiState as cP,
-  clearRenderedWordFurigana as cQ,
-  cardDeckMembershipClassNames as cR,
-  setInnerHtml as cS,
-  gmStorageDeleteSync as cT,
-  appendToDocumentHead as cU,
-  yomuSettingsSurfaceCompanion as cV,
-  subscribeToFactoryResetSignals as cW,
-  APP_NAME as cX,
-  createFactoryResetSignal as cY,
-  beginSettingsResetGuard as cZ,
-  publishFactoryResetSignal as c_,
-  speakerIcon as ca,
-  renderedWordPrivateAttributesForState as cb,
-  gmStorageGetSync as cc,
-  gmStorageSetSync as cd,
-  isNonNullObject as ce,
-  uniqueNonEmptyStrings$1 as cf,
-  pitchNumberForReading as cg,
-  pitchPatternFromPosition as ch,
-  KANA as ci,
-  COMBINING_KANA_MARKS as cj,
-  collectPitchVariants as ck,
-  splitMorae as cl,
-  pitchLevelsForDisplay as cm,
-  pitchClassNameForPattern as cn,
-  learningTargetModuleFor as co,
-  defaultLearningTargetModule as cp,
-  languageDisplayName as cq,
-  resolveUiLanguage as cr,
-  primaryCardState as cs,
-  cardStateLabel as ct,
-  ConcurrencyGate as cu,
-  KANA_ONLY_RUN_RE as cv,
-  ITERATION_MARK as cw,
-  KANA_WITH_PROLONGED as cx,
-  mapLimited as cy,
-  bareFallbackCardFromText as cz,
+  subscribeToFactoryResetSignals as c$,
+  isJapaneseKanjiCharacter as c0,
+  lookupSpansStartingInRange as c1,
+  normalizeImportedLookupMeta as c2,
+  normalizeGenericLookupText as c3,
+  splitTags as c4,
+  JAPANESE_RE as c5,
+  codePointBoundaryAtOrAfter as c6,
+  yomitanZipDictionaryName as c7,
+  yomitanZipVersion as c8,
+  countYomitanZipBanks as c9,
+  ITERATION_MARK as cA,
+  KANA_WITH_PROLONGED as cB,
+  mapLimited as cC,
+  bareFallbackCardFromText as cD,
+  inferredInflectedSurfaceRubies as cE,
+  nonOverlappingTokens as cF,
+  READING_KANA_ONLY_RE as cG,
+  HALFWIDTH_KATAKANA as cH,
+  PROLONGED_SOUND_MARK as cI,
+  KATAKANA_MIDDLE_DOT as cJ,
+  fallbackLookupTermsForCard as cK,
+  yomuBunproCompanion as cL,
+  shouldLookupAnkiStatus as cM,
+  setRenderedWordPitchClass as cN,
+  shouldHideFuriganaForCardState as cO,
+  isPopupLookupEnabled as cP,
+  yomuNormalizeOcrRenderedText as cQ,
+  replaceRenderedWordFurigana as cR,
+  htmlToFirstElement as cS,
+  clearRenderedWordAnkiState as cT,
+  clearRenderedWordFurigana as cU,
+  syncWordReviewLane as cV,
+  cardDeckMembershipClassNames as cW,
+  setInnerHtml as cX,
+  gmStorageDeleteSync as cY,
+  appendToDocumentHead as cZ,
+  yomuSettingsSurfaceCompanion as c_,
+  normalizeImportedLookupTerm as ca,
+  activeLearningTargetGeneration as cb,
+  imageMimeType as cc,
+  bytesToBase64 as cd,
+  speakerIcon as ce,
+  renderedWordPrivateAttributesForState as cf,
+  gmStorageGetSync as cg,
+  gmStorageSetSync as ch,
+  isNonNullObject as ci,
+  uniqueNonEmptyStrings$1 as cj,
+  pitchNumberForReading as ck,
+  pitchPatternFromPosition as cl,
+  KANA as cm,
+  COMBINING_KANA_MARKS as cn,
+  collectPitchVariants as co,
+  splitMorae as cp,
+  pitchLevelsForDisplay as cq,
+  pitchClassNameForPattern as cr,
+  learningTargetModuleFor as cs,
+  defaultLearningTargetModule as ct,
+  languageDisplayName as cu,
+  resolveUiLanguage as cv,
+  primaryCardState as cw,
+  cardStateLabel as cx,
+  ConcurrencyGate as cy,
+  KANA_ONLY_RUN_RE as cz,
   tlCatalog as d,
-  createStudySessionClock as d$,
-  clearManagedStoredValues as d0,
-  deleteSettingsStorage as d1,
-  commitManagedStateResetEpoch as d2,
-  clearFactoryResetSignal as d3,
-  managedStateResetEpochMayHaveCommitted as d4,
-  endSettingsResetGuard as d5,
-  managedStoredKeysStillPresent as d6,
-  ManagedStateResetError as d7,
-  stableHash32 as d8,
-  uniqueTrimmedStrings as d9,
-  readKanjiCommandCapability as dA,
-  dispatchPrivateCommand as dB,
-  claimLocalTapActivation as dC,
-  installControlTapActivation as dD,
-  enabledReaderControl as dE,
-  effectiveFuriganaMode as dF,
-  KANJI_DOODLE_CLEAR_EVENT as dG,
-  installKanjiDoodle as dH,
-  rankKanjiStrokeCandidates as dI,
-  promiseWithTimeout as dJ,
-  isYomuNewTabUrl as dK,
-  convertRomajiToKana as dL,
-  normalizeJapaneseStudyAnswer as dM,
-  isolate as dN,
-  contextPitchPattern as dO,
-  managedStateWritesSuppressed as dP,
-  createStorageCoordinationId as dQ,
-  managedSessionStorage as dR,
-  bindAuthorizedReaderFormSubmit as dS,
-  isDirectTrustedReaderInteraction as dT,
-  normalizedJapaneseCardReading as dU,
-  parseManagedStateEpoch as dV,
-  sameManagedStateEpoch as dW,
-  gmStorageGetStrict as dX,
-  withGmStorageLease as dY,
-  DEFAULT_SETTINGS as dZ,
-  renderImmersionSearchLinks as d_,
-  stableHashBase36 as da,
-  isTargetLanguageText as db,
-  KANJI_LIKE_WITH_COUNTERS as dc,
-  HIRAGANA_WITH_PROLONGED as dd,
-  KATAKANA_WITH_PROLONGED as de,
-  KANJI_LIKE_RE as df,
-  applyOverlayPageScale as dg,
-  overlayViewportBottomInset as dh,
-  renderImmersionSearchLinksHtml as di,
-  renderTokensToHtml as dj,
-  readPrivateReviewTarget as dk,
-  runLimited as dl,
-  isManagedStorageKey as dm,
-  managedLocalStorage as dn,
-  readJitenKanjiWordsCommandCapability as dp,
-  bindPrivateCommandCapability as dq,
-  parseHtmlDocument as dr,
-  isCurrentScanTarget as ds,
-  applyTokensToScanTarget as dt,
-  unwrapReaderWords as du,
-  collectFragmentTextTargetsIn as dv,
-  collectFormControlTextTargetsIn as dw,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as dx,
-  newTabText as dy,
-  CARD_STATE_LABEL_KEYS as dz,
+  gmStorageGetStrict as d$,
+  APP_NAME as d0,
+  createFactoryResetSignal as d1,
+  beginSettingsResetGuard as d2,
+  publishFactoryResetSignal as d3,
+  delay as d4,
+  clearManagedStoredValues as d5,
+  deleteSettingsStorage as d6,
+  commitManagedStateResetEpoch as d7,
+  clearFactoryResetSignal as d8,
+  managedStateResetEpochMayHaveCommitted as d9,
+  collectFragmentTextTargetsIn as dA,
+  collectFormControlTextTargetsIn as dB,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as dC,
+  CARD_STATE_LABEL_KEYS as dD,
+  readKanjiCommandCapability as dE,
+  dispatchPrivateCommand as dF,
+  claimLocalTapActivation as dG,
+  installControlTapActivation as dH,
+  enabledReaderControl as dI,
+  effectiveFuriganaMode as dJ,
+  KANJI_DOODLE_CLEAR_EVENT as dK,
+  installKanjiDoodle as dL,
+  rankKanjiStrokeCandidates as dM,
+  promiseWithTimeout as dN,
+  isYomuNewTabUrl as dO,
+  convertRomajiToKana as dP,
+  normalizeJapaneseStudyAnswer as dQ,
+  isolate as dR,
+  contextPitchPattern as dS,
+  managedStateWritesSuppressed as dT,
+  createStorageCoordinationId as dU,
+  managedSessionStorage as dV,
+  bindAuthorizedReaderFormSubmit as dW,
+  isDirectTrustedReaderInteraction as dX,
+  normalizedJapaneseCardReading as dY,
+  parseManagedStateEpoch as dZ,
+  sameManagedStateEpoch as d_,
+  endSettingsResetGuard as da,
+  managedStoredKeysLeftAfterReset as db,
+  ManagedStateResetError as dc,
+  stableHash32 as dd,
+  uniqueTrimmedStrings as de,
+  stableHashBase36 as df,
+  isTargetLanguageText as dg,
+  KANJI_LIKE_WITH_COUNTERS as dh,
+  HIRAGANA_WITH_PROLONGED as di,
+  KATAKANA_WITH_PROLONGED as dj,
+  KANJI_LIKE_RE as dk,
+  overlayViewportBottomInset as dl,
+  renderImmersionSearchLinksHtml as dm,
+  renderTokensToHtml as dn,
+  readPrivateReviewTarget as dp,
+  newTabText as dq,
+  runLimited as dr,
+  isManagedStorageKey as ds,
+  managedLocalStorage as dt,
+  readJitenKanjiWordsCommandCapability as du,
+  bindPrivateCommandCapability as dv,
+  parseHtmlDocument as dw,
+  isCurrentScanTarget as dx,
+  applyTokensToScanTarget as dy,
+  unwrapReaderWords as dz,
   esCatalog as e,
-  MAX_EXTRA_LOOKUP_LINKS as e$,
-  readJpdbKanjiCommandCapability as e0,
-  isNewTabCopyKey as e1,
-  nextExplicitUiLanguage as e2,
-  GITHUB_REPOSITORY_URL as e3,
-  DISCORD_INVITE_URL as e4,
-  dispatchAuthorizedReaderControlClick as e5,
-  DOCS_BASE_URL as e6,
-  SUPPORT_STATUS_URL as e7,
-  validPitchPositions as e8,
-  mountStudySessionClockControl as e9,
-  learnerLanguageById as eA,
-  readApiCredentialsFromFormData as eB,
-  DEFAULT_AUDIO_SOURCES as eC,
-  learningTargetRosterIdForTag as eD,
-  dictionaryLookupLinksForTarget as eE,
-  availableInterfaceLocales as eF,
-  credentialValueFromReader as eG,
-  normalizeOcrProvider as eH,
-  slice1LanguageIdForTag as eI,
-  canonicalTagForSlice1Language as eJ,
-  canonicalTagForLearningTarget as eK,
-  languageProfileDictionariesFromPreferences as eL,
-  activateLanguageProfileForOutputLanguage as eM,
-  normalizeDictionaryLookupLinks as eN,
-  normalizeAudioSource as eO,
-  isLearningTargetRosterId as eP,
-  MAX_LOOKUP_LINK_ROWS as eQ,
-  normalizeAnkiFieldMappings as eR,
-  isLearnerLanguageId as eS,
-  COPY_LOOKUP_LINK as eT,
-  exportManagedStoredValues as eU,
-  RETIRED_SETTINGS_STORAGE_KEYS as eV,
-  SETTINGS_STORAGE_KEY as eW,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eX,
-  applySettingsIntent as eY,
-  serializeSettingsPersistencePair as eZ,
-  defaultDictionaryLookupLinks as e_,
-  combinedApiCredentialLabel as ea,
-  assessKanjiStrokes as eb,
-  SHAPE_PASS_SCORE as ec,
-  activeLanguageProfile as ed,
-  readBackupSettingsPersistenceView as ee,
-  beginStoredValuesImport as ef,
-  settingsIntentKeys as eg,
-  normalizeReaderSettings as eh,
-  mergeDictionaryPreferences as ei,
-  retireStaleDictionaryPreferences as ej,
-  captureActiveLanguageProfileDictionaries as ek,
-  saveSettings as el,
-  packagedExtensionStorageAdapterMissing as em,
-  readSettingsPersistenceViewStrict as en,
-  FURIGANA_HIDE_STATE_GROUPS as eo,
-  WORD_COLOR_HIDE_STATE_GROUPS as ep,
-  accentToRgba as eq,
-  effectiveReaderTextColorSource as er,
-  effectiveReaderColorSource as es,
-  effectiveSubtitleTextColorSource as et,
-  effectiveSubtitleColorSource as eu,
-  accessibleOcrBackgroundOpacity as ev,
-  accessibleOcrBackgroundColor as ew,
-  READER_THEME_COLOR_TOKENS as ex,
-  EXTENSION_STORE_URLS as ey,
-  USERSCRIPT_INSTALL_URL as ez,
+  COPY_LOOKUP_LINK as e$,
+  withGmStorageLease as e0,
+  isStorageLeaseLapsed as e1,
+  DEFAULT_SETTINGS as e2,
+  renderImmersionSearchLinks as e3,
+  createStudySessionClock as e4,
+  subscribeLocalYomuSrsMutations as e5,
+  readJpdbKanjiCommandCapability as e6,
+  isNewTabCopyKey as e7,
+  nextExplicitUiLanguage as e8,
+  GITHUB_REPOSITORY_URL as e9,
+  effectiveSubtitleTextColorSource as eA,
+  effectiveSubtitleColorSource as eB,
+  accessibleOcrBackgroundOpacity as eC,
+  accessibleOcrBackgroundColor as eD,
+  colorSourceClassName as eE,
+  READER_THEME_COLOR_TOKENS as eF,
+  EXTENSION_STORE_URLS as eG,
+  USERSCRIPT_INSTALL_URL as eH,
+  learnerLanguageById as eI,
+  readApiCredentialsFromFormData as eJ,
+  DEFAULT_AUDIO_SOURCES as eK,
+  learningTargetRosterIdForTag as eL,
+  dictionaryLookupLinksForTarget as eM,
+  availableInterfaceLocales as eN,
+  credentialValueFromReader as eO,
+  normalizeOcrProvider as eP,
+  slice1LanguageIdForTag as eQ,
+  canonicalTagForSlice1Language as eR,
+  canonicalTagForLearningTarget as eS,
+  languageProfileDictionariesFromPreferences as eT,
+  activateLanguageProfileForOutputLanguage as eU,
+  normalizeDictionaryLookupLinks as eV,
+  normalizeAudioSource as eW,
+  isLearningTargetRosterId as eX,
+  MAX_LOOKUP_LINK_ROWS as eY,
+  normalizeAnkiFieldMappings as eZ,
+  isLearnerLanguageId as e_,
+  DISCORD_INVITE_URL as ea,
+  dispatchAuthorizedReaderControlClick as eb,
+  DOCS_BASE_URL as ec,
+  SUPPORT_STATUS_URL as ed,
+  validPitchPositions as ee,
+  mountStudySessionClockControl as ef,
+  combinedApiCredentialLabel as eg,
+  assessKanjiStrokes as eh,
+  SHAPE_PASS_SCORE as ei,
+  activeLanguageProfile as ej,
+  readBackupSettingsPersistenceView as ek,
+  beginStoredValuesImport as el,
+  settingsIntentKeys as em,
+  normalizeReaderSettings as en,
+  mergeDictionaryPreferences as eo,
+  retireStaleDictionaryPreferences as ep,
+  captureActiveLanguageProfileDictionaries as eq,
+  saveSettings as er,
+  packagedExtensionStorageAdapterMissing as es,
+  readSettingsPersistenceViewStrict as et,
+  FURIGANA_HIDE_STATE_GROUPS as eu,
+  WORD_COLOR_HIDE_STATE_GROUPS as ev,
+  setReviewLanePainted as ew,
+  accentToRgba as ex,
+  effectiveReaderTextColorSource as ey,
+  effectiveReaderColorSource as ez,
   shCatalog as f,
-  renderedWordsInRoot as f$,
-  missingLookupComponents as f0,
-  AUDIO_SOURCE_UI_TYPE_VALUES as f1,
-  audioSourceLabel as f2,
-  lookupSiteComponents as f3,
-  DEFAULT_POPUP_FONT_FAMILY as f4,
-  DEFAULT_READER_FONT_FAMILY as f5,
-  isPromiseLike as f6,
-  dispatchAuthorizedReaderControlEvent as f7,
-  ANKI_CONNECT_ADDON_URL as f8,
-  redactedApiCredentialsFromForm as f9,
-  decryptProfileEvent as fA,
-  encryptProfileEvent as fB,
-  mergeStoredYomuSrsDecks as fC,
-  settingsPanelHash as fD,
-  readTrustedYomuUrl as fE,
-  isPrivilegedYomuLocalDevelopmentOrigin as fF,
-  settingsPanelFromHash as fG,
-  SETTINGS_TITLE as fH,
-  learningTargetRosterEntry as fI,
-  NEW_TAB_VERSION_URL as fJ,
-  NO_EXPLICIT_USER_CHOICE as fK,
-  normalizeAudioSubSources as fL,
-  publishSettingsChange as fM,
-  mergeApiCredentialValues as fN,
-  configureLogger as fO,
-  localeDirection as fP,
-  subscribeToSettingsStorageChanges as fQ,
-  isHostedYomuOrigin as fR,
-  loadSettings as fS,
-  copyIcon as fT,
-  ankiIcon as fU,
-  createYomuLocalSrsAdapter as fV,
-  yomuOnboardingController as fW,
-  clearManagedBrowserCaches as fX,
-  unregisterManagedServiceWorkers as fY,
-  setRenderedWordCardIdentity as fZ,
-  renderedWordCardKey as f_,
-  LEARNER_LANGUAGE_IDS as fa,
-  externalLinkIcon as fb,
-  LEARNING_TARGET_ROSTER as fc,
-  furiganaModeNeedsDifficultyExplanation as fd,
-  DEFAULT_OVERLAY_TEXT_COLOR as fe,
-  DEFAULT_OVERLAY_OUTLINE_COLOR as ff,
-  storedCredentialClearName as fg,
-  hasStatusColorSource as fh,
-  NEW_TAB_PAGE_URL as fi,
-  AUDIO_GUIDE_URL as fj,
-  NADESHIKO_DEVELOPER_URL as fk,
-  VIDEO_PLAYER_PAGE_URL as fl,
-  PDF_READER_PAGE_URL as fm,
-  DONATE_URL as fn,
-  SUPPORT_COPY as fo,
-  SUPPORT_COPY_EXTRA as fp,
-  LEARNER_LANGUAGES as fq,
-  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as fr,
-  gmPrivateStorageDelete as fs,
-  gmPrivateStorageGet as ft,
-  subscribeToSettingsChanges as fu,
-  subscribeLocalYomuSrsMutations as fv,
-  LocalYomuSrsRepository as fw,
-  unwrapProfileKey as fx,
-  parseAcademyPairingTicket as fy,
-  wrapProfileKey as fz,
+  ankiIcon as f$,
+  exportManagedStoredValues as f0,
+  RETIRED_SETTINGS_STORAGE_KEYS as f1,
+  SETTINGS_STORAGE_KEY as f2,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY as f3,
+  applySettingsIntent as f4,
+  serializeSettingsPersistencePair as f5,
+  defaultDictionaryLookupLinks as f6,
+  MAX_EXTRA_LOOKUP_LINKS as f7,
+  missingLookupComponents as f8,
+  AUDIO_SOURCE_UI_TYPE_VALUES as f9,
+  gmPrivateStorageDelete as fA,
+  gmPrivateStorageGet as fB,
+  subscribeToSettingsChanges as fC,
+  LocalYomuSrsRepository as fD,
+  unwrapProfileKey as fE,
+  parseAcademyPairingTicket as fF,
+  wrapProfileKey as fG,
+  decryptProfileEvent as fH,
+  encryptProfileEvent as fI,
+  mergeStoredYomuSrsDecks as fJ,
+  settingsPanelHash as fK,
+  readTrustedYomuUrl as fL,
+  isPrivilegedYomuLocalDevelopmentOrigin as fM,
+  settingsPanelFromHash as fN,
+  SETTINGS_TITLE as fO,
+  learningTargetRosterEntry as fP,
+  NEW_TAB_VERSION_URL as fQ,
+  NO_EXPLICIT_USER_CHOICE as fR,
+  normalizeAudioSubSources as fS,
+  publishSettingsChange as fT,
+  mergeApiCredentialValues as fU,
+  configureLogger as fV,
+  localeDirection as fW,
+  subscribeToSettingsStorageChanges as fX,
+  isHostedYomuOrigin as fY,
+  loadSettings as fZ,
+  copyIcon as f_,
+  audioSourceLabel as fa,
+  lookupSiteComponents as fb,
+  DEFAULT_POPUP_FONT_FAMILY as fc,
+  DEFAULT_READER_FONT_FAMILY as fd,
+  isPromiseLike as fe,
+  dispatchAuthorizedReaderControlEvent as ff,
+  ANKI_CONNECT_ADDON_URL as fg,
+  redactedApiCredentialsFromForm as fh,
+  LEARNER_LANGUAGE_IDS as fi,
+  externalLinkIcon as fj,
+  LEARNING_TARGET_ROSTER as fk,
+  furiganaModeNeedsDifficultyExplanation as fl,
+  DEFAULT_OVERLAY_TEXT_COLOR as fm,
+  DEFAULT_OVERLAY_OUTLINE_COLOR as fn,
+  storedCredentialClearName as fo,
+  hasStatusColorSource as fp,
+  NEW_TAB_PAGE_URL as fq,
+  AUDIO_GUIDE_URL as fr,
+  NADESHIKO_DEVELOPER_URL as fs,
+  VIDEO_PLAYER_PAGE_URL as ft,
+  PDF_READER_PAGE_URL as fu,
+  DONATE_URL as fv,
+  SUPPORT_COPY as fw,
+  SUPPORT_COPY_EXTRA as fx,
+  LEARNER_LANGUAGES as fy,
+  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as fz,
   getPitchClass as g,
-  renderedWordElementKey as g0,
-  applyInterfaceLocaleToRoot as g1,
-  applyInterfaceLocaleToDocument as g2,
-  ensureManagedWebStorageCurrent as g3,
+  createYomuLocalSrsAdapter as g0,
+  yomuOnboardingController as g1,
+  clearManagedBrowserCaches as g2,
+  unregisterManagedServiceWorkers as g3,
+  setRenderedWordCardIdentity as g4,
+  renderedWordCardKey as g5,
+  renderedWordsInRoot as g6,
+  renderedWordElementKey as g7,
+  applyInterfaceLocaleToRoot as g8,
+  applyInterfaceLocaleToDocument as g9,
+  ensureManagedWebStorageCurrent as ga,
   roCatalog as h,
   plCatalog as i,
   faCatalog as j,

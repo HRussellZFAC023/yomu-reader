@@ -3274,6 +3274,45 @@
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
   }
+  const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
+  let jaGrammarRuleCopyPromise;
+  async function loadJaGrammarRuleCopy() {
+    jaGrammarRuleCopyPromise ??= requestJson$3(JA_GRAMMAR_RULE_COPY_URL, {
+      failureLabel: "Japanese grammar copy request",
+      timeoutMs: 15e3,
+      allowDirectCrossOrigin: true,
+      credentials: "omit",
+      anonymous: true
+    }).then(normalizeGrammarRuleCopy).catch(() => {
+      jaGrammarRuleCopyPromise = void 0;
+      return {};
+    });
+    return jaGrammarRuleCopyPromise;
+  }
+  function normalizeGrammarRuleCopy(value) {
+    if (!isGrammarRuleCopyRecord(value)) return {};
+    const copy2 = {};
+    for (const [ruleId, item] of Object.entries(value)) {
+      const ruleCopy = normalizeGrammarRuleCopyItem(item);
+      if (!ruleCopy) continue;
+      copy2[ruleId] = ruleCopy;
+    }
+    return copy2;
+  }
+  function normalizeGrammarRuleCopyItem(value) {
+    if (!isGrammarRuleCopyRecord(value)) return null;
+    const kind = grammarRuleCopyText(value.kind);
+    const short = grammarRuleCopyText(value.short);
+    const detail = grammarRuleCopyText(value.detail);
+    if (kind === void 0 || short === void 0 || detail === void 0) return null;
+    return { kind, short, detail };
+  }
+  function grammarRuleCopyText(value) {
+    return typeof value === "string" ? value : void 0;
+  }
+  function isGrammarRuleCopyRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
   const locales = [
     {
       tag: "en",
@@ -4530,9 +4569,100 @@
       practiceAudio: "問題の音声を再生"
     }
   };
+  const SAVE_WAIT_COPY = {
+    en: {
+      saveWaitingForAnotherTab: `Waiting for another ${APP_NAME} tab to finish saving…`
+    },
+    ja: {
+      saveWaitingForAnotherTab: `ほかの${APP_NAME}タブの保存が終わるのを待っています…`
+    }
+  };
+  const GRADING_SERVICE_COPY = {
+    en: {
+      switchReviewTarget: "Switch review target",
+      switchGradingProvider: "Switch grading provider",
+      apiGradingProvider: "Preferred grading service",
+      apiGradingProviderHelp: "Where grades go when both Jiten and JPDB are connected; Automatic parsing follows it too. Study review cards grade to the service they came from, and the ⇄ toggle next to the grade buttons switches only that word.",
+      gradingServiceWordNotFound: "Not graded: this word was not found in your preferred grading service."
+    },
+    ja: {
+      switchReviewTarget: "採点先を切り替える",
+      switchGradingProvider: "採点サービスを切り替える",
+      apiGradingProvider: "優先採点サービス",
+      apiGradingProviderHelp: "JitenとJPDBの両方を接続しているときの採点先です。解析ソースが「自動」の場合も、この設定に従います。Studyの復習カードは取得元のサービスで採点され、採点ボタン横の⇄はその単語だけを切り替えます。",
+      gradingServiceWordNotFound: "優先採点サービスでこの単語が見つからなかったため、採点していません。"
+    }
+  };
+  const EN = {
+    collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
+    collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
+    // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
+    collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
+    collectHandoffOpened: "Opened your deck app. Finish saving there.",
+    collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+    jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
+    addedToJpdb: "Added to JPDB.",
+    jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+    chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+    addedToJiten: "Added to Jiten.",
+    bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+    bunproNoMatchingWord: "Bunpro has no entry for this word.",
+    addedToBunpro: "Added to Bunpro.",
+    yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+    yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
+    yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
+    addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+  };
+  const JA = {
+    collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
+    collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
+    collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
+    collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
+    collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+    jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
+    addedToJpdb: "JPDBに追加しました。",
+    jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
+    chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+    addedToJiten: "Jitenに追加しました。",
+    bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
+    bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
+    addedToBunpro: "Bunproに追加しました。",
+    yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
+    yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+    yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
+    addedToYomuLocal: "Academyに追加しました。"
+  };
+  const COLLECTION_COPY = { en: EN, ja: JA };
+  const EN_OCR_STATUS_COPY = {
+    ocrPlayVideo: "Play video",
+    ocrPausedFrameScanning: "Scanning...",
+    ocrPausedFrameReady: "Text ready",
+    ocrPausedFrameNoText: "No text found",
+    ocrPausedFrameFailed: "Could not read text",
+    ocrRetryScan: "Scan again",
+    ocrNoReadableImages: "No readable images nearby.",
+    ocrCanvasTapHint: "Tap or click the page to read it",
+    ocrCanvasTapHintDismiss: "Dismiss tip"
+  };
+  const JA_OCR_STATUS_COPY = {
+    ocrPlayVideo: "動画を再生",
+    ocrPausedFrameScanning: "スキャン中...",
+    ocrPausedFrameReady: "テキスト準備完了",
+    ocrPausedFrameNoText: "テキストが見つかりません",
+    ocrPausedFrameFailed: "テキストを読み取れませんでした",
+    ocrRetryScan: "再スキャン",
+    ocrNoReadableImages: "近くに読み取れる画像がありません。",
+    ocrCanvasTapHint: "ページをタップまたはクリックすると読めます",
+    ocrCanvasTapHintDismiss: "ヒントを閉じる"
+  };
+  const OCR_STATUS_COPY = {
+    en: EN_OCR_STATUS_COPY,
+    ja: JA_OCR_STATUS_COPY
+  };
   const COPY = {
     en: {
       ...PRACTICE_SESSION_COPY.en,
+      ...COLLECTION_COPY.en,
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
       onboardingEyebrow: "{language}, wherever it appears",
@@ -4585,6 +4715,7 @@
       settingsSaveFailed: "Settings save failed.",
       settingsCompanionUnavailable: "Settings could not be opened.",
       ...SETTINGS_RECOVERY_COPY.en,
+      ...SAVE_WAIT_COPY.en,
       firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
       firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
       settingsSections: "Settings sections",
@@ -5128,7 +5259,7 @@
       parserProviderJiten: "Jiten API",
       parserProviderJpdb: "JPDB API",
       parserProviderAuto: "Automatic (Jiten/JPDB)",
-      parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
+      parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
       offlineDictionarySetupComplete: "Offline dictionaries installed.",
       offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
       copiesCurrentWord: "Copies the current word",
@@ -5279,7 +5410,6 @@
       subtitleLines: "Lines",
       shadow: "Shadow",
       subtitleTracks: "Tracks",
-      batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
       subtitleTrackTiming: "Subtitle timing",
       subtitleOffsetPrevious: "Align previous subtitle to current time",
       subtitleOffsetNext: "Align next subtitle to current time",
@@ -5353,13 +5483,7 @@
       ankiMappingConfidenceMedium: "fuzzy match",
       ankiMappingConfidenceLow: "unmapped",
       ankiMappingStaleField: "saved field missing",
-      ocrPlayVideo: "Play video",
-      ocrPausedFrameScanning: "Scanning...",
-      ocrPausedFrameReady: "Text ready",
-      ocrPausedFrameNoText: "No text found",
-      ocrPausedFrameFailed: "Could not read text",
-      ocrRetryScan: "Scan again",
-      ocrNoReadableImages: "No readable images nearby.",
+      ...OCR_STATUS_COPY.en,
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
       gradeHard: "Grade HARD",
@@ -5409,10 +5533,7 @@
       resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
       showMiningActions: "Show mining actions",
       hideMiningActions: "Hide mining actions",
-      switchReviewTarget: "Switch review target",
-      switchGradingProvider: "Switch grading provider",
-      apiGradingProvider: "Preferred grading service",
-      apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
+      ...GRADING_SERVICE_COPY.en,
       jpdbKanjiUpdated: "JPDB kanji updated.",
       jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -5593,19 +5714,9 @@
       jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
       jpdbRequestFailedError: "JPDB request failed. Try again.",
       jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-      jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
-      addedToJpdb: "Added to JPDB.",
       jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-      jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-      bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
       wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
-      yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-      yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-      chooseJitenStudyDeck: "Choose a Jiten study deck first.",
-      addedToJiten: "Added to Jiten.",
-      addedToBunpro: "Added to Bunpro.",
       addedToWanikani: "Recorded on WaniKani.",
-      addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
       kanjiDetailsUnavailable: "Kanji details are not available yet.",
       loadingDictionaryDetails: "Loading dictionary details...",
       jitenCompositeWords: "Composite words",
@@ -5662,7 +5773,7 @@
       removeImportedDictionary: "Remove imported dictionary",
       customAdvanced: "{label} (advanced)",
       importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
-      frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
+      metadataDictionariesHelp: "Metadata dictionaries appear as badges or kanji data.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
       sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
@@ -5839,10 +5950,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -6052,7 +6159,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -6095,13 +6201,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -6208,19 +6307,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -6272,7 +6361,11 @@ translating	翻訳中...
 `),
     ...GRAMMAR_UI_COPY.ja,
     ...SETTINGS_RECOVERY_COPY.ja,
-    ...PRACTICE_SESSION_COPY.ja
+    ...PRACTICE_SESSION_COPY.ja,
+    ...SAVE_WAIT_COPY.ja,
+    ...GRADING_SERVICE_COPY.ja,
+    ...COLLECTION_COPY.ja,
+    ...OCR_STATUS_COPY.ja
   };
   const JA_SETTINGS_COPY = {
     accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -6786,7 +6879,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -6918,7 +7011,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
@@ -6959,8 +7052,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ...SUBTITLE_SETTINGS_COPY.ja,
     ...TARGET_AWARE_UI_COPY.ja
   };
-  const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
-  let jaGrammarRuleCopyPromise;
   function resolveUiLanguage(language2) {
     if (language2 === "ja" || language2 === "en") return language2;
     return browserPrefersJapanese() ? "ja" : "en";
@@ -7017,43 +7108,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     custom: "audioSourceCustom",
     "custom-json": "audioSourceCustomJson"
   };
-  async function loadJaGrammarRuleCopy() {
-    jaGrammarRuleCopyPromise ??= requestJson$3(JA_GRAMMAR_RULE_COPY_URL, {
-      failureLabel: "Japanese grammar copy request",
-      timeoutMs: 15e3,
-      allowDirectCrossOrigin: true,
-      credentials: "omit",
-      anonymous: true
-    }).then(normalizeGrammarRuleCopy).catch(() => {
-      jaGrammarRuleCopyPromise = void 0;
-      return {};
-    });
-    return jaGrammarRuleCopyPromise;
-  }
-  function normalizeGrammarRuleCopy(value) {
-    if (!isGrammarRuleCopyRecord(value)) return {};
-    const copy2 = {};
-    for (const [ruleId, item] of Object.entries(value)) {
-      const ruleCopy = normalizeGrammarRuleCopyItem(item);
-      if (!ruleCopy) continue;
-      copy2[ruleId] = ruleCopy;
-    }
-    return copy2;
-  }
-  function normalizeGrammarRuleCopyItem(value) {
-    if (!isGrammarRuleCopyRecord(value)) return null;
-    const kind = grammarRuleCopyText(value.kind);
-    const short = grammarRuleCopyText(value.short);
-    const detail = grammarRuleCopyText(value.detail);
-    if (kind === void 0 || short === void 0 || detail === void 0) return null;
-    return { kind, short, detail };
-  }
-  function grammarRuleCopyText(value) {
-    return typeof value === "string" ? value : void 0;
-  }
-  function isGrammarRuleCopyRecord(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-  }
   const CORE_COLOR_TOKENS = {
     black: "#000000",
     white: "#ffffff",
@@ -7275,6 +7329,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
     { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+    // The one-time reader-canvas tap hint appears once per site. Each site's record
+    // is private and keyed by a hash of its origin, so no page can read it.
+    { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
     // Reader CSS last-good cache. v3 is deliberately version-independent (see
     // styles/index) so an upgrade does not start cold; the v2 prefix family
     // stays registered so the per-version entries older installs left behind
@@ -7778,124 +7835,92 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
   const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
-  async function withGmStorageLeaseCore(name, operation, options, environment) {
-    return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
-  }
-  async function withSharedStorageLease(name, operation, options, environment) {
-    const { getValue, setValue, deleteValue, listValues } = environment.backend;
-    if (!getValue || !setValue || !deleteValue || !listValues) {
-      const epoch2 = await environment.captureEpoch(getValue);
-      await environment.assertMutationFence(getValue, epoch2);
-      const result = await operation();
-      await environment.assertMutationFence(getValue, epoch2);
-      return result;
+  const STORAGE_WORK_LEASE_MS = 5e3;
+  const DEFAULT_LEASE_MS = 6e4;
+  const LEASE_ROUND_TRIPS = 20;
+  const WAIT_NOTICE_MS = 1500;
+  class StorageLeaseLapsedError extends Error {
+    name = "StorageLeaseLapsedError";
+    constructor(key) {
+      super(`Storage lease lapsed before it was renewed: ${key}`);
     }
+  }
+  function isStorageLeaseLapsed(error) {
+    return error instanceof Error && error.name === "StorageLeaseLapsedError";
+  }
+  const guardingLeases = /* @__PURE__ */ new Set();
+  const realmClaimOwners = /* @__PURE__ */ new Set();
+  const realmWebLockRequests = /* @__PURE__ */ new Map();
+  function fenceStorageLeaseWrite(key) {
+    for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
+  }
+  async function withGmStorageLeaseCore(name, operation, options, environment) {
+    const wait = new StorageLeaseWait(options.onWait);
+    const boundedLockWait = !environment.hostedOrigin && storageLeaseIo(environment.backend);
+    const lockWaitMs = boundedLockWait ? options.leaseMs ?? DEFAULT_LEASE_MS : void 0;
+    try {
+      return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
+        wait.end();
+        return operation();
+      }, options, environment, wait), wait, lockWaitMs);
+    } finally {
+      wait.end();
+    }
+  }
+  class StorageLeaseWait {
+    constructor(onWait) {
+      this.onWait = onWait;
+    }
+    state = "running";
+    timer;
+    /** Another tab holds the lease, or is ahead in its queue. */
+    blocked() {
+      if (!this.onWait || this.state !== "running") return;
+      this.state = "blocked";
+      this.timer = setTimeout(() => {
+        this.state = "told";
+        this.onWait?.(true);
+      }, WAIT_NOTICE_MS);
+    }
+    /** The caller got past what blocked it; a wait it was not yet told about starts over. */
+    passed() {
+      if (this.state !== "blocked") return;
+      clearTimeout(this.timer);
+      this.state = "running";
+    }
+    end() {
+      clearTimeout(this.timer);
+      if (this.state === "told") this.onWait?.(false);
+      this.state = "ended";
+    }
+  }
+  async function withSharedStorageLease(name, operation, options, environment, wait) {
+    const { getValue } = environment.backend;
     const epoch = await environment.captureEpoch(getValue);
     await environment.assertMutationFence(getValue, epoch);
-    const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
-    const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
-    const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
-    const owner = createStorageCoordinationId();
-    const claimId = createStorageCoordinationId();
-    const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
-    const key = `${prefix}${owner}`;
-    const startedAt = Date.now();
-    let claim = {
-      version: 1,
-      claimId,
-      owner,
-      epoch: environment.epochToken(epoch),
-      choosing: true,
-      ticket: 0,
-      leaseUntil: startedAt + leaseMs
-    };
-    const writeClaim = async (nextClaim) => {
+    const io = storageLeaseIo(environment.backend);
+    if (!io) {
+      const result = await operation();
       await environment.assertMutationFence(getValue, epoch);
-      try {
-        await setValue(key, nextClaim);
-        await environment.assertMutationFence(getValue, epoch);
-        await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
-      } catch (error) {
-        await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-          debugStorageLeaseError("GM storage lease rollback failed", key, cleanupError);
-        });
-        throw error;
-      }
-    };
-    await writeClaim(claim);
-    try {
-      const initialClaims = await readStorageLeaseClaims(
-        prefix,
-        listValues,
-        getValue,
-        environment.epochToken(epoch),
-        Date.now()
-      );
-      const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
-      claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-      await writeClaim(claim);
-      while (true) {
-        await environment.assertMutationFence(getValue, epoch);
-        const now = Date.now();
-        if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
-        const claims = await readStorageLeaseClaims(
-          prefix,
-          listValues,
-          getValue,
-          environment.epochToken(epoch),
-          now
-        );
-        const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-        if (!blocked) break;
-        if (claim.leaseUntil - now <= leaseMs / 2) {
-          claim = { ...claim, leaseUntil: now + leaseMs };
-          await writeClaim(claim);
-        }
-        await storageLeaseDelay(pollMs);
-      }
-      let renewalStopped = false;
-      let renewal = Promise.resolve();
-      let leaseLost;
-      let leaseWasLost = false;
-      const renewalTimer = setInterval(() => {
-        renewal = renewal.then(async () => {
-          if (renewalStopped || leaseLost) return;
-          await assertStorageLeaseClaimOwned(key, claim, getValue);
-          claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-          await writeClaim(claim);
-        }).catch((error) => {
-          leaseLost = error;
-          leaseWasLost = true;
-          debugStorageLeaseError("GM storage lease renewal failed", key, error);
-        });
-      }, Math.max(250, Math.floor(leaseMs / 3)));
-      let result;
-      let operationError;
-      let operationFailed = false;
-      try {
-        await environment.assertMutationFence(getValue, epoch);
-        await assertStorageLeaseClaimOwned(key, claim, getValue);
-        result = await operation();
-        await environment.assertMutationFence(getValue, epoch);
-        await assertStorageLeaseClaimOwned(key, claim, getValue);
-      } catch (error) {
-        operationFailed = true;
-        operationError = error;
-      } finally {
-        renewalStopped = true;
-        clearInterval(renewalTimer);
-        await renewal;
-      }
-      if (operationFailed) throw operationError;
-      if (leaseWasLost) throw leaseLost;
       return result;
-    } finally {
-      try {
-        await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue);
-      } catch (error) {
-        debugStorageLeaseError("GM storage lease release failed", key, error);
-      }
     }
+    const leaseMs = boundedLeaseOption(options.leaseMs, DEFAULT_LEASE_MS, 1e3, 10 * 6e4);
+    return new StorageLeaseClaimant({
+      guards: options.guards,
+      prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
+      epoch: environment.epochToken(epoch),
+      io,
+      fence: () => environment.assertMutationFence(getValue, epoch),
+      leaseMs,
+      pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1e3),
+      timeoutMs: boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4),
+      timeoutMessage: `Timed out waiting for storage lease: ${name}`,
+      wait
+    }).run(operation);
+  }
+  function storageLeaseIo(backend) {
+    const { getValue, setValue, deleteValue, listValues } = backend;
+    return [getValue, setValue, deleteValue, listValues].every(Boolean) ? backend : null;
   }
   async function withManagedStateEpochControlLeaseCore(operation, environment) {
     const { getValue, setValue, deleteValue, listValues } = environment.backend;
@@ -7904,97 +7929,201 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!getValue || !setValue || !deleteValue || !listValues) {
       throw new Error("Managed storage cannot serialize epoch reconciliation without GM_listValues.");
     }
-    const leaseMs = 3e4;
-    const pollMs = 10;
-    const timeoutMs = 9e4;
-    const owner = createStorageCoordinationId();
-    const key = `${MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX}${owner}`;
-    const startedAt = Date.now();
-    let claim = {
-      version: 1,
-      claimId: createStorageCoordinationId(),
-      owner,
+    return new StorageLeaseClaimant({
+      prefix: MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
       epoch: "epoch-control:v1",
-      choosing: true,
-      ticket: 0,
-      leaseUntil: startedAt + leaseMs
-    };
-    const writeClaim = async (nextClaim) => {
+      io: { getValue, setValue, deleteValue, listValues },
+      fence: async () => void 0,
+      leaseMs: 3e4,
+      pollMs: 10,
+      timeoutMs: 9e4,
+      timeoutMessage: "Timed out waiting for the managed-state epoch lease."
+    }).run(operation);
+  }
+  class StorageLeaseClaimant {
+    constructor(lease) {
+      this.lease = lease;
+      const owner = createStorageCoordinationId();
+      this.key = `${lease.prefix}${owner}`;
+      this.promptLandingMs = Math.min(1e3, Math.floor(lease.leaseMs / 5));
+      this.claim = {
+        version: 1,
+        claimId: createStorageCoordinationId(),
+        owner,
+        epoch: lease.epoch,
+        choosing: true,
+        ticket: 0,
+        leaseUntil: 0
+      };
+    }
+    key;
+    startedAt = Date.now();
+    // Time for a write to land while the claim it extends is still live, when storage is prompt.
+    promptLandingMs;
+    claim;
+    // The leaseUntil other tabs can already read: a claim counts once its write has landed.
+    liveUntil = 0;
+    // How long storage took to answer one call of the last claim write.
+    roundTripMs = 0;
+    async run(operation) {
+      realmClaimOwners.add(this.claim.owner);
       try {
-        await setValue(key, nextClaim);
-        await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
+        await this.waitForTurn();
+        return await this.hold(operation);
+      } finally {
+        const { getValue, deleteValue } = this.lease.io;
+        try {
+          await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
+        } catch (error) {
+          debugStorageLeaseError("GM storage lease release failed", this.key, error);
+        }
+        realmClaimOwners.delete(this.claim.owner);
+      }
+    }
+    /**
+     * A claim must outlast the storage round trips its holder makes before it
+     * renews, so slow storage stretches it by LEASE_ROUND_TRIPS of them, up to
+     * the default lease: slowness delays a save instead of lapsing it.
+     */
+    leaseMs() {
+      const { leaseMs } = this.lease;
+      return Math.min(leaseMs + LEASE_ROUND_TRIPS * this.roundTripMs, Math.max(leaseMs, DEFAULT_LEASE_MS));
+    }
+    // Slow storage takes longer to land a write: allow it two round trips.
+    live() {
+      return Date.now() + Math.max(this.promptLandingMs, 2 * this.roundTripMs) < this.liveUntil;
+    }
+    async waitForTurn() {
+      const { lease } = this;
+      while (true) {
+        await lease.fence();
+        if (Date.now() - this.startedAt >= lease.timeoutMs) throw new Error(lease.timeoutMessage);
+        try {
+          if (!this.live()) await this.queue();
+          else if (this.liveUntil - Date.now() <= this.leaseMs() / 2) await this.writeClaim();
+        } catch (error) {
+          if (error instanceof StorageLeaseLapsedError) continue;
+          throw error;
+        }
+        const ahead = await this.claimsAhead();
+        if (!ahead.length && this.live()) return;
+        if (ahead.some((other) => !realmClaimOwners.has(other.owner))) lease.wait?.blocked();
+        await storageLeaseDelay(lease.pollMs);
+      }
+    }
+    async queue() {
+      const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+      await this.writeClaim({ choosing: true, ticket: 0 }, true);
+      const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+      const highestTicket = claims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+      await this.writeClaim({ choosing: false, ticket: highestTicket + 1 });
+    }
+    async claimsAhead() {
+      const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+      const { owner, ticket } = this.claim;
+      const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+      return claims.filter((other) => other.owner !== owner && (other.choosing || other.ticket < ticket || other.ticket === ticket && other.owner.localeCompare(owner) < 0));
+    }
+    /** `requeue` writes a new place in the queue instead of extending the live claim. */
+    async writeClaim(changes = {}, requeue = false) {
+      const { getValue, setValue } = this.lease.io;
+      if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
+      const writtenAt = Date.now();
+      const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
+      this.claim = next;
+      try {
+        await setValue(this.key, next);
+        const landedAt = Date.now();
+        this.liveUntil = next.leaseUntil;
+        await assertStorageLeaseClaimOwned(this.key, next, getValue);
+        this.roundTripMs = storageRoundTripMs(landedAt - writtenAt, Date.now() - landedAt, this.lease.leaseMs);
       } catch (error) {
-        await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-          debugStorageLeaseError("Raw GM storage lease rollback failed", key, cleanupError);
-        });
+        await this.rollBack();
         throw error;
       }
-    };
-    await writeClaim(claim);
-    try {
-      const initialClaims = await readStorageLeaseClaims(
-        MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
-        listValues,
-        getValue,
-        claim.epoch,
-        Date.now()
-      );
-      const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
-      claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-      await writeClaim(claim);
-      while (true) {
-        const now = Date.now();
-        if (now - startedAt >= timeoutMs) throw new Error("Timed out waiting for the managed-state epoch lease.");
-        const claims = await readStorageLeaseClaims(
-          MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
-          listValues,
-          getValue,
-          claim.epoch,
-          now
-        );
-        const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-        if (!blocked) break;
-        if (claim.leaseUntil - now <= leaseMs / 2) {
-          claim = { ...claim, leaseUntil: now + leaseMs };
-          await writeClaim(claim);
-        }
-        await storageLeaseDelay(pollMs);
-      }
-      let stopped = false;
-      let lost = false;
-      let lostError;
-      let renewal = Promise.resolve();
-      const timer = setInterval(() => {
-        renewal = renewal.then(async () => {
-          if (stopped || lost) return;
-          await assertStorageLeaseClaimOwned(key, claim, getValue);
-          claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-          await writeClaim(claim);
-        }).catch((error) => {
-          lost = true;
-          lostError = error;
+    }
+    /** Deletes the claim this realm wrote, unless another has taken its key. */
+    async rollBack() {
+      const { getValue, deleteValue } = this.lease.io;
+      await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue).catch((error) => {
+        debugStorageLeaseError("GM storage lease rollback failed", this.key, error);
+      });
+    }
+    /**
+     * A holder's renewal. A factory reset in another tab deletes every claim,
+     * then checks that none is left while this section may still be running:
+     * a renewal reads the claim first and never writes back one that is gone,
+     * and takes back one the reset deleted while the write was in flight, which
+     * the fence after it reveals. The renewal on entry skips the read: the
+     * waiter's last poll fenced a moment ago, and once storage turns slow it
+     * may enter with little of its claim left.
+     */
+    async renew(due, entry) {
+      if (!entry) await assertStorageLeaseClaimOwned(this.key, this.claim, this.lease.io.getValue);
+      do
+        await this.writeClaim();
+      while (due());
+      await this.lease.fence().catch(async (error) => {
+        await this.rollBack();
+        throw error;
+      });
+    }
+    /**
+     * Runs the operation while a timer renews the claim and, for a lease with
+     * `guards`, while each guarded write renews it too: those writes reach
+     * storage over messaging, so throttled timers cannot starve them.
+     */
+    async hold(operation) {
+      const { lease, key } = this;
+      const { getValue } = lease.io;
+      const renewEveryMs = Math.max(250, Math.floor(lease.leaseMs / 3));
+      let held = true;
+      let lost;
+      let refused = false;
+      let renewal;
+      const due = () => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
+      const renewIfDue = (entry = false) => {
+        if (lost || renewal || !due()) return;
+        renewal = this.renew(due, entry).catch((error) => {
+          lost ??= { error };
+          debugStorageLeaseError("GM storage lease renewal failed", key, error);
+        }).finally(() => {
+          renewal = void 0;
         });
-      }, Math.floor(leaseMs / 3));
-      let result;
-      let failed = false;
-      let operationError;
+      };
+      const guarding = lease.guards && {
+        guards: lease.guards,
+        fenceWrite: () => {
+          if (!lost && !this.live()) lost = { error: new StorageLeaseLapsedError(key) };
+          if (lost) {
+            refused = true;
+            throw lost.error;
+          }
+          renewIfDue();
+        }
+      };
+      if (guarding) guardingLeases.add(guarding);
+      const timer = setInterval(() => renewIfDue(), renewEveryMs);
+      renewIfDue(true);
+      let outcome;
       try {
-        await assertStorageLeaseClaimOwned(key, claim, getValue);
-        result = await operation();
-        await assertStorageLeaseClaimOwned(key, claim, getValue);
+        await lease.fence();
+        await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+        const value = await operation();
+        await lease.fence();
+        await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+        outcome = { value };
       } catch (error) {
-        failed = true;
-        operationError = error;
+        outcome = { error };
       } finally {
-        stopped = true;
+        held = false;
+        if (guarding) guardingLeases.delete(guarding);
         clearInterval(timer);
         await renewal;
       }
-      if (failed) throw operationError;
-      if (lost) throw lostError;
-      return result;
-    } finally {
-      await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue).catch((error) => debugStorageLeaseError("Managed-state epoch lease release failed", key, error));
+      if ("error" in outcome) throw outcome.error;
+      if (lost && (!guarding || refused)) throw lost.error;
+      return outcome.value;
     }
   }
   async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
@@ -8043,9 +8172,50 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function storageLeaseDelay(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
-  async function withWebStorageLock(name, operation) {
-    const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
-    return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+  function storageRoundTripMs(writeMs, readMs, leaseMs) {
+    const slower = Math.max(writeMs, readMs);
+    return slower <= leaseMs / 4 ? slower : Math.min(writeMs, readMs);
+  }
+  function webLockManager() {
+    return typeof navigator === "undefined" ? void 0 : navigator.locks;
+  }
+  async function withWebStorageLock(name, operation, wait, waitMs) {
+    const lockManager = webLockManager();
+    if (!lockManager) return operation();
+    const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
+    if (!countRealmWebLockRequest(lockName, 1)) wait?.blocked();
+    try {
+      return await requestWebLock(lockManager, lockName, () => {
+        wait?.passed();
+        return operation();
+      }, waitMs);
+    } finally {
+      countRealmWebLockRequest(lockName, -1);
+    }
+  }
+  function countRealmWebLockRequest(lockName, change) {
+    const before = realmWebLockRequests.get(lockName) ?? 0;
+    if (before + change > 0) realmWebLockRequests.set(lockName, before + change);
+    else realmWebLockRequests.delete(lockName);
+    return before;
+  }
+  async function requestWebLock(locks, name, operation, waitMs) {
+    if (waitMs === void 0) return locks.request(name, {}, operation);
+    const giveUp = new AbortController();
+    const timer = setTimeout(() => giveUp.abort(), waitMs);
+    let granted = false;
+    try {
+      return await locks.request(name, { signal: giveUp.signal }, () => {
+        granted = true;
+        clearTimeout(timer);
+        return operation();
+      });
+    } catch (error) {
+      if (granted) throw error;
+      return operation();
+    } finally {
+      clearTimeout(timer);
+    }
   }
   function isPlainRecord$2(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -8809,6 +8979,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     await assertManagedStateMutationFence(getValue, epoch);
     const stored = managedStateStoredValue(value, epoch);
     const storageKey = managedStateStorageKey(key, epoch);
+    fenceStorageLeaseWrite(key);
     await setValue(storageKey, stored);
     await assertManagedStateMutationFence(getValue, epoch);
   }
@@ -8821,6 +8992,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       await assertRealmManagedStateEpoch(getValue);
       return;
     }
+    fenceStorageLeaseWrite(key);
     if (storageKey === key) {
       if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
       await deleteValue(key);
@@ -9020,7 +9192,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       backend: gmStorageLeaseBackend(),
       captureEpoch: assertRealmManagedStateEpoch,
       assertMutationFence: assertManagedStateMutationFence,
-      epochToken: managedStateEpochToken
+      epochToken: managedStateEpochToken,
+      hostedOrigin: isHostedYomuOrigin()
     });
   }
   async function withManagedStateEpochControlLease(operation) {
@@ -9115,7 +9288,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       epoch = await assertRealmManagedStateEpoch(getValue);
       await writeManagedGmValue(key, value, epoch, getValue, setValue);
     } catch (error) {
-      if (isStaleManagedStateEpochError(error)) throw error;
+      if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
       throw storageWriteError(key, "GM storage write failed", error);
     }
   }
@@ -9205,7 +9378,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const epoch = await assertRealmManagedStateEpoch(getValue);
         await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
       } catch (error) {
-        if (isStaleManagedStateEpochError(error)) throw error;
+        if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
         debugStorageError("GM storage delete failed", key, error);
         throw storageWriteError(key, "GM storage delete failed", error);
       }
@@ -9567,6 +9740,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const keys = await allStorageKeys();
     await clearBridgePrivateManagedValuesForReset();
     return [.../* @__PURE__ */ new Set([...keys, ...originWebStorageResetKeys(), ...await strandedExtensionStudyManagedKeys()])].sort();
+  }
+  const RESET_LEASE_SETTLE_PASSES = 5;
+  const RESET_LEASE_SETTLE_MS = 500;
+  async function managedStoredKeysLeftAfterReset() {
+    let left = await managedStoredKeysStillPresent();
+    for (let pass = 0; pass < RESET_LEASE_SETTLE_PASSES && onlyLeaseClaims(left); pass++) {
+      await delay(RESET_LEASE_SETTLE_MS);
+      for (const key of left) await deleteManagedStoredValue(key);
+      left = await managedStoredKeysStillPresent();
+    }
+    return left;
+  }
+  function onlyLeaseClaims(keys) {
+    return keys.length > 0 && keys.every((key) => key.startsWith(STORAGE_LEASE_KEY_PREFIX));
   }
   function originWebStorageResetKeys() {
     try {
@@ -10165,6 +10352,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function hasJitenApiCredential(settings) {
     return Boolean(effectiveJitenApiKey(settings));
+  }
+  function chosenWordGradingService(settings) {
+    if (!hasJpdbApiCredential(settings) || !hasJitenApiCredential(settings)) return null;
+    return settings.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
   }
   function effectiveBunproFrontendApiToken(settings) {
     return settings.bunproFrontendApiToken?.trim() ?? "";
@@ -16258,10 +16449,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function subscribeToSettingsChanges(listener, signal) {
     if (signal?.aborted) return () => void 0;
-    const listeners = privateSettingsChangeBus().listeners;
-    listeners.add(listener);
+    const listeners2 = privateSettingsChangeBus().listeners;
+    listeners2.add(listener);
     const unsubscribe = () => {
-      listeners.delete(listener);
+      listeners2.delete(listener);
     };
     signal?.addEventListener("abort", unsubscribe, { once: true });
     return unsubscribe;
@@ -18719,7 +18910,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function snapshotValue(snapshot) {
     return snapshot.existed ? snapshot.previousValue : null;
   }
+  const listeners = /* @__PURE__ */ new Set();
+  let waits = 0;
+  function reportSaveWaitingForAnotherTab(waiting) {
+    waits = Math.max(0, waits + (waiting ? 1 : -1));
+    for (const listener of listeners) {
+      try {
+        listener(waits > 0);
+      } catch {
+      }
+    }
+  }
+  function watchSavesWaitingForAnotherTab(listener) {
+    listeners.add(listener);
+    if (waits > 0) listener(true);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
   const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+  const SETTINGS_PERSISTENCE_LEASE_OPTIONS = {
+    leaseMs: STORAGE_WORK_LEASE_MS,
+    guards: isSettingsAuthorityStorageKey,
+    onWait: reportSaveWaitingForAnotherTab
+  };
   const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
   class InvalidSettingsBackupAuthorityError extends Error {
     name = "InvalidSettingsBackupAuthorityError";
@@ -20293,7 +20507,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
       await persistSettingsStorageTransaction(nextLedger, supportedSettings);
       storedSettings = supportedSettings;
-    });
+    }, SETTINGS_PERSISTENCE_LEASE_OPTIONS);
     dispatchSettingsChange(storedSettings);
   }
   function dispatchSettingsChange(settings) {
@@ -21034,6 +21248,94 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function escapeAttributeValue(value) {
     return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+  const scannedShadowRootRefs = /* @__PURE__ */ new Set();
+  const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
+  const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+  const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+  const MAX_PENDING_UPGRADE_NAMES = 64;
+  const potentialShadowHosts = /* @__PURE__ */ new Set();
+  let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
+  const subscribedUpgradeNames = /* @__PURE__ */ new Set();
+  function noteShadowRoot(root, cause) {
+    const active = scannedShadowRootState.get(root);
+    if (active) return;
+    scannedShadowRootState.set(root, true);
+    if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+  }
+  function watchPotentialOpenShadowRootHost(host) {
+    const root = host.shadowRoot;
+    if (root) {
+      noteShadowRoot(root);
+      return root;
+    }
+    const tagName = host.localName.toLowerCase();
+    const isCustomElement = tagName.includes("-");
+    if (!isCustomElement) return null;
+    const registry = customElementRegistry();
+    if (registry && !registry.get(tagName)) {
+      subscribeToCustomElementUpgrade(registry, tagName);
+      return null;
+    }
+    if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
+    seenPotentialShadowHosts.add(host);
+    potentialShadowHosts.add({
+      ref: new WeakRef(host),
+      remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
+    });
+    return null;
+  }
+  function forEachScannedShadowRoot(callback, includeDetached = false) {
+    for (const ref of scannedShadowRootRefs) {
+      const root = ref.deref();
+      if (!root) {
+        scannedShadowRootRefs.delete(ref);
+        continue;
+      }
+      if (!root.host?.isConnected) {
+        scannedShadowRootState.set(root, false);
+        if (!includeDetached) continue;
+      }
+      callback(root);
+    }
+  }
+  function customElementRegistry() {
+    const registry = Reflect.get(globalThis, "customElements");
+    if (!registry) return null;
+    const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+    return callableMethods.length === 2 ? registry : null;
+  }
+  function subscribeToCustomElementUpgrade(registry, tagName) {
+    if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+    subscribedUpgradeNames.add(tagName);
+    void registry.whenDefined(tagName).then(() => {
+      subscribedUpgradeNames.delete(tagName);
+    }, () => {
+      subscribedUpgradeNames.delete(tagName);
+    });
+  }
+  const LANE_CLASS_STEM = "yomu-review-";
+  const ORDINARY_PAGE_WORD_SELECTOR = '.jpdb-reader-word[data-yomu-word="true"]';
+  let lanePainted = false;
+  function isReviewLaneClass(className) {
+    return className.startsWith(LANE_CLASS_STEM);
+  }
+  function syncWordReviewLane(word) {
+    const lane = laneClassName(renderedWordPrivateValue(word, "ankiState"));
+    Array.from(word.classList).filter((className) => isReviewLaneClass(className) && className !== lane).forEach((className) => word.classList.remove(className));
+    if (lane) word.classList.add(lane);
+  }
+  function setReviewLanePainted(painted) {
+    if (painted === lanePainted) return;
+    lanePainted = painted;
+    if (currentAccountDataSurfaceIsTrusted()) return;
+    const roots = [document];
+    forEachScannedShadowRoot((root) => roots.push(root));
+    roots.forEach((root) => root.querySelectorAll(ORDINARY_PAGE_WORD_SELECTOR).forEach(syncWordReviewLane));
+  }
+  function laneClassName(ankiState) {
+    const onLane = [lanePainted, Boolean(ankiState), ankiState !== "not-in-deck", !currentAccountDataSurfaceIsTrusted()].every(Boolean);
+    return onLane ? `${LANE_CLASS_STEM}${ankiState}` : "";
+  }
   function renderedWordNumericIdentity(word) {
     return {
       vid: Number(renderedWordPrivateValue(word, "vid")),
@@ -21098,7 +21400,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
   const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   function clearRenderedWordAnkiState(word) {
-    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+    Array.from(word.classList).filter(isAnkiStateClass).forEach((className) => word.classList.remove(className));
     const ankiState = renderedWordPrivateValue(word, "ankiState");
     const cardState = renderedWordPrivateValue(word, "cardState");
     clearOffhostProjectedAnkiState(word, ankiState, cardState);
@@ -21112,7 +21414,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     word.classList.remove(`jpdb-${ankiState}`);
   }
   function renderedWordHasAnkiState(word) {
-    return Boolean(renderedWordPrivateValue(word, "ankiState") || renderedWordPrivateValue(word, "ankiDecks") || Array.from(word.classList).some((className) => className.startsWith("anki-")));
+    return Boolean(renderedWordPrivateValue(word, "ankiState") || renderedWordPrivateValue(word, "ankiDecks") || Array.from(word.classList).some(isAnkiStateClass));
+  }
+  function isAnkiStateClass(className) {
+    return className.startsWith("anki-") || isReviewLaneClass(className);
   }
   function renderedWordCardKey(vid, sid) {
     return `${vid}:${sid}`;
@@ -22659,6 +22964,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
     ].some(Boolean);
   }
+  const COLOR_SOURCE_CLASS_TOKENS = {
+    status: "status",
+    jpdb: "jpdb",
+    anki: "review",
+    pitch: "pitch",
+    off: "off"
+  };
+  function colorSourceClassName(scope, channel, source) {
+    return `jpdb-reader-${scope}-${channel}-${COLOR_SOURCE_CLASS_TOKENS[source]}`;
+  }
+  function selectedWordColorSourceToken(root, channels, sources) {
+    let selected = null;
+    for (const source of sources) {
+      if (channels.some((channel) => root.classList.contains(colorSourceClassName("word", channel, source)))) {
+        selected = COLOR_SOURCE_CLASS_TOKENS[source];
+      }
+    }
+    return selected;
+  }
   function syncProjectedReadings(owner, projections) {
     yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
   }
@@ -22738,71 +23062,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     style.textContent = shadowReaderCssText;
     root.append(style);
     clonedShadowStyleNodes.add(new WeakRef(style));
-  }
-  const scannedShadowRootRefs = /* @__PURE__ */ new Set();
-  const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
-  const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
-  const MAX_POTENTIAL_SHADOW_HOSTS = 160;
-  const MAX_PENDING_UPGRADE_NAMES = 64;
-  const potentialShadowHosts = /* @__PURE__ */ new Set();
-  let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
-  const subscribedUpgradeNames = /* @__PURE__ */ new Set();
-  function noteShadowRoot(root, cause) {
-    const active = scannedShadowRootState.get(root);
-    if (active) return;
-    scannedShadowRootState.set(root, true);
-    if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
-  }
-  function watchPotentialOpenShadowRootHost(host) {
-    const root = host.shadowRoot;
-    if (root) {
-      noteShadowRoot(root);
-      return root;
-    }
-    const tagName = host.localName.toLowerCase();
-    const isCustomElement = tagName.includes("-");
-    if (!isCustomElement) return null;
-    const registry = customElementRegistry();
-    if (registry && !registry.get(tagName)) {
-      subscribeToCustomElementUpgrade(registry, tagName);
-      return null;
-    }
-    if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
-    seenPotentialShadowHosts.add(host);
-    potentialShadowHosts.add({
-      ref: new WeakRef(host),
-      remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
-    });
-    return null;
-  }
-  function forEachScannedShadowRoot(callback, includeDetached = false) {
-    for (const ref of scannedShadowRootRefs) {
-      const root = ref.deref();
-      if (!root) {
-        scannedShadowRootRefs.delete(ref);
-        continue;
-      }
-      if (!root.host?.isConnected) {
-        scannedShadowRootState.set(root, false);
-        if (!includeDetached) continue;
-      }
-      callback(root);
-    }
-  }
-  function customElementRegistry() {
-    const registry = Reflect.get(globalThis, "customElements");
-    if (!registry) return null;
-    const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
-    return callableMethods.length === 2 ? registry : null;
-  }
-  function subscribeToCustomElementUpgrade(registry, tagName) {
-    if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
-    subscribedUpgradeNames.add(tagName);
-    void registry.whenDefined(tagName).then(() => {
-      subscribedUpgradeNames.delete(tagName);
-    }, () => {
-      subscribedUpgradeNames.delete(tagName);
-    });
   }
   function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
     return right > rect.left && bottom > rect.top;
@@ -25199,10 +25458,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
     if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
     setInlineStyleIfChanged(root, "-webkit-text-fill-color", "transparent", "important");
-    const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+    const documentElement = root.ownerDocument.documentElement;
+    const source = selectedWordColorSourceToken(documentElement, ["highlight", "underline", "text"], ADDITIVE_DECORATION_SOURCES);
     const words = root.querySelectorAll(".jpdb-reader-word");
     const paint = source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
-    const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+    const highlightSource = selectedWordColorSourceToken(documentElement, ["highlight"], ADDITIVE_HIGHLIGHT_SOURCES);
     const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
     for (const word of words) {
       const visible = !projectedWordsOnly || word.dataset.yomuSourceProjected === "true";
@@ -25216,20 +25476,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const visibleSoftPaint = visible ? softPaint : "";
     if (visibleSoftPaint) setInlineStyleIfChanged(word, "--jpdb-reader-mirror-status-soft", visibleSoftPaint);
     else removeInlineStyleIfPresent(word, "--jpdb-reader-mirror-status-soft");
-  }
-  function activeAdditiveHighlightSource(documentElement) {
-    let active = null;
-    for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
-      if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
-    }
-    return active;
-  }
-  function activeAdditiveDecorationSource(documentElement) {
-    let active = null;
-    for (const source of ADDITIVE_DECORATION_SOURCES) {
-      if (["highlight", "underline", "text"].some((channel) => documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
-    }
-    return active;
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
     if (filterWordsToClip && root.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(root, clipRow);
@@ -25584,10 +25830,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function observeControlTextMirrorHost(host, state2) {
     const previous = controlTextMirrorHosts.get(host);
     previous?.listeners?.abort();
-    const listeners = new AbortController();
-    state2.listeners = listeners;
-    host.addEventListener("change", state2.onChange, { signal: listeners.signal });
-    host.addEventListener("input", state2.onChange, { signal: listeners.signal });
+    const listeners2 = new AbortController();
+    state2.listeners = listeners2;
+    host.addEventListener("change", state2.onChange, { signal: listeners2.signal });
+    host.addEventListener("input", state2.onChange, { signal: listeners2.signal });
     controlTextMirrorHosts.set(host, state2);
   }
   function removeControlTextMirror(host) {
@@ -38114,9 +38360,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
   const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
   class BunproApiError extends Error {
-    constructor(message, status) {
+    /** `yomuUiCopyKey` names the message a learner sees instead of a generic failure. */
+    constructor(message, status, yomuUiCopyKey) {
       super(message);
       this.status = status;
+      this.yomuUiCopyKey = yomuUiCopyKey;
       this.name = "BunproApiError";
     }
   }
@@ -38640,7 +38888,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 12 });
     const requestedKind = request.kind === "grammar" ? "grammar" : "vocabulary";
     const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
-    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
+    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`, void 0, "bunproNoMatchingWord");
     if (reviewable.kind !== "vocabulary" && reviewable.kind !== "grammar") {
       throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
     }
@@ -43231,10 +43479,10 @@ ${normalizedReading}`;
       };
     }
     const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
-    const listeners = /* @__PURE__ */ new Set();
+    const listeners2 = /* @__PURE__ */ new Set();
     let latest = EMPTY_STATUS;
     let staleTimer;
-    const notify = () => listeners.forEach((listener) => listener(latest));
+    const notify = () => listeners2.forEach((listener) => listener(latest));
     const markStale = () => {
       if (!latest.connected) return;
       latest = staleJpdbReviewBridgeStatus();
@@ -43263,8 +43511,8 @@ ${normalizedReading}`;
       reveal: () => post({ type: "command", source: "newtab", command: "reveal" }),
       grade: (grade) => post({ type: "command", source: "newtab", command: "grade", grade }),
       onUpdate(listener) {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
+        listeners2.add(listener);
+        return () => listeners2.delete(listener);
       },
       close: () => {
         window.clearTimeout(staleTimer);
@@ -49253,13 +49501,17 @@ ${normalizedReading}`;
       Boolean(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"))
     ].every(Boolean);
   }
+  const preservedAnkiContrastWords = /* @__PURE__ */ new WeakSet();
+  function preserveAnkiContrastOnNextRefresh(word) {
+    preservedAnkiContrastWords.add(word);
+  }
   function preserveExistingAnkiContrast(word, hasAccessibleColor, hasInlineTextColor) {
     const preserve = [
-      word.dataset.ankiPreserveContrast === "true",
+      preservedAnkiContrastWords.has(word),
       hasAccessibleColor,
       !hasInlineTextColor
     ].every(Boolean);
-    if (preserve) delete word.dataset.ankiPreserveContrast;
+    if (preserve) preservedAnkiContrastWords.delete(word);
     return preserve;
   }
   function readerWordContrastSurface(word) {
@@ -50638,7 +50890,7 @@ ${entry.reading}`);
     return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
   }
   function shouldPreferJitenParser(settings, options, jiten) {
-    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
+    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true && chosenWordGradingService(settings) !== "jpdb";
   }
   function shouldSkipApiParser(options) {
     return Boolean(options.skipApi ?? options.skipJpdb);
@@ -54392,6 +54644,7 @@ ${entry.reading}`);
   const DECK_PICKER_OPEN_CLASS = "jpdb-reader-add-deck-select-open";
   const DECK_PICKER_WRAPPER_OPEN_CLASS = "jpdb-reader-deck-picker-open";
   const DECK_PICKER_BLUR_DELAY_MS = 180;
+  const DECK_PICKER_SCOPE = ".jpdb-reader-collect";
   function toggleMiningControls$1(button2, label) {
     const actions = button2.closest(`.${MINING_ACTIONS_CLASS}`);
     if (!actions) return;
@@ -54409,7 +54662,7 @@ ${entry.reading}`);
   function openDeckPickerForCardAdd$1(button2, card, sentence, performAction) {
     const picker = deckPickerForButton(button2);
     if (!picker) return false;
-    const wrapper = picker.closest(".jpdb-reader-mining-details");
+    const wrapper = picker.closest(DECK_PICKER_SCOPE);
     const toggle = wrapper?.querySelector(".jpdb-reader-mining-title");
     if (picker.classList.contains(DECK_PICKER_OPEN_CLASS)) {
       picker.hidden = false;
@@ -54419,13 +54672,10 @@ ${entry.reading}`);
     const controller = new AbortController();
     const cleanup = () => closeDeckPicker(picker, wrapper, toggle, controller);
     picker.addEventListener("change", trustedReaderEventHandler(() => {
-      const option = picker.selectedOptions[0];
-      const deck = readDeckChoiceCapability(option);
-      if (!deck?.id) {
-        cleanup();
-        return;
-      }
+      const deck = readDeckChoiceCapability(picker.selectedOptions[0]);
       cleanup();
+      if (!deck?.id) return;
+      button2.focus({ preventScroll: true });
       void performAction(button2, card, sentence, {
         kind: "card-action",
         action: "add",
@@ -54442,7 +54692,7 @@ ${entry.reading}`);
     return true;
   }
   function deckPickerForButton(button2) {
-    return button2.closest(".jpdb-reader-mining-details")?.querySelector("[data-add-deck-select]") ?? null;
+    return button2.closest(DECK_PICKER_SCOPE)?.querySelector("[data-add-deck-select]") ?? null;
   }
   function closeDeckPicker(picker, wrapper, toggle, controller) {
     controller.abort();
@@ -58840,6 +59090,81 @@ ${spelling}`);
     const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
     return raw.trim() || void 0;
   }
+  function isVisibleOcrImage(image) {
+    return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
+  }
+  function isImageVisibleForOcr(image, rect) {
+    return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
+  }
+  function isInsideHiddenAncestor(element2, includeAriaHidden = true) {
+    for (let current = element2.parentElement; current && current !== document.body; current = current.parentElement) {
+      if (hiddenAncestor(current, includeAriaHidden)) return true;
+    }
+    return false;
+  }
+  function hiddenAncestor(element2, includeAriaHidden) {
+    return isHiddenByCss(element2) || element2.hasAttribute("hidden") || ariaHidden(element2, includeAriaHidden);
+  }
+  function ariaHidden(element2, included) {
+    return included && element2.getAttribute("aria-hidden") === "true";
+  }
+  function rectIntersectsViewport(rect) {
+    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+  }
+  function isHiddenByCss(element2) {
+    const style = getComputedStyle(element2);
+    return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
+  }
+  function isNearViewport(element2, margin) {
+    const rect = element2.getBoundingClientRect();
+    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+  }
+  function visibleViewportIntersection(rect) {
+    const viewportWidth2 = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight2 = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth2 || !viewportHeight2) return void 0;
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(viewportWidth2, rect.right);
+    const bottom = Math.min(viewportHeight2, rect.bottom);
+    const width = right - left;
+    const height = bottom - top;
+    return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
+  }
+  function isImageOccludedByVideo(image, rect) {
+    if (image.dataset.yomuVideoFrame) return false;
+    const imageArea = rect.width * rect.height;
+    if (imageArea < 4) return false;
+    const imageRoot = image.getRootNode();
+    return [...document.querySelectorAll("video")].some((video) => isVisiblePeerVideo(video, image, imageRoot) && videoOccludesImage(video, rect, imageArea));
+  }
+  function isVisiblePeerVideo(video, image, imageRoot) {
+    return [
+      video.isConnected,
+      video.getRootNode() === imageRoot,
+      !isSameMediaNode(video, image),
+      visibleVideoRect(video) !== null,
+      !isHiddenByCss(video)
+    ].every(Boolean);
+  }
+  function visibleVideoRect(video) {
+    const rect = video.getBoundingClientRect();
+    return rect.width >= 2 && rect.height >= 2 ? rect : null;
+  }
+  function videoOccludesImage(video, imageRect, imageArea) {
+    const videoRect = visibleVideoRect(video);
+    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
+  }
+  function isSameMediaNode(video, image) {
+    return video === image.parentElement || image === video.parentElement;
+  }
+  function intersectionArea(a, b) {
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
+  }
   const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
   const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
   const SCREENSHOT_MESSAGE_TIMEOUT_MS = 6e3;
@@ -58956,18 +59281,6 @@ ${spelling}`);
       }
     });
   }
-  function visibleViewportIntersection(rect) {
-    const viewportWidth2 = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight2 = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth2 || !viewportHeight2) return null;
-    const left = Math.max(0, rect.left);
-    const top = Math.max(0, rect.top);
-    const right = Math.min(viewportWidth2, rect.right);
-    const bottom = Math.min(viewportHeight2, rect.bottom);
-    const width = right - left;
-    const height = bottom - top;
-    return width > 0 && height > 0 ? { left, top, width, height } : null;
-  }
   async function cropVisibleTabScreenshot(dataUrl, rect, maxPixels) {
     try {
       const image = await loadScreenshotImage(dataUrl);
@@ -59020,6 +59333,572 @@ ${spelling}`);
         finish(new Error("Screenshot decode failed."));
       }
     });
+  }
+  const CANVAS_OCR_OPT_IN_SELECTOR = 'canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas';
+  function ocrRunsOnLearnerService(settings) {
+    return settings.ocrProvider === "local-service";
+  }
+  function readsReaderCanvasWithoutTap(canvas, settings) {
+    return ocrRunsOnLearnerService(settings) || canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+  }
+  function hasCanvasOcrOptInSurface() {
+    return Boolean(document.querySelector(CANVAS_OCR_OPT_IN_SELECTOR));
+  }
+  function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
+    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
+  }
+  const presentationsByImage = /* @__PURE__ */ new WeakMap();
+  const imagesByHost = /* @__PURE__ */ new WeakMap();
+  function createPrivateRasterImage(className) {
+    const host = document.createElement("div");
+    host.className = className;
+    host.dataset.yomuPrivateRasterHost = "true";
+    host.setAttribute("aria-hidden", "true");
+    const root = host.attachShadow({ mode: "closed" });
+    const style = document.createElement("style");
+    style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
+    const image = document.createElement("img");
+    image.alt = "";
+    root.append(style, image);
+    const presentation = { host, image, root };
+    presentationsByImage.set(image, presentation);
+    imagesByHost.set(host, image);
+    return image;
+  }
+  function privateRasterHost(image) {
+    const host = presentationsByImage.get(image)?.host;
+    if (!host) throw new Error("OCR raster image has no private presentation.");
+    return host;
+  }
+  function setPrivateRasterClass(image, className, enabled) {
+    image.classList.toggle(className, enabled);
+    privateRasterHost(image).classList.toggle(className, enabled);
+  }
+  function setPrivateRasterSource(image, source, options = {}) {
+    const presentation = presentationsByImage.get(image);
+    if (!presentation) throw new Error("OCR raster image has no private presentation.");
+    releaseOwnedObjectUrl(presentation);
+    image.src = source;
+    if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
+  }
+  function positionPrivateRasterImage(image, rect) {
+    for (const element2 of [privateRasterHost(image), image]) {
+      element2.style.left = `${rect.left}px`;
+      element2.style.top = `${rect.top}px`;
+      element2.style.width = `${rect.width}px`;
+      element2.style.height = `${rect.height}px`;
+    }
+  }
+  function releasePrivateRasterImage(image) {
+    const presentation = presentationsByImage.get(image);
+    if (!presentation) {
+      image.removeAttribute("src");
+      image.remove();
+      return;
+    }
+    releaseOwnedObjectUrl(presentation);
+    image.removeAttribute("src");
+    presentation.root.replaceChildren();
+    presentation.host.remove();
+    presentationsByImage.delete(image);
+    imagesByHost.delete(presentation.host);
+  }
+  function releaseOwnedObjectUrl(presentation) {
+    const url = presentation.ownedObjectUrl;
+    presentation.ownedObjectUrl = void 0;
+    if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+  }
+  const VIDEO_FRAME_PLAYER_SELECTOR = [
+    "#movie_player",
+    ".html5-video-player",
+    "ytd-player",
+    "#player",
+    "#player-container",
+    "#player-container-outer",
+    "[data-yomu-video-frame]"
+  ].join(",");
+  const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
+    '[data-yomu-inline-fullscreen="true"]',
+    '[data-fullscreen-active="true"]',
+    "[fullscreen]",
+    "#movie_player.ytp-fullscreen",
+    ".html5-video-player.ytp-fullscreen",
+    "ytd-watch-flexy[fullscreen]",
+    "ytm-player[fullscreen]",
+    "ytm-player.fullscreen",
+    "ytm-player.ytp-fullscreen"
+  ].join(",");
+  const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
+    "ytd-thumbnail",
+    "ytd-rich-item-renderer",
+    "ytd-rich-grid-media",
+    "ytd-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-reel-item-renderer",
+    "ytd-playlist-thumbnail",
+    "ytd-video-preview",
+    "yt-thumbnail-view-model",
+    "yt-lockup-view-model",
+    "ytm-rich-item-renderer",
+    "ytm-compact-video-renderer",
+    "ytm-video-card-renderer",
+    "ytm-video-with-context-renderer",
+    "ytm-shorts-lockup-view-model",
+    "ytm-shorts-lockup-view-model-v2"
+  ].join(",");
+  const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
+    'a[href*="/watch"]',
+    'a[href*="/shorts/"]'
+  ].join(",");
+  const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
+    VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
+    "yt-image",
+    ".yt-core-image"
+  ].join(",");
+  function captureVideoFrameDataUrl(video) {
+    try {
+      if (!videoHasDecodedFrame(video)) return void 0;
+      return videoFrameDataUrl(video);
+    } catch {
+      return void 0;
+    }
+  }
+  function videoHasDecodedFrame(video) {
+    return Math.min(video.videoWidth, video.videoHeight) > 0 && video.readyState >= 2;
+  }
+  function isLikelyPausedVideoThumbnail(video) {
+    if (isExplicitVideoThumbnail(video)) return true;
+    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
+    return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) && !isPrimaryPlayerSizedVideo(video);
+  }
+  function isExplicitVideoThumbnail(video) {
+    return isTwitterHost() || Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR));
+  }
+  function isTwitterHost(hostname = location.hostname) {
+    return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
+  }
+  function isPrimaryPlayerSizedVideo(video) {
+    const rect = video.getBoundingClientRect();
+    if (!hasMinimumPlayerSize(rect)) return false;
+    const viewport = currentViewportSize();
+    if (!viewport) return hasFallbackPrimaryPlayerSize(rect);
+    return isViewportProminentVideo(rect, viewport);
+  }
+  function hasMinimumPlayerSize(rect) {
+    return rect.width >= 280 && rect.height >= 160;
+  }
+  function hasFallbackPrimaryPlayerSize(rect) {
+    return rect.width >= 480 && rect.height >= 270;
+  }
+  function currentViewportSize() {
+    const width = firstNonZeroDimension(window.innerWidth, document.documentElement.clientWidth);
+    const height = firstNonZeroDimension(window.innerHeight, document.documentElement.clientHeight);
+    if (!width) return void 0;
+    return height ? { width, height } : void 0;
+  }
+  function firstNonZeroDimension(primary, fallback) {
+    return primary || fallback || 0;
+  }
+  function isViewportProminentVideo(rect, viewport) {
+    return rect.width >= viewport.width * 0.6 || rect.width * rect.height >= viewport.width * viewport.height * 0.25;
+  }
+  function positionVideoFrameImage(frame, rect, video) {
+    const content = videoContentBox(rect, video);
+    for (const element2 of [privateRasterHost(frame), frame]) {
+      setOcrArtifactPosition(element2, content.left, content.top);
+      element2.style.width = `${content.width}px`;
+      element2.style.height = `${content.height}px`;
+    }
+  }
+  function positionVideoFrameResumeControl(control, rect, video) {
+    const root = videoFrameArtifactRoot(video);
+    if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
+    attachVideoFrameResumeControlFallback(control, root);
+    const content = videoContentBox(rect, video);
+    setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
+  }
+  function positionVideoFrameStatus(status, rect, video) {
+    const content = videoContentBox(rect, video);
+    positionOcrImageStatus(status, content);
+  }
+  function positionOcrImageStatus(status, rect) {
+    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
+    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
+    status.style.maxWidth = `${maxWidth}px`;
+  }
+  function appendOcrArtifactToRoot(element2, root) {
+    const oldRoot = element2.parentElement;
+    const fullscreenHosted = root !== document.body;
+    if (fullscreenHosted) prepareOcrFullscreenHost(root);
+    element2.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
+    if (oldRoot !== root) root.append(element2);
+    clearOcrFullscreenHostMarker(oldRoot);
+  }
+  function removeOcrArtifact(element2) {
+    const oldRoot = element2.parentElement;
+    element2.remove();
+    clearOcrFullscreenHostMarker(oldRoot);
+  }
+  function clearOcrFullscreenHostMarker(root) {
+    if (!isFullscreenArtifactContainer(root)) return;
+    if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
+    delete root.dataset.yomuOcrFullscreenHost;
+    clearPreparedFullscreenHostPosition(root);
+  }
+  function isFullscreenArtifactContainer(root) {
+    return root instanceof HTMLElement && root !== document.body;
+  }
+  function clearPreparedFullscreenHostPosition(root) {
+    if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
+      root.style.position = "";
+      delete root.dataset.yomuOcrFullscreenHostPosition;
+    }
+  }
+  function prepareOcrFullscreenHost(root) {
+    root.dataset.yomuOcrFullscreenHost = "true";
+    const position = getComputedStyle(root).position;
+    if (position && position !== "static") return;
+    root.style.position = "relative";
+    root.dataset.yomuOcrFullscreenHostPosition = "relative";
+  }
+  function videoFrameArtifactRoot(video) {
+    return activeVideoFullscreenHost(video) ?? document.body;
+  }
+  function activeVideoFullscreenHost(video) {
+    const active = activeFullscreenElement();
+    return documentFullscreenArtifactHost(active) ?? activeElementArtifactHost(active, video) ?? closestFullscreenArtifactHost(video) ?? youtubeFullscreenHostForOcrVideo(video);
+  }
+  function documentFullscreenArtifactHost(active) {
+    return [document.body, document.documentElement].includes(active) ? document.body : null;
+  }
+  function activeElementArtifactHost(active, video) {
+    if (!active) return null;
+    if (active === video) return fullscreenVideoArtifactHost(video);
+    return active.contains(video) ? active : null;
+  }
+  function closestFullscreenArtifactHost(video) {
+    return connectedVideoAncestor(video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR), video);
+  }
+  function fullscreenVideoArtifactHost(video) {
+    const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
+    return connectedVideoAncestor(host, video) ?? youtubeFullscreenHostForOcrVideo(video);
+  }
+  function connectedVideoAncestor(host, video) {
+    return isConnectedVideoAncestor(host, video) ? host : null;
+  }
+  function isConnectedVideoAncestor(host, video) {
+    return host !== null && host !== video && host.isConnected && host.contains(video);
+  }
+  function youtubeFullscreenHostForOcrVideo(video) {
+    if (!isYouTubeAppHostname()) return null;
+    return scopedYoutubeFullscreenHost(video) ?? unscopedYoutubeFullscreenHost(video);
+  }
+  function scopedYoutubeFullscreenHost(video) {
+    return [
+      video.closest('[data-yomu-inline-fullscreen="true"]'),
+      video.closest(".html5-video-player.ytp-fullscreen"),
+      video.closest("#movie_player.ytp-fullscreen"),
+      video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
+      video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
+      video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+    ].find((element2) => Boolean(element2 && element2 !== video)) ?? null;
+  }
+  function unscopedYoutubeFullscreenHost(video) {
+    return [
+      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
+      document.querySelector(".html5-video-player.ytp-fullscreen"),
+      document.querySelector("#movie_player.ytp-fullscreen"),
+      document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
+      document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
+      document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+    ].find((element2) => Boolean(element2 && element2 !== video && youtubeFullscreenHostContainsVideo(element2, video))) ?? null;
+  }
+  function youtubeFullscreenHostContainsVideo(element2, video) {
+    return element2.contains(video) || isYouTubeMobileFullscreenHostForOcr(element2);
+  }
+  function isYouTubeMobileFullscreenHostForOcr(element2) {
+    return /^m\.youtube\.com$/i.test(location.hostname) && element2.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
+  }
+  function activeFullscreenElement() {
+    const doc = document;
+    return [
+      doc.fullscreenElement,
+      doc.webkitFullscreenElement,
+      doc.mozFullScreenElement,
+      doc.msFullscreenElement
+    ].find((element2) => element2 instanceof HTMLElement) ?? null;
+  }
+  function attachVideoFrameResumeControlToSubtitleRail(control, root) {
+    const rail = connectedSubtitleRailForOcrRoot(root);
+    if (!rail) return false;
+    const oldParent = control.parentElement;
+    const oldRoot = subtitlePlayerRoot(control);
+    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+    control.dataset.yomuOcrFullscreenHosted = "false";
+    control.style.left = "";
+    control.style.top = "";
+    insertResumeControlIntoSubtitleRail(control, rail);
+    clearOcrFullscreenHostMarker(oldParent);
+    updateSubtitleRailResumeState(oldRoot);
+    updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+    return true;
+  }
+  function connectedSubtitleRailForOcrRoot(root) {
+    const rail = subtitleRailForOcrRoot(root);
+    return rail?.isConnected ? rail : null;
+  }
+  function insertResumeControlIntoSubtitleRail(control, rail) {
+    if (control.parentElement === rail) return;
+    const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
+    rail.insertBefore(control, panelButton);
+  }
+  function attachVideoFrameResumeControlFallback(control, root) {
+    const oldRoot = subtitlePlayerRoot(control);
+    appendOcrArtifactToRoot(control, root);
+    control.classList.add("jpdb-ocr-video-frame-resume-fallback");
+    updateSubtitleRailResumeState(oldRoot);
+  }
+  function removeVideoFrameResumeControl(control) {
+    const root = subtitlePlayerRoot(control);
+    removeOcrArtifact(control);
+    updateSubtitleRailResumeState(root);
+  }
+  function subtitleRailForOcrRoot(root) {
+    const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
+    if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
+    return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
+  }
+  function subtitlePlayerRoot(control) {
+    return control.closest(".jpdb-subtitle-player");
+  }
+  function updateSubtitleRailResumeState(root) {
+    if (!root) return;
+    root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
+  }
+  function playVideoIcon() {
+    return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+  }
+  function videoContentBox(rect, video) {
+    const intrinsicWidth = video.videoWidth;
+    const intrinsicHeight = video.videoHeight;
+    if (!hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight)) return rect;
+    const style = getComputedStyle(video);
+    const object2 = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
+    const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object2.width, rect.height - object2.height);
+    return new DOMRect(rect.left + offset.x, rect.top + offset.y, object2.width, object2.height);
+  }
+  function hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight) {
+    return Math.min(intrinsicWidth, intrinsicHeight, rect.width, rect.height) > 0;
+  }
+  function videoObjectFit(value) {
+    return ["contain", "cover", "none", "scale-down"].includes(value) ? value : "contain";
+  }
+  const READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX = "yomu:private:ocr-canvas-tap-hint-seen:v1:";
+  const INSET_PX = 12;
+  const HINT_WIDTH_PX = 340;
+  const HINT_HEIGHT_PX = 34;
+  const DISMISS_HIT_SLOP_PX = 12;
+  const PROBE_STEP_PX = 32;
+  const HOST_CONTROL_SELECTOR = 'a[href],button,input,select,textarea,summary,label,[contenteditable="true"],[role="button"],[role="link"],[role="slider"],[role="tab"],[role="menuitem"],[role="checkbox"],[role="switch"]';
+  class ReaderCanvasTapHint {
+    element;
+    done = false;
+    // Private storage answers asynchronously: the first canvas waiting for a tap
+    // starts the site check, and the latest one gets the hint when it answers.
+    siteCheck = "not-started";
+    waiting;
+    /** Point the hint at the first reader canvas waiting for a tap, or hide it while none waits. */
+    update(canvas, settings) {
+      if (!this.element && !this.mayShow(canvas, settings)) return;
+      const element2 = this.element ??= createHint(settings, () => this.dismiss());
+      this.pointAt(element2, canvas);
+    }
+    pointAt(element2, canvas) {
+      const spot = canvas && spotClearOfHostControls(canvas, element2);
+      element2.hidden = !spot;
+      if (!spot) return;
+      setOcrArtifactPosition(element2, spot.left, spot.top);
+      if (!this.done) void rememberHintSeen();
+      this.done = true;
+    }
+    mayShow(canvas, settings) {
+      if (this.done) return false;
+      if (this.siteCheck === "answered") return Boolean(canvas);
+      this.waiting = [canvas, settings];
+      if (this.siteCheck === "not-started") void this.checkSite(canvas);
+      return false;
+    }
+    async checkSite(canvas) {
+      if (!canvas) return;
+      this.siteCheck = "running";
+      const seen = await hintSeenOnThisSite();
+      this.siteCheck = "answered";
+      this.done ||= seen;
+      const waiting = this.waiting;
+      this.waiting = void 0;
+      if (waiting) this.update(...waiting);
+    }
+    /** The learner dismissed the hint or read a page, so it has done its job here. */
+    dismiss() {
+      this.done = true;
+      this.remove();
+    }
+    remove() {
+      this.waiting = void 0;
+      if (this.element) removeOcrArtifact(this.element);
+      this.element = void 0;
+    }
+  }
+  function createHint(settings, onDismiss) {
+    const element2 = document.createElement("div");
+    element2.className = "jpdb-ocr-video-frame-status jpdb-ocr-canvas-status jpdb-ocr-canvas-tap-hint";
+    element2.dataset.jpdbReaderRoot = "true";
+    element2.dataset.jpdbReaderSurfaceIgnore = "true";
+    element2.setAttribute("role", "status");
+    element2.hidden = true;
+    const label = document.createElement("span");
+    label.className = "jpdb-ocr-video-frame-status-label";
+    label.textContent = uiText(settings.interfaceLanguage, "ocrCanvasTapHint");
+    const dismiss = document.createElement("button");
+    const dismissLabel = uiText(settings.interfaceLanguage, "ocrCanvasTapHintDismiss");
+    dismiss.type = "button";
+    dismiss.className = "jpdb-ocr-canvas-tap-hint-dismiss";
+    dismiss.textContent = "×";
+    dismiss.setAttribute("aria-label", dismissLabel);
+    dismiss.title = dismissLabel;
+    dismiss.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onDismiss();
+    });
+    element2.append(label, dismiss);
+    appendOcrArtifactToRoot(element2, document.body);
+    return element2;
+  }
+  function spotClearOfHostControls(canvas, hint) {
+    const visible = visibleViewportIntersection(canvas.getBoundingClientRect());
+    if (!visible || visible.height < HINT_HEIGHT_PX + INSET_PX * 2) return void 0;
+    const width = Math.min(HINT_WIDTH_PX, visible.width - INSET_PX * 2);
+    if (width <= 0) return void 0;
+    const centreLeft = visible.left + (visible.width - width) / 2;
+    const spots = [
+      { left: visible.left + INSET_PX, top: visible.top + INSET_PX },
+      { left: centreLeft, top: visible.top + INSET_PX },
+      { left: centreLeft, top: visible.top + (visible.height - HINT_HEIGHT_PX) / 2 }
+    ];
+    return spots.find((spot) => !coversHostControl(spot, width, hint));
+  }
+  function coversHostControl(spot, width, hint) {
+    const reach = width + DISMISS_HIT_SLOP_PX;
+    const bottom = spot.top + HINT_HEIGHT_PX;
+    const rows = [spot.top - DISMISS_HIT_SLOP_PX, spot.top, spot.top + HINT_HEIGHT_PX / 2, bottom, bottom + DISMISS_HIT_SLOP_PX];
+    const columns = Array.from({ length: Math.ceil(reach / PROBE_STEP_PX) + 1 }, (_, index) => spot.left + Math.min(index * PROBE_STEP_PX, reach));
+    return rows.some((top) => columns.some((left) => {
+      const hit = document.elementFromPoint(left, top);
+      return Boolean(hit && !hint.contains(hit) && hit.closest(HOST_CONTROL_SELECTOR));
+    }));
+  }
+  function hintSeenKey() {
+    return `${READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX}${sensitiveFingerprint$1(location.origin)}`;
+  }
+  async function hintSeenOnThisSite() {
+    try {
+      return await gmPrivateStorageGet(hintSeenKey(), false) === true;
+    } catch {
+      return true;
+    }
+  }
+  async function rememberHintSeen() {
+    try {
+      await gmPrivateStorageSet(hintSeenKey(), true);
+    } catch {
+    }
+  }
+  function ocrPointerImage(event) {
+    if (!isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    return pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+  }
+  function ocrReaderSurfaceFromPointerEvent(event, settings, rasterFreePage) {
+    if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (pointerEventOverOcrOverlay(event)) return null;
+    return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
+  }
+  function touchPointFromEvent(event) {
+    const touchEvent = event;
+    const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
+    if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+  function eventWithPoint(event, point) {
+    return {
+      type: "pointerdown",
+      target: event.target,
+      button: 0,
+      clientX: point.clientX,
+      clientY: point.clientY,
+      pointerType: "touch"
+    };
+  }
+  function isPointerLikeEvent(event) {
+    const candidate = event;
+    return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
+  }
+  function pointerEventOverOcrOverlay(event) {
+    const target = event.target;
+    if (target?.closest?.("[data-jpdb-reader-root]")) return true;
+    return Boolean(ocrPointerHitElement(event)?.closest?.("[data-jpdb-reader-root]"));
+  }
+  function shouldHandleOcrPointerEvent(event) {
+    if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
+    return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
+  }
+  function isHoverPointerType(pointerType) {
+    return !pointerType || pointerType === "mouse" || pointerType === "pen";
+  }
+  function pointerEventImageTarget(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+    return target instanceof HTMLImageElement ? target : target.closest("img");
+  }
+  function pointerEventImageAtPoint(event) {
+    const element2 = ocrPointerHitElement(event);
+    if (!element2 || element2.closest("[data-jpdb-reader-root]")) return null;
+    return element2 instanceof HTMLImageElement ? element2 : element2.closest("img");
+  }
+  function pointerEventReaderSurfaceTarget(event, settings) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+    return readerSurfaceFromElement(target, settings);
+  }
+  function pointerEventReaderSurfaceAtPoint(event, settings) {
+    const element2 = ocrPointerHitElement(event);
+    if (element2 && !element2.closest("[data-jpdb-reader-root]")) {
+      const surface = readerSurfaceFromElement(element2, settings);
+      if (surface) return surface;
+    }
+    return readerSurfaceAtPoint(event.clientX, event.clientY, settings);
+  }
+  function readerSurfaceFromElement(element2, settings) {
+    const canvas = element2 instanceof HTMLCanvasElement ? element2 : element2.closest("canvas");
+    if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+    const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element2 || surface.contains(element2)) && isReaderSurfaceCandidate(surface, settings));
+    return background ?? null;
+  }
+  function readerSurfaceAtPoint(clientX, clientY, settings) {
+    const surfaces = [
+      ...collectCanvasReaderSurfaces(),
+      ...collectBackgroundImageReaderSurfaces()
+    ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
+    return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
+  }
+  function isReaderSurfaceCandidate(surface, settings) {
+    const rect = surface.getBoundingClientRect();
+    return rect.width * rect.height >= settings.ocrMinImageArea && isNearViewport(surface, settings.ocrPrefetchMargin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
+  }
+  function rectContainsPoint(rect, clientX, clientY) {
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }
   const BOOKWALKER_CONTENT_SESSION_PATHS = /* @__PURE__ */ new Set([
     "/browserWebApi/c",
@@ -59437,10 +60316,10 @@ ${spelling}`);
     for (const listener of manualVideoFrameRequestBus().listeners) listener(video);
   }
   function subscribeToManualVideoFrameOcrRequests(listener) {
-    const listeners = manualVideoFrameRequestBus().listeners;
-    listeners.add(listener);
+    const listeners2 = manualVideoFrameRequestBus().listeners;
+    listeners2.add(listener);
     return () => {
-      listeners.delete(listener);
+      listeners2.delete(listener);
     };
   }
   function manualVideoFrameRequestBus() {
@@ -59458,416 +60337,6 @@ ${spelling}`);
   }
   function isManualVideoFrameRequestBus(value) {
     return Boolean(value && typeof value === "object" && value.listeners instanceof Set);
-  }
-  const presentationsByImage = /* @__PURE__ */ new WeakMap();
-  const imagesByHost = /* @__PURE__ */ new WeakMap();
-  function createPrivateRasterImage(className) {
-    const host = document.createElement("div");
-    host.className = className;
-    host.dataset.yomuPrivateRasterHost = "true";
-    host.setAttribute("aria-hidden", "true");
-    const root = host.attachShadow({ mode: "closed" });
-    const style = document.createElement("style");
-    style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
-    const image = document.createElement("img");
-    image.alt = "";
-    root.append(style, image);
-    const presentation = { host, image, root };
-    presentationsByImage.set(image, presentation);
-    imagesByHost.set(host, image);
-    return image;
-  }
-  function privateRasterHost(image) {
-    const host = presentationsByImage.get(image)?.host;
-    if (!host) throw new Error("OCR raster image has no private presentation.");
-    return host;
-  }
-  function setPrivateRasterClass(image, className, enabled) {
-    image.classList.toggle(className, enabled);
-    privateRasterHost(image).classList.toggle(className, enabled);
-  }
-  function setPrivateRasterSource(image, source, options = {}) {
-    const presentation = presentationsByImage.get(image);
-    if (!presentation) throw new Error("OCR raster image has no private presentation.");
-    releaseOwnedObjectUrl(presentation);
-    image.src = source;
-    if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
-  }
-  function positionPrivateRasterImage(image, rect) {
-    for (const element2 of [privateRasterHost(image), image]) {
-      element2.style.left = `${rect.left}px`;
-      element2.style.top = `${rect.top}px`;
-      element2.style.width = `${rect.width}px`;
-      element2.style.height = `${rect.height}px`;
-    }
-  }
-  function releasePrivateRasterImage(image) {
-    const presentation = presentationsByImage.get(image);
-    if (!presentation) {
-      image.removeAttribute("src");
-      image.remove();
-      return;
-    }
-    releaseOwnedObjectUrl(presentation);
-    image.removeAttribute("src");
-    presentation.root.replaceChildren();
-    presentation.host.remove();
-    presentationsByImage.delete(image);
-    imagesByHost.delete(presentation.host);
-  }
-  function releaseOwnedObjectUrl(presentation) {
-    const url = presentation.ownedObjectUrl;
-    presentation.ownedObjectUrl = void 0;
-    if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
-  }
-  function isVisibleOcrImage(image) {
-    return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
-  }
-  function isImageVisibleForOcr(image, rect) {
-    return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
-  }
-  function isInsideHiddenAncestor(element2, includeAriaHidden = true) {
-    for (let current = element2.parentElement; current && current !== document.body; current = current.parentElement) {
-      if (hiddenAncestor(current, includeAriaHidden)) return true;
-    }
-    return false;
-  }
-  function hiddenAncestor(element2, includeAriaHidden) {
-    return isHiddenByCss(element2) || element2.hasAttribute("hidden") || ariaHidden(element2, includeAriaHidden);
-  }
-  function ariaHidden(element2, included) {
-    return included && element2.getAttribute("aria-hidden") === "true";
-  }
-  function rectIntersectsViewport(rect) {
-    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
-  }
-  function isHiddenByCss(element2) {
-    const style = getComputedStyle(element2);
-    return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
-  }
-  function isNearViewport(element2, margin) {
-    const rect = element2.getBoundingClientRect();
-    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
-  }
-  function isImageOccludedByVideo(image, rect) {
-    if (image.dataset.yomuVideoFrame) return false;
-    const imageArea = rect.width * rect.height;
-    if (imageArea < 4) return false;
-    const imageRoot = image.getRootNode();
-    return [...document.querySelectorAll("video")].some((video) => isVisiblePeerVideo(video, image, imageRoot) && videoOccludesImage(video, rect, imageArea));
-  }
-  function isVisiblePeerVideo(video, image, imageRoot) {
-    return [
-      video.isConnected,
-      video.getRootNode() === imageRoot,
-      !isSameMediaNode(video, image),
-      visibleVideoRect(video) !== null,
-      !isHiddenByCss(video)
-    ].every(Boolean);
-  }
-  function visibleVideoRect(video) {
-    const rect = video.getBoundingClientRect();
-    return rect.width >= 2 && rect.height >= 2 ? rect : null;
-  }
-  function videoOccludesImage(video, imageRect, imageArea) {
-    const videoRect = visibleVideoRect(video);
-    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
-  }
-  function isSameMediaNode(video, image) {
-    return video === image.parentElement || image === video.parentElement;
-  }
-  function intersectionArea(a, b) {
-    const left = Math.max(a.left, b.left);
-    const top = Math.max(a.top, b.top);
-    const right = Math.min(a.right, b.right);
-    const bottom = Math.min(a.bottom, b.bottom);
-    return Math.max(0, right - left) * Math.max(0, bottom - top);
-  }
-  const VIDEO_FRAME_PLAYER_SELECTOR = [
-    "#movie_player",
-    ".html5-video-player",
-    "ytd-player",
-    "#player",
-    "#player-container",
-    "#player-container-outer",
-    "[data-yomu-video-frame]"
-  ].join(",");
-  const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
-    '[data-yomu-inline-fullscreen="true"]',
-    '[data-fullscreen-active="true"]',
-    "[fullscreen]",
-    "#movie_player.ytp-fullscreen",
-    ".html5-video-player.ytp-fullscreen",
-    "ytd-watch-flexy[fullscreen]",
-    "ytm-player[fullscreen]",
-    "ytm-player.fullscreen",
-    "ytm-player.ytp-fullscreen"
-  ].join(",");
-  const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
-    "ytd-thumbnail",
-    "ytd-rich-item-renderer",
-    "ytd-rich-grid-media",
-    "ytd-video-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-grid-video-renderer",
-    "ytd-reel-item-renderer",
-    "ytd-playlist-thumbnail",
-    "ytd-video-preview",
-    "yt-thumbnail-view-model",
-    "yt-lockup-view-model",
-    "ytm-rich-item-renderer",
-    "ytm-compact-video-renderer",
-    "ytm-video-card-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2"
-  ].join(",");
-  const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
-    'a[href*="/watch"]',
-    'a[href*="/shorts/"]'
-  ].join(",");
-  const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
-    VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
-    "yt-image",
-    ".yt-core-image"
-  ].join(",");
-  function captureVideoFrameDataUrl(video) {
-    try {
-      if (!videoHasDecodedFrame(video)) return void 0;
-      return videoFrameDataUrl(video);
-    } catch {
-      return void 0;
-    }
-  }
-  function videoHasDecodedFrame(video) {
-    return Math.min(video.videoWidth, video.videoHeight) > 0 && video.readyState >= 2;
-  }
-  function isLikelyPausedVideoThumbnail(video) {
-    if (isExplicitVideoThumbnail(video)) return true;
-    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-    return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) && !isPrimaryPlayerSizedVideo(video);
-  }
-  function isExplicitVideoThumbnail(video) {
-    return isTwitterHost() || Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR));
-  }
-  function isTwitterHost(hostname = location.hostname) {
-    return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
-  }
-  function isPrimaryPlayerSizedVideo(video) {
-    const rect = video.getBoundingClientRect();
-    if (!hasMinimumPlayerSize(rect)) return false;
-    const viewport = currentViewportSize();
-    if (!viewport) return hasFallbackPrimaryPlayerSize(rect);
-    return isViewportProminentVideo(rect, viewport);
-  }
-  function hasMinimumPlayerSize(rect) {
-    return rect.width >= 280 && rect.height >= 160;
-  }
-  function hasFallbackPrimaryPlayerSize(rect) {
-    return rect.width >= 480 && rect.height >= 270;
-  }
-  function currentViewportSize() {
-    const width = firstNonZeroDimension(window.innerWidth, document.documentElement.clientWidth);
-    const height = firstNonZeroDimension(window.innerHeight, document.documentElement.clientHeight);
-    if (!width) return void 0;
-    return height ? { width, height } : void 0;
-  }
-  function firstNonZeroDimension(primary, fallback) {
-    return primary || fallback || 0;
-  }
-  function isViewportProminentVideo(rect, viewport) {
-    return rect.width >= viewport.width * 0.6 || rect.width * rect.height >= viewport.width * viewport.height * 0.25;
-  }
-  function positionVideoFrameImage(frame, rect, video) {
-    const content = videoContentBox(rect, video);
-    for (const element2 of [privateRasterHost(frame), frame]) {
-      setOcrArtifactPosition(element2, content.left, content.top);
-      element2.style.width = `${content.width}px`;
-      element2.style.height = `${content.height}px`;
-    }
-  }
-  function positionVideoFrameResumeControl(control, rect, video) {
-    const root = videoFrameArtifactRoot(video);
-    if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
-    attachVideoFrameResumeControlFallback(control, root);
-    const content = videoContentBox(rect, video);
-    setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
-  }
-  function positionVideoFrameStatus(status, rect, video) {
-    const content = videoContentBox(rect, video);
-    positionOcrImageStatus(status, content);
-  }
-  function positionOcrImageStatus(status, rect) {
-    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
-    status.style.maxWidth = `${maxWidth}px`;
-  }
-  function appendOcrArtifactToRoot(element2, root) {
-    const oldRoot = element2.parentElement;
-    const fullscreenHosted = root !== document.body;
-    if (fullscreenHosted) prepareOcrFullscreenHost(root);
-    element2.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
-    if (oldRoot !== root) root.append(element2);
-    clearOcrFullscreenHostMarker(oldRoot);
-  }
-  function removeOcrArtifact(element2) {
-    const oldRoot = element2.parentElement;
-    element2.remove();
-    clearOcrFullscreenHostMarker(oldRoot);
-  }
-  function clearOcrFullscreenHostMarker(root) {
-    if (!isFullscreenArtifactContainer(root)) return;
-    if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
-    delete root.dataset.yomuOcrFullscreenHost;
-    clearPreparedFullscreenHostPosition(root);
-  }
-  function isFullscreenArtifactContainer(root) {
-    return root instanceof HTMLElement && root !== document.body;
-  }
-  function clearPreparedFullscreenHostPosition(root) {
-    if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
-      root.style.position = "";
-      delete root.dataset.yomuOcrFullscreenHostPosition;
-    }
-  }
-  function prepareOcrFullscreenHost(root) {
-    root.dataset.yomuOcrFullscreenHost = "true";
-    const position = getComputedStyle(root).position;
-    if (position && position !== "static") return;
-    root.style.position = "relative";
-    root.dataset.yomuOcrFullscreenHostPosition = "relative";
-  }
-  function videoFrameArtifactRoot(video) {
-    return activeVideoFullscreenHost(video) ?? document.body;
-  }
-  function activeVideoFullscreenHost(video) {
-    const active = activeFullscreenElement();
-    return documentFullscreenArtifactHost(active) ?? activeElementArtifactHost(active, video) ?? closestFullscreenArtifactHost(video) ?? youtubeFullscreenHostForOcrVideo(video);
-  }
-  function documentFullscreenArtifactHost(active) {
-    return [document.body, document.documentElement].includes(active) ? document.body : null;
-  }
-  function activeElementArtifactHost(active, video) {
-    if (!active) return null;
-    if (active === video) return fullscreenVideoArtifactHost(video);
-    return active.contains(video) ? active : null;
-  }
-  function closestFullscreenArtifactHost(video) {
-    return connectedVideoAncestor(video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR), video);
-  }
-  function fullscreenVideoArtifactHost(video) {
-    const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
-    return connectedVideoAncestor(host, video) ?? youtubeFullscreenHostForOcrVideo(video);
-  }
-  function connectedVideoAncestor(host, video) {
-    return isConnectedVideoAncestor(host, video) ? host : null;
-  }
-  function isConnectedVideoAncestor(host, video) {
-    return host !== null && host !== video && host.isConnected && host.contains(video);
-  }
-  function youtubeFullscreenHostForOcrVideo(video) {
-    if (!isYouTubeAppHostname()) return null;
-    return scopedYoutubeFullscreenHost(video) ?? unscopedYoutubeFullscreenHost(video);
-  }
-  function scopedYoutubeFullscreenHost(video) {
-    return [
-      video.closest('[data-yomu-inline-fullscreen="true"]'),
-      video.closest(".html5-video-player.ytp-fullscreen"),
-      video.closest("#movie_player.ytp-fullscreen"),
-      video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
-      video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
-      video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element2) => Boolean(element2 && element2 !== video)) ?? null;
-  }
-  function unscopedYoutubeFullscreenHost(video) {
-    return [
-      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-      document.querySelector(".html5-video-player.ytp-fullscreen"),
-      document.querySelector("#movie_player.ytp-fullscreen"),
-      document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
-      document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
-      document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element2) => Boolean(element2 && element2 !== video && youtubeFullscreenHostContainsVideo(element2, video))) ?? null;
-  }
-  function youtubeFullscreenHostContainsVideo(element2, video) {
-    return element2.contains(video) || isYouTubeMobileFullscreenHostForOcr(element2);
-  }
-  function isYouTubeMobileFullscreenHostForOcr(element2) {
-    return /^m\.youtube\.com$/i.test(location.hostname) && element2.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
-  }
-  function activeFullscreenElement() {
-    const doc = document;
-    return [
-      doc.fullscreenElement,
-      doc.webkitFullscreenElement,
-      doc.mozFullScreenElement,
-      doc.msFullscreenElement
-    ].find((element2) => element2 instanceof HTMLElement) ?? null;
-  }
-  function attachVideoFrameResumeControlToSubtitleRail(control, root) {
-    const rail = connectedSubtitleRailForOcrRoot(root);
-    if (!rail) return false;
-    const oldParent = control.parentElement;
-    const oldRoot = subtitlePlayerRoot(control);
-    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-    control.dataset.yomuOcrFullscreenHosted = "false";
-    control.style.left = "";
-    control.style.top = "";
-    insertResumeControlIntoSubtitleRail(control, rail);
-    clearOcrFullscreenHostMarker(oldParent);
-    updateSubtitleRailResumeState(oldRoot);
-    updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-    return true;
-  }
-  function connectedSubtitleRailForOcrRoot(root) {
-    const rail = subtitleRailForOcrRoot(root);
-    return rail?.isConnected ? rail : null;
-  }
-  function insertResumeControlIntoSubtitleRail(control, rail) {
-    if (control.parentElement === rail) return;
-    const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
-    rail.insertBefore(control, panelButton);
-  }
-  function attachVideoFrameResumeControlFallback(control, root) {
-    const oldRoot = subtitlePlayerRoot(control);
-    appendOcrArtifactToRoot(control, root);
-    control.classList.add("jpdb-ocr-video-frame-resume-fallback");
-    updateSubtitleRailResumeState(oldRoot);
-  }
-  function removeVideoFrameResumeControl(control) {
-    const root = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    updateSubtitleRailResumeState(root);
-  }
-  function subtitleRailForOcrRoot(root) {
-    const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
-    if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
-    return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
-  }
-  function subtitlePlayerRoot(control) {
-    return control.closest(".jpdb-subtitle-player");
-  }
-  function updateSubtitleRailResumeState(root) {
-    if (!root) return;
-    root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
-  }
-  function playVideoIcon() {
-    return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-  }
-  function videoContentBox(rect, video) {
-    const intrinsicWidth = video.videoWidth;
-    const intrinsicHeight = video.videoHeight;
-    if (!hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight)) return rect;
-    const style = getComputedStyle(video);
-    const object2 = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
-    const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object2.width, rect.height - object2.height);
-    return new DOMRect(rect.left + offset.x, rect.top + offset.y, object2.width, object2.height);
-  }
-  function hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight) {
-    return Math.min(intrinsicWidth, intrinsicHeight, rect.width, rect.height) > 0;
-  }
-  function videoObjectFit(value) {
-    return ["contain", "cover", "none", "scale-down"].includes(value) ? value : "contain";
   }
   function isTerminalOcrStatus(status) {
     return status === "empty" || status === "failed";
@@ -60013,6 +60482,7 @@ ${spelling}`);
     backgroundFrames = /* @__PURE__ */ new Map();
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
+    tappedBackgroundFrames = /* @__PURE__ */ new WeakSet();
     canvasReaderSignature;
     canvasReaderSamePageSignatureSkips = 0;
     // Keeps viewport shifts O(1) on pages proven free of reader rasters.
@@ -60033,6 +60503,7 @@ ${spelling}`);
     readerRasterProviderRetryTimers = /* @__PURE__ */ new Map();
     // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
     canvasTapRecapture = /* @__PURE__ */ new Map();
+    canvasTapHint = new ReaderCanvasTapHint();
     ocrWordRenderStates = new OcrWordRenderStateRegistry();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     replacementOcrLines = /* @__PURE__ */ new WeakMap();
@@ -60240,8 +60711,11 @@ ${spelling}`);
       }
       if (!batch.touchesRenderableMedia) return;
       this.schedulePosition();
-      if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-      this.scheduleRefresh(batch.addedImage ? 0 : 40);
+      if (canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) {
+        this.scheduleRefresh(batch.addedImage ? 0 : 40);
+      } else if (settings.ocrAutoScanImages && !this.isProvenRasterFreePage()) {
+        this.scheduleReaderRasterRefresh(40);
+      }
     }
     invalidatePositionTransformsForMutations(batch) {
       if (batch.restylesEverySurface) {
@@ -60486,6 +60960,7 @@ ${spelling}`);
       if (!surface) return false;
       const autoOwnsSurface = settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !(surface instanceof HTMLCanvasElement && isManualCanvasReaderSurface(surface));
       if (autoOwnsSurface) return false;
+      if (event.type !== "pointerdown" && settings.ocrAutoScanImages && this.options.shouldAutoScan?.() === false) return false;
       const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
       if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
       if (event.type === "pointermove") {
@@ -60495,6 +60970,7 @@ ${spelling}`);
         this.lastPointerMoveReaderSurface = void 0;
         this.lastPointerMoveReaderSurfaceKey = void 0;
       }
+      this.canvasTapHint.dismiss();
       void this.snapshotReaderSurface(surface, settings);
       return true;
     }
@@ -60590,6 +61066,7 @@ ${spelling}`);
       const work = ocrTargetWork(state2.key, target);
       if (await this.tryRenderCachedOcrResult(state2, work)) return;
       if (!this.isCurrentContentState(state2, work.contentKey)) return;
+      if (this.shouldSuppressAutoRenderedResult(state2, Boolean(readFallbackOcrResult(image)), manualRequested)) return;
       this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state2, image, settings, manualRequested);
       try {
@@ -60701,11 +61178,11 @@ ${spelling}`);
       log$j.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
-      return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
+      return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.readsReaderRasterFrameWithoutTap(state2.image) && this.options.shouldAutoScan?.() === false;
     }
-    isReaderRasterOcrOptInFrame(image) {
+    readsReaderRasterFrameWithoutTap(image) {
       const canvas = this.canvasFrameSources.get(image);
-      return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
+      return Boolean(canvas && readsReaderCanvasWithoutTap(canvas, this.options.getSettings()));
     }
     async renderOcrFailure(state2, image, work, provider, manualRequested, error) {
       work.target.requireCurrent(STALE_OCR_STATE);
@@ -61499,14 +61976,21 @@ ${spelling}`);
         return;
       }
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
-      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces().filter(isCanvasOcrOptInSurface), settings, userRequested) : void 0;
-      if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
+      const readerCanvases = nativeTextLayerBlocksAutoScan ? collectCanvasReaderSurfaces() : void 0;
+      const autoReadCanvases = readerCanvases && activeReaderRasterSurfaces(
+        readerCanvases.filter((canvas) => readsReaderCanvasWithoutTap(canvas, settings)),
+        settings,
+        userRequested
+      );
+      if (userRequested) this.canvasTapHint.dismiss();
+      else this.canvasTapHint.update(readerCanvasWaitingForTap(readerCanvases, autoReadCanvases, settings), settings);
+      if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, autoReadCanvases)) return;
       if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
         this.releaseAllCanvasFrames();
         return;
       }
       this.startReaderRasterPollingIfNeeded();
-      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      const canvases = autoReadCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       const signature = this.registerCanvasReaderPageSignature(canvases);
       if (signature === null) return;
       if (!settings.ocrAutoScanImages && !userRequested) {
@@ -61515,8 +61999,8 @@ ${spelling}`);
       }
       this.reconcileCanvasReaderFrames(canvases, signature, settings, userRequested);
     }
-    handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases) {
-      if (!nativeTextLayerBlocksAutoScan || ocrOptInCanvases?.length) return false;
+    handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, autoReadCanvases) {
+      if (!nativeTextLayerBlocksAutoScan || autoReadCanvases?.length) return false;
       if (!isReaderRasterPage()) {
         this.releaseAllCanvasFrames();
         return true;
@@ -62020,7 +62504,7 @@ ${spelling}`);
       if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
       card.hidden = false;
       this.canvasPendingStatusKeys.set(canvas, canvasSurfaceSnapshotKey(canvas));
-      positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+      positionOcrImageStatus(card, visibleViewportIntersection(rect) ?? rect);
     }
     removeCanvasPendingStatus(canvas) {
       const card = this.canvasPendingStatuses.get(canvas);
@@ -62112,7 +62596,7 @@ ${spelling}`);
         this.discardCanvasPendingStatus(canvas);
         return;
       }
-      const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+      const rect = visibleViewportIntersection(canvas.getBoundingClientRect());
       if (!rect) {
         this.hideUnavailableCanvasPendingStatus(canvas, status);
         return;
@@ -62226,18 +62710,6 @@ ${spelling}`);
         fractions.height * canvasRect.height
       );
     }
-    visibleViewportIntersection(rect) {
-      const viewportWidth2 = window.innerWidth || document.documentElement.clientWidth || 0;
-      const viewportHeight2 = window.innerHeight || document.documentElement.clientHeight || 0;
-      if (!viewportWidth2 || !viewportHeight2) return void 0;
-      const left = Math.max(0, rect.left);
-      const top = Math.max(0, rect.top);
-      const right = Math.min(viewportWidth2, rect.right);
-      const bottom = Math.min(viewportHeight2, rect.bottom);
-      const width = right - left;
-      const height = bottom - top;
-      return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
-    }
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
       if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       if (!settings.ocrAutoScanImages && !userRequested) return;
@@ -62246,7 +62718,7 @@ ${spelling}`);
         return;
       }
       if (this.options.shouldAutoScan?.() === false && !userRequested) {
-        this.releaseAllBackgroundFrames();
+        this.releaseUntappedBackgroundFrames();
         return;
       }
       if (this.isProvenRasterFreePage() || !isReaderRasterPage()) {
@@ -62278,6 +62750,7 @@ ${spelling}`);
       frame.addEventListener("load", () => {
         if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
       }, { once: true });
+      if (userRequested) this.tappedBackgroundFrames.add(frame);
       setPrivateRasterSource(frame, url);
       document.body.append(privateRasterHost(frame));
       this.backgroundFrames.set(surface, frame);
@@ -62308,6 +62781,15 @@ ${spelling}`);
     }
     releaseAllBackgroundFrames() {
       for (const surface of [...this.backgroundFrames.keys()]) this.releaseBackgroundFrame(surface);
+    }
+    // Where image OCR does not auto-scan, only the learner's tap reads a page. Keep that
+    // page until it changes: the reader poll or a thumbnail loading elsewhere must not
+    // throw away a result the provider already returned and make the learner send it again.
+    releaseUntappedBackgroundFrames() {
+      for (const [surface, frame] of [...this.backgroundFrames]) {
+        const unchanged = this.backgroundFrameKeys.get(surface) === backgroundSurfaceCacheKey(surface);
+        if (!unchanged || !this.tappedBackgroundFrames.has(frame)) this.releaseBackgroundFrame(surface);
+      }
     }
     retryVisibleReaderRasterFrames(settings) {
       let retried = 0;
@@ -62464,6 +62946,7 @@ ${spelling}`);
       return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
     clear() {
+      this.canvasTapHint.remove();
       this.observer?.disconnect();
       this.observer = void 0;
       this.observerMargin = "";
@@ -62933,90 +63416,8 @@ ${reading}`);
     return isVisibleOcrImage(image);
   }
   function ocrImageFromPointerEvent(event, settings) {
-    if (!ocrRuntimeActive(settings) || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-    const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+    const image = ocrRuntimeActive(settings) ? ocrPointerImage(event) : null;
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
-  }
-  function ocrReaderSurfaceFromPointerEvent(event, settings, rasterFreePage) {
-    if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-    if (pointerEventOverOcrOverlay(event)) return null;
-    return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
-  }
-  function touchPointFromEvent(event) {
-    const touchEvent = event;
-    const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
-    if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
-    return { clientX: touch.clientX, clientY: touch.clientY };
-  }
-  function eventWithPoint(event, point) {
-    return {
-      type: "pointerdown",
-      target: event.target,
-      button: 0,
-      clientX: point.clientX,
-      clientY: point.clientY,
-      pointerType: "touch"
-    };
-  }
-  function pointerEventOverOcrOverlay(event) {
-    const target = event.target;
-    if (target?.closest?.("[data-jpdb-reader-root]")) return true;
-    return Boolean(ocrPointerHitElement(event)?.closest?.("[data-jpdb-reader-root]"));
-  }
-  function shouldHandleOcrPointerEvent(event) {
-    if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
-    return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
-  }
-  function isPointerLikeEvent(event) {
-    const candidate = event;
-    return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
-  }
-  function isHoverPointerType(pointerType) {
-    return !pointerType || pointerType === "mouse" || pointerType === "pen";
-  }
-  function pointerEventImageTarget(event) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-    return target instanceof HTMLImageElement ? target : target.closest("img");
-  }
-  function pointerEventImageAtPoint(event) {
-    const element2 = ocrPointerHitElement(event);
-    if (!element2 || element2.closest("[data-jpdb-reader-root]")) return null;
-    return element2 instanceof HTMLImageElement ? element2 : element2.closest("img");
-  }
-  function pointerEventReaderSurfaceTarget(event, settings) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-    return readerSurfaceFromElement(target, settings);
-  }
-  function pointerEventReaderSurfaceAtPoint(event, settings) {
-    const element2 = ocrPointerHitElement(event);
-    if (element2 && !element2.closest("[data-jpdb-reader-root]")) {
-      const surface = readerSurfaceFromElement(element2, settings);
-      if (surface) return surface;
-    }
-    return readerSurfaceAtPoint(event.clientX, event.clientY, settings);
-  }
-  function readerSurfaceFromElement(element2, settings) {
-    const canvas = element2 instanceof HTMLCanvasElement ? element2 : element2.closest("canvas");
-    if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
-    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
-    const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element2 || surface.contains(element2)) && isReaderSurfaceCandidate(surface, settings));
-    return background ?? null;
-  }
-  function readerSurfaceAtPoint(clientX, clientY, settings) {
-    const surfaces = [
-      ...collectCanvasReaderSurfaces(),
-      ...collectBackgroundImageReaderSurfaces()
-    ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
-    return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
-  }
-  function isReaderSurfaceCandidate(surface, settings) {
-    const rect = surface.getBoundingClientRect();
-    return rect.width * rect.height >= settings.ocrMinImageArea && isNearViewport(surface, settings.ocrPrefetchMargin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
-  }
-  function rectContainsPoint(rect, clientX, clientY) {
-    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }
   function isIgnoredOcrImage(image) {
     return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBookwalkerReaderSourceImage(image) || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
@@ -63092,15 +63493,6 @@ ${reading}`);
     const ratio = width / height;
     return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
   }
-  function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
-    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-  }
-  function hasCanvasOcrOptInSurface() {
-    return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
-  }
-  function isCanvasOcrOptInSurface(canvas) {
-    return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
-  }
   function shouldObserveImage(image, settings) {
     return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
   }
@@ -63144,6 +63536,10 @@ ${reading}`);
     if (!userRequested && isBookwalkerViewerHost()) return activeBookwalkerReaderRasterSurfaces(active, settings);
     const limit = readerRasterMaxSurfaces(settings, userRequested);
     return active.slice(0, limit);
+  }
+  function readerCanvasWaitingForTap(readerCanvases, autoReadCanvases, settings) {
+    if (!readerCanvases || autoReadCanvases?.length || !isOcrProviderConfigured(settings)) return void 0;
+    return activeReaderRasterSurfaces(readerCanvases, settings, false)[0];
   }
   function readerRasterCaptureMargin(settings, userRequested) {
     if (userRequested) return settings.ocrPrefetchMargin;
@@ -64406,6 +64802,9 @@ ${reading}`);
       bmBusy: "A batch action is still running.",
       bmCapacity: "Batch history limit reached. Use a smaller selection, or finish pending batches and rescan. Unfinished work has been kept.",
       bmPartial: "Completed {count} of {total} words. Unfinished words remain selected.",
+      bmNotFound: "Not found in your preferred grading service, so not graded: {words}.",
+      bmNoDestination: "None of your decks could take these, so not added: {words}.",
+      bmNotFoundAdd: "Not found in your preferred grading service, so not added: {words}.",
       bmUncertain: "Review result is uncertain. Refresh the provider review session before reviewing this word again.",
       bmCopy: "Copy list",
       bmGradeSelected: "Grade selected",
@@ -64455,6 +64854,9 @@ ${reading}`);
       bmBusy: "一括操作を実行中です。",
       bmCapacity: "一括操作の履歴が上限に達しました。選択数を減らすか、未完了の操作を終えて再スキャンしてください。未完了の処理は保持しています。",
       bmPartial: "{total}語中{count}語が完了しました。未完了の単語は選択したままです。",
+      bmNotFound: "優先採点サービスで見つからなかったため、採点していません：{words}",
+      bmNoDestination: "追加できるデッキがなかったため、追加していません：{words}",
+      bmNotFoundAdd: "優先採点サービスで見つからなかったため、追加していません：{words}",
       bmUncertain: "復習結果を確認できません。この単語を再び復習する前に、サービスの復習セッションを更新してください。",
       bmCopy: "リストをコピー",
       bmGradeSelected: "選択を評価",
@@ -69706,23 +70108,30 @@ ${reading}`);
     return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
   }
   const LEGACY_DECK_KEY = "yomu:srs-local:v1";
-  const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
-  const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
-  const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+  const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
+  const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+  const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
+  const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
   registerManagedState({
     owner: "srs/local-yomu-store",
     kind: "gm",
-    prefix: "yomu:srs-local:v2:",
+    prefix: DECK_KEY_PREFIX,
     enumerate: enumerateLocalYomuSrsStorageKeys
   });
+  function isLocalYomuSrsStorageKey(key) {
+    return key === LEGACY_DECK_KEY || key.startsWith(DECK_KEY_PREFIX);
+  }
   class LocalYomuSrsStorageError extends Error {
     constructor(options) {
-      super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+      super(isStorageLeaseLapsed(options?.cause) ? "Your Academy deck was not saved because saving was interrupted. Try again." : "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
       this.name = "LocalYomuSrsStorageError";
     }
   }
   function isLocalYomuSrsStorageError(error) {
     return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+  }
+  function isLocalYomuSrsSaveInterrupted(error) {
+    return isStorageLeaseLapsed(error) || isLocalYomuSrsStorageError(error) && isStorageLeaseLapsed(error.cause);
   }
   async function enumerateLocalYomuSrsStorageKeys() {
     const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
@@ -69768,10 +70177,10 @@ ${reading}`);
         }
         await gmStorageSet(DECK_INDEX_KEY, nextIndex);
       } catch (error) {
-        await Promise.all(newlyCreatedKeys.map((key) => gmStorageDelete(key)));
+        if (!isStorageLeaseLapsed(error)) await Promise.allSettled(newlyCreatedKeys.map((key) => gmStorageDelete(key)));
         throw new LocalYomuSrsStorageError({ cause: error });
       }
-      await Promise.all([
+      await Promise.allSettled([
         ...previousIndex.cardIds.filter((id) => !next.cards[id]).map((id) => gmStorageDelete(cardStorageKey(id))),
         ...previousIndex.tombstoneIds.filter((id) => next.tombstones?.[id] === void 0).map((id) => gmStorageDelete(tombstoneStorageKey(id)))
       ]);
@@ -69823,6 +70232,11 @@ ${reading}`);
     return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id)}`;
   }
   let localDeckMutation = Promise.resolve();
+  const LOCAL_DECK_LEASE = {
+    leaseMs: STORAGE_WORK_LEASE_MS,
+    guards: isLocalYomuSrsStorageKey,
+    onWait: reportSaveWaitingForAnotherTab
+  };
   const localDeckMutationListeners = /* @__PURE__ */ new Set();
   function subscribeLocalYomuSrsMutations(listener) {
     localDeckMutationListeners.add(listener);
@@ -69890,13 +70304,11 @@ ${reading}`);
     }
     async collection(limit = 50, options = {}) {
       const now = this.now();
-      const language2 = options.language ? canonicalLanguageTag(options.language) : "";
-      return Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
+      return Object.values((await this.readDeck()).cards).filter(inRequestedLanguage(options)).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).slice(0, normalizedQueueLimit(limit)).map((card) => this.toReviewable(card, now));
     }
     async queue(limit = 50, options = {}) {
       const now = this.now();
-      const language2 = options.language ? canonicalLanguageTag(options.language) : "";
-      const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
+      const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter(inRequestedLanguage(options));
       const cap = normalizedQueueLimit(limit);
       const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
       const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -69912,9 +70324,9 @@ ${reading}`);
         reviewCount: due.length
       };
     }
-    async stats() {
+    async stats(options = {}) {
       const now = this.now();
-      const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false);
+      const cards = Object.values((await this.readDeck()).cards).filter((card) => card.reviewEnabled !== false).filter(inRequestedLanguage(options));
       const today = startOfLocalDay$1(now);
       return {
         providerId: "yomu-local",
@@ -70037,32 +70449,43 @@ ${reading}`);
       return this.store.write(previous, deck);
     }
     mutateDeck(operation, notifyMutations = true) {
-      const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
-        const deck = await this.readDeckUncoordinated();
-        const previousDeck = structuredClone(deck);
-        const previousCards = new Map(Object.entries(previousDeck.cards));
-        const previousTombstones = { ...previousDeck.tombstones ?? {} };
-        const value = operation(deck);
-        await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
-        const changedCardIds = /* @__PURE__ */ new Set([
-          ...previousCards.keys(),
-          ...Object.keys(deck.cards),
-          ...Object.keys(previousTombstones),
-          ...Object.keys(deck.tombstones ?? {})
-        ]);
-        const changed = [...changedCardIds].filter((id) => !sameStoredCard(previousCards.get(id), deck.cards[id]) || previousTombstones[id] !== deck.tombstones?.[id]);
-        if (notifyMutations) {
-          localDeckMutationListeners.forEach((listener) => {
-            try {
-              listener(changed);
-            } catch {
-            }
-          });
+      const result = localDeckMutation.then(async () => {
+        const attempt2 = {};
+        try {
+          await withGmStorageLease("local-yomu-srs-deck", async () => {
+            const deck = await this.readDeckUncoordinated();
+            const previous = structuredClone(deck);
+            const value = operation(deck);
+            attempt2.save = { value, previous, next: normalizeStoredYomuSrsDeck(deck) };
+            await this.writeDeck(previous, attempt2.save.next);
+          }, LOCAL_DECK_LEASE);
+        } catch (error) {
+          await this.confirmInterruptedSave(attempt2.save, error);
         }
-        return value;
-      }));
+        const save = attempt2.save;
+        if (notifyMutations) notifyLocalDeckMutations(changedCardIds(save.previous, save.next));
+        return save.value;
+      });
       localDeckMutation = result.then(() => void 0, () => void 0);
       return result;
+    }
+    // A tab suspended mid-save has its remaining writes refused (ADR-0019), but
+    // what already landed stays: a grade overwrites its card in place before the
+    // index write. When every record the save changed is stored as it meant to
+    // store it, the save happened, so this commits the index rather than report
+    // a failure the learner would repeat, scheduling the card twice. A save
+    // whose records did not all land failed, and saving again is safe.
+    async confirmInterruptedSave(save, error) {
+      const landed = save && isLocalYomuSrsSaveInterrupted(error) && await this.landedBeforeInterruption(save).catch(() => false);
+      if (!landed) throw deckSaveError(error);
+    }
+    landedBeforeInterruption(save) {
+      return withGmStorageLease("local-yomu-srs-deck", async () => {
+        const stored = await this.readDeckUncoordinated();
+        if (changedCardIds(save.previous, save.next).some((id) => deckRecordsDiffer(stored, save.next, id))) return false;
+        await this.writeDeck(stored, stored);
+        return true;
+      }, LOCAL_DECK_LEASE);
     }
     cardFromImportItem(item, now) {
       let identity;
@@ -70154,6 +70577,29 @@ ${reading}`);
     if (!left || !right) return false;
     return JSON.stringify(left) === JSON.stringify(right);
   }
+  function deckSaveError(error) {
+    return isStorageLeaseLapsed(error) ? new LocalYomuSrsStorageError({ cause: error }) : error;
+  }
+  function deckRecordsDiffer(left, right, id) {
+    return !sameStoredCard(left.cards[id], right.cards[id]) || left.tombstones?.[id] !== right.tombstones?.[id];
+  }
+  function changedCardIds(previous, next) {
+    const ids = /* @__PURE__ */ new Set([
+      ...Object.keys(previous.cards),
+      ...Object.keys(next.cards),
+      ...Object.keys(previous.tombstones ?? {}),
+      ...Object.keys(next.tombstones ?? {})
+    ]);
+    return [...ids].filter((id) => deckRecordsDiffer(previous, next, id));
+  }
+  function notifyLocalDeckMutations(changed) {
+    localDeckMutationListeners.forEach((listener) => {
+      try {
+        listener(changed);
+      } catch {
+      }
+    });
+  }
   function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
     return {
       id: "yomu-local",
@@ -70162,7 +70608,7 @@ ${reading}`);
       capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
       hasCredential: () => true,
       verify: async () => true,
-      stats: () => repository.stats(),
+      stats: (options) => repository.stats(options),
       queue: (limit, options) => repository.queue(limit, options),
       collection: (limit, options) => repository.collection(limit, options),
       startReview: (cardId) => repository.startReview(cardId),
@@ -70219,6 +70665,10 @@ ${reading}`);
     const date = new Date(now);
     date.setHours(0, 0, 0, 0);
     return date.getTime();
+  }
+  function inRequestedLanguage(options) {
+    const language2 = options.language ? canonicalLanguageTag(options.language) : "";
+    return (card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2;
   }
   function normalizedQueueLimit(limit) {
     if (Number.isNaN(limit) || limit <= 0) return 0;
@@ -70297,6 +70747,35 @@ ${reading}`);
     if (bunproBacked) return { ...apiSrsProviderView("bunpro", settings), hasApiKey: false };
     if (wanikaniBacked) return { ...apiSrsProviderView("wanikani", settings), hasApiKey: false };
     return null;
+  }
+  function apiGradingServiceToResolve(card, settings, isJpdbBackedCard) {
+    const chosen = chosenWordGradingService(settings);
+    if (!chosen || card.apiGradingProviderOverride) return null;
+    const own = apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+    return (own === "jpdb" || own === "jiten") && own !== chosen ? chosen : null;
+  }
+  function apiSrsGradingProviderViewForCard(card, settings, isJpdbBackedCard) {
+    const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
+    return resolveOn ? apiSrsProviderView(resolveOn, settings) : apiSrsProviderViewForCard(card, settings, isJpdbBackedCard);
+  }
+  const COLLECTION_ACCEPTS = {
+    jpdb: (card, isJpdbBackedCard) => isJpdbBackedCard(card),
+    jiten: isJitenBackedCard,
+    "yomu-local": (card) => Boolean(card.spelling.trim()),
+    bunpro: isBunproMiningCard,
+    wanikani: () => false
+  };
+  const COLLECTION_FALLBACK_ORDER = ["anki", "jpdb", "jiten", "yomu-local", "bunpro"];
+  function collectionDestinationsForCard(card, settings, isJpdbBackedCard) {
+    const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
+    const grading = resolveOn ?? apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+    const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter((id) => id !== grading)] : COLLECTION_FALLBACK_ORDER;
+    const accepts = (id) => id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
+    return order.filter((id) => canCollectTo(id, settings, accepts));
+  }
+  function canCollectTo(id, settings, accepts) {
+    if (id === "anki") return settings.ankiEnabled;
+    return isApiSrsProviderEnabled(settings, id) && apiSrsProviderView(id, settings).hasApiKey && accepts(id);
   }
   function isApiMiningEnabled(settings) {
     return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
@@ -70492,7 +70971,7 @@ ${reading}`);
       return await operation();
     } catch (error) {
       if (isLocalYomuSrsStorageError(error)) {
-        throw userFacingError("yomuLocalSrsStorageFailed", { cause: error });
+        throw userFacingError(isLocalYomuSrsSaveInterrupted(error) ? "yomuLocalSrsSaveInterrupted" : "yomuLocalSrsStorageFailed", { cause: error });
       }
       throw error;
     }
@@ -71451,6 +71930,10 @@ ${reading}`);
       this.unresolved.add(operation);
       return operation;
     }
+    /** A word turned away before anything was written leaves the operation: there is nothing to finish. */
+    release(operation, id) {
+      operation.delete(id);
+    }
     finish(operation) {
       if ([...operation.values()].every((item) => item.required.every((key) => this.values.get(key) === "completed"))) {
         this.unresolved.delete(operation);
@@ -71480,12 +71963,15 @@ ${reading}`);
     }
     entries = /* @__PURE__ */ new Map();
     receipts;
+    // Review receipts of words the grading service does not have, until a rescan.
+    unmatched = /* @__PURE__ */ new Set();
     busy = false;
     /** A deliberate new scan, not a render or retry, starts a fresh generation. */
     beginGeneration() {
       if (this.busy) return false;
       this.entries.clear();
       this.receipts.beginGeneration();
+      this.unmatched.clear();
       return true;
     }
     prepare(candidates) {
@@ -71495,11 +71981,11 @@ ${reading}`);
       const context = batchContext(settings);
       return candidates.map((candidate) => {
         const identity = batchCardIdentity(candidate.card);
-        const provider = this.deps.resolveProvider(candidate.card, settings);
-        const enabled = Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
-        const collectApi = Boolean(isApiMiningEnabled(settings) && enabled && (provider?.supportsMiningCard?.(candidate.card) ?? true));
+        const destination = this.deps.resolveCollectionDestination(candidate.card, settings);
+        const provider = destination === "anki" ? null : destination;
+        const reviewProvider = this.deps.resolveReviewProvider(candidate.card, settings);
         const blocked = normalizeCardStates(candidate.card.cardState).some((state2) => ["blacklisted", "never-forget", "redundant", "suspended"].includes(state2));
-        const grades = settings.enableReviews && enabled && !blocked ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, provider.id)).grades : [];
+        const grades = settings.enableReviews && providerEnabled(reviewProvider, settings) && !blocked ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, reviewProvider.id)).grades : [];
         const entry = {
           token: Symbol("batch-plan"),
           source: candidate.card,
@@ -71509,11 +71995,13 @@ ${reading}`);
           identity,
           context,
           settings: { ...settings },
-          provider,
-          collectApi,
-          collectAnki: collectApi ? shouldMineAnkiAlongsideApi(settings) : settings.ankiEnabled,
+          destination,
+          reviewProvider,
+          collectApi: Boolean(provider),
+          // As in the popup, a save to a service also goes to Anki when the learner mines to both.
+          collectAnki: destination === "anki" || Boolean(provider && shouldMineAnkiAlongsideApi(settings)),
           grades,
-          receipts: receiptKeys(candidate.card, settings, provider)
+          receipts: receiptKeys(candidate.card, settings, provider, reviewProvider)
         };
         this.entries.set(entry.token, entry);
         return this.view(entry);
@@ -71526,11 +72014,13 @@ ${reading}`);
       const batch = entries2;
       if (new Set(batch.map((entry) => entry.receipts[action === "review" ? "review" : entry.collectApi ? "api-collection" : "anki-collection"])).size !== batch.length) return this.reject(tokens, "stale");
       if (action === "review" && (!grade || !commonBatchGrades(batch.map((entry) => this.view(entry))).some(([value]) => value === grade))) return this.reject(tokens, "incompatible");
-      if (action === "collect" && batch.some((entry) => !this.view(entry).canCollect)) return this.reject(tokens, "unavailable");
-      const operation = this.receipts.reserve(batch.map((entry) => receiptItem(entry, action)));
+      const writes = action === "collect" ? batch.filter(hasDestination) : batch;
+      if (action === "collect" && (!writes.length || writes.some((entry) => !this.view(entry).canCollect))) return this.reject(tokens, "unavailable");
+      const operation = this.receipts.reserve(writes.map((entry) => receiptItem(entry, action)));
       if (!operation) return this.reject(tokens, "capacity");
       this.busy = true;
       const items = [];
+      let matching;
       try {
         for (const entry of batch) {
           if (!this.current(entry)) {
@@ -71538,10 +72028,25 @@ ${reading}`);
             break;
           }
           try {
+            if (action === "collect" && !hasDestination(entry)) {
+              items.push(this.outcome(entry, "no-destination"));
+              continue;
+            }
+            const onService = this.goesToGradingService(entry, action);
+            if (onService && needsMatch(entry)) await (matching ??= this.matchOnGradingService(batch, action));
+            if (onService && this.unmatched.has(entry.receipts.review)) {
+              items.push(this.outcome(entry, "unmatched"));
+              continue;
+            }
             if (action === "collect") await this.collect(entry);
             else await this.review(entry, grade);
             items.push(this.outcome(entry, "completed"));
           } catch (error) {
+            if (action === "collect" && userFacingCopyKeyOf(error) === "bunproNoMatchingWord") {
+              this.receipts.release(operation, receiptItem(entry, action).id);
+              items.push(this.outcome(entry, "no-destination"));
+              continue;
+            }
             const state2 = this.completed(entry, action) ? "completed" : error instanceof StaleBatchPlan ? "stale" : this.receipts.get(entry.receipts.review) === "uncertain" ? "uncertain" : "failed";
             items.push(this.outcome(entry, state2));
             break;
@@ -71557,19 +72062,48 @@ ${reading}`);
     view(entry) {
       const stages = this.completedStages(entry);
       const reviewUncertain = this.receipts.get(entry.receipts.review) === "uncertain";
+      const unmatched = this.unmatched.has(entry.receipts.review);
+      const due = entry.collectApi && !stages.includes("api-collection") || entry.collectAnki && !stages.includes("anki-collection");
       return Object.freeze({
         token: entry.token,
-        grades: Object.freeze((stages.includes("review") || reviewUncertain ? [] : entry.grades).map((pair) => Object.freeze([...pair]))),
-        canCollect: (entry.collectApi || entry.collectAnki) && !((!entry.collectApi || stages.includes("api-collection")) && (!entry.collectAnki || stages.includes("anki-collection"))),
-        uncertain: reviewUncertain
+        grades: Object.freeze((stages.includes("review") || reviewUncertain || unmatched ? [] : entry.grades).map((pair) => Object.freeze([...pair]))),
+        // The grading service cannot save a word it does not have either.
+        canCollect: due && !(unmatched && this.goesToGradingService(entry, "collect")),
+        noDestination: !hasDestination(entry),
+        uncertain: reviewUncertain,
+        unmatched
+      });
+    }
+    // A grade, and a save to the service the grades go to (ADR-0016), first
+    // finds the words the grading service has not identified (another service
+    // parsed them).
+    goesToGradingService(entry, action) {
+      if (action === "review") return true;
+      const provider = collectProvider(entry);
+      return Boolean(provider && provider.id === entry.reviewProvider?.id && !this.completedStages(entry).includes("api-collection"));
+    }
+    // The words are found in one request before any is graded or saved. Every
+    // entry shares the plan's settings, so they all resolve on the same service.
+    async matchOnGradingService(batch, action) {
+      const pending2 = batch.filter((entry) => this.goesToGradingService(entry, action) && needsMatch(entry));
+      const matches = await this.deps.findOnGradingService(pending2[0].reviewProvider, pending2.map((entry) => entry.card));
+      pending2.forEach((entry, index) => {
+        const match = matches[index];
+        if (match) Object.assign(entry, { card: { ...match, cardState: [...match.cardState] }, resolved: true });
+        else this.unmatched.add(entry.receipts.review);
       });
     }
     async collect(entry) {
-      if (entry.collectApi && !this.completedStages(entry).includes("api-collection")) {
-        const deck = await this.deps.collectionDeck(entry.provider, entry.settings);
-        this.assertCurrent(entry);
-        if (!deck) throw new Error("No collection deck");
-        await entry.provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+      const provider = collectProvider(entry);
+      if (provider && !this.completedStages(entry).includes("api-collection")) {
+        const word = this.serviceReceipt(entry, "api-collection");
+        if (this.receipts.get(word) !== "completed") {
+          const deck = await this.deps.collectionDeck(provider, entry.settings);
+          this.assertCurrent(entry);
+          if (!deck) throw new Error("No collection deck");
+          await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+          this.receipts.set(word, "completed");
+        }
         this.receipts.set(entry.receipts["api-collection"], "completed");
         this.assertCurrent(entry);
         this.deps.notify(entry.card);
@@ -71580,11 +72114,30 @@ ${reading}`);
         this.receipts.set(entry.receipts["anki-collection"], "completed");
       }
       this.assertCurrent(entry);
-      entry.source.cardState = entry.card.cardState;
+      this.keepPageState(entry);
+    }
+    // A resolved word changed the grading service's record: the page word keeps
+    // the state of the service that parsed it (ADR-0021).
+    keepPageState(entry) {
+      if (!entry.resolved) entry.source.cardState = entry.card.cardState;
+    }
+    // Two rows can be one word on the service that changes: a homograph, or a
+    // word both services parsed. That word is saved or graded once (ADR-0021).
+    serviceReceipt(entry, stage) {
+      return receiptKeys(entry.card, entry.settings, collectProvider(entry), entry.reviewProvider)[stage];
     }
     async review(entry, grade) {
       this.assertCurrent(entry);
-      if (entry.provider?.id === "jpdb" && entry.card.cardState.includes("not-in-deck")) {
+      const word = this.serviceReceipt(entry, "review");
+      const reviewed = () => {
+        this.receipts.set(entry.receipts.review, "completed");
+        this.receipts.set(word, "completed");
+      };
+      if (this.receipts.get(word) === "completed") {
+        reviewed();
+        return;
+      }
+      if (entry.reviewProvider?.id === "jpdb" && entry.card.cardState.includes("not-in-deck")) {
         if (!this.completedStages(entry).includes("review-collection")) {
           await this.deps.collectForReview(entry.card, entry.sentence, entry.settings.miningDeck || "forq");
           this.receipts.set(entry.receipts["review-collection"], "completed");
@@ -71593,19 +72146,20 @@ ${reading}`);
         entry.card.cardState = [...entry.card.cardState.filter((state2) => state2 !== "not-in-deck"), "in-deck"];
       }
       try {
-        await this.deps.review(entry.provider, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), () => this.receipts.set(entry.receipts.review, "completed"));
-        this.receipts.set(entry.receipts.review, "completed");
+        await this.deps.review(entry.reviewProvider, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), reviewed);
+        reviewed();
       } catch (error) {
-        if (entry.provider?.id === "bunpro" && !this.completedStages(entry).includes("review")) this.receipts.set(entry.receipts.review, "uncertain");
+        if (entry.reviewProvider?.id === "bunpro" && !this.completedStages(entry).includes("review")) this.receipts.set(entry.receipts.review, "uncertain");
         throw error;
       }
       this.assertCurrent(entry);
-      entry.source.cardState = entry.card.cardState;
+      this.keepPageState(entry);
     }
     current(entry) {
       const settings = this.deps.getSettings();
-      const provider = this.deps.resolveProvider(entry.source, settings);
-      return this.entries.get(entry.token) === entry && entry.context === batchContext(settings) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState) && provider?.id === entry.provider?.id && provider?.hasApiKey === entry.provider?.hasApiKey;
+      const destination = this.deps.resolveCollectionDestination(entry.source, settings);
+      const reviewProvider = this.deps.resolveReviewProvider(entry.source, settings);
+      return this.entries.get(entry.token) === entry && entry.context === batchContext(settings) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState) && destinationKey(destination) === destinationKey(entry.destination) && reviewProvider?.id === entry.reviewProvider?.id && reviewProvider?.hasApiKey === entry.reviewProvider?.hasApiKey;
     }
     assertCurrent(entry) {
       if (!this.current(entry)) throw new StaleBatchPlan();
@@ -71626,27 +72180,34 @@ ${reading}`);
   }
   class StaleBatchPlan extends Error {
   }
+  function providerEnabled(provider, settings) {
+    return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
+  }
+  function hasDestination(entry) {
+    return entry.collectApi || entry.collectAnki;
+  }
+  function collectProvider(entry) {
+    return entry.destination === "anki" ? null : entry.destination;
+  }
+  function needsMatch(entry) {
+    return Boolean(entry.reviewProvider && !entry.reviewProvider.supportsCard(entry.card));
+  }
+  function destinationKey(destination) {
+    return destination === "anki" || !destination ? String(destination) : `${destination.id}:${destination.hasApiKey}`;
+  }
   function receiptItem(entry, action) {
     const stages = action === "review" ? ["review-collection", "review"] : [...entry.collectApi ? ["api-collection"] : [], ...entry.collectAnki ? ["anki-collection"] : []];
     const required = action === "review" ? [entry.receipts.review] : stages.map((stage) => entry.receipts[stage]);
     const id = action === "review" ? entry.receipts.review : entry.collectApi ? entry.receipts["api-collection"] : sensitiveFingerprint$1(JSON.stringify(["anki-item", entry.settings.activeLanguageProfileId, entry.card.spelling, entry.card.reading]));
     return { id, keys: stages.map((stage) => entry.receipts[stage]), required };
   }
-  function receiptKeys(card, settings, provider) {
-    const credentials = {
-      jiten: effectiveJitenApiKey(settings),
-      jpdb: effectiveJpdbApiKey(settings),
-      bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)],
-      wanikani: effectiveWanikaniApiToken(settings),
-      "yomu-local": settings.activeLanguageProfileId
-    };
-    const identity = provider?.id === "jiten" ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid] : provider?.id === "bunpro" ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint] : provider?.id === "wanikani" ? [card.wanikaniAssignmentId] : [card.vid, card.sid, card.spelling, card.reading];
-    const account = [provider?.id, provider ? credentials[provider.id] : "", identity];
-    const collectionDeck = provider?.id === "jiten" ? "default-study-deck" : settings.miningDeck;
+  function receiptKeys(card, settings, provider, reviewProvider) {
+    const collect = serviceAccount(card, settings, provider, "collect");
+    const review = serviceAccount(card, settings, reviewProvider, "review");
     return {
-      review: sensitiveFingerprint$1(JSON.stringify(["review", account])),
-      "api-collection": sensitiveFingerprint$1(JSON.stringify(["collect", account, collectionDeck])),
-      "review-collection": sensitiveFingerprint$1(JSON.stringify(["review-collect", account, collectionDeck])),
+      review: sensitiveFingerprint$1(JSON.stringify(["review", review.account])),
+      "api-collection": sensitiveFingerprint$1(JSON.stringify(["collect", collect.account, collect.deck])),
+      "review-collection": sensitiveFingerprint$1(JSON.stringify(["review-collect", review.account, review.deck])),
       "anki-collection": sensitiveFingerprint$1(JSON.stringify([
         "anki-collect",
         settings.ankiConnectUrl,
@@ -71656,6 +72217,24 @@ ${reading}`);
         card.spelling,
         card.reading
       ]))
+    };
+  }
+  function serviceAccount(card, settings, provider, use) {
+    const account = receiptAccount(card, settings, provider, use);
+    return provider && !provider.supportsCard(card) ? { ...account, account: ["unidentified", card.source, ...account.account] } : account;
+  }
+  function receiptAccount(card, settings, provider, use) {
+    const credentials = {
+      jiten: effectiveJitenApiKey(settings),
+      jpdb: effectiveJpdbApiKey(settings),
+      bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)],
+      wanikani: effectiveWanikaniApiToken(settings),
+      "yomu-local": settings.activeLanguageProfileId
+    };
+    const identity = provider?.id === "jiten" ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid] : provider?.id === "bunpro" && use === "review" ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint] : provider?.id === "wanikani" ? [card.wanikaniAssignmentId] : [card.vid, card.sid, card.spelling, card.reading];
+    return {
+      account: [provider?.id, provider ? credentials[provider.id] : "", identity],
+      deck: provider?.id === "jiten" ? "default-study-deck" : settings.miningDeck
     };
   }
   function batchContext(settings) {
@@ -71723,7 +72302,8 @@ ${reading}`);
         candidatePlans,
         selectedPlans: chosen.flatMap((plan) => plan ? [plan.token] : []),
         reviewGrades: grades.map(([grade, label]) => ({ grade, label })),
-        canCollect: complete && chosen.every((plan) => plan.canCollect),
+        // A word no enabled destination can take does not block the others.
+        canCollect: complete && chosen.some((plan) => plan.canCollect) && chosen.every((plan) => plan.canCollect || plan.noDestination),
         incompatible: chosen.length > 0 && (!complete || !grades.length),
         busy: false
       };
@@ -71743,18 +72323,19 @@ ${reading}`);
       try {
         const result = await execute(plans, action, command.grade);
         let completed = 0;
+        const skipped = { unmatched: [], "no-destination": [] };
         for (const item of result.items) {
           const candidate = this.candidates.get(item.token);
-          if (item.state !== "completed" || !candidate) continue;
-          completed += 1;
+          if (!candidate || !["completed", "unmatched", "no-destination"].includes(item.state)) continue;
+          if (item.state === "completed") completed += 1;
+          else skipped[item.state].push(candidate.card.spelling);
           const current = this.deps.getCandidates().find((current2) => current2.key === candidate.key && current2.card === candidate.card);
           if (current) {
             current.state = primaryCardState(current.card.cardState);
             this.deps.getSelected().delete(candidate.key);
           }
         }
-        const message = result.rejected === "busy" ? subtitleText(language2, "bmBusy") : result.rejected === "capacity" ? subtitleText(language2, "bmCapacity") : result.rejected === "stale" ? subtitleText(language2, "bmPlanChanged") : result.rejected ? subtitleText(language2, "bmIncompatible") : completed === plans.length ? formatSubtitleText(language2, action === "collect" ? "bmAdded" : "bmGraded", { count: completed }) : formatSubtitleText(language2, "bmPartial", { count: completed, total: plans.length });
-        this.deps.toast(message);
+        this.deps.toast(batchResultMessage(language2, action, result, { completed, total: plans.length, skipped }));
       } catch {
         this.deps.toast(subtitleText(language2, action === "collect" ? "bmAddFailed" : "bmGradeFailed"));
       } finally {
@@ -71770,6 +72351,18 @@ ${reading}`);
         return planned && this.deps.getCandidates().some((candidate) => candidate.key === planned.key && candidate.card === planned.card);
       });
     }
+  }
+  function batchResultMessage(language2, action, result, counts) {
+    if (result.rejected) {
+      return subtitleText(language2, result.rejected === "busy" ? "bmBusy" : result.rejected === "capacity" ? "bmCapacity" : result.rejected === "stale" ? "bmPlanChanged" : "bmIncompatible");
+    }
+    const { completed, total, skipped } = counts;
+    const outcome = completed + skipped.unmatched.length + skipped["no-destination"].length < total ? formatSubtitleText(language2, "bmPartial", { count: completed, total }) : completed ? formatSubtitleText(language2, action === "collect" ? "bmAdded" : "bmGraded", { count: completed }) : "";
+    const notes = [
+      [action === "collect" ? "bmNotFoundAdd" : "bmNotFound", skipped.unmatched],
+      ["bmNoDestination", skipped["no-destination"]]
+    ].filter(([, words]) => words.length).map(([key, words]) => formatSubtitleText(language2, key, { words: uiList(language2, words) }));
+    return [outcome, ...notes].reduce((message, next) => !next ? message : !message ? next : `${message}${message.endsWith("。") ? "" : " "}${next}`, "");
   }
   function renderSubtitleBatchMiningPanel(state2) {
     const language2 = state2.language;
@@ -71866,6 +72459,7 @@ ${reading}`);
   function renderBatchMiningCandidateGrades(candidate, state2) {
     const plan = state2.candidatePlans?.get(candidate.key);
     if (plan?.uncertain) return `<p class="jpdb-reader-help">${escapeHtml$2(subtitleText(state2.language, "bmUncertain"))}</p>`;
+    if (plan?.unmatched) return `<p class="jpdb-reader-help">${escapeHtml$2(uiText(state2.language, "gradingServiceWordNotFound"))}</p>`;
     if (!plan?.grades.length) return "";
     const label = `${subtitleText(state2.language, "bmGradeWord")}: ${candidate.card.spelling}`;
     return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml$2(label)}">${renderBatchMiningGradeButtons({
@@ -84025,6 +84619,120 @@ ${reading}`);
     });
   }
   registerDecorationPolicyRuntimeApi(decorationPolicy);
+  const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
+  const TOAST_VISIBLE_CLASS = "is-visible";
+  const TOAST_EXIT_MS = 220;
+  const toastTimers = /* @__PURE__ */ new WeakMap();
+  const toastHolds = /* @__PURE__ */ new WeakMap();
+  function showReaderToast(message, durationMs = 3200) {
+    const toast = readerToast(message);
+    if (!toastHolds.has(toast)) scheduleToastRemoval(toast, durationMs);
+  }
+  function holdReaderToast(message) {
+    const toast = readerToast(message);
+    toastHolds.set(toast, (toastHolds.get(toast) ?? 0) + 1);
+    let held = true;
+    return () => {
+      if (!held) return;
+      held = false;
+      const holds = (toastHolds.get(toast) ?? 1) - 1;
+      if (holds > 0) {
+        toastHolds.set(toast, holds);
+        return;
+      }
+      toastHolds.delete(toast);
+      scheduleToastRemoval(toast, 0);
+    };
+  }
+  function readerToast(message) {
+    const stack = ensureReaderToastStack();
+    const existing = Array.from(stack.children).find((node) => node instanceof HTMLElement && node.textContent === message);
+    if (existing) {
+      window.clearTimeout(toastTimers.get(existing));
+      toastTimers.delete(existing);
+      existing.classList.add(TOAST_VISIBLE_CLASS);
+      return existing;
+    }
+    const toast = document.createElement("div");
+    toast.className = "jpdb-reader-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.textContent = message;
+    stack.append(toast);
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => toast.classList.add(TOAST_VISIBLE_CLASS));
+    } else {
+      toast.classList.add(TOAST_VISIBLE_CLASS);
+    }
+    return toast;
+  }
+  function ensureReaderToastStack() {
+    const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
+    if (existing?.isConnected) {
+      applyOverlayPageScale(existing);
+      return existing;
+    }
+    const stack = document.createElement("div");
+    stack.className = TOAST_STACK_CLASS;
+    stack.dataset.jpdbReaderRoot = "true";
+    applyOverlayPageScale(stack);
+    document.body.append(stack);
+    return stack;
+  }
+  function scheduleToastRemoval(toast, durationMs) {
+    window.clearTimeout(toastTimers.get(toast));
+    toastTimers.set(toast, window.setTimeout(() => {
+      toast.classList.remove(TOAST_VISIBLE_CLASS);
+      toastTimers.set(toast, window.setTimeout(() => {
+        toastTimers.delete(toast);
+        toast.remove();
+        if (typeof document === "undefined") return;
+        const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
+        if (stack && !stack.childElementCount) stack.remove();
+      }, TOAST_EXIT_MS));
+    }, durationMs));
+  }
+  async function withSaveWaitStatus(language2, save) {
+    let release;
+    const stopWatching = watchSavesWaitingForAnotherTab((waiting) => {
+      if (waiting) {
+        release ??= holdReaderToast(uiText(language2, "saveWaitingForAnotherTab"));
+        return;
+      }
+      release?.();
+      release = void 0;
+    });
+    try {
+      return await save();
+    } finally {
+      stopWatching();
+      release?.();
+    }
+  }
+  const ANKI_FIELD_MAPPING_ROLES$1 = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
+  const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
+  function isAnkiFieldMappingRole(role) {
+    return ANKI_FIELD_MAPPING_ROLES$1.has(role);
+  }
+  function ankiScanConfidenceForModel(record2, modelName) {
+    if (!record2.trim()) return {};
+    try {
+      const parsed = JSON.parse(record2);
+      return Object.fromEntries(ankiScanConfidenceEntries(parsed[modelName] ?? {}));
+    } catch {
+      return {};
+    }
+  }
+  function isAnkiScanConfidence(value) {
+    return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
+  }
+  function ankiScanConfidenceEntries(confidence) {
+    const entries2 = [];
+    for (const [role, value] of Object.entries(confidence)) {
+      if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
+    }
+    return entries2;
+  }
   function runningAsBrowserExtension() {
     const global = globalThis;
     try {
@@ -84093,7 +84801,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.0.4".trim() ? "2.0.4".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.5".trim() ? "2.0.5".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -120415,6 +121123,9 @@ ${reading}`);
     __kanji_origins__: { nameKey: "originStructure", helpKey: "sourceHelpComponentGraph" }
   };
   const SOURCE_ROW_ORDER_LABELS = { drag: "Drag to reorder", up: "Move up", down: "Move down" };
+  function renderSourceRowsHelp(language2, key) {
+    return `<div class="jpdb-reader-help" data-help-key="${key}">${escapeHtml$2(uiText(language2, key))}</div>`;
+  }
   function miniIconButton(icon, label, attributes) {
     const dragClass = icon === "drag" ? " jpdb-reader-drag-handle" : "";
     return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${miniIcon(icon)}</button>`;
@@ -121439,7 +122150,7 @@ ${reading}`);
     const value = control instanceof HTMLSelectElement ? control.value : form.lang;
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
-  const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
+  const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   function escapedUiText$2(language2, key) {
     return escapeHtml$2(uiText(language2, key));
@@ -121542,7 +122253,7 @@ ${reading}`);
       `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language2, "notMapped")}</option>`,
       ...fields.map((field) => `<option value="${escapeHtml$2(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$2(field)}</option>`)
     ].join("");
-    const rows = ANKI_FIELD_MAPPING_ROLES$1.map((role) => {
+    const rows = ANKI_FIELD_MAPPING_ROLES.map((role) => {
       const value = mapping[role] ?? "";
       const roleLabel = ankiFieldMappingRoleLabel(role, language2);
       const confidence = value ? confidenceByRole[role] : void 0;
@@ -123104,7 +123815,7 @@ ${reading}`);
     };
     Object.keys(classes2).forEach((channel) => {
       COLOR_SOURCE_CLASS_VALUES.forEach((source) => {
-        preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes2[channel] === source);
+        preview.classList.toggle(colorSourceClassName("subtitle", channel, source), classes2[channel] === source);
       });
     });
   }
@@ -124809,8 +125520,6 @@ ${reading}`);
       const key = element2.dataset.sourceHelpKey;
       if (isSettingsTextKey(key)) element2.replaceChildren(text2(key));
     });
-    replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text2("importLocalDefinitionsHelp"));
-    replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text2("frequencyMetadataHelp"));
     const rows = [
       ["Translation", "sourceNameTranslation", "sourceHelpTranslation"],
       ["Grammar", "sourceNameGrammar", "sourceHelpGrammar"],
@@ -125459,8 +126168,8 @@ ${reading}`);
             <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$2(preference.type ?? "terms")}">
         `).join("");
-    const importHelp = visibleNames.size ? "" : '<div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>';
-    const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
+    const importHelp = visibleNames.size ? "" : renderSourceRowsHelp(settings.interfaceLanguage, "importLocalDefinitionsHelp");
+    const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? renderSourceRowsHelp(settings.interfaceLanguage, "metadataDictionariesHelp") : "";
     return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
   }
   function renderDefinitionTranslationControls(settings) {
@@ -128127,8 +128836,6 @@ ${reading}`);
   const log$c = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
-  const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
-  const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
   function recommendedDictionaryForControl(control) {
     const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
@@ -128206,19 +128913,6 @@ ${reading}`);
   }
   function statusLanguage(status) {
     return status.closest("form")?.querySelector('select[name="interfaceLanguage"]')?.value ?? "en";
-  }
-  function isAnkiFieldMappingRole(role) {
-    return ANKI_FIELD_MAPPING_ROLES.has(role);
-  }
-  function isAnkiScanConfidence(value) {
-    return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
-  }
-  function ankiScanConfidenceEntries(confidence) {
-    const entries2 = [];
-    for (const [role, value] of Object.entries(confidence)) {
-      if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
-    }
-    return entries2;
   }
   function readNewTabAnkiDisabledDecks(form) {
     return canonicalNewTabAnkiDisabledDecks(
@@ -128543,7 +129237,7 @@ ${reading}`);
           if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
             this.dependencies.clearDictionarySourceOpenOverrides();
           }
-          return this.saveCurrentSettings(previousSettings).then(() => {
+          return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
             this.afterSettingsSaved(form, saveRequestId);
           });
         }).catch((error) => {
@@ -129867,7 +130561,7 @@ ${reading}`);
         modelName,
         this.ankiScanFieldsForModel(form, modelName),
         getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
-        this.ankiScanConfidenceForModel(form, modelName)
+        ankiScanConfidenceForModel(form.querySelector("[data-anki-scan-confidence]")?.value ?? "", modelName)
       ));
     }
     syncAnkiFieldMappingsFromEditor(form) {
@@ -129896,17 +130590,6 @@ ${reading}`);
         return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
       } catch {
         return [];
-      }
-    }
-    ankiScanConfidenceForModel(form, modelName) {
-      const input2 = form.querySelector("[data-anki-scan-confidence]");
-      if (!input2?.value.trim()) return {};
-      try {
-        const parsed = JSON.parse(input2.value);
-        const confidence = parsed[modelName] ?? {};
-        return Object.fromEntries(ankiScanConfidenceEntries(confidence));
-      } catch {
-        return {};
       }
     }
     ankiScanMessage(scan, language2) {
@@ -132450,6 +133133,17 @@ ${reading}`);
   function isDueReviewAnkiCard(card) {
     return card.queue === 2 && card.isDue === true;
   }
+  function sameWordOnService(word, tokens, identifies) {
+    const spelling = word.spelling.trim();
+    const reading = word.reading.trim();
+    if (!spelling || !reading) return null;
+    return tokens.find(({ card }) => card.spelling.trim() === spelling && card.reading.trim() === reading && identifies(card))?.card ?? null;
+  }
+  async function findWordsOnService(words, parse, identifies) {
+    const matchable = words.filter((word) => word.spelling.trim() && word.reading.trim());
+    const parsed = matchable.length ? await parse(matchable.map((word) => word.spelling.trim())) : [];
+    return words.map((word) => sameWordOnService(word, parsed[matchable.indexOf(word)] ?? [], identifies));
+  }
   async function renderStudyToolResult(button2, action, sentence, grammarHints, language2 = "en", options = {}) {
     await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button2, action, sentence, grammarHints, language2, options);
   }
@@ -132466,10 +133160,13 @@ ${reading}`);
       this.options = options;
       this.batchMining = new PreparedBatchActions({
         getSettings: () => this.options.getSettings(),
-        resolveProvider: (card, settings) => this.apiProviderForCard(card, settings),
+        // "Add selected" saves each word where the popup's "Add to deck +" would.
+        resolveCollectionDestination: (card, settings) => this.privateDefaultDestination(card, settings),
+        resolveReviewProvider: (card, settings) => this.gradingProviderForCard(card, settings),
         collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
         collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
         collectForReview: (card, sentence, deck) => this.options.jpdb.addToDeck(deck, card, sentence),
+        findOnGradingService: (provider, cards) => this.findOnService(provider, cards),
         review: (provider, card, grade, sentence, assertCurrent, onReviewed) => this.reviewApiCard(grade, card, sentence, { providerId: provider.id, deckId: defaultJpdbDeckId(this.options.getSettings()), suppressToast: true, assertCurrent, onReviewed }),
         notify: (card) => this.notifyApiCardStateChanged(card)
       });
@@ -132629,10 +133326,12 @@ ${reading}`);
     }
     // Cycle the popover through the SRS services that can grade this word
     // (JPDB / Jiten, plus Bunpro when the card carries a Bunpro identity) and
-    // re-render so the deck and grade buttons act on the chosen service.
+    // re-render so the deck and grade buttons act on the chosen service. The
+    // choice is this word's alone (ADR-0021): the preferred grading service,
+    // which every other grade and Automatic parsing follow, changes only in Settings.
     async toggleGradingProvider(card, sentence) {
       const settings = this.options.getSettings();
-      const current = this.apiProviderForCard(card, settings);
+      const current = this.gradingProviderForCard(card, settings);
       if (!current?.hasApiKey) return;
       const cycle = apiSrsSwitchableProviderIds(card, settings);
       if (cycle.length < 2) return;
@@ -132640,9 +133339,8 @@ ${reading}`);
       if (!next || next === current.id || next === "yomu-local") return;
       const provider = this.apiProviders(settings).find((p) => p.id === next && p.hasApiKey);
       if (!provider) return;
-      const target = provider.supportsCard(card) ? card : await this.resolveProviderCard(card, next);
-      if (!target || !provider.supportsCard(target)) return;
-      if (next === "jpdb" || next === "jiten") this.options.setApiGradingProvider?.(next);
+      const [target] = provider.supportsCard(card) ? [card] : await this.findOnService(provider, [card]).catch(() => [null]);
+      if (!target) return;
       if (target !== card) copyBunproIdentity(card, target);
       target.apiGradingProviderOverride = next;
       await this.refreshProviderState(target, next);
@@ -132654,14 +133352,11 @@ ${reading}`);
         preservePosition: true
       });
     }
-    async resolveProviderCard(card, id) {
-      if (id === "yomu-local") return card;
-      try {
-        const [tokens = []] = id === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
-        return exactCard(card, tokens);
-      } catch {
-        return null;
-      }
+    // The same word on a service that has not identified it, in one parse request
+    // (exact spelling and reading: findWordsOnService).
+    findOnService(provider, cards) {
+      const parse = (terms) => provider.id === "jiten" ? this.options.jiten?.parse?.(terms) ?? Promise.resolve([]) : this.options.jpdb.parse(terms);
+      return findWordsOnService(cards, parse, (candidate) => provider.supportsCard(candidate));
     }
     async refreshProviderState(card, providerId) {
       try {
@@ -132719,8 +133414,17 @@ ${reading}`);
       if (keyed.length) return external[0] ?? keyed[0] ?? null;
       return supporting.find((provider) => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
     }
+    // The provider the grade buttons act on (apiSrsGradingProviderViewForCard).
+    // It may not identify the card yet; the grade then resolves the word first.
+    gradingProviderForCard(card, settings) {
+      const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+      return resolveOn ? this.apiProviders(settings).find((provider) => provider.id === resolveOn) ?? null : this.apiProviderForCard(card, settings);
+    }
+    // The grading service also takes a word another service identified: the
+    // save finds it there first (wordOnCollectionService), as a grade does.
     apiProviderForDeckSource(source, card, settings) {
-      return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
+      const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+      return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.id === resolveOn || acceptsForCollection(provider, card))) ?? null;
     }
     assertApiProviderActionAllowed(provider, copyKey) {
       const settings = this.options.getSettings();
@@ -132743,41 +133447,60 @@ ${reading}`);
       this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, deck.source));
       const selectedDeckId = provider.selectedDeckId(deck.id, settings);
       if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-      await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
+      await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(provider, card));
     }
+    // An ordinary page renders this save and can read what it reports (ADR-0020):
+    // a confirmation or failure there names no service, deck or Anki state.
     async addToPrivateDefaultDeck(card, sentence, context) {
-      const settings = this.options.getSettings();
-      const provider = this.privateDefaultApiProvider(card, settings);
-      if (!provider) {
-        return this.addToPrivateFallbackDeck(card, sentence, context, settings);
+      if (this.accountDataSurfaceTrusted()) return this.addToDefaultDestination(card, sentence, context);
+      try {
+        await this.addToDefaultDestination(card, sentence, { ...context, privately: true });
+      } catch (error) {
+        throw privateCollectionFailure(error);
       }
-      const selectedDeckId = await this.privateDefaultDeckId(provider, settings);
-      if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-      await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
     }
-    privateDefaultApiProvider(card, settings) {
-      if (!isApiMiningEnabled(settings)) return null;
-      const candidate = this.apiProviderForCard(card, settings);
-      if (!candidate) return null;
-      return defaultApiProviderIsAvailable(candidate, settings) ? candidate : null;
+    accountDataSurfaceTrusted() {
+      return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
     }
-    async addToPrivateFallbackDeck(card, sentence, context, settings) {
-      if (settings.ankiEnabled) return this.addToAnki(card, sentence, settings.ankiDeck, context);
-      throw userFacingError("batchMiningNoDestination");
+    async addToDefaultDestination(card, sentence, context) {
+      const settings = this.options.getSettings();
+      const destination = this.privateDefaultDestination(card, settings);
+      if (destination === "anki") return this.addToAnki(card, sentence, settings.ankiDeck, context);
+      if (!destination) throw userFacingError("collectNoDestination");
+      const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
+      if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
+      await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(destination, card));
+    }
+    // A save follows the grade row (ADR-0016): the grading service saves a word
+    // another service identified only after finding it, and no match saves
+    // nothing anywhere (ADR-0021).
+    wordOnCollectionService(provider, card) {
+      return acceptsForCollection(provider, card) ? Promise.resolve(card) : this.resolveWordOnGradingService(card, provider, "collectWordNotFound");
+    }
+    // The popup renders "Add to deck +" from the same destination list, so the
+    // save lands on the first destination the learner was offered.
+    privateDefaultDestination(card, settings) {
+      const providers = this.apiProviders(settings).filter((provider) => provider.hasApiKey);
+      for (const id of collectionDestinationsForCard(card, settings, this.options.isJpdbBackedCard)) {
+        const destination = id === "anki" ? id : providers.find((candidate) => candidate.id === id);
+        if (destination) return destination;
+      }
+      return null;
     }
     async privateDefaultDeckId(provider, settings) {
       if (provider.id !== "jiten") return provider.selectedDeckId(settings.miningDeck, settings);
       const decks = await this.options.jiten?.listStudyDecks?.().catch(() => []);
       return String(decks?.[0]?.id ?? "");
     }
-    async addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings) {
-      await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
+    // `word` is the provider's own copy of `card` when the save had to find it there.
+    async addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings, word = card) {
+      await provider.addToDeck(selectedDeckId, word, sentence, { sourceTitle: document.title, sourceUrl: location.href });
       const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
       if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
       const droppedMedia = await this.apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence);
-      const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
+      const addedToast = uiText(settings.interfaceLanguage, context.privately ? "addedToDeckToast" : provider.addedToastKey);
       this.options.toast(apiMiningToast(addedToast, droppedMedia, settings));
-      this.notifyApiCardStateChanged(card);
+      this.notifyApiCardStateChanged(word);
     }
     async apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence) {
       if (!providerCanDropMedia(provider, minedToAnkiToo)) return false;
@@ -132893,17 +133616,27 @@ ${reading}`);
     }
     async reviewApiCard(grade, card, sentence, options) {
       const settings = this.options.getSettings();
-      const provider = options.providerId ? this.apiProviders(settings).find((candidate) => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null : this.apiProviderForCard(card, settings);
+      const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+      const provider = options.providerId ? this.apiProviders(settings).find((candidate) => candidate.id === options.providerId && (candidate.supportsCard(card) || candidate.id === resolveOn)) ?? null : this.gradingProviderForCard(card, settings);
       this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview");
-      const states = normalizeCardStates(card.cardState);
+      const target = provider.supportsCard(card) ? card : await this.resolveWordOnGradingService(card, provider);
+      const states = normalizeCardStates(target.cardState);
       assertReviewableApiCardState(states);
-      const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
+      const result = await provider.reviewCard(target, grade, { sentence, deckId: this.reviewDeckId(options) });
       options.onReviewed?.();
       options.assertCurrent?.();
       if (result.addedBeforeReview) {
         if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
-      } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
-      this.notifyApiCardStateChanged(card);
+      } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, target, sentence, states, settings, options.suppressToast === true);
+      this.notifyApiCardStateChanged(target);
+    }
+    // The chosen grading service grades a word another service identified only
+    // after finding it by exact spelling and reading. No match sends nothing,
+    // to either service.
+    async resolveWordOnGradingService(card, provider, notFound = "gradingServiceWordNotFound") {
+      const [match] = await this.findOnService(provider, [card]);
+      if (!match) throw userFacingError(notFound);
+      return match;
     }
     // Jiten Reader parity: optionally add every reviewed word to the mining
     // deck so reviewing doubles as collecting (off by default).
@@ -132923,13 +133656,16 @@ ${reading}`);
     async addToAnki(card, sentence, deckName, context = {}) {
       const settings = this.options.getSettings();
       if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings, context)) return;
-      if (await this.showExistingAnkiCardIfPresent(card, sentence)) return;
+      if (await this.showExistingAnkiCardIfPresent(card, sentence, context)) return;
       const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, context);
       const noteId = await this.addPreparedAnkiCard(card, prepared);
-      if (noteId === "duplicate") return this.showExistingAnkiCard(card, sentence);
-      if (noteId === null) return this.toastMobileAnkiHandoff(settings);
+      if (noteId === "duplicate") return this.showExistingAnkiCard(card, sentence, context);
+      if (noteId === null) return this.toastMobileAnkiHandoff(context);
       this.notifyAnkiStatusChanged(card);
-      this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
+      this.collectionToast(context, ankiSentToast(prepared.context, settings, prepared.hasWordAudio), "addedToDeckToast");
+    }
+    collectionToast(context, named, neutral) {
+      this.options.toast(context.privately ? uiText(this.options.getSettings().interfaceLanguage, neutral) : named);
     }
     async addToAnkiForBatch(card, sentence, deckName, assertCurrent) {
       const settings = this.options.getSettings();
@@ -132951,13 +133687,13 @@ ${reading}`);
         dictionaryPreferences: settings.dictionaryPreferences,
         sentenceTarget: context.sentenceTarget
       });
-      this.toastMobileAnkiHandoff(settings);
+      this.toastMobileAnkiHandoff(context);
       return true;
     }
-    async showExistingAnkiCardIfPresent(card, sentence) {
+    async showExistingAnkiCardIfPresent(card, sentence, context) {
       const existing = await this.options.anki.findExistingCards(card);
       if (!existing.primary) return false;
-      await this.showExistingAnkiCard(card, sentence);
+      await this.showExistingAnkiCard(card, sentence, context);
       return true;
     }
     async prepareAnkiAdd(card, sentence, deckName, settings, actionContext) {
@@ -132995,8 +133731,8 @@ ${reading}`);
       ]);
       return { dictionaryContext, context, wordAudio };
     }
-    toastMobileAnkiHandoff(settings) {
-      this.options.toast(uiText(settings.interfaceLanguage, "openedMobileAnkiHandoff"));
+    toastMobileAnkiHandoff(context) {
+      this.collectionToast(context, uiText(this.options.getSettings().interfaceLanguage, "openedMobileAnkiHandoff"), "collectHandoffOpened");
     }
     notifyAnkiStatusChanged(card) {
       this.options.invalidateCardData?.();
@@ -133010,9 +133746,9 @@ ${reading}`);
       this.options.onApiCardStateChanged?.(card);
       publishCardStateSignal(card);
     }
-    async showExistingAnkiCard(card, sentence) {
+    async showExistingAnkiCard(card, sentence, context) {
       const settings = this.options.getSettings();
-      this.options.toast(uiText(settings.interfaceLanguage, "alreadyInAnki"));
+      this.collectionToast(context, uiText(settings.interfaceLanguage, "alreadyInAnki"), "collectAlreadySaved");
       await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
         autoPlay: false,
         trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
@@ -133065,11 +133801,16 @@ ${reading}`);
   function providerAddApiKeyRequiredKey(provider, source) {
     return provider ? provider.addApiKeyRequiredKey : PROVIDER_ADD_API_KEY_REQUIRED_KEYS[source];
   }
+  const PRIVATE_COLLECTION_FAILURES = /* @__PURE__ */ new Set(["collectNoDestination", "collectWordNotFound"]);
+  function privateCollectionFailure(error) {
+    const copyKey = userFacingCopyKeyOf(error);
+    return copyKey && PRIVATE_COLLECTION_FAILURES.has(copyKey) ? error : userFacingError("collectNotSaved", { cause: error });
+  }
+  function acceptsForCollection(provider, card) {
+    return provider.supportsMiningCard?.(card) ?? provider.supportsCard(card);
+  }
   function missingProviderDeckKey(provider) {
     return provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey;
-  }
-  function defaultApiProviderIsAvailable(provider, settings) {
-    return isApiSrsProviderEnabled(settings, provider.id) && provider.hasApiKey;
   }
   function providerCanDropMedia(provider, minedToAnkiToo) {
     return provider.id !== "bunpro" && !minedToAnkiToo;
@@ -133175,11 +133916,6 @@ ${reading}`);
   function selectedReviewAnkiCardId(selected, command) {
     return selected ? selected.ankiCardId : command.ankiCardId;
   }
-  function exactCard(source, tokens) {
-    const s = source.spelling.trim();
-    const r = source.reading.trim();
-    return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card ?? null;
-  }
   function copyBunproIdentity(source, target) {
     if (source.bunproReviewId) target.bunproReviewId = source.bunproReviewId;
     if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
@@ -133222,20 +133958,33 @@ ${reading}`);
   function defaultJpdbDeckId(settings) {
     return settings.miningDeck.trim() || "forq";
   }
-  async function runCardActionOperation(button2, run, fail2, finish) {
+  async function runCardActionOperation(button2, run, feedback, finish) {
+    const restoreFocus = keepKeyboardFocus(button2);
     button2.disabled = true;
     try {
-      await run();
+      await withSaveWaitStatus(feedback.language, run);
     } catch (error) {
-      fail2(error);
+      reportCardActionFailure(feedback, error);
     } finally {
       finish();
       button2.disabled = false;
+      restoreFocus();
     }
   }
-  function reportCardActionFailure(failure, error) {
-    failure.logger.warn(failure.warning, { action: failure.action, term: failure.term }, error);
-    failure.toast(userFacingErrorText(failure.language, "actionFailed", error));
+  function keepKeyboardFocus(button2) {
+    const document2 = button2.ownerDocument;
+    const action = button2.dataset.action;
+    if (!action || document2.activeElement !== button2) return () => void 0;
+    return () => {
+      const active = document2.activeElement;
+      if (active && active !== document2.body && !active.matches(".jpdb-reader-popover")) return;
+      const replacement = button2.isConnected ? button2 : [...document2.querySelectorAll(".jpdb-reader-popover button[data-action]")].reverse().find((candidate) => candidate.dataset.action === action);
+      replacement?.focus({ preventScroll: true });
+    };
+  }
+  function reportCardActionFailure(feedback, error) {
+    feedback.logger.warn(feedback.warning, { action: feedback.action, term: feedback.term }, error);
+    feedback.toast(userFacingErrorText(feedback.language, "actionFailed", error));
   }
   async function refreshAfterCardAction(action, perform, dismissGrade, refresh) {
     if (!await perform()) return;
@@ -133609,10 +134358,19 @@ ${reading}`);
       const language2 = settings.interfaceLanguage;
       const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
       const provider = this.apiProviderForCard(card);
-      const selectedDeckLabel = this.selectedDeckLabelForView(provider, data, trustedAccountDataSurface);
+      const gradingProvider = apiSrsGradingProviderViewForCard(card, settings, this.dependencies.isJpdbBackedCard);
+      const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
       const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language2);
-      const miningActions = this.renderApiMiningActions(card, cardStates, language2, data, provider, trustedAccountDataSurface);
-      const ankiActions = renderPopoverAnkiActions(data, settings, trustedAccountDataSurface);
+      const miningActions = this.renderApiMiningActions(card, cardStates, language2, data, gradingProvider, trustedAccountDataSurface);
+      const reviewControls = this.renderReviewControls({
+        card,
+        cardStates,
+        data,
+        provider: gradingProvider,
+        selectedDeckLabel,
+        reviewBlockReason,
+        language: language2
+      }, trustedAccountDataSurface);
       return {
         cardStates,
         state: state2,
@@ -133622,17 +134380,11 @@ ${reading}`);
         cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
         language: language2,
         provider,
-        miningActions,
-        ankiActions,
-        reviewButtons: this.renderReviewButtons({
-          card,
-          cardStates,
-          data,
-          provider,
-          selectedDeckLabel,
-          reviewBlockReason,
-          language: language2
-        }, trustedAccountDataSurface),
+        collectAction: miningActions.collect,
+        deckStateActions: miningActions.deckState,
+        ankiActions: renderPopoverAnkiActions(data, settings, trustedAccountDataSurface),
+        reviewTargetGutter: reviewControls.gutter,
+        reviewButtons: reviewControls.buttons,
         metaItems: this.renderMetaItems(card, provider, state2, data, trustedAccountDataSurface),
         loadingDetails: this.renderLoadingDetails(data.loading, language2),
         audioButtonDisabled: !settings.audioEnabled,
@@ -133743,30 +134495,34 @@ ${reading}`);
         ...popoverAnkiSourceContext(view.storedContext)
       }, data.ankiFieldTargetPlan, { trustedAccountDataSurface: view.trustedAccountDataSurface });
     }
+    // DOM order is focus order: the bar over the row, the drawer it opens,
+    // then "Add to deck +" directly before the grades.
     renderActions(view) {
-      const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
+      const hasMiningPanel = Boolean(view.deckStateActions || view.ankiActions) && canExpandMiningDrawer();
       const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
-      const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
-      const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+      const hasDrawer = hasMiningPanel || Boolean(view.reviewTargetGutter);
       const miningClass = hasDrawer ? " jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed" : "";
       return `<div class="jpdb-reader-actions${miningClass}">
-            ${hasReviewTargetGutter ? "" : renderMiningGutter(miningPanel, view.language)}
+            ${view.reviewTargetGutter || renderMiningGutter(miningPanel, view.language)}
             ${miningPanel}
             ${hasMiningPanel ? "" : view.ankiActions}
+            ${view.collectAction}
             ${view.reviewButtons}
         </div>`;
     }
     renderMiningPanel(view) {
       return `<div class="jpdb-reader-mining-panel">
-            ${view.miningActions}
+            ${view.deckStateActions}
             ${view.ankiActions}
         </div>`;
     }
     renderApiMiningActions(card, cardStates, language2, data, provider, trustedAccountDataSurface) {
-      return renderApiMiningActions(this.settings(), card, cardStates, language2, data, provider, trustedAccountDataSurface);
+      const settings = this.settings();
+      const destinations = collectionDestinationsForCard(card, settings, this.dependencies.isJpdbBackedCard);
+      return renderApiMiningActions(settings, card, cardStates, language2, data, provider, destinations, trustedAccountDataSurface);
     }
-    renderReviewButtons(options, trustedAccountDataSurface) {
-      return trustedAccountDataSurface ? this.renderTrustedReviewButtons(options) : this.renderPublicReviewButtons(options);
+    renderReviewControls(options, trustedAccountDataSurface) {
+      return trustedAccountDataSurface ? this.renderTrustedReviewControls(options) : buttonsOnly(this.renderPublicReviewButtons(options));
     }
     renderPublicReviewButtons(options) {
       if (!this.canRenderPublicReviewButtons(options)) return "";
@@ -133778,25 +134534,28 @@ ${reading}`);
       if (!this.settings().enableReviews) return false;
       return this.canReviewWithApiProvider(options.provider);
     }
-    renderTrustedReviewButtons(options) {
-      const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
+    renderTrustedReviewControls(options) {
+      const { card, data, provider, reviewBlockReason, language: language2 } = options;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
-      if (earlyResult !== void 0) return earlyResult;
+      if (earlyResult) return earlyResult;
       const targets2 = this.popoverReviewTargets(card, data, provider, language2);
       if (targets2.length) return this.renderTargetedReviewButtons(targets2, language2, targets2.length > 1, this.switchProviderTarget(card, provider));
+      return this.renderUntargetedReviewControls(options);
+    }
+    renderUntargetedReviewControls(options) {
+      const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
       if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
-      return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2);
+      return buttonsOnly(this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2));
     }
     shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason) {
       return isLiveJpdbCardOnAcademy(provider, card) || !this.shouldRenderReviewButtons(data, provider, reviewBlockReason);
     }
     renderReviewButtonsFallback(card, data) {
-      const renderer = this.dependencies.renderReviewButtonsFallback;
-      return renderer ? renderer(card, data) : "";
+      return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? buttonsOnly("");
     }
     reviewButtonsEarlyResult(card, data, reviewBlockReason) {
-      if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$2(reviewBlockReason)}</div>`;
-      if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
+      if (reviewBlockReason) return buttonsOnly(`<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$2(reviewBlockReason)}</div>`);
+      if (data.loading || !this.settings().enableReviews) return this.renderReviewButtonsFallback(card, data);
       return void 0;
     }
     renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2) {
@@ -133927,7 +134686,7 @@ ${reading}`);
     renderTargetedReviewButtons(targets2, language2, canSwitchTarget, switchProviderTarget) {
       const settings = this.settings();
       const selected = targets2[0];
-      if (!selected) return "";
+      if (!selected) return buttonsOnly("");
       const reviewGroup = canSwitchTarget ? Symbol("review-group") : void 0;
       const profiles = new Set((canSwitchTarget ? targets2 : [selected]).map((target) => target.gradeProfile));
       const gradeRows = [...profiles].map((profile) => renderTargetedGradeRow(
@@ -133938,14 +134697,12 @@ ${reading}`);
         settings,
         reviewGroup
       )).join("");
-      if (!gradeRows) return "";
+      if (!gradeRows) return buttonsOnly("");
       const selector = reviewGroup ? renderReviewTargetSelector(targets2, language2, reviewGroup) : "";
-      const targetGutter = renderReviewTargetGutter(selected, language2, canSwitchTarget, switchProviderTarget);
-      return `
-            ${targetGutter}
-            ${selector}
-            ${gradeRows}
-        `;
+      return {
+        gutter: renderReviewTargetGutter(selected, language2, canSwitchTarget, switchProviderTarget),
+        buttons: `${selector}${gradeRows}`
+      };
     }
     renderMetaItems(card, provider, state2, data, trustedAccountDataSurface) {
       const settings = this.settings();
@@ -134083,14 +134840,14 @@ ${reading}`);
     }).join("")}
     </div>`;
   }
+  function buttonsOnly(buttons) {
+    return { gutter: "", buttons };
+  }
   function togglePopoverReviewTargetSelection(button2) {
     const select2 = button2.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
     if (!select2 || select2.options.length < 2) return;
     select2.selectedIndex = (select2.selectedIndex + 1) % select2.options.length;
     updatePopoverReviewTargetSelection(select2);
-  }
-  function reviewButtonsIncludeTargetGutter(reviewButtons) {
-    return reviewButtons.includes("data-review-target-gutter");
   }
   function renderReviewTargetGutter(target, language2, canSwitchTarget, switchProviderTarget) {
     const label = uiText(language2, "showMiningActions");
@@ -134142,21 +134899,23 @@ ${reading}`);
       blacklistLabel: isBlacklisted ? uiText(language2, "unlist") : uiText(language2, "blacklist")
     };
   }
-  function renderApiMiningActions(settings, card, cardStates, language2, data, provider, trustedAccountDataSurface) {
-    if (!trustedAccountDataSurface) return renderPrivateMiningAction(settings, language2, provider);
-    const state2 = miningActionState(cardStates, language2);
-    const addDeckSelect = renderAddDeckSelect(settings, card, data, language2, provider);
-    if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return "";
-    return renderApiMiningActionDetails(language2, state2, addDeckSelect, provider, canToggleApiDeckState(card, settings));
+  function renderApiMiningActions(settings, card, cardStates, language2, data, provider, destinations, trustedAccountDataSurface) {
+    if (!trustedAccountDataSurface) return { collect: destinations.length ? renderPrivateCollectAction(language2) : "", deckState: "" };
+    const addDeckSelect = renderAddDeckSelect(settings, data, language2, provider, destinations);
+    const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
+    return {
+      collect: addDeckSelect ? renderCollectAction(renderApiDeckAdd(addDeckSelect, destinations[0], language2)) : "",
+      deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language2), language2) : ""
+    };
   }
-  function renderPrivateMiningAction(settings, language2, provider) {
-    const apiAvailable = canRenderApiMiningActions(settings, provider);
-    if (!apiAvailable && !settings.ankiEnabled) return "";
-    return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language2, "deckActions"))}">
-        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 1">
-            <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: "card-action", action: "add-default" })}>${escapeHtml$2(uiText(language2, "addToDeck"))} +</button>
-        </div>
-    </div>`;
+  function renderCollectAction(content) {
+    return `<div class="jpdb-reader-collect">${content}</div>`;
+  }
+  function renderPrivateCollectAction(language2) {
+    return renderCollectAction(`<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: "card-action", action: "add-default" })}>${collectButtonLabel(language2)}</button>`);
+  }
+  function collectButtonLabel(language2) {
+    return `${escapeHtml$2(uiText(language2, "addToDeck"))} <span aria-hidden="true">+</span>`;
   }
   function canToggleApiDeckState(card, settings) {
     return apiSrsSwitchableProviderIds(card, settings).some((id) => id === "jpdb" || id === "jiten");
@@ -134164,59 +134923,38 @@ ${reading}`);
   function canRenderApiMiningActions(settings, provider) {
     return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
   }
-  function renderAddDeckSelect(settings, card, data, language2, provider) {
+  function renderAddDeckSelect(settings, data, language2, provider, destinations) {
     const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
-      includeJpdb: provider?.id === "jpdb",
-      includeJiten: provider?.id === "jiten",
-      includeBunpro: isBunproMiningCard(card) && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
-      includeYomuLocal: settings.yomuLocalSrsEnabled,
+      includeJpdb: provider?.id === "jpdb" && destinations.includes("jpdb"),
+      includeJiten: provider?.id === "jiten" && destinations.includes("jiten"),
+      includeBunpro: destinations.includes("bunpro"),
+      includeYomuLocal: destinations.includes("yomu-local"),
       jitenDecks: data.jitenDecks ?? []
     });
     if (!deckOptions) return "";
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$2(uiText(language2, "deck"))}" hidden>${deckOptions}</select>`;
   }
-  function renderApiMiningActionDetails(language2, state2, addDeckSelect, provider, canToggleDeckState) {
-    const addToDeckLabel = `${uiText(language2, "addToDeck")} +`;
-    const directAdd = isDirectApiDeckAdd(provider, addDeckSelect);
-    return `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language2, "deckActions"))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${apiMiningActionColumns(canToggleDeckState)}">
-                        ${renderApiDeckAddButton(provider, directAdd, addToDeckLabel)}${renderApiDeckStateButtons(state2, canToggleDeckState)}
-                    </div>
-                    ${addDeckSelect}
-                </div>
-            `;
+  function renderApiDeckAdd(addDeckSelect, defaultDestination, language2) {
+    const label = collectButtonLabel(language2);
+    const deckSource = directCollection(addDeckSelect, defaultDestination);
+    if (!deckSource) {
+      return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: "card-ui", action: "deck-picker" })} aria-expanded="false">${label}</button>${addDeckSelect}`;
+    }
+    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: "card-action", action: "add", deckSource })}>${label}</button>`;
   }
-  function isDirectApiDeckAdd(provider, addDeckSelect) {
-    if (!provider) return false;
-    const directProviders = /* @__PURE__ */ new Set(["bunpro", "yomu-local"]);
-    if (!directProviders.has(provider.id)) return false;
-    return apiDeckSourceCount(addDeckSelect) <= 1;
+  function directCollection(addDeckSelect, defaultDestination) {
+    if (defaultDestination !== "bunpro" && defaultDestination !== "yomu-local") return void 0;
+    const sources = addDeckSelect.match(/data-deck-source="[^"]*"/g) ?? [];
+    return sources.length === 1 && sources[0] === `data-deck-source="${defaultDestination}"` ? defaultDestination : void 0;
   }
-  function apiDeckSourceCount(addDeckSelect) {
-    return addDeckSelect.match(/data-deck-source=/g)?.length ?? 0;
-  }
-  function apiMiningActionColumns(canToggleDeckState) {
-    return canToggleDeckState ? 3 : 1;
-  }
-  function renderApiDeckAddButton(provider, directAdd, label) {
-    return directAdd ? renderDirectApiDeckAddButton(directApiDeckSource(provider), label) : renderApiDeckPickerButton(label);
-  }
-  function directApiDeckSource(provider) {
-    return provider?.id === "bunpro" ? "bunpro" : "yomu-local";
-  }
-  function renderDirectApiDeckAddButton(deckSource, label) {
-    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: "card-action", action: "add", deckSource })} aria-expanded="false">${escapeHtml$2(label)}</button>`;
-  }
-  function renderApiDeckPickerButton(label) {
-    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: "card-ui", action: "deck-picker" })} aria-expanded="false">${escapeHtml$2(label)}</button>`;
-  }
-  function renderApiDeckStateButtons(state2, canToggleDeckState) {
-    if (!canToggleDeckState) return "";
+  function renderApiDeckStateActions(state2, language2) {
     const neverForgetClass = state2.isNeverForget ? " danger" : "";
-    return `
-                        <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: "card-action", action: "neverforget" })} aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: "card-action", action: "blacklist" })} aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>`;
+    return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language2, "deckActions"))}">
+        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 2">
+            <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: "card-action", action: "neverforget" })} aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
+            <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: "card-action", action: "blacklist" })} aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>
+        </div>
+    </div>`;
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -136734,7 +137472,7 @@ ${component.reading}`;
   function applyEmptyAnkiLookupToRenderedWord(word, ankiLookup, language2, options) {
     if (ankiLookup.trusted === false) return;
     if ([options.preserveExistingEmpty, renderedWordHasAnkiState(word)].every(Boolean)) {
-      word.dataset.ankiPreserveContrast = "true";
+      preserveAnkiContrastOnNextRefresh(word);
       return;
     }
     clearRenderedWordAnkiState(word);
@@ -136750,6 +137488,7 @@ ${component.reading}`;
     updateRenderedWordPrivateState(word, { ankiState: state2, ankiDecks: deckNames.join(", ") || void 0 });
     if (!currentAccountDataSurfaceIsTrusted()) {
       word.classList.add(`jpdb-${state2}`);
+      syncWordReviewLane(word);
       word.removeAttribute("title");
       return;
     }
@@ -137699,7 +138438,7 @@ ${component.reading}`;
       }
     }
     async assertManagedStateDeleted() {
-      const managedKeysStillPresent = await managedStoredKeysStillPresent();
+      const managedKeysStillPresent = await managedStoredKeysLeftAfterReset();
       if (!managedKeysStillPresent.length) return;
       log$6.warn("Managed keys remained after reset", { managedKeysStillPresent });
       throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
@@ -137814,6 +138553,8 @@ ${component.reading}`;
       statsCardsPerMinute: "cards/min",
       statsEstimatedDueTime: "Due estimate",
       statsCards: "Cards",
+      savedWord: "Saved",
+      statsSavedDetail: "Add to review in Library",
       statsDailyActivity: "Daily activity",
       statsMonthlyHeatmap: "Monthly heatmap",
       statsAccuracy: "Accuracy",
@@ -138113,6 +138854,8 @@ ${component.reading}`;
     statsCardsPerMinute: "カード/分",
     statsEstimatedDueTime: "期限分の目安",
     statsCards: "カード",
+    savedWord: "保存済み",
+    statsSavedDetail: "単語帳で復習に追加できます",
     statsDailyActivity: "日別アクティビティ",
     statsMonthlyHeatmap: "月別ヒートマップ",
     statsAccuracy: "正答率",
@@ -138359,23 +139102,20 @@ ${component.reading}`;
     if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
     return items;
   }
-  function renderNewTabLookupReviewButtons(grades, targets2, context) {
-    if (!grades.length) return "";
-    if (context && targets2.length) {
-      const selected = targets2[0];
-      const reviewGroup = targets2.length > 1 ? Symbol("review-group") : void 0;
-      const profiles = targets2.map((target) => reviewGradeProfile(context.card, target.kind));
-      return `${reviewGroup ? renderLookupReviewTargetGutter(selected) + renderLookupReviewTargetSelector(targets2, reviewGroup, profiles) : ""}
-            ${[...new Set(profiles)].map((profile) => renderLookupReviewTargetButtons(
-        selected,
-        reviewGradeScale(context.settings, profile).grades,
-        { profile, settings: context.settings, hidden: profile !== profiles[0] },
-        reviewGroup
-      )).join("")}`;
-    }
-    if (targets2.length > 1) return renderLookupReviewTargetControls(targets2, grades);
-    if (targets2.length) return renderLookupReviewTargetButtons(targets2[0], grades);
-    return "";
+  function renderNewTabLookupReviewControls(grades, targets2, context) {
+    const selected = targets2[0];
+    if (!grades.length || !selected) return { gutter: "", buttons: "" };
+    const reviewGroup = targets2.length > 1 ? Symbol("review-group") : void 0;
+    const profiles = targets2.map((target) => reviewGradeProfile(context.card, target.kind));
+    const rows = [...new Set(profiles)].map((profile) => renderLookupReviewTargetButtons(
+      selected,
+      reviewGradeScale(context.settings, profile).grades,
+      { profile, settings: context.settings, hidden: profile !== profiles[0] },
+      reviewGroup
+    )).join("");
+    if (!reviewGroup) return { gutter: "", buttons: rows };
+    const language2 = context.settings.interfaceLanguage;
+    return { gutter: renderLookupReviewTargetGutter(selected, language2), buttons: `${renderLookupReviewTargetSelector(targets2, reviewGroup, profiles, language2)}${rows}` };
   }
   function updateKanjiLookupMiningControls(popover, controls, setMiningControlsExpanded2) {
     updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2);
@@ -138434,55 +139174,47 @@ ${component.reading}`;
     return item;
   }
   function newTabLookupProviderStatusLabel(card, provider, settings, state2) {
-    if (!provider?.hasApiKey) return "";
-    if (provider.id === "yomu-local" && card.source !== "yomu-local" && card.reviewSource !== "yomu-local") return "";
-    return `${provider.label} ${lookupStateLabel(state2, settings.interfaceLanguage)}`;
+    if (!provider?.hasApiKey || !providerOwnsCard(provider, card)) return "";
+    return `${provider.label} ${providerStateLabel(provider, state2, settings.interfaceLanguage)}`;
+  }
+  function providerOwnsCard(provider, card) {
+    return provider.id !== "yomu-local" || card.source === "yomu-local" || card.reviewSource === "yomu-local";
+  }
+  function providerStateLabel(provider, state2, language2) {
+    return provider.id === "yomu-local" && state2 === "in-deck" ? newTabText(language2, "savedWord") : cardStateLabel(state2, language2);
   }
   function newTabLookupAnkiStatusLabel(ankiLookup, settings) {
     if (!settings.ankiEnabled) return "";
     if (ankiLookup.trusted === false && !ankiLookup.primary) return "";
-    return `Anki ${lookupStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
-  }
-  function lookupStateLabel(state2, language2) {
-    return cardStateLabel(state2, language2);
+    return `Anki ${cardStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
   }
   function renderLookupReviewTargetButtons(target, grades, context, reviewGroup) {
     const targetLabel = target.label;
     const label = targetLabel ? `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-newtab-grade-target data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$2(targetLabel)}</span></div>` : "";
     const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
     return `
-        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$2(target.id)}" data-review-target-row="${escapeHtml$2(target.id)}"${context ? ` data-review-grade-profile="${context.profile}"${context.hidden ? " hidden" : ""}` : ""}>
+        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$2(target.id)}" data-review-target-row="${escapeHtml$2(target.id)}" data-review-grade-profile="${context.profile}"${context.hidden ? " hidden" : ""}>
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
       const title = targetLabel ? ` title="${escapeHtml$2(targetLabel)}" aria-label="${escapeHtml$2(`${buttonLabel}: ${targetLabel}`)}"` : "";
-      const gradeShortcut = context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : void 0;
-      const keyHint = context ? gradeKeyHintAttributes(context.settings, gradeShortcut) : "";
-      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context?.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${keyHint}>${escapeHtml$2(buttonLabel)}</button>`;
+      const gradeShortcut = reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0];
+      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${gradeKeyHintAttributes(context.settings, gradeShortcut)}>${escapeHtml$2(buttonLabel)}</button>`;
     }).join("")}
         </div>
     `;
   }
-  function renderLookupReviewTargetControls(targets2, grades) {
-    const selected = targets2[0];
-    if (!selected) return "";
-    const reviewGroup = Symbol("review-group");
-    return `
-        ${renderLookupReviewTargetGutter(selected)}
-        ${renderLookupReviewTargetSelector(targets2, reviewGroup)}
-        ${renderLookupReviewTargetButtons(selected, grades, void 0, reviewGroup)}
-    `;
-  }
-  function renderLookupReviewTargetGutter(target) {
+  function renderLookupReviewTargetGutter(target, language2) {
+    const switchLabel = escapeHtml$2(uiText(language2, "switchReviewTarget"));
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}">${escapeHtml$2(target.shortLabel)}</span>
-        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: "card-ui", action: "review-target-toggle" })} title="Switch review target" aria-label="Switch review target">⇄</button>
+        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: "card-ui", action: "review-target-toggle" })} title="${switchLabel}" aria-label="${switchLabel}">⇄</button>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: "card-ui", action: "mining-collapse" })} aria-expanded="false" title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}"></button>
     </div>`;
   }
-  function renderLookupReviewTargetSelector(targets2, reviewGroup, profiles) {
+  function renderLookupReviewTargetSelector(targets2, reviewGroup, profiles, language2) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target"${privateCommandAttributes({ kind: "review-selector", reviewGroup })}>
-            ${targets2.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""}${privateCommandAttributes({ kind: "review-target", target: target.kind, gradeProfile: profiles?.[index] ?? "standard", reviewGroup, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$2(uiText(language2, "gradeTargetSelector"))}"${privateCommandAttributes({ kind: "review-selector", reviewGroup })}>
+            ${targets2.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""}${privateCommandAttributes({ kind: "review-target", target: target.kind, gradeProfile: profiles[index] ?? "standard", reviewGroup, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -138739,8 +139471,9 @@ ${component.reading}`;
     "stats-refresh",
     "stats-toggle-anki-deck",
     "stats-connect-anki",
-    "stats-open-jpdb-settings",
+    "stats-open-api-settings",
     "stats-open-anki-settings",
+    "stats-open-saved",
     "stats-import-jpdb"
   ];
   const NEW_TAB_ACTION_NAMES = new Set(NEW_TAB_ACTIONS);
@@ -139313,6 +140046,7 @@ ${entry.url}`),
   }
   const BROWSE_PAGE_SIZE = 50;
   const BROWSE_FILTER_ORDER = [
+    "saved",
     "new",
     "learning",
     "due",
@@ -139327,10 +140061,13 @@ ${entry.url}`),
   function browseStateCounts(cards) {
     const counts = /* @__PURE__ */ new Map();
     for (const card of cards) {
-      const state2 = primaryCardState(card.cardState);
+      const state2 = browseStateKey(card);
       counts.set(state2, (counts.get(state2) ?? 0) + 1);
     }
     return counts;
+  }
+  function browseStateKey(card) {
+    return isSavedOnlyNewTabCard(card) ? "saved" : primaryCardState(card.cardState);
   }
   function browseSourceForCard(card) {
     if (card.source === "anki" || card.reviewSource === "anki") return "anki";
@@ -139348,10 +140085,15 @@ ${entry.url}`),
     }
     return counts;
   }
+  function toggleBrowseChip(active, chip) {
+    if (chip === "all") active.clear();
+    else if (active.has(chip)) active.delete(chip);
+    else active.add(chip);
+  }
   function filterBrowseCards(cards, filters, query, sourceFilters = /* @__PURE__ */ new Set()) {
     const trimmed = query.trim();
     const sourceMatched = cards.filter((card) => !sourceFilters.size || sourceFilters.has(browseSourceForCard(card)));
-    const stateMatched = sourceMatched.filter((card) => !filters.size || filters.has(primaryCardState(card.cardState)));
+    const stateMatched = sourceMatched.filter((card) => !filters.size || filters.has(browseStateKey(card)));
     if (!trimmed) return stateMatched;
     const prefix = [];
     const partial = [];
@@ -139427,17 +140169,18 @@ ${entry.url}`),
   }
   function renderBrowseChips(cards, active, language2, allLabel) {
     const counts = browseStateCounts(cards);
-    const chip = (filter, label, count, pressed) => el("button", {
+    const label = (state2) => state2 === "saved" ? newTabText(language2, "savedWord") : cardStateLabel(state2, language2);
+    const chip = (filter, label2, count, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip",
       dataset: { newtabAction: newTabAction("browse-filter"), browseFilter: filter },
       "aria-pressed": String(pressed)
-    }, `${label} ${count}`);
+    }, `${label2} ${count}`);
     return el(
       "div",
       { class: "jpdb-reader-newtab-browse-chips", role: "group" },
       chip("all", allLabel, cards.length, active.size === 0),
-      ...BROWSE_FILTER_ORDER.filter((state2) => (counts.get(state2) ?? 0) > 0).map((state2) => chip(state2, cardStateLabel(state2, language2), counts.get(state2) ?? 0, active.has(state2)))
+      ...BROWSE_FILTER_ORDER.filter((state2) => (counts.get(state2) ?? 0) > 0).map((state2) => chip(state2, label(state2), counts.get(state2) ?? 0, active.has(state2)))
     );
   }
   function renderBrowseControls(sort, descending, selectMode, copy2) {
@@ -139567,7 +140310,7 @@ ${entry.url}`),
           "span",
           { class: "jpdb-reader-newtab-browse-state", dataset: { browseState: state2 } },
           el("span", { class: `jpdb-reader-state-dot jpdb-${state2}` }),
-          cardStateLabel(state2, language2),
+          browseStateLabel(card, state2, language2),
           browseStateDetails(card, dueIn)
         )
       ),
@@ -139576,6 +140319,9 @@ ${entry.url}`),
         dataset: { newtabAction: newTabAction("browse-start-review"), browseCardKey: cardKey(card) }
       }, startReview) : null
     );
+  }
+  function browseStateLabel(card, state2, language2) {
+    return isSavedOnlyNewTabCard(card) ? newTabText(language2, "savedWord") : cardStateLabel(state2, language2);
   }
   function browseReading(card) {
     return card.reading && card.reading !== card.spelling ? card.reading : "";
@@ -139803,6 +140549,11 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     if (card.source === "fallback" && !card.reviewSource && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
     return targets2;
+  }
+  function keepReviewObligationOwner(card, targets2) {
+    const jpdb = targets2.some((target) => target === "jpdb-api" || target === "jpdb-live");
+    if (!card.apiGradingProviderOverride && jpdb !== targets2.includes("jiten-api")) card.apiGradingProviderOverride = jpdb ? "jpdb" : "jiten";
+    return card;
   }
   function queueableNewTabReviewTargets(targets2) {
     return targets2.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "yomu-local");
@@ -140822,6 +141573,16 @@ ${newTabCardReading(card)}`;
       studyFallback: source === "jpdb" || source === "bunpro" || source === "wanikani" || source === "yomu-local" || source === "dictionary" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
     };
   }
+  function newTabSourceForCard(card) {
+    if (card.source === "anki" || card.reviewSource === "anki") return "anki";
+    if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+    if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
+    if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
+    if (card.source === "jpdb" || card.source === "jiten" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.reviewSource === "jiten-api") {
+      return "jpdb";
+    }
+    return "dictionary";
+  }
   class NewTabStudyPool {
     constructor(deps) {
       this.deps = deps;
@@ -141010,6 +141771,7 @@ ${newTabCardReading(card)}`;
     const combinedSources = active.length ? active : sources;
     const daily = mergeDailyPoints(...combinedSources.map((source) => source.daily));
     const dueForecast = addDueForecasts(combinedSources);
+    const savedOnly = combinedSources.reduce((sum, source) => sum + (source.savedOnly ?? 0), 0);
     return finalizeCombinedStatsSource({
       id: "combined",
       label: "Combined",
@@ -141023,7 +141785,8 @@ ${newTabCardReading(card)}`;
       currentStreak: 0,
       longestStreak: 0,
       updatedAt: Math.max(0, ...combinedSources.map((source) => source.updatedAt ?? 0)) || null,
-      ...dueForecast ? { dueForecast } : {}
+      ...dueForecast ? { dueForecast } : {},
+      ...savedOnly ? { savedOnly } : {}
     });
   }
   async function loadAnkiDueForecast(api, decks) {
@@ -141585,8 +142348,17 @@ ${newTabCardReading(card)}`;
       renderStatsMetric(text2("statsCurrentStreak"), formatCompactNumber(source.currentStreak), `${text2("statsLongestStreak")}: ${formatCompactNumber(source.longestStreak)} ${text2("statsDays")}`),
       renderStatsMetric(text2("statsRetention"), formatPercent(source.retention), text2("statsTotalReviews")),
       renderStatsMetric(text2("statsAverageSpeed"), formatStatsSpeed(speed), text2("statsCardsPerMinute")),
-      renderStatsMetric(text2("statsCards"), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text2))
+      renderStatsMetric(text2("statsCards"), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text2)),
+      renderStatsSavedMetric(context)
     );
+  }
+  function renderStatsSavedMetric({ source, text: text2 }) {
+    if (!source.savedOnly) return null;
+    return el("button", {
+      type: "button",
+      class: "jpdb-reader-stats-metric jpdb-reader-stats-metric-link",
+      dataset: { newtabAction: newTabAction("stats-open-saved") }
+    }, statsMetricContent(text2("savedWord"), formatCompactNumber(source.savedOnly), text2("statsSavedDetail")));
   }
   function reviewsTodayDetail(context) {
     const { source, text: text2 } = context;
@@ -141595,13 +142367,14 @@ ${newTabCardReading(card)}`;
     return newToday > 0 ? `+${formatCompactNumber(newToday)} ${text2("statsNewToday")}` : text2("statsDailyActivity");
   }
   function renderStatsMetric(label, value, detail) {
-    return el(
-      "section",
-      { class: "jpdb-reader-stats-metric" },
+    return el("section", { class: "jpdb-reader-stats-metric" }, statsMetricContent(label, value, detail));
+  }
+  function statsMetricContent(label, value, detail) {
+    return [
       el("span", { class: "jpdb-reader-stats-metric-label" }, label),
       el("strong", {}, value),
       el("span", { class: "jpdb-reader-stats-metric-detail" }, detail)
-    );
+    ];
   }
   function renderStatsActivity(context) {
     const { activityMetric, source, text: text2 } = context;
@@ -141823,11 +142596,12 @@ ${newTabCardReading(card)}`;
     );
   }
   function renderStatsConnectionCard(source, context) {
+    const actions = statsConnectionActions(source, context.text);
     return el(
       "article",
       { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status } },
       renderStatsConnectionMain(source, context),
-      el("div", { class: "jpdb-reader-stats-connection-actions" }, statsConnectionActions(source, context)),
+      actions.length ? el("div", { class: "jpdb-reader-stats-connection-actions" }, actions) : null,
       renderStatsConnectionDropzone(source.id === "jpdb", context.text)
     );
   }
@@ -141844,26 +142618,25 @@ ${newTabCardReading(card)}`;
     if (source.id !== "anki" || !source.deckNames?.length) return null;
     return renderStatsAnkiDeckToggles(source, context.text);
   }
-  function statsConnectionActions(source, context) {
-    const { text: text2 } = context;
-    if (source.id === "jpdb") {
-      const actions = [
-        el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenJpdbSettings"))
-      ];
-      actions.push(el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-import-jpdb") } }, text2("statsChooseJpdbFile")));
-      return actions;
-    }
-    if (source.id === "jiten") return [
-      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenApiSettings"))
+  function statsConnectionActions(source, text2) {
+    if (source.id === "jpdb") return [
+      statsConnectionButton(newTabAction("stats-open-api-settings"), text2("statsOpenJpdbSettings")),
+      statsConnectionButton(newTabAction("stats-import-jpdb"), text2("statsChooseJpdbFile"))
     ];
-    return [
-      isStatsSourceConnected(source) ? null : el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-connect-anki") } }, text2("statsConnectAnki")),
-      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-anki-settings") } }, text2("statsOpenAnkiSettings"))
+    if (source.id === "jiten" || source.id === "bunpro" || source.id === "wanikani") return [
+      statsConnectionButton(newTabAction("stats-open-api-settings"), text2("statsOpenApiSettings"))
     ];
+    if (source.id === "anki") return [
+      ...isAnkiConnected(source) ? [] : [statsConnectionButton(newTabAction("stats-connect-anki"), text2("statsConnectAnki"))],
+      statsConnectionButton(newTabAction("stats-open-anki-settings"), text2("statsOpenAnkiSettings"))
+    ];
+    return [];
   }
-  function isStatsSourceConnected(source) {
-    if (source.status === "ready" || source.status === "partial") return true;
-    return source.id !== "jpdb" && Boolean(source.deckNames?.length);
+  function statsConnectionButton(action, label) {
+    return el("button", { type: "button", dataset: { newtabAction: action } }, label);
+  }
+  function isAnkiConnected(source) {
+    return source.status === "ready" || source.status === "partial" || Boolean(source.deckNames?.length);
   }
   function renderStatsConnectionDropzone(isJpdb, text2) {
     if (!isJpdb) return null;
@@ -142052,8 +142825,8 @@ ${newTabCardReading(card)}`;
   function isNewTabStatsAction(action) {
     return action !== void 0 && action.startsWith("stats-");
   }
-  async function srsStatsReviewables(adapter) {
-    return adapter.collection ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT) : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT)).cards;
+  async function srsStatsReviewables(adapter, options) {
+    return adapter.collection ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT, options) : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)).cards;
   }
   class NewTabStatsController {
     constructor(deps) {
@@ -142081,8 +142854,9 @@ ${newTabCardReading(card)}`;
       "stats-connect-anki": (root) => {
         void this.connectAnki(root);
       },
-      "stats-open-jpdb-settings": () => this.deps.showSettings("api"),
+      "stats-open-api-settings": () => this.deps.showSettings("api"),
       "stats-open-anki-settings": () => this.deps.showSettings("mining"),
+      "stats-open-saved": (root) => this.deps.openSavedWords(root),
       "stats-import-jpdb": (root) => {
         root.querySelector("[data-stats-jpdb-file]")?.click();
       }
@@ -142305,18 +143079,21 @@ ${newTabCardReading(card)}`;
     async loadSrsAdapterSource(source) {
       const adapter = this.deps.srsAdapters?.[source];
       const label = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
-      if (!adapter || !adapter.hasCredential()) {
+      if (!adapter?.hasCredential() || !canBrowseNewTabSrsSource(source, this.deps.canUseYomuLocalSource())) {
         return emptyStatsSource(source, label, source === "yomu-local" ? this.deps.text("statsNoData") : this.deps.text("statsApiKeyMissing"), "setup");
       }
       try {
+        const options = { language: activeLearningTargetLanguage() };
         const [stats, reviewables] = await Promise.all([
-          adapter.stats(),
-          srsStatsReviewables(adapter)
+          adapter.stats(options),
+          srsStatsReviewables(adapter, options)
         ]);
-        const cards = reviewables.map((card) => this.deps.srsReviewableToNewTabCard(card)).filter((card) => card !== null && !isSavedOnlyNewTabCard(card));
+        const listed = reviewables.map((card) => this.deps.srsReviewableToNewTabCard(card)).filter((card) => card !== null);
+        const cards = listed.filter((card) => !isSavedOnlyNewTabCard(card));
         const snapshot = statsFromApiCards(cards, label, this.apiLoadedMessage(label, cards.length), source);
         return {
           ...snapshot,
+          savedOnly: listed.length - cards.length,
           message: cards.length || stats.reviewsDue || stats.reviewsToday ? snapshot.message : this.deps.text("statsNoData"),
           reviewsToday: stats.reviewsToday ?? snapshot.reviewsToday,
           cards: {
@@ -146589,7 +147366,7 @@ ${newTabCardReading(card)}`;
   const HELD_REVIEW_SETTLE_MS = 5 * 6e4;
   const NEW_TAB_LIVE_REVIEW_KEY = "yomu:newtab-live-review:v1";
   const LIVE_REVIEW_LEASE = "newtab-live-review";
-  const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5e3, timeoutMs: 5e3 };
+  const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5e3, timeoutMs: 5e3, guards: (key) => key === NEW_TAB_LIVE_REVIEW_KEY };
   const LIVE_REVIEW_CLAIM_MS = 60 * 6e4;
   const LIVE_REVIEW_CLAIM_LIMIT = 500;
   const UNBOUND_PROVIDER_CONTEXT = "legacy";
@@ -146689,15 +147466,18 @@ ${newTabCardReading(card)}`;
      */
     async claimLiveReview(card, targets2, contextFor) {
       const claim = { id: createStorageCoordinationId(), keys: targets2.map((target) => `${contextFor(target)}:${target}:${cardKey(card)}`) };
-      try {
-        return await this.liveReviews((records, now) => {
-          const blocking = claim.keys.filter((key) => records[key] && this.liveReviewBlocks(records[key], now));
-          if (blocking.length) return null;
-          for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
-          return claim;
-        });
-      } catch {
+      let refused = false;
+      const claimOnce = () => this.liveReviews((records, now) => {
+        refused = claim.keys.filter((key) => records[key] && this.liveReviewBlocks(records[key], now)).length > 0;
+        if (refused) return null;
+        for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
         return claim;
+      });
+      try {
+        return await claimOnce();
+      } catch (error) {
+        if (!isStorageLeaseLapsed(error)) return claim;
+        return refused ? null : claimOnce().catch(() => claim);
       }
     }
     /** Marks a claimed live review sent, whatever its outcome. */
@@ -148654,7 +149434,7 @@ ${newTabCardReading(card)}`;
     const schedule = options.schedule ?? defaultSchedule;
     const cancel = options.cancel ?? defaultCancel;
     const pauseReasons = /* @__PURE__ */ new Set();
-    const listeners = /* @__PURE__ */ new Set();
+    const listeners2 = /* @__PURE__ */ new Set();
     let accumulatedMs = 0;
     let runningSince = now();
     let ticker;
@@ -148695,11 +149475,11 @@ ${newTabCardReading(card)}`;
     };
     const notify = () => {
       const snapshot = snapshotAt(now());
-      listeners.forEach((listener) => listener(snapshot));
+      listeners2.forEach((listener) => listener(snapshot));
       return snapshot;
     };
     const startTicker = () => {
-      if (disposed || ticker !== void 0 || !listeners.size) return;
+      if (disposed || ticker !== void 0 || !listeners2.size) return;
       const snapshot = snapshotAt(now());
       if (snapshot.complete) return;
       ticker = schedule(notify, tickEveryMs);
@@ -148747,14 +149527,14 @@ ${newTabCardReading(card)}`;
       setVisible: (visible) => visible ? resume("visibility") : pause("visibility"),
       subscribe(listener) {
         if (disposed) throw new Error("Study session clock is disposed.");
-        listeners.add(listener);
+        listeners2.add(listener);
         const snapshot = snapshotAt(now());
         listener(snapshot);
         startTicker();
         return {
           dispose() {
-            listeners.delete(listener);
-            if (!listeners.size) stopTicker();
+            listeners2.delete(listener);
+            if (!listeners2.size) stopTicker();
           }
         };
       },
@@ -148762,7 +149542,7 @@ ${newTabCardReading(card)}`;
         if (disposed) return;
         disposed = true;
         stopTicker();
-        listeners.clear();
+        listeners2.clear();
         visibility?.removeEventListener("visibilitychange", onVisibilityChange);
       }
     };
@@ -149377,6 +150157,27 @@ ${options.version}`;
   function delayWithValue(value, ms) {
     return new Promise((resolve) => window.setTimeout(() => resolve(value), ms));
   }
+  function isNewTabRevealKey(key) {
+    return key === " " || isNewTabEnterRevealKey(key);
+  }
+  function isNewTabEnterRevealKey(key) {
+    return key === "Enter";
+  }
+  function isNewTabStudyInteractiveTarget(target) {
+    return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
+  }
+  function isNewTabKeyboardCaptureBlockedTarget(target) {
+    return Boolean(target.closest([
+      "input",
+      "select",
+      "textarea",
+      '[contenteditable]:not([contenteditable="false"])',
+      "[data-newtab-search]",
+      '[role="search"]',
+      "[data-settings-panel]",
+      ".jpdb-reader-settings"
+    ].join(",")));
+  }
   const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
   const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
   const QUEUE_REFRESH_LOW_WATER = 20;
@@ -149457,6 +150258,7 @@ ${options.version}`;
         syncMode: (root) => this.syncMode(root),
         syncThemeToggle: (root) => this.syncThemeToggle(root),
         showSettings: (tab) => this.dependencies.showSettings(tab),
+        openSavedWords: (root) => this.openSavedWords(root),
         hasCoarsePointer: () => this.hasCoarsePointer(),
         statsVisible: () => this.state.route === "stats" && !this.practiceVisible,
         studyTroubleCards: (root) => this.studyStatsTroubleCards(root)
@@ -149472,6 +150274,7 @@ ${options.version}`;
         void this.applyExternalState(state2);
       });
       this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate((status) => this.applyJpdbBridgeStatus(status));
+      this.unsubscribeAcademyMutations = subscribeLocalYomuSrsMutations(() => this.refreshStatsAfterAcademyMutation());
       this.kanjiDetailSource = new KanjiDetailSource({
         getSettings: () => this.dependencies.getSettings(),
         jpdbKanji: this.dependencies.jpdbKanji,
@@ -149534,6 +150337,7 @@ ${options.version}`;
     state;
     stateChannel;
     unsubscribeJpdbBridge;
+    unsubscribeAcademyMutations;
     liveJpdbStatus = null;
     liveCards = /* @__PURE__ */ new Map();
     pendingLiveJpdbGrade = null;
@@ -149733,6 +150537,7 @@ ${options.version}`;
     browsePool;
     browsePoolKey = "";
     browsePoolGeneration = 0;
+    browsePoolStale = false;
     browsePoolLoad;
     browseFilterGeneration = 0;
     browseFilters = /* @__PURE__ */ new Set();
@@ -149812,7 +150617,7 @@ ${options.version}`;
         return true;
       }
       if (this.state.route === "stats") {
-        this.renderStats(root);
+        this.statsController.render(root);
         void this.loadStatsInto(root);
         return true;
       }
@@ -149850,6 +150655,7 @@ ${options.version}`;
       this.clearListenRecording();
       this.stateChannel.close();
       this.unsubscribeJpdbBridge();
+      this.unsubscribeAcademyMutations();
       this.rootEventController?.abort();
       this.searchController.destroy();
       this.studyExamples.dispose();
@@ -150059,15 +150865,10 @@ ${options.version}`;
       clearTimeout(this.offlineWarmRetryTimer);
       this.offlineWarmRetryTimer = void 0;
     }
+    // Stats reloads here too: its figures belong to the target just left.
     renderAfterTargetInvalidation() {
       const root = this.currentRoot();
-      if (!root) return;
-      if (this.state.route === "search") {
-        this.searchController.renderSearch(root);
-        return;
-      }
-      if (this.state.route === "stats") return this.renderStats(root);
-      this.applyWords(root, false);
+      if (root && !this.renderNonStudyRoute(root)) this.applyWords(root, false);
     }
     renderEnabledContent() {
       const language2 = this.language();
@@ -150409,14 +151210,9 @@ ${options.version}`;
         this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
         return;
       }
+      this.dropStaleBrowsePool();
       const browseGeneration = this.browsePoolGeneration;
-      void this.loadBrowsePool().then((cards) => this.applyLoadedBrowseFilter(
-        cards,
-        filter,
-        filterGeneration,
-        browseGeneration,
-        root
-      ));
+      void this.loadBrowsePool().then((cards) => this.applyLoadedBrowseFilter(cards, filter, filterGeneration, browseGeneration, root));
     }
     applyLoadedBrowseFilter(cards, filter, filterGeneration, browseGeneration, root) {
       if (!this.canApplyLoadedBrowseFilter(filterGeneration, browseGeneration, root)) return;
@@ -151398,7 +152194,7 @@ ${options.version}`;
     sourceReviewLookupCard(card) {
       const sourceCard = this.sourceCardForVisibleCard(card);
       const sharedCardWithExactPitch = Boolean(card?.sourceCardKey && sourceCard?.pitchAccent.length);
-      return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch) ? sourceCard : void 0;
+      return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch) ? keepReviewObligationOwner(sourceCard, this.reviewTargetsForCard(sourceCard)) : void 0;
     }
     sourceReviewLookupCardForTarget(target) {
       const sourceCard = this.sourceReviewLookupCard(this.visibleWords[this.index]);
@@ -151458,10 +152254,6 @@ ${options.version}`;
     }
     async renderEmptyWordLoad(root) {
       this.renderEmpty(root, APP_NAME, this.text(this.emptyLoadMessageKey ?? this.emptyStudyMessageKey()));
-    }
-    // Thin forwarder: the mode-switch / render paths paint the stats dashboard.
-    renderStats(root) {
-      this.statsController.render(root);
     }
     // Thin forwarder: the mode-switch / render paths kick off the stats load.
     loadStatsInto(root, force = false) {
@@ -152246,7 +153038,7 @@ ${options.version}`;
     isRenderedReviewSource(source) {
       if (this.sourceLabelReviewSource() === source) return true;
       const words = this.allWords.length ? this.allWords : this.visibleWords;
-      return words.length > 0 && words.every((card) => this.cardPrimaryNewTabSource(card) === source);
+      return words.length > 0 && words.every((card) => newTabSourceForCard(card) === source);
     }
     async switchReviewSource(root, source) {
       if (source === this.state.source && this.isRenderedReviewSource(source)) return;
@@ -152279,7 +153071,7 @@ ${options.version}`;
     }
     canUseCachedResultForSourceSwitch(result, source) {
       if (!result.cards.length) return this.emptyCachedResultMatchesSource(result, source);
-      return result.cards.every((card) => this.cardPrimaryNewTabSource(card) === source);
+      return result.cards.every((card) => newTabSourceForCard(card) === source);
     }
     emptyCachedResultMatchesSource(result, source) {
       if (source === "anki") return false;
@@ -152288,17 +153080,6 @@ ${options.version}`;
       if (source === "wanikani") return result.sourceLabel.startsWith("WaniKani");
       if (source === "yomu-local") return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
       return result.sourceLabel === this.text("dictionary");
-    }
-    // fallow-ignore-next-line complexity, code-duplication
-    cardPrimaryNewTabSource(card) {
-      if (card.source === "anki" || card.reviewSource === "anki") return "anki";
-      if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
-      if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
-      if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
-      if (card.source === "jpdb" || card.source === "jiten" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.reviewSource === "jiten-api") {
-        return "jpdb";
-      }
-      return "dictionary";
     }
     syncSourceFromSettings(settings = this.dependencies.getSettings()) {
       const source = this.effectiveNewTabSourceFromSettings(settings);
@@ -152360,7 +153141,7 @@ ${options.version}`;
         return;
       }
       if (this.state.route === "stats") {
-        this.renderStats(root);
+        this.statsController.render(root);
         void this.loadStatsInto(root);
         return;
       }
@@ -155277,17 +156058,22 @@ ${options.version}`;
     handleBrowseFilterClick(root, target, event) {
       event.preventDefault();
       const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter ?? "all";
-      if (filter === "all") this.browseFilters.clear();
-      else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
-      else this.browseFilters.add(filter);
+      toggleBrowseChip(this.browseFilters, filter);
       return this.refreshBrowseAfterChipChange(root);
+    }
+    // Stats' Saved tile: Library on the saved words alone, from the first page, with
+    // no earlier chip or search hiding them; scheduled Academy cards would sort first.
+    openSavedWords(root) {
+      this.browseFilters = /* @__PURE__ */ new Set(["saved"]);
+      this.browseSourceFilters = /* @__PURE__ */ new Set(["yomu-local"]);
+      this.browsePage = 0;
+      this.searchController.setInitialQuery("");
+      this.setState({ route: "search", revealAnswer: false }, root, { preserveWord: true });
     }
     handleBrowseSourceFilterClick(root, target, event) {
       event.preventDefault();
       const filter = target.closest("[data-browse-source-filter]")?.dataset.browseSourceFilter ?? "all";
-      if (filter === "all") this.browseSourceFilters.clear();
-      else if (this.browseSourceFilters.has(filter)) this.browseSourceFilters.delete(filter);
-      else this.browseSourceFilters.add(filter);
+      toggleBrowseChip(this.browseSourceFilters, filter);
       return this.refreshBrowseAfterChipChange(root);
     }
     handleBrowseSortDirectionClick(root, event) {
@@ -155323,7 +156109,7 @@ ${options.version}`;
       if (!button2 || button2.disabled || card?.source !== "yomu-local" || !card.sourceCardKey || !adapter?.startReview) return;
       button2.disabled = true;
       try {
-        await adapter.startReview(card.sourceCardKey);
+        await withSaveWaitStatus(this.language(), adapter.startReview.bind(adapter, card.sourceCardKey));
         if (this.destroyed) return;
         this.invalidateSourceResultCache("yomu-local");
         this.allWords = [];
@@ -155378,6 +156164,7 @@ ${options.version}`;
     async renderBrowseInto(root) {
       const results = this.searchResultsMount(root);
       if (!results) return;
+      this.dropStaleBrowsePool();
       if (!this.browsePool) replaceChildrenWith(results, el("div", { class: "jpdb-reader-newtab-search-empty" }, this.text("loading")));
       await this.loadBrowsePool(() => {
         const mount2 = this.searchResultsMount(root);
@@ -155389,13 +156176,25 @@ ${options.version}`;
       if (!mount || !mount.isConnected || this.state.route !== "search" || query && !this.browseScopeActive()) return;
       this.renderBrowseResults(mount);
     }
+    // A card changed: Library loads its words again now if it is open, or else when
+    // next used, so that a Show-only filter still loading on Study keeps its result.
     refreshBrowseAfterCardMutation(_card) {
+      this.browsePoolStale = true;
       const root = this.currentRoot();
-      if (!root || this.state.route !== "search") return;
-      this.invalidateBrowsePool();
-      void this.renderBrowseInto(root);
+      if (root && this.state.route === "search") void this.renderBrowseInto(root);
+    }
+    // Any Academy save in this tab (a lookup popup, "Add to review", a grade)
+    // changes what Stats counts, so it loads again, at once if it is open.
+    refreshStatsAfterAcademyMutation() {
+      this.statsController.reset();
+      const root = this.currentRoot();
+      if (root && this.state.route === "stats") void this.loadStatsInto(root);
+    }
+    dropStaleBrowsePool() {
+      if (this.browsePoolStale) this.invalidateBrowsePool();
     }
     invalidateBrowsePool() {
+      this.browsePoolStale = false;
       this.browsePoolGeneration += 1;
       this.browsePool = void 0;
       this.browsePoolKey = "";
@@ -155946,7 +156745,7 @@ ${options.version}`;
     }
     async submitCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts) {
       this.setStatus(target.root, this.text("grading"));
-      const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget2);
+      const submittedTarget = await withSaveWaitStatus(this.language(), () => this.submitGrade(target.card, grade, selectedTarget2));
       if (reviewOp.superseded || !this.gradeProvidersAreCurrent(providerContexts, target.card, selectedTarget2)) return false;
       this.offlineReviewingAccepted = false;
       this.invalidateReviewSourceCache(target.card);
@@ -155962,7 +156761,7 @@ ${options.version}`;
     async handleFailedGrade(target, grade, selectedTarget2, isCorrection, error, reviewOp, providerContexts) {
       log$2.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
       if (this.localYomuStorageFailure(error)) {
-        this.reportLocalYomuGradeFailure(target.root);
+        this.reportLocalYomuGradeFailure(target.root, error);
         return false;
       }
       if (isSessionBunproCard(target.card) || error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => failure.target === "anki")) {
@@ -155973,8 +156772,10 @@ ${options.version}`;
       const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget2, error);
       return this.resolveOrQueueFailedGrade(target, grade, selectedTarget2, isCorrection, error, reviewOp, providerContexts, queueTargets);
     }
-    reportLocalYomuGradeFailure(root) {
-      const message = this.text("yomuLocalSrsStorageFailed");
+    // A save interrupted mid-write (ADR-0019) did not land, and storage is fine: grading again is safe.
+    reportLocalYomuGradeFailure(root, error) {
+      const causes = error instanceof NewTabGradeSubmissionError ? error.failures.map((failure) => failure.error) : [error];
+      const message = this.text(causes.some(isLocalYomuSrsSaveInterrupted) ? "yomuLocalSrsSaveInterrupted" : "yomuLocalSrsStorageFailed");
       this.setStatus(root, message);
       this.dependencies.toast?.(message);
     }
@@ -157091,36 +157892,12 @@ ${options.version}`;
   function concreteNewTabSourceFromValue(value) {
     return value === "jpdb" || value === "bunpro" || value === "wanikani" || value === "yomu-local" || value === "anki" || value === "dictionary" ? value : null;
   }
-  function isNewTabRevealKey(key) {
-    return isNewTabSpaceRevealKey(key) || isNewTabEnterRevealKey(key);
-  }
-  function isNewTabSpaceRevealKey(key) {
-    return key === " ";
-  }
-  function isNewTabEnterRevealKey(key) {
-    return key === "Enter";
-  }
   function consumeNestedLookupEvent(event) {
     event.preventDefault();
     event.stopPropagation();
   }
   function setOptionalText(element2, text2) {
     if (element2) element2.textContent = text2;
-  }
-  function isNewTabStudyInteractiveTarget(target) {
-    return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
-  }
-  function isNewTabKeyboardCaptureBlockedTarget(target) {
-    return Boolean(target.closest([
-      "input",
-      "select",
-      "textarea",
-      '[contenteditable]:not([contenteditable="false"])',
-      "[data-newtab-search]",
-      '[role="search"]',
-      "[data-settings-panel]",
-      ".jpdb-reader-settings"
-    ].join(",")));
   }
   function renderDeckSelectorOptions(select2, options, selected) {
     replaceChildrenWith(select2, options.map((option) => el("option", {
@@ -157463,8 +158240,12 @@ ${options.version}`;
     if (legacyClasses.length) root.classList.remove(...legacyClasses);
     applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
     applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
+    if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
     guardReaderRootClasses(root);
     return theme;
+  }
+  function paintsReviewLane(theme) {
+    return [theme.wordColorSources, theme.subtitleColorSources].some((sources) => Object.values(sources).includes("anki"));
   }
   function toggleClassIfChanged(root, className, enabled) {
     if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
@@ -157578,7 +158359,7 @@ ${options.version}`;
   function applyReaderColorSourceClasses(root, scope, sources) {
     COLOR_CHANNELS.forEach((channel) => {
       COLOR_SOURCE_CLASSES.forEach((source) => {
-        toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+        toggleClassIfChanged(root, colorSourceClassName(scope, channel, source), sources[channel] === source);
       });
     });
   }
@@ -157622,56 +158403,6 @@ ${options.version}`;
   }
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
-  }
-  const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
-  const TOAST_VISIBLE_CLASS = "is-visible";
-  const TOAST_EXIT_MS = 220;
-  const toastTimers = /* @__PURE__ */ new WeakMap();
-  function showReaderToast(message, durationMs = 3200) {
-    const stack = ensureReaderToastStack();
-    const existing = Array.from(stack.children).find((node) => node instanceof HTMLElement && node.textContent === message);
-    if (existing) {
-      scheduleToastRemoval(existing, durationMs);
-      return;
-    }
-    const toast = document.createElement("div");
-    toast.className = "jpdb-reader-toast";
-    toast.setAttribute("role", "status");
-    toast.setAttribute("aria-live", "polite");
-    toast.textContent = message;
-    stack.append(toast);
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => toast.classList.add(TOAST_VISIBLE_CLASS));
-    } else {
-      toast.classList.add(TOAST_VISIBLE_CLASS);
-    }
-    scheduleToastRemoval(toast, durationMs);
-  }
-  function ensureReaderToastStack() {
-    const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
-    if (existing?.isConnected) {
-      applyOverlayPageScale(existing);
-      return existing;
-    }
-    const stack = document.createElement("div");
-    stack.className = TOAST_STACK_CLASS;
-    stack.dataset.jpdbReaderRoot = "true";
-    applyOverlayPageScale(stack);
-    document.body.append(stack);
-    return stack;
-  }
-  function scheduleToastRemoval(toast, durationMs) {
-    const pending2 = toastTimers.get(toast);
-    if (pending2 !== void 0) window.clearTimeout(pending2);
-    toastTimers.set(toast, window.setTimeout(() => {
-      toast.classList.remove(TOAST_VISIBLE_CLASS);
-      window.setTimeout(() => {
-        toast.remove();
-        if (typeof document === "undefined") return;
-        const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
-        if (stack && !stack.childElementCount) stack.remove();
-      }, TOAST_EXIT_MS);
-    }, durationMs));
   }
   const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
   const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;
@@ -158502,7 +159233,7 @@ ${rank.detail}` : baseTitle;
       renderDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
       dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
       dictionaryLabel: (name) => this.dictionaryLabel(name),
-      renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data)
+      renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewControls(card, data)
     });
     activeLookupPopover;
     activeLookupBackdrop;
@@ -158579,10 +159310,6 @@ ${rank.detail}` : baseTitle;
       parsePopoverJapanese: (popover) => this.parseNewTabContent(popover),
       toast: (message) => this.toast(message),
       invalidateCardData: () => this.cardRenderData.clear(),
-      setApiGradingProvider: (provider) => {
-        this.settings.apiGradingProvider = provider;
-        void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-      },
       onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
       onApiCardStateChanged: (card) => this.handleApiCardStateChanged(card)
     });
@@ -159344,20 +160071,19 @@ ${rank.detail}` : baseTitle;
       return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded));
     }
     renderKanjiLookupActionBar(card) {
-      const reviewButtons = this.renderNewTabLookupReviewButtons(card);
-      const hasReviewTargetGutter = reviewButtons.includes("data-review-target-gutter");
+      const { gutter, buttons } = this.renderNewTabLookupReviewControls(card);
       return `
-            <div class="jpdb-reader-actions${kanjiLookupActionsClass(hasReviewTargetGutter)}" data-kanji-actions${kanjiLookupReviewAttributes(reviewButtons)}>
-                ${renderKanjiLookupMiningGutter(hasReviewTargetGutter, this.text("showMiningActions"))}
+            <div class="jpdb-reader-actions${kanjiLookupActionsClass(Boolean(gutter))}" data-kanji-actions${kanjiLookupReviewAttributes(buttons)}>
+                ${gutter || renderKanjiLookupMiningGutter(this.text("showMiningActions"))}
                 <div data-kanji-mining-mount hidden></div>
-                ${reviewButtons}
+                ${buttons}
             </div>
         `;
     }
-    renderNewTabLookupReviewButtons(card, data) {
+    renderNewTabLookupReviewControls(card, data) {
       const grades = this.newTab?.lookupGradeOptions(card) ?? [];
       const targets2 = this.newTab?.lookupReviewTargets(card, data) ?? [];
-      return renderNewTabLookupReviewButtons(grades, targets2, { settings: this.settings, card });
+      return renderNewTabLookupReviewControls(grades, targets2, { settings: this.settings, card });
     }
     resetLookupHandlers() {
       this.activeLookupHandlerController?.abort();
@@ -159816,7 +160542,7 @@ ${rank.detail}` : baseTitle;
           () => this.dismissLookupPopover(),
           () => this.showLookupCard(card, sentence, anchor, { navigation: "preserve", reuseActivePopover: true, autoPlay: false })
         ),
-        (error) => reportCardActionFailure({ logger: log, warning: "New tab card action failed", action, term: card.spelling, language: this.settings.interfaceLanguage, toast: (message) => this.toast(message) }, error),
+        { logger: log, warning: "New tab card action failed", action, term: card.spelling, language: this.settings.interfaceLanguage, toast: (message) => this.toast(message) },
         done
       );
     }
@@ -160338,8 +161064,7 @@ ${rank.detail}` : baseTitle;
   function kanjiLookupReviewAttributes(reviewButtons) {
     return reviewButtons ? ' data-kanji-has-review="true"' : ' data-kanji-has-review="false" hidden';
   }
-  function renderKanjiLookupMiningGutter(hasReviewTargetGutter, label) {
-    if (hasReviewTargetGutter) return "";
+  function renderKanjiLookupMiningGutter(label) {
     return `<div class="jpdb-reader-actions-gutter" hidden>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: "card-ui", action: "mining-collapse" })} aria-expanded="false" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}"></button>
     </div>`;

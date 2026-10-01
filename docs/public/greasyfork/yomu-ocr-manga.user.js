@@ -22,6 +22,22 @@ const MANAGED_SLOT_KEY_PREFIXES = [
 function isManagedStorageKey(key) {
   return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
+function isPrivateManagedStorageKey(key) {
+  return logicalManagedStorageKey(key)?.startsWith("yomu:private:") === true;
+}
+function logicalManagedStorageKey(key) {
+  const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate) => key.startsWith(candidate));
+  if (!prefix) return key;
+  const encoded = key.slice(prefix.length);
+  const separator = encoded.indexOf(":");
+  if (separator < 1 || separator === encoded.length - 1) return null;
+  try {
+  const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+  return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+  } catch {
+  return null;
+  }
+}
 function isManagedStorageSlotKey(key) {
   return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
@@ -884,6 +900,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  // The one-time reader-canvas tap hint appears once per site. Each site's record
+  // is private and keyed by a hash of its origin, so no page can read it.
+  { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
   // Reader CSS last-good cache. v3 is deliberately version-independent (see
   // styles/index) so an upgrade does not start cold; the v2 prefix family
   // stays registered so the per-version entries older installs left behind
@@ -1071,6 +1090,22 @@ function managedStateStorageKey(key, epoch) {
   if (epoch.generation === 0) return key;
   return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
+async function readManagedGmValue(getValue, key, epoch) {
+  const storageKey = managedStateStorageKey(key, epoch);
+  const scoped = await getValue(storageKey, MISSING);
+  const readFromCurrentSlot = !isMissingSentinel(scoped);
+  const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
+  if (isMissingSentinel(stored)) return { kind: "missing" };
+  const unreadable = Symbol("unreadable-managed-state");
+  const logical = managedStateLogicalValue(stored, epoch, unreadable);
+  if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
+  if (isMissingSentinel(logical)) return { kind: "deleted" };
+  return { kind: "found", value: logical };
+}
+async function managedGmValue(getValue, key, fallback, epoch) {
+  const read = await readManagedGmValue(getValue, key, epoch);
+  return read.kind === "found" ? read.value : fallback;
+}
 function isHostedYomuLocation(origin, hostname, pathname) {
   if (origin === DOCS_ORIGIN) return true;
   if (isHostedGithubPagesLocation(hostname, pathname)) return true;
@@ -1202,6 +1237,13 @@ function removeStorageValue(storage2, key, label) {
   } catch (error) {
   throw new Error(`${label} could not be removed.`, { cause: error });
   }
+}
+function isStorageLeaseLapsed(error) {
+  return error instanceof Error && error.name === "StorageLeaseLapsedError";
+}
+const guardingLeases = /* @__PURE__ */ new Set();
+function fenceStorageLeaseWrite(key) {
+  for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
 }
 function localStorageGet(key, fallback) {
   try {
@@ -1478,11 +1520,13 @@ async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
   await assertManagedStateMutationFence(getValue, epoch);
   const stored = managedStateStoredValue(value, epoch);
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   await setValue(storageKey, stored);
   await assertManagedStateMutationFence(getValue, epoch);
 }
 async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   if (storageKey === key) {
   if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
   await deleteValue(key);
@@ -1527,6 +1571,24 @@ function managedStateEpochForSynchronousLocalRead() {
   debugStorageError("Managed state epoch sync read failed", MANAGED_STATE_EPOCH_KEY, error);
   return null;
   }
+}
+async function sharedOwnedManagedValue(getValue, key, fallback, errorLabel) {
+  try {
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  return await managedGmValue(getValue, key, fallback, epoch);
+  } catch (error) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError(errorLabel, key, error);
+  return fallback;
+  }
+}
+async function gmPrivateStorageGet(key, fallback) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const getValue = directGmGetValue();
+  if (!getValue) return fallback;
+  return sharedOwnedManagedValue(getValue, key, fallback, "Private GM storage read failed");
 }
 function gmStorageGetSync(key, fallback) {
   if (packagedExtensionStorageAdapterMissing()) return fallback;
@@ -1584,8 +1646,24 @@ async function setSharedManagedValue(key, value, getValue, setValue) {
   epoch = await assertRealmManagedStateEpoch(getValue);
   await writeManagedGmValue(key, value, epoch, getValue, setValue);
   } catch (error) {
-  if (isStaleManagedStateEpochError(error)) throw error;
+  if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
   throw storageWriteError(key, "GM storage write failed", error);
+  }
+}
+async function gmPrivateStorageSet(key, value) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const getValue = directGmGetValue();
+  const setValue = directGmSetValue();
+  if (!getValue || !setValue) throw new Error("Secure extension storage is unavailable.");
+  try {
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  } catch (error) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("Private GM storage write failed", key, error);
+  throw new Error("Secure extension storage is unavailable.");
   }
 }
 function gmStorageSetSync(key, value) {
@@ -1653,7 +1731,7 @@ async function gmStorageDelete(key) {
     const epoch = await assertRealmManagedStateEpoch(getValue);
     await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
   } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
+    if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
     debugStorageError("GM storage delete failed", key, error);
     throw storageWriteError(key, "GM storage delete failed", error);
   }
@@ -1664,6 +1742,9 @@ async function gmStorageDelete(key) {
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
   removeLocalMirrorProvenance(key);
+}
+function assertPrivateStorageKey(key) {
+  if (!isPrivateManagedStorageKey(key)) throw new TypeError("Private storage requires a yomu:private: key.");
 }
 function gmStorageDeleteSync(key) {
   if (packagedExtensionStorageAdapterMissing()) {
@@ -8508,9 +8589,100 @@ const PRACTICE_SESSION_COPY = {
   practiceAudio: "問題の音声を再生"
   }
 };
+const SAVE_WAIT_COPY = {
+  en: {
+  saveWaitingForAnotherTab: `Waiting for another ${APP_NAME} tab to finish saving…`
+  },
+  ja: {
+  saveWaitingForAnotherTab: `ほかの${APP_NAME}タブの保存が終わるのを待っています…`
+  }
+};
+const GRADING_SERVICE_COPY = {
+  en: {
+  switchReviewTarget: "Switch review target",
+  switchGradingProvider: "Switch grading provider",
+  apiGradingProvider: "Preferred grading service",
+  apiGradingProviderHelp: "Where grades go when both Jiten and JPDB are connected; Automatic parsing follows it too. Study review cards grade to the service they came from, and the ⇄ toggle next to the grade buttons switches only that word.",
+  gradingServiceWordNotFound: "Not graded: this word was not found in your preferred grading service."
+  },
+  ja: {
+  switchReviewTarget: "採点先を切り替える",
+  switchGradingProvider: "採点サービスを切り替える",
+  apiGradingProvider: "優先採点サービス",
+  apiGradingProviderHelp: "JitenとJPDBの両方を接続しているときの採点先です。解析ソースが「自動」の場合も、この設定に従います。Studyの復習カードは取得元のサービスで採点され、採点ボタン横の⇄はその単語だけを切り替えます。",
+  gradingServiceWordNotFound: "優先採点サービスでこの単語が見つからなかったため、採点していません。"
+  }
+};
+const EN = {
+  collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
+  collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
+  // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
+  collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
+  collectHandoffOpened: "Opened your deck app. Finish saving there.",
+  collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
+  addedToJpdb: "Added to JPDB.",
+  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  addedToJiten: "Added to Jiten.",
+  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+  bunproNoMatchingWord: "Bunpro has no entry for this word.",
+  addedToBunpro: "Added to Bunpro.",
+  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
+  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+};
+const JA = {
+  collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
+  collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
+  collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
+  collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
+  collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
+  addedToJpdb: "JPDBに追加しました。",
+  jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
+  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  addedToJiten: "Jitenに追加しました。",
+  bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
+  bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
+  addedToBunpro: "Bunproに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
+  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "Academyに追加しました。"
+};
+const COLLECTION_COPY = { en: EN, ja: JA };
+const EN_OCR_STATUS_COPY = {
+  ocrPlayVideo: "Play video",
+  ocrPausedFrameScanning: "Scanning...",
+  ocrPausedFrameReady: "Text ready",
+  ocrPausedFrameNoText: "No text found",
+  ocrPausedFrameFailed: "Could not read text",
+  ocrRetryScan: "Scan again",
+  ocrNoReadableImages: "No readable images nearby.",
+  ocrCanvasTapHint: "Tap or click the page to read it",
+  ocrCanvasTapHintDismiss: "Dismiss tip"
+};
+const JA_OCR_STATUS_COPY = {
+  ocrPlayVideo: "動画を再生",
+  ocrPausedFrameScanning: "スキャン中...",
+  ocrPausedFrameReady: "テキスト準備完了",
+  ocrPausedFrameNoText: "テキストが見つかりません",
+  ocrPausedFrameFailed: "テキストを読み取れませんでした",
+  ocrRetryScan: "再スキャン",
+  ocrNoReadableImages: "近くに読み取れる画像がありません。",
+  ocrCanvasTapHint: "ページをタップまたはクリックすると読めます",
+  ocrCanvasTapHintDismiss: "ヒントを閉じる"
+};
+const OCR_STATUS_COPY = {
+  en: EN_OCR_STATUS_COPY,
+  ja: JA_OCR_STATUS_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
+  ...COLLECTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
   onboardingEyebrow: "{language}, wherever it appears",
@@ -8563,6 +8735,7 @@ const COPY = {
   settingsSaveFailed: "Settings save failed.",
   settingsCompanionUnavailable: "Settings could not be opened.",
   ...SETTINGS_RECOVERY_COPY.en,
+  ...SAVE_WAIT_COPY.en,
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -9106,7 +9279,7 @@ const COPY = {
   parserProviderJiten: "Jiten API",
   parserProviderJpdb: "JPDB API",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   offlineDictionarySetupComplete: "Offline dictionaries installed.",
   offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
   copiesCurrentWord: "Copies the current word",
@@ -9257,7 +9430,6 @@ const COPY = {
   subtitleLines: "Lines",
   shadow: "Shadow",
   subtitleTracks: "Tracks",
-  batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
   subtitleTrackTiming: "Subtitle timing",
   subtitleOffsetPrevious: "Align previous subtitle to current time",
   subtitleOffsetNext: "Align next subtitle to current time",
@@ -9331,13 +9503,7 @@ const COPY = {
   ankiMappingConfidenceMedium: "fuzzy match",
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
-  ocrPlayVideo: "Play video",
-  ocrPausedFrameScanning: "Scanning...",
-  ocrPausedFrameReady: "Text ready",
-  ocrPausedFrameNoText: "No text found",
-  ocrPausedFrameFailed: "Could not read text",
-  ocrRetryScan: "Scan again",
-  ocrNoReadableImages: "No readable images nearby.",
+  ...OCR_STATUS_COPY.en,
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -9387,10 +9553,7 @@ const COPY = {
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
   hideMiningActions: "Hide mining actions",
-  switchReviewTarget: "Switch review target",
-  switchGradingProvider: "Switch grading provider",
-  apiGradingProvider: "Preferred grading service",
-  apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
+  ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
   apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -9571,19 +9734,9 @@ const COPY = {
   jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
   jpdbRequestFailedError: "JPDB request failed. Try again.",
   jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
-  addedToJpdb: "Added to JPDB.",
   jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
-  addedToJiten: "Added to Jiten.",
-  addedToBunpro: "Added to Bunpro.",
   addedToWanikani: "Recorded on WaniKani.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
   kanjiDetailsUnavailable: "Kanji details are not available yet.",
   loadingDictionaryDetails: "Loading dictionary details...",
   jitenCompositeWords: "Composite words",
@@ -9640,7 +9793,7 @@ const COPY = {
   removeImportedDictionary: "Remove imported dictionary",
   customAdvanced: "{label} (advanced)",
   importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
-  frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
+  metadataDictionariesHelp: "Metadata dictionaries appear as badges or kanji data.",
   sourceHelpJpdb: "JPDB meanings from the current card.",
   sourceHelpJiten: "Jiten meanings, examples, and related words.",
   sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
@@ -9798,10 +9951,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -10011,7 +10160,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -10054,13 +10202,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -10167,19 +10308,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -10231,7 +10362,11 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
-  ...PRACTICE_SESSION_COPY.ja
+  ...PRACTICE_SESSION_COPY.ja,
+  ...SAVE_WAIT_COPY.ja,
+  ...GRADING_SERVICE_COPY.ja,
+  ...COLLECTION_COPY.ja,
+  ...OCR_STATUS_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -10745,7 +10880,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -10877,7 +11012,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
@@ -15481,6 +15616,81 @@ function firstCssBackgroundUrl(value) {
   const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
   return raw.trim() || void 0;
 }
+function isVisibleOcrImage(image) {
+  return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
+}
+function isImageVisibleForOcr(image, rect) {
+  return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
+}
+function isInsideHiddenAncestor(element, includeAriaHidden = true) {
+  for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
+  if (hiddenAncestor(current, includeAriaHidden)) return true;
+  }
+  return false;
+}
+function hiddenAncestor(element, includeAriaHidden) {
+  return isHiddenByCss(element) || element.hasAttribute("hidden") || ariaHidden(element, includeAriaHidden);
+}
+function ariaHidden(element, included) {
+  return included && element.getAttribute("aria-hidden") === "true";
+}
+function rectIntersectsViewport(rect) {
+  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+}
+function isHiddenByCss(element) {
+  const style = getComputedStyle(element);
+  return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
+}
+function isNearViewport(element, margin) {
+  const rect = element.getBoundingClientRect();
+  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+}
+function visibleViewportIntersection(rect) {
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (!viewportWidth || !viewportHeight) return void 0;
+  const left = Math.max(0, rect.left);
+  const top = Math.max(0, rect.top);
+  const right = Math.min(viewportWidth, rect.right);
+  const bottom = Math.min(viewportHeight, rect.bottom);
+  const width = right - left;
+  const height = bottom - top;
+  return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
+}
+function isImageOccludedByVideo(image, rect) {
+  if (image.dataset.yomuVideoFrame) return false;
+  const imageArea = rect.width * rect.height;
+  if (imageArea < 4) return false;
+  const imageRoot = image.getRootNode();
+  return [...document.querySelectorAll("video")].some((video) => isVisiblePeerVideo(video, image, imageRoot) && videoOccludesImage(video, rect, imageArea));
+}
+function isVisiblePeerVideo(video, image, imageRoot) {
+  return [
+  video.isConnected,
+  video.getRootNode() === imageRoot,
+  !isSameMediaNode(video, image),
+  visibleVideoRect(video) !== null,
+  !isHiddenByCss(video)
+  ].every(Boolean);
+}
+function visibleVideoRect(video) {
+  const rect = video.getBoundingClientRect();
+  return rect.width >= 2 && rect.height >= 2 ? rect : null;
+}
+function videoOccludesImage(video, imageRect, imageArea) {
+  const videoRect = visibleVideoRect(video);
+  return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
+}
+function isSameMediaNode(video, image) {
+  return video === image.parentElement || image === video.parentElement;
+}
+function intersectionArea(a, b) {
+  const left = Math.max(a.left, b.left);
+  const top = Math.max(a.top, b.top);
+  const right = Math.min(a.right, b.right);
+  const bottom = Math.min(a.bottom, b.bottom);
+  return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
 const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
 const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
 const SCREENSHOT_MESSAGE_TIMEOUT_MS = 6e3;
@@ -15597,18 +15807,6 @@ function animationFrame() {
   }
   });
 }
-function visibleViewportIntersection(rect) {
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  if (!viewportWidth || !viewportHeight) return null;
-  const left = Math.max(0, rect.left);
-  const top = Math.max(0, rect.top);
-  const right = Math.min(viewportWidth, rect.right);
-  const bottom = Math.min(viewportHeight, rect.bottom);
-  const width = right - left;
-  const height = bottom - top;
-  return width > 0 && height > 0 ? { left, top, width, height } : null;
-}
 async function cropVisibleTabScreenshot(dataUrl, rect, maxPixels) {
   try {
   const image = await loadScreenshotImage(dataUrl);
@@ -15661,6 +15859,596 @@ function loadScreenshotImage(dataUrl) {
     finish(new Error("Screenshot decode failed."));
   }
   });
+}
+const CANVAS_OCR_OPT_IN_SELECTOR = 'canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas';
+function ocrRunsOnLearnerService(settings) {
+  return settings.ocrProvider === "local-service";
+}
+function readsReaderCanvasWithoutTap(canvas, settings) {
+  return ocrRunsOnLearnerService(settings) || canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+}
+function hasCanvasOcrOptInSurface() {
+  return Boolean(document.querySelector(CANVAS_OCR_OPT_IN_SELECTOR));
+}
+function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
+  return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
+}
+function sensitiveFingerprint(value) {
+  const secret = value.trim();
+  if (!secret) return "";
+  let first = 2166136261;
+  let second = 2654435769;
+  for (let index = 0; index < secret.length; index += 1) {
+  const code = secret.charCodeAt(index);
+  first = Math.imul(first ^ code, 16777619) >>> 0;
+  second = Math.imul(second ^ code, 2246822507) >>> 0;
+  }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
+}
+const VIDEO_FRAME_MAX_WIDTH = 960;
+const VIDEO_FRAME_JPEG_QUALITY = 0.84;
+function videoFrameDataUrl(video) {
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(1, VIDEO_FRAME_MAX_WIDTH / video.videoWidth);
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return void 0;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", VIDEO_FRAME_JPEG_QUALITY);
+}
+const presentationsByImage = /* @__PURE__ */ new WeakMap();
+const imagesByHost = /* @__PURE__ */ new WeakMap();
+function createPrivateRasterImage(className) {
+  const host = document.createElement("div");
+  host.className = className;
+  host.dataset.yomuPrivateRasterHost = "true";
+  host.setAttribute("aria-hidden", "true");
+  const root = host.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
+  const image = document.createElement("img");
+  image.alt = "";
+  root.append(style, image);
+  const presentation = { host, image, root };
+  presentationsByImage.set(image, presentation);
+  imagesByHost.set(host, image);
+  return image;
+}
+function privateRasterHost(image) {
+  const host = presentationsByImage.get(image)?.host;
+  if (!host) throw new Error("OCR raster image has no private presentation.");
+  return host;
+}
+function setPrivateRasterClass(image, className, enabled) {
+  image.classList.toggle(className, enabled);
+  privateRasterHost(image).classList.toggle(className, enabled);
+}
+function setPrivateRasterSource(image, source, options = {}) {
+  const presentation = presentationsByImage.get(image);
+  if (!presentation) throw new Error("OCR raster image has no private presentation.");
+  releaseOwnedObjectUrl(presentation);
+  image.src = source;
+  if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
+}
+function positionPrivateRasterImage(image, rect) {
+  for (const element of [privateRasterHost(image), image]) {
+  element.style.left = `${rect.left}px`;
+  element.style.top = `${rect.top}px`;
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+  }
+}
+function releasePrivateRasterImage(image) {
+  const presentation = presentationsByImage.get(image);
+  if (!presentation) {
+  image.removeAttribute("src");
+  image.remove();
+  return;
+  }
+  releaseOwnedObjectUrl(presentation);
+  image.removeAttribute("src");
+  presentation.root.replaceChildren();
+  presentation.host.remove();
+  presentationsByImage.delete(image);
+  imagesByHost.delete(presentation.host);
+}
+function releaseOwnedObjectUrl(presentation) {
+  const url = presentation.ownedObjectUrl;
+  presentation.ownedObjectUrl = void 0;
+  if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+}
+const VIDEO_FRAME_PLAYER_SELECTOR = [
+  "#movie_player",
+  ".html5-video-player",
+  "ytd-player",
+  "#player",
+  "#player-container",
+  "#player-container-outer",
+  "[data-yomu-video-frame]"
+].join(",");
+const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
+  '[data-yomu-inline-fullscreen="true"]',
+  '[data-fullscreen-active="true"]',
+  "[fullscreen]",
+  "#movie_player.ytp-fullscreen",
+  ".html5-video-player.ytp-fullscreen",
+  "ytd-watch-flexy[fullscreen]",
+  "ytm-player[fullscreen]",
+  "ytm-player.fullscreen",
+  "ytm-player.ytp-fullscreen"
+].join(",");
+const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
+  "ytd-thumbnail",
+  "ytd-rich-item-renderer",
+  "ytd-rich-grid-media",
+  "ytd-video-renderer",
+  "ytd-compact-video-renderer",
+  "ytd-grid-video-renderer",
+  "ytd-reel-item-renderer",
+  "ytd-playlist-thumbnail",
+  "ytd-video-preview",
+  "yt-thumbnail-view-model",
+  "yt-lockup-view-model",
+  "ytm-rich-item-renderer",
+  "ytm-compact-video-renderer",
+  "ytm-video-card-renderer",
+  "ytm-video-with-context-renderer",
+  "ytm-shorts-lockup-view-model",
+  "ytm-shorts-lockup-view-model-v2"
+].join(",");
+const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
+  'a[href*="/watch"]',
+  'a[href*="/shorts/"]'
+].join(",");
+const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
+  VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
+  "yt-image",
+  ".yt-core-image"
+].join(",");
+function captureVideoFrameDataUrl(video) {
+  try {
+  if (!videoHasDecodedFrame(video)) return void 0;
+  return videoFrameDataUrl(video);
+  } catch {
+  return void 0;
+  }
+}
+function videoHasDecodedFrame(video) {
+  return Math.min(video.videoWidth, video.videoHeight) > 0 && video.readyState >= 2;
+}
+function isLikelyPausedVideoThumbnail(video) {
+  if (isExplicitVideoThumbnail(video)) return true;
+  if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
+  return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) && !isPrimaryPlayerSizedVideo(video);
+}
+function isExplicitVideoThumbnail(video) {
+  return isTwitterHost() || Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR));
+}
+function isTwitterHost(hostname = location.hostname) {
+  return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
+}
+function isPrimaryPlayerSizedVideo(video) {
+  const rect = video.getBoundingClientRect();
+  if (!hasMinimumPlayerSize(rect)) return false;
+  const viewport = currentViewportSize();
+  if (!viewport) return hasFallbackPrimaryPlayerSize(rect);
+  return isViewportProminentVideo(rect, viewport);
+}
+function hasMinimumPlayerSize(rect) {
+  return rect.width >= 280 && rect.height >= 160;
+}
+function hasFallbackPrimaryPlayerSize(rect) {
+  return rect.width >= 480 && rect.height >= 270;
+}
+function currentViewportSize() {
+  const width = firstNonZeroDimension(window.innerWidth, document.documentElement.clientWidth);
+  const height = firstNonZeroDimension(window.innerHeight, document.documentElement.clientHeight);
+  if (!width) return void 0;
+  return height ? { width, height } : void 0;
+}
+function firstNonZeroDimension(primary, fallback) {
+  return primary || fallback || 0;
+}
+function isViewportProminentVideo(rect, viewport) {
+  return rect.width >= viewport.width * 0.6 || rect.width * rect.height >= viewport.width * viewport.height * 0.25;
+}
+function positionVideoFrameImage(frame, rect, video) {
+  const content = videoContentBox(rect, video);
+  for (const element of [privateRasterHost(frame), frame]) {
+  setOcrArtifactPosition(element, content.left, content.top);
+  element.style.width = `${content.width}px`;
+  element.style.height = `${content.height}px`;
+  }
+}
+function positionVideoFrameResumeControl(control, rect, video) {
+  const root = videoFrameArtifactRoot(video);
+  if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
+  attachVideoFrameResumeControlFallback(control, root);
+  const content = videoContentBox(rect, video);
+  setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
+}
+function positionVideoFrameStatus(status, rect, video) {
+  const content = videoContentBox(rect, video);
+  positionOcrImageStatus(status, content);
+}
+function positionOcrImageStatus(status, rect) {
+  const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
+  setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
+  status.style.maxWidth = `${maxWidth}px`;
+}
+function appendOcrArtifactToRoot(element, root) {
+  const oldRoot = element.parentElement;
+  const fullscreenHosted = root !== document.body;
+  if (fullscreenHosted) prepareOcrFullscreenHost(root);
+  element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
+  if (oldRoot !== root) root.append(element);
+  clearOcrFullscreenHostMarker(oldRoot);
+}
+function removeOcrArtifact(element) {
+  const oldRoot = element.parentElement;
+  element.remove();
+  clearOcrFullscreenHostMarker(oldRoot);
+}
+function clearOcrFullscreenHostMarker(root) {
+  if (!isFullscreenArtifactContainer(root)) return;
+  if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
+  delete root.dataset.yomuOcrFullscreenHost;
+  clearPreparedFullscreenHostPosition(root);
+}
+function isFullscreenArtifactContainer(root) {
+  return root instanceof HTMLElement && root !== document.body;
+}
+function clearPreparedFullscreenHostPosition(root) {
+  if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
+  root.style.position = "";
+  delete root.dataset.yomuOcrFullscreenHostPosition;
+  }
+}
+function prepareOcrFullscreenHost(root) {
+  root.dataset.yomuOcrFullscreenHost = "true";
+  const position = getComputedStyle(root).position;
+  if (position && position !== "static") return;
+  root.style.position = "relative";
+  root.dataset.yomuOcrFullscreenHostPosition = "relative";
+}
+function videoFrameArtifactRoot(video) {
+  return activeVideoFullscreenHost(video) ?? document.body;
+}
+function activeVideoFullscreenHost(video) {
+  const active = activeFullscreenElement();
+  return documentFullscreenArtifactHost(active) ?? activeElementArtifactHost(active, video) ?? closestFullscreenArtifactHost(video) ?? youtubeFullscreenHostForOcrVideo(video);
+}
+function documentFullscreenArtifactHost(active) {
+  return [document.body, document.documentElement].includes(active) ? document.body : null;
+}
+function activeElementArtifactHost(active, video) {
+  if (!active) return null;
+  if (active === video) return fullscreenVideoArtifactHost(video);
+  return active.contains(video) ? active : null;
+}
+function closestFullscreenArtifactHost(video) {
+  return connectedVideoAncestor(video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR), video);
+}
+function fullscreenVideoArtifactHost(video) {
+  const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
+  return connectedVideoAncestor(host, video) ?? youtubeFullscreenHostForOcrVideo(video);
+}
+function connectedVideoAncestor(host, video) {
+  return isConnectedVideoAncestor(host, video) ? host : null;
+}
+function isConnectedVideoAncestor(host, video) {
+  return host !== null && host !== video && host.isConnected && host.contains(video);
+}
+function youtubeFullscreenHostForOcrVideo(video) {
+  if (!isYouTubeAppHostname()) return null;
+  return scopedYoutubeFullscreenHost(video) ?? unscopedYoutubeFullscreenHost(video);
+}
+function scopedYoutubeFullscreenHost(video) {
+  return [
+  video.closest('[data-yomu-inline-fullscreen="true"]'),
+  video.closest(".html5-video-player.ytp-fullscreen"),
+  video.closest("#movie_player.ytp-fullscreen"),
+  video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
+  video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
+  video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+  ].find((element) => Boolean(element && element !== video)) ?? null;
+}
+function unscopedYoutubeFullscreenHost(video) {
+  return [
+  document.querySelector('[data-yomu-inline-fullscreen="true"]'),
+  document.querySelector(".html5-video-player.ytp-fullscreen"),
+  document.querySelector("#movie_player.ytp-fullscreen"),
+  document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
+  document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
+  document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+  ].find((element) => Boolean(element && element !== video && youtubeFullscreenHostContainsVideo(element, video))) ?? null;
+}
+function youtubeFullscreenHostContainsVideo(element, video) {
+  return element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element);
+}
+function isYouTubeMobileFullscreenHostForOcr(element) {
+  return /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
+}
+function activeFullscreenElement() {
+  const doc = document;
+  return [
+  doc.fullscreenElement,
+  doc.webkitFullscreenElement,
+  doc.mozFullScreenElement,
+  doc.msFullscreenElement
+  ].find((element) => element instanceof HTMLElement) ?? null;
+}
+function attachVideoFrameResumeControlToSubtitleRail(control, root) {
+  const rail = connectedSubtitleRailForOcrRoot(root);
+  if (!rail) return false;
+  const oldParent = control.parentElement;
+  const oldRoot = subtitlePlayerRoot(control);
+  control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+  control.dataset.yomuOcrFullscreenHosted = "false";
+  control.style.left = "";
+  control.style.top = "";
+  insertResumeControlIntoSubtitleRail(control, rail);
+  clearOcrFullscreenHostMarker(oldParent);
+  updateSubtitleRailResumeState(oldRoot);
+  updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+  return true;
+}
+function connectedSubtitleRailForOcrRoot(root) {
+  const rail = subtitleRailForOcrRoot(root);
+  return rail?.isConnected ? rail : null;
+}
+function insertResumeControlIntoSubtitleRail(control, rail) {
+  if (control.parentElement === rail) return;
+  const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
+  rail.insertBefore(control, panelButton);
+}
+function attachVideoFrameResumeControlFallback(control, root) {
+  const oldRoot = subtitlePlayerRoot(control);
+  appendOcrArtifactToRoot(control, root);
+  control.classList.add("jpdb-ocr-video-frame-resume-fallback");
+  updateSubtitleRailResumeState(oldRoot);
+}
+function removeVideoFrameResumeControl(control) {
+  const root = subtitlePlayerRoot(control);
+  removeOcrArtifact(control);
+  updateSubtitleRailResumeState(root);
+}
+function subtitleRailForOcrRoot(root) {
+  const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
+  if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
+  return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
+}
+function subtitlePlayerRoot(control) {
+  return control.closest(".jpdb-subtitle-player");
+}
+function updateSubtitleRailResumeState(root) {
+  if (!root) return;
+  root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
+}
+function playVideoIcon() {
+  return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+}
+function videoContentBox(rect, video) {
+  const intrinsicWidth = video.videoWidth;
+  const intrinsicHeight = video.videoHeight;
+  if (!hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight)) return rect;
+  const style = getComputedStyle(video);
+  const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
+  const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object.width, rect.height - object.height);
+  return new DOMRect(rect.left + offset.x, rect.top + offset.y, object.width, object.height);
+}
+function hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight) {
+  return Math.min(intrinsicWidth, intrinsicHeight, rect.width, rect.height) > 0;
+}
+function videoObjectFit(value) {
+  return ["contain", "cover", "none", "scale-down"].includes(value) ? value : "contain";
+}
+const READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX = "yomu:private:ocr-canvas-tap-hint-seen:v1:";
+const INSET_PX = 12;
+const HINT_WIDTH_PX = 340;
+const HINT_HEIGHT_PX = 34;
+const DISMISS_HIT_SLOP_PX = 12;
+const PROBE_STEP_PX = 32;
+const HOST_CONTROL_SELECTOR = 'a[href],button,input,select,textarea,summary,label,[contenteditable="true"],[role="button"],[role="link"],[role="slider"],[role="tab"],[role="menuitem"],[role="checkbox"],[role="switch"]';
+class ReaderCanvasTapHint {
+  element;
+  done = false;
+  // Private storage answers asynchronously: the first canvas waiting for a tap
+  // starts the site check, and the latest one gets the hint when it answers.
+  siteCheck = "not-started";
+  waiting;
+  /** Point the hint at the first reader canvas waiting for a tap, or hide it while none waits. */
+  update(canvas, settings) {
+  if (!this.element && !this.mayShow(canvas, settings)) return;
+  const element = this.element ??= createHint(settings, () => this.dismiss());
+  this.pointAt(element, canvas);
+  }
+  pointAt(element, canvas) {
+  const spot = canvas && spotClearOfHostControls(canvas, element);
+  element.hidden = !spot;
+  if (!spot) return;
+  setOcrArtifactPosition(element, spot.left, spot.top);
+  if (!this.done) void rememberHintSeen();
+  this.done = true;
+  }
+  mayShow(canvas, settings) {
+  if (this.done) return false;
+  if (this.siteCheck === "answered") return Boolean(canvas);
+  this.waiting = [canvas, settings];
+  if (this.siteCheck === "not-started") void this.checkSite(canvas);
+  return false;
+  }
+  async checkSite(canvas) {
+  if (!canvas) return;
+  this.siteCheck = "running";
+  const seen = await hintSeenOnThisSite();
+  this.siteCheck = "answered";
+  this.done ||= seen;
+  const waiting = this.waiting;
+  this.waiting = void 0;
+  if (waiting) this.update(...waiting);
+  }
+  /** The learner dismissed the hint or read a page, so it has done its job here. */
+  dismiss() {
+  this.done = true;
+  this.remove();
+  }
+  remove() {
+  this.waiting = void 0;
+  if (this.element) removeOcrArtifact(this.element);
+  this.element = void 0;
+  }
+}
+function createHint(settings, onDismiss) {
+  const element = document.createElement("div");
+  element.className = "jpdb-ocr-video-frame-status jpdb-ocr-canvas-status jpdb-ocr-canvas-tap-hint";
+  element.dataset.jpdbReaderRoot = "true";
+  element.dataset.jpdbReaderSurfaceIgnore = "true";
+  element.setAttribute("role", "status");
+  element.hidden = true;
+  const label = document.createElement("span");
+  label.className = "jpdb-ocr-video-frame-status-label";
+  label.textContent = uiText(settings.interfaceLanguage, "ocrCanvasTapHint");
+  const dismiss = document.createElement("button");
+  const dismissLabel = uiText(settings.interfaceLanguage, "ocrCanvasTapHintDismiss");
+  dismiss.type = "button";
+  dismiss.className = "jpdb-ocr-canvas-tap-hint-dismiss";
+  dismiss.textContent = "×";
+  dismiss.setAttribute("aria-label", dismissLabel);
+  dismiss.title = dismissLabel;
+  dismiss.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  onDismiss();
+  });
+  element.append(label, dismiss);
+  appendOcrArtifactToRoot(element, document.body);
+  return element;
+}
+function spotClearOfHostControls(canvas, hint) {
+  const visible = visibleViewportIntersection(canvas.getBoundingClientRect());
+  if (!visible || visible.height < HINT_HEIGHT_PX + INSET_PX * 2) return void 0;
+  const width = Math.min(HINT_WIDTH_PX, visible.width - INSET_PX * 2);
+  if (width <= 0) return void 0;
+  const centreLeft = visible.left + (visible.width - width) / 2;
+  const spots = [
+  { left: visible.left + INSET_PX, top: visible.top + INSET_PX },
+  { left: centreLeft, top: visible.top + INSET_PX },
+  { left: centreLeft, top: visible.top + (visible.height - HINT_HEIGHT_PX) / 2 }
+  ];
+  return spots.find((spot) => !coversHostControl(spot, width, hint));
+}
+function coversHostControl(spot, width, hint) {
+  const reach = width + DISMISS_HIT_SLOP_PX;
+  const bottom = spot.top + HINT_HEIGHT_PX;
+  const rows = [spot.top - DISMISS_HIT_SLOP_PX, spot.top, spot.top + HINT_HEIGHT_PX / 2, bottom, bottom + DISMISS_HIT_SLOP_PX];
+  const columns = Array.from({ length: Math.ceil(reach / PROBE_STEP_PX) + 1 }, (_, index) => spot.left + Math.min(index * PROBE_STEP_PX, reach));
+  return rows.some((top) => columns.some((left) => {
+  const hit = document.elementFromPoint(left, top);
+  return Boolean(hit && !hint.contains(hit) && hit.closest(HOST_CONTROL_SELECTOR));
+  }));
+}
+function hintSeenKey() {
+  return `${READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX}${sensitiveFingerprint(location.origin)}`;
+}
+async function hintSeenOnThisSite() {
+  try {
+  return await gmPrivateStorageGet(hintSeenKey(), false) === true;
+  } catch {
+  return true;
+  }
+}
+async function rememberHintSeen() {
+  try {
+  await gmPrivateStorageSet(hintSeenKey(), true);
+  } catch {
+  }
+}
+function ocrPointerImage(event) {
+  if (!isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+  return pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+}
+function ocrReaderSurfaceFromPointerEvent(event, settings, rasterFreePage) {
+  if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+  if (pointerEventOverOcrOverlay(event)) return null;
+  return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
+}
+function touchPointFromEvent(event) {
+  const touchEvent = event;
+  const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
+  if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
+  return { clientX: touch.clientX, clientY: touch.clientY };
+}
+function eventWithPoint(event, point) {
+  return {
+  type: "pointerdown",
+  target: event.target,
+  button: 0,
+  clientX: point.clientX,
+  clientY: point.clientY,
+  pointerType: "touch"
+  };
+}
+function isPointerLikeEvent(event) {
+  const candidate = event;
+  return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
+}
+function pointerEventOverOcrOverlay(event) {
+  const target = event.target;
+  if (target?.closest?.("[data-jpdb-reader-root]")) return true;
+  return Boolean(ocrPointerHitElement(event)?.closest?.("[data-jpdb-reader-root]"));
+}
+function shouldHandleOcrPointerEvent(event) {
+  if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
+  return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
+}
+function isHoverPointerType(pointerType) {
+  return !pointerType || pointerType === "mouse" || pointerType === "pen";
+}
+function pointerEventImageTarget(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+  return target instanceof HTMLImageElement ? target : target.closest("img");
+}
+function pointerEventImageAtPoint(event) {
+  const element = ocrPointerHitElement(event);
+  if (!element || element.closest("[data-jpdb-reader-root]")) return null;
+  return element instanceof HTMLImageElement ? element : element.closest("img");
+}
+function pointerEventReaderSurfaceTarget(event, settings) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+  return readerSurfaceFromElement(target, settings);
+}
+function pointerEventReaderSurfaceAtPoint(event, settings) {
+  const element = ocrPointerHitElement(event);
+  if (element && !element.closest("[data-jpdb-reader-root]")) {
+  const surface = readerSurfaceFromElement(element, settings);
+  if (surface) return surface;
+  }
+  return readerSurfaceAtPoint(event.clientX, event.clientY, settings);
+}
+function readerSurfaceFromElement(element, settings) {
+  const canvas = element instanceof HTMLCanvasElement ? element : element.closest("canvas");
+  if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+  if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+  const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
+  return background ?? null;
+}
+function readerSurfaceAtPoint(clientX, clientY, settings) {
+  const surfaces = [
+  ...collectCanvasReaderSurfaces(),
+  ...collectBackgroundImageReaderSurfaces()
+  ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
+  return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
+}
+function isReaderSurfaceCandidate(surface, settings) {
+  const rect = surface.getBoundingClientRect();
+  return rect.width * rect.height >= settings.ocrMinImageArea && isNearViewport(surface, settings.ocrPrefetchMargin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
+}
+function rectContainsPoint(rect, clientX, clientY) {
+  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 const BOOKWALKER_CONTENT_SESSION_PATHS = /* @__PURE__ */ new Set([
   "/browserWebApi/c",
@@ -16083,428 +16871,6 @@ function manualVideoFrameRequestBus() {
 function isManualVideoFrameRequestBus(value) {
   return Boolean(value && typeof value === "object" && value.listeners instanceof Set);
 }
-const presentationsByImage = /* @__PURE__ */ new WeakMap();
-const imagesByHost = /* @__PURE__ */ new WeakMap();
-function createPrivateRasterImage(className) {
-  const host = document.createElement("div");
-  host.className = className;
-  host.dataset.yomuPrivateRasterHost = "true";
-  host.setAttribute("aria-hidden", "true");
-  const root = host.attachShadow({ mode: "closed" });
-  const style = document.createElement("style");
-  style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
-  const image = document.createElement("img");
-  image.alt = "";
-  root.append(style, image);
-  const presentation = { host, image, root };
-  presentationsByImage.set(image, presentation);
-  imagesByHost.set(host, image);
-  return image;
-}
-function privateRasterHost(image) {
-  const host = presentationsByImage.get(image)?.host;
-  if (!host) throw new Error("OCR raster image has no private presentation.");
-  return host;
-}
-function setPrivateRasterClass(image, className, enabled) {
-  image.classList.toggle(className, enabled);
-  privateRasterHost(image).classList.toggle(className, enabled);
-}
-function setPrivateRasterSource(image, source, options = {}) {
-  const presentation = presentationsByImage.get(image);
-  if (!presentation) throw new Error("OCR raster image has no private presentation.");
-  releaseOwnedObjectUrl(presentation);
-  image.src = source;
-  if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
-}
-function positionPrivateRasterImage(image, rect) {
-  for (const element of [privateRasterHost(image), image]) {
-  element.style.left = `${rect.left}px`;
-  element.style.top = `${rect.top}px`;
-  element.style.width = `${rect.width}px`;
-  element.style.height = `${rect.height}px`;
-  }
-}
-function releasePrivateRasterImage(image) {
-  const presentation = presentationsByImage.get(image);
-  if (!presentation) {
-  image.removeAttribute("src");
-  image.remove();
-  return;
-  }
-  releaseOwnedObjectUrl(presentation);
-  image.removeAttribute("src");
-  presentation.root.replaceChildren();
-  presentation.host.remove();
-  presentationsByImage.delete(image);
-  imagesByHost.delete(presentation.host);
-}
-function releaseOwnedObjectUrl(presentation) {
-  const url = presentation.ownedObjectUrl;
-  presentation.ownedObjectUrl = void 0;
-  if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
-}
-function isVisibleOcrImage(image) {
-  return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
-}
-function isImageVisibleForOcr(image, rect) {
-  return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
-}
-function isInsideHiddenAncestor(element, includeAriaHidden = true) {
-  for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
-  if (hiddenAncestor(current, includeAriaHidden)) return true;
-  }
-  return false;
-}
-function hiddenAncestor(element, includeAriaHidden) {
-  return isHiddenByCss(element) || element.hasAttribute("hidden") || ariaHidden(element, includeAriaHidden);
-}
-function ariaHidden(element, included) {
-  return included && element.getAttribute("aria-hidden") === "true";
-}
-function rectIntersectsViewport(rect) {
-  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
-}
-function isHiddenByCss(element) {
-  const style = getComputedStyle(element);
-  return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
-}
-function isNearViewport(element, margin) {
-  const rect = element.getBoundingClientRect();
-  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
-}
-function isImageOccludedByVideo(image, rect) {
-  if (image.dataset.yomuVideoFrame) return false;
-  const imageArea = rect.width * rect.height;
-  if (imageArea < 4) return false;
-  const imageRoot = image.getRootNode();
-  return [...document.querySelectorAll("video")].some((video) => isVisiblePeerVideo(video, image, imageRoot) && videoOccludesImage(video, rect, imageArea));
-}
-function isVisiblePeerVideo(video, image, imageRoot) {
-  return [
-  video.isConnected,
-  video.getRootNode() === imageRoot,
-  !isSameMediaNode(video, image),
-  visibleVideoRect(video) !== null,
-  !isHiddenByCss(video)
-  ].every(Boolean);
-}
-function visibleVideoRect(video) {
-  const rect = video.getBoundingClientRect();
-  return rect.width >= 2 && rect.height >= 2 ? rect : null;
-}
-function videoOccludesImage(video, imageRect, imageArea) {
-  const videoRect = visibleVideoRect(video);
-  return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
-}
-function isSameMediaNode(video, image) {
-  return video === image.parentElement || image === video.parentElement;
-}
-function intersectionArea(a, b) {
-  const left = Math.max(a.left, b.left);
-  const top = Math.max(a.top, b.top);
-  const right = Math.min(a.right, b.right);
-  const bottom = Math.min(a.bottom, b.bottom);
-  return Math.max(0, right - left) * Math.max(0, bottom - top);
-}
-const VIDEO_FRAME_MAX_WIDTH = 960;
-const VIDEO_FRAME_JPEG_QUALITY = 0.84;
-function videoFrameDataUrl(video) {
-  const canvas = document.createElement("canvas");
-  const scale = Math.min(1, VIDEO_FRAME_MAX_WIDTH / video.videoWidth);
-  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-  const context = canvas.getContext("2d");
-  if (!context) return void 0;
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", VIDEO_FRAME_JPEG_QUALITY);
-}
-const VIDEO_FRAME_PLAYER_SELECTOR = [
-  "#movie_player",
-  ".html5-video-player",
-  "ytd-player",
-  "#player",
-  "#player-container",
-  "#player-container-outer",
-  "[data-yomu-video-frame]"
-].join(",");
-const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
-  '[data-yomu-inline-fullscreen="true"]',
-  '[data-fullscreen-active="true"]',
-  "[fullscreen]",
-  "#movie_player.ytp-fullscreen",
-  ".html5-video-player.ytp-fullscreen",
-  "ytd-watch-flexy[fullscreen]",
-  "ytm-player[fullscreen]",
-  "ytm-player.fullscreen",
-  "ytm-player.ytp-fullscreen"
-].join(",");
-const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
-  "ytd-thumbnail",
-  "ytd-rich-item-renderer",
-  "ytd-rich-grid-media",
-  "ytd-video-renderer",
-  "ytd-compact-video-renderer",
-  "ytd-grid-video-renderer",
-  "ytd-reel-item-renderer",
-  "ytd-playlist-thumbnail",
-  "ytd-video-preview",
-  "yt-thumbnail-view-model",
-  "yt-lockup-view-model",
-  "ytm-rich-item-renderer",
-  "ytm-compact-video-renderer",
-  "ytm-video-card-renderer",
-  "ytm-video-with-context-renderer",
-  "ytm-shorts-lockup-view-model",
-  "ytm-shorts-lockup-view-model-v2"
-].join(",");
-const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
-  'a[href*="/watch"]',
-  'a[href*="/shorts/"]'
-].join(",");
-const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
-  VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
-  "yt-image",
-  ".yt-core-image"
-].join(",");
-function captureVideoFrameDataUrl(video) {
-  try {
-  if (!videoHasDecodedFrame(video)) return void 0;
-  return videoFrameDataUrl(video);
-  } catch {
-  return void 0;
-  }
-}
-function videoHasDecodedFrame(video) {
-  return Math.min(video.videoWidth, video.videoHeight) > 0 && video.readyState >= 2;
-}
-function isLikelyPausedVideoThumbnail(video) {
-  if (isExplicitVideoThumbnail(video)) return true;
-  if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-  return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) && !isPrimaryPlayerSizedVideo(video);
-}
-function isExplicitVideoThumbnail(video) {
-  return isTwitterHost() || Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR));
-}
-function isTwitterHost(hostname = location.hostname) {
-  return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
-}
-function isPrimaryPlayerSizedVideo(video) {
-  const rect = video.getBoundingClientRect();
-  if (!hasMinimumPlayerSize(rect)) return false;
-  const viewport = currentViewportSize();
-  if (!viewport) return hasFallbackPrimaryPlayerSize(rect);
-  return isViewportProminentVideo(rect, viewport);
-}
-function hasMinimumPlayerSize(rect) {
-  return rect.width >= 280 && rect.height >= 160;
-}
-function hasFallbackPrimaryPlayerSize(rect) {
-  return rect.width >= 480 && rect.height >= 270;
-}
-function currentViewportSize() {
-  const width = firstNonZeroDimension(window.innerWidth, document.documentElement.clientWidth);
-  const height = firstNonZeroDimension(window.innerHeight, document.documentElement.clientHeight);
-  if (!width) return void 0;
-  return height ? { width, height } : void 0;
-}
-function firstNonZeroDimension(primary, fallback) {
-  return primary || fallback || 0;
-}
-function isViewportProminentVideo(rect, viewport) {
-  return rect.width >= viewport.width * 0.6 || rect.width * rect.height >= viewport.width * viewport.height * 0.25;
-}
-function positionVideoFrameImage(frame, rect, video) {
-  const content = videoContentBox(rect, video);
-  for (const element of [privateRasterHost(frame), frame]) {
-  setOcrArtifactPosition(element, content.left, content.top);
-  element.style.width = `${content.width}px`;
-  element.style.height = `${content.height}px`;
-  }
-}
-function positionVideoFrameResumeControl(control, rect, video) {
-  const root = videoFrameArtifactRoot(video);
-  if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
-  attachVideoFrameResumeControlFallback(control, root);
-  const content = videoContentBox(rect, video);
-  setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
-}
-function positionVideoFrameStatus(status, rect, video) {
-  const content = videoContentBox(rect, video);
-  positionOcrImageStatus(status, content);
-}
-function positionOcrImageStatus(status, rect) {
-  const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-  setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
-  status.style.maxWidth = `${maxWidth}px`;
-}
-function appendOcrArtifactToRoot(element, root) {
-  const oldRoot = element.parentElement;
-  const fullscreenHosted = root !== document.body;
-  if (fullscreenHosted) prepareOcrFullscreenHost(root);
-  element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
-  if (oldRoot !== root) root.append(element);
-  clearOcrFullscreenHostMarker(oldRoot);
-}
-function removeOcrArtifact(element) {
-  const oldRoot = element.parentElement;
-  element.remove();
-  clearOcrFullscreenHostMarker(oldRoot);
-}
-function clearOcrFullscreenHostMarker(root) {
-  if (!isFullscreenArtifactContainer(root)) return;
-  if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
-  delete root.dataset.yomuOcrFullscreenHost;
-  clearPreparedFullscreenHostPosition(root);
-}
-function isFullscreenArtifactContainer(root) {
-  return root instanceof HTMLElement && root !== document.body;
-}
-function clearPreparedFullscreenHostPosition(root) {
-  if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
-  root.style.position = "";
-  delete root.dataset.yomuOcrFullscreenHostPosition;
-  }
-}
-function prepareOcrFullscreenHost(root) {
-  root.dataset.yomuOcrFullscreenHost = "true";
-  const position = getComputedStyle(root).position;
-  if (position && position !== "static") return;
-  root.style.position = "relative";
-  root.dataset.yomuOcrFullscreenHostPosition = "relative";
-}
-function videoFrameArtifactRoot(video) {
-  return activeVideoFullscreenHost(video) ?? document.body;
-}
-function activeVideoFullscreenHost(video) {
-  const active = activeFullscreenElement();
-  return documentFullscreenArtifactHost(active) ?? activeElementArtifactHost(active, video) ?? closestFullscreenArtifactHost(video) ?? youtubeFullscreenHostForOcrVideo(video);
-}
-function documentFullscreenArtifactHost(active) {
-  return [document.body, document.documentElement].includes(active) ? document.body : null;
-}
-function activeElementArtifactHost(active, video) {
-  if (!active) return null;
-  if (active === video) return fullscreenVideoArtifactHost(video);
-  return active.contains(video) ? active : null;
-}
-function closestFullscreenArtifactHost(video) {
-  return connectedVideoAncestor(video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR), video);
-}
-function fullscreenVideoArtifactHost(video) {
-  const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
-  return connectedVideoAncestor(host, video) ?? youtubeFullscreenHostForOcrVideo(video);
-}
-function connectedVideoAncestor(host, video) {
-  return isConnectedVideoAncestor(host, video) ? host : null;
-}
-function isConnectedVideoAncestor(host, video) {
-  return host !== null && host !== video && host.isConnected && host.contains(video);
-}
-function youtubeFullscreenHostForOcrVideo(video) {
-  if (!isYouTubeAppHostname()) return null;
-  return scopedYoutubeFullscreenHost(video) ?? unscopedYoutubeFullscreenHost(video);
-}
-function scopedYoutubeFullscreenHost(video) {
-  return [
-  video.closest('[data-yomu-inline-fullscreen="true"]'),
-  video.closest(".html5-video-player.ytp-fullscreen"),
-  video.closest("#movie_player.ytp-fullscreen"),
-  video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
-  video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
-  video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-  ].find((element) => Boolean(element && element !== video)) ?? null;
-}
-function unscopedYoutubeFullscreenHost(video) {
-  return [
-  document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-  document.querySelector(".html5-video-player.ytp-fullscreen"),
-  document.querySelector("#movie_player.ytp-fullscreen"),
-  document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
-  document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
-  document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-  ].find((element) => Boolean(element && element !== video && youtubeFullscreenHostContainsVideo(element, video))) ?? null;
-}
-function youtubeFullscreenHostContainsVideo(element, video) {
-  return element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element);
-}
-function isYouTubeMobileFullscreenHostForOcr(element) {
-  return /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
-}
-function activeFullscreenElement() {
-  const doc = document;
-  return [
-  doc.fullscreenElement,
-  doc.webkitFullscreenElement,
-  doc.mozFullScreenElement,
-  doc.msFullscreenElement
-  ].find((element) => element instanceof HTMLElement) ?? null;
-}
-function attachVideoFrameResumeControlToSubtitleRail(control, root) {
-  const rail = connectedSubtitleRailForOcrRoot(root);
-  if (!rail) return false;
-  const oldParent = control.parentElement;
-  const oldRoot = subtitlePlayerRoot(control);
-  control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-  control.dataset.yomuOcrFullscreenHosted = "false";
-  control.style.left = "";
-  control.style.top = "";
-  insertResumeControlIntoSubtitleRail(control, rail);
-  clearOcrFullscreenHostMarker(oldParent);
-  updateSubtitleRailResumeState(oldRoot);
-  updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-  return true;
-}
-function connectedSubtitleRailForOcrRoot(root) {
-  const rail = subtitleRailForOcrRoot(root);
-  return rail?.isConnected ? rail : null;
-}
-function insertResumeControlIntoSubtitleRail(control, rail) {
-  if (control.parentElement === rail) return;
-  const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
-  rail.insertBefore(control, panelButton);
-}
-function attachVideoFrameResumeControlFallback(control, root) {
-  const oldRoot = subtitlePlayerRoot(control);
-  appendOcrArtifactToRoot(control, root);
-  control.classList.add("jpdb-ocr-video-frame-resume-fallback");
-  updateSubtitleRailResumeState(oldRoot);
-}
-function removeVideoFrameResumeControl(control) {
-  const root = subtitlePlayerRoot(control);
-  removeOcrArtifact(control);
-  updateSubtitleRailResumeState(root);
-}
-function subtitleRailForOcrRoot(root) {
-  const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
-  if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
-  return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
-}
-function subtitlePlayerRoot(control) {
-  return control.closest(".jpdb-subtitle-player");
-}
-function updateSubtitleRailResumeState(root) {
-  if (!root) return;
-  root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
-}
-function playVideoIcon() {
-  return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-}
-function videoContentBox(rect, video) {
-  const intrinsicWidth = video.videoWidth;
-  const intrinsicHeight = video.videoHeight;
-  if (!hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight)) return rect;
-  const style = getComputedStyle(video);
-  const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
-  const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object.width, rect.height - object.height);
-  return new DOMRect(rect.left + offset.x, rect.top + offset.y, object.width, object.height);
-}
-function hasVideoContentDimensions(rect, intrinsicWidth, intrinsicHeight) {
-  return Math.min(intrinsicWidth, intrinsicHeight, rect.width, rect.height) > 0;
-}
-function videoObjectFit(value) {
-  return ["contain", "cover", "none", "scale-down"].includes(value) ? value : "contain";
-}
 function isTerminalOcrStatus(status) {
   return status === "empty" || status === "failed";
 }
@@ -16649,6 +17015,7 @@ class ImageOcrController {
   backgroundFrames = /* @__PURE__ */ new Map();
   backgroundFrameSources = /* @__PURE__ */ new Map();
   backgroundFrameKeys = /* @__PURE__ */ new Map();
+  tappedBackgroundFrames = /* @__PURE__ */ new WeakSet();
   canvasReaderSignature;
   canvasReaderSamePageSignatureSkips = 0;
   // Keeps viewport shifts O(1) on pages proven free of reader rasters.
@@ -16669,6 +17036,7 @@ class ImageOcrController {
   readerRasterProviderRetryTimers = /* @__PURE__ */ new Map();
   // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
   canvasTapRecapture = /* @__PURE__ */ new Map();
+  canvasTapHint = new ReaderCanvasTapHint();
   ocrWordRenderStates = new OcrWordRenderStateRegistry();
   pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
   replacementOcrLines = /* @__PURE__ */ new WeakMap();
@@ -16876,8 +17244,11 @@ class ImageOcrController {
   }
   if (!batch.touchesRenderableMedia) return;
   this.schedulePosition();
-  if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-  this.scheduleRefresh(batch.addedImage ? 0 : 40);
+  if (canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) {
+    this.scheduleRefresh(batch.addedImage ? 0 : 40);
+  } else if (settings.ocrAutoScanImages && !this.isProvenRasterFreePage()) {
+    this.scheduleReaderRasterRefresh(40);
+  }
   }
   invalidatePositionTransformsForMutations(batch) {
   if (batch.restylesEverySurface) {
@@ -17122,6 +17493,7 @@ class ImageOcrController {
   if (!surface) return false;
   const autoOwnsSurface = settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !(surface instanceof HTMLCanvasElement && isManualCanvasReaderSurface(surface));
   if (autoOwnsSurface) return false;
+  if (event.type !== "pointerdown" && settings.ocrAutoScanImages && this.options.shouldAutoScan?.() === false) return false;
   const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
   if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
   if (event.type === "pointermove") {
@@ -17131,6 +17503,7 @@ class ImageOcrController {
     this.lastPointerMoveReaderSurface = void 0;
     this.lastPointerMoveReaderSurfaceKey = void 0;
   }
+  this.canvasTapHint.dismiss();
   void this.snapshotReaderSurface(surface, settings);
   return true;
   }
@@ -17226,6 +17599,7 @@ class ImageOcrController {
   const work = ocrTargetWork(state2.key, target);
   if (await this.tryRenderCachedOcrResult(state2, work)) return;
   if (!this.isCurrentContentState(state2, work.contentKey)) return;
+  if (this.shouldSuppressAutoRenderedResult(state2, Boolean(readFallbackOcrResult(image)), manualRequested)) return;
   this.updateOcrStatus(image, "loading");
   const scan = beginOcrScan(state2, image, settings, manualRequested);
   try {
@@ -17337,11 +17711,11 @@ class ImageOcrController {
   log.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
   }
   shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
-  return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
+  return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.readsReaderRasterFrameWithoutTap(state2.image) && this.options.shouldAutoScan?.() === false;
   }
-  isReaderRasterOcrOptInFrame(image) {
+  readsReaderRasterFrameWithoutTap(image) {
   const canvas = this.canvasFrameSources.get(image);
-  return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
+  return Boolean(canvas && readsReaderCanvasWithoutTap(canvas, this.options.getSettings()));
   }
   async renderOcrFailure(state2, image, work, provider, manualRequested, error) {
   work.target.requireCurrent(STALE_OCR_STATE);
@@ -18135,14 +18509,21 @@ class ImageOcrController {
     return;
   }
   const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
-  const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces().filter(isCanvasOcrOptInSurface), settings, userRequested) : void 0;
-  if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
+  const readerCanvases = nativeTextLayerBlocksAutoScan ? collectCanvasReaderSurfaces() : void 0;
+  const autoReadCanvases = readerCanvases && activeReaderRasterSurfaces(
+    readerCanvases.filter((canvas) => readsReaderCanvasWithoutTap(canvas, settings)),
+    settings,
+    userRequested
+  );
+  if (userRequested) this.canvasTapHint.dismiss();
+  else this.canvasTapHint.update(readerCanvasWaitingForTap(readerCanvases, autoReadCanvases, settings), settings);
+  if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, autoReadCanvases)) return;
   if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
     this.releaseAllCanvasFrames();
     return;
   }
   this.startReaderRasterPollingIfNeeded();
-  const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+  const canvases = autoReadCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
   const signature = this.registerCanvasReaderPageSignature(canvases);
   if (signature === null) return;
   if (!settings.ocrAutoScanImages && !userRequested) {
@@ -18151,8 +18532,8 @@ class ImageOcrController {
   }
   this.reconcileCanvasReaderFrames(canvases, signature, settings, userRequested);
   }
-  handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases) {
-  if (!nativeTextLayerBlocksAutoScan || ocrOptInCanvases?.length) return false;
+  handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, autoReadCanvases) {
+  if (!nativeTextLayerBlocksAutoScan || autoReadCanvases?.length) return false;
   if (!isReaderRasterPage()) {
     this.releaseAllCanvasFrames();
     return true;
@@ -18656,7 +19037,7 @@ class ImageOcrController {
   if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
   card.hidden = false;
   this.canvasPendingStatusKeys.set(canvas, canvasSurfaceSnapshotKey(canvas));
-  positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+  positionOcrImageStatus(card, visibleViewportIntersection(rect) ?? rect);
   }
   removeCanvasPendingStatus(canvas) {
   const card = this.canvasPendingStatuses.get(canvas);
@@ -18748,7 +19129,7 @@ class ImageOcrController {
     this.discardCanvasPendingStatus(canvas);
     return;
   }
-  const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+  const rect = visibleViewportIntersection(canvas.getBoundingClientRect());
   if (!rect) {
     this.hideUnavailableCanvasPendingStatus(canvas, status);
     return;
@@ -18862,18 +19243,6 @@ class ImageOcrController {
     fractions.height * canvasRect.height
   );
   }
-  visibleViewportIntersection(rect) {
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  if (!viewportWidth || !viewportHeight) return void 0;
-  const left = Math.max(0, rect.left);
-  const top = Math.max(0, rect.top);
-  const right = Math.min(viewportWidth, rect.right);
-  const bottom = Math.min(viewportHeight, rect.bottom);
-  const width = right - left;
-  const height = bottom - top;
-  return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
-  }
   refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
   if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
   if (!settings.ocrAutoScanImages && !userRequested) return;
@@ -18882,7 +19251,7 @@ class ImageOcrController {
     return;
   }
   if (this.options.shouldAutoScan?.() === false && !userRequested) {
-    this.releaseAllBackgroundFrames();
+    this.releaseUntappedBackgroundFrames();
     return;
   }
   if (this.isProvenRasterFreePage() || !isReaderRasterPage()) {
@@ -18914,6 +19283,7 @@ class ImageOcrController {
   frame.addEventListener("load", () => {
     if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
   }, { once: true });
+  if (userRequested) this.tappedBackgroundFrames.add(frame);
   setPrivateRasterSource(frame, url);
   document.body.append(privateRasterHost(frame));
   this.backgroundFrames.set(surface, frame);
@@ -18944,6 +19314,15 @@ class ImageOcrController {
   }
   releaseAllBackgroundFrames() {
   for (const surface of [...this.backgroundFrames.keys()]) this.releaseBackgroundFrame(surface);
+  }
+  // Where image OCR does not auto-scan, only the learner's tap reads a page. Keep that
+  // page until it changes: the reader poll or a thumbnail loading elsewhere must not
+  // throw away a result the provider already returned and make the learner send it again.
+  releaseUntappedBackgroundFrames() {
+  for (const [surface, frame] of [...this.backgroundFrames]) {
+    const unchanged = this.backgroundFrameKeys.get(surface) === backgroundSurfaceCacheKey(surface);
+    if (!unchanged || !this.tappedBackgroundFrames.has(frame)) this.releaseBackgroundFrame(surface);
+  }
   }
   retryVisibleReaderRasterFrames(settings) {
   let retried = 0;
@@ -19100,6 +19479,7 @@ class ImageOcrController {
   return reserved ? { ...frame, safeBottomInset: reserved } : frame;
   }
   clear() {
+  this.canvasTapHint.remove();
   this.observer?.disconnect();
   this.observer = void 0;
   this.observerMargin = "";
@@ -19569,90 +19949,8 @@ function isCandidateImage(image, settings) {
   return isVisibleOcrImage(image);
 }
 function ocrImageFromPointerEvent(event, settings) {
-  if (!ocrRuntimeActive(settings) || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-  const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+  const image = ocrRuntimeActive(settings) ? ocrPointerImage(event) : null;
   return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
-}
-function ocrReaderSurfaceFromPointerEvent(event, settings, rasterFreePage) {
-  if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-  if (pointerEventOverOcrOverlay(event)) return null;
-  return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
-}
-function touchPointFromEvent(event) {
-  const touchEvent = event;
-  const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
-  if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
-  return { clientX: touch.clientX, clientY: touch.clientY };
-}
-function eventWithPoint(event, point) {
-  return {
-  type: "pointerdown",
-  target: event.target,
-  button: 0,
-  clientX: point.clientX,
-  clientY: point.clientY,
-  pointerType: "touch"
-  };
-}
-function pointerEventOverOcrOverlay(event) {
-  const target = event.target;
-  if (target?.closest?.("[data-jpdb-reader-root]")) return true;
-  return Boolean(ocrPointerHitElement(event)?.closest?.("[data-jpdb-reader-root]"));
-}
-function shouldHandleOcrPointerEvent(event) {
-  if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
-  return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
-}
-function isPointerLikeEvent(event) {
-  const candidate = event;
-  return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
-}
-function isHoverPointerType(pointerType) {
-  return !pointerType || pointerType === "mouse" || pointerType === "pen";
-}
-function pointerEventImageTarget(event) {
-  const target = event.target instanceof Element ? event.target : null;
-  if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-  return target instanceof HTMLImageElement ? target : target.closest("img");
-}
-function pointerEventImageAtPoint(event) {
-  const element = ocrPointerHitElement(event);
-  if (!element || element.closest("[data-jpdb-reader-root]")) return null;
-  return element instanceof HTMLImageElement ? element : element.closest("img");
-}
-function pointerEventReaderSurfaceTarget(event, settings) {
-  const target = event.target instanceof Element ? event.target : null;
-  if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-  return readerSurfaceFromElement(target, settings);
-}
-function pointerEventReaderSurfaceAtPoint(event, settings) {
-  const element = ocrPointerHitElement(event);
-  if (element && !element.closest("[data-jpdb-reader-root]")) {
-  const surface = readerSurfaceFromElement(element, settings);
-  if (surface) return surface;
-  }
-  return readerSurfaceAtPoint(event.clientX, event.clientY, settings);
-}
-function readerSurfaceFromElement(element, settings) {
-  const canvas = element instanceof HTMLCanvasElement ? element : element.closest("canvas");
-  if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
-  if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
-  const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
-  return background ?? null;
-}
-function readerSurfaceAtPoint(clientX, clientY, settings) {
-  const surfaces = [
-  ...collectCanvasReaderSurfaces(),
-  ...collectBackgroundImageReaderSurfaces()
-  ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
-  return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
-}
-function isReaderSurfaceCandidate(surface, settings) {
-  const rect = surface.getBoundingClientRect();
-  return rect.width * rect.height >= settings.ocrMinImageArea && isNearViewport(surface, settings.ocrPrefetchMargin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
-}
-function rectContainsPoint(rect, clientX, clientY) {
-  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 function isIgnoredOcrImage(image) {
   return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBookwalkerReaderSourceImage(image) || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
@@ -19728,15 +20026,6 @@ function isIconLikeImage(image, rect = image.getBoundingClientRect()) {
   const ratio = width / height;
   return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
 }
-function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
-  return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-}
-function hasCanvasOcrOptInSurface() {
-  return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
-}
-function isCanvasOcrOptInSurface(canvas) {
-  return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
-}
 function shouldObserveImage(image, settings) {
   return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
 }
@@ -19780,6 +20069,10 @@ function activeReaderRasterSurfaces(surfaces, settings, userRequested) {
   if (!userRequested && isBookwalkerViewerHost()) return activeBookwalkerReaderRasterSurfaces(active, settings);
   const limit = readerRasterMaxSurfaces(settings, userRequested);
   return active.slice(0, limit);
+}
+function readerCanvasWaitingForTap(readerCanvases, autoReadCanvases, settings) {
+  if (!readerCanvases || autoReadCanvases?.length || !isOcrProviderConfigured(settings)) return void 0;
+  return activeReaderRasterSurfaces(readerCanvases, settings, false)[0];
 }
 function readerRasterCaptureMargin(settings, userRequested) {
   if (userRequested) return settings.ocrPrefetchMargin;

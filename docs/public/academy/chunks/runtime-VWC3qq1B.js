@@ -1,4 +1,4 @@
-import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as updateRenderedWordPrivateState, a7 as renderedWordPrivateStateForCard, a8 as renderedWordPrivateValue, a9 as subscribeToStoredValueChanges, aa as currentAccountDataSurfaceIsTrusted, ab as gmPrivateStorageSet, ac as Logger, ad as uiText, ae as overlayViewport, af as overlayViewportBounds, ag as layoutPointToOverlay, ah as sourceRectToOverlay, ai as trustedReaderEventHandler, aj as readCardCommandCapability, ak as privateReviewGradeAllowed, al as normalizeAttemptedAudioUrl, am as audioSubSourceNameKey, an as audioSubSourceProviderName, ao as targetAudioTemplateLanguageToken, ap as disabledAudioSubSourceNameKeys, aq as parseJson, ar as escapeRegExp, as as uniqueStrings, at as getOrderedAudioSources, au as orderAudioSources, av as isTextToSpeechFallbackSource, aw as isBrowserTextToSpeechSource, ax as audioPreloadLimits, ay as preloadableAudioSources, az as cheapCandidatePreloadAudioSources, aA as orderAudioCandidates, aB as getAudioBagKey, aC as audioCandidateSelectionMode, aD as registerAudioAttempt, aE as getJpdbAudioBagKey, aF as preparedAudioCacheKey, aG as getAudioCandidateCacheKey, aH as cloneAudioCandidates, aI as targetSpeechSynthesisLocale, aJ as isApiTextToSpeechSource, aK as canonicalLanguageTag, aL as languageSubtag, aM as hasJitenAudioReference, aN as yomuAnkiCompanion, aO as flattenNoteFields, aP as stablePositiveHashId, aQ as normalizeAnkiFieldName, aR as HAS_JAPANESE, aS as codePointSafePrefix, aT as ANKI_EXPRESSION_FIELD_NAMES, aU as ANKI_READING_FIELD_NAMES, aV as ANKI_MEANING_FIELD_NAMES, aW as ANKI_SENTENCE_FIELD_NAMES, aX as escapeHtml$2, aY as privateCommandAttributes, aZ as ACADEMY_SRS_LABEL, a_ as sharedHexToRgb, a$ as sanitizeAccentColor, b0 as sharedContrastRatio, b1 as CORE_COLOR_TOKENS, b2 as sharedMixHex, b3 as RENDERED_WORD_CONTRAST_VARS, b4 as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, b5 as PAGE_WORD_COLOR_TOKENS, b6 as renderedWordHasAnkiState, b7 as canonicalStudyCardIdentity, b8 as applyLocalYomuSrsStateToRenderedWord, b9 as hasJpdbApiCredential, ba as hasJitenApiCredential, bb as hasBunproFrontendCredential, bc as isBunproFrontendCredentialExpired, bd as hasWanikaniApiCredential, be as isLocalYomuSrsStorageError, bf as activeLearningTargetLanguage, bg as effectiveWanikaniApiToken, bh as effectiveBunproFrontendApiToken, bi as effectiveBunproLegacyApiKey, bj as effectiveJpdbApiKey, bk as effectiveJitenApiKey, bl as yomuKanjiStudyCompanion, bm as activeLearningTarget, bn as isUnifiedIdeograph, bo as readerWordSurfaceText$1, bp as readAnkiAudioMergeCapability, bq as formatUiText, br as uiList, bs as readReviewTargetCapability, bt as renderKanjiNavigationText, bu as shouldRenderRuby, bv as renderRuby, bw as cleanCardHighlightValue, bx as renderHighlightedTextHtml, by as cardHighlightTargets, bz as compactCardHighlightValue, bA as IMMERSION_KIT_SOURCE_ID, bB as JITEN_DEFINITION_SOURCE_ID, bC as JPDB_DEFINITION_SOURCE_ID, bD as BUNPRO_DEFINITION_SOURCE_ID, bE as WANIKANI_DEFINITION_SOURCE_ID, bF as STUDY_TRANSLATION_SOURCE_ID, bG as ANKI_SOURCE_ID, bH as STUDY_GRAMMAR_SOURCE_ID, bI as LOOKUP_PILL_COLOR_TOKENS, bJ as normalizeDictionaryPreferences, bK as genericLookupTextVariants, bL as yomitanDictionaryIdentity, bM as gmStorageGet, bN as gmStorageSet, bO as gmStorageDelete, bP as assertManagedStateMutationAllowed, bQ as managedStateEpochToken, bR as managedStateEpochTokenRelation, bS as assertManagedStateReadAllowed, bT as normalizeZipKanjiMetaRow, bU as normalizeZipTermMetaRow, bV as normalizeZipKanjiRow, bW as normalizeZipTermRow, bX as isRecord$5, bY as isJapaneseKanjiCharacter, bZ as lookupSpansStartingInRange, b_ as normalizeImportedLookupMeta, b$ as normalizeGenericLookupText, c0 as splitTags, c1 as JAPANESE_RE$1, c2 as codePointBoundaryAtOrAfter, c3 as yomitanZipDictionaryName, c4 as yomitanZipVersion, c5 as countYomitanZipBanks, c6 as normalizeImportedLookupTerm, c7 as activeLearningTargetGeneration, c8 as imageMimeType, c9 as bytesToBase64$1, ca as speakerIcon, cb as renderedWordPrivateAttributesForState, cc as gmStorageGetSync, cd as gmStorageSetSync, ce as isNonNullObject, cf as uniqueNonEmptyStrings, cg as pitchNumberForReading, ch as pitchPatternFromPosition, ci as KANA, cj as COMBINING_KANA_MARKS, ck as collectPitchVariants, cl as splitMorae, cm as pitchLevelsForDisplay, cn as pitchClassNameForPattern, co as learningTargetModuleFor, cp as defaultLearningTargetModule, cq as languageDisplayName, cr as resolveUiLanguage, cs as primaryCardState, ct as cardStateLabel, cu as ConcurrencyGate, cv as KANA_ONLY_RUN_RE, cw as ITERATION_MARK, cx as KANA_WITH_PROLONGED, cy as mapLimited, cz as bareFallbackCardFromText, cA as inferredInflectedSurfaceRubies, cB as nonOverlappingTokens, cC as READING_KANA_ONLY_RE, cD as HALFWIDTH_KATAKANA, cE as PROLONGED_SOUND_MARK, cF as KATAKANA_MIDDLE_DOT, cG as fallbackLookupTermsForCard, cH as yomuBunproCompanion, cI as shouldLookupAnkiStatus, cJ as setRenderedWordPitchClass, cK as shouldHideFuriganaForCardState, cL as isPopupLookupEnabled, cM as yomuNormalizeOcrRenderedText, cN as replaceRenderedWordFurigana, cO as htmlToFirstElement, cP as clearRenderedWordAnkiState, cQ as clearRenderedWordFurigana, cR as cardDeckMembershipClassNames, cS as setInnerHtml, cT as gmStorageDeleteSync, cU as appendToDocumentHead, cV as yomuSettingsSurfaceCompanion, cW as subscribeToFactoryResetSignals, cX as APP_NAME, cY as createFactoryResetSignal, cZ as beginSettingsResetGuard, c_ as publishFactoryResetSignal, c$ as delay, d0 as clearManagedStoredValues, d1 as deleteSettingsStorage, d2 as commitManagedStateResetEpoch, d3 as clearFactoryResetSignal, d4 as managedStateResetEpochMayHaveCommitted, d5 as endSettingsResetGuard, d6 as managedStoredKeysStillPresent, d7 as ManagedStateResetError, d8 as stableHash32, d9 as uniqueTrimmedStrings, da as stableHashBase36, db as isTargetLanguageText, dc as KANJI_LIKE_WITH_COUNTERS, dd as HIRAGANA_WITH_PROLONGED, de as KATAKANA_WITH_PROLONGED, df as KANJI_LIKE_RE, dg as applyOverlayPageScale, dh as overlayViewportBottomInset, di as renderImmersionSearchLinksHtml, dj as renderTokensToHtml, dk as readPrivateReviewTarget, dl as runLimited, dm as isManagedStorageKey, dn as managedLocalStorage, dp as readJitenKanjiWordsCommandCapability, dq as bindPrivateCommandCapability, dr as parseHtmlDocument, ds as isCurrentScanTarget, dt as applyTokensToScanTarget, du as unwrapReaderWords, dv as collectFragmentTextTargetsIn, dw as collectFormControlTextTargetsIn, dx as DEFAULT_OVERLAY_BACKGROUND_COLOR, dy as newTabText, dz as CARD_STATE_LABEL_KEYS, dA as readKanjiCommandCapability, dB as dispatchPrivateCommand, dC as claimLocalTapActivation, dD as installControlTapActivation, dE as enabledReaderControl, dF as effectiveFuriganaMode, dG as KANJI_DOODLE_CLEAR_EVENT, dH as installKanjiDoodle, dI as rankKanjiStrokeCandidates, dJ as promiseWithTimeout, dK as isYomuNewTabUrl, dL as convertRomajiToKana, dM as normalizeJapaneseStudyAnswer, dN as isolate, dO as contextPitchPattern, dP as managedStateWritesSuppressed, dQ as createStorageCoordinationId, dR as managedSessionStorage, dS as bindAuthorizedReaderFormSubmit, dT as isDirectTrustedReaderInteraction, dU as normalizedJapaneseCardReading, dV as parseManagedStateEpoch, dW as sameManagedStateEpoch, dX as gmStorageGetStrict, dY as withGmStorageLease, dZ as DEFAULT_SETTINGS, d_ as renderImmersionSearchLinks, d$ as createStudySessionClock, e0 as readJpdbKanjiCommandCapability, e1 as isNewTabCopyKey, e2 as nextExplicitUiLanguage, e3 as GITHUB_REPOSITORY_URL, e4 as DISCORD_INVITE_URL, e5 as dispatchAuthorizedReaderControlClick, e6 as DOCS_BASE_URL, e7 as SUPPORT_STATUS_URL, e8 as validPitchPositions, e9 as mountStudySessionClockControl, ea as combinedApiCredentialLabel, eb as assessKanjiStrokes, ec as SHAPE_PASS_SCORE, ed as activeLanguageProfile, ee as readBackupSettingsPersistenceView, ef as beginStoredValuesImport, eg as settingsIntentKeys, eh as normalizeReaderSettings, ei as mergeDictionaryPreferences, ej as retireStaleDictionaryPreferences, ek as captureActiveLanguageProfileDictionaries, el as saveSettings, em as packagedExtensionStorageAdapterMissing, en as readSettingsPersistenceViewStrict, eo as FURIGANA_HIDE_STATE_GROUPS, ep as WORD_COLOR_HIDE_STATE_GROUPS, eq as accentToRgba, er as effectiveReaderTextColorSource, es as effectiveReaderColorSource, et as effectiveSubtitleTextColorSource, eu as effectiveSubtitleColorSource, ev as accessibleOcrBackgroundOpacity, ew as accessibleOcrBackgroundColor, ex as READER_THEME_COLOR_TOKENS, ey as EXTENSION_STORE_URLS, ez as USERSCRIPT_INSTALL_URL, eA as learnerLanguageById, eB as readApiCredentialsFromFormData, eC as DEFAULT_AUDIO_SOURCES, eD as learningTargetRosterIdForTag, eE as dictionaryLookupLinksForTarget, eF as availableInterfaceLocales, eG as credentialValueFromReader, eH as normalizeOcrProvider, eI as slice1LanguageIdForTag, eJ as canonicalTagForSlice1Language, eK as canonicalTagForLearningTarget, eL as languageProfileDictionariesFromPreferences, eM as activateLanguageProfileForOutputLanguage, eN as normalizeDictionaryLookupLinks, eO as normalizeAudioSource, eP as isLearningTargetRosterId, eQ as MAX_LOOKUP_LINK_ROWS, eR as normalizeAnkiFieldMappings, eS as isLearnerLanguageId, eT as COPY_LOOKUP_LINK, eU as exportManagedStoredValues, eV as RETIRED_SETTINGS_STORAGE_KEYS, eW as SETTINGS_STORAGE_KEY, eX as SETTINGS_INTENT_LEDGER_STORAGE_KEY, eY as applySettingsIntent, eZ as serializeSettingsPersistencePair, e_ as defaultDictionaryLookupLinks, e$ as MAX_EXTRA_LOOKUP_LINKS, f0 as missingLookupComponents, f1 as AUDIO_SOURCE_UI_TYPE_VALUES, f2 as audioSourceLabel, f3 as lookupSiteComponents, f4 as DEFAULT_POPUP_FONT_FAMILY, f5 as DEFAULT_READER_FONT_FAMILY, f6 as isPromiseLike$2, f7 as dispatchAuthorizedReaderControlEvent, f8 as ANKI_CONNECT_ADDON_URL, f9 as redactedApiCredentialsFromForm, fa as LEARNER_LANGUAGE_IDS, fb as externalLinkIcon, fc as LEARNING_TARGET_ROSTER, fd as furiganaModeNeedsDifficultyExplanation, fe as DEFAULT_OVERLAY_TEXT_COLOR, ff as DEFAULT_OVERLAY_OUTLINE_COLOR, fg as storedCredentialClearName, fh as hasStatusColorSource, fi as NEW_TAB_PAGE_URL, fj as AUDIO_GUIDE_URL, fk as NADESHIKO_DEVELOPER_URL, fl as VIDEO_PLAYER_PAGE_URL, fm as PDF_READER_PAGE_URL, fn as DONATE_URL, fo as SUPPORT_COPY, fp as SUPPORT_COPY_EXTRA, fq as LEARNER_LANGUAGES, fr as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fs as gmPrivateStorageDelete, ft as gmPrivateStorageGet, fu as subscribeToSettingsChanges, fv as subscribeLocalYomuSrsMutations, fw as LocalYomuSrsRepository, fx as unwrapProfileKey, fy as parseAcademyPairingTicket, fz as wrapProfileKey, fA as decryptProfileEvent, fB as encryptProfileEvent, fC as mergeStoredYomuSrsDecks, fD as settingsPanelHash, fE as readTrustedYomuUrl, fF as isPrivilegedYomuLocalDevelopmentOrigin, fG as settingsPanelFromHash, fH as SETTINGS_TITLE, fI as learningTargetRosterEntry, fJ as NEW_TAB_VERSION_URL, fK as NO_EXPLICIT_USER_CHOICE, fL as normalizeAudioSubSources, fM as publishSettingsChange$1, fN as mergeApiCredentialValues, fO as configureLogger, fP as localeDirection, fQ as subscribeToSettingsStorageChanges, fR as isHostedYomuOrigin, fS as loadSettings, fT as copyIcon, fU as ankiIcon, fV as createYomuLocalSrsAdapter, fW as yomuOnboardingController, fX as clearManagedBrowserCaches, fY as unregisterManagedServiceWorkers, fZ as setRenderedWordCardIdentity, f_ as renderedWordCardKey, f$ as renderedWordsInRoot, g0 as renderedWordElementKey, g1 as applyInterfaceLocaleToRoot, g2 as applyInterfaceLocaleToDocument, g3 as ensureManagedWebStorageCurrent } from "./entrypoint-jpBC7dF_.js";
+import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as updateRenderedWordPrivateState, a7 as renderedWordPrivateStateForCard, a8 as renderedWordPrivateValue, a9 as subscribeToStoredValueChanges, aa as currentAccountDataSurfaceIsTrusted, ab as gmPrivateStorageSet, ac as Logger, ad as uiText, ae as overlayViewport, af as overlayViewportBounds, ag as layoutPointToOverlay, ah as sourceRectToOverlay, ai as trustedReaderEventHandler, aj as readCardCommandCapability, ak as privateReviewGradeAllowed, al as normalizeAttemptedAudioUrl, am as audioSubSourceNameKey, an as audioSubSourceProviderName, ao as targetAudioTemplateLanguageToken, ap as disabledAudioSubSourceNameKeys, aq as parseJson, ar as escapeRegExp, as as uniqueStrings, at as getOrderedAudioSources, au as orderAudioSources, av as isTextToSpeechFallbackSource, aw as isBrowserTextToSpeechSource, ax as audioPreloadLimits, ay as preloadableAudioSources, az as cheapCandidatePreloadAudioSources, aA as orderAudioCandidates, aB as getAudioBagKey, aC as audioCandidateSelectionMode, aD as registerAudioAttempt, aE as getJpdbAudioBagKey, aF as preparedAudioCacheKey, aG as getAudioCandidateCacheKey, aH as cloneAudioCandidates, aI as targetSpeechSynthesisLocale, aJ as isApiTextToSpeechSource, aK as canonicalLanguageTag, aL as languageSubtag, aM as hasJitenAudioReference, aN as yomuAnkiCompanion, aO as flattenNoteFields, aP as stablePositiveHashId, aQ as normalizeAnkiFieldName, aR as HAS_JAPANESE, aS as codePointSafePrefix, aT as ANKI_EXPRESSION_FIELD_NAMES, aU as ANKI_READING_FIELD_NAMES, aV as ANKI_MEANING_FIELD_NAMES, aW as ANKI_SENTENCE_FIELD_NAMES, aX as escapeHtml$2, aY as privateCommandAttributes, aZ as ACADEMY_SRS_LABEL, a_ as sharedHexToRgb, a$ as sanitizeAccentColor, b0 as sharedContrastRatio, b1 as CORE_COLOR_TOKENS, b2 as sharedMixHex, b3 as RENDERED_WORD_CONTRAST_VARS, b4 as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, b5 as PAGE_WORD_COLOR_TOKENS, b6 as renderedWordHasAnkiState, b7 as canonicalStudyCardIdentity, b8 as applyLocalYomuSrsStateToRenderedWord, b9 as hasJpdbApiCredential, ba as hasJitenApiCredential, bb as chosenWordGradingService, bc as hasBunproFrontendCredential, bd as isBunproFrontendCredentialExpired, be as hasWanikaniApiCredential, bf as isLocalYomuSrsStorageError, bg as isLocalYomuSrsSaveInterrupted, bh as activeLearningTargetLanguage, bi as effectiveWanikaniApiToken, bj as effectiveBunproFrontendApiToken, bk as effectiveBunproLegacyApiKey, bl as effectiveJpdbApiKey, bm as effectiveJitenApiKey, bn as yomuKanjiStudyCompanion, bo as activeLearningTarget, bp as isUnifiedIdeograph, bq as readerWordSurfaceText$1, br as readAnkiAudioMergeCapability, bs as formatUiText, bt as uiList, bu as readReviewTargetCapability, bv as applyOverlayPageScale, bw as watchSavesWaitingForAnotherTab, bx as renderKanjiNavigationText, by as shouldRenderRuby, bz as renderRuby, bA as cleanCardHighlightValue, bB as renderHighlightedTextHtml, bC as cardHighlightTargets, bD as compactCardHighlightValue, bE as IMMERSION_KIT_SOURCE_ID, bF as JITEN_DEFINITION_SOURCE_ID, bG as JPDB_DEFINITION_SOURCE_ID, bH as BUNPRO_DEFINITION_SOURCE_ID, bI as WANIKANI_DEFINITION_SOURCE_ID, bJ as STUDY_TRANSLATION_SOURCE_ID, bK as ANKI_SOURCE_ID, bL as STUDY_GRAMMAR_SOURCE_ID, bM as LOOKUP_PILL_COLOR_TOKENS, bN as normalizeDictionaryPreferences, bO as genericLookupTextVariants, bP as yomitanDictionaryIdentity, bQ as gmStorageGet, bR as gmStorageSet, bS as gmStorageDelete, bT as assertManagedStateMutationAllowed, bU as managedStateEpochToken, bV as managedStateEpochTokenRelation, bW as assertManagedStateReadAllowed, bX as normalizeZipKanjiMetaRow, bY as normalizeZipTermMetaRow, bZ as normalizeZipKanjiRow, b_ as normalizeZipTermRow, b$ as isRecord$5, c0 as isJapaneseKanjiCharacter, c1 as lookupSpansStartingInRange, c2 as normalizeImportedLookupMeta, c3 as normalizeGenericLookupText, c4 as splitTags, c5 as JAPANESE_RE$1, c6 as codePointBoundaryAtOrAfter, c7 as yomitanZipDictionaryName, c8 as yomitanZipVersion, c9 as countYomitanZipBanks, ca as normalizeImportedLookupTerm, cb as activeLearningTargetGeneration, cc as imageMimeType, cd as bytesToBase64$1, ce as speakerIcon, cf as renderedWordPrivateAttributesForState, cg as gmStorageGetSync, ch as gmStorageSetSync, ci as isNonNullObject, cj as uniqueNonEmptyStrings, ck as pitchNumberForReading, cl as pitchPatternFromPosition, cm as KANA, cn as COMBINING_KANA_MARKS, co as collectPitchVariants, cp as splitMorae, cq as pitchLevelsForDisplay, cr as pitchClassNameForPattern, cs as learningTargetModuleFor, ct as defaultLearningTargetModule, cu as languageDisplayName, cv as resolveUiLanguage, cw as primaryCardState, cx as cardStateLabel, cy as ConcurrencyGate, cz as KANA_ONLY_RUN_RE, cA as ITERATION_MARK, cB as KANA_WITH_PROLONGED, cC as mapLimited, cD as bareFallbackCardFromText, cE as inferredInflectedSurfaceRubies, cF as nonOverlappingTokens, cG as READING_KANA_ONLY_RE, cH as HALFWIDTH_KATAKANA, cI as PROLONGED_SOUND_MARK, cJ as KATAKANA_MIDDLE_DOT, cK as fallbackLookupTermsForCard, cL as yomuBunproCompanion, cM as shouldLookupAnkiStatus, cN as setRenderedWordPitchClass, cO as shouldHideFuriganaForCardState, cP as isPopupLookupEnabled, cQ as yomuNormalizeOcrRenderedText, cR as replaceRenderedWordFurigana, cS as htmlToFirstElement, cT as clearRenderedWordAnkiState, cU as clearRenderedWordFurigana, cV as syncWordReviewLane, cW as cardDeckMembershipClassNames, cX as setInnerHtml, cY as gmStorageDeleteSync, cZ as appendToDocumentHead, c_ as yomuSettingsSurfaceCompanion, c$ as subscribeToFactoryResetSignals, d0 as APP_NAME, d1 as createFactoryResetSignal, d2 as beginSettingsResetGuard, d3 as publishFactoryResetSignal, d4 as delay, d5 as clearManagedStoredValues, d6 as deleteSettingsStorage, d7 as commitManagedStateResetEpoch, d8 as clearFactoryResetSignal, d9 as managedStateResetEpochMayHaveCommitted, da as endSettingsResetGuard, db as managedStoredKeysLeftAfterReset, dc as ManagedStateResetError, dd as stableHash32, de as uniqueTrimmedStrings, df as stableHashBase36, dg as isTargetLanguageText, dh as KANJI_LIKE_WITH_COUNTERS, di as HIRAGANA_WITH_PROLONGED, dj as KATAKANA_WITH_PROLONGED, dk as KANJI_LIKE_RE, dl as overlayViewportBottomInset, dm as renderImmersionSearchLinksHtml, dn as renderTokensToHtml, dp as readPrivateReviewTarget, dq as newTabText, dr as runLimited, ds as isManagedStorageKey, dt as managedLocalStorage, du as readJitenKanjiWordsCommandCapability, dv as bindPrivateCommandCapability, dw as parseHtmlDocument, dx as isCurrentScanTarget, dy as applyTokensToScanTarget, dz as unwrapReaderWords, dA as collectFragmentTextTargetsIn, dB as collectFormControlTextTargetsIn, dC as DEFAULT_OVERLAY_BACKGROUND_COLOR, dD as CARD_STATE_LABEL_KEYS, dE as readKanjiCommandCapability, dF as dispatchPrivateCommand, dG as claimLocalTapActivation, dH as installControlTapActivation, dI as enabledReaderControl, dJ as effectiveFuriganaMode, dK as KANJI_DOODLE_CLEAR_EVENT, dL as installKanjiDoodle, dM as rankKanjiStrokeCandidates, dN as promiseWithTimeout, dO as isYomuNewTabUrl, dP as convertRomajiToKana, dQ as normalizeJapaneseStudyAnswer, dR as isolate, dS as contextPitchPattern, dT as managedStateWritesSuppressed, dU as createStorageCoordinationId, dV as managedSessionStorage, dW as bindAuthorizedReaderFormSubmit, dX as isDirectTrustedReaderInteraction, dY as normalizedJapaneseCardReading, dZ as parseManagedStateEpoch, d_ as sameManagedStateEpoch, d$ as gmStorageGetStrict, e0 as withGmStorageLease, e1 as isStorageLeaseLapsed, e2 as DEFAULT_SETTINGS, e3 as renderImmersionSearchLinks, e4 as createStudySessionClock, e5 as subscribeLocalYomuSrsMutations, e6 as readJpdbKanjiCommandCapability, e7 as isNewTabCopyKey, e8 as nextExplicitUiLanguage, e9 as GITHUB_REPOSITORY_URL, ea as DISCORD_INVITE_URL, eb as dispatchAuthorizedReaderControlClick, ec as DOCS_BASE_URL, ed as SUPPORT_STATUS_URL, ee as validPitchPositions, ef as mountStudySessionClockControl, eg as combinedApiCredentialLabel, eh as assessKanjiStrokes, ei as SHAPE_PASS_SCORE, ej as activeLanguageProfile, ek as readBackupSettingsPersistenceView, el as beginStoredValuesImport, em as settingsIntentKeys, en as normalizeReaderSettings, eo as mergeDictionaryPreferences, ep as retireStaleDictionaryPreferences, eq as captureActiveLanguageProfileDictionaries, er as saveSettings, es as packagedExtensionStorageAdapterMissing, et as readSettingsPersistenceViewStrict, eu as FURIGANA_HIDE_STATE_GROUPS, ev as WORD_COLOR_HIDE_STATE_GROUPS, ew as setReviewLanePainted, ex as accentToRgba, ey as effectiveReaderTextColorSource, ez as effectiveReaderColorSource, eA as effectiveSubtitleTextColorSource, eB as effectiveSubtitleColorSource, eC as accessibleOcrBackgroundOpacity, eD as accessibleOcrBackgroundColor, eE as colorSourceClassName, eF as READER_THEME_COLOR_TOKENS, eG as EXTENSION_STORE_URLS, eH as USERSCRIPT_INSTALL_URL, eI as learnerLanguageById, eJ as readApiCredentialsFromFormData, eK as DEFAULT_AUDIO_SOURCES, eL as learningTargetRosterIdForTag, eM as dictionaryLookupLinksForTarget, eN as availableInterfaceLocales, eO as credentialValueFromReader, eP as normalizeOcrProvider, eQ as slice1LanguageIdForTag, eR as canonicalTagForSlice1Language, eS as canonicalTagForLearningTarget, eT as languageProfileDictionariesFromPreferences, eU as activateLanguageProfileForOutputLanguage, eV as normalizeDictionaryLookupLinks, eW as normalizeAudioSource, eX as isLearningTargetRosterId, eY as MAX_LOOKUP_LINK_ROWS, eZ as normalizeAnkiFieldMappings, e_ as isLearnerLanguageId, e$ as COPY_LOOKUP_LINK, f0 as exportManagedStoredValues, f1 as RETIRED_SETTINGS_STORAGE_KEYS, f2 as SETTINGS_STORAGE_KEY, f3 as SETTINGS_INTENT_LEDGER_STORAGE_KEY, f4 as applySettingsIntent, f5 as serializeSettingsPersistencePair, f6 as defaultDictionaryLookupLinks, f7 as MAX_EXTRA_LOOKUP_LINKS, f8 as missingLookupComponents, f9 as AUDIO_SOURCE_UI_TYPE_VALUES, fa as audioSourceLabel, fb as lookupSiteComponents, fc as DEFAULT_POPUP_FONT_FAMILY, fd as DEFAULT_READER_FONT_FAMILY, fe as isPromiseLike$2, ff as dispatchAuthorizedReaderControlEvent, fg as ANKI_CONNECT_ADDON_URL, fh as redactedApiCredentialsFromForm, fi as LEARNER_LANGUAGE_IDS, fj as externalLinkIcon, fk as LEARNING_TARGET_ROSTER, fl as furiganaModeNeedsDifficultyExplanation, fm as DEFAULT_OVERLAY_TEXT_COLOR, fn as DEFAULT_OVERLAY_OUTLINE_COLOR, fo as storedCredentialClearName, fp as hasStatusColorSource, fq as NEW_TAB_PAGE_URL, fr as AUDIO_GUIDE_URL, fs as NADESHIKO_DEVELOPER_URL, ft as VIDEO_PLAYER_PAGE_URL, fu as PDF_READER_PAGE_URL, fv as DONATE_URL, fw as SUPPORT_COPY, fx as SUPPORT_COPY_EXTRA, fy as LEARNER_LANGUAGES, fz as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fA as gmPrivateStorageDelete, fB as gmPrivateStorageGet, fC as subscribeToSettingsChanges, fD as LocalYomuSrsRepository, fE as unwrapProfileKey, fF as parseAcademyPairingTicket, fG as wrapProfileKey, fH as decryptProfileEvent, fI as encryptProfileEvent, fJ as mergeStoredYomuSrsDecks, fK as settingsPanelHash, fL as readTrustedYomuUrl, fM as isPrivilegedYomuLocalDevelopmentOrigin, fN as settingsPanelFromHash, fO as SETTINGS_TITLE, fP as learningTargetRosterEntry, fQ as NEW_TAB_VERSION_URL, fR as NO_EXPLICIT_USER_CHOICE, fS as normalizeAudioSubSources, fT as publishSettingsChange$1, fU as mergeApiCredentialValues, fV as configureLogger, fW as localeDirection, fX as subscribeToSettingsStorageChanges, fY as isHostedYomuOrigin, fZ as loadSettings, f_ as copyIcon, f$ as ankiIcon, g0 as createYomuLocalSrsAdapter, g1 as yomuOnboardingController, g2 as clearManagedBrowserCaches, g3 as unregisterManagedServiceWorkers, g4 as setRenderedWordCardIdentity, g5 as renderedWordCardKey, g6 as renderedWordsInRoot, g7 as renderedWordElementKey, g8 as applyInterfaceLocaleToRoot, g9 as applyInterfaceLocaleToDocument, ga as ensureManagedWebStorageCurrent } from "./entrypoint-BZS3yu7V.js";
 function assignSentenceInfo(paragraphs, tokens) {
   paragraphs.forEach((paragraph, index) => {
     const tokenData = tokens[index] ?? [];
@@ -5078,6 +5078,10 @@ class BatchReceiptLedger {
     this.unresolved.add(operation);
     return operation;
   }
+  /** A word turned away before anything was written leaves the operation: there is nothing to finish. */
+  release(operation, id) {
+    operation.delete(id);
+  }
   finish(operation) {
     if ([...operation.values()].every((item) => item.required.every((key) => this.values.get(key) === "completed"))) {
       this.unresolved.delete(operation);
@@ -5535,13 +5539,17 @@ function hasAnkiAccessibleWordColor(word) {
     Boolean(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"))
   ].every(Boolean);
 }
+const preservedAnkiContrastWords = /* @__PURE__ */ new WeakSet();
+function preserveAnkiContrastOnNextRefresh(word) {
+  preservedAnkiContrastWords.add(word);
+}
 function preserveExistingAnkiContrast(word, hasAccessibleColor, hasInlineTextColor) {
   const preserve = [
-    word.dataset.ankiPreserveContrast === "true",
+    preservedAnkiContrastWords.has(word),
     hasAccessibleColor,
     !hasInlineTextColor
   ].every(Boolean);
-  if (preserve) delete word.dataset.ankiPreserveContrast;
+  if (preserve) preservedAnkiContrastWords.delete(word);
   return preserve;
 }
 function readerWordContrastSurface(word) {
@@ -5918,8 +5926,34 @@ function apiSrsProviderViewForCard(card, settings, isJpdbBackedCard) {
   if (wanikaniBacked) return { ...apiSrsProviderView("wanikani", settings), hasApiKey: false };
   return null;
 }
-function isApiMiningEnabled(settings) {
-  return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
+function apiGradingServiceToResolve(card, settings, isJpdbBackedCard) {
+  const chosen = chosenWordGradingService(settings);
+  if (!chosen || card.apiGradingProviderOverride) return null;
+  const own = apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+  return (own === "jpdb" || own === "jiten") && own !== chosen ? chosen : null;
+}
+function apiSrsGradingProviderViewForCard(card, settings, isJpdbBackedCard) {
+  const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
+  return resolveOn ? apiSrsProviderView(resolveOn, settings) : apiSrsProviderViewForCard(card, settings, isJpdbBackedCard);
+}
+const COLLECTION_ACCEPTS = {
+  jpdb: (card, isJpdbBackedCard) => isJpdbBackedCard(card),
+  jiten: isJitenBackedCard,
+  "yomu-local": (card) => Boolean(card.spelling.trim()),
+  bunpro: isBunproMiningCard,
+  wanikani: () => false
+};
+const COLLECTION_FALLBACK_ORDER = ["anki", "jpdb", "jiten", "yomu-local", "bunpro"];
+function collectionDestinationsForCard(card, settings, isJpdbBackedCard) {
+  const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
+  const grading = resolveOn ?? apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+  const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter((id) => id !== grading)] : COLLECTION_FALLBACK_ORDER;
+  const accepts = (id) => id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
+  return order.filter((id) => canCollectTo(id, settings, accepts));
+}
+function canCollectTo(id, settings, accepts) {
+  if (id === "anki") return settings.ankiEnabled;
+  return isApiSrsProviderEnabled(settings, id) && apiSrsProviderView(id, settings).hasApiKey && accepts(id);
 }
 function isApiSrsProviderEnabled(settings, providerId) {
   if (providerId === "yomu-local") return settings.yomuLocalSrsEnabled;
@@ -6112,7 +6146,7 @@ async function localYomuMutation(operation) {
     return await operation();
   } catch (error) {
     if (isLocalYomuSrsStorageError(error)) {
-      throw userFacingError("yomuLocalSrsStorageFailed", { cause: error });
+      throw userFacingError(isLocalYomuSrsSaveInterrupted(error) ? "yomuLocalSrsSaveInterrupted" : "yomuLocalSrsStorageFailed", { cause: error });
     }
     throw error;
   }
@@ -6287,12 +6321,15 @@ class PreparedBatchActions {
   }
   entries = /* @__PURE__ */ new Map();
   receipts;
+  // Review receipts of words the grading service does not have, until a rescan.
+  unmatched = /* @__PURE__ */ new Set();
   busy = false;
   /** A deliberate new scan, not a render or retry, starts a fresh generation. */
   beginGeneration() {
     if (this.busy) return false;
     this.entries.clear();
     this.receipts.beginGeneration();
+    this.unmatched.clear();
     return true;
   }
   prepare(candidates) {
@@ -6302,11 +6339,11 @@ class PreparedBatchActions {
     const context = batchContext(settings);
     return candidates.map((candidate) => {
       const identity = batchCardIdentity(candidate.card);
-      const provider = this.deps.resolveProvider(candidate.card, settings);
-      const enabled = Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
-      const collectApi = Boolean(isApiMiningEnabled(settings) && enabled && (provider?.supportsMiningCard?.(candidate.card) ?? true));
+      const destination = this.deps.resolveCollectionDestination(candidate.card, settings);
+      const provider = destination === "anki" ? null : destination;
+      const reviewProvider = this.deps.resolveReviewProvider(candidate.card, settings);
       const blocked = normalizeCardStates(candidate.card.cardState).some((state) => ["blacklisted", "never-forget", "redundant", "suspended"].includes(state));
-      const grades = settings.enableReviews && enabled && !blocked ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, provider.id)).grades : [];
+      const grades = settings.enableReviews && providerEnabled(reviewProvider, settings) && !blocked ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, reviewProvider.id)).grades : [];
       const entry = {
         token: Symbol("batch-plan"),
         source: candidate.card,
@@ -6316,11 +6353,13 @@ class PreparedBatchActions {
         identity,
         context,
         settings: { ...settings },
-        provider,
-        collectApi,
-        collectAnki: collectApi ? shouldMineAnkiAlongsideApi(settings) : settings.ankiEnabled,
+        destination,
+        reviewProvider,
+        collectApi: Boolean(provider),
+        // As in the popup, a save to a service also goes to Anki when the learner mines to both.
+        collectAnki: destination === "anki" || Boolean(provider && shouldMineAnkiAlongsideApi(settings)),
         grades,
-        receipts: receiptKeys(candidate.card, settings, provider)
+        receipts: receiptKeys(candidate.card, settings, provider, reviewProvider)
       };
       this.entries.set(entry.token, entry);
       return this.view(entry);
@@ -6333,11 +6372,13 @@ class PreparedBatchActions {
     const batch = entries2;
     if (new Set(batch.map((entry) => entry.receipts[action === "review" ? "review" : entry.collectApi ? "api-collection" : "anki-collection"])).size !== batch.length) return this.reject(tokens, "stale");
     if (action === "review" && (!grade || !commonBatchGrades(batch.map((entry) => this.view(entry))).some(([value]) => value === grade))) return this.reject(tokens, "incompatible");
-    if (action === "collect" && batch.some((entry) => !this.view(entry).canCollect)) return this.reject(tokens, "unavailable");
-    const operation = this.receipts.reserve(batch.map((entry) => receiptItem(entry, action)));
+    const writes = action === "collect" ? batch.filter(hasDestination) : batch;
+    if (action === "collect" && (!writes.length || writes.some((entry) => !this.view(entry).canCollect))) return this.reject(tokens, "unavailable");
+    const operation = this.receipts.reserve(writes.map((entry) => receiptItem(entry, action)));
     if (!operation) return this.reject(tokens, "capacity");
     this.busy = true;
     const items = [];
+    let matching;
     try {
       for (const entry of batch) {
         if (!this.current(entry)) {
@@ -6345,10 +6386,25 @@ class PreparedBatchActions {
           break;
         }
         try {
+          if (action === "collect" && !hasDestination(entry)) {
+            items.push(this.outcome(entry, "no-destination"));
+            continue;
+          }
+          const onService = this.goesToGradingService(entry, action);
+          if (onService && needsMatch(entry)) await (matching ??= this.matchOnGradingService(batch, action));
+          if (onService && this.unmatched.has(entry.receipts.review)) {
+            items.push(this.outcome(entry, "unmatched"));
+            continue;
+          }
           if (action === "collect") await this.collect(entry);
           else await this.review(entry, grade);
           items.push(this.outcome(entry, "completed"));
         } catch (error) {
+          if (action === "collect" && userFacingCopyKeyOf(error) === "bunproNoMatchingWord") {
+            this.receipts.release(operation, receiptItem(entry, action).id);
+            items.push(this.outcome(entry, "no-destination"));
+            continue;
+          }
           const state = this.completed(entry, action) ? "completed" : error instanceof StaleBatchPlan ? "stale" : this.receipts.get(entry.receipts.review) === "uncertain" ? "uncertain" : "failed";
           items.push(this.outcome(entry, state));
           break;
@@ -6364,19 +6420,48 @@ class PreparedBatchActions {
   view(entry) {
     const stages = this.completedStages(entry);
     const reviewUncertain = this.receipts.get(entry.receipts.review) === "uncertain";
+    const unmatched = this.unmatched.has(entry.receipts.review);
+    const due = entry.collectApi && !stages.includes("api-collection") || entry.collectAnki && !stages.includes("anki-collection");
     return Object.freeze({
       token: entry.token,
-      grades: Object.freeze((stages.includes("review") || reviewUncertain ? [] : entry.grades).map((pair) => Object.freeze([...pair]))),
-      canCollect: (entry.collectApi || entry.collectAnki) && !((!entry.collectApi || stages.includes("api-collection")) && (!entry.collectAnki || stages.includes("anki-collection"))),
-      uncertain: reviewUncertain
+      grades: Object.freeze((stages.includes("review") || reviewUncertain || unmatched ? [] : entry.grades).map((pair) => Object.freeze([...pair]))),
+      // The grading service cannot save a word it does not have either.
+      canCollect: due && !(unmatched && this.goesToGradingService(entry, "collect")),
+      noDestination: !hasDestination(entry),
+      uncertain: reviewUncertain,
+      unmatched
+    });
+  }
+  // A grade, and a save to the service the grades go to (ADR-0016), first
+  // finds the words the grading service has not identified (another service
+  // parsed them).
+  goesToGradingService(entry, action) {
+    if (action === "review") return true;
+    const provider = collectProvider(entry);
+    return Boolean(provider && provider.id === entry.reviewProvider?.id && !this.completedStages(entry).includes("api-collection"));
+  }
+  // The words are found in one request before any is graded or saved. Every
+  // entry shares the plan's settings, so they all resolve on the same service.
+  async matchOnGradingService(batch, action) {
+    const pending2 = batch.filter((entry) => this.goesToGradingService(entry, action) && needsMatch(entry));
+    const matches = await this.deps.findOnGradingService(pending2[0].reviewProvider, pending2.map((entry) => entry.card));
+    pending2.forEach((entry, index) => {
+      const match = matches[index];
+      if (match) Object.assign(entry, { card: { ...match, cardState: [...match.cardState] }, resolved: true });
+      else this.unmatched.add(entry.receipts.review);
     });
   }
   async collect(entry) {
-    if (entry.collectApi && !this.completedStages(entry).includes("api-collection")) {
-      const deck = await this.deps.collectionDeck(entry.provider, entry.settings);
-      this.assertCurrent(entry);
-      if (!deck) throw new Error("No collection deck");
-      await entry.provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+    const provider = collectProvider(entry);
+    if (provider && !this.completedStages(entry).includes("api-collection")) {
+      const word = this.serviceReceipt(entry, "api-collection");
+      if (this.receipts.get(word) !== "completed") {
+        const deck = await this.deps.collectionDeck(provider, entry.settings);
+        this.assertCurrent(entry);
+        if (!deck) throw new Error("No collection deck");
+        await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+        this.receipts.set(word, "completed");
+      }
       this.receipts.set(entry.receipts["api-collection"], "completed");
       this.assertCurrent(entry);
       this.deps.notify(entry.card);
@@ -6387,11 +6472,30 @@ class PreparedBatchActions {
       this.receipts.set(entry.receipts["anki-collection"], "completed");
     }
     this.assertCurrent(entry);
-    entry.source.cardState = entry.card.cardState;
+    this.keepPageState(entry);
+  }
+  // A resolved word changed the grading service's record: the page word keeps
+  // the state of the service that parsed it (ADR-0021).
+  keepPageState(entry) {
+    if (!entry.resolved) entry.source.cardState = entry.card.cardState;
+  }
+  // Two rows can be one word on the service that changes: a homograph, or a
+  // word both services parsed. That word is saved or graded once (ADR-0021).
+  serviceReceipt(entry, stage) {
+    return receiptKeys(entry.card, entry.settings, collectProvider(entry), entry.reviewProvider)[stage];
   }
   async review(entry, grade) {
     this.assertCurrent(entry);
-    if (entry.provider?.id === "jpdb" && entry.card.cardState.includes("not-in-deck")) {
+    const word = this.serviceReceipt(entry, "review");
+    const reviewed = () => {
+      this.receipts.set(entry.receipts.review, "completed");
+      this.receipts.set(word, "completed");
+    };
+    if (this.receipts.get(word) === "completed") {
+      reviewed();
+      return;
+    }
+    if (entry.reviewProvider?.id === "jpdb" && entry.card.cardState.includes("not-in-deck")) {
       if (!this.completedStages(entry).includes("review-collection")) {
         await this.deps.collectForReview(entry.card, entry.sentence, entry.settings.miningDeck || "forq");
         this.receipts.set(entry.receipts["review-collection"], "completed");
@@ -6400,19 +6504,20 @@ class PreparedBatchActions {
       entry.card.cardState = [...entry.card.cardState.filter((state) => state !== "not-in-deck"), "in-deck"];
     }
     try {
-      await this.deps.review(entry.provider, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), () => this.receipts.set(entry.receipts.review, "completed"));
-      this.receipts.set(entry.receipts.review, "completed");
+      await this.deps.review(entry.reviewProvider, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), reviewed);
+      reviewed();
     } catch (error) {
-      if (entry.provider?.id === "bunpro" && !this.completedStages(entry).includes("review")) this.receipts.set(entry.receipts.review, "uncertain");
+      if (entry.reviewProvider?.id === "bunpro" && !this.completedStages(entry).includes("review")) this.receipts.set(entry.receipts.review, "uncertain");
       throw error;
     }
     this.assertCurrent(entry);
-    entry.source.cardState = entry.card.cardState;
+    this.keepPageState(entry);
   }
   current(entry) {
     const settings = this.deps.getSettings();
-    const provider = this.deps.resolveProvider(entry.source, settings);
-    return this.entries.get(entry.token) === entry && entry.context === batchContext(settings) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState) && provider?.id === entry.provider?.id && provider?.hasApiKey === entry.provider?.hasApiKey;
+    const destination = this.deps.resolveCollectionDestination(entry.source, settings);
+    const reviewProvider = this.deps.resolveReviewProvider(entry.source, settings);
+    return this.entries.get(entry.token) === entry && entry.context === batchContext(settings) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState) && destinationKey(destination) === destinationKey(entry.destination) && reviewProvider?.id === entry.reviewProvider?.id && reviewProvider?.hasApiKey === entry.reviewProvider?.hasApiKey;
   }
   assertCurrent(entry) {
     if (!this.current(entry)) throw new StaleBatchPlan();
@@ -6433,27 +6538,34 @@ class PreparedBatchActions {
 }
 class StaleBatchPlan extends Error {
 }
+function providerEnabled(provider, settings) {
+  return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
+}
+function hasDestination(entry) {
+  return entry.collectApi || entry.collectAnki;
+}
+function collectProvider(entry) {
+  return entry.destination === "anki" ? null : entry.destination;
+}
+function needsMatch(entry) {
+  return Boolean(entry.reviewProvider && !entry.reviewProvider.supportsCard(entry.card));
+}
+function destinationKey(destination) {
+  return destination === "anki" || !destination ? String(destination) : `${destination.id}:${destination.hasApiKey}`;
+}
 function receiptItem(entry, action) {
   const stages = action === "review" ? ["review-collection", "review"] : [...entry.collectApi ? ["api-collection"] : [], ...entry.collectAnki ? ["anki-collection"] : []];
   const required = action === "review" ? [entry.receipts.review] : stages.map((stage) => entry.receipts[stage]);
   const id = action === "review" ? entry.receipts.review : entry.collectApi ? entry.receipts["api-collection"] : sensitiveFingerprint$1(JSON.stringify(["anki-item", entry.settings.activeLanguageProfileId, entry.card.spelling, entry.card.reading]));
   return { id, keys: stages.map((stage) => entry.receipts[stage]), required };
 }
-function receiptKeys(card, settings, provider) {
-  const credentials = {
-    jiten: effectiveJitenApiKey(settings),
-    jpdb: effectiveJpdbApiKey(settings),
-    bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)],
-    wanikani: effectiveWanikaniApiToken(settings),
-    "yomu-local": settings.activeLanguageProfileId
-  };
-  const identity = provider?.id === "jiten" ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid] : provider?.id === "bunpro" ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint] : provider?.id === "wanikani" ? [card.wanikaniAssignmentId] : [card.vid, card.sid, card.spelling, card.reading];
-  const account = [provider?.id, provider ? credentials[provider.id] : "", identity];
-  const collectionDeck = provider?.id === "jiten" ? "default-study-deck" : settings.miningDeck;
+function receiptKeys(card, settings, provider, reviewProvider) {
+  const collect = serviceAccount(card, settings, provider, "collect");
+  const review = serviceAccount(card, settings, reviewProvider, "review");
   return {
-    review: sensitiveFingerprint$1(JSON.stringify(["review", account])),
-    "api-collection": sensitiveFingerprint$1(JSON.stringify(["collect", account, collectionDeck])),
-    "review-collection": sensitiveFingerprint$1(JSON.stringify(["review-collect", account, collectionDeck])),
+    review: sensitiveFingerprint$1(JSON.stringify(["review", review.account])),
+    "api-collection": sensitiveFingerprint$1(JSON.stringify(["collect", collect.account, collect.deck])),
+    "review-collection": sensitiveFingerprint$1(JSON.stringify(["review-collect", review.account, review.deck])),
     "anki-collection": sensitiveFingerprint$1(JSON.stringify([
       "anki-collect",
       settings.ankiConnectUrl,
@@ -6463,6 +6575,24 @@ function receiptKeys(card, settings, provider) {
       card.spelling,
       card.reading
     ]))
+  };
+}
+function serviceAccount(card, settings, provider, use) {
+  const account = receiptAccount(card, settings, provider, use);
+  return provider && !provider.supportsCard(card) ? { ...account, account: ["unidentified", card.source, ...account.account] } : account;
+}
+function receiptAccount(card, settings, provider, use) {
+  const credentials = {
+    jiten: effectiveJitenApiKey(settings),
+    jpdb: effectiveJpdbApiKey(settings),
+    bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)],
+    wanikani: effectiveWanikaniApiToken(settings),
+    "yomu-local": settings.activeLanguageProfileId
+  };
+  const identity = provider?.id === "jiten" ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid] : provider?.id === "bunpro" && use === "review" ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint] : provider?.id === "wanikani" ? [card.wanikaniAssignmentId] : [card.vid, card.sid, card.spelling, card.reading];
+  return {
+    account: [provider?.id, provider ? credentials[provider.id] : "", identity],
+    deck: provider?.id === "jiten" ? "default-study-deck" : settings.miningDeck
   };
 }
 function batchContext(settings) {
@@ -6489,6 +6619,17 @@ function batchCardIdentity(card) {
     card.bunproReviewableType,
     card.wanikaniAssignmentId
   ]);
+}
+function sameWordOnService(word, tokens, identifies) {
+  const spelling = word.spelling.trim();
+  const reading = word.reading.trim();
+  if (!spelling || !reading) return null;
+  return tokens.find(({ card }) => card.spelling.trim() === spelling && card.reading.trim() === reading && identifies(card))?.card ?? null;
+}
+async function findWordsOnService(words, parse, identifies) {
+  const matchable = words.filter((word) => word.spelling.trim() && word.reading.trim());
+  const parsed = matchable.length ? await parse(matchable.map((word) => word.spelling.trim())) : [];
+  return words.map((word) => sameWordOnService(word, parsed[matchable.indexOf(word)] ?? [], identifies));
 }
 async function renderStudyToolResult(button, action, sentence, grammarHints, language2 = "en", options = {}) {
   await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentence, grammarHints, language2, options);
@@ -6530,10 +6671,13 @@ class CardActionController {
     this.options = options;
     this.batchMining = new PreparedBatchActions({
       getSettings: () => this.options.getSettings(),
-      resolveProvider: (card, settings) => this.apiProviderForCard(card, settings),
+      // "Add selected" saves each word where the popup's "Add to deck +" would.
+      resolveCollectionDestination: (card, settings) => this.privateDefaultDestination(card, settings),
+      resolveReviewProvider: (card, settings) => this.gradingProviderForCard(card, settings),
       collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
       collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
       collectForReview: (card, sentence, deck) => this.options.jpdb.addToDeck(deck, card, sentence),
+      findOnGradingService: (provider, cards) => this.findOnService(provider, cards),
       review: (provider, card, grade, sentence, assertCurrent, onReviewed) => this.reviewApiCard(grade, card, sentence, { providerId: provider.id, deckId: defaultJpdbDeckId(this.options.getSettings()), suppressToast: true, assertCurrent, onReviewed }),
       notify: (card) => this.notifyApiCardStateChanged(card)
     });
@@ -6693,10 +6837,12 @@ class CardActionController {
   }
   // Cycle the popover through the SRS services that can grade this word
   // (JPDB / Jiten, plus Bunpro when the card carries a Bunpro identity) and
-  // re-render so the deck and grade buttons act on the chosen service.
+  // re-render so the deck and grade buttons act on the chosen service. The
+  // choice is this word's alone (ADR-0021): the preferred grading service,
+  // which every other grade and Automatic parsing follow, changes only in Settings.
   async toggleGradingProvider(card, sentence) {
     const settings = this.options.getSettings();
-    const current = this.apiProviderForCard(card, settings);
+    const current = this.gradingProviderForCard(card, settings);
     if (!current?.hasApiKey) return;
     const cycle = apiSrsSwitchableProviderIds(card, settings);
     if (cycle.length < 2) return;
@@ -6704,9 +6850,8 @@ class CardActionController {
     if (!next || next === current.id || next === "yomu-local") return;
     const provider = this.apiProviders(settings).find((p) => p.id === next && p.hasApiKey);
     if (!provider) return;
-    const target = provider.supportsCard(card) ? card : await this.resolveProviderCard(card, next);
-    if (!target || !provider.supportsCard(target)) return;
-    if (next === "jpdb" || next === "jiten") this.options.setApiGradingProvider?.(next);
+    const [target] = provider.supportsCard(card) ? [card] : await this.findOnService(provider, [card]).catch(() => [null]);
+    if (!target) return;
     if (target !== card) copyBunproIdentity(card, target);
     target.apiGradingProviderOverride = next;
     await this.refreshProviderState(target, next);
@@ -6718,14 +6863,11 @@ class CardActionController {
       preservePosition: true
     });
   }
-  async resolveProviderCard(card, id) {
-    if (id === "yomu-local") return card;
-    try {
-      const [tokens = []] = id === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
-      return exactCard(card, tokens);
-    } catch {
-      return null;
-    }
+  // The same word on a service that has not identified it, in one parse request
+  // (exact spelling and reading: findWordsOnService).
+  findOnService(provider, cards) {
+    const parse = (terms) => provider.id === "jiten" ? this.options.jiten?.parse?.(terms) ?? Promise.resolve([]) : this.options.jpdb.parse(terms);
+    return findWordsOnService(cards, parse, (candidate) => provider.supportsCard(candidate));
   }
   async refreshProviderState(card, providerId) {
     try {
@@ -6783,8 +6925,17 @@ class CardActionController {
     if (keyed.length) return external[0] ?? keyed[0] ?? null;
     return supporting.find((provider) => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
   }
+  // The provider the grade buttons act on (apiSrsGradingProviderViewForCard).
+  // It may not identify the card yet; the grade then resolves the word first.
+  gradingProviderForCard(card, settings) {
+    const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+    return resolveOn ? this.apiProviders(settings).find((provider) => provider.id === resolveOn) ?? null : this.apiProviderForCard(card, settings);
+  }
+  // The grading service also takes a word another service identified: the
+  // save finds it there first (wordOnCollectionService), as a grade does.
   apiProviderForDeckSource(source, card, settings) {
-    return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
+    const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+    return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.id === resolveOn || acceptsForCollection(provider, card))) ?? null;
   }
   assertApiProviderActionAllowed(provider, copyKey) {
     const settings = this.options.getSettings();
@@ -6807,41 +6958,60 @@ class CardActionController {
     this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, deck.source));
     const selectedDeckId = provider.selectedDeckId(deck.id, settings);
     if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-    await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
+    await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(provider, card));
   }
+  // An ordinary page renders this save and can read what it reports (ADR-0020):
+  // a confirmation or failure there names no service, deck or Anki state.
   async addToPrivateDefaultDeck(card, sentence, context) {
-    const settings = this.options.getSettings();
-    const provider = this.privateDefaultApiProvider(card, settings);
-    if (!provider) {
-      return this.addToPrivateFallbackDeck(card, sentence, context, settings);
+    if (this.accountDataSurfaceTrusted()) return this.addToDefaultDestination(card, sentence, context);
+    try {
+      await this.addToDefaultDestination(card, sentence, { ...context, privately: true });
+    } catch (error) {
+      throw privateCollectionFailure(error);
     }
-    const selectedDeckId = await this.privateDefaultDeckId(provider, settings);
-    if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-    await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
   }
-  privateDefaultApiProvider(card, settings) {
-    if (!isApiMiningEnabled(settings)) return null;
-    const candidate = this.apiProviderForCard(card, settings);
-    if (!candidate) return null;
-    return defaultApiProviderIsAvailable(candidate, settings) ? candidate : null;
+  accountDataSurfaceTrusted() {
+    return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
   }
-  async addToPrivateFallbackDeck(card, sentence, context, settings) {
-    if (settings.ankiEnabled) return this.addToAnki(card, sentence, settings.ankiDeck, context);
-    throw userFacingError("batchMiningNoDestination");
+  async addToDefaultDestination(card, sentence, context) {
+    const settings = this.options.getSettings();
+    const destination = this.privateDefaultDestination(card, settings);
+    if (destination === "anki") return this.addToAnki(card, sentence, settings.ankiDeck, context);
+    if (!destination) throw userFacingError("collectNoDestination");
+    const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
+    if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
+    await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(destination, card));
+  }
+  // A save follows the grade row (ADR-0016): the grading service saves a word
+  // another service identified only after finding it, and no match saves
+  // nothing anywhere (ADR-0021).
+  wordOnCollectionService(provider, card) {
+    return acceptsForCollection(provider, card) ? Promise.resolve(card) : this.resolveWordOnGradingService(card, provider, "collectWordNotFound");
+  }
+  // The popup renders "Add to deck +" from the same destination list, so the
+  // save lands on the first destination the learner was offered.
+  privateDefaultDestination(card, settings) {
+    const providers = this.apiProviders(settings).filter((provider) => provider.hasApiKey);
+    for (const id of collectionDestinationsForCard(card, settings, this.options.isJpdbBackedCard)) {
+      const destination = id === "anki" ? id : providers.find((candidate) => candidate.id === id);
+      if (destination) return destination;
+    }
+    return null;
   }
   async privateDefaultDeckId(provider, settings) {
     if (provider.id !== "jiten") return provider.selectedDeckId(settings.miningDeck, settings);
     const decks = await this.options.jiten?.listStudyDecks?.().catch(() => []);
     return String(decks?.[0]?.id ?? "");
   }
-  async addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings) {
-    await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
+  // `word` is the provider's own copy of `card` when the save had to find it there.
+  async addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings, word = card) {
+    await provider.addToDeck(selectedDeckId, word, sentence, { sourceTitle: document.title, sourceUrl: location.href });
     const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
     if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
     const droppedMedia = await this.apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence);
-    const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
+    const addedToast = uiText(settings.interfaceLanguage, context.privately ? "addedToDeckToast" : provider.addedToastKey);
     this.options.toast(apiMiningToast(addedToast, droppedMedia, settings));
-    this.notifyApiCardStateChanged(card);
+    this.notifyApiCardStateChanged(word);
   }
   async apiMiningDroppedMedia(provider, minedToAnkiToo, card, sentence) {
     if (!providerCanDropMedia(provider, minedToAnkiToo)) return false;
@@ -6957,17 +7127,27 @@ class CardActionController {
   }
   async reviewApiCard(grade, card, sentence, options) {
     const settings = this.options.getSettings();
-    const provider = options.providerId ? this.apiProviders(settings).find((candidate) => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null : this.apiProviderForCard(card, settings);
+    const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+    const provider = options.providerId ? this.apiProviders(settings).find((candidate) => candidate.id === options.providerId && (candidate.supportsCard(card) || candidate.id === resolveOn)) ?? null : this.gradingProviderForCard(card, settings);
     this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview");
-    const states = normalizeCardStates(card.cardState);
+    const target = provider.supportsCard(card) ? card : await this.resolveWordOnGradingService(card, provider);
+    const states = normalizeCardStates(target.cardState);
     assertReviewableApiCardState(states);
-    const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
+    const result = await provider.reviewCard(target, grade, { sentence, deckId: this.reviewDeckId(options) });
     options.onReviewed?.();
     options.assertCurrent?.();
     if (result.addedBeforeReview) {
       if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
-    } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
-    this.notifyApiCardStateChanged(card);
+    } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, target, sentence, states, settings, options.suppressToast === true);
+    this.notifyApiCardStateChanged(target);
+  }
+  // The chosen grading service grades a word another service identified only
+  // after finding it by exact spelling and reading. No match sends nothing,
+  // to either service.
+  async resolveWordOnGradingService(card, provider, notFound = "gradingServiceWordNotFound") {
+    const [match] = await this.findOnService(provider, [card]);
+    if (!match) throw userFacingError(notFound);
+    return match;
   }
   // Jiten Reader parity: optionally add every reviewed word to the mining
   // deck so reviewing doubles as collecting (off by default).
@@ -6987,13 +7167,16 @@ class CardActionController {
   async addToAnki(card, sentence, deckName, context = {}) {
     const settings = this.options.getSettings();
     if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings, context)) return;
-    if (await this.showExistingAnkiCardIfPresent(card, sentence)) return;
+    if (await this.showExistingAnkiCardIfPresent(card, sentence, context)) return;
     const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, context);
     const noteId = await this.addPreparedAnkiCard(card, prepared);
-    if (noteId === "duplicate") return this.showExistingAnkiCard(card, sentence);
-    if (noteId === null) return this.toastMobileAnkiHandoff(settings);
+    if (noteId === "duplicate") return this.showExistingAnkiCard(card, sentence, context);
+    if (noteId === null) return this.toastMobileAnkiHandoff(context);
     this.notifyAnkiStatusChanged(card);
-    this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
+    this.collectionToast(context, ankiSentToast(prepared.context, settings, prepared.hasWordAudio), "addedToDeckToast");
+  }
+  collectionToast(context, named, neutral) {
+    this.options.toast(context.privately ? uiText(this.options.getSettings().interfaceLanguage, neutral) : named);
   }
   async addToAnkiForBatch(card, sentence, deckName, assertCurrent) {
     const settings = this.options.getSettings();
@@ -7015,13 +7198,13 @@ class CardActionController {
       dictionaryPreferences: settings.dictionaryPreferences,
       sentenceTarget: context.sentenceTarget
     });
-    this.toastMobileAnkiHandoff(settings);
+    this.toastMobileAnkiHandoff(context);
     return true;
   }
-  async showExistingAnkiCardIfPresent(card, sentence) {
+  async showExistingAnkiCardIfPresent(card, sentence, context) {
     const existing = await this.options.anki.findExistingCards(card);
     if (!existing.primary) return false;
-    await this.showExistingAnkiCard(card, sentence);
+    await this.showExistingAnkiCard(card, sentence, context);
     return true;
   }
   async prepareAnkiAdd(card, sentence, deckName, settings, actionContext) {
@@ -7059,8 +7242,8 @@ class CardActionController {
     ]);
     return { dictionaryContext, context, wordAudio };
   }
-  toastMobileAnkiHandoff(settings) {
-    this.options.toast(uiText(settings.interfaceLanguage, "openedMobileAnkiHandoff"));
+  toastMobileAnkiHandoff(context) {
+    this.collectionToast(context, uiText(this.options.getSettings().interfaceLanguage, "openedMobileAnkiHandoff"), "collectHandoffOpened");
   }
   notifyAnkiStatusChanged(card) {
     this.options.invalidateCardData?.();
@@ -7074,9 +7257,9 @@ class CardActionController {
     this.options.onApiCardStateChanged?.(card);
     publishCardStateSignal(card);
   }
-  async showExistingAnkiCard(card, sentence) {
+  async showExistingAnkiCard(card, sentence, context) {
     const settings = this.options.getSettings();
-    this.options.toast(uiText(settings.interfaceLanguage, "alreadyInAnki"));
+    this.collectionToast(context, uiText(settings.interfaceLanguage, "alreadyInAnki"), "collectAlreadySaved");
     await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
       autoPlay: false,
       trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
@@ -7129,11 +7312,16 @@ const PROVIDER_ADD_API_KEY_REQUIRED_KEYS = {
 function providerAddApiKeyRequiredKey(provider, source) {
   return provider ? provider.addApiKeyRequiredKey : PROVIDER_ADD_API_KEY_REQUIRED_KEYS[source];
 }
+const PRIVATE_COLLECTION_FAILURES = /* @__PURE__ */ new Set(["collectNoDestination", "collectWordNotFound"]);
+function privateCollectionFailure(error) {
+  const copyKey = userFacingCopyKeyOf(error);
+  return copyKey && PRIVATE_COLLECTION_FAILURES.has(copyKey) ? error : userFacingError("collectNotSaved", { cause: error });
+}
+function acceptsForCollection(provider, card) {
+  return provider.supportsMiningCard?.(card) ?? provider.supportsCard(card);
+}
 function missingProviderDeckKey(provider) {
   return provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey;
-}
-function defaultApiProviderIsAvailable(provider, settings) {
-  return isApiSrsProviderEnabled(settings, provider.id) && provider.hasApiKey;
 }
 function providerCanDropMedia(provider, minedToAnkiToo) {
   return provider.id !== "bunpro" && !minedToAnkiToo;
@@ -7239,11 +7427,6 @@ function selectedReviewTarget(selected, command) {
 function selectedReviewAnkiCardId(selected, command) {
   return selected ? selected.ankiCardId : command.ankiCardId;
 }
-function exactCard(source, tokens) {
-  const s = source.spelling.trim();
-  const r = source.reading.trim();
-  return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card ?? null;
-}
 function copyBunproIdentity(source, target) {
   if (source.bunproReviewId) target.bunproReviewId = source.bunproReviewId;
   if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
@@ -7286,20 +7469,123 @@ function defaultAnkiDeckName(settings) {
 function defaultJpdbDeckId(settings) {
   return settings.miningDeck.trim() || "forq";
 }
-async function runCardActionOperation(button, run, fail2, finish) {
+const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
+const TOAST_VISIBLE_CLASS = "is-visible";
+const TOAST_EXIT_MS = 220;
+const toastTimers = /* @__PURE__ */ new WeakMap();
+const toastHolds = /* @__PURE__ */ new WeakMap();
+function showReaderToast(message, durationMs = 3200) {
+  const toast = readerToast(message);
+  if (!toastHolds.has(toast)) scheduleToastRemoval(toast, durationMs);
+}
+function holdReaderToast(message) {
+  const toast = readerToast(message);
+  toastHolds.set(toast, (toastHolds.get(toast) ?? 0) + 1);
+  let held = true;
+  return () => {
+    if (!held) return;
+    held = false;
+    const holds = (toastHolds.get(toast) ?? 1) - 1;
+    if (holds > 0) {
+      toastHolds.set(toast, holds);
+      return;
+    }
+    toastHolds.delete(toast);
+    scheduleToastRemoval(toast, 0);
+  };
+}
+function readerToast(message) {
+  const stack = ensureReaderToastStack();
+  const existing = Array.from(stack.children).find((node) => node instanceof HTMLElement && node.textContent === message);
+  if (existing) {
+    window.clearTimeout(toastTimers.get(existing));
+    toastTimers.delete(existing);
+    existing.classList.add(TOAST_VISIBLE_CLASS);
+    return existing;
+  }
+  const toast = document.createElement("div");
+  toast.className = "jpdb-reader-toast";
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  toast.textContent = message;
+  stack.append(toast);
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => toast.classList.add(TOAST_VISIBLE_CLASS));
+  } else {
+    toast.classList.add(TOAST_VISIBLE_CLASS);
+  }
+  return toast;
+}
+function ensureReaderToastStack() {
+  const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
+  if (existing?.isConnected) {
+    applyOverlayPageScale(existing);
+    return existing;
+  }
+  const stack = document.createElement("div");
+  stack.className = TOAST_STACK_CLASS;
+  stack.dataset.jpdbReaderRoot = "true";
+  applyOverlayPageScale(stack);
+  document.body.append(stack);
+  return stack;
+}
+function scheduleToastRemoval(toast, durationMs) {
+  window.clearTimeout(toastTimers.get(toast));
+  toastTimers.set(toast, window.setTimeout(() => {
+    toast.classList.remove(TOAST_VISIBLE_CLASS);
+    toastTimers.set(toast, window.setTimeout(() => {
+      toastTimers.delete(toast);
+      toast.remove();
+      if (typeof document === "undefined") return;
+      const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
+      if (stack && !stack.childElementCount) stack.remove();
+    }, TOAST_EXIT_MS));
+  }, durationMs));
+}
+async function withSaveWaitStatus(language2, save) {
+  let release;
+  const stopWatching = watchSavesWaitingForAnotherTab((waiting) => {
+    if (waiting) {
+      release ??= holdReaderToast(uiText(language2, "saveWaitingForAnotherTab"));
+      return;
+    }
+    release?.();
+    release = void 0;
+  });
+  try {
+    return await save();
+  } finally {
+    stopWatching();
+    release?.();
+  }
+}
+async function runCardActionOperation(button, run, feedback, finish) {
+  const restoreFocus = keepKeyboardFocus(button);
   button.disabled = true;
   try {
-    await run();
+    await withSaveWaitStatus(feedback.language, run);
   } catch (error) {
-    fail2(error);
+    reportCardActionFailure(feedback, error);
   } finally {
     finish();
     button.disabled = false;
+    restoreFocus();
   }
 }
-function reportCardActionFailure(failure, error) {
-  failure.logger.warn(failure.warning, { action: failure.action, term: failure.term }, error);
-  failure.toast(userFacingErrorText(failure.language, "actionFailed", error));
+function keepKeyboardFocus(button) {
+  const document2 = button.ownerDocument;
+  const action = button.dataset.action;
+  if (!action || document2.activeElement !== button) return () => void 0;
+  return () => {
+    const active = document2.activeElement;
+    if (active && active !== document2.body && !active.matches(".jpdb-reader-popover")) return;
+    const replacement = button.isConnected ? button : [...document2.querySelectorAll(".jpdb-reader-popover button[data-action]")].reverse().find((candidate) => candidate.dataset.action === action);
+    replacement?.focus({ preventScroll: true });
+  };
+}
+function reportCardActionFailure(feedback, error) {
+  feedback.logger.warn(feedback.warning, { action: feedback.action, term: feedback.term }, error);
+  feedback.toast(userFacingErrorText(feedback.language, "actionFailed", error));
 }
 async function refreshAfterCardAction(action, perform, dismissGrade, refresh) {
   if (!await perform()) return;
@@ -15957,10 +16243,19 @@ class CardPopoverRenderer {
     const language2 = settings.interfaceLanguage;
     const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
     const provider = this.apiProviderForCard(card);
-    const selectedDeckLabel = this.selectedDeckLabelForView(provider, data, trustedAccountDataSurface);
+    const gradingProvider = apiSrsGradingProviderViewForCard(card, settings, this.dependencies.isJpdbBackedCard);
+    const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
     const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language2);
-    const miningActions = this.renderApiMiningActions(card, cardStates, language2, data, provider, trustedAccountDataSurface);
-    const ankiActions = renderPopoverAnkiActions(data, settings, trustedAccountDataSurface);
+    const miningActions = this.renderApiMiningActions(card, cardStates, language2, data, gradingProvider, trustedAccountDataSurface);
+    const reviewControls = this.renderReviewControls({
+      card,
+      cardStates,
+      data,
+      provider: gradingProvider,
+      selectedDeckLabel,
+      reviewBlockReason,
+      language: language2
+    }, trustedAccountDataSurface);
     return {
       cardStates,
       state,
@@ -15970,17 +16265,11 @@ class CardPopoverRenderer {
       cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
       language: language2,
       provider,
-      miningActions,
-      ankiActions,
-      reviewButtons: this.renderReviewButtons({
-        card,
-        cardStates,
-        data,
-        provider,
-        selectedDeckLabel,
-        reviewBlockReason,
-        language: language2
-      }, trustedAccountDataSurface),
+      collectAction: miningActions.collect,
+      deckStateActions: miningActions.deckState,
+      ankiActions: renderPopoverAnkiActions(data, settings, trustedAccountDataSurface),
+      reviewTargetGutter: reviewControls.gutter,
+      reviewButtons: reviewControls.buttons,
       metaItems: this.renderMetaItems(card, provider, state, data, trustedAccountDataSurface),
       loadingDetails: this.renderLoadingDetails(data.loading, language2),
       audioButtonDisabled: !settings.audioEnabled,
@@ -16091,30 +16380,34 @@ class CardPopoverRenderer {
       ...popoverAnkiSourceContext(view.storedContext)
     }, data.ankiFieldTargetPlan, { trustedAccountDataSurface: view.trustedAccountDataSurface });
   }
+  // DOM order is focus order: the bar over the row, the drawer it opens,
+  // then "Add to deck +" directly before the grades.
   renderActions(view) {
-    const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
+    const hasMiningPanel = Boolean(view.deckStateActions || view.ankiActions) && canExpandMiningDrawer();
     const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
-    const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
-    const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+    const hasDrawer = hasMiningPanel || Boolean(view.reviewTargetGutter);
     const miningClass = hasDrawer ? " jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed" : "";
     return `<div class="jpdb-reader-actions${miningClass}">
-            ${hasReviewTargetGutter ? "" : renderMiningGutter(miningPanel, view.language)}
+            ${view.reviewTargetGutter || renderMiningGutter(miningPanel, view.language)}
             ${miningPanel}
             ${hasMiningPanel ? "" : view.ankiActions}
+            ${view.collectAction}
             ${view.reviewButtons}
         </div>`;
   }
   renderMiningPanel(view) {
     return `<div class="jpdb-reader-mining-panel">
-            ${view.miningActions}
+            ${view.deckStateActions}
             ${view.ankiActions}
         </div>`;
   }
   renderApiMiningActions(card, cardStates, language2, data, provider, trustedAccountDataSurface) {
-    return renderApiMiningActions(this.settings(), card, cardStates, language2, data, provider, trustedAccountDataSurface);
+    const settings = this.settings();
+    const destinations = collectionDestinationsForCard(card, settings, this.dependencies.isJpdbBackedCard);
+    return renderApiMiningActions(settings, card, cardStates, language2, data, provider, destinations, trustedAccountDataSurface);
   }
-  renderReviewButtons(options, trustedAccountDataSurface) {
-    return trustedAccountDataSurface ? this.renderTrustedReviewButtons(options) : this.renderPublicReviewButtons(options);
+  renderReviewControls(options, trustedAccountDataSurface) {
+    return trustedAccountDataSurface ? this.renderTrustedReviewControls(options) : buttonsOnly(this.renderPublicReviewButtons(options));
   }
   renderPublicReviewButtons(options) {
     if (!this.canRenderPublicReviewButtons(options)) return "";
@@ -16126,25 +16419,28 @@ class CardPopoverRenderer {
     if (!this.settings().enableReviews) return false;
     return this.canReviewWithApiProvider(options.provider);
   }
-  renderTrustedReviewButtons(options) {
-    const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
+  renderTrustedReviewControls(options) {
+    const { card, data, provider, reviewBlockReason, language: language2 } = options;
     const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
-    if (earlyResult !== void 0) return earlyResult;
+    if (earlyResult) return earlyResult;
     const targets = this.popoverReviewTargets(card, data, provider, language2);
     if (targets.length) return this.renderTargetedReviewButtons(targets, language2, targets.length > 1, this.switchProviderTarget(card, provider));
+    return this.renderUntargetedReviewControls(options);
+  }
+  renderUntargetedReviewControls(options) {
+    const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
     if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
-    return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2);
+    return buttonsOnly(this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2));
   }
   shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason) {
     return isLiveJpdbCardOnAcademy(provider, card) || !this.shouldRenderReviewButtons(data, provider, reviewBlockReason);
   }
   renderReviewButtonsFallback(card, data) {
-    const renderer = this.dependencies.renderReviewButtonsFallback;
-    return renderer ? renderer(card, data) : "";
+    return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? buttonsOnly("");
   }
   reviewButtonsEarlyResult(card, data, reviewBlockReason) {
-    if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$2(reviewBlockReason)}</div>`;
-    if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
+    if (reviewBlockReason) return buttonsOnly(`<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$2(reviewBlockReason)}</div>`);
+    if (data.loading || !this.settings().enableReviews) return this.renderReviewButtonsFallback(card, data);
     return void 0;
   }
   renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2) {
@@ -16275,7 +16571,7 @@ class CardPopoverRenderer {
   renderTargetedReviewButtons(targets, language2, canSwitchTarget, switchProviderTarget) {
     const settings = this.settings();
     const selected = targets[0];
-    if (!selected) return "";
+    if (!selected) return buttonsOnly("");
     const reviewGroup = canSwitchTarget ? Symbol("review-group") : void 0;
     const profiles = new Set((canSwitchTarget ? targets : [selected]).map((target) => target.gradeProfile));
     const gradeRows = [...profiles].map((profile) => renderTargetedGradeRow(
@@ -16286,14 +16582,12 @@ class CardPopoverRenderer {
       settings,
       reviewGroup
     )).join("");
-    if (!gradeRows) return "";
+    if (!gradeRows) return buttonsOnly("");
     const selector = reviewGroup ? renderReviewTargetSelector(targets, language2, reviewGroup) : "";
-    const targetGutter = renderReviewTargetGutter(selected, language2, canSwitchTarget, switchProviderTarget);
-    return `
-            ${targetGutter}
-            ${selector}
-            ${gradeRows}
-        `;
+    return {
+      gutter: renderReviewTargetGutter(selected, language2, canSwitchTarget, switchProviderTarget),
+      buttons: `${selector}${gradeRows}`
+    };
   }
   renderMetaItems(card, provider, state, data, trustedAccountDataSurface) {
     const settings = this.settings();
@@ -16431,14 +16725,14 @@ function renderTargetedGradeRow(scale, selected, profile, hidden, settings, revi
   }).join("")}
     </div>`;
 }
+function buttonsOnly(buttons) {
+  return { gutter: "", buttons };
+}
 function togglePopoverReviewTargetSelection(button) {
   const select2 = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
   if (!select2 || select2.options.length < 2) return;
   select2.selectedIndex = (select2.selectedIndex + 1) % select2.options.length;
   updatePopoverReviewTargetSelection(select2);
-}
-function reviewButtonsIncludeTargetGutter(reviewButtons) {
-  return reviewButtons.includes("data-review-target-gutter");
 }
 function renderReviewTargetGutter(target, language2, canSwitchTarget, switchProviderTarget) {
   const label = uiText(language2, "showMiningActions");
@@ -16490,21 +16784,23 @@ function miningActionState(cardStates, language2) {
     blacklistLabel: isBlacklisted ? uiText(language2, "unlist") : uiText(language2, "blacklist")
   };
 }
-function renderApiMiningActions(settings, card, cardStates, language2, data, provider, trustedAccountDataSurface) {
-  if (!trustedAccountDataSurface) return renderPrivateMiningAction(settings, language2, provider);
-  const state = miningActionState(cardStates, language2);
-  const addDeckSelect = renderAddDeckSelect(settings, card, data, language2, provider);
-  if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return "";
-  return renderApiMiningActionDetails(language2, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
+function renderApiMiningActions(settings, card, cardStates, language2, data, provider, destinations, trustedAccountDataSurface) {
+  if (!trustedAccountDataSurface) return { collect: destinations.length ? renderPrivateCollectAction(language2) : "", deckState: "" };
+  const addDeckSelect = renderAddDeckSelect(settings, data, language2, provider, destinations);
+  const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
+  return {
+    collect: addDeckSelect ? renderCollectAction(renderApiDeckAdd(addDeckSelect, destinations[0], language2)) : "",
+    deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language2), language2) : ""
+  };
 }
-function renderPrivateMiningAction(settings, language2, provider) {
-  const apiAvailable = canRenderApiMiningActions(settings, provider);
-  if (!apiAvailable && !settings.ankiEnabled) return "";
-  return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language2, "deckActions"))}">
-        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 1">
-            <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: "card-action", action: "add-default" })}>${escapeHtml$2(uiText(language2, "addToDeck"))} +</button>
-        </div>
-    </div>`;
+function renderCollectAction(content) {
+  return `<div class="jpdb-reader-collect">${content}</div>`;
+}
+function renderPrivateCollectAction(language2) {
+  return renderCollectAction(`<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: "card-action", action: "add-default" })}>${collectButtonLabel(language2)}</button>`);
+}
+function collectButtonLabel(language2) {
+  return `${escapeHtml$2(uiText(language2, "addToDeck"))} <span aria-hidden="true">+</span>`;
 }
 function canToggleApiDeckState(card, settings) {
   return apiSrsSwitchableProviderIds(card, settings).some((id) => id === "jpdb" || id === "jiten");
@@ -16512,59 +16808,38 @@ function canToggleApiDeckState(card, settings) {
 function canRenderApiMiningActions(settings, provider) {
   return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
 }
-function renderAddDeckSelect(settings, card, data, language2, provider) {
+function renderAddDeckSelect(settings, data, language2, provider, destinations) {
   const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
-    includeJpdb: provider?.id === "jpdb",
-    includeJiten: provider?.id === "jiten",
-    includeBunpro: isBunproMiningCard(card) && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
-    includeYomuLocal: settings.yomuLocalSrsEnabled,
+    includeJpdb: provider?.id === "jpdb" && destinations.includes("jpdb"),
+    includeJiten: provider?.id === "jiten" && destinations.includes("jiten"),
+    includeBunpro: destinations.includes("bunpro"),
+    includeYomuLocal: destinations.includes("yomu-local"),
     jitenDecks: data.jitenDecks ?? []
   });
   if (!deckOptions) return "";
   return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$2(uiText(language2, "deck"))}" hidden>${deckOptions}</select>`;
 }
-function renderApiMiningActionDetails(language2, state, addDeckSelect, provider, canToggleDeckState) {
-  const addToDeckLabel = `${uiText(language2, "addToDeck")} +`;
-  const directAdd = isDirectApiDeckAdd(provider, addDeckSelect);
-  return `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language2, "deckActions"))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${apiMiningActionColumns(canToggleDeckState)}">
-                        ${renderApiDeckAddButton(provider, directAdd, addToDeckLabel)}${renderApiDeckStateButtons(state, canToggleDeckState)}
-                    </div>
-                    ${addDeckSelect}
-                </div>
-            `;
+function renderApiDeckAdd(addDeckSelect, defaultDestination, language2) {
+  const label = collectButtonLabel(language2);
+  const deckSource = directCollection(addDeckSelect, defaultDestination);
+  if (!deckSource) {
+    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: "card-ui", action: "deck-picker" })} aria-expanded="false">${label}</button>${addDeckSelect}`;
+  }
+  return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: "card-action", action: "add", deckSource })}>${label}</button>`;
 }
-function isDirectApiDeckAdd(provider, addDeckSelect) {
-  if (!provider) return false;
-  const directProviders = /* @__PURE__ */ new Set(["bunpro", "yomu-local"]);
-  if (!directProviders.has(provider.id)) return false;
-  return apiDeckSourceCount(addDeckSelect) <= 1;
+function directCollection(addDeckSelect, defaultDestination) {
+  if (defaultDestination !== "bunpro" && defaultDestination !== "yomu-local") return void 0;
+  const sources = addDeckSelect.match(/data-deck-source="[^"]*"/g) ?? [];
+  return sources.length === 1 && sources[0] === `data-deck-source="${defaultDestination}"` ? defaultDestination : void 0;
 }
-function apiDeckSourceCount(addDeckSelect) {
-  return addDeckSelect.match(/data-deck-source=/g)?.length ?? 0;
-}
-function apiMiningActionColumns(canToggleDeckState) {
-  return canToggleDeckState ? 3 : 1;
-}
-function renderApiDeckAddButton(provider, directAdd, label) {
-  return directAdd ? renderDirectApiDeckAddButton(directApiDeckSource(provider), label) : renderApiDeckPickerButton(label);
-}
-function directApiDeckSource(provider) {
-  return provider?.id === "bunpro" ? "bunpro" : "yomu-local";
-}
-function renderDirectApiDeckAddButton(deckSource, label) {
-  return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: "card-action", action: "add", deckSource })} aria-expanded="false">${escapeHtml$2(label)}</button>`;
-}
-function renderApiDeckPickerButton(label) {
-  return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: "card-ui", action: "deck-picker" })} aria-expanded="false">${escapeHtml$2(label)}</button>`;
-}
-function renderApiDeckStateButtons(state, canToggleDeckState) {
-  if (!canToggleDeckState) return "";
+function renderApiDeckStateActions(state, language2) {
   const neverForgetClass = state.isNeverForget ? " danger" : "";
-  return `
-                        <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: "card-action", action: "neverforget" })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: "card-action", action: "blacklist" })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>`;
+  return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language2, "deckActions"))}">
+        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 2">
+            <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: "card-action", action: "neverforget" })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+            <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: "card-action", action: "blacklist" })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+        </div>
+    </div>`;
 }
 function renderAnkiMeta(lookup, settings) {
   if (!settings.ankiEnabled) return "";
@@ -19642,7 +19917,7 @@ function shouldUseJitenParser(settings, options, jiten) {
   return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
 }
 function shouldPreferJitenParser(settings, options, jiten) {
-  return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
+  return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true && chosenWordGradingService(settings) !== "jpdb";
 }
 function shouldSkipApiParser(options) {
   return Boolean(options.skipApi ?? options.skipJpdb);
@@ -20669,7 +20944,7 @@ function applyAnkiLookupToRenderedWord(word, ankiLookup, language2, options = {}
 function applyEmptyAnkiLookupToRenderedWord(word, ankiLookup, language2, options) {
   if (ankiLookup.trusted === false) return;
   if ([options.preserveExistingEmpty, renderedWordHasAnkiState(word)].every(Boolean)) {
-    word.dataset.ankiPreserveContrast = "true";
+    preserveAnkiContrastOnNextRefresh(word);
     return;
   }
   clearRenderedWordAnkiState(word);
@@ -20685,6 +20960,7 @@ function applyRenderedWordAnkiState(word, state, language2, deckNames = []) {
   updateRenderedWordPrivateState(word, { ankiState: state, ankiDecks: deckNames.join(", ") || void 0 });
   if (!currentAccountDataSurfaceIsTrusted()) {
     word.classList.add(`jpdb-${state}`);
+    syncWordReviewLane(word);
     word.removeAttribute("title");
     return;
   }
@@ -22386,7 +22662,7 @@ class FactoryResetCoordinator {
     }
   }
   async assertManagedStateDeleted() {
-    const managedKeysStillPresent = await managedStoredKeysStillPresent();
+    const managedKeysStillPresent = await managedStoredKeysLeftAfterReset();
     if (!managedKeysStillPresent.length) return;
     log$j.warn("Managed keys remained after reset", { managedKeysStillPresent });
     throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
@@ -25245,23 +25521,20 @@ function newTabLookupMetaItems(options) {
   if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
   return items;
 }
-function renderNewTabLookupReviewButtons(grades, targets, context) {
-  if (!grades.length) return "";
-  if (context && targets.length) {
-    const selected = targets[0];
-    const reviewGroup = targets.length > 1 ? Symbol("review-group") : void 0;
-    const profiles = targets.map((target) => reviewGradeProfile(context.card, target.kind));
-    return `${reviewGroup ? renderLookupReviewTargetGutter(selected) + renderLookupReviewTargetSelector(targets, reviewGroup, profiles) : ""}
-            ${[...new Set(profiles)].map((profile) => renderLookupReviewTargetButtons(
-      selected,
-      reviewGradeScale(context.settings, profile).grades,
-      { profile, settings: context.settings, hidden: profile !== profiles[0] },
-      reviewGroup
-    )).join("")}`;
-  }
-  if (targets.length > 1) return renderLookupReviewTargetControls(targets, grades);
-  if (targets.length) return renderLookupReviewTargetButtons(targets[0], grades);
-  return "";
+function renderNewTabLookupReviewControls(grades, targets, context) {
+  const selected = targets[0];
+  if (!grades.length || !selected) return { gutter: "", buttons: "" };
+  const reviewGroup = targets.length > 1 ? Symbol("review-group") : void 0;
+  const profiles = targets.map((target) => reviewGradeProfile(context.card, target.kind));
+  const rows = [...new Set(profiles)].map((profile) => renderLookupReviewTargetButtons(
+    selected,
+    reviewGradeScale(context.settings, profile).grades,
+    { profile, settings: context.settings, hidden: profile !== profiles[0] },
+    reviewGroup
+  )).join("");
+  if (!reviewGroup) return { gutter: "", buttons: rows };
+  const language2 = context.settings.interfaceLanguage;
+  return { gutter: renderLookupReviewTargetGutter(selected, language2), buttons: `${renderLookupReviewTargetSelector(targets, reviewGroup, profiles, language2)}${rows}` };
 }
 function updateKanjiLookupMiningControls(popover, controls, setMiningControlsExpanded2) {
   updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2);
@@ -25320,55 +25593,47 @@ function newLookupMetaLabel(label, stateClass = "") {
   return item;
 }
 function newTabLookupProviderStatusLabel(card, provider, settings, state) {
-  if (!provider?.hasApiKey) return "";
-  if (provider.id === "yomu-local" && card.source !== "yomu-local" && card.reviewSource !== "yomu-local") return "";
-  return `${provider.label} ${lookupStateLabel(state, settings.interfaceLanguage)}`;
+  if (!provider?.hasApiKey || !providerOwnsCard(provider, card)) return "";
+  return `${provider.label} ${providerStateLabel(provider, state, settings.interfaceLanguage)}`;
+}
+function providerOwnsCard(provider, card) {
+  return provider.id !== "yomu-local" || card.source === "yomu-local" || card.reviewSource === "yomu-local";
+}
+function providerStateLabel(provider, state, language2) {
+  return provider.id === "yomu-local" && state === "in-deck" ? newTabText(language2, "savedWord") : cardStateLabel(state, language2);
 }
 function newTabLookupAnkiStatusLabel(ankiLookup, settings) {
   if (!settings.ankiEnabled) return "";
   if (ankiLookup.trusted === false && !ankiLookup.primary) return "";
-  return `Anki ${lookupStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
-}
-function lookupStateLabel(state, language2) {
-  return cardStateLabel(state, language2);
+  return `Anki ${cardStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
 }
 function renderLookupReviewTargetButtons(target, grades, context, reviewGroup) {
   const targetLabel = target.label;
   const label = targetLabel ? `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-newtab-grade-target data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$2(targetLabel)}</span></div>` : "";
   const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
   return `
-        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$2(target.id)}" data-review-target-row="${escapeHtml$2(target.id)}"${context ? ` data-review-grade-profile="${context.profile}"${context.hidden ? " hidden" : ""}` : ""}>
+        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$2(target.id)}" data-review-target-row="${escapeHtml$2(target.id)}" data-review-grade-profile="${context.profile}"${context.hidden ? " hidden" : ""}>
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
     const title = targetLabel ? ` title="${escapeHtml$2(targetLabel)}" aria-label="${escapeHtml$2(`${buttonLabel}: ${targetLabel}`)}"` : "";
-    const gradeShortcut = context ? reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0] : void 0;
-    const keyHint = context ? gradeKeyHintAttributes(context.settings, gradeShortcut) : "";
-    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context?.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${keyHint}>${escapeHtml$2(buttonLabel)}</button>`;
+    const gradeShortcut = reviewGradeScale(context.settings, context.profile).shortcuts.find(([, value]) => value === grade)?.[0];
+    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${privateCommandAttributes({ kind: "card-action", action: "grade", grade, gradeProfile: context.profile, gradeShortcut, reviewGroup, reviewTarget: target.kind, ankiCardId: target.ankiCardId })}${title}${gradeKeyHintAttributes(context.settings, gradeShortcut)}>${escapeHtml$2(buttonLabel)}</button>`;
   }).join("")}
         </div>
     `;
 }
-function renderLookupReviewTargetControls(targets, grades) {
-  const selected = targets[0];
-  if (!selected) return "";
-  const reviewGroup = Symbol("review-group");
-  return `
-        ${renderLookupReviewTargetGutter(selected)}
-        ${renderLookupReviewTargetSelector(targets, reviewGroup)}
-        ${renderLookupReviewTargetButtons(selected, grades, void 0, reviewGroup)}
-    `;
-}
-function renderLookupReviewTargetGutter(target) {
+function renderLookupReviewTargetGutter(target, language2) {
+  const switchLabel = escapeHtml$2(uiText(language2, "switchReviewTarget"));
   return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}">${escapeHtml$2(target.shortLabel)}</span>
-        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: "card-ui", action: "review-target-toggle" })} title="Switch review target" aria-label="Switch review target">⇄</button>
+        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle"${privateCommandAttributes({ kind: "card-ui", action: "review-target-toggle" })} title="${switchLabel}" aria-label="${switchLabel}">⇄</button>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: "card-ui", action: "mining-collapse" })} aria-expanded="false" title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}"></button>
     </div>`;
 }
-function renderLookupReviewTargetSelector(targets, reviewGroup, profiles) {
+function renderLookupReviewTargetSelector(targets, reviewGroup, profiles, language2) {
   return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target"${privateCommandAttributes({ kind: "review-selector", reviewGroup })}>
-            ${targets.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""}${privateCommandAttributes({ kind: "review-target", target: target.kind, gradeProfile: profiles?.[index] ?? "standard", reviewGroup, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$2(uiText(language2, "gradeTargetSelector"))}"${privateCommandAttributes({ kind: "review-selector", reviewGroup })}>
+            ${targets.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""}${privateCommandAttributes({ kind: "review-target", target: target.kind, gradeProfile: profiles[index] ?? "standard", reviewGroup, label: target.label, shortLabel: target.shortLabel, ankiCardId: target.ankiCardId })} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
 }
@@ -28527,8 +28792,9 @@ const NEW_TAB_ACTIONS = [
   "stats-refresh",
   "stats-toggle-anki-deck",
   "stats-connect-anki",
-  "stats-open-jpdb-settings",
+  "stats-open-api-settings",
   "stats-open-anki-settings",
+  "stats-open-saved",
   "stats-import-jpdb"
 ];
 const NEW_TAB_ACTION_NAMES = new Set(NEW_TAB_ACTIONS);
@@ -29101,6 +29367,7 @@ function bunproReviewableType(kind) {
 }
 const BROWSE_PAGE_SIZE = 50;
 const BROWSE_FILTER_ORDER = [
+  "saved",
   "new",
   "learning",
   "due",
@@ -29115,10 +29382,13 @@ const BROWSE_FILTER_ORDER = [
 function browseStateCounts(cards) {
   const counts = /* @__PURE__ */ new Map();
   for (const card of cards) {
-    const state = primaryCardState(card.cardState);
+    const state = browseStateKey(card);
     counts.set(state, (counts.get(state) ?? 0) + 1);
   }
   return counts;
+}
+function browseStateKey(card) {
+  return isSavedOnlyNewTabCard(card) ? "saved" : primaryCardState(card.cardState);
 }
 function browseSourceForCard(card) {
   if (card.source === "anki" || card.reviewSource === "anki") return "anki";
@@ -29136,10 +29406,15 @@ function browseSourceCounts(cards) {
   }
   return counts;
 }
+function toggleBrowseChip(active, chip) {
+  if (chip === "all") active.clear();
+  else if (active.has(chip)) active.delete(chip);
+  else active.add(chip);
+}
 function filterBrowseCards(cards, filters, query, sourceFilters = /* @__PURE__ */ new Set()) {
   const trimmed = query.trim();
   const sourceMatched = cards.filter((card) => !sourceFilters.size || sourceFilters.has(browseSourceForCard(card)));
-  const stateMatched = sourceMatched.filter((card) => !filters.size || filters.has(primaryCardState(card.cardState)));
+  const stateMatched = sourceMatched.filter((card) => !filters.size || filters.has(browseStateKey(card)));
   if (!trimmed) return stateMatched;
   const prefix = [];
   const partial = [];
@@ -29215,17 +29490,18 @@ function queueOrderValue(card) {
 }
 function renderBrowseChips(cards, active, language2, allLabel) {
   const counts = browseStateCounts(cards);
-  const chip = (filter, label, count, pressed) => el("button", {
+  const label = (state) => state === "saved" ? newTabText(language2, "savedWord") : cardStateLabel(state, language2);
+  const chip = (filter, label2, count, pressed) => el("button", {
     type: "button",
     class: "jpdb-reader-newtab-browse-chip",
     dataset: { newtabAction: newTabAction("browse-filter"), browseFilter: filter },
     "aria-pressed": String(pressed)
-  }, `${label} ${count}`);
+  }, `${label2} ${count}`);
   return el(
     "div",
     { class: "jpdb-reader-newtab-browse-chips", role: "group" },
     chip("all", allLabel, cards.length, active.size === 0),
-    ...BROWSE_FILTER_ORDER.filter((state) => (counts.get(state) ?? 0) > 0).map((state) => chip(state, cardStateLabel(state, language2), counts.get(state) ?? 0, active.has(state)))
+    ...BROWSE_FILTER_ORDER.filter((state) => (counts.get(state) ?? 0) > 0).map((state) => chip(state, label(state), counts.get(state) ?? 0, active.has(state)))
   );
 }
 function renderBrowseControls(sort, descending, selectMode, copy) {
@@ -29355,7 +29631,7 @@ function renderBrowseRow(card, language2, selectable = false, dueIn = "", startR
         "span",
         { class: "jpdb-reader-newtab-browse-state", dataset: { browseState: state } },
         el("span", { class: `jpdb-reader-state-dot jpdb-${state}` }),
-        cardStateLabel(state, language2),
+        browseStateLabel(card, state, language2),
         browseStateDetails(card, dueIn)
       )
     ),
@@ -29364,6 +29640,9 @@ function renderBrowseRow(card, language2, selectable = false, dueIn = "", startR
       dataset: { newtabAction: newTabAction("browse-start-review"), browseCardKey: cardKey(card) }
     }, startReview) : null
   );
+}
+function browseStateLabel(card, state, language2) {
+  return isSavedOnlyNewTabCard(card) ? newTabText(language2, "savedWord") : cardStateLabel(state, language2);
 }
 function browseReading(card) {
   return card.reading && card.reading !== card.spelling ? card.reading : "";
@@ -29591,6 +29870,11 @@ function reviewTargetsForNewTabCard(card, settings, ankiCardId) {
   if (card.source === "fallback" && !card.reviewSource && settings.yomuLocalSrsEnabled) add("yomu-local");
   if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
   return targets;
+}
+function keepReviewObligationOwner(card, targets) {
+  const jpdb = targets.some((target) => target === "jpdb-api" || target === "jpdb-live");
+  if (!card.apiGradingProviderOverride && jpdb !== targets.includes("jiten-api")) card.apiGradingProviderOverride = jpdb ? "jpdb" : "jiten";
+  return card;
 }
 function queueableNewTabReviewTargets(targets) {
   return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "yomu-local");
@@ -30623,6 +30907,16 @@ function newTabSourceLoadPlan(source, fallbackSupplementMin) {
     studyFallback: source === "jpdb" || source === "bunpro" || source === "wanikani" || source === "yomu-local" || source === "dictionary" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
   };
 }
+function newTabSourceForCard(card) {
+  if (card.source === "anki" || card.reviewSource === "anki") return "anki";
+  if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+  if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
+  if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
+  if (card.source === "jpdb" || card.source === "jiten" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.reviewSource === "jiten-api") {
+    return "jpdb";
+  }
+  return "dictionary";
+}
 class NewTabStudyPool {
   constructor(deps) {
     this.deps = deps;
@@ -30811,6 +31105,7 @@ function combineStatsSources(...sources) {
   const combinedSources = active.length ? active : sources;
   const daily = mergeDailyPoints(...combinedSources.map((source) => source.daily));
   const dueForecast = addDueForecasts(combinedSources);
+  const savedOnly = combinedSources.reduce((sum, source) => sum + (source.savedOnly ?? 0), 0);
   return finalizeCombinedStatsSource({
     id: "combined",
     label: "Combined",
@@ -30824,7 +31119,8 @@ function combineStatsSources(...sources) {
     currentStreak: 0,
     longestStreak: 0,
     updatedAt: Math.max(0, ...combinedSources.map((source) => source.updatedAt ?? 0)) || null,
-    ...dueForecast ? { dueForecast } : {}
+    ...dueForecast ? { dueForecast } : {},
+    ...savedOnly ? { savedOnly } : {}
   });
 }
 async function loadAnkiDueForecast(api, decks) {
@@ -31386,8 +31682,17 @@ function renderStatsMetrics(context) {
     renderStatsMetric(text2("statsCurrentStreak"), formatCompactNumber(source.currentStreak), `${text2("statsLongestStreak")}: ${formatCompactNumber(source.longestStreak)} ${text2("statsDays")}`),
     renderStatsMetric(text2("statsRetention"), formatPercent(source.retention), text2("statsTotalReviews")),
     renderStatsMetric(text2("statsAverageSpeed"), formatStatsSpeed(speed), text2("statsCardsPerMinute")),
-    renderStatsMetric(text2("statsCards"), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text2))
+    renderStatsMetric(text2("statsCards"), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text2)),
+    renderStatsSavedMetric(context)
   );
+}
+function renderStatsSavedMetric({ source, text: text2 }) {
+  if (!source.savedOnly) return null;
+  return el("button", {
+    type: "button",
+    class: "jpdb-reader-stats-metric jpdb-reader-stats-metric-link",
+    dataset: { newtabAction: newTabAction("stats-open-saved") }
+  }, statsMetricContent(text2("savedWord"), formatCompactNumber(source.savedOnly), text2("statsSavedDetail")));
 }
 function reviewsTodayDetail(context) {
   const { source, text: text2 } = context;
@@ -31396,13 +31701,14 @@ function reviewsTodayDetail(context) {
   return newToday > 0 ? `+${formatCompactNumber(newToday)} ${text2("statsNewToday")}` : text2("statsDailyActivity");
 }
 function renderStatsMetric(label, value, detail) {
-  return el(
-    "section",
-    { class: "jpdb-reader-stats-metric" },
+  return el("section", { class: "jpdb-reader-stats-metric" }, statsMetricContent(label, value, detail));
+}
+function statsMetricContent(label, value, detail) {
+  return [
     el("span", { class: "jpdb-reader-stats-metric-label" }, label),
     el("strong", {}, value),
     el("span", { class: "jpdb-reader-stats-metric-detail" }, detail)
-  );
+  ];
 }
 function renderStatsActivity(context) {
   const { activityMetric, source, text: text2 } = context;
@@ -31624,11 +31930,12 @@ function renderStatsConnections(context) {
   );
 }
 function renderStatsConnectionCard(source, context) {
+  const actions = statsConnectionActions(source, context.text);
   return el(
     "article",
     { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status } },
     renderStatsConnectionMain(source, context),
-    el("div", { class: "jpdb-reader-stats-connection-actions" }, statsConnectionActions(source, context)),
+    actions.length ? el("div", { class: "jpdb-reader-stats-connection-actions" }, actions) : null,
     renderStatsConnectionDropzone(source.id === "jpdb", context.text)
   );
 }
@@ -31645,26 +31952,25 @@ function statsConnectionDeckToggles(source, context) {
   if (source.id !== "anki" || !source.deckNames?.length) return null;
   return renderStatsAnkiDeckToggles(source, context.text);
 }
-function statsConnectionActions(source, context) {
-  const { text: text2 } = context;
-  if (source.id === "jpdb") {
-    const actions = [
-      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenJpdbSettings"))
-    ];
-    actions.push(el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-import-jpdb") } }, text2("statsChooseJpdbFile")));
-    return actions;
-  }
-  if (source.id === "jiten") return [
-    el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenApiSettings"))
+function statsConnectionActions(source, text2) {
+  if (source.id === "jpdb") return [
+    statsConnectionButton(newTabAction("stats-open-api-settings"), text2("statsOpenJpdbSettings")),
+    statsConnectionButton(newTabAction("stats-import-jpdb"), text2("statsChooseJpdbFile"))
   ];
-  return [
-    isStatsSourceConnected(source) ? null : el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-connect-anki") } }, text2("statsConnectAnki")),
-    el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-anki-settings") } }, text2("statsOpenAnkiSettings"))
+  if (source.id === "jiten" || source.id === "bunpro" || source.id === "wanikani") return [
+    statsConnectionButton(newTabAction("stats-open-api-settings"), text2("statsOpenApiSettings"))
   ];
+  if (source.id === "anki") return [
+    ...isAnkiConnected(source) ? [] : [statsConnectionButton(newTabAction("stats-connect-anki"), text2("statsConnectAnki"))],
+    statsConnectionButton(newTabAction("stats-open-anki-settings"), text2("statsOpenAnkiSettings"))
+  ];
+  return [];
 }
-function isStatsSourceConnected(source) {
-  if (source.status === "ready" || source.status === "partial") return true;
-  return source.id !== "jpdb" && Boolean(source.deckNames?.length);
+function statsConnectionButton(action, label) {
+  return el("button", { type: "button", dataset: { newtabAction: action } }, label);
+}
+function isAnkiConnected(source) {
+  return source.status === "ready" || source.status === "partial" || Boolean(source.deckNames?.length);
 }
 function renderStatsConnectionDropzone(isJpdb, text2) {
   if (!isJpdb) return null;
@@ -31853,8 +32159,8 @@ function statsSourceIdFromValue(value) {
 function isNewTabStatsAction(action) {
   return action !== void 0 && action.startsWith("stats-");
 }
-async function srsStatsReviewables(adapter) {
-  return adapter.collection ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT) : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT)).cards;
+async function srsStatsReviewables(adapter, options) {
+  return adapter.collection ? adapter.collection(NEW_TAB_STATS_JPDB_CARD_LIMIT, options) : (await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, options)).cards;
 }
 class NewTabStatsController {
   constructor(deps) {
@@ -31882,8 +32188,9 @@ class NewTabStatsController {
     "stats-connect-anki": (root) => {
       void this.connectAnki(root);
     },
-    "stats-open-jpdb-settings": () => this.deps.showSettings("api"),
+    "stats-open-api-settings": () => this.deps.showSettings("api"),
     "stats-open-anki-settings": () => this.deps.showSettings("mining"),
+    "stats-open-saved": (root) => this.deps.openSavedWords(root),
     "stats-import-jpdb": (root) => {
       root.querySelector("[data-stats-jpdb-file]")?.click();
     }
@@ -32106,18 +32413,21 @@ class NewTabStatsController {
   async loadSrsAdapterSource(source) {
     const adapter = this.deps.srsAdapters?.[source];
     const label = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
-    if (!adapter || !adapter.hasCredential()) {
+    if (!adapter?.hasCredential() || !canBrowseNewTabSrsSource(source, this.deps.canUseYomuLocalSource())) {
       return emptyStatsSource(source, label, source === "yomu-local" ? this.deps.text("statsNoData") : this.deps.text("statsApiKeyMissing"), "setup");
     }
     try {
+      const options = { language: activeLearningTargetLanguage() };
       const [stats, reviewables] = await Promise.all([
-        adapter.stats(),
-        srsStatsReviewables(adapter)
+        adapter.stats(options),
+        srsStatsReviewables(adapter, options)
       ]);
-      const cards = reviewables.map((card) => this.deps.srsReviewableToNewTabCard(card)).filter((card) => card !== null && !isSavedOnlyNewTabCard(card));
+      const listed = reviewables.map((card) => this.deps.srsReviewableToNewTabCard(card)).filter((card) => card !== null);
+      const cards = listed.filter((card) => !isSavedOnlyNewTabCard(card));
       const snapshot = statsFromApiCards(cards, label, this.apiLoadedMessage(label, cards.length), source);
       return {
         ...snapshot,
+        savedOnly: listed.length - cards.length,
         message: cards.length || stats.reviewsDue || stats.reviewsToday ? snapshot.message : this.deps.text("statsNoData"),
         reviewsToday: stats.reviewsToday ?? snapshot.reviewsToday,
         cards: {
@@ -36164,7 +36474,7 @@ const GRADE_QUEUE_LEASE = "newtab-grade-queue";
 const HELD_REVIEW_SETTLE_MS = 5 * 6e4;
 const NEW_TAB_LIVE_REVIEW_KEY = "yomu:newtab-live-review:v1";
 const LIVE_REVIEW_LEASE = "newtab-live-review";
-const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5e3, timeoutMs: 5e3 };
+const LIVE_REVIEW_LEASE_OPTIONS = { leaseMs: 5e3, timeoutMs: 5e3, guards: (key) => key === NEW_TAB_LIVE_REVIEW_KEY };
 const LIVE_REVIEW_CLAIM_MS = 60 * 6e4;
 const LIVE_REVIEW_CLAIM_LIMIT = 500;
 const UNBOUND_PROVIDER_CONTEXT = "legacy";
@@ -36264,15 +36574,18 @@ class NewTabGradeQueue {
    */
   async claimLiveReview(card, targets, contextFor) {
     const claim = { id: createStorageCoordinationId(), keys: targets.map((target) => `${contextFor(target)}:${target}:${cardKey(card)}`) };
-    try {
-      return await this.liveReviews((records, now) => {
-        const blocking = claim.keys.filter((key) => records[key] && this.liveReviewBlocks(records[key], now));
-        if (blocking.length) return null;
-        for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
-        return claim;
-      });
-    } catch {
+    let refused = false;
+    const claimOnce = () => this.liveReviews((records, now) => {
+      refused = claim.keys.filter((key) => records[key] && this.liveReviewBlocks(records[key], now)).length > 0;
+      if (refused) return null;
+      for (const key of claim.keys) records[key] = { id: claim.id, tab: this.tab, at: now };
       return claim;
+    });
+    try {
+      return await claimOnce();
+    } catch (error) {
+      if (!isStorageLeaseLapsed(error)) return claim;
+      return refused ? null : claimOnce().catch(() => claim);
     }
   }
   /** Marks a claimed live review sent, whatever its outcome. */
@@ -38767,6 +39080,27 @@ function firstNonEmptyPitch(promises) {
 function delayWithValue(value, ms) {
   return new Promise((resolve) => window.setTimeout(() => resolve(value), ms));
 }
+function isNewTabRevealKey(key) {
+  return key === " " || isNewTabEnterRevealKey(key);
+}
+function isNewTabEnterRevealKey(key) {
+  return key === "Enter";
+}
+function isNewTabStudyInteractiveTarget(target) {
+  return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
+}
+function isNewTabKeyboardCaptureBlockedTarget(target) {
+  return Boolean(target.closest([
+    "input",
+    "select",
+    "textarea",
+    '[contenteditable]:not([contenteditable="false"])',
+    "[data-newtab-search]",
+    '[role="search"]',
+    "[data-settings-panel]",
+    ".jpdb-reader-settings"
+  ].join(",")));
+}
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
 const QUEUE_REFRESH_LOW_WATER = 20;
@@ -38847,6 +39181,7 @@ class NewTabController {
       syncMode: (root) => this.syncMode(root),
       syncThemeToggle: (root) => this.syncThemeToggle(root),
       showSettings: (tab) => this.dependencies.showSettings(tab),
+      openSavedWords: (root) => this.openSavedWords(root),
       hasCoarsePointer: () => this.hasCoarsePointer(),
       statsVisible: () => this.state.route === "stats" && !this.practiceVisible,
       studyTroubleCards: (root) => this.studyStatsTroubleCards(root)
@@ -38862,6 +39197,7 @@ class NewTabController {
       void this.applyExternalState(state);
     });
     this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate((status) => this.applyJpdbBridgeStatus(status));
+    this.unsubscribeAcademyMutations = subscribeLocalYomuSrsMutations(() => this.refreshStatsAfterAcademyMutation());
     this.kanjiDetailSource = new KanjiDetailSource({
       getSettings: () => this.dependencies.getSettings(),
       jpdbKanji: this.dependencies.jpdbKanji,
@@ -38924,6 +39260,7 @@ class NewTabController {
   state;
   stateChannel;
   unsubscribeJpdbBridge;
+  unsubscribeAcademyMutations;
   liveJpdbStatus = null;
   liveCards = /* @__PURE__ */ new Map();
   pendingLiveJpdbGrade = null;
@@ -39123,6 +39460,7 @@ class NewTabController {
   browsePool;
   browsePoolKey = "";
   browsePoolGeneration = 0;
+  browsePoolStale = false;
   browsePoolLoad;
   browseFilterGeneration = 0;
   browseFilters = /* @__PURE__ */ new Set();
@@ -39202,7 +39540,7 @@ class NewTabController {
       return true;
     }
     if (this.state.route === "stats") {
-      this.renderStats(root);
+      this.statsController.render(root);
       void this.loadStatsInto(root);
       return true;
     }
@@ -39240,6 +39578,7 @@ class NewTabController {
     this.clearListenRecording();
     this.stateChannel.close();
     this.unsubscribeJpdbBridge();
+    this.unsubscribeAcademyMutations();
     this.rootEventController?.abort();
     this.searchController.destroy();
     this.studyExamples.dispose();
@@ -39449,15 +39788,10 @@ class NewTabController {
     clearTimeout(this.offlineWarmRetryTimer);
     this.offlineWarmRetryTimer = void 0;
   }
+  // Stats reloads here too: its figures belong to the target just left.
   renderAfterTargetInvalidation() {
     const root = this.currentRoot();
-    if (!root) return;
-    if (this.state.route === "search") {
-      this.searchController.renderSearch(root);
-      return;
-    }
-    if (this.state.route === "stats") return this.renderStats(root);
-    this.applyWords(root, false);
+    if (root && !this.renderNonStudyRoute(root)) this.applyWords(root, false);
   }
   renderEnabledContent() {
     const language2 = this.language();
@@ -39799,14 +40133,9 @@ class NewTabController {
       this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
       return;
     }
+    this.dropStaleBrowsePool();
     const browseGeneration = this.browsePoolGeneration;
-    void this.loadBrowsePool().then((cards) => this.applyLoadedBrowseFilter(
-      cards,
-      filter,
-      filterGeneration,
-      browseGeneration,
-      root
-    ));
+    void this.loadBrowsePool().then((cards) => this.applyLoadedBrowseFilter(cards, filter, filterGeneration, browseGeneration, root));
   }
   applyLoadedBrowseFilter(cards, filter, filterGeneration, browseGeneration, root) {
     if (!this.canApplyLoadedBrowseFilter(filterGeneration, browseGeneration, root)) return;
@@ -40788,7 +41117,7 @@ class NewTabController {
   sourceReviewLookupCard(card) {
     const sourceCard = this.sourceCardForVisibleCard(card);
     const sharedCardWithExactPitch = Boolean(card?.sourceCardKey && sourceCard?.pitchAccent.length);
-    return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch) ? sourceCard : void 0;
+    return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch) ? keepReviewObligationOwner(sourceCard, this.reviewTargetsForCard(sourceCard)) : void 0;
   }
   sourceReviewLookupCardForTarget(target) {
     const sourceCard = this.sourceReviewLookupCard(this.visibleWords[this.index]);
@@ -40848,10 +41177,6 @@ class NewTabController {
   }
   async renderEmptyWordLoad(root) {
     this.renderEmpty(root, APP_NAME, this.text(this.emptyLoadMessageKey ?? this.emptyStudyMessageKey()));
-  }
-  // Thin forwarder: the mode-switch / render paths paint the stats dashboard.
-  renderStats(root) {
-    this.statsController.render(root);
   }
   // Thin forwarder: the mode-switch / render paths kick off the stats load.
   loadStatsInto(root, force = false) {
@@ -41636,7 +41961,7 @@ class NewTabController {
   isRenderedReviewSource(source) {
     if (this.sourceLabelReviewSource() === source) return true;
     const words = this.allWords.length ? this.allWords : this.visibleWords;
-    return words.length > 0 && words.every((card) => this.cardPrimaryNewTabSource(card) === source);
+    return words.length > 0 && words.every((card) => newTabSourceForCard(card) === source);
   }
   async switchReviewSource(root, source) {
     if (source === this.state.source && this.isRenderedReviewSource(source)) return;
@@ -41669,7 +41994,7 @@ class NewTabController {
   }
   canUseCachedResultForSourceSwitch(result, source) {
     if (!result.cards.length) return this.emptyCachedResultMatchesSource(result, source);
-    return result.cards.every((card) => this.cardPrimaryNewTabSource(card) === source);
+    return result.cards.every((card) => newTabSourceForCard(card) === source);
   }
   emptyCachedResultMatchesSource(result, source) {
     if (source === "anki") return false;
@@ -41678,17 +42003,6 @@ class NewTabController {
     if (source === "wanikani") return result.sourceLabel.startsWith("WaniKani");
     if (source === "yomu-local") return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
     return result.sourceLabel === this.text("dictionary");
-  }
-  // fallow-ignore-next-line complexity, code-duplication
-  cardPrimaryNewTabSource(card) {
-    if (card.source === "anki" || card.reviewSource === "anki") return "anki";
-    if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
-    if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
-    if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
-    if (card.source === "jpdb" || card.source === "jiten" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.reviewSource === "jiten-api") {
-      return "jpdb";
-    }
-    return "dictionary";
   }
   syncSourceFromSettings(settings = this.dependencies.getSettings()) {
     const source = this.effectiveNewTabSourceFromSettings(settings);
@@ -41750,7 +42064,7 @@ class NewTabController {
       return;
     }
     if (this.state.route === "stats") {
-      this.renderStats(root);
+      this.statsController.render(root);
       void this.loadStatsInto(root);
       return;
     }
@@ -44667,17 +44981,22 @@ class NewTabController {
   handleBrowseFilterClick(root, target, event) {
     event.preventDefault();
     const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter ?? "all";
-    if (filter === "all") this.browseFilters.clear();
-    else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
-    else this.browseFilters.add(filter);
+    toggleBrowseChip(this.browseFilters, filter);
     return this.refreshBrowseAfterChipChange(root);
+  }
+  // Stats' Saved tile: Library on the saved words alone, from the first page, with
+  // no earlier chip or search hiding them; scheduled Academy cards would sort first.
+  openSavedWords(root) {
+    this.browseFilters = /* @__PURE__ */ new Set(["saved"]);
+    this.browseSourceFilters = /* @__PURE__ */ new Set(["yomu-local"]);
+    this.browsePage = 0;
+    this.searchController.setInitialQuery("");
+    this.setState({ route: "search", revealAnswer: false }, root, { preserveWord: true });
   }
   handleBrowseSourceFilterClick(root, target, event) {
     event.preventDefault();
     const filter = target.closest("[data-browse-source-filter]")?.dataset.browseSourceFilter ?? "all";
-    if (filter === "all") this.browseSourceFilters.clear();
-    else if (this.browseSourceFilters.has(filter)) this.browseSourceFilters.delete(filter);
-    else this.browseSourceFilters.add(filter);
+    toggleBrowseChip(this.browseSourceFilters, filter);
     return this.refreshBrowseAfterChipChange(root);
   }
   handleBrowseSortDirectionClick(root, event) {
@@ -44713,7 +45032,7 @@ class NewTabController {
     if (!button || button.disabled || card?.source !== "yomu-local" || !card.sourceCardKey || !adapter?.startReview) return;
     button.disabled = true;
     try {
-      await adapter.startReview(card.sourceCardKey);
+      await withSaveWaitStatus(this.language(), adapter.startReview.bind(adapter, card.sourceCardKey));
       if (this.destroyed) return;
       this.invalidateSourceResultCache("yomu-local");
       this.allWords = [];
@@ -44768,6 +45087,7 @@ class NewTabController {
   async renderBrowseInto(root) {
     const results = this.searchResultsMount(root);
     if (!results) return;
+    this.dropStaleBrowsePool();
     if (!this.browsePool) replaceChildrenWith(results, el("div", { class: "jpdb-reader-newtab-search-empty" }, this.text("loading")));
     await this.loadBrowsePool(() => {
       const mount2 = this.searchResultsMount(root);
@@ -44779,13 +45099,25 @@ class NewTabController {
     if (!mount || !mount.isConnected || this.state.route !== "search" || query && !this.browseScopeActive()) return;
     this.renderBrowseResults(mount);
   }
+  // A card changed: Library loads its words again now if it is open, or else when
+  // next used, so that a Show-only filter still loading on Study keeps its result.
   refreshBrowseAfterCardMutation(_card) {
+    this.browsePoolStale = true;
     const root = this.currentRoot();
-    if (!root || this.state.route !== "search") return;
-    this.invalidateBrowsePool();
-    void this.renderBrowseInto(root);
+    if (root && this.state.route === "search") void this.renderBrowseInto(root);
+  }
+  // Any Academy save in this tab (a lookup popup, "Add to review", a grade)
+  // changes what Stats counts, so it loads again, at once if it is open.
+  refreshStatsAfterAcademyMutation() {
+    this.statsController.reset();
+    const root = this.currentRoot();
+    if (root && this.state.route === "stats") void this.loadStatsInto(root);
+  }
+  dropStaleBrowsePool() {
+    if (this.browsePoolStale) this.invalidateBrowsePool();
   }
   invalidateBrowsePool() {
+    this.browsePoolStale = false;
     this.browsePoolGeneration += 1;
     this.browsePool = void 0;
     this.browsePoolKey = "";
@@ -45336,7 +45668,7 @@ class NewTabController {
   }
   async submitCurrentGrade(target, grade, selectedTarget2, isCorrection, reviewOp, providerContexts) {
     this.setStatus(target.root, this.text("grading"));
-    const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget2);
+    const submittedTarget = await withSaveWaitStatus(this.language(), () => this.submitGrade(target.card, grade, selectedTarget2));
     if (reviewOp.superseded || !this.gradeProvidersAreCurrent(providerContexts, target.card, selectedTarget2)) return false;
     this.offlineReviewingAccepted = false;
     this.invalidateReviewSourceCache(target.card);
@@ -45352,7 +45684,7 @@ class NewTabController {
   async handleFailedGrade(target, grade, selectedTarget2, isCorrection, error, reviewOp, providerContexts) {
     log$8.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
     if (this.localYomuStorageFailure(error)) {
-      this.reportLocalYomuGradeFailure(target.root);
+      this.reportLocalYomuGradeFailure(target.root, error);
       return false;
     }
     if (isSessionBunproCard(target.card) || error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => failure.target === "anki")) {
@@ -45363,8 +45695,10 @@ class NewTabController {
     const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget2, error);
     return this.resolveOrQueueFailedGrade(target, grade, selectedTarget2, isCorrection, error, reviewOp, providerContexts, queueTargets);
   }
-  reportLocalYomuGradeFailure(root) {
-    const message = this.text("yomuLocalSrsStorageFailed");
+  // A save interrupted mid-write (ADR-0019) did not land, and storage is fine: grading again is safe.
+  reportLocalYomuGradeFailure(root, error) {
+    const causes = error instanceof NewTabGradeSubmissionError ? error.failures.map((failure) => failure.error) : [error];
+    const message = this.text(causes.some(isLocalYomuSrsSaveInterrupted) ? "yomuLocalSrsSaveInterrupted" : "yomuLocalSrsStorageFailed");
     this.setStatus(root, message);
     this.dependencies.toast?.(message);
   }
@@ -46481,36 +46815,12 @@ function uniqueConcreteSources(sources) {
 function concreteNewTabSourceFromValue(value) {
   return value === "jpdb" || value === "bunpro" || value === "wanikani" || value === "yomu-local" || value === "anki" || value === "dictionary" ? value : null;
 }
-function isNewTabRevealKey(key) {
-  return isNewTabSpaceRevealKey(key) || isNewTabEnterRevealKey(key);
-}
-function isNewTabSpaceRevealKey(key) {
-  return key === " ";
-}
-function isNewTabEnterRevealKey(key) {
-  return key === "Enter";
-}
 function consumeNestedLookupEvent(event) {
   event.preventDefault();
   event.stopPropagation();
 }
 function setOptionalText(element, text2) {
   if (element) element.textContent = text2;
-}
-function isNewTabStudyInteractiveTarget(target) {
-  return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
-}
-function isNewTabKeyboardCaptureBlockedTarget(target) {
-  return Boolean(target.closest([
-    "input",
-    "select",
-    "textarea",
-    '[contenteditable]:not([contenteditable="false"])',
-    "[data-newtab-search]",
-    '[role="search"]',
-    "[data-settings-panel]",
-    ".jpdb-reader-settings"
-  ].join(",")));
 }
 function renderDeckSelectorOptions(select2, options, selected) {
   replaceChildrenWith(select2, options.map((option) => el("option", {
@@ -47147,8 +47457,12 @@ function applyReaderTheme(settings, root = document.documentElement) {
   if (legacyClasses.length) root.classList.remove(...legacyClasses);
   applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
   applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
+  if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
   guardReaderRootClasses(root);
   return theme;
+}
+function paintsReviewLane(theme) {
+  return [theme.wordColorSources, theme.subtitleColorSources].some((sources) => Object.values(sources).includes("anki"));
 }
 function toggleClassIfChanged(root, className, enabled) {
   if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
@@ -47262,7 +47576,7 @@ function readerPitchColors(settings) {
 function applyReaderColorSourceClasses(root, scope, sources) {
   COLOR_CHANNELS.forEach((channel) => {
     COLOR_SOURCE_CLASSES.forEach((source) => {
-      toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+      toggleClassIfChanged(root, colorSourceClassName(scope, channel, source), sources[channel] === source);
     });
   });
 }
@@ -47306,56 +47620,6 @@ function readerElevatedSurfaceColor(root) {
 }
 function prefersLightMode() {
   return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
-}
-const TOAST_STACK_CLASS = "jpdb-reader-toast-stack";
-const TOAST_VISIBLE_CLASS = "is-visible";
-const TOAST_EXIT_MS = 220;
-const toastTimers = /* @__PURE__ */ new WeakMap();
-function showReaderToast(message, durationMs = 3200) {
-  const stack = ensureReaderToastStack();
-  const existing = Array.from(stack.children).find((node) => node instanceof HTMLElement && node.textContent === message);
-  if (existing) {
-    scheduleToastRemoval(existing, durationMs);
-    return;
-  }
-  const toast = document.createElement("div");
-  toast.className = "jpdb-reader-toast";
-  toast.setAttribute("role", "status");
-  toast.setAttribute("aria-live", "polite");
-  toast.textContent = message;
-  stack.append(toast);
-  if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(() => toast.classList.add(TOAST_VISIBLE_CLASS));
-  } else {
-    toast.classList.add(TOAST_VISIBLE_CLASS);
-  }
-  scheduleToastRemoval(toast, durationMs);
-}
-function ensureReaderToastStack() {
-  const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
-  if (existing?.isConnected) {
-    applyOverlayPageScale(existing);
-    return existing;
-  }
-  const stack = document.createElement("div");
-  stack.className = TOAST_STACK_CLASS;
-  stack.dataset.jpdbReaderRoot = "true";
-  applyOverlayPageScale(stack);
-  document.body.append(stack);
-  return stack;
-}
-function scheduleToastRemoval(toast, durationMs) {
-  const pending2 = toastTimers.get(toast);
-  if (pending2 !== void 0) window.clearTimeout(pending2);
-  toastTimers.set(toast, window.setTimeout(() => {
-    toast.classList.remove(TOAST_VISIBLE_CLASS);
-    window.setTimeout(() => {
-      toast.remove();
-      if (typeof document === "undefined") return;
-      const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
-      if (stack && !stack.childElementCount) stack.remove();
-    }, TOAST_EXIT_MS);
-  }, durationMs));
 }
 const log$6 = Logger.scope("ReaderAudioActions");
 class ReaderAudioActions {
@@ -47571,6 +47835,30 @@ async function diagnoseAnkiConnectFailure(url) {
     return "unreachable";
   }
 }
+const ANKI_FIELD_MAPPING_ROLES$1 = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
+const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
+function isAnkiFieldMappingRole(role) {
+  return ANKI_FIELD_MAPPING_ROLES$1.has(role);
+}
+function ankiScanConfidenceForModel(record2, modelName) {
+  if (!record2.trim()) return {};
+  try {
+    const parsed = JSON.parse(record2);
+    return Object.fromEntries(ankiScanConfidenceEntries(parsed[modelName] ?? {}));
+  } catch {
+    return {};
+  }
+}
+function isAnkiScanConfidence(value) {
+  return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
+}
+function ankiScanConfidenceEntries(confidence) {
+  const entries2 = [];
+  for (const [role, value] of Object.entries(confidence)) {
+    if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
+  }
+  return entries2;
+}
 function runningAsBrowserExtension() {
   const global = globalThis;
   try {
@@ -47635,7 +47923,7 @@ function updateFlowNoteKey(kind) {
       return "updateHelpNotesManager";
   }
 }
-const CURRENT_YOMU_VERSION = "2.0.4".trim() ? "2.0.4".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.5".trim() ? "2.0.5".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -84367,6 +84655,9 @@ const SOURCE_ROW_COPY_KEYS_BY_ID = {
   __kanji_origins__: { nameKey: "originStructure", helpKey: "sourceHelpComponentGraph" }
 };
 const SOURCE_ROW_ORDER_LABELS = { drag: "Drag to reorder", up: "Move up", down: "Move down" };
+function renderSourceRowsHelp(language2, key) {
+  return `<div class="jpdb-reader-help" data-help-key="${key}">${escapeHtml$2(uiText(language2, key))}</div>`;
+}
 function miniIconButton(icon, label, attributes) {
   const dragClass = icon === "drag" ? " jpdb-reader-drag-handle" : "";
   return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${miniIcon(icon)}</button>`;
@@ -85099,7 +85390,7 @@ function formInterfaceLanguage(form) {
   const value = control instanceof HTMLSelectElement ? control.value : form.lang;
   return value === "auto" || value === "en" || value === "ja" ? value : "en";
 }
-const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
+const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
 const ANKI_MOBILE_FALLBACK_DECK = "Default";
 function escapedUiText$2(language2, key) {
   return escapeHtml$2(uiText(language2, key));
@@ -85202,7 +85493,7 @@ function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, 
     `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language2, "notMapped")}</option>`,
     ...fields.map((field) => `<option value="${escapeHtml$2(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$2(field)}</option>`)
   ].join("");
-  const rows = ANKI_FIELD_MAPPING_ROLES$1.map((role) => {
+  const rows = ANKI_FIELD_MAPPING_ROLES.map((role) => {
     const value = mapping[role] ?? "";
     const roleLabel = ankiFieldMappingRoleLabel(role, language2);
     const confidence = value ? confidenceByRole[role] : void 0;
@@ -86790,7 +87081,7 @@ function syncSubtitlePreviewColorClasses(form, preview) {
   };
   Object.keys(classes2).forEach((channel) => {
     COLOR_SOURCE_CLASS_VALUES.forEach((source) => {
-      preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes2[channel] === source);
+      preview.classList.toggle(colorSourceClassName("subtitle", channel, source), classes2[channel] === source);
     });
   });
 }
@@ -88495,8 +88786,6 @@ function localizeSourceRows(form, text2) {
     const key = element.dataset.sourceHelpKey;
     if (isSettingsTextKey(key)) element.replaceChildren(text2(key));
   });
-  replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text2("importLocalDefinitionsHelp"));
-  replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text2("frequencyMetadataHelp"));
   const rows = [
     ["Translation", "sourceNameTranslation", "sourceHelpTranslation"],
     ["Grammar", "sourceNameGrammar", "sourceHelpGrammar"],
@@ -89145,8 +89434,8 @@ function renderDictionarySourceRows(settings) {
             <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$2(preference.type ?? "terms")}">
         `).join("");
-  const importHelp = visibleNames.size ? "" : '<div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>';
-  const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
+  const importHelp = visibleNames.size ? "" : renderSourceRowsHelp(settings.interfaceLanguage, "importLocalDefinitionsHelp");
+  const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? renderSourceRowsHelp(settings.interfaceLanguage, "metadataDictionariesHelp") : "";
   return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
 }
 function renderDefinitionTranslationControls(settings) {
@@ -91434,8 +91723,6 @@ function isSettingsCommandWord(word) {
 const log$3 = Logger.scope("SettingsDialog");
 const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
 const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
-const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
-const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
 function recommendedDictionaryForControl(control) {
   const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
@@ -91513,19 +91800,6 @@ function ankiStatusSetter(status) {
 }
 function statusLanguage(status) {
   return status.closest("form")?.querySelector('select[name="interfaceLanguage"]')?.value ?? "en";
-}
-function isAnkiFieldMappingRole(role) {
-  return ANKI_FIELD_MAPPING_ROLES.has(role);
-}
-function isAnkiScanConfidence(value) {
-  return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
-}
-function ankiScanConfidenceEntries(confidence) {
-  const entries2 = [];
-  for (const [role, value] of Object.entries(confidence)) {
-    if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
-  }
-  return entries2;
 }
 function readNewTabAnkiDisabledDecks(form) {
   return canonicalNewTabAnkiDisabledDecks(
@@ -91850,7 +92124,7 @@ class SettingsDialogController {
         if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
           this.dependencies.clearDictionarySourceOpenOverrides();
         }
-        return this.saveCurrentSettings(previousSettings).then(() => {
+        return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
           this.afterSettingsSaved(form, saveRequestId);
         });
       }).catch((error) => {
@@ -93174,7 +93448,7 @@ class SettingsDialogController {
       modelName,
       this.ankiScanFieldsForModel(form, modelName),
       getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
-      this.ankiScanConfidenceForModel(form, modelName)
+      ankiScanConfidenceForModel(form.querySelector("[data-anki-scan-confidence]")?.value ?? "", modelName)
     ));
   }
   syncAnkiFieldMappingsFromEditor(form) {
@@ -93203,17 +93477,6 @@ class SettingsDialogController {
       return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
     } catch {
       return [];
-    }
-  }
-  ankiScanConfidenceForModel(form, modelName) {
-    const input2 = form.querySelector("[data-anki-scan-confidence]");
-    if (!input2?.value.trim()) return {};
-    try {
-      const parsed = JSON.parse(input2.value);
-      const confidence = parsed[modelName] ?? {};
-      return Object.fromEntries(ankiScanConfidenceEntries(confidence));
-    } catch {
-      return {};
     }
   }
   ankiScanMessage(scan, language2) {
@@ -94359,9 +94622,11 @@ const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
 const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
 const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
 class BunproApiError extends Error {
-  constructor(message, status) {
+  /** `yomuUiCopyKey` names the message a learner sees instead of a generic failure. */
+  constructor(message, status, yomuUiCopyKey) {
     super(message);
     this.status = status;
+    this.yomuUiCopyKey = yomuUiCopyKey;
     this.name = "BunproApiError";
   }
 }
@@ -94725,7 +94990,7 @@ async function mineBunproCard(client, request) {
   const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 12 });
   const requestedKind = request.kind === "grammar" ? "grammar" : "vocabulary";
   const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
-  if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
+  if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`, void 0, "bunproNoMatchingWord");
   if (reviewable.kind !== "vocabulary" && reviewable.kind !== "grammar") {
     throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
   }
@@ -95639,7 +95904,7 @@ class NewTabRuntime {
     renderDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
     dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
     dictionaryLabel: (name) => this.dictionaryLabel(name),
-    renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data)
+    renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewControls(card, data)
   });
   activeLookupPopover;
   activeLookupBackdrop;
@@ -95716,10 +95981,6 @@ class NewTabRuntime {
     parsePopoverJapanese: (popover) => this.parseNewTabContent(popover),
     toast: (message) => this.toast(message),
     invalidateCardData: () => this.cardRenderData.clear(),
-    setApiGradingProvider: (provider) => {
-      this.settings.apiGradingProvider = provider;
-      void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-    },
     onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
     onApiCardStateChanged: (card) => this.handleApiCardStateChanged(card)
   });
@@ -96481,20 +96742,19 @@ class NewTabRuntime {
     return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded));
   }
   renderKanjiLookupActionBar(card) {
-    const reviewButtons = this.renderNewTabLookupReviewButtons(card);
-    const hasReviewTargetGutter = reviewButtons.includes("data-review-target-gutter");
+    const { gutter, buttons } = this.renderNewTabLookupReviewControls(card);
     return `
-            <div class="jpdb-reader-actions${kanjiLookupActionsClass(hasReviewTargetGutter)}" data-kanji-actions${kanjiLookupReviewAttributes(reviewButtons)}>
-                ${renderKanjiLookupMiningGutter(hasReviewTargetGutter, this.text("showMiningActions"))}
+            <div class="jpdb-reader-actions${kanjiLookupActionsClass(Boolean(gutter))}" data-kanji-actions${kanjiLookupReviewAttributes(buttons)}>
+                ${gutter || renderKanjiLookupMiningGutter(this.text("showMiningActions"))}
                 <div data-kanji-mining-mount hidden></div>
-                ${reviewButtons}
+                ${buttons}
             </div>
         `;
   }
-  renderNewTabLookupReviewButtons(card, data) {
+  renderNewTabLookupReviewControls(card, data) {
     const grades = this.newTab?.lookupGradeOptions(card) ?? [];
     const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
-    return renderNewTabLookupReviewButtons(grades, targets, { settings: this.settings, card });
+    return renderNewTabLookupReviewControls(grades, targets, { settings: this.settings, card });
   }
   resetLookupHandlers() {
     this.activeLookupHandlerController?.abort();
@@ -96953,7 +97213,7 @@ class NewTabRuntime {
         () => this.dismissLookupPopover(),
         () => this.showLookupCard(card, sentence, anchor, { navigation: "preserve", reuseActivePopover: true, autoPlay: false })
       ),
-      (error) => reportCardActionFailure({ logger: log, warning: "New tab card action failed", action, term: card.spelling, language: this.settings.interfaceLanguage, toast: (message) => this.toast(message) }, error),
+      { logger: log, warning: "New tab card action failed", action, term: card.spelling, language: this.settings.interfaceLanguage, toast: (message) => this.toast(message) },
       done
     );
   }
@@ -97475,8 +97735,7 @@ function runtimeCardCommand(button, supplied) {
 function kanjiLookupReviewAttributes(reviewButtons) {
   return reviewButtons ? ' data-kanji-has-review="true"' : ' data-kanji-has-review="false" hidden';
 }
-function renderKanjiLookupMiningGutter(hasReviewTargetGutter, label) {
-  if (hasReviewTargetGutter) return "";
+function renderKanjiLookupMiningGutter(label) {
   return `<div class="jpdb-reader-actions-gutter" hidden>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse"${privateCommandAttributes({ kind: "card-ui", action: "mining-collapse" })} aria-expanded="false" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}"></button>
     </div>`;

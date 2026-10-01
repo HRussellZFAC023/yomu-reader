@@ -419,10 +419,10 @@
   --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);
   --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);
   --jpdb-reader-source-jpdb-highlight: var(--jpdb-reader-jpdb-highlight, var(--jpdb-reader-source-jpdb-soft, transparent));
-  --jpdb-reader-source-anki-color: var(--jpdb-reader-anki-readable, var(--jpdb-reader-anki-color, currentColor));
-  --jpdb-reader-source-anki-decoration: var(--jpdb-reader-anki-color, transparent);
-  --jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);
-  --jpdb-reader-source-anki-highlight: var(--jpdb-reader-anki-highlight, var(--jpdb-reader-source-anki-soft, transparent));
+  --jpdb-reader-source-review-color: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, currentColor));
+  --jpdb-reader-source-review-decoration: var(--jpdb-reader-review-color, transparent);
+  --jpdb-reader-source-review-soft: var(--jpdb-reader-review-soft, transparent);
+  --jpdb-reader-source-review-highlight: var(--jpdb-reader-review-highlight, var(--jpdb-reader-source-review-soft, transparent));
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
   --jpdb-reader-source-pitch-decoration: transparent;
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
@@ -768,35 +768,38 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-word-underline-style: dashed;
   text-decoration-style: dashed !important;
 }
-.jpdb-reader-word.anki-new {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-new);
-  --jpdb-reader-anki-readable: var(--jpdb-reader-state-new-readable);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft);
+/* The review lane (the "Anki" colour source): Study words carry anki-<state>;
+   ordinary pages own their DOM, so there the same state is the
+   provider-neutral yomu-review-<state> (ADR-0020). */
+.jpdb-reader-word:is(.anki-new, .yomu-review-new) {
+  --jpdb-reader-review-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-review-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-review-soft: var(--jpdb-reader-state-new-soft);
 }
-.jpdb-reader-word.anki-learning {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-learning);
-  --jpdb-reader-anki-readable: var(--jpdb-reader-state-learning-readable);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft);
+.jpdb-reader-word:is(.anki-learning, .yomu-review-learning) {
+  --jpdb-reader-review-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-review-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-review-soft: var(--jpdb-reader-state-learning-soft);
 }
-.jpdb-reader-word.anki-known {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-known);
-  --jpdb-reader-anki-readable: var(--jpdb-reader-state-known-readable);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft);
+.jpdb-reader-word:is(.anki-known, .yomu-review-known) {
+  --jpdb-reader-review-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-review-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-review-soft: var(--jpdb-reader-state-known-soft);
 }
-.jpdb-reader-word.anki-due {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-due);
-  --jpdb-reader-anki-readable: var(--jpdb-reader-state-due-readable);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft);
+.jpdb-reader-word:is(.anki-due, .yomu-review-due) {
+  --jpdb-reader-review-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-review-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-review-soft: var(--jpdb-reader-state-due-soft);
 }
-.jpdb-reader-word.anki-failed {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-failed);
-  --jpdb-reader-anki-readable: var(--jpdb-reader-state-failed-readable);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft);
+.jpdb-reader-word:is(.anki-failed, .yomu-review-failed) {
+  --jpdb-reader-review-color: var(--jpdb-reader-state-failed);
+  --jpdb-reader-review-readable: var(--jpdb-reader-state-failed-readable);
+  --jpdb-reader-review-soft: var(--jpdb-reader-state-failed-soft);
 }
-.jpdb-reader-word.anki-suspended {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-ignored);
-  --jpdb-reader-anki-readable: var(--jpdb-reader-state-ignored-readable);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-ignored-soft);
+.jpdb-reader-word:is(.anki-suspended, .yomu-review-suspended) {
+  --jpdb-reader-review-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-review-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-review-soft: var(--jpdb-reader-state-ignored-soft);
 }
 .jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
@@ -871,11 +874,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .anki-learning,
   .anki-known,
   .anki-due,
-  .anki-failed
+  .anki-failed,
+  .yomu-review-new,
+  .yomu-review-suspended,
+  .yomu-review-learning,
+  .yomu-review-known,
+  .yomu-review-due,
+  .yomu-review-failed
 ) {
-  --jpdb-reader-anki-highlight: color-mix(
+  --jpdb-reader-review-highlight: color-mix(
     in srgb,
-    var(--jpdb-reader-anki-color) 36%,
+    var(--jpdb-reader-review-color) 36%,
     var(--jpdb-reader-highlight-backdrop)
   );
 }
@@ -1102,8 +1111,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-highlight-jpdb .jpdb-reader-word {
   --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-jpdb-highlight, transparent);
 }
-.jpdb-reader-word-highlight-anki .jpdb-reader-word {
-  --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-anki-highlight, transparent);
+.jpdb-reader-word-highlight-review .jpdb-reader-word {
+  --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-review-highlight, transparent);
 }
 .jpdb-reader-word-highlight-pitch .jpdb-reader-word {
   --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-pitch-highlight, transparent);
@@ -1112,7 +1121,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 :is(
   .jpdb-reader-word-highlight-status,
   .jpdb-reader-word-highlight-jpdb,
-  .jpdb-reader-word-highlight-anki,
+  .jpdb-reader-word-highlight-review,
   .jpdb-reader-word-highlight-pitch
 ) .jpdb-reader-word {
   --jpdb-reader-word-highlight-paint: var(
@@ -1141,8 +1150,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-underline-jpdb .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
-.jpdb-reader-word-underline-anki .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-anki-decoration, transparent);
+.jpdb-reader-word-underline-review .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-review-decoration, transparent);
 }
 .jpdb-reader-word-underline-pitch .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
@@ -1161,7 +1170,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 :is(
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-underline-jpdb,
-  .jpdb-reader-word-underline-anki,
+  .jpdb-reader-word-underline-review,
   .jpdb-reader-word-underline-pitch
 ) .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
@@ -1172,8 +1181,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-text-jpdb .jpdb-reader-word {
   --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor);
 }
-.jpdb-reader-word-text-anki .jpdb-reader-word {
-  --jpdb-reader-word-color-source: var(--jpdb-reader-source-anki-color, currentColor);
+.jpdb-reader-word-text-review .jpdb-reader-word {
+  --jpdb-reader-word-color-source: var(--jpdb-reader-source-review-color, currentColor);
 }
 .jpdb-reader-word-text-pitch .jpdb-reader-word {
   --jpdb-reader-word-color-source: var(--jpdb-reader-source-pitch-color, currentColor);
@@ -1181,7 +1190,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 :is(
   .jpdb-reader-word-text-status,
   .jpdb-reader-word-text-jpdb,
-  .jpdb-reader-word-text-anki,
+  .jpdb-reader-word-text-review,
   .jpdb-reader-word-text-pitch
 ) .jpdb-reader-word {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
@@ -1191,7 +1200,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 /* Passive describes interaction ownership, never paint. Buttons, tabs, links,
    metadata and prose all honor the enabled text/highlight/underline channels
    at rest; only the user's settings switch those channels off. */
-:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
+:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-review, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
@@ -1206,7 +1215,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   font-size: 0.58em;
   font-weight: 700;
   /* Furigana always tracks the base word it annotates: `inherit` takes the
-     word's own computed colour (page text, pitch/status/jpdb/anki tint, or the
+     word's own computed colour (page text, pitch/status/jpdb/review tint, or the
      contrast-adjusted --jpdb-reader-word-accessible-color), so the reading is
      never a muted grey that diverges from its base. -webkit-text-fill-color is
      pinned to currentColor so WebKit fills the kana with that same inherited
@@ -1389,11 +1398,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
 :is(
-  .jpdb-reader-word-highlight-anki,
-  .jpdb-reader-word-underline-anki,
-  .jpdb-reader-word-text-anki
+  .jpdb-reader-word-highlight-review,
+  .jpdb-reader-word-underline-review,
+  .jpdb-reader-word-text-review
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-anki-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-review-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-pitch,
@@ -1415,8 +1424,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-highlight-jpdb .jpdb-reader-additive-text-mirror .jpdb-reader-word {
   --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-jpdb-soft, transparent);
 }
-.jpdb-reader-word-highlight-anki .jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-anki-soft, transparent);
+.jpdb-reader-word-highlight-review .jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-review-soft, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
   color: var(--jpdb-reader-furi-accessible-color, inherit) !important;
@@ -1883,8 +1892,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   border-radius: 999px;
   /* Self-contained dark "toast" — the status pill is appended to <body>, outside the
      reader's themed scope, so --jpdb-reader-bg/-fg are unreliable here and resolved
-     to white-on-white in light mode. A fixed dark, semi-opaque chip with white text
-     stays legible over any page background in both light and dark mode. */
+     to white-on-white in light mode. A fixed dark, semi-opaque chip stays legible over
+     any page background in both light and dark mode. */
   background: rgba(17, 19, 26, 0.68) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
   color: #f5f7ff !important;
@@ -1893,8 +1902,13 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow: hidden;
 }
 
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
+/* The pill's own colour loses to the reader root's theme text colour
+   (`[data-jpdb-reader-root]`), which is dark in the light theme, so everything
+   legible inside the pill carries the light ink itself: the label, and the
+   tap hint's dismiss "×". */
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status :is(.jpdb-ocr-video-frame-status-label, .jpdb-ocr-canvas-tap-hint-dismiss) {
   color: #f5f7ff !important;
+  -webkit-text-fill-color: #f5f7ff !important;
 }
 
 .jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
@@ -1910,6 +1924,54 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"]:focus-visible {
   outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
   outline-offset: 3px;
+}
+
+/* One-time "Tap or click the page to read it" hint
+   (ocr/reader-canvas-tap-hint.ts): the canvas pill, pass-through like it, so a
+   tap on it reads the page beneath. Only its dismiss button takes pointer input.
+   It is wider than the scan pill so the whole Japanese label shows
+   (HINT_WIDTH_PX), but never wider than a phone screen, where the dismiss button
+   must stay in reach. */
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint[hidden] {
+  display: none !important;
+}
+
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint {
+  max-width: min(340px, calc(100vw - 24px)) !important;
+  overflow: visible;
+}
+
+.jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss {
+  position: relative;
+  pointer-events: auto;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: -6px;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
+  outline-offset: 1px;
+}
+
+/* A 24px target for a mouse and 44px for a finger around the same 20px glyph, so a
+   near miss dismisses the hint instead of reading the page. The hint keeps this
+   whole target off the host's controls (DISMISS_HIT_SLOP_PX in reader-canvas-tap-hint.ts). */
+.jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+}
+
+@media (pointer: coarse) {
+  .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss::before {
+    inset: -12px;
+  }
 }
 
 @keyframes jpdb-ocr-video-frame-status-spin {
@@ -4800,10 +4862,17 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   left: max(12px, env(safe-area-inset-left));
 }
 
-/* Keyboard key for each grade button (positional for four-button scales). */
+/* Keyboard key for each grade button (positional for four-button scales),
+   under its label: five grades leave no room beside "Something", and every
+   grade row shows its keys the same way. An Anki due-in interval stacks the
+   same way, with or without a key. */
+.jpdb-reader-btn[data-grade-key],
+.jpdb-reader-btn:has(> .jpdb-reader-grade-interval) {
+  flex-direction: column;
+  gap: 2px !important; /* the base button's 6px gap is !important */
+}
 .jpdb-reader-btn[data-grade-key]::after {
   content: attr(data-grade-key) / "";
-  margin-inline-start: 4px;
   padding: 0 4px;
   border: 1px solid currentColor;
   border-radius: 3px;
@@ -8103,13 +8172,18 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-action-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
   align-items: stretch;
   gap: 12px;
   padding: 0;
 }
-.jpdb-reader-kanji-mining-row {
-  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+.jpdb-reader-collect {
+  display: grid;
+  min-width: 0;
+}
+.jpdb-reader-collect > .jpdb-reader-btn {
+  width: 100%;
+  min-height: 40px;
 }
 .jpdb-reader-add-deck-select {
   position: absolute;
@@ -8132,8 +8206,10 @@ html.jpdb-reader-doodle-active * {
   pointer-events: auto;
   font: 750 12px/1 var(--jpdb-reader-font);
 }
+/* No grade column is narrower than its label: on a phone-width popup
+   "Something" widens its own button instead of spilling out of it. */
 .jpdb-reader-grades {
-  grid-template-columns: repeat(5, minmax(24px, 1fr));
+  grid-template-columns: repeat(5, minmax(min-content, 1fr));
 }
 .jpdb-reader-mining-action-row .jpdb-reader-btn {
   min-width: 0;
@@ -8145,13 +8221,13 @@ html.jpdb-reader-doodle-active * {
   white-space: nowrap;
   overflow-wrap: normal;
 }
+/* The base .jpdb-reader-btn (settings.css) is fully !important, so its 12px
+   label and 38px height hold here too; only its 16px padding, which leaves
+   five grades no room, is overridden, and that takes !important as well. */
 .jpdb-reader-grades .jpdb-reader-btn {
   min-width: 0;
-  min-height: 48px;
-  padding-inline: clamp(2px, 1cqi, 6px);
-  font-size: clamp(9.3px, 2.55cqi, 11px);
+  padding-inline: clamp(2px, 1cqi, 6px) !important;
   letter-spacing: 0;
-  line-height: 1.05;
   white-space: nowrap;
   overflow-wrap: normal;
 }
@@ -8290,16 +8366,9 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-mining-action-row {
     gap: 6px;
   }
-  .jpdb-reader-mining-action-row .jpdb-reader-btn,
-  .jpdb-reader-grades .jpdb-reader-btn {
-    min-height: 44px;
-  }
   .jpdb-reader-mining-action-row .jpdb-reader-btn {
+    min-height: 44px;
     font-size: clamp(10px, 2.85cqi, 11.5px);
-  }
-  .jpdb-reader-grades .jpdb-reader-btn {
-    padding-inline: clamp(1px, 0.75cqi, 4px);
-    font-size: clamp(8.2px, 2.2cqi, 9.8px);
   }
 }
 
@@ -8348,18 +8417,13 @@ html.jpdb-reader-doodle-active * {
     border-radius: 8px;
     font-size: 9.5px;
   }
-  .jpdb-reader-grades .jpdb-reader-btn {
-    min-height: 44px;
-    padding-inline: 1px;
-    border-radius: 8px;
-    font-size: 8.8px;
-  }
 }
 
 @media (pointer: coarse) {
   .jpdb-reader-rtk-elements > button,
   .jpdb-reader-btn.jpdb-reader-doodle-control,
   .jpdb-reader-mining-action-row .jpdb-reader-btn,
+  .jpdb-reader-collect > .jpdb-reader-btn,
   .jpdb-reader-grades .jpdb-reader-btn {
     min-height: 44px !important;
   }
@@ -8390,10 +8454,6 @@ html.jpdb-reader-doodle-active * {
   }
   .jpdb-reader-mining-action-row .jpdb-reader-btn {
     font-size: 8.8px;
-  }
-  .jpdb-reader-grades .jpdb-reader-btn {
-    padding-inline: 0;
-    font-size: 8.2px;
   }
 }
 
@@ -11885,15 +11945,15 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   --jpdb-reader-subtitle-jpdb-color: var(--jpdb-reader-jpdb-color, transparent);
   --jpdb-reader-subtitle-jpdb-text: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)));
   --jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, transparent));
-  --jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, transparent);
-  --jpdb-reader-subtitle-anki-text: var(--jpdb-reader-anki-readable, var(--jpdb-reader-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)));
-  --jpdb-reader-subtitle-anki-decoration: var(--jpdb-reader-anki-readable, var(--jpdb-reader-anki-color, transparent));
+  --jpdb-reader-subtitle-review-color: var(--jpdb-reader-review-color, transparent);
+  --jpdb-reader-subtitle-review-text: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, var(--jpdb-reader-subtitle-fallback, currentColor)));
+  --jpdb-reader-subtitle-review-decoration: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, transparent));
   --jpdb-reader-subtitle-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
   --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-subtitle-pitch-color));
   --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
   --jpdb-reader-subtitle-source-status-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-status-decoration) 28%, transparent);
   --jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-decoration) 28%, transparent);
-  --jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-decoration) 28%, transparent);
+  --jpdb-reader-subtitle-source-review-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-review-decoration) 28%, transparent);
   --jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, transparent);
   --jpdb-reader-subtitle-highlight-default: color-mix(
     in srgb,
@@ -11914,18 +11974,18 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   --jpdb-reader-subtitle-status-decoration: var(--jpdb-reader-status-color, var(--jpdb-reader-status-readable, transparent));
   --jpdb-reader-subtitle-jpdb-text: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
   --jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, transparent));
-  --jpdb-reader-subtitle-anki-text: var(--jpdb-reader-anki-color, var(--jpdb-reader-anki-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
-  --jpdb-reader-subtitle-anki-decoration: var(--jpdb-reader-anki-color, var(--jpdb-reader-anki-readable, transparent));
+  --jpdb-reader-subtitle-review-text: var(--jpdb-reader-review-color, var(--jpdb-reader-review-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
+  --jpdb-reader-subtitle-review-decoration: var(--jpdb-reader-review-color, var(--jpdb-reader-review-readable, transparent));
   --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-subtitle-pitch-color);
   --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
 }
 .jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
-.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-anki-soft, var(--jpdb-reader-source-anki-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-review :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-review-soft, var(--jpdb-reader-source-review-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka) { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }
 .jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
-.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-decoration); }
+.jpdb-reader-subtitle-underline-review :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-review-decoration); }
 /* Unknown-pitch words keep their internal class for later enrichment, but do
    not paint the old neutral grey underline. A pitch underline should mean an
    actual resolved pitch class. */
@@ -11950,9 +12010,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-text); }
 .jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }
-.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-anki-text); }
+.jpdb-reader-subtitle-text-review :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-review-text); }
 .jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-pitch-text); }
-:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-review, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   --jpdb-reader-word-highlight-paint: var(--jpdb-reader-subtitle-highlight, transparent);
   background-color: transparent !important;
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
@@ -11973,7 +12033,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
   box-shadow: var(--jpdb-reader-highlight-shadow);
 }
-:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
+:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-review, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
   text-decoration-line: none !important;
 }
 .jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
@@ -11985,11 +12045,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
      of flashing a currentColor underline while enrichment runs. */
   text-decoration-color: transparent;
 }
-:is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+:is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-review, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
   -webkit-text-fill-color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor));
 }
-:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
+:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-review, .jpdb-reader-word-text-pitch)
   :is(.jpdb-reader-newtab-immersion, [data-immersion-kit])
   .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface
   .jpdb-reader-word {

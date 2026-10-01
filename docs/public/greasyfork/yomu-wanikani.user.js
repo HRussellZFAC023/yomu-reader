@@ -2352,6 +2352,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  // The one-time reader-canvas tap hint appears once per site. Each site's record
+  // is private and keyed by a hash of its origin, so no page can read it.
+  { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
   // Reader CSS last-good cache. v3 is deliberately version-independent (see
   // styles/index) so an upgrade does not start cold; the v2 prefix family
   // stays registered so the per-version entries older installs left behind
@@ -2538,6 +2541,13 @@ async function authoritativeManagedStateEpoch(getValue) {
 function managedStateStorageKey(key, epoch) {
   if (epoch.generation === 0) return key;
   return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+function isStorageLeaseLapsed(error) {
+  return error instanceof Error && error.name === "StorageLeaseLapsedError";
+}
+const guardingLeases = /* @__PURE__ */ new Set();
+function fenceStorageLeaseWrite(key) {
+  for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
 }
 function localStorageGet(key, fallback) {
   try {
@@ -2814,11 +2824,13 @@ async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
   await assertManagedStateMutationFence(getValue, epoch);
   const stored = managedStateStoredValue(value, epoch);
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   await setValue(storageKey, stored);
   await assertManagedStateMutationFence(getValue, epoch);
 }
 async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   if (storageKey === key) {
   if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
   await deleteValue(key);
@@ -2920,7 +2932,7 @@ async function setSharedManagedValue(key, value, getValue, setValue) {
   epoch = await assertRealmManagedStateEpoch(getValue);
   await writeManagedGmValue(key, value, epoch, getValue, setValue);
   } catch (error) {
-  if (isStaleManagedStateEpochError(error)) throw error;
+  if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
   throw storageWriteError(key, "GM storage write failed", error);
   }
 }
@@ -2989,7 +3001,7 @@ async function gmStorageDelete(key) {
     const epoch = await assertRealmManagedStateEpoch(getValue);
     await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
   } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
+    if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
     debugStorageError("GM storage delete failed", key, error);
     throw storageWriteError(key, "GM storage delete failed", error);
   }
@@ -8118,10 +8130,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -8331,7 +8339,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -8374,13 +8381,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -8487,19 +8487,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -9056,7 +9046,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -9188,7 +9178,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。

@@ -1427,6 +1427,45 @@ async function requestJson(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "json" });
   return value;
 }
+const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
+let jaGrammarRuleCopyPromise;
+async function loadJaGrammarRuleCopy() {
+  jaGrammarRuleCopyPromise ??= requestJson(JA_GRAMMAR_RULE_COPY_URL, {
+  failureLabel: "Japanese grammar copy request",
+  timeoutMs: 15e3,
+  allowDirectCrossOrigin: true,
+  credentials: "omit",
+  anonymous: true
+  }).then(normalizeGrammarRuleCopy).catch(() => {
+  jaGrammarRuleCopyPromise = void 0;
+  return {};
+  });
+  return jaGrammarRuleCopyPromise;
+}
+function normalizeGrammarRuleCopy(value) {
+  if (!isGrammarRuleCopyRecord(value)) return {};
+  const copy = {};
+  for (const [ruleId, item] of Object.entries(value)) {
+  const ruleCopy = normalizeGrammarRuleCopyItem(item);
+  if (!ruleCopy) continue;
+  copy[ruleId] = ruleCopy;
+  }
+  return copy;
+}
+function normalizeGrammarRuleCopyItem(value) {
+  if (!isGrammarRuleCopyRecord(value)) return null;
+  const kind = grammarRuleCopyText(value.kind);
+  const short = grammarRuleCopyText(value.short);
+  const detail = grammarRuleCopyText(value.detail);
+  if (kind === void 0 || short === void 0 || detail === void 0) return null;
+  return { kind, short, detail };
+}
+function grammarRuleCopyText(value) {
+  return typeof value === "string" ? value : void 0;
+}
+function isGrammarRuleCopyRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 const locales = [
   {
   tag: "en",
@@ -2613,9 +2652,100 @@ const PRACTICE_SESSION_COPY = {
   practiceAudio: "問題の音声を再生"
   }
 };
+const SAVE_WAIT_COPY = {
+  en: {
+  saveWaitingForAnotherTab: `Waiting for another ${APP_NAME} tab to finish saving…`
+  },
+  ja: {
+  saveWaitingForAnotherTab: `ほかの${APP_NAME}タブの保存が終わるのを待っています…`
+  }
+};
+const GRADING_SERVICE_COPY = {
+  en: {
+  switchReviewTarget: "Switch review target",
+  switchGradingProvider: "Switch grading provider",
+  apiGradingProvider: "Preferred grading service",
+  apiGradingProviderHelp: "Where grades go when both Jiten and JPDB are connected; Automatic parsing follows it too. Study review cards grade to the service they came from, and the ⇄ toggle next to the grade buttons switches only that word.",
+  gradingServiceWordNotFound: "Not graded: this word was not found in your preferred grading service."
+  },
+  ja: {
+  switchReviewTarget: "採点先を切り替える",
+  switchGradingProvider: "採点サービスを切り替える",
+  apiGradingProvider: "優先採点サービス",
+  apiGradingProviderHelp: "JitenとJPDBの両方を接続しているときの採点先です。解析ソースが「自動」の場合も、この設定に従います。Studyの復習カードは取得元のサービスで採点され、採点ボタン横の⇄はその単語だけを切り替えます。",
+  gradingServiceWordNotFound: "優先採点サービスでこの単語が見つからなかったため、採点していません。"
+  }
+};
+const EN = {
+  collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
+  collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
+  // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
+  collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
+  collectHandoffOpened: "Opened your deck app. Finish saving there.",
+  collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
+  addedToJpdb: "Added to JPDB.",
+  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  addedToJiten: "Added to Jiten.",
+  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+  bunproNoMatchingWord: "Bunpro has no entry for this word.",
+  addedToBunpro: "Added to Bunpro.",
+  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
+  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+};
+const JA = {
+  collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
+  collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
+  collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
+  collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
+  collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
+  addedToJpdb: "JPDBに追加しました。",
+  jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
+  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  addedToJiten: "Jitenに追加しました。",
+  bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
+  bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
+  addedToBunpro: "Bunproに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
+  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "Academyに追加しました。"
+};
+const COLLECTION_COPY = { en: EN, ja: JA };
+const EN_OCR_STATUS_COPY = {
+  ocrPlayVideo: "Play video",
+  ocrPausedFrameScanning: "Scanning...",
+  ocrPausedFrameReady: "Text ready",
+  ocrPausedFrameNoText: "No text found",
+  ocrPausedFrameFailed: "Could not read text",
+  ocrRetryScan: "Scan again",
+  ocrNoReadableImages: "No readable images nearby.",
+  ocrCanvasTapHint: "Tap or click the page to read it",
+  ocrCanvasTapHintDismiss: "Dismiss tip"
+};
+const JA_OCR_STATUS_COPY = {
+  ocrPlayVideo: "動画を再生",
+  ocrPausedFrameScanning: "スキャン中...",
+  ocrPausedFrameReady: "テキスト準備完了",
+  ocrPausedFrameNoText: "テキストが見つかりません",
+  ocrPausedFrameFailed: "テキストを読み取れませんでした",
+  ocrRetryScan: "再スキャン",
+  ocrNoReadableImages: "近くに読み取れる画像がありません。",
+  ocrCanvasTapHint: "ページをタップまたはクリックすると読めます",
+  ocrCanvasTapHintDismiss: "ヒントを閉じる"
+};
+const OCR_STATUS_COPY = {
+  en: EN_OCR_STATUS_COPY,
+  ja: JA_OCR_STATUS_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
+  ...COLLECTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
   onboardingEyebrow: "{language}, wherever it appears",
@@ -2668,6 +2798,7 @@ const COPY = {
   settingsSaveFailed: "Settings save failed.",
   settingsCompanionUnavailable: "Settings could not be opened.",
   ...SETTINGS_RECOVERY_COPY.en,
+  ...SAVE_WAIT_COPY.en,
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -3211,7 +3342,7 @@ const COPY = {
   parserProviderJiten: "Jiten API",
   parserProviderJpdb: "JPDB API",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   offlineDictionarySetupComplete: "Offline dictionaries installed.",
   offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
   copiesCurrentWord: "Copies the current word",
@@ -3362,7 +3493,6 @@ const COPY = {
   subtitleLines: "Lines",
   shadow: "Shadow",
   subtitleTracks: "Tracks",
-  batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
   subtitleTrackTiming: "Subtitle timing",
   subtitleOffsetPrevious: "Align previous subtitle to current time",
   subtitleOffsetNext: "Align next subtitle to current time",
@@ -3436,13 +3566,7 @@ const COPY = {
   ankiMappingConfidenceMedium: "fuzzy match",
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
-  ocrPlayVideo: "Play video",
-  ocrPausedFrameScanning: "Scanning...",
-  ocrPausedFrameReady: "Text ready",
-  ocrPausedFrameNoText: "No text found",
-  ocrPausedFrameFailed: "Could not read text",
-  ocrRetryScan: "Scan again",
-  ocrNoReadableImages: "No readable images nearby.",
+  ...OCR_STATUS_COPY.en,
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -3492,10 +3616,7 @@ const COPY = {
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
   hideMiningActions: "Hide mining actions",
-  switchReviewTarget: "Switch review target",
-  switchGradingProvider: "Switch grading provider",
-  apiGradingProvider: "Preferred grading service",
-  apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
+  ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
   apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -3676,19 +3797,9 @@ const COPY = {
   jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
   jpdbRequestFailedError: "JPDB request failed. Try again.",
   jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
-  addedToJpdb: "Added to JPDB.",
   jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
-  addedToJiten: "Added to Jiten.",
-  addedToBunpro: "Added to Bunpro.",
   addedToWanikani: "Recorded on WaniKani.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
   kanjiDetailsUnavailable: "Kanji details are not available yet.",
   loadingDictionaryDetails: "Loading dictionary details...",
   jitenCompositeWords: "Composite words",
@@ -3745,7 +3856,7 @@ const COPY = {
   removeImportedDictionary: "Remove imported dictionary",
   customAdvanced: "{label} (advanced)",
   importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
-  frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
+  metadataDictionariesHelp: "Metadata dictionaries appear as badges or kanji data.",
   sourceHelpJpdb: "JPDB meanings from the current card.",
   sourceHelpJiten: "Jiten meanings, examples, and related words.",
   sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
@@ -3922,10 +4033,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -4135,7 +4242,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -4178,13 +4284,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -4291,19 +4390,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -4355,7 +4444,11 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
-  ...PRACTICE_SESSION_COPY.ja
+  ...PRACTICE_SESSION_COPY.ja,
+  ...SAVE_WAIT_COPY.ja,
+  ...GRADING_SERVICE_COPY.ja,
+  ...COLLECTION_COPY.ja,
+  ...OCR_STATUS_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -4869,7 +4962,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -5001,7 +5094,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
@@ -5042,8 +5135,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ...SUBTITLE_SETTINGS_COPY.ja,
   ...TARGET_AWARE_UI_COPY.ja
 };
-const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
-let jaGrammarRuleCopyPromise;
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
   return browserPrefersJapanese() ? "ja" : "en";
@@ -5100,43 +5191,6 @@ const AUDIO_SOURCE_LABEL_KEYS = {
   custom: "audioSourceCustom",
   "custom-json": "audioSourceCustomJson"
 };
-async function loadJaGrammarRuleCopy() {
-  jaGrammarRuleCopyPromise ??= requestJson(JA_GRAMMAR_RULE_COPY_URL, {
-  failureLabel: "Japanese grammar copy request",
-  timeoutMs: 15e3,
-  allowDirectCrossOrigin: true,
-  credentials: "omit",
-  anonymous: true
-  }).then(normalizeGrammarRuleCopy).catch(() => {
-  jaGrammarRuleCopyPromise = void 0;
-  return {};
-  });
-  return jaGrammarRuleCopyPromise;
-}
-function normalizeGrammarRuleCopy(value) {
-  if (!isGrammarRuleCopyRecord(value)) return {};
-  const copy = {};
-  for (const [ruleId, item] of Object.entries(value)) {
-  const ruleCopy = normalizeGrammarRuleCopyItem(item);
-  if (!ruleCopy) continue;
-  copy[ruleId] = ruleCopy;
-  }
-  return copy;
-}
-function normalizeGrammarRuleCopyItem(value) {
-  if (!isGrammarRuleCopyRecord(value)) return null;
-  const kind = grammarRuleCopyText(value.kind);
-  const short = grammarRuleCopyText(value.short);
-  const detail = grammarRuleCopyText(value.detail);
-  if (kind === void 0 || short === void 0 || detail === void 0) return null;
-  return { kind, short, detail };
-}
-function grammarRuleCopyText(value) {
-  return typeof value === "string" ? value : void 0;
-}
-function isGrammarRuleCopyRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 let sandboxCompanions = {};
 function registerYomuCompanion(key, value) {
   writeYomuCompanions({

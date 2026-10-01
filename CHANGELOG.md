@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.0.5] - 2026-10-01
+
+### Changed
+
+- "Add to deck +" now sits beside the grade buttons in the lookup popup, so you can save a word without grading it or opening the mining drawer first.
+- "Add to deck +" appears for every word one of your turned-on decks can take, whichever dictionary found it. If Bunpro is your only deck, for example, words parsed by JPDB can still be saved to Bunpro.
+- Subtitle Batch Mine: "Add selected" saves each word to the same deck as "Add to deck +". It skips and names any selected word your grading service does not have or none of your decks can take, including one Bunpro has no entry for, and still adds the others.
+- On websites, "Add to deck +" now confirms with "Added to deck.", and its messages no longer name the service, the deck or whether Anki already has the word, so the site cannot read where you save. Study still names them.
+- With both JPDB and Jiten connected, grades and "Add to deck +" on page and subtitle words go to your "Preferred grading service", and Automatic parsing uses that service too. If it has no word with the same spelling and reading, Yomu neither grades nor saves the word anywhere and says so: "Not graded: this word was not found in your preferred grading service." or "Not saved: this word was not found in your preferred grading service."
+- Subtitle batch grading checks all selected words in one request. A word your grading service does not have is skipped and named, its row says why, and the other selected words are still graded.
+- The ⇄ toggle next to the grade buttons in Study now switches only that word. To switch all words, change "Preferred grading service" in Settings.
+- On a page Yomu does not scan automatically, a manga page drawn on a canvas is read straight away by your own OCR server ("Local OCR server"). Google Lens and Cloud Vision still get the page only when you tap or click it, and the first such page on each site shows a one-time "Tap or click the page to read it" hint.
+- With Google Lens or Cloud Vision, moving the mouse over such a page no longer sends it. Only a tap or click does. "Tap or hover" mode still reads on hover.
+- Stats shows a "Saved" tile when Academy words are waiting in Library and are not yet in review. Choosing it opens Library on just those words, under a new "Saved" filter, where "Add to review" schedules each one. Library and Study's lookup popup now call them "Saved" instead of "In deck".
+
+### Fixed
+
+- On ordinary websites, colour settings set to "Anki status" (including the default "Word text color") colour words by their Anki state again. Since 1.9.1 they painted nothing outside Study. Subtitle colours and Academy reading pages work the same way.
+- "Anki status" colours only words you have an Anki card for. When no colour setting uses it, Yomu leaves no Anki marks on a website's words, so the site cannot see which words are in your Anki collection.
+- Review cards in Study always grade into the queue they came from, including when you open them in the lookup popup.
+- When a Yomu tab closes or crashes while saving, saving in another tab waits a few seconds at most, not about a minute. If another tab holds your save up for more than a moment, you see "Waiting for another よむ tab to finish saving…" where the save's result appears.
+- A tab paused partway through a save, for example after switching apps on iPhone, can no longer overwrite a save another tab made in the meantime. Its save fails visibly, so you can save again. A paused Study tab no longer sends a review that another Study tab has already claimed.
+- A page you tapped on a CSS-background manga reader keeps its text instead of losing it a moment later, so it is not uploaded twice. Switching from a local OCR server to Google Lens or Cloud Vision no longer sends a page queued for the local server to the new provider.
+- Grade buttons in the lookup popup show their keyboard key under the label, and Anki's due-in times sit under it too, so labels, keys and times stay inside their buttons at every popup width, including JPDB's five grades on a phone.
+- With your system in dark mode and the theme on Auto, the lookup popup on a light page showed "Add to deck +" and its word-state and pitch colours in pale dark-theme shades that were hard to read. They now follow the popup's light theme.
+- If Bunpro has no entry for a word you save, the popup says so instead of "Action failed."
+- Keyboard users stay on the same button after an action refreshes the popup, including after choosing a deck in Study's "Add to deck +" picker.
+- Stats → Connections: each card shows only its own buttons. Academy no longer shows "Anki settings", and Bunpro and WaniKani open "API settings", where their tokens are kept, instead of offering "Connect Anki" and "Anki settings".
+- Academy figures in Stats count only your active learning target, as Study and Library already do, and none are counted with "Enable Academy" off. Changing the learning target while Stats is open reloads it straight away.
+- In Study, a word you save or change from a lookup popup now shows in "Library" the next time you open it and in the next "Show only" list you choose, and "Stats" counts it straight away. Before, they kept what they first loaded until you reloaded the page.
+- In Settings → "Sources", the help line about metadata dictionaries appears in Japanese when the interface is in Japanese.
+- In Japanese, the ⇄ button in a Study lookup popup is now named "採点先を切り替える" for its tooltip and screen readers, and its list of services "採点先". Both were in English before.
+- A web page that takes and keeps the lock Yomu uses for saving can no longer stop your word or Settings saves on that page from finishing. Yomu waits a few seconds, then saves anyway, still one tab at a time.
+
 ## [2.0.4] - 2026-10-01
 
 ### Fixed

@@ -981,6 +981,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  // The one-time reader-canvas tap hint appears once per site. Each site's record
+  // is private and keyed by a hash of its origin, so no page can read it.
+  { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
   // Reader CSS last-good cache. v3 is deliberately version-independent (see
   // styles/index) so an upgrade does not start cold; the v2 prefix family
   // stays registered so the per-version entries older installs left behind
@@ -1459,6 +1462,13 @@ function removeStorageValue(storage, key, label) {
 }
 const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+function isStorageLeaseLapsed(error) {
+  return error instanceof Error && error.name === "StorageLeaseLapsedError";
+}
+const guardingLeases = /* @__PURE__ */ new Set();
+function fenceStorageLeaseWrite(key) {
+  for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
+}
 const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
   "yomu:factory-reset-signal",
   MANAGED_STATE_EPOCH_KEY,
@@ -1896,11 +1906,13 @@ async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
   await assertManagedStateMutationFence(getValue, epoch);
   const stored = managedStateStoredValue(value, epoch);
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   await setValue(storageKey, stored);
   await assertManagedStateMutationFence(getValue, epoch);
 }
 async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   if (storageKey === key) {
   if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
   await deleteValue(key);
@@ -2105,7 +2117,7 @@ async function setSharedManagedValue(key, value, getValue, setValue) {
   epoch = await assertRealmManagedStateEpoch(getValue);
   await writeManagedGmValue(key, value, epoch, getValue, setValue);
   } catch (error) {
-  if (isStaleManagedStateEpochError(error)) throw error;
+  if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
   throw storageWriteError(key, "GM storage write failed", error);
   }
 }
@@ -2174,7 +2186,7 @@ async function gmStorageDelete(key) {
     const epoch = await assertRealmManagedStateEpoch(getValue);
     await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
   } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
+    if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
     debugStorageError("GM storage delete failed", key, error);
     throw storageWriteError(key, "GM storage delete failed", error);
   }
@@ -8954,9 +8966,100 @@ const PRACTICE_SESSION_COPY = {
   practiceAudio: "問題の音声を再生"
   }
 };
+const SAVE_WAIT_COPY = {
+  en: {
+  saveWaitingForAnotherTab: `Waiting for another ${APP_NAME} tab to finish saving…`
+  },
+  ja: {
+  saveWaitingForAnotherTab: `ほかの${APP_NAME}タブの保存が終わるのを待っています…`
+  }
+};
+const GRADING_SERVICE_COPY = {
+  en: {
+  switchReviewTarget: "Switch review target",
+  switchGradingProvider: "Switch grading provider",
+  apiGradingProvider: "Preferred grading service",
+  apiGradingProviderHelp: "Where grades go when both Jiten and JPDB are connected; Automatic parsing follows it too. Study review cards grade to the service they came from, and the ⇄ toggle next to the grade buttons switches only that word.",
+  gradingServiceWordNotFound: "Not graded: this word was not found in your preferred grading service."
+  },
+  ja: {
+  switchReviewTarget: "採点先を切り替える",
+  switchGradingProvider: "採点サービスを切り替える",
+  apiGradingProvider: "優先採点サービス",
+  apiGradingProviderHelp: "JitenとJPDBの両方を接続しているときの採点先です。解析ソースが「自動」の場合も、この設定に従います。Studyの復習カードは取得元のサービスで採点され、採点ボタン横の⇄はその単語だけを切り替えます。",
+  gradingServiceWordNotFound: "優先採点サービスでこの単語が見つからなかったため、採点していません。"
+  }
+};
+const EN = {
+  collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
+  collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
+  // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
+  collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
+  collectHandoffOpened: "Opened your deck app. Finish saving there.",
+  collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
+  addedToJpdb: "Added to JPDB.",
+  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  addedToJiten: "Added to Jiten.",
+  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+  bunproNoMatchingWord: "Bunpro has no entry for this word.",
+  addedToBunpro: "Added to Bunpro.",
+  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
+  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`
+};
+const JA = {
+  collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
+  collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
+  collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
+  collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
+  collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
+  addedToJpdb: "JPDBに追加しました。",
+  jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
+  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  addedToJiten: "Jitenに追加しました。",
+  bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
+  bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
+  addedToBunpro: "Bunproに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
+  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "Academyに追加しました。"
+};
+const COLLECTION_COPY = { en: EN, ja: JA };
+const EN_OCR_STATUS_COPY = {
+  ocrPlayVideo: "Play video",
+  ocrPausedFrameScanning: "Scanning...",
+  ocrPausedFrameReady: "Text ready",
+  ocrPausedFrameNoText: "No text found",
+  ocrPausedFrameFailed: "Could not read text",
+  ocrRetryScan: "Scan again",
+  ocrNoReadableImages: "No readable images nearby.",
+  ocrCanvasTapHint: "Tap or click the page to read it",
+  ocrCanvasTapHintDismiss: "Dismiss tip"
+};
+const JA_OCR_STATUS_COPY = {
+  ocrPlayVideo: "動画を再生",
+  ocrPausedFrameScanning: "スキャン中...",
+  ocrPausedFrameReady: "テキスト準備完了",
+  ocrPausedFrameNoText: "テキストが見つかりません",
+  ocrPausedFrameFailed: "テキストを読み取れませんでした",
+  ocrRetryScan: "再スキャン",
+  ocrNoReadableImages: "近くに読み取れる画像がありません。",
+  ocrCanvasTapHint: "ページをタップまたはクリックすると読めます",
+  ocrCanvasTapHintDismiss: "ヒントを閉じる"
+};
+const OCR_STATUS_COPY = {
+  en: EN_OCR_STATUS_COPY,
+  ja: JA_OCR_STATUS_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
+  ...COLLECTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
   onboardingEyebrow: "{language}, wherever it appears",
@@ -9009,6 +9112,7 @@ const COPY = {
   settingsSaveFailed: "Settings save failed.",
   settingsCompanionUnavailable: "Settings could not be opened.",
   ...SETTINGS_RECOVERY_COPY.en,
+  ...SAVE_WAIT_COPY.en,
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -9552,7 +9656,7 @@ const COPY = {
   parserProviderJiten: "Jiten API",
   parserProviderJpdb: "JPDB API",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   offlineDictionarySetupComplete: "Offline dictionaries installed.",
   offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
   copiesCurrentWord: "Copies the current word",
@@ -9703,7 +9807,6 @@ const COPY = {
   subtitleLines: "Lines",
   shadow: "Shadow",
   subtitleTracks: "Tracks",
-  batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
   subtitleTrackTiming: "Subtitle timing",
   subtitleOffsetPrevious: "Align previous subtitle to current time",
   subtitleOffsetNext: "Align next subtitle to current time",
@@ -9777,13 +9880,7 @@ const COPY = {
   ankiMappingConfidenceMedium: "fuzzy match",
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
-  ocrPlayVideo: "Play video",
-  ocrPausedFrameScanning: "Scanning...",
-  ocrPausedFrameReady: "Text ready",
-  ocrPausedFrameNoText: "No text found",
-  ocrPausedFrameFailed: "Could not read text",
-  ocrRetryScan: "Scan again",
-  ocrNoReadableImages: "No readable images nearby.",
+  ...OCR_STATUS_COPY.en,
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -9833,10 +9930,7 @@ const COPY = {
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
   hideMiningActions: "Hide mining actions",
-  switchReviewTarget: "Switch review target",
-  switchGradingProvider: "Switch grading provider",
-  apiGradingProvider: "Preferred grading service",
-  apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
+  ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
   apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -10017,19 +10111,9 @@ const COPY = {
   jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
   jpdbRequestFailedError: "JPDB request failed. Try again.",
   jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
-  addedToJpdb: "Added to JPDB.",
   jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
-  addedToJiten: "Added to Jiten.",
-  addedToBunpro: "Added to Bunpro.",
   addedToWanikani: "Recorded on WaniKani.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
   kanjiDetailsUnavailable: "Kanji details are not available yet.",
   loadingDictionaryDetails: "Loading dictionary details...",
   jitenCompositeWords: "Composite words",
@@ -10086,7 +10170,7 @@ const COPY = {
   removeImportedDictionary: "Remove imported dictionary",
   customAdvanced: "{label} (advanced)",
   importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
-  frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
+  metadataDictionariesHelp: "Metadata dictionaries appear as badges or kanji data.",
   sourceHelpJpdb: "JPDB meanings from the current card.",
   sourceHelpJiten: "Jiten meanings, examples, and related words.",
   sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
@@ -10263,10 +10347,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -10476,7 +10556,6 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
-batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -10519,13 +10598,6 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrPlayVideo	動画を再生
-ocrPausedFrameScanning	スキャン中...
-ocrPausedFrameReady	テキスト準備完了
-ocrPausedFrameNoText	テキストが見つかりません
-ocrPausedFrameFailed	テキストを読み取れませんでした
-ocrRetryScan	再スキャン
-ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -10632,19 +10704,9 @@ jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しば
 jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
 jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
-addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
-jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
-bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
-yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
-yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
-chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
-addedToJiten	Jitenに追加しました。
-addedToBunpro	Bunproに追加しました。
 addedToWanikani	WaniKaniに記録しました。
-addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
@@ -10696,7 +10758,11 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
-  ...PRACTICE_SESSION_COPY.ja
+  ...PRACTICE_SESSION_COPY.ja,
+  ...SAVE_WAIT_COPY.ja,
+  ...GRADING_SERVICE_COPY.ja,
+  ...COLLECTION_COPY.ja,
+  ...OCR_STATUS_COPY.ja
 };
 const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
@@ -11210,7 +11276,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -11342,7 +11408,7 @@ remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
-frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+metadataDictionariesHelp	メタデータ辞書は、バッジや漢字データとして表示されます。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
@@ -11410,6 +11476,9 @@ function formatUiText(language, key, values) {
   (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
   message
   );
+}
+function uiList(language, parts) {
+  return new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
@@ -14791,6 +14860,9 @@ const SUBTITLE_COPY = {
   bmBusy: "A batch action is still running.",
   bmCapacity: "Batch history limit reached. Use a smaller selection, or finish pending batches and rescan. Unfinished work has been kept.",
   bmPartial: "Completed {count} of {total} words. Unfinished words remain selected.",
+  bmNotFound: "Not found in your preferred grading service, so not graded: {words}.",
+  bmNoDestination: "None of your decks could take these, so not added: {words}.",
+  bmNotFoundAdd: "Not found in your preferred grading service, so not added: {words}.",
   bmUncertain: "Review result is uncertain. Refresh the provider review session before reviewing this word again.",
   bmCopy: "Copy list",
   bmGradeSelected: "Grade selected",
@@ -14840,6 +14912,9 @@ const SUBTITLE_COPY = {
   bmBusy: "一括操作を実行中です。",
   bmCapacity: "一括操作の履歴が上限に達しました。選択数を減らすか、未完了の操作を終えて再スキャンしてください。未完了の処理は保持しています。",
   bmPartial: "{total}語中{count}語が完了しました。未完了の単語は選択したままです。",
+  bmNotFound: "優先採点サービスで見つからなかったため、採点していません：{words}",
+  bmNoDestination: "追加できるデッキがなかったため、追加していません：{words}",
+  bmNotFoundAdd: "優先採点サービスで見つからなかったため、追加していません：{words}",
   bmUncertain: "復習結果を確認できません。この単語を再び復習する前に、サービスの復習セッションを更新してください。",
   bmCopy: "リストをコピー",
   bmGradeSelected: "選択を評価",
@@ -20017,13 +20092,14 @@ async function copyText(text) {
   document.execCommand("copy");
   textarea.remove();
 }
-const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
-const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
-const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+const DECK_KEY_PREFIX = "yomu:srs-local:v2:";
+const DECK_INDEX_KEY = `${DECK_KEY_PREFIX}index`;
+const CARD_KEY_PREFIX = `${DECK_KEY_PREFIX}card:`;
+const TOMBSTONE_KEY_PREFIX = `${DECK_KEY_PREFIX}tombstone:`;
 registerManagedState({
   owner: "srs/local-yomu-store",
   kind: "gm",
-  prefix: "yomu:srs-local:v2:",
+  prefix: DECK_KEY_PREFIX,
   enumerate: enumerateLocalYomuSrsStorageKeys
 });
 async function enumerateLocalYomuSrsStorageKeys() {
@@ -20879,7 +20955,8 @@ class SubtitleBatchActions {
     candidatePlans,
     selectedPlans: chosen.flatMap((plan) => plan ? [plan.token] : []),
     reviewGrades: grades.map(([grade, label]) => ({ grade, label })),
-    canCollect: complete && chosen.every((plan) => plan.canCollect),
+    // A word no enabled destination can take does not block the others.
+    canCollect: complete && chosen.some((plan) => plan.canCollect) && chosen.every((plan) => plan.canCollect || plan.noDestination),
     incompatible: chosen.length > 0 && (!complete || !grades.length),
     busy: false
   };
@@ -20899,18 +20976,19 @@ class SubtitleBatchActions {
   try {
     const result = await execute(plans, action, command.grade);
     let completed = 0;
+    const skipped = { unmatched: [], "no-destination": [] };
     for (const item of result.items) {
       const candidate = this.candidates.get(item.token);
-      if (item.state !== "completed" || !candidate) continue;
-      completed += 1;
+      if (!candidate || !["completed", "unmatched", "no-destination"].includes(item.state)) continue;
+      if (item.state === "completed") completed += 1;
+      else skipped[item.state].push(candidate.card.spelling);
       const current = this.deps.getCandidates().find((current2) => current2.key === candidate.key && current2.card === candidate.card);
       if (current) {
         current.state = primaryCardState(current.card.cardState);
         this.deps.getSelected().delete(candidate.key);
       }
     }
-    const message = result.rejected === "busy" ? subtitleText(language, "bmBusy") : result.rejected === "capacity" ? subtitleText(language, "bmCapacity") : result.rejected === "stale" ? subtitleText(language, "bmPlanChanged") : result.rejected ? subtitleText(language, "bmIncompatible") : completed === plans.length ? formatSubtitleText(language, action === "collect" ? "bmAdded" : "bmGraded", { count: completed }) : formatSubtitleText(language, "bmPartial", { count: completed, total: plans.length });
-    this.deps.toast(message);
+    this.deps.toast(batchResultMessage(language, action, result, { completed, total: plans.length, skipped }));
   } catch {
     this.deps.toast(subtitleText(language, action === "collect" ? "bmAddFailed" : "bmGradeFailed"));
   } finally {
@@ -20926,6 +21004,18 @@ class SubtitleBatchActions {
     return planned && this.deps.getCandidates().some((candidate) => candidate.key === planned.key && candidate.card === planned.card);
   });
   }
+}
+function batchResultMessage(language, action, result, counts) {
+  if (result.rejected) {
+  return subtitleText(language, result.rejected === "busy" ? "bmBusy" : result.rejected === "capacity" ? "bmCapacity" : result.rejected === "stale" ? "bmPlanChanged" : "bmIncompatible");
+  }
+  const { completed, total, skipped } = counts;
+  const outcome = completed + skipped.unmatched.length + skipped["no-destination"].length < total ? formatSubtitleText(language, "bmPartial", { count: completed, total }) : completed ? formatSubtitleText(language, action === "collect" ? "bmAdded" : "bmGraded", { count: completed }) : "";
+  const notes = [
+  [action === "collect" ? "bmNotFoundAdd" : "bmNotFound", skipped.unmatched],
+  ["bmNoDestination", skipped["no-destination"]]
+  ].filter(([, words]) => words.length).map(([key, words]) => formatSubtitleText(language, key, { words: uiList(language, words) }));
+  return [outcome, ...notes].reduce((message, next) => !next ? message : !message ? next : `${message}${message.endsWith("。") ? "" : " "}${next}`, "");
 }
 function renderSubtitleBatchMiningPanel(state) {
   const language = state.language;
@@ -21022,6 +21112,7 @@ function renderBatchMiningIPlusOneBadge(candidate, language) {
 function renderBatchMiningCandidateGrades(candidate, state) {
   const plan = state.candidatePlans?.get(candidate.key);
   if (plan?.uncertain) return `<p class="jpdb-reader-help">${escapeHtml(subtitleText(state.language, "bmUncertain"))}</p>`;
+  if (plan?.unmatched) return `<p class="jpdb-reader-help">${escapeHtml(uiText(state.language, "gradingServiceWordNotFound"))}</p>`;
   if (!plan?.grades.length) return "";
   const label = `${subtitleText(state.language, "bmGradeWord")}: ${candidate.card.spelling}`;
   return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({

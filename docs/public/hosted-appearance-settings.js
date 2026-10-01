@@ -861,6 +861,9 @@ var MANAGED_STATE_MANIFEST = [
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  // The one-time reader-canvas tap hint appears once per site. Each site's record
+  // is private and keyed by a hash of its origin, so no page can read it.
+  { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
   // Reader CSS last-good cache. v3 is deliberately version-independent (see
   // styles/index) so an upgrade does not start cold; the v2 prefix family
   // stays registered so the per-version entries older installs left behind
@@ -1221,125 +1224,279 @@ function removeStorageValue(storage, key, label) {
 // src/reader/app/gm-storage-lease.ts
 var MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
 var STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
-async function withGmStorageLeaseCore(name, operation, options, environment) {
-  return withWebStorageLock(name, () => withSharedStorageLease(name, operation, options, environment));
-}
-async function withSharedStorageLease(name, operation, options, environment) {
-  const { getValue, setValue, deleteValue, listValues } = environment.backend;
-  if (!getValue || !setValue || !deleteValue || !listValues) {
-    const epoch2 = await environment.captureEpoch(getValue);
-    await environment.assertMutationFence(getValue, epoch2);
-    const result = await operation();
-    await environment.assertMutationFence(getValue, epoch2);
-    return result;
+var STORAGE_WORK_LEASE_MS = 5e3;
+var DEFAULT_LEASE_MS = 6e4;
+var LEASE_ROUND_TRIPS = 20;
+var WAIT_NOTICE_MS = 1500;
+var StorageLeaseLapsedError = class extends Error {
+  name = "StorageLeaseLapsedError";
+  constructor(key) {
+    super(`Storage lease lapsed before it was renewed: ${key}`);
   }
+};
+function isStorageLeaseLapsed(error) {
+  return error instanceof Error && error.name === "StorageLeaseLapsedError";
+}
+var guardingLeases = /* @__PURE__ */ new Set();
+var realmClaimOwners = /* @__PURE__ */ new Set();
+var realmWebLockRequests = /* @__PURE__ */ new Map();
+function fenceStorageLeaseWrite(key) {
+  for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
+}
+async function withGmStorageLeaseCore(name, operation, options, environment) {
+  const wait = new StorageLeaseWait(options.onWait);
+  const boundedLockWait = !environment.hostedOrigin && storageLeaseIo(environment.backend);
+  const lockWaitMs = boundedLockWait ? options.leaseMs ?? DEFAULT_LEASE_MS : void 0;
+  try {
+    return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
+      wait.end();
+      return operation();
+    }, options, environment, wait), wait, lockWaitMs);
+  } finally {
+    wait.end();
+  }
+}
+var StorageLeaseWait = class {
+  constructor(onWait) {
+    this.onWait = onWait;
+  }
+  state = "running";
+  timer;
+  /** Another tab holds the lease, or is ahead in its queue. */
+  blocked() {
+    if (!this.onWait || this.state !== "running") return;
+    this.state = "blocked";
+    this.timer = setTimeout(() => {
+      this.state = "told";
+      this.onWait?.(true);
+    }, WAIT_NOTICE_MS);
+  }
+  /** The caller got past what blocked it; a wait it was not yet told about starts over. */
+  passed() {
+    if (this.state !== "blocked") return;
+    clearTimeout(this.timer);
+    this.state = "running";
+  }
+  end() {
+    clearTimeout(this.timer);
+    if (this.state === "told") this.onWait?.(false);
+    this.state = "ended";
+  }
+};
+async function withSharedStorageLease(name, operation, options, environment, wait) {
+  const { getValue } = environment.backend;
   const epoch = await environment.captureEpoch(getValue);
   await environment.assertMutationFence(getValue, epoch);
-  const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
-  const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
-  const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
-  const owner = createStorageCoordinationId();
-  const claimId = createStorageCoordinationId();
-  const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
-  const key = `${prefix}${owner}`;
-  const startedAt = Date.now();
-  let claim = {
-    version: 1,
-    claimId,
-    owner,
-    epoch: environment.epochToken(epoch),
-    choosing: true,
-    ticket: 0,
-    leaseUntil: startedAt + leaseMs
-  };
-  const writeClaim = async (nextClaim) => {
+  const io = storageLeaseIo(environment.backend);
+  if (!io) {
+    const result = await operation();
     await environment.assertMutationFence(getValue, epoch);
-    try {
-      await setValue(key, nextClaim);
-      await environment.assertMutationFence(getValue, epoch);
-      await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
-    } catch (error) {
-      await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
-        debugStorageLeaseError("GM storage lease rollback failed", key, cleanupError);
-      });
-      throw error;
-    }
-  };
-  await writeClaim(claim);
-  try {
-    const initialClaims = await readStorageLeaseClaims(
-      prefix,
-      listValues,
-      getValue,
-      environment.epochToken(epoch),
-      Date.now()
-    );
-    const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
-    claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-    await writeClaim(claim);
-    while (true) {
-      await environment.assertMutationFence(getValue, epoch);
-      const now = Date.now();
-      if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
-      const claims = await readStorageLeaseClaims(
-        prefix,
-        listValues,
-        getValue,
-        environment.epochToken(epoch),
-        now
-      );
-      const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-      if (!blocked) break;
-      if (claim.leaseUntil - now <= leaseMs / 2) {
-        claim = { ...claim, leaseUntil: now + leaseMs };
-        await writeClaim(claim);
-      }
-      await storageLeaseDelay(pollMs);
-    }
-    let renewalStopped = false;
-    let renewal = Promise.resolve();
-    let leaseLost;
-    let leaseWasLost = false;
-    const renewalTimer = setInterval(() => {
-      renewal = renewal.then(async () => {
-        if (renewalStopped || leaseLost) return;
-        await assertStorageLeaseClaimOwned(key, claim, getValue);
-        claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-        await writeClaim(claim);
-      }).catch((error) => {
-        leaseLost = error;
-        leaseWasLost = true;
-        debugStorageLeaseError("GM storage lease renewal failed", key, error);
-      });
-    }, Math.max(250, Math.floor(leaseMs / 3)));
-    let result;
-    let operationError;
-    let operationFailed = false;
-    try {
-      await environment.assertMutationFence(getValue, epoch);
-      await assertStorageLeaseClaimOwned(key, claim, getValue);
-      result = await operation();
-      await environment.assertMutationFence(getValue, epoch);
-      await assertStorageLeaseClaimOwned(key, claim, getValue);
-    } catch (error) {
-      operationFailed = true;
-      operationError = error;
-    } finally {
-      renewalStopped = true;
-      clearInterval(renewalTimer);
-      await renewal;
-    }
-    if (operationFailed) throw operationError;
-    if (leaseWasLost) throw leaseLost;
     return result;
-  } finally {
+  }
+  const leaseMs = boundedLeaseOption(options.leaseMs, DEFAULT_LEASE_MS, 1e3, 10 * 6e4);
+  return new StorageLeaseClaimant({
+    guards: options.guards,
+    prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
+    epoch: environment.epochToken(epoch),
+    io,
+    fence: () => environment.assertMutationFence(getValue, epoch),
+    leaseMs,
+    pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1e3),
+    timeoutMs: boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4),
+    timeoutMessage: `Timed out waiting for storage lease: ${name}`,
+    wait
+  }).run(operation);
+}
+function storageLeaseIo(backend) {
+  const { getValue, setValue, deleteValue, listValues } = backend;
+  return [getValue, setValue, deleteValue, listValues].every(Boolean) ? backend : null;
+}
+var StorageLeaseClaimant = class {
+  constructor(lease) {
+    this.lease = lease;
+    const owner = createStorageCoordinationId();
+    this.key = `${lease.prefix}${owner}`;
+    this.promptLandingMs = Math.min(1e3, Math.floor(lease.leaseMs / 5));
+    this.claim = {
+      version: 1,
+      claimId: createStorageCoordinationId(),
+      owner,
+      epoch: lease.epoch,
+      choosing: true,
+      ticket: 0,
+      leaseUntil: 0
+    };
+  }
+  key;
+  startedAt = Date.now();
+  // Time for a write to land while the claim it extends is still live, when storage is prompt.
+  promptLandingMs;
+  claim;
+  // The leaseUntil other tabs can already read: a claim counts once its write has landed.
+  liveUntil = 0;
+  // How long storage took to answer one call of the last claim write.
+  roundTripMs = 0;
+  async run(operation) {
+    realmClaimOwners.add(this.claim.owner);
     try {
-      await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue);
-    } catch (error) {
-      debugStorageLeaseError("GM storage lease release failed", key, error);
+      await this.waitForTurn();
+      return await this.hold(operation);
+    } finally {
+      const { getValue, deleteValue } = this.lease.io;
+      try {
+        await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
+      } catch (error) {
+        debugStorageLeaseError("GM storage lease release failed", this.key, error);
+      }
+      realmClaimOwners.delete(this.claim.owner);
     }
   }
-}
+  /**
+   * A claim must outlast the storage round trips its holder makes before it
+   * renews, so slow storage stretches it by LEASE_ROUND_TRIPS of them, up to
+   * the default lease: slowness delays a save instead of lapsing it.
+   */
+  leaseMs() {
+    const { leaseMs } = this.lease;
+    return Math.min(leaseMs + LEASE_ROUND_TRIPS * this.roundTripMs, Math.max(leaseMs, DEFAULT_LEASE_MS));
+  }
+  // Slow storage takes longer to land a write: allow it two round trips.
+  live() {
+    return Date.now() + Math.max(this.promptLandingMs, 2 * this.roundTripMs) < this.liveUntil;
+  }
+  async waitForTurn() {
+    const { lease } = this;
+    while (true) {
+      await lease.fence();
+      if (Date.now() - this.startedAt >= lease.timeoutMs) throw new Error(lease.timeoutMessage);
+      try {
+        if (!this.live()) await this.queue();
+        else if (this.liveUntil - Date.now() <= this.leaseMs() / 2) await this.writeClaim();
+      } catch (error) {
+        if (error instanceof StorageLeaseLapsedError) continue;
+        throw error;
+      }
+      const ahead = await this.claimsAhead();
+      if (!ahead.length && this.live()) return;
+      if (ahead.some((other) => !realmClaimOwners.has(other.owner))) lease.wait?.blocked();
+      await storageLeaseDelay(lease.pollMs);
+    }
+  }
+  async queue() {
+    const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+    await this.writeClaim({ choosing: true, ticket: 0 }, true);
+    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+    const highestTicket = claims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+    await this.writeClaim({ choosing: false, ticket: highestTicket + 1 });
+  }
+  async claimsAhead() {
+    const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+    const { owner, ticket } = this.claim;
+    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+    return claims.filter((other) => other.owner !== owner && (other.choosing || other.ticket < ticket || other.ticket === ticket && other.owner.localeCompare(owner) < 0));
+  }
+  /** `requeue` writes a new place in the queue instead of extending the live claim. */
+  async writeClaim(changes = {}, requeue = false) {
+    const { getValue, setValue } = this.lease.io;
+    if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
+    const writtenAt = Date.now();
+    const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
+    this.claim = next;
+    try {
+      await setValue(this.key, next);
+      const landedAt = Date.now();
+      this.liveUntil = next.leaseUntil;
+      await assertStorageLeaseClaimOwned(this.key, next, getValue);
+      this.roundTripMs = storageRoundTripMs(landedAt - writtenAt, Date.now() - landedAt, this.lease.leaseMs);
+    } catch (error) {
+      await this.rollBack();
+      throw error;
+    }
+  }
+  /** Deletes the claim this realm wrote, unless another has taken its key. */
+  async rollBack() {
+    const { getValue, deleteValue } = this.lease.io;
+    await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue).catch((error) => {
+      debugStorageLeaseError("GM storage lease rollback failed", this.key, error);
+    });
+  }
+  /**
+   * A holder's renewal. A factory reset in another tab deletes every claim,
+   * then checks that none is left while this section may still be running:
+   * a renewal reads the claim first and never writes back one that is gone,
+   * and takes back one the reset deleted while the write was in flight, which
+   * the fence after it reveals. The renewal on entry skips the read: the
+   * waiter's last poll fenced a moment ago, and once storage turns slow it
+   * may enter with little of its claim left.
+   */
+  async renew(due, entry) {
+    if (!entry) await assertStorageLeaseClaimOwned(this.key, this.claim, this.lease.io.getValue);
+    do
+      await this.writeClaim();
+    while (due());
+    await this.lease.fence().catch(async (error) => {
+      await this.rollBack();
+      throw error;
+    });
+  }
+  /**
+   * Runs the operation while a timer renews the claim and, for a lease with
+   * `guards`, while each guarded write renews it too: those writes reach
+   * storage over messaging, so throttled timers cannot starve them.
+   */
+  async hold(operation) {
+    const { lease, key } = this;
+    const { getValue } = lease.io;
+    const renewEveryMs = Math.max(250, Math.floor(lease.leaseMs / 3));
+    let held = true;
+    let lost;
+    let refused = false;
+    let renewal;
+    const due = () => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
+    const renewIfDue = (entry = false) => {
+      if (lost || renewal || !due()) return;
+      renewal = this.renew(due, entry).catch((error) => {
+        lost ??= { error };
+        debugStorageLeaseError("GM storage lease renewal failed", key, error);
+      }).finally(() => {
+        renewal = void 0;
+      });
+    };
+    const guarding = lease.guards && {
+      guards: lease.guards,
+      fenceWrite: () => {
+        if (!lost && !this.live()) lost = { error: new StorageLeaseLapsedError(key) };
+        if (lost) {
+          refused = true;
+          throw lost.error;
+        }
+        renewIfDue();
+      }
+    };
+    if (guarding) guardingLeases.add(guarding);
+    const timer = setInterval(() => renewIfDue(), renewEveryMs);
+    renewIfDue(true);
+    let outcome;
+    try {
+      await lease.fence();
+      await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+      const value = await operation();
+      await lease.fence();
+      await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+      outcome = { value };
+    } catch (error) {
+      outcome = { error };
+    } finally {
+      held = false;
+      if (guarding) guardingLeases.delete(guarding);
+      clearInterval(timer);
+      await renewal;
+    }
+    if ("error" in outcome) throw outcome.error;
+    if (lost && (!guarding || refused)) throw lost.error;
+    return outcome.value;
+  }
+};
 async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
   const keys = (await listValues()).filter((key) => key.startsWith(prefix));
   const values = await Promise.all(keys.map((key) => getValue(key, null)));
@@ -1386,9 +1543,50 @@ function boundedLeaseOption(value, fallback, minimum, maximum) {
 function storageLeaseDelay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
-async function withWebStorageLock(name, operation) {
-  const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
-  return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+function storageRoundTripMs(writeMs, readMs, leaseMs) {
+  const slower = Math.max(writeMs, readMs);
+  return slower <= leaseMs / 4 ? slower : Math.min(writeMs, readMs);
+}
+function webLockManager() {
+  return typeof navigator === "undefined" ? void 0 : navigator.locks;
+}
+async function withWebStorageLock(name, operation, wait, waitMs) {
+  const lockManager = webLockManager();
+  if (!lockManager) return operation();
+  const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
+  if (!countRealmWebLockRequest(lockName, 1)) wait?.blocked();
+  try {
+    return await requestWebLock(lockManager, lockName, () => {
+      wait?.passed();
+      return operation();
+    }, waitMs);
+  } finally {
+    countRealmWebLockRequest(lockName, -1);
+  }
+}
+function countRealmWebLockRequest(lockName, change) {
+  const before = realmWebLockRequests.get(lockName) ?? 0;
+  if (before + change > 0) realmWebLockRequests.set(lockName, before + change);
+  else realmWebLockRequests.delete(lockName);
+  return before;
+}
+async function requestWebLock(locks, name, operation, waitMs) {
+  if (waitMs === void 0) return locks.request(name, {}, operation);
+  const giveUp = new AbortController();
+  const timer = setTimeout(() => giveUp.abort(), waitMs);
+  let granted = false;
+  try {
+    return await locks.request(name, { signal: giveUp.signal }, () => {
+      granted = true;
+      clearTimeout(timer);
+      return operation();
+    });
+  } catch (error) {
+    if (granted) throw error;
+    return operation();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function isPlainRecord2(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -2134,6 +2332,7 @@ async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
   await assertManagedStateMutationFence(getValue, epoch);
   const stored = managedStateStoredValue(value, epoch);
   const storageKey = managedStateStorageKey(key, epoch);
+  fenceStorageLeaseWrite(key);
   await setValue(storageKey, stored);
   await assertManagedStateMutationFence(getValue, epoch);
 }
@@ -2146,6 +2345,7 @@ async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue)
     await assertRealmManagedStateEpoch(getValue);
     return;
   }
+  fenceStorageLeaseWrite(key);
   if (storageKey === key) {
     if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
     await deleteValue(key);
@@ -2242,7 +2442,8 @@ async function withGmStorageLease(name, operation, options = {}) {
     backend: gmStorageLeaseBackend(),
     captureEpoch: assertRealmManagedStateEpoch,
     assertMutationFence: assertManagedStateMutationFence,
-    epochToken: managedStateEpochToken
+    epochToken: managedStateEpochToken,
+    hostedOrigin: isHostedYomuOrigin()
   });
 }
 function gmStorageLeaseBackend() {
@@ -2272,7 +2473,7 @@ async function setSharedManagedValue(key, value, getValue, setValue) {
     epoch = await assertRealmManagedStateEpoch(getValue);
     await writeManagedGmValue(key, value, epoch, getValue, setValue);
   } catch (error) {
-    if (isStaleManagedStateEpochError(error)) throw error;
+    if (isStaleManagedStateEpochError(error) || isStorageLeaseLapsed(error)) throw error;
     throw storageWriteError(key, "GM storage write failed", error);
   }
 }
@@ -2494,8 +2695,26 @@ function snapshotValue(snapshot) {
   return snapshot.existed ? snapshot.previousValue : null;
 }
 
+// src/reader/app/save-wait.ts
+var listeners = /* @__PURE__ */ new Set();
+var waits = 0;
+function reportSaveWaitingForAnotherTab(waiting) {
+  waits = Math.max(0, waits + (waiting ? 1 : -1));
+  for (const listener of listeners) {
+    try {
+      listener(waits > 0);
+    } catch {
+    }
+  }
+}
+
 // src/reader/settings/settings-persistence-transaction.ts
 var SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+var SETTINGS_PERSISTENCE_LEASE_OPTIONS = {
+  leaseMs: STORAGE_WORK_LEASE_MS,
+  guards: isSettingsAuthorityStorageKey,
+  onWait: reportSaveWaitingForAnotherTab
+};
 var TRANSACTION_FIELD2 = "__yomuSettingsPersistenceTransactionV1";
 async function readSettingsPersistenceViewStrictFrom(read) {
   const view = await stableSettingsPersistenceView(read);
@@ -2630,7 +2849,7 @@ async function persistHostedSharedSettingsPatch(patch, userChoice) {
     const settings = applySettingsIntent(merged, ledger);
     if (ledger === view.intentLedger && JSON.stringify(settings) === JSON.stringify(shared)) return;
     await persistSettingsStorageTransaction(ledger, settings);
-  });
+  }, SETTINGS_PERSISTENCE_LEASE_OPTIONS);
 }
 
 // src/reader/settings/hosted-appearance-settings.ts
