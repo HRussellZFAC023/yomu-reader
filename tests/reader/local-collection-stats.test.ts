@@ -33,7 +33,7 @@ function pressedChips(root: HTMLElement): string[] {
     return [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-chip[aria-pressed="true"]')].map(chip => chip.textContent ?? '');
 }
 
-function openView(root: HTMLElement, mode: 'search' | 'stats'): void {
+function openView(root: HTMLElement, mode: 'word' | 'search' | 'stats'): void {
     root.querySelector<HTMLButtonElement>(`.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="${mode}"]`)!.click();
 }
 
@@ -169,6 +169,46 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
         openView(root, 'stats');
         await vi.waitFor(() => expect(metric(root, 'Cards')).toBe('1'));
         expect(metric(root, 'Saved')).toBe('1');
+    } finally { controller.destroy(); }
+});
+
+// "Add to deck +" in Study's lookup popup saves to Academy after Stats and the
+// Library its tile opens have loaded: both must count the new word.
+it('counts a word saved from the Study lookup popup in Stats and the Library the tile opens', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    const controller = academyStatsController(repository);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(metric(root, 'Saved')).toBe('1');
+        savedTile(root)!.click();
+        await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).not.toBeNull());
+        openView(root, 'word');
+
+        // The popup's save, then the card-changed notice the Study runtime passes on.
+        await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+        controller.refreshBrowseAfterCardMutation();
+        openView(root, 'stats');
+        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
+        savedTile(root)!.click();
+        await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
+        expect(libraryAddToReview(root, '読む')).not.toBeNull();
+    } finally { controller.destroy(); }
+});
+
+// A save that lands while Stats is open (a grade still being written, say)
+// shows there without leaving it, and does not leave Stats loading.
+it('recounts an open Stats when Academy changes in this tab', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    const controller = academyStatsController(repository);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(metric(root, 'Saved')).toBe('1');
+        await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
     } finally { controller.destroy(); }
 });
 

@@ -258,7 +258,7 @@ import {
     reportBrowsePool,
     selectedScopedBrowsePool,
 } from './browse-pool-policy';
-import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError } from '../srs/local-yomu';
+import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError, subscribeLocalYomuSrsMutations } from '../srs/local-yomu';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
 import { StudyExamples } from './study-examples';
@@ -670,6 +670,7 @@ export class NewTabController {
     private state: NewTabUiState;
     private readonly stateChannel: NewTabControllerStateChannel;
     private readonly unsubscribeJpdbBridge: () => void;
+    private readonly unsubscribeAcademyMutations: () => void;
     private liveJpdbStatus: JpdbReviewBridgeStatus | null = null;
     private liveCards = new Map<string, JpdbReviewBridgeCard>();
     private pendingLiveJpdbGrade: { id: string; until: number } | null = null;
@@ -953,6 +954,7 @@ export class NewTabController {
         if (startup.routeSearchQuery) this.searchController.setInitialQuery(startup.routeSearchQuery);
         this.stateChannel = newTabControllerStateChannel(options.surface, state => { void this.applyExternalState(state); });
         this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate(status => this.applyJpdbBridgeStatus(status));
+        this.unsubscribeAcademyMutations = subscribeLocalYomuSrsMutations(() => this.refreshStatsAfterAcademyMutation());
         this.kanjiDetailSource = new KanjiDetailSource({
             getSettings: () => this.dependencies.getSettings(),
             jpdbKanji: this.dependencies.jpdbKanji,
@@ -1109,6 +1111,7 @@ export class NewTabController {
         this.clearListenRecording();
         this.stateChannel.close();
         this.unsubscribeJpdbBridge();
+        this.unsubscribeAcademyMutations();
         this.rootEventController?.abort();
         this.searchController.destroy();
         this.studyExamples.dispose();
@@ -7698,7 +7701,6 @@ export class NewTabController {
             await withSaveWaitStatus(this.language(), adapter.startReview.bind(adapter, card.sourceCardKey));
             if (this.destroyed) return;
             this.invalidateSourceResultCache('yomu-local');
-            this.statsController.reset(); // Stats now counts the word in "Cards", no longer as "Saved".
             this.allWords = []; // Returning to Study reloads its queue, so the word just added is there to review.
             this.refreshBrowseAfterCardMutation(card);
             this.showToast('browseReviewAdded');
@@ -7772,11 +7774,19 @@ export class NewTabController {
         this.renderBrowseResults(mount);
     }
 
+    // From any view: a lookup popup on Study changes a card that Library, opened later, must show changed.
     refreshBrowseAfterCardMutation(_card?: JPDBCard): void {
-        const root = this.currentRoot();
-        if (!root || this.state.route !== 'search') return;
         this.invalidateBrowsePool();
-        void this.renderBrowseInto(root);
+        const root = this.currentRoot();
+        if (root && this.state.route === 'search') void this.renderBrowseInto(root);
+    }
+
+    // Any Academy save in this tab (a lookup popup, "Add to review", a grade)
+    // changes what Stats counts, so it loads again, at once if it is open.
+    private refreshStatsAfterAcademyMutation(): void {
+        this.statsController.reset();
+        const root = this.currentRoot();
+        if (root && this.state.route === 'stats') void this.loadStatsInto(root);
     }
 
     private invalidateBrowsePool(): void {
