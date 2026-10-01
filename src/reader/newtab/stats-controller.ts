@@ -185,7 +185,7 @@ export class NewTabStatsController {
         'stats-refresh': root => { void this.loadInto(root, true); },
         'stats-toggle-anki-deck': (root, target) => this.toggleAnkiDeck(root, target),
         'stats-connect-anki': root => { void this.connectAnki(root); },
-        'stats-open-jpdb-settings': () => this.deps.showSettings('api'),
+        'stats-open-api-settings': () => this.deps.showSettings('api'),
         'stats-open-anki-settings': () => this.deps.showSettings('mining'),
         'stats-open-saved': root => this.deps.openSavedWords(root),
         'stats-import-jpdb': root => {

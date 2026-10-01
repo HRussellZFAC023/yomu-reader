@@ -1117,7 +1117,7 @@ export async function renderLoadedApiStats(controller: NewTabController): Promis
 }
 
 export function expectApiStatsSettingsButton(root: HTMLElement, showSettings: ReturnType<typeof vi.fn>): void {
-    const settingsButton = root.querySelector<HTMLButtonElement>('[data-newtab-action="stats-open-jpdb-settings"]')!;
+    const settingsButton = root.querySelector<HTMLButtonElement>('[data-newtab-action="stats-open-api-settings"]')!;
     expect(settingsButton.textContent).toBe('API settings');
     settingsButton.click();
     expect(showSettings).toHaveBeenCalledWith('api');

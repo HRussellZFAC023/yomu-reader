@@ -202,8 +202,11 @@ class Journey {
     }
 
     async collect(profile) {
-        const baseline = await this.withStudy(profile, study => this.studyCounts(study));
+        const baseline = await this.withStudy(profile, async study => ({ ...await this.studyCounts(study), connections: await statsConnectionButtons(study) }));
         assert(baseline.statsDueNow === 0 && baseline.statsSaved === 0, 'A fresh keyless profile did not start with nothing due or saved', baseline);
+        // Academy is a keyless learner's only source, and it is local: its card once offered "Anki settings".
+        assert(JSON.stringify(baseline.connections) === JSON.stringify({ 'yomu-local': [] }),
+            'Stats showed a keyless learner a connection button that is not Academy\'s', baseline);
 
         const page = await this.openArticle(profile);
         const first = await this.saveFromPopup(profile, page, WORDS.read, { keyboard: true });
@@ -695,6 +698,12 @@ async function statsMetrics(page) {
     const metrics = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.jpdb-reader-stats-metric')]
         .map(metric => [metric.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() ?? '', metric.querySelector('strong')?.textContent?.trim() ?? ''])));
     return { statsDueNow: Number(metrics['Due now']), statsCards: Number(metrics.Cards), statsSaved: Number(metrics.Saved ?? 0) };
+}
+
+// Each Stats connection card's button labels, keyed by its source.
+function statsConnectionButtons(page) {
+    return page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.jpdb-reader-stats-connection')]
+        .map(card => [card.className.replace('jpdb-reader-stats-connection is-', ''), [...card.querySelectorAll('button')].map(button => button.textContent?.trim() ?? '')])));
 }
 
 // Polls the painted metrics until they match; on a timeout the caller's

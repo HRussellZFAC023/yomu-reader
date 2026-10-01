@@ -855,7 +855,7 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
             expect(Array.from(root.querySelectorAll('[data-stats-source]')).map(tab => tab.textContent)).toEqual(['Combined', 'JPDB', 'Jiten']);
             expect(root.querySelector('[data-newtab-action="stats-import-jpdb"]')).not.toBeNull();
             expect(root.querySelector('[data-stats-jpdb-file]')).not.toBeNull();
-            const settingsButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="stats-open-jpdb-settings"]'));
+            const settingsButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="stats-open-api-settings"]'));
             const apiSettings = settingsButtons.find(button => button.textContent === 'API settings');
             expect(apiSettings).toBeTruthy();
             apiSettings?.click();

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { ACADEMY_SRS_LABEL } from '../../src/reader/app/constants';
 import { renderNewTabStatsContent } from '../../src/reader/newtab/stats-view';
-import type { StatsCardBreakdown, StatsDailyPoint, StatsDashboardSnapshot, StatsSourceSnapshot } from '../../src/reader/app/stats';
+import { emptyStatsSource, type StatsCardBreakdown, type StatsDailyPoint, type StatsDashboardSnapshot, type StatsSourceSnapshot, type StatsSourceStatus } from '../../src/reader/app/stats';
 
 const EMPTY_CARDS: StatsCardBreakdown = {
     total: 0, new: 0, learning: 0, review: 0, due: 0, failed: 0, known: 0, suspended: 0, ignored: 0,
@@ -92,5 +93,63 @@ describe('new tab stats view', () => {
         const tabs = Array.from(root.querySelectorAll<HTMLElement>('[data-stats-source]')).map(tab => tab.dataset.statsSource);
 
         expect(tabs).toEqual(['combined', 'jpdb', 'jiten', 'yomu-local', 'wanikani']);
+    });
+});
+
+describe('new tab stats connection cards', () => {
+    // A keyless learner's Academy card once read "No stats yet." over an
+    // "Anki settings" button: every source that was not JPDB or Jiten fell
+    // through to Anki's actions.
+    function connectionSnapshot(ankiStatus: StatsSourceStatus): StatsDashboardSnapshot {
+        const yomuLocal = emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, 'No stats yet.', 'ready');
+        return {
+            jpdb: emptyStatsSource('jpdb', 'JPDB', 'JPDB card states loaded.', 'ready'),
+            jiten: emptyStatsSource('jiten', 'Jiten', 'Jiten SRS loaded.', 'ready'),
+            bunpro: emptyStatsSource('bunpro', 'Bunpro', 'Bunpro is unavailable.', 'error'),
+            wanikani: emptyStatsSource('wanikani', 'WaniKani', 'WaniKani loaded.', 'ready'),
+            yomuLocal,
+            anki: emptyStatsSource('anki', 'Anki', 'Anki is unavailable.', ankiStatus),
+            combined: { ...yomuLocal, id: 'combined' },
+        };
+    }
+
+    function renderConnections(ankiStatus: StatsSourceStatus): HTMLElement {
+        return renderNewTabStatsContent({
+            activityMetric: 'reviews',
+            language: 'en',
+            selectedSource: 'combined',
+            snapshot: connectionSnapshot(ankiStatus),
+            text: key => String(key),
+        });
+    }
+
+    // Each card's buttons as "action label", keyed by its source id.
+    function connectionActions(ankiStatus: StatsSourceStatus): Record<string, string[]> {
+        const root = renderConnections(ankiStatus);
+        return Object.fromEntries(Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-connection')).map(card => [
+            card.className.replace('jpdb-reader-stats-connection is-', ''),
+            Array.from(card.querySelectorAll<HTMLElement>('[data-newtab-action]')).map(button => `${button.dataset.newtabAction} ${button.textContent}`),
+        ]));
+    }
+
+    it('offers each source only its own actions, and Academy none', () => {
+        expect(connectionActions('error')).toEqual({
+            jpdb: ['stats-open-api-settings statsOpenJpdbSettings', 'stats-import-jpdb statsChooseJpdbFile'],
+            jiten: ['stats-open-api-settings statsOpenApiSettings'],
+            'yomu-local': [],
+            bunpro: ['stats-open-api-settings statsOpenApiSettings'],
+            wanikani: ['stats-open-api-settings statsOpenApiSettings'],
+            anki: ['stats-connect-anki statsConnectAnki', 'stats-open-anki-settings statsOpenAnkiSettings'],
+        });
+    });
+
+    it('drops Connect Anki once Anki is connected but keeps its settings', () => {
+        expect(connectionActions('ready').anki).toEqual(['stats-open-anki-settings statsOpenAnkiSettings']);
+    });
+
+    it('leaves out the empty action row on a card with no actions', () => {
+        const root = renderConnections('ready');
+        expect(root.querySelector('.jpdb-reader-stats-connection.is-yomu-local .jpdb-reader-stats-connection-actions')).toBeNull();
+        expect(root.querySelector('.jpdb-reader-stats-connection.is-anki .jpdb-reader-stats-connection-actions')).not.toBeNull();
     });
 });

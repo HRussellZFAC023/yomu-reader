@@ -21,7 +21,7 @@ import {
 } from '../app/stats';
 import type { NewTabCopyKey } from './i18n';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
-import { newTabAction } from './actions';
+import { newTabAction, type NewTabAction } from './actions';
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
 type NewTabStatsText = (key: NewTabStatsTextKey) => string;
@@ -346,9 +346,10 @@ function renderStatsConnections(context: NewTabStatsRenderContext): HTMLElement 
 }
 
 function renderStatsConnectionCard(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): HTMLElement {
+    const actions = statsConnectionActions(source, context.text);
     return el('article', { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status } },
         renderStatsConnectionMain(source, context),
-        el('div', { class: 'jpdb-reader-stats-connection-actions' }, statsConnectionActions(source, context)),
+        actions.length ? el('div', { class: 'jpdb-reader-stats-connection-actions' }, actions) : null,
         renderStatsConnectionDropzone(source.id === 'jpdb', context.text),
     );
 }
@@ -366,27 +367,32 @@ function statsConnectionDeckToggles(source: StatsSourceSnapshot, context: NewTab
     return renderStatsAnkiDeckToggles(source, context.text);
 }
 
-function statsConnectionActions(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): Array<HTMLElement | null> {
-    const { text } = context;
-    if (source.id === 'jpdb') {
-        const actions: Array<HTMLElement | null> = [
-            el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-open-jpdb-settings') } }, text('statsOpenJpdbSettings')),
-        ];
-        actions.push(el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-import-jpdb') } }, text('statsChooseJpdbFile')));
-        return actions;
-    }
-    if (source.id === 'jiten') return [
-        el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-open-jpdb-settings') } }, text('statsOpenApiSettings')),
+// Each card offers only what its own source needs. A source with nothing to
+// connect or set up gets no buttons rather than another source's.
+function statsConnectionActions(source: StatsSourceSnapshot, text: NewTabStatsText): HTMLElement[] {
+    if (source.id === 'jpdb') return [
+        statsConnectionButton(newTabAction('stats-open-api-settings'), text('statsOpenJpdbSettings')),
+        statsConnectionButton(newTabAction('stats-import-jpdb'), text('statsChooseJpdbFile')),
     ];
-    return [
-        isStatsSourceConnected(source) ? null : el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-connect-anki') } }, text('statsConnectAnki')),
-        el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-open-anki-settings') } }, text('statsOpenAnkiSettings')),
+    // Their keys and tokens all live in API settings.
+    if (source.id === 'jiten' || source.id === 'bunpro' || source.id === 'wanikani') return [
+        statsConnectionButton(newTabAction('stats-open-api-settings'), text('statsOpenApiSettings')),
     ];
+    if (source.id === 'anki') return [
+        ...(isAnkiConnected(source) ? [] : [statsConnectionButton(newTabAction('stats-connect-anki'), text('statsConnectAnki'))]),
+        statsConnectionButton(newTabAction('stats-open-anki-settings'), text('statsOpenAnkiSettings')),
+    ];
+    // Academy is local: nothing to connect, and the Saved tile above is
+    // already its way into Library.
+    return [];
 }
 
-function isStatsSourceConnected(source: StatsSourceSnapshot): boolean {
-    if (source.status === 'ready' || source.status === 'partial') return true;
-    return source.id !== 'jpdb' && Boolean(source.deckNames?.length);
+function statsConnectionButton(action: NewTabAction, label: string): HTMLElement {
+    return el('button', { type: 'button', dataset: { newtabAction: action } }, label);
+}
+
+function isAnkiConnected(source: StatsSourceSnapshot): boolean {
+    return source.status === 'ready' || source.status === 'partial' || Boolean(source.deckNames?.length);
 }
 
 function renderStatsConnectionDropzone(isJpdb: boolean, text: NewTabStatsText): HTMLElement | null {

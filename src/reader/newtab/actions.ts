@@ -76,7 +76,7 @@ export const NEW_TAB_ACTIONS = [
     'stats-refresh',
     'stats-toggle-anki-deck',
     'stats-connect-anki',
-    'stats-open-jpdb-settings',
+    'stats-open-api-settings',
     'stats-open-anki-settings',
     'stats-open-saved',
     'stats-import-jpdb',
