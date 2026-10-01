@@ -1493,8 +1493,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   border-radius: 999px;
   /* Self-contained dark "toast" — the status pill is appended to <body>, outside the
      reader's themed scope, so --jpdb-reader-bg/-fg are unreliable here and resolved
-     to white-on-white in light mode. A fixed dark, semi-opaque chip with white text
-     stays legible over any page background in both light and dark mode. */
+     to white-on-white in light mode. A fixed dark, semi-opaque chip stays legible over
+     any page background in both light and dark mode. */
   background: rgba(17, 19, 26, 0.68) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
   color: #f5f7ff !important;
@@ -1503,8 +1503,13 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow: hidden;
 }
 
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
+/* The pill's own colour loses to the reader root's theme text colour
+   (`[data-jpdb-reader-root]`), which is dark in the light theme, so everything
+   legible inside the pill carries the light ink itself: the label, and the
+   tap hint's dismiss "×". */
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status :is(.jpdb-ocr-video-frame-status-label, .jpdb-ocr-canvas-tap-hint-dismiss) {
   color: #f5f7ff !important;
+  -webkit-text-fill-color: #f5f7ff !important;
 }
 
 .jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
