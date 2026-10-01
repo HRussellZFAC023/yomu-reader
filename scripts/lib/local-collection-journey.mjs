@@ -166,7 +166,7 @@ class Journey {
         assert(await popover.getByRole('button', { name: 'Add to deck', exact: true }).count() === 1,
             'The visible save has no "Add to deck" accessible name', { html: await save.evaluate(node => node.outerHTML) });
         const layout = await actionRowLayout(popover);
-        assert(layout.fits, 'The popup action row overflowed or hid the save behind the grades', layout);
+        assert(layout.fits, 'The popup action row overflowed, cut off a label or grade key, or hid the save behind the grades', layout);
         return { save, label: (await save.textContent())?.replace(/\s+/gu, ' ').trim() ?? '', layout };
     }
 
@@ -625,9 +625,9 @@ function wordSelector(surface) {
     return `[data-fixture-sentence] .jpdb-reader-word[data-expression="${surface}"]`;
 }
 
-// Every visible control stays inside the action row and the viewport, the
-// save's label is not cut off, nothing covers the save, and the save sits above
-// the grades rather than over them. Other cut-off labels are reported, not failed.
+// Every visible control stays inside the action row and the viewport, no
+// button's label or grade key is cut off, nothing covers the save, and the save
+// sits above the grades rather than over them.
 async function actionRowLayout(popover) {
     return popover.locator('.jpdb-reader-actions').evaluate(actions => {
         const row = actions.getBoundingClientRect();
@@ -636,13 +636,16 @@ async function actionRowLayout(popover) {
             const box = control.getBoundingClientRect();
             return box.left < row.left - 0.5 || box.right > row.right + 0.5 || box.bottom > innerHeight + 0.5;
         });
-        // A label is cut off when its rendered text leaves the button's box.
+        // A label is cut off when its rendered text leaves the button's box. A
+        // grade's key badge is generated content no text range covers, so it is
+        // caught as the button's content overflowing the button.
         const clipped = controls.filter(control => {
             const text = document.createRange();
             text.selectNodeContents(control);
             const box = control.getBoundingClientRect();
             const label = text.getBoundingClientRect();
-            return label.width > 0 && (label.left < box.left - 0.5 || label.right > box.right + 0.5);
+            return (label.width > 0 && (label.left < box.left - 0.5 || label.right > box.right + 0.5))
+                || control.scrollWidth > control.clientWidth || control.scrollHeight > control.clientHeight;
         });
         const saveButton = actions.querySelector('.jpdb-reader-collect [data-action="add-default"]');
         const save = saveButton?.getBoundingClientRect();
@@ -659,12 +662,12 @@ async function actionRowLayout(popover) {
             saveAboveGrades: Boolean(save && firstGrade && save.bottom <= firstGrade.top + 0.5),
             saveUncovered,
             outside: outside.map(label),
-            clipped: clipped.map(label),
+            clipped: clipped.map(control => [label(control), control.dataset.gradeKey].filter(Boolean).join(' ')),
         };
         return {
             ...layout,
             fits: layout.row.scrollOverflow <= 0 && row.left >= -0.5 && row.right <= innerWidth + 0.5
-                && !outside.length && !clipped.includes(saveButton) && layout.saveAboveGrades && saveUncovered,
+                && !outside.length && !clipped.length && layout.saveAboveGrades && saveUncovered,
         };
     });
 }

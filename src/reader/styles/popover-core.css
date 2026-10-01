@@ -1863,10 +1863,15 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   left: max(12px, env(safe-area-inset-left));
 }
 
-/* Keyboard key for each grade button (positional for four-button scales). */
+/* Keyboard key for each grade button (positional for four-button scales),
+   under its label: five grades leave no room beside "Something", and every
+   grade row shows its keys the same way. */
+.jpdb-reader-btn[data-grade-key] {
+  flex-direction: column;
+  gap: 2px !important; /* the base button's 6px gap is !important */
+}
 .jpdb-reader-btn[data-grade-key]::after {
   content: attr(data-grade-key) / "";
-  margin-inline-start: 4px;
   padding: 0 4px;
   border: 1px solid currentColor;
   border-radius: 3px;
