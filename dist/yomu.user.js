@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.2
+// @version 2.0.3
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.c378e8ee5a78.user.js#sha256=w3jo7lp4P/4evHK7g6JZRN/sza25CzoqYPSeVPoIoBU=
+// @require https://yomureader.com/greasyfork/yomu-runtime.03c424534b12.user.js#sha256=A8QkU0sSQnLR5e38vKMEWYHjTlso+wJ76K4bE9ryv1w=
 // @resource yomuCss  https://yomureader.com/yomu.ebfeb8423b4e.css#sha256=6/64QjtOg2TMygyMO9Tmh6tenwid7veJVRohvIbwESM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -14641,7 +14641,8 @@ partOfSpeech: request.partOfSpeech,
 language: request.language,
 meanings: request.meaning ? [request.meaning] : [],
 sentence: request.sentence,
-sourceUrl: request.sourceUrl
+sourceUrl: request.sourceUrl,
+sourceTitle: request.sourceTitle
 }, now);
 if (!candidate) throw new TypeError("Vocabulary expression is required.");
 candidate.reviewEnabled = false;
@@ -14724,6 +14725,7 @@ sentence: item.sentence?.trim() || void 0,
 sourceProviderId: item.sourceProviderId,
 sourceCardId: item.sourceCardId,
 sourceUrl: item.sourceUrl,
+sourceTitle: item.sourceTitle?.trim() || void 0,
 tags: uniqueTrimmedStrings(item.tags ?? []),
 dueAt: item.dueAt ?? now,
 lastReviewAt: null,
@@ -14752,6 +14754,7 @@ meanings: card.meanings.flatMap((meaning) => meaning.glosses),
 sourceProviderId: card.providerId,
 sourceCardId: card.providerCardId,
 sourceUrl: card.sourceUrl,
+sourceTitle: card.sourceTitle,
 dueAt: card.dueAt ?? now,
 lastReviewAt: card.lastReviewAt ?? null,
 createdAt: now,
@@ -14781,6 +14784,7 @@ srsLevel: localSrsLevel(card),
 dueAt: card.reviewEnabled === false ? void 0 : card.dueAt,
 lastReviewAt: card.lastReviewAt,
 sourceUrl: card.sourceUrl,
+sourceTitle: card.sourceTitle,
 raw: card
 };
 }
@@ -33519,8 +33523,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.2"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.2"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.3"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.3"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33663,7 +33667,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.2"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.3"}`;
 } catch {
 return null;
 }

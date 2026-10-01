@@ -33672,7 +33672,7 @@ function mergeStoredYomuSrsCards(existing, incoming) {
     sentence: existing.sentence || incoming.sentence,
     sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
     sourceCardId: existing.sourceCardId || incoming.sourceCardId,
-    sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+    ...mergedSource(existing, incoming),
     tags: uniqueText$1([...existing.tags ?? [], ...incoming.tags ?? []]),
     createdAt: Math.min(existing.createdAt, incoming.createdAt),
     updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
@@ -33792,6 +33792,7 @@ function normalizeStoredCard(value) {
     ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
     ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
     ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
+    ...cleanOptional(value.sourceTitle) ? { sourceTitle: cleanOptional(value.sourceTitle) } : {},
     tags: stringArray$2(value.tags),
     dueAt: finiteNumber$2(value.dueAt, createdAt),
     ...value.reviewEnabled === false ? { reviewEnabled: false } : {},
@@ -33804,6 +33805,13 @@ function normalizeStoredCard(value) {
     ease: finiteNumber$2(value.ease, 2.5),
     retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
     academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
+  };
+}
+function mergedSource(existing, incoming) {
+  const [kept, other] = existing.sourceUrl || !incoming.sourceUrl ? [existing, incoming] : [incoming, existing];
+  return {
+    sourceUrl: kept.sourceUrl,
+    sourceTitle: kept.sourceTitle || (other.sourceUrl === kept.sourceUrl ? other.sourceTitle : void 0)
   };
 }
 function storedCardIdentity(card) {
@@ -34183,7 +34191,8 @@ class LocalYomuSrsRepository {
         language: request2.language,
         meanings: request2.meaning ? [request2.meaning] : [],
         sentence: request2.sentence,
-        sourceUrl: request2.sourceUrl
+        sourceUrl: request2.sourceUrl,
+        sourceTitle: request2.sourceTitle
       }, now);
       if (!candidate2) throw new TypeError("Vocabulary expression is required.");
       candidate2.reviewEnabled = false;
@@ -34266,6 +34275,7 @@ class LocalYomuSrsRepository {
       sourceProviderId: item2.sourceProviderId,
       sourceCardId: item2.sourceCardId,
       sourceUrl: item2.sourceUrl,
+      sourceTitle: item2.sourceTitle?.trim() || void 0,
       tags: uniqueTrimmedStrings(item2.tags ?? []),
       dueAt: item2.dueAt ?? now,
       lastReviewAt: null,
@@ -34294,6 +34304,7 @@ class LocalYomuSrsRepository {
       sourceProviderId: card.providerId,
       sourceCardId: card.providerCardId,
       sourceUrl: card.sourceUrl,
+      sourceTitle: card.sourceTitle,
       dueAt: card.dueAt ?? now,
       lastReviewAt: card.lastReviewAt ?? null,
       createdAt: now,
@@ -34323,6 +34334,7 @@ class LocalYomuSrsRepository {
       dueAt: card.reviewEnabled === false ? void 0 : card.dueAt,
       lastReviewAt: card.lastReviewAt,
       sourceUrl: card.sourceUrl,
+      sourceTitle: card.sourceTitle,
       raw: card
     };
   }
@@ -266749,7 +266761,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BkOhszLH.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DQMZwLx0.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -273138,7 +273150,7 @@ export {
   ManagedStateResetError as d7,
   stableHash32 as d8,
   uniqueTrimmedStrings as d9,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as dA,
+  readKanjiCommandCapability as dA,
   dispatchPrivateCommand as dB,
   claimLocalTapActivation as dC,
   installControlTapActivation as dD,
@@ -273187,9 +273199,9 @@ export {
   unwrapReaderWords as du,
   collectFragmentTextTargetsIn as dv,
   collectFormControlTextTargetsIn as dw,
-  newTabText as dx,
-  CARD_STATE_LABEL_KEYS as dy,
-  readKanjiCommandCapability as dz,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as dx,
+  newTabText as dy,
+  CARD_STATE_LABEL_KEYS as dz,
   esCatalog as e,
   MAX_EXTRA_LOOKUP_LINKS as e$,
   readJpdbKanjiCommandCapability as e0,

@@ -17849,7 +17849,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.0.2".trim() ? "2.0.2".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.3".trim() ? "2.0.3".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -55837,6 +55837,30 @@ function addAudioSourceRow(sources) {
 function removeAudioSourceRow(sources, index) {
   if (index >= 0 && sources.length > 1) sources.splice(index, 1);
 }
+function focusPreviewAudioSource(form, button2, previewSettings) {
+  const row = button2?.closest("[data-audio-source-row]");
+  if (!row) return;
+  const source = previewSettings.audioSources[sourceRowIndex(form, row)];
+  if (!source) return;
+  previewSettings.audioSources = [{ ...source, enabled: true }];
+  previewSettings.audioEnableDefaultSources = false;
+}
+function sourceRowIndex(form, row) {
+  return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+}
+function probeableAudioSourceUrl(row) {
+  if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
+  if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
+  const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
+  return isProbeableAudioSourceUrl(url) ? url : "";
+}
+function isProbeableAudioSourceUrl(url) {
+  try {
+  return ["http:", "https:"].includes(new URL(url).protocol);
+  } catch {
+  return false;
+  }
+}
 function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = [], targetLanguage2 = "ja") {
   const rows = lookupPillEditorRows(links, localFrequencyPreferences, targetLanguage2);
   return `
@@ -59243,7 +59267,7 @@ function renderKanjiSettingsPanel(settings) {
   return `
             <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="kanji" hidden>
                 <legend>${escapedUiText(settings.interfaceLanguage, "kanji")}</legend>
-                <div class="jpdb-reader-kanji-priorities" data-source-editor>
+                <div class="jpdb-reader-kanji-priorities" data-source-editor data-kanji-source-editor>
                     ${renderKanjiSourceRows(settings)}
                 </div>
                 ${renderHiddenKanjiDetailSettings(settings)}
@@ -60748,31 +60772,18 @@ function syncFontFamilyControls(form) {
   });
 }
 function renderDictionarySourceRows(settings) {
-  const rows = definitionSourceRows(settings);
-  const showAlias = true;
-  const visibleNames = /* @__PURE__ */ new Set([
-  ...rows.filter((row) => row.removable).map((row) => row.name)
-  ]);
-  const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
-  const hidden = hiddenPreferences.map((preference) => {
-  const index = settings.dictionaryPreferences.indexOf(preference);
-  return `
+  const rows = definitionSourceRows(settings).filter((row) => row.dictionaryType !== "kanji");
+  const visibleNames = new Set(rows.filter((row) => row.removable).map((row) => row.name));
+  const hidden = settings.dictionaryPreferences.map((preference, index) => visibleNames.has(preference.name) || preference.type === "kanji" ? "" : `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$1(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$1(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
             <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
-        `;
-  }).join("");
-  const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
-  if (!rows.some((row) => row.removable)) return `
-        <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
-        ${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}
-        ${metadataHelp}
-        ${hidden}
-        ${renderDefinitionTranslationControls(settings)}
-    `;
-  return `${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
+        `).join("");
+  const importHelp = visibleNames.size ? "" : '<div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>';
+  const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
+  return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
 }
 function renderDefinitionTranslationControls(settings) {
   const copy = multilingualSettingsCopy(settings.interfaceLanguage);
@@ -60888,6 +60899,7 @@ function dictionaryStatusElements(form) {
   return {
   status: form.querySelector("[data-dictionary-status]"),
   priorities: form.querySelector("[data-definition-source-editor]"),
+  kanjiPriorities: form.querySelector("[data-kanji-source-editor]"),
   lookupPills: form.querySelector(".jpdb-reader-lookup-links"),
   recommended: form.querySelector("[data-recommended-dictionaries]")
   };
@@ -60908,7 +60920,7 @@ function liveDictionaryPanelContext(form, settings) {
 }
 function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2, targetLanguage2, expandCatalogBrowse) {
   renderDictionaryStatusLine(elements.status, summary, settings);
-  renderDictionaryPriorities(elements.priorities, settings);
+  renderDictionaryPriorities(elements, settings);
   renderDictionaryLookupPills(elements.lookupPills, summary, settings, targetLanguage2);
   renderDictionaryRecommendations(
   elements.recommended,
@@ -60927,9 +60939,9 @@ function renderDictionaryStatusLine(element2, summary, settings) {
   metadata: summary.termMeta.toLocaleString()
   }) : uiText(settings.interfaceLanguage, "noLocalDictionariesImported");
 }
-function renderDictionaryPriorities(element2, settings) {
-  if (!element2) return;
-  setInnerHtml(element2, renderDictionarySourceRows(settings));
+function renderDictionaryPriorities(elements, settings) {
+  if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
+  if (elements.kanjiPriorities) setInnerHtml(elements.kanjiPriorities, renderKanjiSourceRows(settings));
 }
 function renderDictionaryLookupPills(element2, summary, settings, targetLanguage2) {
   if (!element2) return;
@@ -61881,7 +61893,7 @@ function mergeStoredYomuSrsCards(existing, incoming) {
   sentence: existing.sentence || incoming.sentence,
   sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
   sourceCardId: existing.sourceCardId || incoming.sourceCardId,
-  sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+  ...mergedSource(existing, incoming),
   tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
   createdAt: Math.min(existing.createdAt, incoming.createdAt),
   updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
@@ -62001,6 +62013,7 @@ function normalizeStoredCard(value) {
   ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
   ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
   ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
+  ...cleanOptional(value.sourceTitle) ? { sourceTitle: cleanOptional(value.sourceTitle) } : {},
   tags: stringArray(value.tags),
   dueAt: finiteNumber(value.dueAt, createdAt),
   ...value.reviewEnabled === false ? { reviewEnabled: false } : {},
@@ -62013,6 +62026,13 @@ function normalizeStoredCard(value) {
   ease: finiteNumber(value.ease, 2.5),
   retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
   academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
+  };
+}
+function mergedSource(existing, incoming) {
+  const [kept, other] = existing.sourceUrl || !incoming.sourceUrl ? [existing, incoming] : [incoming, existing];
+  return {
+  sourceUrl: kept.sourceUrl,
+  sourceTitle: kept.sourceTitle || (other.sourceUrl === kept.sourceUrl ? other.sourceTitle : void 0)
   };
 }
 function storedCardIdentity(card) {
@@ -62389,7 +62409,8 @@ class LocalYomuSrsRepository {
       language: request.language,
       meanings: request.meaning ? [request.meaning] : [],
       sentence: request.sentence,
-      sourceUrl: request.sourceUrl
+      sourceUrl: request.sourceUrl,
+      sourceTitle: request.sourceTitle
     }, now);
     if (!candidate) throw new TypeError("Vocabulary expression is required.");
     candidate.reviewEnabled = false;
@@ -62472,6 +62493,7 @@ class LocalYomuSrsRepository {
     sourceProviderId: item.sourceProviderId,
     sourceCardId: item.sourceCardId,
     sourceUrl: item.sourceUrl,
+    sourceTitle: item.sourceTitle?.trim() || void 0,
     tags: uniqueTrimmedStrings(item.tags ?? []),
     dueAt: item.dueAt ?? now,
     lastReviewAt: null,
@@ -62500,6 +62522,7 @@ class LocalYomuSrsRepository {
     sourceProviderId: card.providerId,
     sourceCardId: card.providerCardId,
     sourceUrl: card.sourceUrl,
+    sourceTitle: card.sourceTitle,
     dueAt: card.dueAt ?? now,
     lastReviewAt: card.lastReviewAt ?? null,
     createdAt: now,
@@ -62529,6 +62552,7 @@ class LocalYomuSrsRepository {
     dueAt: card.reviewEnabled === false ? void 0 : card.dueAt,
     lastReviewAt: card.lastReviewAt,
     sourceUrl: card.sourceUrl,
+    sourceTitle: card.sourceTitle,
     raw: card
   };
   }
@@ -64283,30 +64307,6 @@ const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
 const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
 const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-function focusPreviewAudioSource(form, button2, previewSettings) {
-  const row = button2?.closest("[data-audio-source-row]");
-  if (!row) return;
-  const source = previewSettings.audioSources[sourceRowIndex(form, row)];
-  if (!source) return;
-  previewSettings.audioSources = [{ ...source, enabled: true }];
-  previewSettings.audioEnableDefaultSources = false;
-}
-function sourceRowIndex(form, row) {
-  return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
-}
-function probeableAudioSourceUrl(row) {
-  if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
-  if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
-  const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
-  return isProbeableAudioSourceUrl(url) ? url : "";
-}
-function isProbeableAudioSourceUrl(url) {
-  try {
-  return ["http:", "https:"].includes(new URL(url).protocol);
-  } catch {
-  return false;
-  }
-}
 function recommendedDictionaryForControl(control) {
   const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
   if (!dictionary) throw new Error("Recommended dictionary not found.");
@@ -66430,6 +66430,7 @@ class SettingsDialogController {
     ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
     ["YouTube refresh", () => this.dependencies.youtube.refresh()],
     ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
+    ["stored data reload", () => this.dependencies.onStoredDataRestored?.()],
     ["settings dialog refresh", () => this.open(panel)]
   ];
   if (refreshOcr) effects.splice(5, 0, ["OCR refresh", () => this.dependencies.ocr.refresh()]);
