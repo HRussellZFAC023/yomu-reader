@@ -153,7 +153,7 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1297, critical: 460, byId: 454 });
+            .toEqual({ total: 1302, critical: 461, byId: 455 });
         for (const key of ['backupMovedHelp', 'helpLinksCopy', 'extensionSettingsRecoveryGuidance', 'dictionaryImportHelp', 'yomitanSettingsInvalid']) {
             expect(chromeMessageSource()).not.toHaveProperty(key);
         }
