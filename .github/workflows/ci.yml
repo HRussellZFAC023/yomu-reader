@@ -159,9 +159,10 @@ jobs:
   layout-smoke:
     runs-on: ubuntu-latest
     needs: [typecheck]
-    # npm ci plus the three browsers and their system packages alone can take
-    # six minutes on a hosted runner; the smokes themselves need about three.
-    timeout-minutes: 15
+    # npm ci plus the three browsers and their system packages can take six
+    # minutes from a cold cache, and the bounded install retries once; the
+    # smokes themselves need about three.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -169,12 +170,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Make apt retry a stalled mirror
-        # A release once spent its whole 15-minute browser install waiting on
-        # one silent mirror after "Need to get 130 MB of archives".
-        run: printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-yomu-retries >/dev/null
       - name: Install layout smoke browsers
-        run: npx playwright install --with-deps chromium firefox webkit
+        uses: ./.github/actions/playwright-browsers
       - run: npm run smoke:layout-regressions
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome

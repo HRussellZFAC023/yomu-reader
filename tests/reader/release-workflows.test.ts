@@ -9,6 +9,8 @@ const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workfl
 const buildExtensionWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-extension.yml'), 'utf8');
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
+const browserInstallAction = readFileSync(join(process.cwd(), '.github/actions/playwright-browsers/action.yml'), 'utf8');
+const nightlyWorkflow = readFileSync(join(process.cwd(), '.github/workflows/nightly.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
 const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
 const docsLocaleBrowserSmoke = readFileSync(join(process.cwd(), 'scripts/docs-localization-browser-smoke.mjs'), 'utf8');
@@ -184,7 +186,7 @@ describe('release workflow safety', () => {
     });
 
     it('runs the cross-browser layout release boundary before PRs can merge', () => {
-        expect(ciWorkflow).toContain('npx playwright install --with-deps chromium firefox webkit');
+        expect(ciWorkflow).toContain('uses: ./.github/actions/playwright-browsers');
         expect(ciWorkflow).toContain('npm run smoke:layout-regressions');
         expect(ciWorkflow).toMatch(/needs: \[[^\]\n]*layout-smoke[^\]\n]*\]/);
     });
@@ -202,7 +204,7 @@ describe('release workflow safety', () => {
 
     it('bounds Playwright installation on the proven bootstrap Node, then restores the audited runtime', () => {
         const bootstrap = releaseWorkflow.indexOf("node-version: '24.18.0'");
-        const browserInstall = releaseWorkflow.indexOf('npx playwright install --with-deps chromium firefox webkit');
+        const browserInstall = releaseWorkflow.indexOf('uses: ./.github/actions/playwright-browsers');
         const restore = releaseWorkflow.indexOf('name: Restore audited release Node');
         const releaseGate = releaseWorkflow.indexOf('npm run check:release');
 
@@ -214,6 +216,20 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow.slice(restore, releaseGate)).toContain("node-version-file: '.nvmrc'");
         expect(releaseWorkflow.slice(restore, releaseGate)).toContain('npm install --global npm@11.9.0');
         expect(releaseGate).toBeGreaterThan(restore);
+    });
+
+    // A slow Ubuntu mirror once outlasted a 15-minute job: only a cold cache downloads.
+    it('installs smoke browsers from a cache of the browsers and their system packages, bounded and retried', () => {
+        for (const workflow of [ciWorkflow, releaseWorkflow, nightlyWorkflow]) {
+            expect(workflow).toContain('uses: ./.github/actions/playwright-browsers');
+            expect(workflow).not.toContain('npx playwright install');
+        }
+        expect(browserInstallAction).toContain('npx playwright install --with-deps chromium firefox webkit');
+        expect(browserInstallAction).toContain('uses: actions/cache/restore@v4');
+        expect(browserInstallAction).toContain('uses: actions/cache/save@v4');
+        expect(browserInstallAction).toContain('~/.cache/ms-playwright');
+        expect(browserInstallAction).toContain('Keep-Downloaded-Packages "true"');
+        expect(browserInstallAction).toMatch(/for attempt in 1 2; do\n\s+if timeout --kill-after=30s 6m npx playwright install/);
     });
 
     it('gives desktop gaming artifacts one release owner', () => {

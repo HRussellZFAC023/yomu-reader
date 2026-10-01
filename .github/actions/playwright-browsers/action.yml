@@ -1,0 +1,47 @@
+name: Install Playwright browsers
+description: >-
+  Chromium, Firefox and WebKit with their system packages, from a cache of
+  the browser builds and the downloaded .deb archives. On 2026-10-01 the
+  Ubuntu mirror served the 125 MB of packages at about 100 KB/s, past a
+  15-minute job timeout; apt retries cannot help a mirror that is merely
+  slow. Only the run that refills the cache downloads, and that install is
+  bounded and retried with what it already fetched.
+runs:
+  using: composite
+  steps:
+    - name: Name the browser cache
+      id: key
+      shell: bash
+      run: echo "key=playwright-$(node -p "require('playwright/package.json').version")-${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+    - name: Restore browsers and system packages
+      id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/yomu-apt-archives
+        key: ${{ steps.key.outputs.key }}
+    - name: Install browsers and system packages
+      shell: bash
+      run: |
+        printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAPT::Keep-Downloaded-Packages "true";\nBinary::apt-get::APT::Keep-Downloaded-Packages "true";\n' | sudo tee /etc/apt/apt.conf.d/80-yomu-browser-install >/dev/null
+        mkdir -p ~/.cache/yomu-apt-archives
+        sudo cp ~/.cache/yomu-apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+        for attempt in 1 2; do
+          if timeout --kill-after=30s 6m npx playwright install --with-deps chromium firefox webkit; then
+            cp /var/cache/apt/archives/*.deb ~/.cache/yomu-apt-archives/ 2>/dev/null || true
+            exit 0
+          fi
+          echo "::warning::Browser install attempt $attempt did not finish; retrying with the packages it already fetched."
+          sudo pkill -f 'apt-get|dpkg' || true
+          sudo dpkg --configure -a || true
+        done
+        exit 1
+    - name: Save browsers and system packages
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/yomu-apt-archives
+        key: ${{ steps.key.outputs.key }}

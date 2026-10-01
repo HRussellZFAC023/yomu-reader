@@ -97,13 +97,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24.18.0'
-      - name: Make apt retry a stalled mirror
-        # A release once spent its whole 15-minute browser install waiting on
-        # one silent mirror after "Need to get 130 MB of archives".
-        run: printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-yomu-retries >/dev/null
       - name: Install layout smoke browsers
         timeout-minutes: 15
-        run: npx playwright install --with-deps chromium firefox webkit
+        uses: ./.github/actions/playwright-browsers
       - name: Restore audited release Node
         uses: actions/setup-node@v6
         with:
