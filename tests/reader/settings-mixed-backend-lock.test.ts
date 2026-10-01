@@ -6,7 +6,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 it('serializes bridged and standalone settings writers through the same origin lock', async () => {
     let tail = Promise.resolve();
     const names: string[] = [];
-    vi.stubGlobal('navigator', { locks: { request: <T>(name: string, callback: () => Promise<T>) => {
+    vi.stubGlobal('navigator', { locks: { request: <T>(name: string, _options: unknown, callback: () => Promise<T>) => {
         names.push(name);
         const next = tail.then(callback);
         tail = next.then(() => undefined, () => undefined);

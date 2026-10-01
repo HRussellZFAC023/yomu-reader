@@ -134,11 +134,15 @@ export async function withGmStorageLeaseCore<T, Epoch>(
 ): Promise<T> {
     // A same-origin tab holds this realm up at the web lock, any other at the GM claims.
     const wait = new StorageLeaseWait(options.onWait);
+    // The GM claims serialize every tab without the web lock, and any script on
+    // the page can take that lock and keep it: a caller with the claims waits
+    // for the lock for one lease at most.
+    const lockWaitMs = storageLeaseIo(environment.backend) ? options.leaseMs ?? DEFAULT_LEASE_MS : undefined;
     try {
         return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
             wait.end();
             return operation();
-        }, options, environment, wait), wait);
+        }, options, environment, wait), wait, lockWaitMs);
     } finally {
         wait.end();
     }
@@ -186,10 +190,11 @@ async function withSharedStorageLease<T, Epoch>(
     environment: GmStorageLeaseEnvironment<Epoch>,
     wait: StorageLeaseWait,
 ): Promise<T> {
-    const { getValue, setValue, deleteValue, listValues } = environment.backend;
+    const { getValue } = environment.backend;
     const epoch = await environment.captureEpoch(getValue);
     await environment.assertMutationFence(getValue, epoch);
-    if (!getValue || !setValue || !deleteValue || !listValues) {
+    const io = storageLeaseIo(environment.backend);
+    if (!io) {
         const result = await operation();
         await environment.assertMutationFence(getValue, epoch);
         return result;
@@ -200,7 +205,7 @@ async function withSharedStorageLease<T, Epoch>(
         guards: options.guards,
         prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
         epoch: environment.epochToken(epoch),
-        io: { getValue, setValue, deleteValue, listValues },
+        io,
         fence: () => environment.assertMutationFence(getValue, epoch),
         leaseMs,
         pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1_000),
@@ -208,6 +213,12 @@ async function withSharedStorageLease<T, Epoch>(
         timeoutMessage: `Timed out waiting for storage lease: ${name}`,
         wait,
     }).run(operation);
+}
+
+/** The backend, when it has all four calls the GM claims need. */
+function storageLeaseIo(backend: GmStorageLeaseBackend): StorageLeaseSpec['io'] | null {
+    const { getValue, setValue, deleteValue, listValues } = backend;
+    return [getValue, setValue, deleteValue, listValues].every(Boolean) ? backend as StorageLeaseSpec['io'] : null;
 }
 
 export interface ManagedStateEpochControlLeaseEnvironment {
@@ -515,27 +526,58 @@ function storageLeaseDelay(milliseconds: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-async function withWebStorageLock<T>(name: string, operation: () => Promise<T>, wait?: StorageLeaseWait): Promise<T> {
-    const lockManager = typeof navigator === 'undefined'
-        ? undefined
-        : (navigator as Navigator & {
-            locks?: { request<Result>(name: string, callback: () => Promise<Result>): Promise<Result> };
-        }).locks;
+interface WebLockManager {
+    request<Result>(name: string, options: { signal?: AbortSignal }, callback: () => Promise<Result>): Promise<Result>;
+}
+
+function webLockManager(): WebLockManager | undefined {
+    return typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { locks?: WebLockManager }).locks;
+}
+
+async function withWebStorageLock<T>(name: string, operation: () => Promise<T>, wait?: StorageLeaseWait, waitMs?: number): Promise<T> {
+    const lockManager = webLockManager();
     if (!lockManager) return operation();
     const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
-    const requests = realmWebLockRequests.get(lockName) ?? 0;
     // A free lock is granted at once, so a wait that lasts is another tab's turn.
-    if (!requests) wait?.blocked();
-    realmWebLockRequests.set(lockName, requests + 1);
+    if (!countRealmWebLockRequest(lockName, 1)) wait?.blocked();
     try {
-        return await lockManager.request(lockName, () => {
+        return await requestWebLock(lockManager, lockName, () => {
             wait?.passed();
             return operation();
-        });
+        }, waitMs);
     } finally {
-        const left = (realmWebLockRequests.get(lockName) ?? 1) - 1;
-        if (left > 0) realmWebLockRequests.set(lockName, left);
-        else realmWebLockRequests.delete(lockName);
+        countRealmWebLockRequest(lockName, -1);
+    }
+}
+
+/** Counts this realm's pending requests for a web lock, and returns how many it had before. */
+function countRealmWebLockRequest(lockName: string, change: 1 | -1): number {
+    const before = realmWebLockRequests.get(lockName) ?? 0;
+    if (before + change > 0) realmWebLockRequests.set(lockName, before + change);
+    else realmWebLockRequests.delete(lockName);
+    return before;
+}
+
+/**
+ * Runs `operation` under the lock or, given `waitMs`, without it when the lock
+ * is not granted in that time (or the request fails before it is).
+ */
+async function requestWebLock<T>(locks: WebLockManager, name: string, operation: () => Promise<T>, waitMs?: number): Promise<T> {
+    if (waitMs === undefined) return locks.request(name, {}, operation);
+    const giveUp = new AbortController();
+    const timer = setTimeout(() => giveUp.abort(), waitMs);
+    let granted = false;
+    try {
+        return await locks.request(name, { signal: giveUp.signal }, () => {
+            granted = true;
+            clearTimeout(timer);
+            return operation();
+        });
+    } catch (error) {
+        if (granted) throw error;
+        return operation();
+    } finally {
+        clearTimeout(timer);
     }
 }
 

@@ -105,13 +105,28 @@ function delayRenewalTick(tick: number, lateMs: number): void {
     }) as typeof clearInterval);
 }
 
-/** Same-origin tabs share one queue of web locks per name. */
+/**
+ * Every script of the origin shares one queue of web locks per name, page
+ * scripts included. A request whose signal aborts before it is granted leaves
+ * the queue.
+ */
 function stubWebLocks(): void {
     let tail = Promise.resolve();
-    vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, callback: () => Promise<T>) => {
-        const next = tail.then(callback);
-        tail = next.then(() => undefined, () => undefined);
-        return next;
+    vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, ...args: unknown[]) => {
+        const callback = args.pop() as () => Promise<T>;
+        const signal = (args[0] as { signal?: AbortSignal } | undefined)?.signal;
+        const turn = tail;
+        let held = false;
+        const granted = new Promise<T>((resolve, reject) => {
+            signal?.addEventListener('abort', () => { if (!held) reject(signal.reason); });
+            void turn.then(() => {
+                if (signal?.aborted) return;
+                held = true;
+                callback().then(resolve, reject);
+            });
+        });
+        tail = turn.then(() => (held ? granted.then(() => undefined, () => undefined) : undefined));
+        return granted;
     } } });
 }
 
@@ -377,6 +392,45 @@ describe('storage lease liveness', () => {
         await vi.advanceTimersByTimeAsync(100);
         await Promise.all([holding, waiting]);
         expect(onWait.mock.calls).toEqual([[true], [false]]);
+    });
+
+    // A page script can take よむ's web lock and never let it go. The GM claims
+    // serialize the tabs without it, so the save stops waiting for it.
+    it('completes a save whose web lock a page script holds forever', async () => {
+        stubWebLocks();
+        const page = navigator as Navigator & { locks: { request(name: string, callback: () => Promise<void>): Promise<void> } };
+        void page.locks.request(`yomu:${LEASE}`, () => new Promise(() => undefined));
+        const tab = await openTab(values);
+        const onWait = vi.fn();
+        const saving = lease(tab, () => guardedWrite(tab, 'saved'), onWait);
+
+        await vi.advanceTimersByTimeAsync(workLeaseMs - 100);
+        expect(values.has(GUARDED)).toBe(false);
+        await vi.advanceTimersByTimeAsync(200);
+        expect(values.get(GUARDED)).toBe('saved');
+        await saving;
+        expect(onWait.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('keeps a waiter that stopped waiting at the web lock out while a same-origin holder still saves', async () => {
+        stubWebLocks();
+        const [holderTab, waitingTab] = [await openTab(values), await openTab(values)];
+        const release = deferred();
+        const entries: string[] = [];
+        const holding = lease(holderTab, async () => {
+            entries.push('holder:start');
+            await release.promise;
+            entries.push('holder:end');
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        const waiting = lease(waitingTab, async () => { entries.push('waiter'); });
+
+        await vi.advanceTimersByTimeAsync(3 * workLeaseMs);
+        expect(entries).toEqual(['holder:start']);
+        release.resolve();
+        await vi.advanceTimersByTimeAsync(100);
+        await Promise.all([holding, waiting]);
+        expect(entries).toEqual(['holder:start', 'holder:end', 'waiter']);
     });
 
     // Safari can take seconds to wake an extension's background page. That is
