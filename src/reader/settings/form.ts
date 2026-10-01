@@ -1115,7 +1115,7 @@ function renderKanjiSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="kanji" hidden>
                 <legend>${escapedUiText(settings.interfaceLanguage, 'kanji')}</legend>
-                <div class="jpdb-reader-kanji-priorities" data-source-editor>
+                <div class="jpdb-reader-kanji-priorities" data-source-editor data-kanji-source-editor>
                     ${renderKanjiSourceRows(settings)}
                 </div>
                 ${renderHiddenKanjiDetailSettings(settings)}
@@ -2673,42 +2673,33 @@ export function syncFontFamilyControls(form: HTMLFormElement): void {
 /**
  * The definition-source editor is the SINGLE writer of one contiguous order.
  *
- * Every row -- built-in source, imported terms/kanji dictionary, and the
+ * Every row -- built-in source, imported terms dictionary, and the
  * dictionaries with no row of their own (frequency, pronunciation, metadata) --
  * submits its STORED priority, so an untouched Save writes back exactly what
  * was stored. Moving a row renumbers the visible rows by position and the
  * row-less dictionaries after the last of them (`syncSourceRowOrder`), so a
  * chosen order lives in one space and the row-less ones cannot collide with
  * the front of the visible list and re-sort `dictionaryPreferences`.
+ *
+ * A kanji dictionary orders the kanji section, so the Kanji editor alone
+ * submits it (`renderKanjiSourceRows`). Two copies of its fields meant FormData
+ * read this editor's, and moving it in the Kanji editor saved nothing.
  */
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
-    const rows = definitionSourceRows(settings);
-    const showAlias = true;
-    const visibleNames = new Set([
-        ...rows.filter(row => row.removable).map(row => row.name),
-    ]);
-    const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
-    const hidden = hiddenPreferences.map(preference => {
-        const index = settings.dictionaryPreferences.indexOf(preference);
-        return `
+    const rows = definitionSourceRows(settings).filter(row => row.dictionaryType !== 'kanji');
+    const visibleNames = new Set(rows.filter(row => row.removable).map(row => row.name));
+    const hidden = settings.dictionaryPreferences.map((preference, index) => visibleNames.has(preference.name) || preference.type === 'kanji' ? '' : `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ''}
             <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${preference.priority}" data-source-order-tail>
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml(preference.type ?? 'terms')}">
-        `;
-    }).join('');
-    const metadataHelp = hiddenPreferences.length
+        `).join('');
+    const importHelp = visibleNames.size ? '' : '<div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>';
+    const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size
         ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>'
         : '';
-    if (!rows.some(row => row.removable)) return `
-        <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
-        ${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias })}
-        ${metadataHelp}
-        ${hidden}
-        ${renderDefinitionTranslationControls(settings)}
-    `;
-    return `${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
+    return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
 }
 
 function renderDefinitionTranslationControls(settings: ReaderSettings): string {

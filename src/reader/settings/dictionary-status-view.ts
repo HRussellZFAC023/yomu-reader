@@ -9,6 +9,7 @@ import {
     activeTargetLanguageId,
     readFormSettings,
     renderDictionarySourceRows,
+    renderKanjiSourceRows,
     renderLookupPillsEditor,
     renderRecommendedDictionaries,
 } from './form';
@@ -18,6 +19,7 @@ export type DictionaryStatusSummary = Awaited<ReturnType<YomitanDictionaryStore[
 export interface DictionaryStatusElements {
     status: HTMLElement | null;
     priorities: HTMLElement | null;
+    kanjiPriorities: HTMLElement | null;
     lookupPills: HTMLElement | null;
     recommended: HTMLElement | null;
 }
@@ -32,6 +34,7 @@ export function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatu
     return {
         status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
         priorities: form.querySelector<HTMLElement>('[data-definition-source-editor]'),
+        kanjiPriorities: form.querySelector<HTMLElement>('[data-kanji-source-editor]'),
         lookupPills: form.querySelector<HTMLElement>('.jpdb-reader-lookup-links'),
         recommended: form.querySelector<HTMLElement>('[data-recommended-dictionaries]'),
     };
@@ -68,7 +71,7 @@ export function renderDictionaryStatusElements(
     expandCatalogBrowse?: boolean,
 ): void {
     renderDictionaryStatusLine(elements.status, summary, settings);
-    renderDictionaryPriorities(elements.priorities, settings);
+    renderDictionaryPriorities(elements, settings);
     renderDictionaryLookupPills(elements.lookupPills, summary, settings, targetLanguage);
     renderDictionaryRecommendations(
         elements.recommended,
@@ -95,9 +98,14 @@ function renderDictionaryStatusLine(
         : uiText(settings.interfaceLanguage, 'noLocalDictionariesImported');
 }
 
-function renderDictionaryPriorities(element: HTMLElement | null, settings: ReaderSettings): void {
-    if (!element) return;
-    setInnerHtml(element, renderDictionarySourceRows(settings));
+/**
+ * The Sources and Kanji editors split the shelf between them, each submitting
+ * its dictionaries as `dictionaryPreferences.<index>` of the shelf it was
+ * rendered from, so a changed shelf re-renders both or their indices collide.
+ */
+function renderDictionaryPriorities(elements: DictionaryStatusElements, settings: ReaderSettings): void {
+    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
+    if (elements.kanjiPriorities) setInnerHtml(elements.kanjiPriorities, renderKanjiSourceRows(settings));
 }
 
 function renderDictionaryLookupPills(
