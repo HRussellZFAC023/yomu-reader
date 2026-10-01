@@ -16,7 +16,7 @@ import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, headwordComponentPitchSegments, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
+import { apiSrsGradingProviderViewForCard, apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
@@ -143,7 +143,9 @@ export class CardPopoverRenderer {
         const language = settings.interfaceLanguage;
         const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
         const provider = this.apiProviderForCard(card);
-        const selectedDeckLabel = this.selectedDeckLabelForView(provider, data, trustedAccountDataSurface);
+        // Grades follow the chosen grading service, which may resolve the word first.
+        const gradingProvider = apiSrsGradingProviderViewForCard(card, settings, this.dependencies.isJpdbBackedCard);
+        const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
         const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language);
         const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider, trustedAccountDataSurface);
         const ankiActions = renderPopoverAnkiActions(data, settings, trustedAccountDataSurface);
@@ -162,7 +164,7 @@ export class CardPopoverRenderer {
                 card,
                 cardStates,
                 data,
-                provider,
+                provider: gradingProvider,
                 selectedDeckLabel,
                 reviewBlockReason,
                 language,

@@ -7,7 +7,12 @@
 // .test.ts; tests/reader/jpdb/02-sources-mining-drawer-pitch.test.ts pins the
 // trusted-surface toggle). So this smoke grades the same word once per
 // preference: the page never sees a provider control, and each grade reaches
-// only the chosen service. Produces a screenshot per service.
+// only the chosen service. Produces a screenshot per phase.
+//
+// Decision 2 phases: with the DEFAULT parser the page is parsed by the chosen
+// grading service itself, and with an explicit Jiten parser a JPDB grade first
+// resolves the word on JPDB; either way exactly one review reaches only the
+// chosen service.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -59,9 +64,8 @@ const settings = {
     jpdbMiningEnabled: true,
     enableReviews: true,
     apiGradingProvider: 'jpdb',
-    // JPDB parses the page and Jiten's reader parse only enriches the word, so
-    // 復習 keeps both identities: the one case where the preference picks the
-    // service. (A Jiten-parsed word is Jiten-only until Study's toggle re-parses it.)
+    // The first two phases pin JPDB: it parses the page and Jiten's reader
+    // parse only enriches the word, so 復習 keeps both identities.
     parserProvider: 'jpdb',
     furiganaMode: 'known-status',
     furiganaHiddenStateGroups: ['known'],
@@ -103,11 +107,20 @@ const requests = [];
 const browserEvents = [];
 let jitenKnownState = [0];
 let jitenParseCalls = 0;
+// A transient Jiten miss on the first reader parse (the enrichment request
+// when JPDB parses the page); phases where Jiten may parse the page skip it.
+let jitenTransientMiss = true;
+const parsedTexts = { jpdb: [], jiten: [] };
 
 try {
-    const jpdbRun = await runGradingProviderPhase('jpdb');
-    const jitenRun = await runGradingProviderPhase('jiten');
-    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, browserEvents };
+    const jpdbRun = await runGradingProviderPhase({ name: 'jpdb', grading: 'jpdb', parser: 'jpdb' });
+    const jitenRun = await runGradingProviderPhase({ name: 'jiten', grading: 'jiten', parser: 'jpdb' });
+    // The default parser (no local dictionary) parses with the grading service.
+    const defaultParserJpdbRun = await runGradingProviderPhase({ name: 'default-parser-jpdb', grading: 'jpdb', parser: 'default', pageParsedBy: 'jpdb' });
+    const defaultParserJitenRun = await runGradingProviderPhase({ name: 'default-parser-jiten', grading: 'jiten', parser: 'default', pageParsedBy: 'jiten' });
+    // An explicit Jiten parser stays Jiten; the JPDB grade resolves the word on JPDB.
+    const resolvedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb' });
+    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, browserEvents };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({
         ok: true,
@@ -118,17 +131,26 @@ try {
         kanjiSourceTitle: jitenRun.kanjiSourceTitle,
         jpdbReviewRequests: jpdbRun.reviewRequests,
         jitenReviewRequests: jitenRun.reviewRequests,
+        defaultParser: {
+            jpdbGrading: { pageParsedBy: defaultParserJpdbRun.pageParsedBy, reviewRequests: defaultParserJpdbRun.reviewRequests },
+            jitenGrading: { pageParsedBy: defaultParserJitenRun.pageParsedBy, reviewRequests: defaultParserJitenRun.reviewRequests },
+        },
+        jitenParserJpdbGrading: { pageParsedBy: resolvedRun.pageParsedBy, resolvedWith: resolvedRun.resolvedWith, reviewRequests: resolvedRun.reviewRequests },
     }, null, 2));
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
 }
 
-// One fresh page per preference: the ordinary-page popover has no switcher, so
-// the chosen service comes from settings, exactly as a learner sets it in Study.
-async function runGradingProviderPhase(provider) {
+// One fresh page per phase: the ordinary-page popover has no switcher, so the
+// chosen service comes from settings, exactly as a learner sets it in Study.
+async function runGradingProviderPhase(phase) {
+    const provider = phase.grading;
     requests.length = 0;
     jitenKnownState = [0];
     jitenParseCalls = 0;
+    jitenTransientMiss = phase.parser === 'jpdb';
+    parsedTexts.jpdb.length = 0;
+    parsedTexts.jiten.length = 0;
     const label = provider === 'jpdb' ? 'JPDB' : 'Jiten';
     const otherProvider = provider === 'jpdb' ? 'jiten' : 'jpdb';
     const context = await browser.newContext({ bypassCSP: true, ...smokeContextOptions(SMOKE_VIEWPORT) });
@@ -142,7 +164,7 @@ async function runGradingProviderPhase(provider) {
     await page.exposeFunction(REQUEST_BRIDGE_NAME, request => handleRequest(request));
     await addGmStorageBridgeInitScript(page, {
         key: YOMU_SETTINGS_KEY,
-        value: { ...settings, apiGradingProvider: provider },
+        value: phaseSettings(phase),
         requestBridgeName: REQUEST_BRIDGE_NAME,
     });
     await page.route(/https?:\/\/(?:[^/]*jpdb\.io|[^/]*api\.jiten\.moe|[^/]*workers\.dev)\//, route => {
@@ -162,7 +184,7 @@ async function runGradingProviderPhase(provider) {
     // so .jpdb-reader-spelling stops existing once kanji details are open.
     await assertPopoverHeadwordMatchesLookup(page, word, { label: `grading-provider ${provider} first open` });
     const state = await readPopoverState(page);
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, `${provider}-grading.png`), fullPage: false });
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, `${phase.name}-grading.png`), fullPage: false });
     assertOrdinaryPageGradingControls(state, label);
     // The grade row carries no provider attribute, but it must still offer the
     // chosen service's own scale (JPDB five grades, Jiten four).
@@ -174,13 +196,18 @@ async function runGradingProviderPhase(provider) {
     // second review is already recorded once the chosen one has landed.
     await page.waitForTimeout(600);
     assert(reviewRequestCount(otherProvider) === 0, `A ${label} grade was also sent to the other connected service`, { requests: summarizeRequests() });
+    assert(reviewRequestCount(provider) === 1, `The ${label} grade was not sent exactly once`, { requests: summarizeRequests() });
+    const pageParsedBy = phase.pageParsedBy ? assertPageParsedBy(phase.pageParsedBy) : null;
+    const resolvedWith = phase.resolvesOn ? assertGradeResolvedOn(phase.resolvesOn) : null;
 
     const repaintState = provider === 'jiten' ? await waitForReviewedWordRepaint(page) : null;
-    const kanjiSourceTitle = provider === 'jiten' ? await readJitenKanjiSourceTitle(page, word) : null;
+    const kanjiSourceTitle = phase.name === 'jiten' ? await readJitenKanjiSourceTitle(page, word) : null;
     assert(browserEvents.length === 0, 'Browser console/page errors occurred during grading-provider smoke', { browserEvents });
     const { actionsHtml: _actionsHtml, ...reportedState } = state;
     const result = {
         state: reportedState,
+        pageParsedBy,
+        resolvedWith,
         repaintState,
         kanjiSourceTitle,
         reviewRequests: reviewRequestCount(provider),
@@ -189,6 +216,27 @@ async function runGradingProviderPhase(provider) {
     };
     await context.close();
     return result;
+}
+
+// 'default' drops parserProvider, so normalization applies the real default.
+function phaseSettings(phase) {
+    const { parserProvider: _pinned, ...unpinned } = settings;
+    const parser = phase.parser === 'default' ? {} : { parserProvider: phase.parser };
+    return { ...unpinned, ...parser, apiGradingProvider: phase.grading };
+}
+
+// The page sentence itself (not a single term) reached exactly one service.
+function assertPageParsedBy(service) {
+    const other = service === 'jpdb' ? 'jiten' : 'jpdb';
+    const sentPage = name => parsedTexts[name].some(texts => texts.some(text => text.includes(SENTENCE.slice(0, -1))));
+    assert(sentPage(service) && !sentPage(other), `The page was not parsed by ${service} alone`, { parsedTexts, requests: summarizeRequests() });
+    return service;
+}
+
+// The graded word was looked up on the grading service by its spelling alone.
+function assertGradeResolvedOn(service) {
+    assert(parsedTexts[service].some(texts => texts.length === 1 && texts[0] === TERM), `The grade did not resolve ${TERM} on ${service}`, { parsedTexts });
+    return { service, texts: parsedTexts[service].filter(texts => texts.includes(TERM)) };
 }
 
 // Grade buttons stay on the page, but nothing that names or switches the
@@ -376,6 +424,9 @@ function handleRequest(request) {
     requests.push(summary);
     let body = {};
     try { body = request.data ? JSON.parse(request.data) : {}; } catch { body = {}; }
+    if (url.pathname.endsWith('/parse') && Array.isArray(body.text)) {
+        parsedTexts[url.host.includes('jpdb.io') ? 'jpdb' : 'jiten'].push(body.text.map(String));
+    }
     if (url.host.includes('jpdb.io')) return mockJpdb(url.pathname, body);
     if (url.host.includes('api.jiten.moe')) return mockJiten(url.pathname, body);
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
@@ -392,7 +443,7 @@ function mockJpdb(pathname, body) {
 function mockJiten(pathname, body = {}) {
     if (pathname.endsWith('/reader/parse')) {
         jitenParseCalls += 1;
-        if (jitenParseCalls === 1) {
+        if (jitenTransientMiss && jitenParseCalls === 1) {
             return { status: 503, responseText: 'temporary Jiten parse miss', contentType: 'text/plain; charset=utf-8' };
         }
         if (!Array.isArray(body.text) || typeof body.text[0] !== 'string') {

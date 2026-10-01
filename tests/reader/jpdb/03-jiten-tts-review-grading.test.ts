@@ -145,7 +145,7 @@ describe('reader helpers', () => {
         expect(playSentenceAudio).toHaveBeenCalledWith('訓むこともある。');
     });
 
-    it('switches from a visible Jiten card to an exact JPDB parse even when the saved preference is JPDB', async () => {
+    it('switches from a visible Jiten card to an exact JPDB parse', async () => {
         const sourceCard = jitenTestCard({ spelling: '読む', reading: 'よむ', cardState: ['new'] });
         const jpdbCard: JPDBCard = {
             ...card,
@@ -174,7 +174,7 @@ describe('reader helpers', () => {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'jpdb-key',
                 jitenApiKey: 'jiten-key',
-                apiGradingProvider: 'jpdb',
+                apiGradingProvider: 'jiten',
                 jpdbMiningEnabled: true,
                 enableReviews: true,
             }),
@@ -198,6 +198,28 @@ describe('reader helpers', () => {
             navigation: 'preserve',
             preservePosition: true,
         }));
+    });
+
+    it('toggles a Jiten card whose grades already go to JPDB over to Jiten without a parse', async () => {
+        const sourceCard = jitenTestCard({ spelling: '読む', reading: 'よむ', cardState: ['new'] });
+        const parse = vi.fn(async (): Promise<JPDBToken[][]> => [[]]);
+        const showCard = vi.fn(async () => undefined);
+        const setApiGradingProvider = vi.fn();
+        const controller = testCardActionController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'jiten-key', apiGradingProvider: 'jpdb' }),
+            jpdb: { parse, refreshCardState: vi.fn() } as unknown as JpdbClient,
+            jiten: { refreshCardState: vi.fn(async () => undefined) } as unknown as JitenApiClient,
+            isJpdbBackedCard: lookupCard => lookupCard.source === 'jpdb' && lookupCard.vid > 0,
+            showCard,
+            setApiGradingProvider,
+        });
+
+        await controller.perform({ kind: 'card-action', action: 'grade-provider-toggle' }, document.createElement('button'), sourceCard, '本を読む。');
+
+        expect(parse).not.toHaveBeenCalled();
+        expect(setApiGradingProvider).toHaveBeenCalledWith('jiten');
+        expect(sourceCard.apiGradingProviderOverride).toBe('jiten');
+        expect(showCard).toHaveBeenCalledWith(sourceCard, '本を読む。', undefined, expect.objectContaining({ navigation: 'preserve' }));
     });
 
     it('does not submit JPDB review grades when JPDB writes are disabled', async () => {

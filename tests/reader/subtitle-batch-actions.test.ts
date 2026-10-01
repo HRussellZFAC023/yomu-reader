@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SubtitlePlayerController } from '../../src/reader/subtitles/controller';
 import { testCardActionController } from './jpdb/fixtures';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { SubtitleBatchMiningCandidate } from '../../src/reader/subtitles/subtitle-batch-mining';
 import { readSubtitleCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { allowSyntheticReaderInteractionsForTests, trustedReaderEventHandler } from '../../src/reader/ui/trusted-interaction';
@@ -17,19 +17,26 @@ function candidate(vid: number, source: JPDBCard['source'] = 'jiten'): SubtitleB
     return { key: `private-key-${vid}`, card, sentence: '単語を読む。', rowIndex: vid, cueIndex: vid,
         start: vid, end: vid + 1, occurrences: 1, sentenceCardCount: 3, unknownCardCount: 1, iPlusOne: true, selected: true, state: 'new' };
 }
+// With only Jiten connected, a JPDB-parsed word is reviewed in the Academy
+// deck: a genuinely different scale from the Jiten word beside it.
+function academyDeck(): Parameters<typeof testCardActionController>[0] {
+    return { srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(new LocalYomuSrsRepository()) } };
+}
 function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> = {}, controllerOverrides: Parameters<typeof testCardActionController>[0] = {}) {
     allowSyntheticReaderInteractionsForTests(true);
     vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=fixture'));
     const settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-private-key', jitenApiKey: 'jiten-private-key', ankiEnabled: false, localDictionariesEnabled: false, audioEnabled: false, ...overrides };
     const jitenReview = vi.fn(async (_card: JPDBCard, _grade: string): Promise<void> => {});
     const jpdbReview = vi.fn(async (_card: JPDBCard, _grade: string): Promise<void> => {});
-    const add = vi.fn(async (): Promise<void> => {});
+    const add = vi.fn(async (..._args: unknown[]): Promise<void> => {});
+    const jitenParse = vi.fn(async (terms: string[]): Promise<JPDBToken[][]> => terms.map(() => []));
+    const jpdbParse = vi.fn(async (terms: string[]): Promise<JPDBToken[][]> => terms.map(() => []));
     const ankiAdd = vi.fn(async (_card: JPDBCard, _sentence?: string, _options?: unknown) => 1001);
     const ankiFind = vi.fn(async (_card: JPDBCard): Promise<{ primary: object | null; notes: unknown[]; state: string }> => ({ primary: null, notes: [], state: 'not-found' }));
     const toast = vi.fn();
     const actions = testCardActionController({ getSettings: () => settings,
-        jiten: { reviewCard: jitenReview, addToStudyDeck: add, listStudyDecks: async () => [{ id: 12, name: 'Private deck' }] } as never,
-        jpdb: { reviewCard: jpdbReview, addToDeck: add } as never,
+        jiten: { reviewCard: jitenReview, addToStudyDeck: add, listStudyDecks: async () => [{ id: 12, name: 'Private deck' }], parse: jitenParse } as never,
+        jpdb: { reviewCard: jpdbReview, addToDeck: add, parse: jpdbParse } as never,
         anki: { findExistingCards: ankiFind, addCard: ankiAdd } as never,
         resolveMiningContext: async (card, sentence) => ({ term: card.spelling, sentence: sentence ?? '', sourceKind: 'page', sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 }),
         isJpdbBackedCard: card => card.source === 'jpdb',
@@ -53,12 +60,12 @@ function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> 
     panel.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => internals.handleClick(event)));
     internals.renderBatchMiningPanel();
     cleanups.push(() => controller.destroy());
-    return { controller, internals, panel, settings, actions, selected, jitenReview, jpdbReview, add, ankiAdd, ankiFind, toast };
+    return { controller, internals, panel, settings, actions, selected, jitenReview, jpdbReview, jitenParse, jpdbParse, add, ankiAdd, ankiFind, toast };
 }
 
 describe('subtitle prepared batch actions through the controller', () => {
     it('renders native per-candidate scales and blocks incompatible bulk without revealing account data', async () => {
-        const f = setup([candidate(42), candidate(43, 'jpdb')]);
+        const f = setup([candidate(42), candidate(43, 'jpdb')], { apiKey: '' }, academyDeck());
         const rows = f.panel.querySelectorAll('[role="listitem"]');
         expect([...rows[0]!.querySelectorAll('[data-action="bm-grade"]')].map(button => button.textContent)).toEqual(['Again', 'Hard', 'Good', 'Easy']);
         expect([...rows[1]!.querySelectorAll('[data-action="bm-grade"]')].map(button => button.textContent)).toEqual(['Nothing', 'Something', 'Hard', 'Okay', 'Easy']);
@@ -139,10 +146,40 @@ describe('subtitle prepared batch actions through the controller', () => {
     });
 
     it('matches Japanese incompatible and collection/review explanatory copy', () => {
-        const f = setup([candidate(42), candidate(43, 'jpdb')], { interfaceLanguage: 'ja' });
+        const f = setup([candidate(42), candidate(43, 'jpdb')], { interfaceLanguage: 'ja', apiKey: '' }, academyDeck());
         expect(f.panel.textContent).toContain('選択した単語は評価段階が異なるか、一部の単語を復習できません。復習できる単語を個別に評価してください。');
         expect(f.panel.textContent).toContain('「選択を追加」は単語を保存し、評価ボタンは復習結果を記録します。');
         expect(f.panel.textContent).not.toContain('未翻訳');
+    });
+
+    it('grades every word into the chosen grading service when both are connected, resolving the rest first', async () => {
+        const f = setup([candidate(42), candidate(43, 'jpdb')]);
+        const resolved = { ...candidate(4300).card, spelling: '語43' };
+        f.jitenParse.mockResolvedValueOnce([[{ card: resolved, start: 0, end: 2, length: 2, rubies: [], pitchClass: '', sentence: '語43' }]]);
+        const rows = f.panel.querySelectorAll('[role="listitem"]');
+        for (const row of rows) {
+            expect([...row.querySelectorAll('[data-action="bm-grade"]')].map(button => button.textContent)).toEqual(['Again', 'Hard', 'Good', 'Easy']);
+        }
+        f.panel.querySelector<HTMLButtonElement>('[data-action="bm-grade-selected"][data-grade="hard"]')!.click();
+        await waitForExpect(() => expect(f.selected.size).toBe(0));
+        expect(f.jitenParse.mock.calls).toEqual([[['語43']]]);
+        expect(f.jitenReview.mock.calls.map(([card]) => card.vid)).toEqual([42, 4300]);
+        expect(f.jpdbReview).not.toHaveBeenCalled();
+        expect(f.add).not.toHaveBeenCalled();
+    });
+
+    it('never adds a Jiten identity to JPDB: a JPDB grade adds and reviews the resolved JPDB word once', async () => {
+        const f = setup([candidate(42)], { apiGradingProvider: 'jpdb' });
+        const resolved: JPDBCard = { ...candidate(9042, 'jpdb').card, sid: 1, spelling: '語42', cardState: ['not-in-deck'] };
+        f.jpdbParse.mockResolvedValueOnce([[{ card: resolved, start: 0, end: 2, length: 2, rubies: [], pitchClass: '', sentence: '語42' }]]);
+        const row = f.panel.querySelector('[role="listitem"]')!;
+        expect([...row.querySelectorAll('[data-action="bm-grade"]')].map(button => button.textContent)).toEqual(['Nothing', 'Something', 'Hard', 'Okay', 'Easy']);
+        row.querySelector<HTMLButtonElement>('[data-action="bm-grade"][data-grade="okay"]')!.click();
+        await waitForExpect(() => expect(f.selected.size).toBe(0));
+        expect(f.jpdbParse.mock.calls).toEqual([[['語42']]]);
+        expect(f.add.mock.calls).toEqual([[DEFAULT_SETTINGS.miningDeck, resolved, '単語を読む。']]);
+        expect(f.jpdbReview.mock.calls).toEqual([[resolved, 'okay']]);
+        expect(f.jitenReview).not.toHaveBeenCalled();
     });
 
     it('grades a word just added to the local deck from the subtitle batch', async () => {

@@ -1,6 +1,6 @@
 import { stableHashBase36 } from '../core/stable-hash';
 import { isApiMiningEnabled } from '../cards/srs-providers';
-import { effectiveJitenApiKey, effectiveJpdbApiKey } from '../settings/api-credential';
+import { chosenWordGradingService, effectiveJitenApiKey, effectiveJpdbApiKey } from '../settings/api-credential';
 import type { ReaderSettings } from '../app/types';
 
 const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1_200;
@@ -44,7 +44,8 @@ export function subtitleParseSourceSignature(settings: ReaderSettings): string {
     const jpdbApiKey = effectiveJpdbApiKey(settings);
     const jitenApiKey = effectiveJitenApiKey(settings);
     return [
-        `parser:${settings.parserProvider}`,
+        // Automatic parsing follows the grading service when both keys are set.
+        `parser:${settings.parserProvider}:${chosenWordGradingService(settings) ?? ''}`,
         jpdbApiKey ? `jpdb-api:${stableSubtitleHash(jpdbApiKey)}` : 'jpdb-api:off',
         jitenApiKey ? `jiten-api:${stableSubtitleHash(jitenApiKey)}` : 'jiten-api:off',
         settings.localDictionariesEnabled ? 'local:on' : 'local:off',

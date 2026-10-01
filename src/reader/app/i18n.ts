@@ -8,6 +8,7 @@ import { TARGET_AWARE_UI_COPY } from './target-aware-copy';
 import { SETTINGS_RECOVERY_COPY } from './settings-recovery-copy';
 import { PRACTICE_SESSION_COPY } from './practice-session-copy';
 import { SAVE_WAIT_COPY } from './save-wait-copy';
+import { GRADING_SERVICE_COPY } from './grading-service-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
@@ -602,7 +603,7 @@ const COPY = {
         parserProviderJiten: 'Jiten API',
         parserProviderJpdb: 'JPDB API',
         parserProviderAuto: 'Automatic (Jiten/JPDB)',
-        parserProviderHelp: 'Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.',
+        parserProviderHelp: 'Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.',
         offlineDictionarySetupComplete: 'Offline dictionaries installed.',
         offlineDictionarySetupFailed: 'Offline dictionary setup failed. Retry from Settings → Sources.',
         copiesCurrentWord: 'Copies the current word',
@@ -883,10 +884,7 @@ const COPY = {
         resizeLookupSheet: 'Drag to resize lookup sheet, or tap to close',
         showMiningActions: 'Show mining actions',
         hideMiningActions: 'Hide mining actions',
-        switchReviewTarget: 'Switch review target',
-        switchGradingProvider: 'Switch grading provider',
-        apiGradingProvider: 'Preferred grading service',
-        apiGradingProviderHelp: 'Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.',
+        ...GRADING_SERVICE_COPY.en,
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check kanji reviews.',
         apiSrsActionsDisabled: 'API mining actions are disabled in settings.',
@@ -1314,10 +1312,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
-switchReviewTarget	採点先を切り替える
-switchGradingProvider	採点サービスを切り替える
-apiGradingProvider	優先採点サービス
-apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -1745,7 +1739,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
-    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja,
+    ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja, ...GRADING_SERVICE_COPY.ja,
 };
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {
@@ -2255,7 +2249,7 @@ parserProviderLocal	ローカル辞書（オフライン）
 parserProviderJiten	Jiten API
 parserProviderJpdb	JPDB API
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。

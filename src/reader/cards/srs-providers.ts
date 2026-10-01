@@ -1,6 +1,6 @@
 import { normalizeCardStates } from './state';
 import { jpdbDeckLabel } from './deck-choice';
-import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
+import { chosenWordGradingService, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
@@ -208,6 +208,33 @@ export function apiSrsProviderViewForCard(
     if (bunproBacked) return { ...apiSrsProviderView('bunpro', settings), hasApiKey: false };
     if (wanikaniBacked) return { ...apiSrsProviderView('wanikani', settings), hasApiKey: false };
     return null;
+}
+
+// Grades follow the chosen grading service (chosenWordGradingService), even for
+// a word only the other service identified: a pinned parser, a JPDB-first
+// subtitle parse or a Jiten-resolved fallback word. Returns that service when
+// the card must first be resolved on it, else null. A per-card toggle and
+// exclusive Bunpro/WaniKani obligations keep their own provider.
+export function apiGradingServiceToResolve(
+    card: JPDBCard,
+    settings: ReaderSettings,
+    isJpdbBackedCard: (card: JPDBCard) => boolean,
+): 'jpdb' | 'jiten' | null {
+    const chosen = chosenWordGradingService(settings);
+    if (!chosen || card.apiGradingProviderOverride) return null;
+    const own = apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+    return (own === 'jpdb' || own === 'jiten') && own !== chosen ? chosen : null;
+}
+
+// The provider the grade buttons act on: the card's own provider, unless the
+// chosen grading service still has to resolve the word.
+export function apiSrsGradingProviderViewForCard(
+    card: JPDBCard,
+    settings: ReaderSettings,
+    isJpdbBackedCard: (card: JPDBCard) => boolean,
+): ApiSrsProviderView | null {
+    const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
+    return resolveOn ? apiSrsProviderView(resolveOn, settings) : apiSrsProviderViewForCard(card, settings, isJpdbBackedCard);
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {

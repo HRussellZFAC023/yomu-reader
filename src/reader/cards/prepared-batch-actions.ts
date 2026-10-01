@@ -28,6 +28,8 @@ export interface BatchMutationResult {
 interface BatchDependencies {
     getSettings(): ReaderSettings;
     resolveProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null;
+    /** Where grades go, when that is not the collection provider (the chosen grading service). */
+    resolveReviewProvider?(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null;
     collectionDeck(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string>;
     collectAnki(card: JPDBCard, sentence: string | undefined, deck: string, assertCurrent: () => void): Promise<boolean>;
     collectForReview(card: JPDBCard, sentence: string | undefined, deck: string): Promise<void>;
@@ -44,6 +46,7 @@ interface Entry {
     context: string;
     settings: ReaderSettings;
     provider: ApiSrsProviderAdapter | null;
+    reviewProvider: ApiSrsProviderAdapter | null;
     collectApi: boolean;
     collectAnki: boolean;
     grades: BatchGrades;
@@ -84,18 +87,18 @@ export class PreparedBatchActions {
         return candidates.map(candidate => {
             const identity = batchCardIdentity(candidate.card);
             const provider = this.deps.resolveProvider(candidate.card, settings);
-            const enabled = Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
-            const collectApi = Boolean(isApiMiningEnabled(settings) && enabled
+            const reviewProvider = this.reviewProvider(candidate.card, settings);
+            const collectApi = Boolean(isApiMiningEnabled(settings) && providerEnabled(provider, settings)
                 && (provider?.supportsMiningCard?.(candidate.card) ?? true));
             const blocked = normalizeCardStates(candidate.card.cardState).some(state => ['blacklisted', 'never-forget', 'redundant', 'suspended'].includes(state));
-            const grades = settings.enableReviews && enabled && !blocked
-                ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, provider!.id)).grades : [];
+            const grades = settings.enableReviews && providerEnabled(reviewProvider, settings) && !blocked
+                ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, reviewProvider!.id)).grades : [];
             const entry: Entry = {
                 token: Symbol('batch-plan'), source: candidate.card, card: { ...candidate.card, cardState: [...candidate.card.cardState] }, sentence: candidate.sentence,
                 states: JSON.stringify(candidate.card.cardState),
-                identity, context, settings: { ...settings }, provider, collectApi,
+                identity, context, settings: { ...settings }, provider, reviewProvider, collectApi,
                 collectAnki: collectApi ? shouldMineAnkiAlongsideApi(settings) : settings.ankiEnabled,
-                grades, receipts: receiptKeys(candidate.card, settings, provider),
+                grades, receipts: receiptKeys(candidate.card, settings, provider, reviewProvider),
             };
             this.entries.set(entry.token, entry);
             return this.view(entry);
@@ -169,7 +172,9 @@ export class PreparedBatchActions {
 
     private async review(entry: Entry, grade: JPDBGrade): Promise<void> {
         this.assertCurrent(entry);
-        if (entry.provider?.id === 'jpdb' && entry.card.cardState.includes('not-in-deck')) {
+        // A word JPDB has not identified yet is resolved by the grade itself,
+        // which adds the resolved word before reviewing it.
+        if (entry.reviewProvider?.id === 'jpdb' && entry.reviewProvider.supportsCard(entry.card) && entry.card.cardState.includes('not-in-deck')) {
             if (!this.completedStages(entry).includes('review-collection')) {
                 await this.deps.collectForReview(entry.card, entry.sentence, entry.settings.miningDeck || 'forq');
                 this.receipts.set(entry.receipts['review-collection'], 'completed');
@@ -178,11 +183,11 @@ export class PreparedBatchActions {
             entry.card.cardState = [...entry.card.cardState.filter(state => state !== 'not-in-deck'), 'in-deck'];
         }
         try {
-            await this.deps.review(entry.provider!, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), () => this.receipts.set(entry.receipts.review, 'completed'));
+            await this.deps.review(entry.reviewProvider!, entry.card, grade, entry.sentence, () => this.assertCurrent(entry), () => this.receipts.set(entry.receipts.review, 'completed'));
             this.receipts.set(entry.receipts.review, 'completed');
         } catch (error) {
             // A consumed server session cannot be replayed after an ambiguous response.
-            if (entry.provider?.id === 'bunpro' && !this.completedStages(entry).includes('review')) this.receipts.set(entry.receipts.review, 'uncertain');
+            if (entry.reviewProvider?.id === 'bunpro' && !this.completedStages(entry).includes('review')) this.receipts.set(entry.receipts.review, 'uncertain');
             throw error;
         }
         this.assertCurrent(entry);
@@ -192,9 +197,14 @@ export class PreparedBatchActions {
     private current(entry: Entry): boolean {
         const settings = this.deps.getSettings();
         const provider = this.deps.resolveProvider(entry.source, settings);
+        const reviewProvider = this.reviewProvider(entry.source, settings);
         return this.entries.get(entry.token) === entry && entry.context === batchContext(settings)
             && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState)
-            && provider?.id === entry.provider?.id && provider?.hasApiKey === entry.provider?.hasApiKey;
+            && provider?.id === entry.provider?.id && provider?.hasApiKey === entry.provider?.hasApiKey
+            && reviewProvider?.id === entry.reviewProvider?.id && reviewProvider?.hasApiKey === entry.reviewProvider?.hasApiKey;
+    }
+    private reviewProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
+        return this.deps.resolveReviewProvider ? this.deps.resolveReviewProvider(card, settings) : this.deps.resolveProvider(card, settings);
     }
     private assertCurrent(entry: Entry): void { if (!this.current(entry)) throw new StaleBatchPlan(); }
     private outcome(entry: Entry, state: BatchItemOutcome['state']): BatchItemOutcome {
@@ -215,6 +225,10 @@ export class PreparedBatchActions {
 
 class StaleBatchPlan extends Error {}
 
+function providerEnabled(provider: ApiSrsProviderAdapter | null, settings: ReaderSettings): boolean {
+    return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
+}
+
 function receiptItem(entry: Entry, action: BatchMutation): BatchReceiptItem {
     const stages: BatchStage[] = action === 'review' ? ['review-collection', 'review']
         : [...(entry.collectApi ? ['api-collection' as const] : []), ...(entry.collectAnki ? ['anki-collection' as const] : [])];
@@ -224,21 +238,28 @@ function receiptItem(entry: Entry, action: BatchMutation): BatchReceiptItem {
     return { id, keys: stages.map(stage => entry.receipts[stage]), required };
 }
 
-function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null): Record<BatchStage, string> {
+function receiptKeys(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null, reviewProvider: ApiSrsProviderAdapter | null): Record<BatchStage, string> {
+    const collect = receiptAccount(card, settings, provider);
+    const review = receiptAccount(card, settings, reviewProvider);
+    return {
+        review: sensitiveFingerprint(JSON.stringify(['review', review.account])),
+        'api-collection': sensitiveFingerprint(JSON.stringify(['collect', collect.account, collect.deck])),
+        'review-collection': sensitiveFingerprint(JSON.stringify(['review-collect', review.account, review.deck])),
+        'anki-collection': sensitiveFingerprint(JSON.stringify(['anki-collect', settings.ankiConnectUrl, settings.ankiDeck, settings.ankiModel,
+            settings.activeLanguageProfileId, card.spelling, card.reading])),
+    };
+}
+
+function receiptAccount(card: JPDBCard, settings: ReaderSettings, provider: ApiSrsProviderAdapter | null): { account: unknown[]; deck: string } {
     const credentials = { jiten: effectiveJitenApiKey(settings), jpdb: effectiveJpdbApiKey(settings),
         bunpro: [effectiveBunproFrontendApiToken(settings), effectiveBunproLegacyApiKey(settings)], wanikani: effectiveWanikaniApiToken(settings), 'yomu-local': settings.activeLanguageProfileId };
     const identity = provider?.id === 'jiten' ? [card.jitenWordId ?? card.vid, card.jitenReadingIndex ?? card.sid]
         : provider?.id === 'bunpro' ? [card.bunproReviewId, card.bunproReviewSessionId, card.bunproReviewInputMode, card.bunproReviewEndpoint]
         : provider?.id === 'wanikani' ? [card.wanikaniAssignmentId]
         : [card.vid, card.sid, card.spelling, card.reading];
-    const account = [provider?.id, provider ? credentials[provider.id] : '', identity];
-    const collectionDeck = provider?.id === 'jiten' ? 'default-study-deck' : settings.miningDeck;
     return {
-        review: sensitiveFingerprint(JSON.stringify(['review', account])),
-        'api-collection': sensitiveFingerprint(JSON.stringify(['collect', account, collectionDeck])),
-        'review-collection': sensitiveFingerprint(JSON.stringify(['review-collect', account, collectionDeck])),
-        'anki-collection': sensitiveFingerprint(JSON.stringify(['anki-collect', settings.ankiConnectUrl, settings.ankiDeck, settings.ankiModel,
-            settings.activeLanguageProfileId, card.spelling, card.reading])),
+        account: [provider?.id, provider ? credentials[provider.id] : '', identity],
+        deck: provider?.id === 'jiten' ? 'default-study-deck' : settings.miningDeck,
     };
 }
 

@@ -23,7 +23,7 @@ import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
 import { Logger } from '../app/logger';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
-import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { chosenWordGradingService, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { glossaryToText, type YomitanDictionaryStore, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
@@ -1626,8 +1626,12 @@ function shouldUseJitenParser(settings: ReaderSettings, options: ReaderParserPar
     return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
 }
 
+// Automatic order. With both keys set it follows the grading service, so parsed
+// words carry the identity their grades go to; otherwise Jiten, then JPDB.
 function shouldPreferJitenParser(settings: ReaderSettings, options: ReaderParserParseOptions, jiten: JitenApiClient | undefined): boolean {
-    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
+    return shouldUseJitenParser(settings, options, jiten)
+        && options.requireJpdb !== true
+        && chosenWordGradingService(settings) !== 'jpdb';
 }
 
 function shouldSkipApiParser(options: ReaderParserParseOptions): boolean {

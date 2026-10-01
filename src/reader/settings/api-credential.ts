@@ -39,6 +39,20 @@ export function hasJitenApiCredential(settings: ApiCredentialSettings): boolean 
     return Boolean(effectiveJitenApiKey(settings));
 }
 
+/**
+ * With both JPDB and Jiten connected, the service words are graded into: the
+ * "Preferred grading service" (a stored Bunpro preference grades words to
+ * Jiten, as the popover always has). Automatic parsing follows it, and a grade
+ * never silently reaches the other service. Null with one key or none, where
+ * the connected service grades what it can identify.
+ */
+export function chosenWordGradingService(
+    settings: ApiCredentialSettings & Pick<ReaderSettings, 'apiGradingProvider'>,
+): 'jpdb' | 'jiten' | null {
+    if (!hasJpdbApiCredential(settings) || !hasJitenApiCredential(settings)) return null;
+    return settings.apiGradingProvider === 'jpdb' ? 'jpdb' : 'jiten';
+}
+
 export function effectiveBunproFrontendApiToken(settings: BunproCredentialSettings): string {
     return settings.bunproFrontendApiToken?.trim() ?? '';
 }

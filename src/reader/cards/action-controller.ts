@@ -13,6 +13,7 @@ import type { MiningContext } from '../study/mining-context';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import {
     apiGradingProviderPreference,
+    apiGradingServiceToResolve,
     apiSrsSwitchableProviderIds,
     createApiSrsProviderAdapters,
     cardStateForApiState,
@@ -110,6 +111,7 @@ export class CardActionController {
         this.batchMining = new PreparedBatchActions({
             getSettings: () => this.options.getSettings(),
             resolveProvider: (card, settings) => this.apiProviderForCard(card, settings),
+            resolveReviewProvider: (card, settings) => this.gradingProviderForCard(card, settings),
             collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
             collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
             collectForReview: (card, sentence, deck) => this.options.jpdb.addToDeck(deck, card, sentence),
@@ -302,7 +304,7 @@ export class CardActionController {
     // re-render so the deck and grade buttons act on the chosen service.
     private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
         const settings = this.options.getSettings();
-        const current = this.apiProviderForCard(card, settings);
+        const current = this.gradingProviderForCard(card, settings);
         if (!current?.hasApiKey) return;
         const cycle = apiSrsSwitchableProviderIds(card, settings);
         if (cycle.length < 2) return;
@@ -414,6 +416,15 @@ export class CardActionController {
         }
         if (keyed.length) return external[0] ?? keyed[0] ?? null;
         return supporting.find(provider => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
+    }
+
+    // The provider the grade buttons act on (apiSrsGradingProviderViewForCard).
+    // It may not identify the card yet; the grade then resolves the word first.
+    private gradingProviderForCard(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
+        const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
+        return resolveOn
+            ? this.apiProviders(settings).find(provider => provider.id === resolveOn) ?? null
+            : this.apiProviderForCard(card, settings);
     }
 
     private apiProviderForDeckSource(source: ApiSrsDeckSource, card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
@@ -628,19 +639,39 @@ export class CardActionController {
 
     private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId; suppressToast?: boolean; assertCurrent?: () => void; onReviewed?: () => void }): Promise<void> {
         const settings = this.options.getSettings();
+        const resolveOn = apiGradingServiceToResolve(card, settings, this.options.isJpdbBackedCard);
         const provider = options.providerId
-            ? this.apiProviders(settings).find(candidate => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null
-            : this.apiProviderForCard(card, settings);
+            ? this.apiProviders(settings).find(candidate => candidate.id === options.providerId
+                && (candidate.supportsCard(card) || candidate.id === resolveOn)) ?? null
+            : this.gradingProviderForCard(card, settings);
         this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? 'addJpdbApiKeyReview');
-        const states = normalizeCardStates(card.cardState);
+        const target = provider.supportsCard(card) ? card : await this.resolveWordOnGradingService(card, provider);
+        const states = normalizeCardStates(target.cardState);
         assertReviewableApiCardState(states);
-        const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
+        const result = await provider.reviewCard(target, grade, { sentence, deckId: this.reviewDeckId(options) });
         options.onReviewed?.();
         options.assertCurrent?.();
         if (result.addedBeforeReview) {
             if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
-        } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
-        this.notifyApiCardStateChanged(card);
+        } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, target, sentence, states, settings, options.suppressToast === true);
+        this.notifyApiCardStateChanged(target);
+    }
+
+    // The chosen grading service grades a word another service identified only
+    // after matching it by exact spelling and reading: a homograph's other
+    // reading is another word. No match sends nothing, to either service.
+    private async resolveWordOnGradingService(card: JPDBCard, provider: ApiSrsProviderAdapter): Promise<JPDBCard> {
+        const spelling = card.spelling.trim();
+        const reading = card.reading.trim();
+        const parse = (terms: string[]) => provider.id === 'jiten'
+            ? this.options.jiten?.parse(terms) ?? Promise.resolve([])
+            : this.options.jpdb.parse(terms);
+        const [tokens = []] = spelling ? await parse([spelling]) : [];
+        const match = tokens.find(({ card: candidate }) => candidate.spelling.trim() === spelling
+            && (!reading || candidate.reading.trim() === reading)
+            && provider.supportsCard(candidate));
+        if (!match) throw userFacingError('gradingServiceWordNotFound');
+        return match.card;
     }
 
     // Jiten Reader parity: optionally add every reviewed word to the mining
