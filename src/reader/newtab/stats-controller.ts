@@ -14,7 +14,7 @@ import { effectiveJitenApiKey, hasJpdbApiCredential, hasJitenApiCredential } fro
 import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { dedupeWords } from './card-selection';
-import { isSavedOnlyNewTabCard } from './srs-card-adapter';
+import { canBrowseNewTabSrsSource, isSavedOnlyNewTabCard } from './srs-card-adapter';
 import { activeLearningTargetLanguage } from '../languages/target-runtime';
 import {
     JPDB_ALL_DECKS,
@@ -439,7 +439,8 @@ export class NewTabStatsController {
     private async loadSrsAdapterSource(source: NewTabSrsAdapterSource): Promise<StatsSourceSnapshot> {
         const adapter = this.deps.srsAdapters?.[source];
         const label = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
-        if (!adapter || !adapter.hasCredential()) {
+        // Academy counts only while Library can list it, so never with "Enable Academy" off.
+        if (!adapter?.hasCredential() || !canBrowseNewTabSrsSource(source, this.deps.canUseYomuLocalSource())) {
             return emptyStatsSource(source, label, source === 'yomu-local' ? this.deps.text('statsNoData') : this.deps.text('statsApiKeyMissing'), 'setup');
         }
         try {

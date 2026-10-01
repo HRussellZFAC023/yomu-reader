@@ -22,9 +22,13 @@ function libraryAddToReview(root: HTMLElement, expression: string): HTMLButtonEl
         ?.querySelector<HTMLButtonElement>('[data-newtab-action="browse-start-review"]') ?? null;
 }
 
-function academyStatsController(repository: LocalYomuSrsRepository, interfaceLanguage: 'en' | 'ja' = 'en') {
+function openView(root: HTMLElement, mode: 'search' | 'stats'): void {
+    root.querySelector<HTMLButtonElement>(`.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="${mode}"]`)!.click();
+}
+
+function academyStatsController(repository: LocalYomuSrsRepository, interfaceLanguage: 'en' | 'ja' = 'en', yomuLocalSrsEnabled = true) {
     return newTabApiSourceController(
-        { ...DEFAULT_SETTINGS, apiKey: '', interfaceLanguage, learningTargetChosen: true, yomuLocalSrsEnabled: true },
+        { ...DEFAULT_SETTINGS, apiKey: '', interfaceLanguage, learningTargetChosen: true, yomuLocalSrsEnabled },
         { srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(repository) } },
     );
 }
@@ -151,6 +155,28 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
         root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="stats"]')!.click();
         await vi.waitFor(() => expect(metric(root, 'Cards')).toBe('1'));
         expect(metric(root, 'Saved')).toBe('1');
+    } finally { controller.destroy(); }
+});
+
+// With "Enable Academy" off, Library cannot list Academy words, so Stats must
+// not count them either: a Saved tile would lead to an empty Library.
+it('leaves Academy out of Stats while Academy is turned off', async () => {
+    setActiveLearningTargetLanguage('ja');
+    const repository = new LocalYomuSrsRepository();
+    const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.review({ card: read.card!, grade: 'good' });
+    await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
+    await repository.mine({ expression: '見る', reading: 'みる', meaning: 'to see' });
+    const controller = academyStatsController(repository, 'en', false);
+    try {
+        const root = await renderLoadedApiStats(controller);
+        expect(savedTile(root)).toBeNull();
+        expect(metric(root, 'Saved')).toBe('');
+        expect(metric(root, 'Cards')).toBe('0');
+        // Library, which the tile would open, lists no Academy words: it is the bare dictionary search.
+        openView(root, 'search');
+        await vi.waitFor(() => expect(root.querySelector('[data-newtab-search-results] .jpdb-reader-newtab-search-empty')).not.toBeNull());
+        expect(root.querySelector('.jpdb-reader-newtab-browse-item')).toBeNull();
     } finally { controller.destroy(); }
 });
 
