@@ -1865,8 +1865,10 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 
 /* Keyboard key for each grade button (positional for four-button scales),
    under its label: five grades leave no room beside "Something", and every
-   grade row shows its keys the same way. */
-.jpdb-reader-btn[data-grade-key] {
+   grade row shows its keys the same way. An Anki due-in interval stacks the
+   same way, with or without a key. */
+.jpdb-reader-btn[data-grade-key],
+.jpdb-reader-btn:has(> .jpdb-reader-grade-interval) {
   flex-direction: column;
   gap: 2px !important; /* the base button's 6px gap is !important */
 }
