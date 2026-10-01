@@ -124,6 +124,32 @@ describe('stamped hosted surfaces', () => {
         expect(stampedBootBlock(readProjectFile('public/newtab/index.html'))).toBeDefined();
     });
 
+    // For theme Auto the boot adds only yomu-page-theme-*; jpdb-reader-theme-* marks an
+    // explicit choice. The Study shell's light tokens must follow the boot's light
+    // class, or Auto on a light system paints a dark shell under light-tuned accents
+    // (the active bottom-nav label measured 2.3:1). An explicit choice made with the
+    // in-page toggle must beat the boot class it leaves behind.
+    it.each([
+        [['yomu-page-theme-light'], 'light'],
+        [['yomu-page-theme-dark'], 'dark'],
+        [['jpdb-reader-theme-light'], 'light'],
+        [['jpdb-reader-theme-dark'], 'dark'],
+        [['yomu-page-theme-dark', 'jpdb-reader-theme-light'], 'light'],
+        [['yomu-page-theme-light', 'jpdb-reader-theme-dark'], 'dark'],
+        [[], 'dark'],
+    ])('paints the Study shell for root classes %j in the %s theme', (classes, expected) => {
+        const css = readProjectFile('public/newtab/index.html').match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
+        const themeRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+            .map(([, selector, body]) => ({ selector: selector.replace(/\/\*[\s\S]*?\*\//g, '').trim(), bg: body.match(/--bg:\s*([^;]+);/)?.[1] }))
+            .filter(rule => rule.bg && rule.selector.startsWith(':root') && rule.selector !== ':root');
+        document.documentElement.className = classes.join(' ');
+        const matching = themeRules.filter(rule => document.documentElement.matches(rule.selector));
+
+        // At most one theme block may match, so specificity never decides the shell.
+        expect(matching.length).toBeLessThanOrEqual(1);
+        expect((matching[0]?.bg ?? '#181b20') === '#ffffff' ? 'light' : 'dark').toBe(expected);
+    });
+
     // The boot reads settings.theme BEFORE its own 'auto' fallback, so a stored
     // default of 'light' makes that fallback unreachable and the operating
     // system's dark preference can never win. Measured on the live site: with
