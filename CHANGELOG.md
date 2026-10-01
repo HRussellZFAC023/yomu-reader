@@ -37,7 +37,7 @@
 - Study no longer brings back a card you just graded when its queue runs out, for example after the last due Anki card.
 - Study's desktop header keeps "Stats" on the same row as the other sections now that "Practice" has joined them.
 - Finishing Study's first-run welcome with "Use without API key" or "Add API key" opens the Dictionaries or API settings as promised, instead of leaving you on Study without them.
-- On canvas-based manga readers that Yomu does not read automatically (pages with no Japanese text, outside BookWalker), Yomu no longer sends every page to your OCR provider in the background while showing a "Scanning..." pill that never shows text. Tap the page to read it.
+- On canvas-based manga readers that Yomu does not read automatically (pages with no Japanese text, outside BookWalker), Yomu no longer sends every page to your OCR provider in the background while showing a "Scanning..." pill that never shows text. Tap or click the page to read it.
 
 ## [2.0.0] - 2026-09-30
 

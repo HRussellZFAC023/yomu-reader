@@ -1,4 +1,4 @@
-// The one-time "Tap the page to read it" hint.
+// The one-time "Tap or click the page to read it" hint.
 //
 // With a cloud OCR provider, a reader canvas on a page image OCR does not
 // auto-scan waits for a tap (canvas-auto-read.ts). The first such canvas gets
@@ -18,11 +18,12 @@ import { visibleViewportIntersection } from './surface-visibility';
 
 const READER_CANVAS_TAP_HINT_SEEN_KEY_PREFIX = 'yomu:private:ocr-canvas-tap-hint-seen:v1:';
 const INSET_PX = 12;
-// The pill's CSS max-width and laid-out height, so the clearance probe covers the
-// whole hint before it has ever been laid out. Its dismiss button's touch target
-// reaches up to DISMISS_HIT_SLOP_PX past the pill (reader-words-ocr.css), and the
-// probe keeps that clear of host controls too.
-const HINT_WIDTH_PX = 260;
+// The pill's CSS max-width (wide enough for the whole Japanese label) and laid-out
+// height, so the clearance probe covers the whole hint before it has ever been
+// laid out. Its dismiss button's touch target reaches up to DISMISS_HIT_SLOP_PX
+// past the pill (reader-words-ocr.css), and the probe keeps that clear of host
+// controls too.
+const HINT_WIDTH_PX = 340;
 const HINT_HEIGHT_PX = 34;
 const DISMISS_HIT_SLOP_PX = 12;
 const PROBE_STEP_PX = 32;

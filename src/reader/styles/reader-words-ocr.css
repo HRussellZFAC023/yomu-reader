@@ -1527,14 +1527,18 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   outline-offset: 3px;
 }
 
-/* One-time "Tap the page to read it" hint (ocr/reader-canvas-tap-hint.ts): the
-   canvas pill, pass-through like it, so a tap on it reads the page beneath. Only
-   its dismiss button takes pointer input. */
+/* One-time "Tap or click the page to read it" hint
+   (ocr/reader-canvas-tap-hint.ts): the canvas pill, pass-through like it, so a
+   tap on it reads the page beneath. Only its dismiss button takes pointer input.
+   It is wider than the scan pill so the whole Japanese label shows
+   (HINT_WIDTH_PX), but never wider than a phone screen, where the dismiss button
+   must stay in reach. */
 .jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint[hidden] {
   display: none !important;
 }
 
 .jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint {
+  max-width: min(340px, calc(100vw - 24px)) !important;
   overflow: visible;
 }
 

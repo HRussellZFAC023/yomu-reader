@@ -62,7 +62,7 @@ describe('reader canvas tap hint', () => {
         hint.update(canvas, testEnSettings());
         await storageSettled();
 
-        expect(visibleHint()?.textContent).toContain('Tap the page to read it');
+        expect(visibleHint()?.textContent).toContain('Tap or click the page to read it');
         expect(visibleHint()?.getAttribute('role')).toBe('status');
         await storageSettled();
         // Page storage would tell the site, on every later visit, that this
@@ -160,7 +160,7 @@ describe('reader canvas tap hint', () => {
         await storageSettled();
 
         const hint = visibleHint()!;
-        expect(hint.textContent).toContain('ページをタップすると読めます');
+        expect(hint.textContent).toContain('ページをタップまたはクリックすると読めます');
         expect(hint.querySelector('button')?.getAttribute('aria-label')).toBe('ヒントを閉じる');
         expect(hint.textContent).not.toContain('未翻訳');
     });

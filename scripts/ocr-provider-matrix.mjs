@@ -12,7 +12,8 @@
 // The same page served at an ordinary host is a generic canvas reader with no
 // Japanese DOM text, which image OCR does not auto-scan. There the learner's own
 // local service still reads it by itself, while a cloud provider receives nothing
-// until a tap and the site shows the one-time "Tap the page to read it" hint.
+// until a tap and the site shows the one-time "Tap or click the page to read it"
+// hint, in full, in English and Japanese.
 // With a mouse, pointing at that page sends nothing either: only a click reads it.
 // The hint's dismiss button takes a 44px finger or a 24px mouse press, and the
 // site's own storage never learns the hint was shown: Yomu's private GM storage
@@ -30,6 +31,7 @@ const BW_FIXTURE_HTML = readFileSync(new URL('./fixtures/bookwalker-viewer.html'
 const BW_VIEWER_URL = 'https://viewer.bookwalker.jp/de_ocr-provider-matrix/';
 const GENERIC_READER_URL = 'https://manga-reader.example/ocr-provider-matrix/';
 const TAP_HINT = '.jpdb-ocr-canvas-tap-hint:not([hidden])';
+const TAP_HINT_TEXT = { en: 'Tap or click the page to read it', ja: 'ページをタップまたはクリックすると読めます' };
 // The harness keeps its emulated GM store in the page's localStorage under this
 // prefix (a real userscript manager or extension keeps it out of the page), so
 // the page's own storage is every other key.
@@ -127,8 +129,10 @@ async function tapHintState(page) {
         const overlaps = (a, b) => Boolean(a && b) && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
         const hintBox = box(hint);
         const controls = Array.from(document.querySelectorAll('#toolbar button')).map(box);
+        const label = hint?.querySelector('.jpdb-ocr-video-frame-status-label');
         return {
             text: hint?.textContent ?? '',
+            labelFits: Boolean(label) && label.scrollWidth <= label.clientWidth,
             canvasFrames: document.querySelectorAll('.jpdb-ocr-canvas-frame').length,
             scanningPills: document.querySelectorAll('.jpdb-ocr-video-frame-status:not(.jpdb-ocr-canvas-tap-hint)').length,
             coversControl: controls.some(control => overlaps(hintBox, control)),
@@ -203,7 +207,8 @@ async function runGenericCloudProvider({ label, settings, expectUrl, real }) {
     await page.waitForTimeout(BACKGROUND_SETTLE_MS);
     const before = await tapHintState(page);
     console.log(`\n[${label}] before tap: ${JSON.stringify(before)} reqs=${requests.length}`);
-    pass(`${label}: tap hint shown`, hintShown && before.text.includes('Tap the page to read it'), before.text);
+    pass(`${label}: tap hint shown`, hintShown && before.text.includes(TAP_HINT_TEXT[settings.interfaceLanguage]), before.text);
+    pass(`${label}: the whole hint label shows, not cut off`, before.labelFits);
     pass(`${label}: nothing sent before the tap`, !requests.some(u => expectUrl.test(u)), requests.join(' ').slice(0, 120));
     pass(`${label}: nothing captured before the tap`, before.canvasFrames === 0 && before.scanningPills === 0);
     pass(`${label}: hint sits on the page, clear of the reader's controls`, before.insideCanvas && !before.coversControl);
@@ -260,6 +265,8 @@ await runProvider({ label: 'google-lens', real: LENS_REAL, expectUrl: /lensfront
 
 await runGenericLocalService({ label: 'generic-canvas-local-service', expectUrl: /127\.0\.0\.1:7331\/ocr/, settings: { ...base, ocrProvider: 'local-service', ocrEndpointUrl: 'http://127.0.0.1:7331/ocr' } });
 await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
+// The Japanese hint is the longest label the pill carries.
+await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision-ja', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, interfaceLanguage: 'ja', ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
 // The light theme's text colour is dark: the pill must not inherit it.
 await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision-light', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, theme: 'light', ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
 await runGenericCloudProvider({ label: 'generic-canvas-google-lens', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com|lens\.google\.com/, settings: { ...base, ocrProvider: 'google-lens' } });

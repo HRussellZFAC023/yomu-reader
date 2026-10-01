@@ -7,7 +7,7 @@ const EN_OCR_STATUS_COPY = {
     ocrPausedFrameFailed: 'Could not read text',
     ocrRetryScan: 'Scan again',
     ocrNoReadableImages: 'No readable images nearby.',
-    ocrCanvasTapHint: 'Tap the page to read it',
+    ocrCanvasTapHint: 'Tap or click the page to read it',
     ocrCanvasTapHintDismiss: 'Dismiss tip',
 } as const;
 
@@ -19,7 +19,7 @@ const JA_OCR_STATUS_COPY = {
     ocrPausedFrameFailed: 'テキストを読み取れませんでした',
     ocrRetryScan: '再スキャン',
     ocrNoReadableImages: '近くに読み取れる画像がありません。',
-    ocrCanvasTapHint: 'ページをタップすると読めます',
+    ocrCanvasTapHint: 'ページをタップまたはクリックすると読めます',
     ocrCanvasTapHintDismiss: 'ヒントを閉じる',
 } as const satisfies Record<keyof typeof EN_OCR_STATUS_COPY, string>;
 

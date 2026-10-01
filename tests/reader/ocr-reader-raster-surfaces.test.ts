@@ -2358,7 +2358,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         const controller = createController({ ocrProvider, ...providerSettings }, undefined, undefined, () => false);
         try {
             await waitForExpect(() => {
-                expect(visibleCanvasTapHint()?.textContent).toContain('Tap the page to read it');
+                expect(visibleCanvasTapHint()?.textContent).toContain('Tap or click the page to read it');
             });
             await new Promise(resolve => setTimeout(resolve, 60));
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
