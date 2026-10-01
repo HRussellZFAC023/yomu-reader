@@ -441,7 +441,7 @@ describe('storage lease liveness', () => {
         let enteredAt = Number.NaN;
         const startedAt = Date.now();
         const saving = lease(tab, async () => { enteredAt = Date.now(); }, onWait);
-        await vi.advanceTimersByTimeAsync(10_000);
+        await vi.advanceTimersByTimeAsync(12_000);
         await saving;
         expect(enteredAt - startedAt).toBeGreaterThan(2_000);
         expect(onWait).not.toHaveBeenCalled();

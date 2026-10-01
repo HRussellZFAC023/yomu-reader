@@ -145,10 +145,11 @@ async function storedWords(tab: Tab): Promise<string[]> {
 }
 
 /** Every userscript storage call answers `latencyMs` late, as slow extension messaging or a busy page makes it. */
-function slowStorage(latencyMs: number): void {
+function slowStorage(latencyMs: number | (() => number)): void {
+    const latency = typeof latencyMs === 'number' ? () => latencyMs : latencyMs;
     for (const name of ['GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_listValues']) {
         const call = (globalThis as Record<string, unknown>)[name] as (...args: unknown[]) => unknown;
-        vi.stubGlobal(name, (...args: unknown[]) => new Promise(answer => setTimeout(() => answer(call(...args)), latencyMs)));
+        vi.stubGlobal(name, (...args: unknown[]) => new Promise(answer => setTimeout(() => answer(call(...args)), latency())));
     }
 }
 
@@ -352,6 +353,23 @@ describe('a save while storage answers slowly', () => {
         // Slow storage is not another tab.
         expect(tab.waits).toEqual([]);
     });
+
+    // Safari can wake an extension's background page in the middle of a save:
+    // storage that answered in 2 ms takes 800 ms a call from then on. The save
+    // takes about 90 ms while storage is prompt.
+    it('adds the word when storage turns slow at any point of the save', async () => {
+        const failures: string[] = [];
+        for (let turnsSlowAt = 0; turnsSlowAt <= 92; turnsSlowAt += 4) {
+            openProfile(DECK_INDEX_KEY);
+            const startedAt = Date.now();
+            slowStorage(() => (Date.now() - startedAt < turnsSlowAt ? 2 : 800));
+            const save = addWord(await openTab(), '本', 'ほん');
+            await vi.advanceTimersByTimeAsync(120_000);
+            const result = await save;
+            if (result !== 'saved') failures.push(`${turnsSlowAt} ms: ${result}`);
+        }
+        expect(failures).toEqual([]);
+    }, 60_000);
 
     it.each([400, 800])('adds both words when two tabs save at once and every storage call takes %i ms', async latencyMs => {
         openProfile(DECK_INDEX_KEY);

@@ -359,7 +359,7 @@ class StorageLeaseClaimant {
 
     /** `requeue` writes a new place in the queue instead of extending the live claim. */
     private async writeClaim(changes: Partial<StorageLeaseClaim> = {}, requeue = false): Promise<void> {
-        const { getValue, setValue, deleteValue } = this.lease.io;
+        const { getValue, setValue } = this.lease.io;
         if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
         const writtenAt = Date.now();
         const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
@@ -373,11 +373,36 @@ class StorageLeaseClaimant {
             // a frozen tab held up is not slow storage.
             this.roundTripMs = Math.min(landedAt - writtenAt, Date.now() - landedAt);
         } catch (error) {
-            await deleteStorageLeaseClaimIfOwned(this.key, next, getValue, deleteValue).catch(cleanupError => {
-                debugStorageLeaseError('GM storage lease rollback failed', this.key, cleanupError);
-            });
+            await this.rollBack();
             throw error;
         }
+    }
+
+    /** Deletes the claim this realm wrote, unless another has taken its key. */
+    private async rollBack(): Promise<void> {
+        const { getValue, deleteValue } = this.lease.io;
+        await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue).catch(error => {
+            debugStorageLeaseError('GM storage lease rollback failed', this.key, error);
+        });
+    }
+
+    /**
+     * A holder's renewal. A factory reset in another tab deletes every claim,
+     * then checks that none is left while this section may still be running:
+     * a renewal reads the claim first and never writes back one that is gone,
+     * and takes back one the reset deleted while the write was in flight, which
+     * the fence after it reveals. The renewal on entry skips the read: the
+     * waiter's last poll fenced a moment ago, and once storage turns slow it
+     * may enter with little of its claim left.
+     */
+    private async renew(due: () => boolean, entry: boolean): Promise<void> {
+        if (!entry) await assertStorageLeaseClaimOwned(this.key, this.claim, this.lease.io.getValue);
+        // A write that finds storage slower writes again at once, for a longer claim.
+        do await this.writeClaim(); while (due());
+        await this.lease.fence().catch(async (error: unknown) => {
+            await this.rollBack();
+            throw error;
+        });
     }
 
     /**
@@ -400,16 +425,12 @@ class StorageLeaseClaimant {
         // - landingMs late (2.3 s of a 5 s lease), more once slow storage
         // stretches the claim.
         const due = (): boolean => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
-        const renewIfDue = (): void => {
+        const renewIfDue = (entry = false): void => {
             if (lost || renewal || !due()) return;
-            renewal = this.writeClaim().catch(error => {
+            renewal = this.renew(due, entry).catch(error => {
                 lost ??= { error };
                 debugStorageLeaseError('GM storage lease renewal failed', key, error);
-            }).finally(() => {
-                renewal = undefined;
-                // A renewal that found storage slow renews again at once, for a longer claim.
-                renewIfDue();
-            });
+            }).finally(() => { renewal = undefined; });
         };
         const guarding: GuardingStorageLease | undefined = lease.guards && {
             guards: lease.guards,
@@ -423,9 +444,9 @@ class StorageLeaseClaimant {
             },
         };
         if (guarding) guardingLeases.add(guarding);
-        const timer = setInterval(renewIfDue, renewEveryMs);
+        const timer = setInterval(() => renewIfDue(), renewEveryMs);
         // A waiter may enter with half its claim spent: renew before the first tick.
-        renewIfDue();
+        renewIfDue(true);
         let outcome: { readonly value: T } | { readonly error: unknown };
         try {
             await lease.fence();

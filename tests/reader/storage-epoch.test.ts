@@ -641,11 +641,44 @@ describe('managed storage epoch boundary', () => {
         values.set(SIGNAL_KEY, { id: 'remote-reset', phase: 'prepare', at: Date.now(), href: 'https://example.com/' });
         for (const key of [...values.keys()]) if (key.startsWith('yomu:lease:')) values.delete(key);
         releaseRenewal();
+        // The reset checks for leftover keys while the section still runs.
+        await vi.advanceTimersByTimeAsync(0);
+        expect([...values.keys()].filter(key => key.startsWith('yomu:lease:'))).toEqual([]);
         releaseOperation();
 
         await expect(lease).rejects.toThrow('suppressed');
         expect([...values.keys()].filter(key => key.startsWith('yomu:lease:'))).toEqual([]);
     });
+
+    // A deck save holds its lease for seconds; the review queue holds its own
+    // across provider requests. A factory reset in another tab sweeps the
+    // holder's claim while its section still runs, then checks that no managed
+    // key is left: a renewal must not write the claim back.
+    it.each([['local-yomu-srs-deck', 5_000], ['newtab-grade-queue', 60_000]])(
+        'leaves no %s claim for a factory reset in another tab to find while the holder still runs',
+        async (name, leaseMs) => {
+            vi.useFakeTimers();
+            const values = new Map<string, unknown>();
+            installGmStore(values);
+            const holder = await import('../../src/reader/app/storage');
+            let releaseOperation!: () => void;
+            const operationGate = new Promise<void>(resolve => { releaseOperation = resolve; });
+            const lease = holder.withGmStorageLease(name, () => operationGate, { leaseMs });
+            await vi.advanceTimersByTimeAsync(0);
+            expect([...values.keys()].filter(key => key.startsWith('yomu:lease:'))).toHaveLength(1);
+
+            vi.resetModules();
+            const resetting = await import('../../src/reader/app/storage');
+            await resetting.publishFactoryResetSignal(resetting.createFactoryResetSignal('prepare'));
+            await resetting.clearManagedStoredValues();
+            // Long enough for the holder's renewal to come due.
+            await vi.advanceTimersByTimeAsync(leaseMs / 2);
+            await expect(resetting.managedStoredKeysStillPresent()).resolves.toEqual([]);
+
+            releaseOperation();
+            await expect(lease).rejects.toThrow('suppressed');
+        },
+    );
 
     it('does not resolve a lease operation while its pending renewal can still reject', async () => {
         vi.useFakeTimers();
