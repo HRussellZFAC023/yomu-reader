@@ -16,7 +16,7 @@ import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, headwordComponentPitchSegments, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsGradingProviderViewForCard, apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
+import { apiSrsGradingProviderViewForCard, apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, collectionDestinationsForCard, isApiSrsProviderEnabled, type ApiSrsProviderView, type CollectionDestinationId } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
@@ -25,7 +25,6 @@ import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import { pillStyle } from '../dictionaries/display';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
-import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 import { activeContentLanguageAxes } from './content-language-axes';
@@ -51,8 +50,10 @@ interface CardPopoverRenderView {
     cardPosDetails: string;
     language: InterfaceLanguage;
     provider: ApiSrsProviderView | null;
-    miningActions: string;
+    collectAction: string;
+    deckStateActions: string;
     ankiActions: string;
+    reviewTargetGutter: string;
     reviewButtons: string;
     metaItems: string[];
     loadingDetails: string;
@@ -69,6 +70,19 @@ interface ReviewButtonsRenderOptions {
     selectedDeckLabel: string;
     reviewBlockReason: string;
     language: InterfaceLanguage;
+}
+
+interface PopoverReviewControls {
+    /** The target bar over the action row; only a switchable target has one. */
+    gutter: string;
+    buttons: string;
+}
+
+interface PopoverMiningActions {
+    /** "Add to deck +", always visible beside the grades. */
+    collect: string;
+    /** Never forget / Blacklist, kept in the collapsed drawer. */
+    deckState: string;
 }
 
 interface PopoverReviewTarget {
@@ -148,7 +162,15 @@ export class CardPopoverRenderer {
         const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
         const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language);
         const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider, trustedAccountDataSurface);
-        const ankiActions = renderPopoverAnkiActions(data, settings, trustedAccountDataSurface);
+        const reviewControls = this.renderReviewControls({
+            card,
+            cardStates,
+            data,
+            provider: gradingProvider,
+            selectedDeckLabel,
+            reviewBlockReason,
+            language,
+        }, trustedAccountDataSurface);
         return {
             cardStates,
             state,
@@ -158,17 +180,11 @@ export class CardPopoverRenderer {
             cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
             language,
             provider,
-            miningActions,
-            ankiActions,
-            reviewButtons: this.renderReviewButtons({
-                card,
-                cardStates,
-                data,
-                provider: gradingProvider,
-                selectedDeckLabel,
-                reviewBlockReason,
-                language,
-            }, trustedAccountDataSurface),
+            collectAction: miningActions.collect,
+            deckStateActions: miningActions.deckState,
+            ankiActions: renderPopoverAnkiActions(data, settings, trustedAccountDataSurface),
+            reviewTargetGutter: reviewControls.gutter,
+            reviewButtons: reviewControls.buttons,
             metaItems: this.renderMetaItems(card, provider, state, data, trustedAccountDataSurface),
             loadingDetails: this.renderLoadingDetails(data.loading, language),
             audioButtonDisabled: !settings.audioEnabled,
@@ -313,25 +329,27 @@ export class CardPopoverRenderer {
         }, data.ankiFieldTargetPlan, { trustedAccountDataSurface: view.trustedAccountDataSurface });
     }
 
+    // DOM order is focus order: the bar over the row, the drawer it opens,
+    // then "Add to deck +" directly before the grades.
     private renderActions(view: CardPopoverRenderView): string {
-        const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
+        const hasMiningPanel = Boolean(view.deckStateActions || view.ankiActions) && canExpandMiningDrawer();
         const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
-        const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
-        const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+        const hasDrawer = hasMiningPanel || Boolean(view.reviewTargetGutter);
         const miningClass = hasDrawer
             ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed'
             : '';
         return `<div class="jpdb-reader-actions${miningClass}">
-            ${hasReviewTargetGutter ? '' : renderMiningGutter(miningPanel, view.language)}
+            ${view.reviewTargetGutter || renderMiningGutter(miningPanel, view.language)}
             ${miningPanel}
             ${hasMiningPanel ? '' : view.ankiActions}
+            ${view.collectAction}
             ${view.reviewButtons}
         </div>`;
     }
 
     private renderMiningPanel(view: CardPopoverRenderView): string {
         return `<div class="jpdb-reader-mining-panel">
-            ${view.miningActions}
+            ${view.deckStateActions}
             ${view.ankiActions}
         </div>`;
     }
@@ -343,14 +361,16 @@ export class CardPopoverRenderer {
         data: CardRenderData & { loading: boolean },
         provider: ApiSrsProviderView | null,
         trustedAccountDataSurface: boolean,
-    ): string {
-        return renderApiMiningActions(this.settings(), card, cardStates, language, data, provider, trustedAccountDataSurface);
+    ): PopoverMiningActions {
+        const settings = this.settings();
+        const destinations = collectionDestinationsForCard(card, settings, this.dependencies.isJpdbBackedCard);
+        return renderApiMiningActions(settings, card, cardStates, language, data, provider, destinations, trustedAccountDataSurface);
     }
 
-    private renderReviewButtons(options: ReviewButtonsRenderOptions, trustedAccountDataSurface: boolean): string {
+    private renderReviewControls(options: ReviewButtonsRenderOptions, trustedAccountDataSurface: boolean): PopoverReviewControls {
         return trustedAccountDataSurface
-            ? this.renderTrustedReviewButtons(options)
-            : this.renderPublicReviewButtons(options);
+            ? this.renderTrustedReviewControls(options)
+            : { gutter: '', buttons: this.renderPublicReviewButtons(options) };
     }
 
     private renderPublicReviewButtons(options: ReviewButtonsRenderOptions): string {
@@ -365,12 +385,17 @@ export class CardPopoverRenderer {
         return this.canReviewWithApiProvider(options.provider);
     }
 
-    private renderTrustedReviewButtons(options: ReviewButtonsRenderOptions): string {
-        const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
+    private renderTrustedReviewControls(options: ReviewButtonsRenderOptions): PopoverReviewControls {
+        const { card, data, provider, reviewBlockReason, language } = options;
         const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
-        if (earlyResult !== undefined) return earlyResult;
+        if (earlyResult !== undefined) return { gutter: '', buttons: earlyResult };
         const targets = this.popoverReviewTargets(card, data, provider, language);
         if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
+        return { gutter: '', buttons: this.renderUntargetedReviewButtons(options) };
+    }
+
+    private renderUntargetedReviewButtons(options: ReviewButtonsRenderOptions): string {
+        const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
         if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
         return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
     }
@@ -559,23 +584,21 @@ export class CardPopoverRenderer {
         language: InterfaceLanguage,
         canSwitchTarget: boolean,
         switchProviderTarget: ApiSrsProviderView | null,
-    ): string {
+    ): PopoverReviewControls {
         const settings = this.settings();
         const selected = targets[0];
-        if (!selected) return '';
+        if (!selected) return { gutter: '', buttons: '' };
         const reviewGroup = canSwitchTarget ? Symbol('review-group') : undefined;
         const profiles = new Set((canSwitchTarget ? targets : [selected]).map(target => target.gradeProfile));
         const gradeRows = [...profiles].map(profile => renderTargetedGradeRow(
             reviewGradeScale(settings, profile), selected, profile, selected.gradeProfile !== profile, settings, reviewGroup,
         )).join('');
-        if (!gradeRows) return '';
+        if (!gradeRows) return { gutter: '', buttons: '' };
         const selector = reviewGroup ? renderReviewTargetSelector(targets, language, reviewGroup) : '';
-        const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
-        return `
-            ${targetGutter}
-            ${selector}
-            ${gradeRows}
-        `;
+        return {
+            gutter: renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget),
+            buttons: `${selector}${gradeRows}`,
+        };
     }
 
     private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }, trustedAccountDataSurface: boolean): string[] {
@@ -761,10 +784,6 @@ export function togglePopoverReviewTargetSelection(button: HTMLButtonElement): v
     updatePopoverReviewTargetSelection(select);
 }
 
-function reviewButtonsIncludeTargetGutter(reviewButtons: string): boolean {
-    return reviewButtons.includes('data-review-target-gutter');
-}
-
 function renderReviewTargetGutter(
     target: PopoverReviewTarget,
     language: InterfaceLanguage,
@@ -844,23 +863,33 @@ function renderApiMiningActions(
     language: InterfaceLanguage,
     data: CardRenderData & { loading: boolean },
     provider: ApiSrsProviderView | null,
+    destinations: CollectionDestinationId[],
     trustedAccountDataSurface: boolean,
-): string {
-    if (!trustedAccountDataSurface) return renderPrivateMiningAction(settings, language, provider);
-    const state = miningActionState(cardStates, language);
-    const addDeckSelect = renderAddDeckSelect(settings, card, data, language, provider);
-    if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return '';
-    return renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
+): PopoverMiningActions {
+    // An ordinary page owns this DOM: it gets one provider-neutral save whose
+    // destination the controller resolves from the same list.
+    if (!trustedAccountDataSurface) return { collect: destinations.length ? renderPrivateCollectAction(language) : '', deckState: '' };
+    const addDeckSelect = renderAddDeckSelect(settings, data, language, provider, destinations);
+    if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return { collect: '', deckState: '' };
+    return {
+        collect: renderCollectAction(`${renderApiDeckAddButton(provider, addDeckSelect, language)}${addDeckSelect}`),
+        deckState: canToggleApiDeckState(card, settings) ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : '',
+    };
 }
 
-function renderPrivateMiningAction(settings: ReaderSettings, language: InterfaceLanguage, provider: ApiSrsProviderView | null): string {
-    const apiAvailable = canRenderApiMiningActions(settings, provider);
-    if (!apiAvailable && !settings.ankiEnabled) return '';
-    return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 1">
-            <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: 'card-action', action: 'add-default' })}>${escapeHtml(uiText(language, 'addToDeck'))} +</button>
-        </div>
-    </div>`;
+// Saving is the deliberate, unscheduled action, so it sits beside the grades
+// (which add and schedule) instead of inside the collapsed drawer.
+function renderCollectAction(content: string): string {
+    return `<div class="jpdb-reader-collect">${content}</div>`;
+}
+
+function renderPrivateCollectAction(language: InterfaceLanguage): string {
+    return renderCollectAction(`<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: 'card-action', action: 'add-default' })}>${collectButtonLabel(language)}</button>`);
+}
+
+// The "+" is decoration: the button's accessible name is "Add to deck".
+function collectButtonLabel(language: InterfaceLanguage): string {
+    return `${escapeHtml(uiText(language, 'addToDeck'))} <span aria-hidden="true">+</span>`;
 }
 
 // Mirrors changeProviderDeckState's resolution: Never forget / Blacklist land
@@ -875,79 +904,50 @@ function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsPro
     return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
 }
 
+// JPDB and Jiten decks follow the service the grade row uses (the ⇄ toggle
+// switches it); every destination offered is one the learner has enabled.
 function renderAddDeckSelect(
     settings: ReaderSettings,
-    card: JPDBCard,
     data: CardRenderData & { loading: boolean },
     language: InterfaceLanguage,
     provider: ApiSrsProviderView | null,
+    destinations: CollectionDestinationId[],
 ): string {
     const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
-        includeJpdb: provider?.id === 'jpdb',
-        includeJiten: provider?.id === 'jiten',
-        includeBunpro: isBunproMiningCard(card)
-            && settings.bunproMiningEnabled
-            && hasBunproFrontendCredential(settings)
-            && !isBunproFrontendCredentialExpired(settings),
-        includeYomuLocal: settings.yomuLocalSrsEnabled,
+        includeJpdb: provider?.id === 'jpdb' && destinations.includes('jpdb'),
+        includeJiten: provider?.id === 'jiten' && destinations.includes('jiten'),
+        includeBunpro: destinations.includes('bunpro'),
+        includeYomuLocal: destinations.includes('yomu-local'),
         jitenDecks: data.jitenDecks ?? [],
     });
     if (!deckOptions) return '';
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null, canToggleDeckState: boolean): string {
-    const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-    const directAdd = isDirectApiDeckAdd(provider, addDeckSelect);
-    return `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${apiMiningActionColumns(canToggleDeckState)}">
-                        ${renderApiDeckAddButton(provider, directAdd, addToDeckLabel)}${renderApiDeckStateButtons(state, canToggleDeckState)}
-                    </div>
-                    ${addDeckSelect}
-                </div>
-            `;
+function renderApiDeckAddButton(provider: ApiSrsProviderView | null, addDeckSelect: string, language: InterfaceLanguage): string {
+    const label = collectButtonLabel(language);
+    if (!isDirectApiDeckAdd(provider, addDeckSelect)) {
+        return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${label}</button>`;
+    }
+    const deckSource = provider?.id === 'bunpro' ? 'bunpro' : 'yomu-local';
+    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: 'card-action', action: 'add', deckSource })}>${label}</button>`;
 }
 
+// Bunpro and the Yomu deck are single collections: with nothing else to choose
+// from, "Add to deck +" saves straight away instead of opening the picker.
 function isDirectApiDeckAdd(provider: ApiSrsProviderView | null, addDeckSelect: string): boolean {
-    if (!provider) return false;
-    const directProviders = new Set<ApiSrsProviderView['id']>(['bunpro', 'yomu-local']);
-    if (!directProviders.has(provider.id)) return false;
-    return apiDeckSourceCount(addDeckSelect) <= 1;
+    if (provider?.id !== 'bunpro' && provider?.id !== 'yomu-local') return false;
+    return (addDeckSelect.match(/data-deck-source=/g)?.length ?? 0) <= 1;
 }
 
-function apiDeckSourceCount(addDeckSelect: string): number {
-    return addDeckSelect.match(/data-deck-source=/g)?.length ?? 0;
-}
-
-function apiMiningActionColumns(canToggleDeckState: boolean): number {
-    return canToggleDeckState ? 3 : 1;
-}
-
-function renderApiDeckAddButton(provider: ApiSrsProviderView | null, directAdd: boolean, label: string): string {
-    return directAdd
-        ? renderDirectApiDeckAddButton(directApiDeckSource(provider), label)
-        : renderApiDeckPickerButton(label);
-}
-
-function directApiDeckSource(provider: ApiSrsProviderView | null): 'bunpro' | 'yomu-local' {
-    return provider?.id === 'bunpro' ? 'bunpro' : 'yomu-local';
-}
-
-function renderDirectApiDeckAddButton(deckSource: 'bunpro' | 'yomu-local', label: string): string {
-    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: 'card-action', action: 'add', deckSource })} aria-expanded="false">${escapeHtml(label)}</button>`;
-}
-
-function renderApiDeckPickerButton(label: string): string {
-    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${escapeHtml(label)}</button>`;
-}
-
-function renderApiDeckStateButtons(state: MiningActionState, canToggleDeckState: boolean): string {
-    if (!canToggleDeckState) return '';
+function renderApiDeckStateActions(state: MiningActionState, language: InterfaceLanguage): string {
     const neverForgetClass = state.isNeverForget ? ' danger' : '';
-    return `
-                        <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: 'card-action', action: 'neverforget' })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: 'card-action', action: 'blacklist' })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>`;
+    return `<div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+        <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 2">
+            <button class="jpdb-reader-btn nf${neverForgetClass}" data-action="neverforget"${privateCommandAttributes({ kind: 'card-action', action: 'neverforget' })} aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+            <button class="jpdb-reader-btn blacklist" data-action="blacklist"${privateCommandAttributes({ kind: 'card-action', action: 'blacklist' })} aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+        </div>
+    </div>`;
 }
 
 function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): string {

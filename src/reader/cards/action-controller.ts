@@ -16,9 +16,9 @@ import {
     apiGradingProviderPreference,
     apiGradingServiceToResolve,
     apiSrsSwitchableProviderIds,
+    collectionDestinationsForCard,
     createApiSrsProviderAdapters,
     cardStateForApiState,
-    isApiMiningEnabled,
     isApiSrsProviderEnabled,
     shouldMineAnkiAlongsideApi,
     type ApiSrsDeckSource,
@@ -458,25 +458,23 @@ export class CardActionController {
 
     private async addToPrivateDefaultDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
-        const provider = this.privateDefaultApiProvider(card, settings);
-        if (!provider) {
-            return this.addToPrivateFallbackDeck(card, sentence, context, settings);
+        const destination = this.privateDefaultDestination(card, settings);
+        if (destination === 'anki') return this.addToAnki(card, sentence, settings.ankiDeck, context);
+        if (!destination) throw userFacingError('batchMiningNoDestination');
+        const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
+        if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
+        await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings);
+    }
+
+    // The popup renders "Add to deck +" from the same destination list, so the
+    // save lands on the first destination the learner was offered.
+    private privateDefaultDestination(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | 'anki' | null {
+        const providers = this.apiProviders(settings).filter(provider => provider.hasApiKey);
+        for (const id of collectionDestinationsForCard(card, settings, this.options.isJpdbBackedCard)) {
+            const destination = id === 'anki' ? id : providers.find(candidate => candidate.id === id);
+            if (destination) return destination;
         }
-        const selectedDeckId = await this.privateDefaultDeckId(provider, settings);
-        if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(provider));
-        await this.addToApiProviderDeck(provider, selectedDeckId, card, sentence, context, settings);
-    }
-
-    private privateDefaultApiProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
-        if (!isApiMiningEnabled(settings)) return null;
-        const candidate = this.apiProviderForCard(card, settings);
-        if (!candidate) return null;
-        return defaultApiProviderIsAvailable(candidate, settings) ? candidate : null;
-    }
-
-    private async addToPrivateFallbackDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext, settings: ReaderSettings): Promise<void> {
-        if (settings.ankiEnabled) return this.addToAnki(card, sentence, settings.ankiDeck, context);
-        throw userFacingError('batchMiningNoDestination');
+        return null;
     }
 
     private async privateDefaultDeckId(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string> {
@@ -863,10 +861,6 @@ function providerAddApiKeyRequiredKey(provider: ApiSrsProviderAdapter | null, so
 
 function missingProviderDeckKey(provider: ApiSrsProviderAdapter): UiCopyKey {
     return provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey;
-}
-
-function defaultApiProviderIsAvailable(provider: ApiSrsProviderAdapter, settings: ReaderSettings): boolean {
-    return isApiSrsProviderEnabled(settings, provider.id) && provider.hasApiKey;
 }
 
 function providerCanDropMedia(provider: ApiSrsProviderAdapter, minedToAnkiToo: boolean): boolean {

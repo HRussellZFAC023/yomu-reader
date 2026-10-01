@@ -46,6 +46,7 @@ const DAY_MS = 86_400_000;
 // (5 s, src/reader/app/gm-storage-lease.ts) at most; allow the save's own work on top.
 const DEAD_TAB_SAVE_BOUND_MS = 5_000 + 3_000;
 const SAVE_WAITING_STATUS = /Waiting for another \S+ tab to finish saving/u;
+const PHONE_VIEWPORT = { width: 375, height: 812 };
 const CONTENT_TYPES = new Map([['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'],
     ['.css', 'text/css; charset=utf-8'], ['.svg', 'image/svg+xml'], ['.png', 'image/png'], ['.webmanifest', 'application/manifest+json']]);
 // A learner who has never connected an account: no JPDB/Jiten/Anki keys, the
@@ -151,24 +152,31 @@ class Journey {
         return page;
     }
 
+    // "Add to deck +" sits beside the grades: the learner never opens the
+    // mining drawer to save, and the action row fits the popup at any width.
     async openSaveAction(page, word) {
         await closePopup(page);
         await page.locator(wordSelector(word.surface)).first().click();
-        const save = page.locator('.jpdb-reader-popover [data-action="add-default"]');
-        await save.waitFor({ state: 'attached', timeout: 12_000 });
-        const actions = page.locator('.jpdb-reader-popover .jpdb-reader-actions');
-        const collapsed = /mining-collapsed/u.test(await actions.getAttribute('class') ?? '');
-        if (collapsed) await page.locator('.jpdb-reader-popover [data-action="mining-collapse"]').click();
-        await save.waitFor({ state: 'visible', timeout: 5_000 });
-        return { save, label: (await save.textContent())?.trim() ?? '', drawerCollapsedByDefault: collapsed };
+        const popover = page.locator('.jpdb-reader-popover');
+        const save = popover.locator('.jpdb-reader-collect [data-action="add-default"]');
+        await save.waitFor({ state: 'visible', timeout: 12_000 });
+        // Grades appear once the card details settle; the layout is read then.
+        await popover.locator('[data-action="grade"]').first().waitFor({ state: 'visible', timeout: 12_000 });
+        assert(await popover.getByRole('button', { name: 'Add to deck', exact: true }).count() === 1,
+            'The visible save has no "Add to deck" accessible name', { html: await save.evaluate(node => node.outerHTML) });
+        const layout = await actionRowLayout(popover);
+        assert(layout.fits, 'The popup action row overflowed or hid the save behind the grades', layout);
+        return { save, label: (await save.textContent())?.replace(/\s+/gu, ' ').trim() ?? '', layout };
     }
 
     // A successful save is observed as a committed deck revision (the index is
     // the commit record), then its confirmation; a failed one by its message.
-    async saveFromPopup(profile, page, word, { fails = false, timeout = 12_000 } = {}) {
+    async saveFromPopup(profile, page, word, { fails = false, timeout = 12_000, whilePending, keyboard = false } = {}) {
         const action = await this.openSaveAction(page, word);
         const revision = readDeck(profile).revision;
-        await action.save.click();
+        if (keyboard) await this.saveWithKeyboard(page, action);
+        else await action.save.click();
+        action.pending = await whilePending?.(action.save);
         if (fails) {
             await waitForToast(page, /could not be saved/u, timeout);
             return action;
@@ -178,12 +186,25 @@ class Journey {
         return action;
     }
 
+    // Tab order puts the save directly before the grades; Enter on it is a
+    // real keyboard activation, not a synthetic page click.
+    async saveWithKeyboard(page, action) {
+        await action.save.focus();
+        await page.keyboard.press('Tab');
+        const afterSave = await page.evaluate(() => document.activeElement?.getAttribute('data-action') ?? '');
+        await page.keyboard.press('Shift+Tab');
+        const backOnSave = await action.save.evaluate(node => node === document.activeElement);
+        assert(afterSave === 'grade' && backOnSave, 'Tab did not move between the save and the grades', { afterSave, backOnSave });
+        await page.keyboard.press('Enter');
+        action.keyboard = { afterSave, backOnSave };
+    }
+
     async collect(profile) {
         const baseline = await this.withStudy(profile, study => this.studyCounts(study));
         assert(baseline.statsDueNow === 0, 'A fresh keyless profile did not start with nothing due', baseline);
 
         const page = await this.openArticle(profile);
-        const first = await this.saveFromPopup(profile, page, WORDS.read);
+        const first = await this.saveFromPopup(profile, page, WORDS.read, { keyboard: true });
         const afterFirst = readDeck(profile);
         const read = afterFirst.cards[cardId(WORDS.read)];
         assert(afterFirst.ids.length === 1 && read, 'Saving from the popup did not store exactly one local card', afterFirst);
@@ -200,7 +221,10 @@ class Journey {
         assert(readAgain.reviewEnabled === false && readAgain.dueAt === read.dueAt && readAgain.createdAt === read.createdAt
             && readAgain.reviews === 0, 'Saving the word again changed or brought forward its schedule', { read, readAgain });
 
-        await this.saveFromPopup(profile, page, WORDS.book);
+        // The second word is saved on a phone-width page, where the popup is a
+        // bottom sheet and the action row has the least room.
+        await page.setViewportSize(PHONE_VIEWPORT);
+        const phone = await this.saveFromPopup(profile, page, WORDS.book);
         const deck = readDeck(profile);
         assert(deck.ids.length === 2 && Object.values(deck.cards).every(card => card.reviewEnabled === false),
             'A second saved word was scheduled or missing', deck);
@@ -216,7 +240,7 @@ class Journey {
             && study.library.every(row => row.addToReview), 'Library did not list both saved words with Add to review', study);
         return {
             saveLabel: first.label,
-            saveDrawerCollapsedByDefault: first.drawerCollapsedByDefault,
+            saveVisibleBesideGrades: { desktop: first.layout, phone: phone.layout, keyboard: first.keyboard },
             savedCard: pick(read, ['expression', 'reading', 'sentence', 'sourceUrl', 'sourceTitle', 'reviewEnabled', 'reviews']),
             duplicateSave: { cards: afterSecond.ids.length, dueAtUnchanged: readAgain.dueAt === read.dueAt },
             studyBefore: baseline,
@@ -573,6 +597,46 @@ function parsedWords(text) {
 
 function wordSelector(surface) {
     return `[data-fixture-sentence] .jpdb-reader-word[data-expression="${surface}"]`;
+}
+
+// Every visible control stays inside the action row and the viewport, the
+// save's label is not cut off, and the save sits above the grades rather than
+// over them. Other cut-off labels are reported, not failed.
+async function actionRowLayout(popover) {
+    return popover.locator('.jpdb-reader-actions').evaluate(actions => {
+        const row = actions.getBoundingClientRect();
+        const controls = [...actions.querySelectorAll('button')].filter(control => control.getClientRects().length);
+        const outside = controls.filter(control => {
+            const box = control.getBoundingClientRect();
+            return box.left < row.left - 0.5 || box.right > row.right + 0.5 || box.bottom > innerHeight + 0.5;
+        });
+        // A label is cut off when its rendered text leaves the button's box.
+        const clipped = controls.filter(control => {
+            const text = document.createRange();
+            text.selectNodeContents(control);
+            const box = control.getBoundingClientRect();
+            const label = text.getBoundingClientRect();
+            return label.width > 0 && (label.left < box.left - 0.5 || label.right > box.right + 0.5);
+        });
+        const saveButton = actions.querySelector('.jpdb-reader-collect [data-action="add-default"]');
+        const save = saveButton?.getBoundingClientRect();
+        const firstGrade = actions.querySelector('[data-action="grade"]')?.getBoundingClientRect();
+        const label = control => control.textContent.replace(/\s+/gu, ' ').trim();
+        const layout = {
+            viewport: { width: innerWidth, height: innerHeight },
+            row: { left: Math.round(row.left), right: Math.round(row.right), bottom: Math.round(row.bottom), scrollOverflow: actions.scrollWidth - actions.clientWidth },
+            lowestControlBottom: Math.round(Math.max(...controls.map(control => control.getBoundingClientRect().bottom))),
+            save: save && { width: Math.round(save.width), height: Math.round(save.height) },
+            saveAboveGrades: Boolean(save && firstGrade && save.bottom <= firstGrade.top + 0.5),
+            outside: outside.map(label),
+            clipped: clipped.map(label),
+        };
+        return {
+            ...layout,
+            fits: layout.row.scrollOverflow <= 0 && row.left >= -0.5 && row.right <= innerWidth + 0.5
+                && !outside.length && !clipped.includes(saveButton) && layout.saveAboveGrades,
+        };
+    });
 }
 
 async function closePopup(page) {

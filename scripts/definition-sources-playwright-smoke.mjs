@@ -229,8 +229,10 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
 // Since 1.9.1 an ordinary page's popover carries no account-backed deck
 // choices: the deck picker, and the Bunpro option in it, lives on Yomu-owned
 // Study surfaces (unit-covered with a trusted renderer). Off-host, a popover
-// offers at most "Add to deck +" for the card's own enabled SRS; with
-// JPDB/Jiten mining off, this JPDB-backed page word has no such default.
+// offers one provider-neutral "Add to deck +" beside the grades for every word
+// an enabled collection destination can take. Here JPDB/Jiten mining is off and
+// Bunpro is the learner's only destination: Bunpro adds vocabulary, so this
+// JPDB-parsed word still gets the save, and it lands in Bunpro exactly once.
 async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
     // The full card-data promise has a four-second fallback and can replace
     // the initial shell. Wait it out so the check reads the completed render.
@@ -239,6 +241,8 @@ async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
         actionBars: node.querySelectorAll('.jpdb-reader-actions').length,
         loading: Boolean(node.querySelector('[data-card-details-loading]')),
         bunproSource: Boolean(node.querySelector('[data-source="bunpro"]')),
+        drawerHandle: Boolean(node.querySelector('[data-action="mining-collapse"]')),
+        save: node.querySelector('.jpdb-reader-collect [data-action="add-default"]')?.outerHTML ?? '',
         deckAuthority: Array.from(
             node.querySelectorAll('[data-add-deck-select], [data-action="deck-picker"], [data-deck-source], [data-deck-id]'),
             control => control.outerHTML,
@@ -247,9 +251,20 @@ async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
     assert(actions.actionBars === 1 && !actions.loading && actions.bunproSource,
         'Generic popup did not finish rendering its Bunpro card and actions', actions);
     assert(actions.deckAuthority.length === 0, 'Generic popup exposed account-backed deck choices on an ordinary page', actions);
-    const bunproWrites = requests.filter(request => request.host === 'api.bunpro.jp' && request.method !== 'GET' && request.path.startsWith('/api/frontend/reviews/'));
-    assert(bunproWrites.length === 0, 'Generic popup changed Bunpro reviews without a learner action', summarizeRequests(bunproWrites));
-    return actions;
+    assert(!/bunpro/iu.test(actions.save), 'The ordinary-page save named the learner\'s collection service', actions);
+    const bunproWrites = () => requests.filter(request => request.host === 'api.bunpro.jp' && request.method !== 'GET' && request.path.startsWith('/api/frontend/reviews/'));
+    assert(bunproWrites().length === 0, 'Generic popup changed Bunpro reviews without a learner action', summarizeRequests(bunproWrites()));
+
+    const save = popover.locator('.jpdb-reader-collect [data-action="add-default"]');
+    assert(actions.save && await save.isVisible(), 'A Bunpro-only learner had no visible "Add to deck +" for a word Bunpro can take', actions);
+    await save.click();
+    await popover.page().waitForFunction(() => /Bunproに追加しました/u.test(document.body.textContent ?? ''), null, { timeout: 10_000 });
+    await popover.page().waitForTimeout(600);
+    const writes = bunproWrites();
+    assert(writes.length === 1 && writes[0].path === '/api/frontend/reviews/update_via_action_type'
+        && JSON.stringify(writes[0].body?.reviewables) === JSON.stringify([['Vocab', 77]]),
+    'The visible save did not add the word to Bunpro exactly once as vocabulary', writes);
+    return { ...actions, savedToBunpro: { requests: summarizeRequests(writes), reviewables: writes[0].body.reviewables } };
 }
 
 async function runSearchSurface(browser, fixture, scenario, settings) {

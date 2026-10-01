@@ -238,6 +238,49 @@ export function apiSrsGradingProviderViewForCard(
     return resolveOn ? apiSrsProviderView(resolveOn, settings) : apiSrsProviderViewForCard(card, settings, isJpdbBackedCard);
 }
 
+/** Where a looked-up word can be saved without grading it. */
+export type CollectionDestinationId = ApiSrsProviderId | 'anki';
+
+// What each service can accept: JPDB and Jiten need their own identity for the
+// word, Bunpro searches its catalogue for the word when it is saved, the Yomu
+// deck takes any word, and WaniKani has no API to add one.
+const COLLECTION_ACCEPTS: Record<ApiSrsProviderId, (card: JPDBCard, isJpdbBackedCard: (card: JPDBCard) => boolean) => boolean> = {
+    jpdb: (card, isJpdbBackedCard) => isJpdbBackedCard(card),
+    jiten: isJitenBackedCard,
+    'yomu-local': card => Boolean(card.spelling.trim()),
+    bunpro: isBunproMiningCard,
+    wanikani: () => false,
+};
+
+// Where the default save goes when the service the grade row uses cannot take
+// the word: Anki, the learner's opted-in fallback, then the other enabled
+// services. The Yomu deck comes before Bunpro, as in apiSrsProviderViewForCard.
+const COLLECTION_FALLBACK_ORDER: readonly CollectionDestinationId[] = ['anki', 'jpdb', 'jiten', 'yomu-local', 'bunpro'];
+
+/**
+ * The learner's enabled collection destinations that can take this word, the
+ * default first. The default is the service the grade row beside "Add to deck
+ * +" uses, so saving is grading without the schedule. The learner's settings
+ * decide the rest, not the dictionary that supplied the word: with JPDB mining
+ * off, a JPDB-parsed word can still go to Anki, the Yomu deck or Bunpro.
+ */
+export function collectionDestinationsForCard(
+    card: JPDBCard,
+    settings: ReaderSettings,
+    isJpdbBackedCard: (card: JPDBCard) => boolean,
+): CollectionDestinationId[] {
+    const grading = apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
+    const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter(id => id !== grading)] : COLLECTION_FALLBACK_ORDER;
+    return order.filter(id => canCollectTo(id, card, settings, isJpdbBackedCard));
+}
+
+function canCollectTo(id: CollectionDestinationId, card: JPDBCard, settings: ReaderSettings, isJpdbBackedCard: (card: JPDBCard) => boolean): boolean {
+    if (id === 'anki') return settings.ankiEnabled;
+    return isApiSrsProviderEnabled(settings, id)
+        && apiSrsProviderView(id, settings).hasApiKey
+        && COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
+}
+
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {
     return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
 }
@@ -397,7 +440,7 @@ function applyWanikaniReviewableToCard(card: JPDBCard, reviewable: YomuSrsReview
     if (reviewable.srsLevel) card.wanikaniSrsStage = reviewable.srsLevel;
 }
 
-export function isBunproMiningCard(card: JPDBCard): boolean {
+function isBunproMiningCard(card: JPDBCard): boolean {
     return Boolean(card.spelling.trim()) && card.bunproReviewableType !== 'sentence';
 }
 

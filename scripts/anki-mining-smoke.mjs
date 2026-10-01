@@ -692,13 +692,11 @@ function writingAddButtonLocator(page) {
     return writingPopoverLocator(page).locator(ACTIVE_ADD_BUTTON_SELECTOR).first();
 }
 
-// "Add to deck +" sits in the popover's mining drawer, which stays closed
-// until its handle is tapped.
-async function openMiningDrawer(popover) {
-    const addButton = popover.locator(ACTIVE_ADD_BUTTON_SELECTOR).first();
-    await addButton.waitFor({ state: 'attached', timeout: 12000 });
-    if (!await addButton.isVisible()) await popover.locator('[data-action="mining-collapse"]').first().click();
-    await addButton.waitFor({ state: 'visible', timeout: 8000 });
+// "Add to deck +" sits beside the grades, outside the collapsed mining
+// drawer: the learner reaches it without opening anything first.
+async function visibleAddButton(popover) {
+    const addButton = popover.locator(`.jpdb-reader-collect ${ACTIVE_ADD_BUTTON_SELECTOR}`).first();
+    await addButton.waitFor({ state: 'visible', timeout: 12000 });
     return addButton;
 }
 
@@ -914,7 +912,7 @@ async function runMobileHandoffSmoke(browser, baseUrl, spec) {
     const targetWord = page.locator(WRITING_WORD_SELECTOR);
     await targetWord.waitFor({ state: 'visible', timeout: 8000 });
     await targetWord.click({ force: true });
-    const addButton = await openMiningDrawer(page.locator('.jpdb-reader-popover').first());
+    const addButton = await visibleAddButton(page.locator('.jpdb-reader-popover').first());
 
     const mobilePopover = await page.evaluate(() => ({
         hasButton: Boolean(document.querySelector('.jpdb-reader-popover [data-action="add-default"]')),
@@ -970,7 +968,7 @@ async function waitForRecordedRequest(requests, predicate, timeoutMs) {
 
 async function waitForVisibleAddButton(page, requests) {
     try {
-        await openMiningDrawer(writingPopoverLocator(page));
+        await visibleAddButton(writingPopoverLocator(page));
         await page.waitForFunction(hasVisibleWritingAddButton, null, { timeout: 8000 });
     } catch (error) {
         const debug = await collectAddButtonDebug(page);

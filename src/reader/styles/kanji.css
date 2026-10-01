@@ -1183,13 +1183,18 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-action-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
   align-items: stretch;
   gap: 12px;
   padding: 0;
 }
-.jpdb-reader-kanji-mining-row {
-  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+.jpdb-reader-collect {
+  display: grid;
+  min-width: 0;
+}
+.jpdb-reader-collect > .jpdb-reader-btn {
+  width: 100%;
+  min-height: 40px;
 }
 .jpdb-reader-add-deck-select {
   position: absolute;
@@ -1440,6 +1445,7 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-rtk-elements > button,
   .jpdb-reader-btn.jpdb-reader-doodle-control,
   .jpdb-reader-mining-action-row .jpdb-reader-btn,
+  .jpdb-reader-collect > .jpdb-reader-btn,
   .jpdb-reader-grades .jpdb-reader-btn {
     min-height: 44px !important;
   }

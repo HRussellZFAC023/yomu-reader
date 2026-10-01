@@ -118,14 +118,15 @@ describe('offhost account-data privacy', () => {
     it('renders only the initial profile when switching is disabled, and still reviews without a selector', async () => {
         const jitenSettings = { ...settings, apiKey: '', jitenApiKey: 'private-jiten-key' };
         const renderer = popupRenderer(true, jitenSettings) as unknown as {
-            renderTargetedReviewButtons(targets: unknown[], language: string, canSwitch: boolean, provider: null): string;
+            renderTargetedReviewButtons(targets: unknown[], language: string, canSwitch: boolean, provider: null): { gutter: string; buttons: string };
         };
         const root = document.createElement('div');
         root.className = 'jpdb-reader-actions';
-        setInnerHtml(root, renderer.renderTargetedReviewButtons([
+        const controls = renderer.renderTargetedReviewButtons([
             { id: 'jiten', kind: 'jiten', gradeProfile: 'jiten', label: 'Grades Jiten', shortLabel: 'Jiten' },
             { id: 'anki', kind: 'anki', gradeProfile: 'anki', label: 'Grades Anki', shortLabel: 'Anki', ankiCardId: 404 },
-        ], 'en', false, null));
+        ], 'en', false, null);
+        setInnerHtml(root, `${controls.gutter}${controls.buttons}`);
         expect(root.querySelector('select')).toBeNull();
         expect(root.querySelectorAll('[data-review-target-row]')).toHaveLength(1);
         expect(root.querySelector('[data-grade="something"]')).toBeNull();

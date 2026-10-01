@@ -10,6 +10,8 @@ const MINING_COLLAPSED_CLASS = 'jpdb-reader-actions-mining-collapsed';
 const DECK_PICKER_OPEN_CLASS = 'jpdb-reader-add-deck-select-open';
 const DECK_PICKER_WRAPPER_OPEN_CLASS = 'jpdb-reader-deck-picker-open';
 const DECK_PICKER_BLUR_DELAY_MS = 180;
+// "Add to deck +" and its deck picker share the popup's always-visible collect row.
+const DECK_PICKER_SCOPE = '.jpdb-reader-collect';
 
 export function toggleMiningControls(button: HTMLButtonElement, label: MiningControlLabel): void {
     const actions = button.closest<HTMLElement>(`.${MINING_ACTIONS_CLASS}`);
@@ -35,7 +37,7 @@ export function openDeckPickerForCardAdd(
 ): boolean {
     const picker = deckPickerForButton(button);
     if (!picker) return false;
-    const wrapper = picker.closest<HTMLElement>('.jpdb-reader-mining-details');
+    const wrapper = picker.closest<HTMLElement>(DECK_PICKER_SCOPE);
     const toggle = wrapper?.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title');
     if (picker.classList.contains(DECK_PICKER_OPEN_CLASS)) {
         picker.hidden = false;
@@ -72,7 +74,7 @@ export function openDeckPickerForCardAdd(
 
 function deckPickerForButton(button: HTMLButtonElement): HTMLSelectElement | null {
     return button
-        .closest<HTMLElement>('.jpdb-reader-mining-details')
+        .closest<HTMLElement>(DECK_PICKER_SCOPE)
         ?.querySelector<HTMLSelectElement>('[data-add-deck-select]') ?? null;
 }
 
