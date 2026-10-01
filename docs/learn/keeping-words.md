@@ -13,7 +13,7 @@ Save a word when it blocks you twice, names something you care about or complete
 
 A saved word can carry the word, reading, meaning and source sentence. Video and OCR sources can add an image. Word audio is available from the sources you enable. Fuller sentence-audio mining is in development.
 
-Send the card to Yomu's local deck, Anki, Jiten, Bunpro or JPDB. WaniKani can supply its kanji and vocabulary state. The popup shows what each connected source already knows so you do not start a duplicate pile by accident. A word saved to Yomu's local deck waits in Library until you choose **Add to review** or grade it.
+Save a word with "Add to deck +" beside the grade buttons. It sends the card to Yomu's local deck, Anki, Jiten, Bunpro or JPDB, starting with the service your grades go to. With JPDB and Jiten both connected, that is your preferred grading service, and a word it does not have is not saved. WaniKani can supply its kanji and vocabulary state. The popup shows what each connected source already knows so you do not start a duplicate pile by accident. A word saved to Yomu's local deck waits in Library until you choose **Add to review** or grade it.
 
 Anki note fields are yours. Yomu can fill the expression, reading, definition, sentence, audio and image fields you map. Mobile handoff can open a new card in AnkiMobile or AnkiDroid; full deck scanning and updates use desktop AnkiConnect.
 
