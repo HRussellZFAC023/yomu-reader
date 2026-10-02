@@ -585,6 +585,35 @@ describe('hover lookup', () => {
         }
     });
 
+    // A press lookup (left-button drag, or the middle-mouse hold) moves with a
+    // button down by definition. The drag guard above exists to stop HOVER probing
+    // during drags; bumping the hover generation from it also discarded the press
+    // lookup's own in-flight result, so since every word went through the async
+    // span authority (1.8.79) a press lookup never opened anything.
+    it.each(['primary', 'middle'] as const)('keeps an active %s press lookup current while its button-held pointer moves', source => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const word = readerWordFixture('今日は読む', '今日');
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true, lookupOnMiddleMouse: true };
+        internals.pressLookup = { pointerId: 1, startX: 0, startY: 0, active: true, lastWord: word, source };
+        internals.hoverLookupGeneration = 7;
+        const buttons = source === 'middle' ? 4 : 1;
+
+        try {
+            internals.queueHoverPointerMove(hoverPointerEvent(word, 'mouse', 'pointermove', { buttons }));
+            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', { buttons }));
+
+            expect(internals.hoverLookupGeneration).toBe(7);
+
+            internals.pressLookup = undefined;
+            internals.queueHoverPointerMove(hoverPointerEvent(word, 'mouse', 'pointermove', { buttons }));
+
+            expect(internals.hoverLookupGeneration).toBeGreaterThan(7);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('invalidates an in-flight OCR word before a same-line pointer move is coalesced', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;

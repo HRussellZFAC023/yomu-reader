@@ -4452,7 +4452,7 @@ export class ReaderApp {
                 this.hoverPointerMoveFrame = undefined;
             }
             this.pendingHoverPointerMove = undefined;
-            this.cancelPendingHoverLookup();
+            this.cancelHoverLookupForDrag();
             return;
         }
         this.pendingHoverPointerMove = event;
@@ -4528,7 +4528,7 @@ export class ReaderApp {
         // querySelectorAll + getClientRects over every transcript word, per
         // drag move). Skip hover probing entirely while any button is down.
         if (event.buttons) {
-            this.cancelPendingHoverLookup();
+            this.cancelHoverLookupForDrag();
             return true;
         }
         if (this.suppressHoverForActivePageSelection()) return true;
@@ -4536,6 +4536,13 @@ export class ReaderApp {
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
         return true;
+    }
+
+    // A held button stops hover work, but an active press lookup (left-drag or the
+    // middle-mouse hold) owns that drag: bumping the hover generation here threw
+    // away its own in-flight lookup, so it never opened.
+    private cancelHoverLookupForDrag(): void {
+        if (!this.pressLookup?.active) this.cancelPendingHoverLookup();
     }
 
     // Lookup-free chrome outside the popup (Academy controls) retires a hover popup.
