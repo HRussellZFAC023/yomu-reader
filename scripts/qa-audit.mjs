@@ -2,6 +2,7 @@
 import { chromium, webkit } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { readFile, readdir, mkdir, stat } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './lib/a11y-audit-helpers.mjs';
@@ -14,6 +15,8 @@ import {
     startLoopbackServer,
 } from './lib/smoke-harness.mjs';
 import { userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+
+const { stampAppearanceBoot } = createRequire(import.meta.url)('./lib/hosted-appearance-boot.cjs');
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 loadLocalEnv(ROOT);
@@ -520,7 +523,14 @@ function serveInlineQaRoute(url, res) {
 async function serveStaticQaFile(root, url, res) {
     const filePath = qaStaticFilePath(root, url.pathname);
     const body = await readFile(filePath);
-    writeQaServerResponse(res, contentType(filePath), body);
+    writeQaServerResponse(res, contentType(filePath), filePath.endsWith(path.join('newtab', 'index.html')) ? stampedStudyPage(body) : body);
+}
+
+// Hosted Study (docs/public/study) ships the pre-paint appearance boot that
+// scripts/sync-docs-userscript.cjs stamps in; dist/newtab leaves it empty, which
+// hid how theme "Auto" really resolves. Stamp the current boot the same way.
+function stampedStudyPage(body) {
+    return stampAppearanceBoot(body.toString('utf8'), 'surface') ?? body;
 }
 
 function qaStaticFilePath(root, pathname) {
@@ -1638,8 +1648,13 @@ function htmlEscape(value) {
 
 async function seedLocalKanjiDictionaries(page) {
     await page.evaluate(async () => {
+        // Most checks seed before Yomu opens the database, so create the oldest
+        // schema the product still upgrades (v5). Study opens it first, at the
+        // product's current version, and IndexedDB refuses a lower one.
+        const name = 'jpdb-popup-reader-yomitan';
+        const existingVersion = (await indexedDB.databases()).find(database => database.name === name)?.version;
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
+            const request = indexedDB.open(name, existingVersion ?? 5);
             request.onupgradeneeded = () => {
                 const db = request.result;
                 const tx = request.transaction;
@@ -1674,11 +1689,9 @@ async function seedLocalKanjiDictionaries(page) {
             request.onerror = () => reject(request.error);
         });
         await new Promise((resolve, reject) => {
-            const stores = [...db.objectStoreNames];
-            const txStores = ['dictionaryInfo', 'terms', 'kanji', 'termMeta', 'termSearch', 'termKanji'].filter(name => stores.includes(name));
-            const tx = db.transaction(txStores, 'readwrite');
-            const termSearch = txStores.includes('termSearch') ? tx.objectStore('termSearch') : null;
-            const termKanji = txStores.includes('termKanji') ? tx.objectStore('termKanji') : null;
+            // termSearch/termKanji stay empty: Yomu rebuilds them lazily from
+            // `terms` (since v7 as id postings, and the v5->v7 upgrade clears them).
+            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
             tx.objectStore('dictionaryInfo').put({ title: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1, counts: { kanji: 4 } });
             tx.objectStore('dictionaryInfo').put({
                 title: 'Jitendex',
@@ -1703,7 +1716,7 @@ async function seedLocalKanjiDictionaries(page) {
                 { expression: '読む', reading: 'よむ', glossary: ['to read', '日本語を読む'], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ type: 'structured-content', content: { tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: [{ tag: 'span', data: { content: 'part-of-speech-info' }, content: 'n' }, ' mother; mama'] }] } }], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: 'female parent name entry' }] }], score: 5, dictionary: 'JMnedict' },
-            ].forEach(entry => seedTermEntry(tx, termSearch, termKanji, entry));
+            ].forEach(entry => tx.objectStore('terms').add(entry));
             [
                 { expression: '今日', mode: 'freq', data: { frequency: 100, displayValue: 100 }, dictionary: 'JPDBv2㋕' },
                 { expression: '今朝', mode: 'freq', data: { frequency: 900, displayValue: 900 }, dictionary: 'JPDBv2㋕' },
@@ -1716,39 +1729,6 @@ async function seedLocalKanjiDictionaries(page) {
             };
             tx.onerror = () => reject(tx.error);
         });
-
-        function qaGlossaryTokens(glossary) {
-            const text = glossary.map(item => typeof item === 'string' ? item : JSON.stringify(item)).join(' ');
-            return [...new Set(text.toLowerCase().match(/[a-z0-9]+/g) ?? [])];
-        }
-
-        function seedTermEntry(tx, termSearch, termKanji, entry) {
-            tx.objectStore('terms').add(entry);
-            addTermSearchTokens(termSearch, entry);
-            addTermKanjiCharacters(termKanji, entry);
-        }
-
-        function addTermSearchTokens(termSearch, entry) {
-            if (!termSearch) return;
-            for (const token of qaGlossaryTokens(entry.glossary)) termSearch.add({ ...entry, token });
-        }
-
-        function addTermKanjiCharacters(termKanji, entry) {
-            if (!termKanji) return;
-            for (const character of termKanjiCharacters(entry.expression)) termKanji.add({ ...entry, character });
-        }
-
-        function termKanjiCharacters(expression) {
-            return [...new Set([...entryCharacters(expression)].filter(isKanjiCharacter))];
-        }
-
-        function entryCharacters(value) {
-            return [...value];
-        }
-
-        function isKanjiCharacter(value) {
-            return /[\u3400-\u9fff]/u.test(value);
-        }
     });
 }
 
@@ -2201,6 +2181,9 @@ async function auditNewTabDictionaryFallback(browser, server) {
     assertNoPageBrowserErrors(browserErrors, 'new-tab');
     await waitForAudit(page, () => [...document.querySelectorAll('.jpdb-reader-newtab img')]
         .every(image => image.complete && image.naturalWidth > 0), 3000, 'new-tab brand image did not load');
+    // The answer fades in over 160ms, and axe measures contrast through opacity.
+    await waitForAudit(page, () => [...document.querySelectorAll('.jpdb-reader-newtab-answer')]
+        .every(answer => getComputedStyle(answer).opacity === '1'), 3000, 'new-tab answer reveal did not settle');
     await assertAccessibleSurface(page, 'new-tab dictionary fallback', '.jpdb-reader-newtab');
     await page.screenshot({ path: path.join(ARTIFACTS, 'newtab-dictionary.png'), fullPage: false });
     await page.close();
@@ -2290,7 +2273,7 @@ async function newTabDictionaryFallbackDebugSnapshot() {
 
     function newTabDictionaryDbSummary() {
         return new Promise(resolve => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan');
             request.onerror = () => resolve({ error: request.error?.message ?? 'open failed' });
             request.onsuccess = () => resolveNewTabDictionaryDb(request.result, resolve);
         });
