@@ -174,9 +174,13 @@ const server = await startLoopbackServer((_request, response) => {
 
 try {
     const chromiumResult = await runGoogleSearchCase('chromium', chromium);
+    // The same contract on a slow device. 2.0.8's apply slices passed at full
+    // speed on fast machines but left the chip without its at-rest readings at
+    // 4x CPU (and on CI), where 2.0.7 kept them.
+    const slowChromiumResult = await runGoogleSearchCase('chromium', chromium, { cpuThrottle: 4 });
     const keylessPitchResult = await runKeylessGooglePitchCase('chromium', chromium);
     const webkitResult = await runOptionalGoogleSearchCase('webkit', webkit);
-    console.log(JSON.stringify({ chromium: chromiumResult, keylessPitch: keylessPitchResult, webkit: webkitResult }, null, 2));
+    console.log(JSON.stringify({ chromium: chromiumResult, slowChromium: slowChromiumResult, keylessPitch: keylessPitchResult, webkit: webkitResult }, null, 2));
     console.log('google-search-reader smoke passed');
 } finally {
     await server.close();
@@ -222,9 +226,9 @@ async function runKeylessGooglePitchCase(engineName, browserType) {
     }
 }
 
-async function runGoogleSearchCase(engineName, browserType) {
+async function runGoogleSearchCase(engineName, browserType, pageOptions = {}) {
     const browser = await launchSmokeBrowser(browserType, engineName, { headless: true });
-    return runGoogleSearchCaseWithBrowser(engineName, browser);
+    return runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions);
 }
 
 async function runOptionalGoogleSearchCase(engineName, browserType) {
@@ -233,8 +237,8 @@ async function runOptionalGoogleSearchCase(engineName, browserType) {
     return runGoogleSearchCaseWithBrowser(engineName, launch.browser);
 }
 
-async function runGoogleSearchCaseWithBrowser(engineName, browser) {
-    const { page, requests, consoleErrors } = await createGoogleSmokePage(browser, settings, GOOGLE_FIXTURE);
+async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions = {}) {
+    const { page, requests, consoleErrors } = await createGoogleSmokePage(browser, settings, GOOGLE_FIXTURE, pageOptions);
     try {
         await page.goto(GOOGLE_URL, { waitUntil: 'domcontentloaded' });
         const baseline = await page.evaluate(snapshotGoogleLayout);
@@ -315,7 +319,8 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
     }
 }
 
-async function createGoogleSmokePage(browser, settingsValue, fixture) {
+// `cpuThrottle` slows the page's CPU through Chromium's DevTools protocol.
+async function createGoogleSmokePage(browser, settingsValue, fixture, { cpuThrottle } = {}) {
     const requests = [];
     const consoleErrors = [];
     const context = await browser.newContext({
@@ -325,6 +330,7 @@ async function createGoogleSmokePage(browser, settingsValue, fixture) {
         locale: 'ja-JP',
     });
     const page = await context.newPage();
+    if (cpuThrottle) await (await context.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: cpuThrottle });
     captureGoogleConsoleErrors(page, consoleErrors);
     await routeMockedHttpRequests(page, {
         requests,
