@@ -60311,11 +60311,12 @@ ${spelling}`);
   function isRenderableMediaNode(node) {
     return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement;
   }
+  const READER_WORD_CLASS = "jpdb-reader-word";
   function isBackgroundImageReaderNode(node) {
-    return node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node));
+    return node instanceof HTMLElement && !node.classList.contains(READER_WORD_CLASS) && node.matches(BACKGROUND_IMAGE_READER_SELECTOR) && Boolean(backgroundImageReaderUrl(node));
   }
   function hasRenderableMediaDescendant(node) {
-    return node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
+    return node instanceof Element && Boolean(node.querySelector(`img, video, source, canvas, ${BACKGROUND_IMAGE_READER_SELECTOR}`));
   }
   const MANUAL_VIDEO_FRAME_REQUEST_SLOT = Symbol.for("yomu.private-manual-video-frame-request.v1");
   function requestManualVideoFrameOcr(video) {
