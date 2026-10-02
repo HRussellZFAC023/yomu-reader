@@ -3634,7 +3634,7 @@ function immersionExampleHoverSnapshotFromDom() {
 
 function immersionAnkiDebugSnapshotFromDom() {
     return {
-        buttons: [...document.querySelectorAll('.jpdb-reader-popover [data-action="anki"], .jpdb-reader-popover [data-action^="anki"]')].map(actionButtonSnapshot),
+        buttons: [...document.querySelectorAll('.jpdb-reader-popover [data-action="add-default"], .jpdb-reader-popover [data-action^="anki"]')].map(actionButtonSnapshot),
         popoverText: spacedText(document.querySelector('.jpdb-reader-popover')).slice(0, 700),
     };
 }
@@ -4222,8 +4222,12 @@ async function auditImmersionKitPopover(browser, server) {
         html,
         settings: {
             ...baseSettings,
+            // Words come from the mocked JPDB parse (see the hover fixture).
+            parserProvider: 'jpdb',
             localDictionariesEnabled: true,
             ankiEnabled: true,
+            // Anki is the "Add to deck +" destination while JPDB mining is off.
+            jpdbMiningEnabled: false,
             audioEnabled: true,
             immersionKitEnabled: true,
             immersionKitShowTranslation: false,
@@ -4234,23 +4238,14 @@ async function auditImmersionKitPopover(browser, server) {
     });
     await page.locator('.jpdb-reader-word').filter({ hasText: '読' }).first().click();
     await openImmersionKitDetails(page);
+    // Park the pointer: left on the summary, the first card slides under it as
+    // the section loads and plays its hover audio before the baseline below.
+    await page.mouse.move(8, 8);
     await page.waitForSelector('[data-immersion-kit] .jpdb-reader-example-card', { state: 'attached', timeout: 8000 });
     await waitForAudit(page, () => {
         const image = document.querySelector('.jpdb-reader-example-image');
         return image && image.complete && image.naturalWidth > 0;
     }, 6000, 'Immersion Kit thumbnail did not render');
-    await waitForAudit(page, () => Boolean(document.querySelector('[data-action="anki-edit"]')), 6000, 'existing Anki card state did not settle').catch(async error => {
-        const debug = await page.evaluate(() => ({
-            loadingText: document.querySelector('[data-card-details-loading]')?.textContent ?? '',
-            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 700) ?? '',
-            ankiActions: [...document.querySelectorAll('[data-action^="anki"], .jpdb-reader-anki-existing')].map(node => node.textContent?.trim() ?? ''),
-        }));
-        throw new Error(`existing Anki card state did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
-    });
-    await waitForAudit(page, hasExistingAnkiPreviewContextFromDom, 6000, 'existing Anki card preview did not settle').catch(async error => {
-        const debug = await page.evaluate(immersionKitFirstSnapshotFromDom);
-        throw new Error(`existing Anki card preview did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
-    });
     await waitForAudit(page, currentImmersionExampleTextSettledFromDom, 9000, 'first Immersion Kit example text did not settle').catch(async error => {
         const debug = await page.evaluate(immersionKitFirstSnapshotFromDom);
         throw new Error(`first Immersion Kit example text did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
@@ -4314,12 +4309,11 @@ async function auditImmersionKitPopover(browser, server) {
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'nested Immersion lookup kept showing dictionary loading details');
     const nestedBack = await page.evaluate(nestedImmersionBackSnapshotFromDom);
     assertAudit(nestedBack.visible && /読/.test(nestedBack.title), `nested Immersion lookup did not expose a back arrow to the source word: ${JSON.stringify(nestedBack)}`);
-    await expandMiningDrawerIfCollapsed(page);
-    await page.locator('.jpdb-reader-popover .jpdb-reader-btn.anki[data-action="anki"]:visible').click();
-    await waitForNodeAudit(() => requests.some(request => request.action === 'addNote'), 6000, 'Add to Anki did not send AnkiConnect addNote').catch(async error => {
+    await page.locator('.jpdb-reader-popover [data-action="add-default"]:visible').last().click();
+    await waitForNodeAudit(() => requests.some(request => request.action === 'addNote'), 6000, 'Add to deck + did not send AnkiConnect addNote').catch(async error => {
         const debug = await page.evaluate(immersionAnkiDebugSnapshotFromDom);
         const ankiRequests = requests.filter(request => request.url?.includes('127.0.0.1:8765')).slice(-20);
-        throw new Error(`Add to Anki did not send AnkiConnect addNote: ${JSON.stringify({ debug, selectedImmersion, ankiRequests })}: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Add to deck + did not send AnkiConnect addNote: ${JSON.stringify({ debug, selectedImmersion, ankiRequests })}: ${error instanceof Error ? error.message : String(error)}`);
     });
     assertImmersionKitRequests(requests, selectedImmersion);
     await assertAccessibleSurface(page, 'Immersion Kit popup examples', '.jpdb-reader-popover');
@@ -4343,10 +4337,6 @@ async function auditImmersionKitPopover(browser, server) {
             && spellings.some(spelling => spelling.includes('読'));
     }, 6000, 'nested Immersion lookup back arrow did not return to the source popup');
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'source Immersion lookup kept showing dictionary loading details after back navigation');
-    await page.locator('.jpdb-reader-btn.easy').click();
-    await waitForNodeAudit(() => requests.some(request => request.action === 'answerCards'), 6000, 'Anki grading did not send through AnkiConnect');
-    const reviewToastCount = await page.locator('.jpdb-reader-toast').filter({ hasText: 'review sent' }).count();
-    assertAudit(reviewToastCount === 0, 'grading should not show a low-value review sent toast');
     await assertNoVisibleReaderErrorToasts(page, 'Immersion Kit popup examples');
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
@@ -4367,9 +4357,8 @@ function immersionKitFirstSnapshotFromDom() {
         localDefinitionTexts: [...document.querySelectorAll('.jpdb-reader-local-glossary')].map(normalizedText),
         localDefinitionSurfaces: [...document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word')]
             .map(word => helpers?.surface?.(word)?.trim() ?? word.textContent?.replace(/\s+/g, '').trim() ?? ''),
-        hasAnkiEdit: Boolean(document.querySelector('[data-action="anki-edit"]')),
-        hasAddToAnki: Boolean(document.querySelector('[data-action="anki"]')),
-        ankiExisting: text('.jpdb-reader-anki-existing'),
+        ankiActions: [...document.querySelectorAll('.jpdb-reader-popover [data-action^="anki"]')].map(node => node.getAttribute('data-action')),
+        hasAddToDeck: Boolean(document.querySelector('.jpdb-reader-popover [data-action="add-default"]')),
         parseState: popover instanceof HTMLElement ? {
             key: popover.dataset.jpdbReaderParseKey ?? '',
             loadingKey: popover.dataset.jpdbReaderParseLoadingKey ?? '',
@@ -4396,11 +4385,6 @@ function currentImmersionExampleTextSettledFromDom() {
     const card = document.querySelector('[data-immersion-kit] .jpdb-reader-example-card');
     return Boolean(card?.getAttribute('data-immersion-sentence'))
         && card.querySelectorAll('.jpdb-reader-example-sentence .jpdb-reader-word').length >= 2;
-}
-
-function hasExistingAnkiPreviewContextFromDom() {
-    const existing = document.querySelector('.jpdb-reader-anki-existing')?.textContent ?? '';
-    return existing.includes('Anime Mining') && existing.includes('今日は本を読む');
 }
 
 function immersionKitNextExampleDebugSnapshotFromDom() {
@@ -4471,26 +4455,16 @@ function assertImmersionKitFirstSnapshot(snapshot) {
     assertAudit(!snapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(snapshot.imageVisible, 'Immersion Kit thumbnail did not render');
     assertAudit(hasRecursivelyParsedLocalDefinitions(snapshot), `local dictionary recursive parsing did not run: ${JSON.stringify(snapshot)}`);
-    assertAudit(hasExistingAnkiEditState(snapshot), `existing Anki card did not replace Add to Anki with Edit in Anki: ${JSON.stringify(snapshot)}`);
-    assertAudit(hasExistingAnkiPreviewContext(snapshot), 'existing Anki card preview did not render deck and sentence context');
+    // Since 1.9.1 an ordinary page gets no Anki account detail (ADR-0020): the
+    // mocked existing note stays off it, and saving is the provider-neutral
+    // "Add to deck +" (2.0.5, ADR-0021). Edit, merge and the rendered note live
+    // on Study; smoke:anki covers that contract in full.
+    assertAudit(!snapshot.ankiActions.length && snapshot.hasAddToDeck, `ordinary-page popup should offer only "Add to deck +", no Anki actions: ${JSON.stringify(snapshot)}`);
 }
 
 function hasRecursivelyParsedLocalDefinitions(snapshot) {
     return snapshot.localDefinitionWords > 0
         && ['日本語', '読む'].every(term => snapshot.localDefinitionSurfaces?.includes(term));
-}
-
-function hasExistingAnkiEditState(snapshot) {
-    return snapshot.hasAnkiEdit && !snapshot.hasAddToAnki;
-}
-
-function hasExistingAnkiPreviewContext(snapshot) {
-    return snapshot.ankiExisting.includes('Anime Mining') && snapshot.ankiExisting.includes('今日は本を読む');
-}
-
-async function expandMiningDrawerIfCollapsed(page) {
-    const miningDrawer = page.locator('.jpdb-reader-popover .jpdb-reader-actions-has-mining.jpdb-reader-actions-mining-collapsed [data-action="mining-collapse"]:visible');
-    if (await miningDrawer.count()) await miningDrawer.first().click();
 }
 
 function assertImmersionKitRequests(requests, selectedImmersion) {
