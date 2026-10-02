@@ -4699,25 +4699,19 @@ async function auditOcrFixture(browser, server) {
     assertAudit(overlay.wordCount >= 2, 'OCR text was not parsed into selectable words');
     assertAudit(overlay.visibleTextOverlays === 0, 'OCR text is visibly painted by default');
     assertAudit(!overlay.lineTitle && overlay.lineSentence.includes('学校'), 'OCR line text metadata is missing');
-    await page.evaluate(() => {
-        const line = document.querySelector('.jpdb-ocr-line');
-        if (!(line instanceof HTMLElement)) return;
-        line.focus({ preventScroll: true });
-        line.dispatchEvent(new KeyboardEvent('keydown', {
-            bubbles: true,
-            cancelable: true,
-            key: 'Enter',
-        }));
-    });
-    const activeSnapshot = await page.evaluate(() => ({
-        activeLines: document.querySelectorAll('.jpdb-ocr-line-active').length,
-        lines: [...document.querySelectorAll('.jpdb-ocr-line')].map(line => ({
-            text: line.getAttribute('title') ?? line.textContent?.replace(/\s+/g, '').trim() ?? '',
-            className: line.className,
+    // Since 1.9.1 reader roots drop untrusted page events (ui/trusted-interaction.ts;
+    // ADR-0017: synthetic-event seams are trusted only in dev/test builds), so pin
+    // lines with real key presses. Pinning the second must unpin the first.
+    for (const index of [0, 1]) {
+        await page.locator('.jpdb-ocr-line').nth(index).focus();
+        await page.keyboard.press('Enter');
+        const activeSnapshot = await page.evaluate(() => [...document.querySelectorAll('.jpdb-ocr-line')].map(line => ({
+            active: line.classList.contains('jpdb-ocr-line-active'),
             pinned: line.getAttribute('data-pinned') ?? '',
-        })),
-    }));
-    assertAudit(activeSnapshot.activeLines === 1, `OCR should reveal only one text region at a time: ${JSON.stringify(activeSnapshot)}`);
+        })));
+        const onlyPinned = activeSnapshot.every((line, lineIndex) => line.active === (lineIndex === index) && (line.pinned === 'true') === (lineIndex === index));
+        assertAudit(onlyPinned, `OCR should reveal only the pinned text region: ${JSON.stringify(activeSnapshot)}`);
+    }
     await page.locator('.jpdb-ocr-line .jpdb-reader-word').first().click();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
     await assertAccessibleSurface(page, 'OCR lookup popup', '.jpdb-reader-popover');
