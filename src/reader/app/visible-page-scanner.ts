@@ -767,8 +767,8 @@ export class VisiblePageScanner {
                 batch.forEach((target, offset) => {
                     if (this.shouldStopApplyingTokens(generation)) return;
                     if (!isCurrentScanTarget(target)) return;
-                    applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
-                    changedRoots.add(target.parent);
+                    applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings())
+                        .forEach(root => changedRoots.add(root));
                 });
                 changedRoots.forEach(root => {
                     normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings());

@@ -209,9 +209,10 @@ export function updateRenderedPitch(
 // The line root also owns punctuation and unparsed gaps, so normalizing only
 // the word that later gained furigana would still expose sibling Text nodes.
 export function normalizeOcrScannerLinesInRoot(root: ParentNode, settings: ReaderSettings): void {
-    // Visible-scan changed roots are the target parents. A single ancestor walk
-    // keeps the ordinary-page path cheap; an OCR target is already inside its
-    // line, so this never searches a changed root's descendants.
+    // Visible-scan changed roots are the elements holding each target's words
+    // (applyTokensToScanTarget). A single ancestor walk keeps the ordinary-page
+    // path cheap; an OCR line is a block, so an OCR target's root is already
+    // inside its line and this never searches a changed root's descendants.
     if (!(root instanceof HTMLElement)) return;
     const lineText = root.closest<HTMLElement>('.jpdb-ocr-line-text');
     if (!lineText?.closest('.jpdb-ocr-line')) return;

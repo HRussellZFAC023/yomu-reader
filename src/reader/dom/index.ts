@@ -66,6 +66,7 @@ import {
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
+import { commonFragmentTextHost, scanTargetPaintRoots, scanTargetSourceScope } from './scan-paint-roots';
 import { selectedWordColorSourceToken } from '../theme/color-source-classes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 export { remintRenderedWordPrivateTokens, renderedWordPrivateValue } from './rendered-word-private-state';
@@ -1895,14 +1896,18 @@ function stampTargetDecoration(target: ScanTextTarget, host: HTMLElement): void 
     applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
 }
 
-export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+// Paints one scan target and returns the elements that hold its words
+// (scan-paint-roots.ts) for the caller's word-scoped follow-up.
+export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): HTMLElement[] {
+    // Resolved before painting: destructive paint replaces the fragment nodes.
+    const sourceScope = scanTargetSourceScope(target);
     if (target.controlTextMirror) {
         applyTokensToControlTextMirrorTarget(target, tokens, settings);
-        return;
+        return scanTargetPaintRoots(sourceScope, [currentControlTextMirror(target.parent)]);
     }
     if (target.parent instanceof HTMLCanvasElement) {
         applyTokensToCanvasFallbackTarget(target, tokens, settings);
-        return;
+        return scanTargetPaintRoots(sourceScope, [currentCanvasFallbackTextLayer(target.parent)]);
     }
     // CRITICAL invariant (Phase 1 shadow-DOM scan): a target inside an open
     // shadow root is ALWAYS rendered with the non-destructive mirror and can
@@ -1912,9 +1917,10 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // as it crashed the chat apps. The mirror overlays a copy and mutates nothing
     // the component owns. This dominates every other render heuristic below.
     if (target.insideShadowDOM) {
-        stampTargetDecoration(target, nonDestructiveScanHost(target));
+        const host = nonDestructiveScanHost(target);
+        stampTargetDecoration(target, host);
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
-        return;
+        return scanTargetPaintRoots(sourceScope, [currentTextMirror(host)]);
     }
     // A fragment target may span several independently laid-out component
     // leaves. Flattening their common ancestor into one absolute text line moves
@@ -1923,8 +1929,7 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // targets before choosing a mirror host so every overlay inherits one leaf's
     // real typography and geometry.
     if (isFragmentTextTarget(target) && targetRequiresReactiveLeafMirrors(target)) {
-        applyTokensToReactiveLeafMirrors(target, tokens, settings);
-        return;
+        return scanTargetPaintRoots(sourceScope, applyTokensToReactiveLeafMirrors(target, tokens, settings));
     }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     stampTargetDecoration(target, nonDestructiveHost);
@@ -1942,10 +1947,11 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     if ((!target.forceInlineRender || repaintLooping)
         && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
-        return;
+        return scanTargetPaintRoots(sourceScope, [currentTextMirror(nonDestructiveHost)]);
     }
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
     else applyTokensToTextNode(target, tokens, settings);
+    return [sourceScope];
 }
 
 function nonDestructiveTargetShouldRenderInline(target: ScanTextTarget, host: HTMLElement): boolean {
@@ -1982,7 +1988,9 @@ interface ReactiveLeafRun {
     globalEnd: number;
 }
 
-function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+/** Returns the mirror each leaf left mounted (null where it has none). */
+function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): Array<HTMLElement | null> {
+    const mirrors: Array<HTMLElement | null> = [];
     const indexed = indexTextFragments(target.fragments);
     for (const run of reactiveLeafRuns(indexed)) {
         const text = target.text.slice(run.globalStart, run.globalEnd);
@@ -2010,7 +2018,9 @@ function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JP
         const host = nonDestructiveScanHost(leafTarget);
         stampTargetDecoration(leafTarget, host);
         applyTokensToNonDestructiveScanTarget(leafTarget, runTokens, settings);
+        mirrors.push(currentTextMirror(host));
     }
+    return mirrors;
 }
 
 function reactiveLeafRuns(fragments: IndexedTextFragment[]): ReactiveLeafRun[] {
@@ -4956,17 +4966,6 @@ function preferredNonDestructiveTextHost(elements: HTMLElement[]): HTMLElement |
     const preferred = elements[0]?.closest<HTMLElement>(NON_DESTRUCTIVE_TEXT_HOST_SELECTOR);
     if (!preferred || !elements.every(element => preferred.contains(element))) return null;
     return preferred;
-}
-
-function commonFragmentTextHost(elements: HTMLElement[]): HTMLElement | null {
-    if (!elements.length) return null;
-    let candidate: HTMLElement | null = elements[0];
-    while (candidate) {
-        const host = candidate;
-        if (elements.every(element => host.contains(element))) return host;
-        candidate = candidate.parentElement;
-    }
-    return null;
 }
 
 function targetHasNativeRuby(target: ScanTextTarget): boolean {
