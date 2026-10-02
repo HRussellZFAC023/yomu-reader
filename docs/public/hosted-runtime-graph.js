@@ -1,6 +1,6 @@
 globalThis.__yomuHostedRuntimeGraph = {
   "schemaVersion": 1,
-  "revision": "ff9a4f05255b",
+  "revision": "78ddeacf0b79",
   "dependencies": [
     {
       "path": "greasyfork/yomu-runtime.5a98b24d144d.user.js",
@@ -9,6 +9,6 @@ globalThis.__yomuHostedRuntimeGraph = {
   ],
   "core": {
     "path": "yomu.user.js",
-    "integrity": "sha256-/5pPBSVbPf/kakt2oE0yCcSRnyuPbIqJwHSFtc170Z0="
+    "integrity": "sha256-eN3qzwt5Z9s0es6YdGuKuV+3PTkBgYZ3cER+IDQJGik="
   }
 };

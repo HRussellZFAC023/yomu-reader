@@ -48597,32 +48597,13 @@ ${normalizedReading}`;
     root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
     let suppressNextHandleClick = false;
     let cleanedUp = false;
-    const getHandleFromElement = (event) => {
-      const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-      if (!target || !root.contains(target)) return null;
-      const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
-      if (!handle) return null;
-      return handle;
-    };
-    const getHandleFromEventTarget = (event) => {
-      return event instanceof Element ? getHandleFromElement(event) : null;
-    };
-    const getHandleFromPoint = (x2, y) => {
-      if (typeof document.elementsFromPoint !== "function") return null;
-      for (const element2 of document.elementsFromPoint(x2, y)) {
-        const handle = getHandleFromElement(element2);
-        if (handle) return handle;
-      }
-      return null;
-    };
-    const getHandleFromPointerEvent = (event) => {
-      return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
-    };
+    const ownsTarget = (target) => root.contains(target);
+    const getHandleFromPointerEvent = (event) => miningDrawerHandleForPointerEvent(event, ownsTarget);
     const getHandleFromTouchEvent = (event) => {
-      const direct = getHandleFromEventTarget(event.target);
+      const direct = miningDrawerHandleFromTarget(event.target, ownsTarget);
       if (direct) return direct;
       const touch = firstChangedTouch(event);
-      return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
+      return touch ? miningDrawerHandleAtPoint(touch.clientX, touch.clientY, ownsTarget) : null;
     };
     const isInteractiveGutterChild = (eventTarget) => {
       if (!(eventTarget instanceof Element)) return false;
@@ -48697,6 +48678,28 @@ ${normalizedReading}`;
   }
   function eventHasPointTarget(event) {
     return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+  }
+  function miningDrawerHandleForPointerEvent(event, owns = isReaderOwnedMiningDrawerTarget) {
+    return miningDrawerHandleFromTarget(event.target, owns) ?? (eventHasPointTarget(event) ? miningDrawerHandleAtPoint(event.clientX, event.clientY, owns) : null);
+  }
+  function miningDrawerHandleFromTarget(target, owns) {
+    if (!(target instanceof Element)) return null;
+    return ownedMiningDrawerHandle(target.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR), owns);
+  }
+  function ownedMiningDrawerHandle(drawerTarget, owns) {
+    if (!drawerTarget || !owns(drawerTarget)) return null;
+    return drawerTarget.matches(MINING_DRAWER_HANDLE_SELECTOR) ? drawerTarget : drawerTarget.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
+  }
+  function miningDrawerHandleAtPoint(x2, y, owns) {
+    if (typeof document.elementsFromPoint !== "function") return null;
+    for (const element2 of document.elementsFromPoint(x2, y)) {
+      const handle = miningDrawerHandleFromTarget(element2, owns);
+      if (handle) return handle;
+    }
+    return null;
+  }
+  function isReaderOwnedMiningDrawerTarget(target) {
+    return target.isConnected && Boolean(target.closest("[data-jpdb-reader-root], .jpdb-reader-popover"));
   }
   function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
     const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
@@ -84815,7 +84818,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.0.6".trim() ? "2.0.6".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.7".trim() ? "2.0.7".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -158235,6 +158238,7 @@ ${options.version}`;
     if (!root) return theme;
     toggleClassIfChanged(root, "jpdb-reader-theme-dark", settings.theme === "dark");
     toggleClassIfChanged(root, "jpdb-reader-theme-light", settings.theme === "light");
+    syncHostedPageTheme(settings, root);
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
     applyReaderImageTextOverlaySettings(settings, root);
@@ -158261,6 +158265,13 @@ ${options.version}`;
     if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
     guardReaderRootClasses(root);
     return theme;
+  }
+  const HOSTED_PAGE_THEME_CLASSES = ["yomu-page-theme-dark", "yomu-page-theme-light"];
+  function syncHostedPageTheme(settings, root) {
+    if (!HOSTED_PAGE_THEME_CLASSES.some((className) => root.classList.contains(className))) return;
+    const dark = settings.theme === "dark" || settings.theme === "auto" && prefersDarkMode();
+    toggleClassIfChanged(root, "yomu-page-theme-dark", dark);
+    toggleClassIfChanged(root, "yomu-page-theme-light", !dark);
   }
   function paintsReviewLane(theme) {
     return [theme.wordColorSources, theme.subtitleColorSources].some((sources) => Object.values(sources).includes("anki"));
@@ -158418,6 +158429,9 @@ ${options.version}`;
     if (root.classList.contains("jpdb-reader-theme-dark")) return READER_THEME_COLORS.dark.surface2;
     if (root.classList.contains("jpdb-reader-theme-light")) return READER_THEME_COLORS.light.surface2;
     return prefersLightMode() ? READER_THEME_COLORS.light.surface2 : READER_THEME_COLORS.dark.surface2;
+  }
+  function prefersDarkMode() {
+    return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
   }
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;

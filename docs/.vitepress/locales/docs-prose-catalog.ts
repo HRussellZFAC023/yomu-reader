@@ -4722,6 +4722,14 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Words you save in another tab, for example while reading a page, now show in Study's \"Library\" and \"Stats\" without reloading Study.": "別のタブ（たとえば読んでいるページ）で保存した単語が、学習ページを再読み込みしなくても「単語帳」と「統計」に表示されるようになりました。",
     "In Study's \"Library\", a word with a long meaning no longer pushes \"Add to review\" past the edge of the page, and \"Add to review\" now looks like a button.": "学習ページの「単語帳」で、意味の長い単語があっても「復習に追加」がページの端からはみ出さなくなり、ボタンとして表示されるようになりました。",
     "The lookup popup on yomureader.com's own pages now calls a saved Academy word \"Saved\", as \"Library\" and \"Stats\" do, instead of \"In deck\".": "yomureader.com のページのルックアップのポップアップでも、保存した Academy の単語を「単語帳」や「統計」と同じく「保存済み」と表示するようになりました。以前は「デッキ内」と表示されていました。",
+    "\"Look up with middle-mouse hold\" and dragging across words with the left mouse button open their popup again. Since 1.8.79 neither opened anything.": "「中央ボタン長押しで検索」と、左ボタンを押したまま単語をなぞる検索で、再びポップアップが開くようになりました。1.8.79以降はどちらも何も開いていませんでした。",
+    "With a \"Hover open delay (ms)\" set, the lookup popup again opens while the mouse is still moving across words, instead of waiting for the pointer to stop.": "「ホバーで開く遅延 (ms)」を設定していても、マウスで単語の上をなぞっている途中でポップアップが開くようになりました（ポインターが止まるのを待たなくなりました）。",
+    "A hover popup no longer closes when the pointer rests on, or you click, one of its section headers such as \"Immersion Kit\" or \"Bunpro\".": "ホバーで開いたポップアップの中で「Immersion Kit」や「Bunpro」などの見出しにポインターを置いたりクリックしたりしても、ポップアップが閉じなくなりました。",
+    "On a phone, Study's first-run setup keeps \"Use without API key\" and \"Add API key\" on screen while you scroll the form. \"Add API key\" used to sit below the bottom of an iPhone screen.": "スマートフォンでは、学習ページの初回設定でフォームをスクロールしても、「APIキーなしで使う」と「APIキーを追加」が画面に表示されたままになりました。以前はiPhoneの画面で「APIキーを追加」が下にはみ出していました。",
+    "On Study with the theme on Auto and your system in light mode, the page is light again. It stayed dark while its buttons and labels used light colours, which made the selected tab in the bottom bar hard to read.": "学習ページでテーマが「自動」、システムがライトモードのとき、ページが再びライト表示になります。これまではボタンや文字だけがライト用の色になってページは暗いままで、下部バーで選択中のタブが読みにくくなっていました。",
+    "Switching between Light and Dark on Study now updates the whole page at once. Before, some buttons and colours kept the old theme until you reloaded.": "学習ページでライトとダークを切り替えると、ページ全体がすぐに切り替わるようになりました。これまでは再読み込みするまで、一部のボタンや色が前のテーマのままでした。",
+    "Dictionary tags such as \"N5\" or \"noun\" and source status text such as \"Not loaded\" are easier to read in both light and dark themes.": "「N5」や「名詞」などの辞書タグと、「読み込み失敗」などのソースの状態表示が、ライト・ダークどちらのテーマでも読みやすくなりました。",
+    "In Settings → \"Help\" on Study, the \"Update\" button shows a small arrow instead of a large black one.": "学習ページの設定 →「ヘルプ」で、「更新」ボタンの矢印が大きな黒い矢印ではなく、小さな矢印で表示されるようになりました。",
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

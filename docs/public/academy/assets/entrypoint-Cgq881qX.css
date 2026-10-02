@@ -10689,13 +10689,22 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   }
 }
 
+/* The setup actions stay at the foot of the scrolling panel: on a phone the
+   form is taller than the screen, and "Add API key" fell below the fold. The
+   shadow covers the panel's bottom padding, so nothing shows through under them. */
+
 .jpdb-reader-onboarding-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin: 0;
   padding-top: 18px;
   border-top: 1px solid var(--jpdb-reader-border);
+  background: var(--jpdb-reader-bg);
+  box-shadow: 0 32px 0 var(--jpdb-reader-bg);
 }
 
 .jpdb-reader-onboarding-actions .jpdb-reader-btn {
@@ -12238,10 +12247,12 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   border: 1px solid
     color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
   border-radius: 4px;
+  /* A tint --jpdb-reader-accent-readable is computed against (reader-theme.ts),
+     so the label keeps 4.5:1 in both themes. */
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 24%,
-    var(--jpdb-reader-surface-2)
+    var(--jpdb-reader-accent) 26%,
+    var(--jpdb-reader-surface)
   );
   color: var(--jpdb-reader-accent-readable);
   font-size: 10px;
@@ -13239,7 +13250,8 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 
 .jpdb-reader-example-count {
-  color: var(--jpdb-reader-faint);
+  /* Text, so muted rather than faint: faint is under 4.5:1 in both themes. */
+  color: var(--jpdb-reader-muted);
   font-size: 10.5px;
   font-weight: 850;
   line-height: 1.2;
@@ -17700,7 +17712,8 @@ html.jpdb-reader-doodle-active * {
   text-overflow: ellipsis;
 }
 
-.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-btn svg {
+.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-btn svg,
+.jpdb-reader-settings .jpdb-reader-help-update-link svg {
   flex: 0 0 auto;
   width: 12px;
   height: 12px;

@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.7] - 2026-10-02
+
+### Fixed
+
+- "Look up with middle-mouse hold" and dragging across words with the left mouse button open their popup again. Since 1.8.79 neither opened anything.
+- With a "Hover open delay (ms)" set, the lookup popup again opens while the mouse is still moving across words, instead of waiting for the pointer to stop.
+- A hover popup no longer closes when the pointer rests on, or you click, one of its section headers such as "Immersion Kit" or "Bunpro".
+- On a phone, Study's first-run setup keeps "Use without API key" and "Add API key" on screen while you scroll the form. "Add API key" used to sit below the bottom of an iPhone screen.
+- On Study with the theme on Auto and your system in light mode, the page is light again. It stayed dark while its buttons and labels used light colours, which made the selected tab in the bottom bar hard to read.
+- Switching between Light and Dark on Study now updates the whole page at once. Before, some buttons and colours kept the old theme until you reloaded.
+- Dictionary tags such as "N5" or "noun" and source status text such as "Not loaded" are easier to read in both light and dark themes.
+- In Settings → "Help" on Study, the "Update" button shows a small arrow instead of a large black one.
+
 ## [2.0.6] - 2026-10-01
 
 ### Fixed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.6
+// @version 2.0.7
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -12,7 +12,7 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-runtime.5a98b24d144d.user.js#sha256=WpiyTRRNVPqc35PrnbnEa2pZppxJQJf4/TFISDEgZO4=
-// @resource yomuCss  https://yomureader.com/yomu.4fab884b5334.css#sha256=T6uIS1M0i8fENfC7N/wfgKfUM6jqw6tCOKL7j8AFuS0=
+// @resource yomuCss  https://yomureader.com/yomu.6f1aad3cd06d.css#sha256=bxqtPNBt3m8QPMm3qqJrYtonmic+chuX3XhyASh/7MA=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -33915,32 +33915,13 @@ if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
 root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
 let suppressNextHandleClick = false;
 let cleanedUp = false;
-const getHandleFromElement = (event) => {
-const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-if (!target || !root.contains(target)) return null;
-const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
-if (!handle) return null;
-return handle;
-};
-const getHandleFromEventTarget = (event) => {
-return event instanceof Element ? getHandleFromElement(event) : null;
-};
-const getHandleFromPoint = (x, y) => {
-if (typeof document.elementsFromPoint !== "function") return null;
-for (const element of document.elementsFromPoint(x, y)) {
-const handle = getHandleFromElement(element);
-if (handle) return handle;
-}
-return null;
-};
-const getHandleFromPointerEvent = (event) => {
-return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
-};
+const ownsTarget = (target) => root.contains(target);
+const getHandleFromPointerEvent = (event) => miningDrawerHandleForPointerEvent(event, ownsTarget);
 const getHandleFromTouchEvent = (event) => {
-const direct = getHandleFromEventTarget(event.target);
+const direct = miningDrawerHandleFromTarget(event.target, ownsTarget);
 if (direct) return direct;
 const touch = firstChangedTouch(event);
-return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
+return touch ? miningDrawerHandleAtPoint(touch.clientX, touch.clientY, ownsTarget) : null;
 };
 const isInteractiveGutterChild = (eventTarget) => {
 if (!(eventTarget instanceof Element)) return false;
@@ -34015,6 +33996,28 @@ document.addEventListener("touchstart", handleTouchStart, { capture: true, passi
 }
 function eventHasPointTarget(event) {
 return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+}
+function miningDrawerHandleForPointerEvent(event, owns = isReaderOwnedMiningDrawerTarget) {
+return miningDrawerHandleFromTarget(event.target, owns) ?? (eventHasPointTarget(event) ? miningDrawerHandleAtPoint(event.clientX, event.clientY, owns) : null);
+}
+function miningDrawerHandleFromTarget(target, owns) {
+if (!(target instanceof Element)) return null;
+return ownedMiningDrawerHandle(target.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR), owns);
+}
+function ownedMiningDrawerHandle(drawerTarget, owns) {
+if (!drawerTarget || !owns(drawerTarget)) return null;
+return drawerTarget.matches(MINING_DRAWER_HANDLE_SELECTOR) ? drawerTarget : drawerTarget.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
+}
+function miningDrawerHandleAtPoint(x, y, owns) {
+if (typeof document.elementsFromPoint !== "function") return null;
+for (const element of document.elementsFromPoint(x, y)) {
+const handle = miningDrawerHandleFromTarget(element, owns);
+if (handle) return handle;
+}
+return null;
+}
+function isReaderOwnedMiningDrawerTarget(target) {
+return target.isConnected && Boolean(target.closest("[data-jpdb-reader-root], .jpdb-reader-popover"));
 }
 function shouldUseSheet(settings2, trigger = "modal", viewport = lookupViewportSize()) {
 const mode = trigger === "hover" ? settings2.hoverPopupMode : settings2.popupMode;
@@ -35884,6 +35887,9 @@ const promise = options.recolorRenderedAnkiWordsFromCache();
 if (options.onRecolorError) void promise.catch(options.onRecolorError);
 }
 const HOVER_ANCHOR_SWITCH_COALESCE_MS = 50;
+function retargetsPendingHoverOpen(input) {
+return input.timerPending && !input.popoverOpen && input.minimumDelayMs === void 0;
+}
 function hoverLookupScheduleDelay(input) {
 const normal = input.switchesAnchor ? HOVER_ANCHOR_SWITCH_COALESCE_MS : Math.max(0, input.hoverOpenDelayMs);
 return Math.max(normal, input.minimumDelayMs ?? 0);
@@ -36187,6 +36193,7 @@ const theme = appliedReaderTheme(settings2);
 if (!root) return theme;
 toggleClassIfChanged(root, "jpdb-reader-theme-dark", settings2.theme === "dark");
 toggleClassIfChanged(root, "jpdb-reader-theme-light", settings2.theme === "light");
+syncHostedPageTheme(settings2, root);
 applyReaderAccentColor(settings2.accentColor, root);
 applyReaderWordColors(settings2, root);
 applyReaderImageTextOverlaySettings(settings2, root);
@@ -36213,6 +36220,13 @@ applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
 if (root === document.documentElement) setReviewLanePainted(paintsReviewLane(theme));
 guardReaderRootClasses(root);
 return theme;
+}
+const HOSTED_PAGE_THEME_CLASSES = ["yomu-page-theme-dark", "yomu-page-theme-light"];
+function syncHostedPageTheme(settings2, root) {
+if (!HOSTED_PAGE_THEME_CLASSES.some((className) => root.classList.contains(className))) return;
+const dark = settings2.theme === "dark" || settings2.theme === "auto" && prefersDarkMode();
+toggleClassIfChanged(root, "yomu-page-theme-dark", dark);
+toggleClassIfChanged(root, "yomu-page-theme-light", !dark);
 }
 function paintsReviewLane(theme) {
 return [theme.wordColorSources, theme.subtitleColorSources].some((sources) => Object.values(sources).includes("anki"));
@@ -36378,6 +36392,9 @@ if (isHexColor(computed)) return sanitizeAccentColor(computed);
 if (root.classList.contains("jpdb-reader-theme-dark")) return READER_THEME_COLORS.dark.surface2;
 if (root.classList.contains("jpdb-reader-theme-light")) return READER_THEME_COLORS.light.surface2;
 return prefersLightMode() ? READER_THEME_COLORS.light.surface2 : READER_THEME_COLORS.dark.surface2;
+}
+function prefersDarkMode() {
+return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
 }
 function prefersLightMode() {
 return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
@@ -36732,8 +36749,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.6"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.6"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.7"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.7"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -36876,7 +36893,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.6"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.7"}`;
 } catch {
 return null;
 }
@@ -40376,6 +40393,7 @@ hoverResizeStickyPointer;
 hoverResizeStickyExpiry = 0;
 hoverPendingWord;
 hoverPendingLookupKey = "";
+pendingPointerTextLookup;
 hoverLookupInFlightKey = "";
 hoverLookupGeneration = 0;
 activeHoverWord;
@@ -42276,13 +42294,8 @@ document.addEventListener("pointerdown", trustedReaderEventHandler((event) => {
 this.primeLookupAudioFromFirstGesture();
 this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target);
 if ([
-() => this.isMiningDrawerHandlePointerEvent(event),
-() => {
-if (!this.isLookupInteractionIgnoredTarget(event.target)) return false;
-this.cancelPendingHoverLookup();
-if (this.activePopoverMode === "hover") this.dismiss({ suppressHoverTarget: false });
-return true;
-}
+() => miningDrawerHandleForPointerEvent(event),
+() => this.retireHoverForLookupFreeTarget(event.target)
 ].some((handle) => handle())) return;
 this.suppressHoverAfterPenContact(event);
 if (this.handleOcrReaderWordPointerDown(event)) return;
@@ -42352,7 +42365,7 @@ this.handleDocumentNonWordClick(event);
 }
 documentClickTarget(event) {
 if (this.isDestroyed) return null;
-if (this.isMiningDrawerHandlePointerEvent(event)) return null;
+if (miningDrawerHandleForPointerEvent(event)) return null;
 const target = event.target;
 return this.documentClickTargetIgnored(target) ? null : target;
 }
@@ -43200,7 +43213,7 @@ window.cancelAnimationFrame(this.hoverPointerMoveFrame);
 this.hoverPointerMoveFrame = void 0;
 }
 this.pendingHoverPointerMove = void 0;
-this.cancelPendingHoverLookup();
+this.cancelHoverLookupForDrag();
 return;
 }
 this.pendingHoverPointerMove = event;
@@ -43257,19 +43270,24 @@ this.scheduleHoverLookup(word, event, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SE
 }
 shouldIgnoreHoverPointer(event) {
 if (this.isDestroyed || this.pressLookup?.source === "middle" || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
-if (this.isLookupInteractionIgnoredTarget(event.target)) {
-this.cancelPendingHoverLookup();
-if (this.activePopoverMode === "hover") this.dismiss({ suppressHoverTarget: false });
-return true;
-}
+if (this.retireHoverForLookupFreeTarget(event.target)) return true;
 if (event.buttons) {
-this.cancelPendingHoverLookup();
+this.cancelHoverLookupForDrag();
 return true;
 }
 if (this.suppressHoverForActivePageSelection()) return true;
 if (!this.hasStickyModalPopover()) return false;
 this.cancelPendingHoverLookup();
 this.cancelHoverClose();
+return true;
+}
+cancelHoverLookupForDrag() {
+if (!this.pressLookup?.active) this.cancelPendingHoverLookup();
+}
+retireHoverForLookupFreeTarget(target) {
+if (!this.isLookupInteractionIgnoredTarget(target) || this.isInsideActivePopover(target)) return false;
+this.cancelPendingHoverLookup();
+if (this.activePopoverMode === "hover") this.dismiss({ suppressHoverTarget: false });
 return true;
 }
 isLookupInteractionIgnoredTarget(target) {
@@ -43345,29 +43363,6 @@ readerWordMatchesPointerGeometry(word, x, y) {
 if (!word.closest(".jpdb-reader-additive-text-mirror") || typeof Range.prototype.getClientRects !== "function") return true;
 return readerWordSourcePointScore(word, x, y) !== null;
 }
-isMiningDrawerHandlePointerEvent(event) {
-return Boolean(this.miningDrawerHandleFromEventTarget(event.target) ?? (this.eventHasPointTarget(event) ? this.miningDrawerHandleFromPoint(event.clientX, event.clientY) : null));
-}
-eventHasPointTarget(event) {
-return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
-}
-miningDrawerHandleFromEventTarget(target) {
-return target instanceof Element ? this.miningDrawerHandleFromElement(target) : null;
-}
-miningDrawerHandleFromPoint(x, y) {
-if (typeof document.elementsFromPoint !== "function") return null;
-for (const element of document.elementsFromPoint(x, y)) {
-const handle = this.miningDrawerHandleFromElement(element);
-if (handle) return handle;
-}
-return null;
-}
-miningDrawerHandleFromElement(element) {
-const target = element.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-const handle = target?.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target?.querySelector(MINING_DRAWER_HANDLE_SELECTOR) ?? null;
-if (!handle?.isConnected) return null;
-return handle.closest("[data-jpdb-reader-root], .jpdb-reader-popover") ? handle : null;
-}
 ocrLineWordForPointer(target, x, y) {
 const line = target?.closest?.(".jpdb-ocr-line") ?? document.elementFromPoint(x, y)?.closest?.(".jpdb-ocr-line");
 return line ? ocrLineWordAtPoint(line, x, y) : null;
@@ -43416,7 +43411,7 @@ return pointerTextLookupFromRenderedWord(word, x, y) ?? this.lookupCandidateFrom
 }
 renderedWordLookupCandidateForActivation(word, event) {
 const candidate = this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
-if (candidate || this.eventHasPointTarget(event)) return candidate;
+if (candidate || eventHasPointTarget(event)) return candidate;
 return pointerTextLookupFromRenderedWordStart(word);
 }
 refreshActivePointerTextHover(candidate, event) {
@@ -43772,8 +43767,11 @@ return;
 const hoverLookupKey = this.pendingPointerTextLookupKey(candidate);
 if (this.isPointerTextLookupAlreadyQueued(hoverLookupKey)) return;
 this.cancelHoverClose();
+if (this.retargetPendingPointerTextLookup(candidate, hoverLookupKey, options.minimumDelayMs)) return;
 window.clearTimeout(this.hoverLookupTimer);
 const hoverLookupGeneration = this.nextHoverLookupGeneration();
+const pending = { candidate, generation: hoverLookupGeneration };
+this.pendingPointerTextLookup = pending;
 this.hoverPendingWord = void 0;
 this.hoverPendingLookupKey = hoverLookupKey;
 const runLookup = () => {
@@ -43783,12 +43781,14 @@ this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
 }
 this.hoverLookupTimer = void 0;
 this.hoverPendingLookupKey = "";
-if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
+const target = pending.candidate;
+if (!target.anchor.isConnected || !this.settings.lookupOnHover) return;
 if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys)) return;
-if (!this.isCurrentPointerTextHoverCandidate(candidate)) return;
-if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).finally(() => {
-if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = "";
+if (!this.isCurrentPointerTextHoverCandidate(target)) return;
+const inFlightKey = this.pendingPointerTextLookupKey(target);
+this.hoverLookupInFlightKey = inFlightKey;
+void this.showLookupCandidate(target, "hover", { hoverLookupGeneration }).finally(() => {
+if (this.hoverLookupInFlightKey === inFlightKey) this.hoverLookupInFlightKey = "";
 });
 };
 this.startHoverLookupAfterDelay(runLookup, hoverLookupScheduleDelay({
@@ -43796,6 +43796,14 @@ switchesAnchor: this.activePopoverMode === "hover",
 hoverOpenDelayMs: this.settings.hoverOpenDelayMs,
 minimumDelayMs: options.minimumDelayMs
 }));
+}
+retargetPendingPointerTextLookup(candidate, hoverLookupKey, minimumDelayMs) {
+const pending = this.pendingPointerTextLookup;
+const retargets = retargetsPendingHoverOpen({ timerPending: Boolean(this.hoverLookupTimer), popoverOpen: this.activePopoverMode === "hover", minimumDelayMs });
+if (!retargets || pending?.generation !== this.hoverLookupGeneration) return false;
+pending.candidate = candidate;
+this.hoverPendingLookupKey = hoverLookupKey;
+return true;
 }
 isPointerTextLookupAlreadyQueued(hoverLookupKey) {
 return Boolean(hoverLookupKey && (this.hoverPendingLookupKey === hoverLookupKey && this.hoverLookupTimer || this.hoverLookupInFlightKey === hoverLookupKey));

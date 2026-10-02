@@ -25,7 +25,7 @@
     <meta name="theme-color" content="#181b20">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="stylesheet" href="./styles.css?v=511459f4b5f7">
+    <link rel="stylesheet" href="./styles.css?v=5c9f4f43d7bd">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <!-- Applies the reader's theme and accent before the first paint; stamped from
@@ -49,7 +49,11 @@
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
-      :root.jpdb-reader-theme-light {
+      /* Theme "Auto" resolves to a yomu-page-theme-* class only (pre-paint boot);
+         an explicit choice adds jpdb-reader-theme-*, which wins over a boot class
+         left from before the in-page toggle. The default above is dark. */
+      :root.jpdb-reader-theme-light,
+      :root.yomu-page-theme-light:not(.jpdb-reader-theme-dark) {
         color-scheme: light;
         --bg: #ffffff;
         --ink: #171a1f;
@@ -521,8 +525,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = '69d0d4203efc';
-        const buildId = '2.0.6-69d0d4203efc';
+        const appHash = 'b1598c90bbce';
+        const buildId = '2.0.7-b1598c90bbce';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -559,7 +563,7 @@
         }, { once: true });
       }
     </script>
-    <script src="./app.js?v=69d0d4203efc"></script>
+    <script src="./app.js?v=b1598c90bbce"></script>
   </body>
 
 </html>
