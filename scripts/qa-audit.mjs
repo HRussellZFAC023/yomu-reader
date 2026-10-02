@@ -3908,6 +3908,11 @@ function measureJitenFixtureReveal(page) {
         document.querySelector('[data-case="show-answer"]')?.remove();
         const answer = document.createElement('div');
         answer.dataset.case = 'native-answer';
+        // Jiten's SrsStudyCard.vue renders the revealed back as
+        // <div v-if="isFlipped" role="region" aria-label="Answer">. Since 2.0.0
+        // that region, not a missing Show Answer button, is Yomu's reveal signal.
+        answer.setAttribute('role', 'region');
+        answer.setAttribute('aria-label', 'Answer');
         answer.innerHTML = '<strong>Meaning</strong><p>to read</p><div>Kanji breakdown</div><div>Composed of</div>';
         document.querySelector('[data-case="card"]')?.append(answer);
         if (finish()) return;
@@ -4136,11 +4141,12 @@ async function assertOneTapImmersionTranslationReveal(page) {
     const translation = page.locator('.jpdb-reader-example-translation').first();
     await translation.waitFor({ state: 'visible', timeout: 3000 });
     assertAudit(await translation.getAttribute('data-immersion-translation-blurred') === 'true', 'Immersion translation did not start blurred on mobile');
-    const box = await translation.boundingBox();
-    assertAudit(Boolean(box), 'blurred Immersion translation has no mobile tap target');
-    const point = { clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, pointerId: 51, pointerType: 'touch', isPrimary: true, button: 0 };
-    await translation.dispatchEvent('pointerdown', point);
-    await translation.dispatchEvent('pointerup', point);
+    assertAudit(Boolean(await translation.boundingBox()), 'blurred Immersion translation has no mobile tap target');
+    // A real touch tap: since 1.9.1 release builds ignore untrusted pointer events
+    // on reader controls (ui/trusted-interaction.ts, ADR-0017). The pause still
+    // catches a second toggle re-blurring it.
+    await translation.tap();
+    await page.waitForTimeout(300);
     assertAudit(await translation.getAttribute('data-immersion-translation-blurred') === null, 'one mobile tap did not reveal the blurred Immersion translation');
 }
 
