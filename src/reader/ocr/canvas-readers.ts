@@ -25,7 +25,9 @@ const CANVAS_READER_HOST_PATTERNS: RegExp[] = [
 const BACKGROUND_IMAGE_READER_HOST_PATTERNS: RegExp[] = [
     /(^|\.)mokuro\.app$/i,
 ];
-const BACKGROUND_IMAGE_READER_SELECTOR = [
+// The layout-free signal every background-image reader surface carries: the
+// census below only ever collects elements matching it.
+export const BACKGROUND_IMAGE_READER_SELECTOR = [
     '[data-page-index]',
     '[style*="background-image"]',
     '[style*="background:"][style*="url("]',

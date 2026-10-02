@@ -1,5 +1,5 @@
 import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
-import { backgroundImageReaderUrl } from './canvas-readers';
+import { BACKGROUND_IMAGE_READER_SELECTOR, backgroundImageReaderUrl } from './canvas-readers';
 
 export type RenderableMediaMutationBatch = {
     mutations: MutationRecord[];
@@ -72,11 +72,23 @@ function isRenderableMediaNode(node: Node): boolean {
         || node instanceof HTMLSourceElement;
 }
 
+const READER_WORD_CLASS = 'jpdb-reader-word';
+
+// Cheapest facts first, so destructive word paint costs no style work per
+// painted word. Yomu's own word spans only ever paint CSS gradients; checking
+// their class also avoids the selector below re-serializing the inline style
+// the paint wrote through CSSOM. Any other element must carry the signal the
+// surface census requires before a computed-style read confirms a url() image.
+// A word span still has its descendants checked: a multi-fragment word wraps
+// page content.
 function isBackgroundImageReaderNode(node: Node): boolean {
-    return node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node));
+    return node instanceof HTMLElement
+        && !node.classList.contains(READER_WORD_CLASS)
+        && node.matches(BACKGROUND_IMAGE_READER_SELECTOR)
+        && Boolean(backgroundImageReaderUrl(node));
 }
 
 function hasRenderableMediaDescendant(node: Node): boolean {
     return node instanceof Element
-        && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
+        && Boolean(node.querySelector(`img, video, source, canvas, ${BACKGROUND_IMAGE_READER_SELECTOR}`));
 }
