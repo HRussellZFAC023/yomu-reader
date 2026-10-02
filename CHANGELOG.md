@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.8] - 2026-10-02
+
+### Fixed
+
+- On slower phones and computers, the page holds still for shorter stretches while Yomu adds furigana and word colours: Yomu adds them a few lines at a time and lets the page respond in between, so the first words also appear sooner. Long pages whose text is one block, such as Aozora Bunko books, take about as long to finish as before.
+- Words in link cards, and words after a bold phrase that opens a paragraph, now get the same pitch colours and readable text colour as the words around them.
+
 ## [2.0.7] - 2026-10-02
 
 ### Fixed

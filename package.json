@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "private": true,
   "type": "module",
   "description": "よむ: target-aware popup lookup, subtitles, OCR, and Study for 33 learning languages.",

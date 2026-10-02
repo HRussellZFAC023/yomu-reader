@@ -4730,6 +4730,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Switching between Light and Dark on Study now updates the whole page at once. Before, some buttons and colours kept the old theme until you reloaded.": "学習ページでライトとダークを切り替えると、ページ全体がすぐに切り替わるようになりました。これまでは再読み込みするまで、一部のボタンや色が前のテーマのままでした。",
     "Dictionary tags such as \"N5\" or \"noun\" and source status text such as \"Not loaded\" are easier to read in both light and dark themes.": "「N5」や「名詞」などの辞書タグと、「読み込み失敗」などのソースの状態表示が、ライト・ダークどちらのテーマでも読みやすくなりました。",
     "In Settings → \"Help\" on Study, the \"Update\" button shows a small arrow instead of a large black one.": "学習ページの設定 →「ヘルプ」で、「更新」ボタンの矢印が大きな黒い矢印ではなく、小さな矢印で表示されるようになりました。",
+    "On slower phones and computers, the page holds still for shorter stretches while Yomu adds furigana and word colours: Yomu adds them a few lines at a time and lets the page respond in between, so the first words also appear sooner. Long pages whose text is one block, such as Aozora Bunko books, take about as long to finish as before.": "動作の遅いスマートフォンやパソコンで、よむがふりがなや単語の色を付けている間にページが止まる時間が短くなりました。数行ずつ付けて、その合間にページが操作に応えるため、最初の単語も早く表示されます。青空文庫のように本文が一つのまとまりになっている長いページは、付け終わるまでの時間がこれまでとほぼ同じです。",
+    "Words in link cards, and words after a bold phrase that opens a paragraph, now get the same pitch colours and readable text colour as the words around them.": "リンクカード内の単語や、段落の冒頭の太字の語句に続く単語にも、周りの単語と同じピッチの色と読みやすい文字色が付くようになりました。",
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
