@@ -660,7 +660,17 @@ const qaRequestMocks = [
     url => url.hostname === 'us-southeast-1.linodeobjects.com' && url.pathname.startsWith('/immersionkit/')
         ? mockDirectImmersionMedia(url)
         : null,
+    url => url.hostname === 'api.bunpro.jp' ? jsonQaResponse(mockBunproFrontend(url)) : null,
 ];
+
+// Bunpro definitions are on by default and need no login, so every lookup asks
+// Bunpro too. The fixture words have no Bunpro entry: an empty search, and an
+// empty reviewable (no example sentences).
+function mockBunproFrontend(url) {
+    return url.pathname.endsWith('/search/reviewables_v1_1')
+        ? { grammar_points: { data: [], included: [] }, vocabs: { data: [], included: [] } }
+        : { data: null, included: [] };
+}
 
 function isImmersionApiUrl(url, pathname) {
     return IMMERSION_API_HOSTS.has(url.hostname) && url.pathname === pathname;
@@ -853,6 +863,12 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
         });
     });
     await page.route('https://api.jiten.moe/**', route => fulfillJitenBrowserRoute(route));
+    await page.route('https://api.bunpro.jp/**', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' },
+        body: JSON.stringify(mockBunproFrontend(new URL(route.request().url()))),
+    }));
     await page.route('https://assets.languagepod101.com/**', route => route.fulfill({
         status: 204,
         headers: { 'Access-Control-Allow-Origin': '*' },
@@ -3180,7 +3196,16 @@ async function auditRuntimeRegressionStudySpeech(page, failures) {
 
 async function auditRuntimeRegressionExampleAudioPlayback(page, runtimeAudioRequests, failures) {
     await collectRuntimeRegressionFailure(failures, async () => {
+        // Take the userscript HTTP bridge away so example audio must use the
+        // proxy/blob path, then give it back: GM.xmlHttpRequest is @granted, so
+        // no real install runs the later steps without it.
         await page.evaluate(() => {
+            window.__yomuQaHttpBridge = {
+                gmXhr: window.GM_xmlhttpRequest,
+                xmlHttpRequest: window.GM?.xmlHttpRequest,
+                xmlhttpRequest: window.GM?.xmlhttpRequest,
+                marker: document.documentElement.dataset.yomuUserscriptHttpBridge,
+            };
             delete window.GM_xmlhttpRequest;
             if (window.GM) {
                 delete window.GM.xmlHttpRequest;
@@ -3188,11 +3213,21 @@ async function auditRuntimeRegressionExampleAudioPlayback(page, runtimeAudioRequ
             }
             delete document.documentElement.dataset.yomuUserscriptHttpBridge;
         });
-        const exampleAudioButton = page.locator('[data-action="jpdb-example-audio"]').first();
-        assertAudit(await exampleAudioButton.count() === 1, 'JPDB example sentence audio button is missing from the popup');
-        await exampleAudioButton.click({ force: true });
-        await waitForAudit(page, () => (window.__yomuAudioPlayEvents ?? []).some(event => /^blob:/.test(event.src)), 6000, 'JPDB example sentence audio did not play from a blob URL');
-        assertAudit(!runtimeAudioRequests.some(request => request.kind === 'direct'), `JPDB example sentence audio touched direct static media before proxy/blob fallback: ${JSON.stringify(runtimeAudioRequests)}`);
+        try {
+            const exampleAudioButton = page.locator('[data-action="jpdb-example-audio"]').first();
+            assertAudit(await exampleAudioButton.count() === 1, 'JPDB example sentence audio button is missing from the popup');
+            await exampleAudioButton.click({ force: true });
+            await waitForAudit(page, () => (window.__yomuAudioPlayEvents ?? []).some(event => /^blob:/.test(event.src)), 6000, 'JPDB example sentence audio did not play from a blob URL');
+            assertAudit(!runtimeAudioRequests.some(request => request.kind === 'direct'), `JPDB example sentence audio touched direct static media before proxy/blob fallback: ${JSON.stringify(runtimeAudioRequests)}`);
+        } finally {
+            await page.evaluate(() => {
+                const { gmXhr, xmlHttpRequest, xmlhttpRequest, marker } = window.__yomuQaHttpBridge ?? {};
+                if (gmXhr) window.GM_xmlhttpRequest = gmXhr;
+                if (window.GM && xmlHttpRequest) window.GM.xmlHttpRequest = xmlHttpRequest;
+                if (window.GM && xmlhttpRequest) window.GM.xmlhttpRequest = xmlhttpRequest;
+                if (marker !== undefined) document.documentElement.dataset.yomuUserscriptHttpBridge = marker;
+            });
+        }
     }, error => runtimeExampleAudioFailureMessage(page, runtimeAudioRequests, error));
 }
 
