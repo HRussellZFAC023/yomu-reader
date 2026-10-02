@@ -222,6 +222,7 @@ describe('VisiblePageScanner', () => {
             parseJapanese,
             pauseMutationObserver,
         });
+        const clock = freezeScanBudgetClock();
 
         try {
             await scanner.scanVisiblePage({ silent: true });
@@ -243,6 +244,7 @@ describe('VisiblePageScanner', () => {
             // whole parsed batch instead of arriving in 16-item waves.
             expect(pauseMutationObserver).toHaveBeenCalledTimes(5);
         } finally {
+            clock.mockRestore();
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -383,6 +385,7 @@ describe('VisiblePageScanner', () => {
             pauseMutationObserver,
             refreshWordContrast,
         });
+        const clock = freezeScanBudgetClock();
 
         try {
             await scanner.scanVisiblePage({ silent: true });
@@ -390,6 +393,7 @@ describe('VisiblePageScanner', () => {
             expect(applyChunks).toBe(2);
             expect(refreshWordContrast).toHaveBeenCalledWith(document.querySelector('p'));
         } finally {
+            clock.mockRestore();
             scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
@@ -2712,6 +2716,14 @@ function mockVisibleElementRects(): () => void {
     return () => {
         HTMLElement.prototype.getBoundingClientRect = originalRect;
     };
+}
+
+// Stops the scan's frame-budget clock. Tests that pin the 48-target count cap
+// need it: jsdom paints slowly enough that a real clock can end an apply slice
+// on its 12 ms budget first (budget slicing has its own apply-slicing suite).
+function freezeScanBudgetClock(): { mockRestore: () => void } {
+    const now = Date.now();
+    return vi.spyOn(Date, 'now').mockReturnValue(now);
 }
 
 function mockOverflow(el: HTMLElement, scrollHeight: number, clientHeight: number): void {
