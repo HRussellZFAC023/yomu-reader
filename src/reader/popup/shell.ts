@@ -697,7 +697,11 @@ export function miningDrawerHandleForPointerEvent(
 }
 
 function miningDrawerHandleFromTarget(target: EventTarget | null, owns: (target: HTMLElement) => boolean): HTMLButtonElement | null {
-    const drawerTarget = target instanceof Element ? target.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR) : null;
+    if (!(target instanceof Element)) return null;
+    return ownedMiningDrawerHandle(target.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR), owns);
+}
+
+function ownedMiningDrawerHandle(drawerTarget: HTMLElement | null, owns: (target: HTMLElement) => boolean): HTMLButtonElement | null {
     if (!drawerTarget || !owns(drawerTarget)) return null;
     return drawerTarget.matches(MINING_DRAWER_HANDLE_SELECTOR)
         ? drawerTarget as HTMLButtonElement

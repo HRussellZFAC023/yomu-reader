@@ -36,6 +36,22 @@ export interface HoverLookupDelayInput {
     readonly minimumDelayMs?: number;
 }
 
+/**
+ * Whether a newer word may take over a pending hover lookup instead of
+ * restarting its timer. Only the learner's FIRST open delay follows the pointer
+ * (1.4.161: a sweep opens without the cursor stopping); a caller-imposed floor
+ * such as the popover-transit settle is a dwell and restarts, and so does an
+ * anchor switch on an open popover, because restarting that 50ms coalescing
+ * floor is what collapses a sweep into one lookup on the word it stops on.
+ */
+export function retargetsPendingHoverOpen(input: {
+    readonly timerPending: boolean;
+    readonly popoverOpen: boolean;
+    readonly minimumDelayMs?: number;
+}): boolean {
+    return input.timerPending && !input.popoverOpen && input.minimumDelayMs === undefined;
+}
+
 export function hoverLookupScheduleDelay(input: HoverLookupDelayInput): number {
     const normal = input.switchesAnchor
         ? HOVER_ANCHOR_SWITCH_COALESCE_MS

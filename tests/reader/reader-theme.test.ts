@@ -1224,12 +1224,11 @@ describe('reader theme', () => {
     // That tint must be one the readable accent is computed against, or the label
     // lands under 4.5:1 (4.41:1 measured on light Study, lower on light popups).
     it.each(['light', 'dark'] as const)('keeps dictionary tag labels readable on their tint in the %s theme', theme => {
-        const tagRule = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8').match(/\.jpdb-reader-dict-tag \{([^}]*)\}/)?.[1] ?? '';
-        const tint = tagRule.replace(/\/\*[\s\S]*?\*\//g, '')
-            .match(/background:\s*color-mix\(\s*in srgb,\s*var\(--jpdb-reader-accent\) (\d+)%,\s*var\(--jpdb-reader-(surface|surface-2)\)\s*\)/);
-        expect(tint).not.toBeNull();
+        const tagRule = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8').match(/\.jpdb-reader-dict-tag \{([^}]*)\}/)![1];
+        const [, percent, surface] = tagRule.replace(/\/\*[\s\S]*?\*\//g, '')
+            .match(/background:\s*color-mix\(\s*in srgb,\s*var\(--jpdb-reader-accent\) (\d+)%,\s*var\(--jpdb-reader-(surface|surface-2)\)\s*\)/)!;
         const tokens = READER_THEME_COLOR_TOKENS[theme];
-        const background = mixHex(tint![2] === 'surface' ? tokens.surface : tokens.surface2, DEFAULT_SETTINGS.accentColor, Number(tint![1]) / 100);
+        const background = mixHex({ surface: tokens.surface, 'surface-2': tokens.surface2 }[surface]!, DEFAULT_SETTINGS.accentColor, Number(percent) / 100);
 
         applyReaderTheme({ ...DEFAULT_SETTINGS, theme });
 
@@ -1239,13 +1238,12 @@ describe('reader theme', () => {
     // Example counts double as source status text ("Not loaded"). Faint is a
     // decoration token (3.95:1 dark, 4.45:1 on the light popup surface).
     it.each(['light', 'dark'] as const)('keeps example counts readable in the %s theme', theme => {
-        const countRule = readFileSync('src/reader/styles/immersion-study.css', 'utf8').match(/\n\.jpdb-reader-example-count \{([^}]*)\}/)?.[1] ?? '';
-        const token = countRule.match(/\bcolor:\s*var\(--jpdb-reader-(muted|faint)\)/)?.[1] as 'muted' | 'faint' | undefined;
-        expect(token).toBeDefined();
+        const countRule = readFileSync('src/reader/styles/immersion-study.css', 'utf8').match(/\n\.jpdb-reader-example-count \{([^}]*)\}/)![1];
+        const token = countRule.match(/\bcolor:\s*var\(--jpdb-reader-(muted|faint)\)/)![1] as 'muted' | 'faint';
         const tokens = READER_THEME_COLOR_TOKENS[theme];
 
         for (const surface of [tokens.bg, tokens.surface]) {
-            expect(contrastRatio(tokens[token!], surface), `${token} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+            expect(contrastRatio(tokens[token], surface), `${token} on ${surface}`).toBeGreaterThanOrEqual(4.5);
         }
     });
 

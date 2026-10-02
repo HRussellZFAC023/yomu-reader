@@ -310,7 +310,7 @@ import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
 import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
-import { hoverLookupScheduleDelay } from '../lookup/hover-scheduler';
+import { hoverLookupScheduleDelay, retargetsPendingHoverOpen } from '../lookup/hover-scheduler';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
@@ -5212,16 +5212,12 @@ export class ReaderApp {
         }));
     }
 
-    // The pointer-text twin of retargetPendingHoverLookup, and the path every word
-    // with source offsets takes since 1.8.79: a pointer sweeping toward its word
-    // keeps the learner's open delay running and only moves the target (1.4.161),
-    // instead of restarting the delay per word and never opening mid-sweep. Anchor
-    // switches on an open popup keep restarting: that 50ms coalescing floor is what
-    // collapses a sweep into one lookup (see hover-scheduler.ts).
+    // The pointer-text twin of retargetPendingHoverLookup, and since 1.8.79 the path
+    // every word with source offsets takes.
     private retargetPendingPointerTextLookup(candidate: PointerTextLookup, hoverLookupKey: string, minimumDelayMs?: number): boolean {
         const pending = this.pendingPointerTextLookup;
-        if (minimumDelayMs !== undefined || this.activePopoverMode === 'hover' || !this.hoverLookupTimer) return false;
-        if (pending?.generation !== this.hoverLookupGeneration) return false;
+        const retargets = retargetsPendingHoverOpen({ timerPending: Boolean(this.hoverLookupTimer), popoverOpen: this.activePopoverMode === 'hover', minimumDelayMs });
+        if (!retargets || pending?.generation !== this.hoverLookupGeneration) return false;
         pending.candidate = candidate;
         this.hoverPendingLookupKey = hoverLookupKey;
         return true;

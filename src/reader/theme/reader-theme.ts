@@ -76,11 +76,11 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
 // A theme picked after load must move that class too, or the page's light rules and
 // a light-tuned accent stay on a dark shell until the next reload. Ordinary pages
 // never carry the class and are left alone.
+const HOSTED_PAGE_THEME_CLASSES = ['yomu-page-theme-dark', 'yomu-page-theme-light'] as const;
+
 function syncHostedPageTheme(settings: ReaderSettings, root: HTMLElement): void {
-    if (!root.classList.contains('yomu-page-theme-dark') && !root.classList.contains('yomu-page-theme-light')) return;
-    const dark = settings.theme === 'auto'
-        ? typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
-        : settings.theme === 'dark';
+    if (!HOSTED_PAGE_THEME_CLASSES.some(className => root.classList.contains(className))) return;
+    const dark = settings.theme === 'dark' || (settings.theme === 'auto' && prefersDarkMode());
     toggleClassIfChanged(root, 'yomu-page-theme-dark', dark);
     toggleClassIfChanged(root, 'yomu-page-theme-light', !dark);
 }
@@ -308,6 +308,11 @@ function readerElevatedSurfaceColor(root: HTMLElement): string {
     if (root.classList.contains('jpdb-reader-theme-dark')) return READER_THEME_COLORS.dark.surface2;
     if (root.classList.contains('jpdb-reader-theme-light')) return READER_THEME_COLORS.light.surface2;
     return prefersLightMode() ? READER_THEME_COLORS.light.surface2 : READER_THEME_COLORS.dark.surface2;
+}
+
+// Resolves Auto the way the pre-paint boot does (core/hosted-appearance-boot.ts).
+function prefersDarkMode(): boolean {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 function prefersLightMode(): boolean {

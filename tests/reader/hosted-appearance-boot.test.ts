@@ -103,6 +103,14 @@ describe('hosted pre-paint appearance bootstrap', () => {
     });
 });
 
+// The template's `:root…{ --bg: … }` theme blocks, other than the dark default.
+function studyShellThemeRules(): Array<{ selector: string; bg: string }> {
+    const css = readProjectFile('public/newtab/index.html').match(/<style>([\s\S]*?)<\/style>/)![1];
+    return [...css.matchAll(/([^{}]+)\{([^{}]*--bg:\s*([^;]+);[^{}]*)\}/g)]
+        .map(([, selector, , bg]) => ({ selector: selector.replace(/\/\*[\s\S]*?\*\//g, '').trim(), bg }))
+        .filter(rule => rule.selector !== ':root');
+}
+
 // The snippet is stamped into checked-in HTML. A stale stamp would silently
 // restore the flash, so every stamped page must match the current build.
 describe('stamped hosted surfaces', () => {
@@ -138,16 +146,12 @@ describe('stamped hosted surfaces', () => {
         [['yomu-page-theme-light', 'jpdb-reader-theme-dark'], 'dark'],
         [[], 'dark'],
     ])('paints the Study shell for root classes %j in the %s theme', (classes, expected) => {
-        const css = readProjectFile('public/newtab/index.html').match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
-        const themeRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-            .map(([, selector, body]) => ({ selector: selector.replace(/\/\*[\s\S]*?\*\//g, '').trim(), bg: body.match(/--bg:\s*([^;]+);/)?.[1] }))
-            .filter(rule => rule.bg && rule.selector.startsWith(':root') && rule.selector !== ':root');
         document.documentElement.className = classes.join(' ');
-        const matching = themeRules.filter(rule => document.documentElement.matches(rule.selector));
+        const matching = studyShellThemeRules().filter(rule => document.documentElement.matches(rule.selector));
 
         // At most one theme block may match, so specificity never decides the shell.
         expect(matching.length).toBeLessThanOrEqual(1);
-        expect((matching[0]?.bg ?? '#181b20') === '#ffffff' ? 'light' : 'dark').toBe(expected);
+        expect(matching.map(rule => rule.bg)).toEqual(expected === 'light' ? ['#ffffff'] : matching.length ? ['#181b20'] : []);
     });
 
     // The boot reads settings.theme BEFORE its own 'auto' fallback, so a stored
