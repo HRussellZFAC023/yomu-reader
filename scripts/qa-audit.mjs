@@ -1748,61 +1748,43 @@ async function seedLocalKanjiDictionaries(page) {
     });
 }
 
+// Since 1.9.1 an ordinary page never hosts the setup chooser: a fresh install
+// gets a no-input launcher that hands setup to Yomu-owned Study
+// (app/onboarding-surface.ts; CHANGELOG 1.9.1 "Sensitive setup opens on
+// Yomu-owned Study"). smoke:onboarding-popover and tests/reader/onboarding.test.ts
+// cover the chooser itself on Study; this check keeps the launcher usable on an
+// iPhone-width page.
 async function auditOnboardingMobile(browser, server) {
-    const { page } = await newAuditedPage(browser, { ...baseSettings, onboardingSeen: false, apiKey: '' }, { width: 390, height: 844 });
+    // learningTargetChosen: false is a fresh install. Without it the seed's
+    // Reader and subtitle settings read as a pre-1.9 learner who keeps the
+    // Japanese target (settings/learning-target-choice.ts), and no onboarding runs.
+    const { page } = await newAuditedPage(browser, { ...baseSettings, onboardingSeen: false, learningTargetChosen: false, apiKey: '' }, { width: 390, height: 844 });
     await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await page.waitForSelector('.jpdb-reader-onboarding', { timeout: 6000 });
+    await page.waitForSelector('.jpdb-reader-onboarding-trusted-launcher', { timeout: 6000 });
     const snapshot = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-reader-onboarding');
-        const actions = [...document.querySelectorAll('.jpdb-reader-onboarding-actions .jpdb-reader-btn')];
-        const language = document.querySelector('.jpdb-reader-onboarding-language select');
-        const actionRects = actions.map(button => {
-            const rect = button.getBoundingClientRect();
-            return { text: button.textContent?.trim(), top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+        const panel = document.querySelector('.jpdb-reader-onboarding-trusted-launcher');
+        const actionRects = ['open-trusted-setup', 'close'].map(action => {
+            const rect = panel?.querySelector(`[data-onboarding-action="${action}"]`)?.getBoundingClientRect();
+            return { action, top: rect?.top ?? -1, bottom: rect?.bottom ?? Infinity, left: rect?.left ?? -1, right: rect?.right ?? Infinity };
         });
         return {
             title: panel?.querySelector('h2')?.textContent?.trim(),
-            copy: panel?.textContent ?? '',
-            visibleCopy: visibleText(panel),
-            languageVisible: Boolean(language && !language.closest('[hidden]')),
+            formControls: panel?.querySelectorAll('form, input, select, textarea, output').length ?? -1,
             actionRects,
             viewportWidth: innerWidth,
             viewportHeight: innerHeight,
         };
-
-        function visibleText(node) {
-            if (!node) return '';
-            if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
-            if (!(node instanceof Element)) return '';
-            if (node.matches('rt,rp,[aria-hidden="true"]')) return '';
-            return [...node.childNodes].map(visibleText).join('');
-        }
     });
-    assertAudit(snapshot.title === 'よむ', 'onboarding title is missing');
-    const onboardingCopy = snapshot.visibleCopy.replace(/\s+/g, ' ').trim();
-    assertAudit(
-        /Japanese\s*text.*subtitles.*images/i.test(onboardingCopy)
-            || ((/本文|日本語|テキスト/.test(onboardingCopy)) && /字幕|動画/.test(onboardingCopy) && /画像/.test(onboardingCopy)),
-        `onboarding does not explain the core value: ${JSON.stringify({ copy: onboardingCopy.slice(0, 500) })}`,
-    );
-    assertAudit(snapshot.languageVisible, 'onboarding language choice is not visible');
-    assertAudit(snapshot.actionRects.length >= 2, 'onboarding actions are missing');
-    assertAudit(
-        snapshot.actionRects.some(rect => /Add API key|APIキー/.test(rect.text ?? ''))
-            && snapshot.actionRects.some(rect => /Use without API key|APIキーなし/.test(rect.text ?? '')),
-        'onboarding actions do not make the setup choices clear',
-    );
-    assertAudit(snapshot.actionRects.every(rect => rect.top >= 0 && rect.bottom <= snapshot.viewportHeight && rect.left >= 0 && rect.right <= snapshot.viewportWidth), 'onboarding actions are not visible on first mobile screen');
-    await assertAccessibleSurface(page, 'mobile onboarding', '.jpdb-reader-onboarding');
+    assertAudit(snapshot.title === 'よむ', 'onboarding launcher title is missing');
+    assertAudit(snapshot.formControls === 0, `the onboarding launcher on an ordinary page must not hold page-writable controls: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.actionRects.every(rect => rect.top >= 0 && rect.bottom <= snapshot.viewportHeight && rect.left >= 0 && rect.right <= snapshot.viewportWidth), `onboarding launcher actions are not visible on the first mobile screen: ${JSON.stringify(snapshot)}`);
+    await assertAccessibleSurface(page, 'mobile onboarding', '.jpdb-reader-onboarding-trusted-launcher');
     await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-mobile.png'), fullPage: false });
-    await page.locator('[data-onboarding-action="api-key"]').click();
-    if (!await page.locator('.jpdb-reader-settings').isVisible().catch(() => false)) {
-        await page.keyboard.press('Control+Shift+J');
-    }
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    await page.locator('[data-onboarding-action="close"]').click();
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-onboarding'), 3000, 'closing the onboarding launcher did not remove it');
     await page.close();
-    record('mobile onboarding', 'pass', 'language and setup actions are visible without scrolling');
+    record('mobile onboarding', 'pass', 'the Study setup launcher has no page-writable controls and both actions fit an iPhone screen');
 }
 
 function settingsAuditSeed() {
