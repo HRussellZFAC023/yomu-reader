@@ -49,7 +49,15 @@ const appliedContrastState = new WeakMap<HTMLElement, {
 }>();
 
 export function refreshReaderWordContrast(root: ParentNode = document): void {
-    const plan = readerWordContrastPlan(readerWords(root));
+    refreshContrastForReaderWords(readerWords(root));
+}
+
+// For a caller that knows exactly which words it painted or restyled. Each
+// word's colours depend only on itself and its ancestors, so this gives those
+// words the same result as refreshing their root, without re-deriving every
+// older word there.
+export function refreshContrastForReaderWords(words: HTMLElement[]): void {
+    const plan = readerWordContrastPlan(words);
     const savedVars = temporarilyClearActiveContrastVars(plan);
     const measurements = measureActiveReaderWords(plan.activeWords);
     applyReaderWordContrastPlan(plan, savedVars, measurements);

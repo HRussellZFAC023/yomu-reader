@@ -365,25 +365,28 @@ describe('VisiblePageScanner', () => {
         }
     }, 20_000);
 
-    it('refreshes page-word contrast before yielding between apply chunks', async () => {
+    it('hands each apply chunk only its own painted words, before yielding', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 50 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
-        const refreshWordContrast = vi.fn();
+        // Indexing and contrast for the painted words: the app's half of a chunk.
+        const notePaintedWords = vi.fn<[HTMLElement[]], void>();
         let applyChunks = 0;
+        let firstChunkWords: HTMLElement[] = [];
+        let handoversInFirstChunk = 0;
         const pauseMutationObserver = <T>(callback: () => T): T => {
             const result = callback();
             applyChunks += 1;
             if (applyChunks === 1) {
-                expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(48);
-                expect(refreshWordContrast).toHaveBeenCalled();
+                firstChunkWords = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+                handoversInFirstChunk = notePaintedWords.mock.calls.length;
             }
             return result;
         };
         const scanner = createVisiblePageScanner({
             parseJapanese,
             pauseMutationObserver,
-            refreshWordContrast,
+            notePaintedWords,
         });
         const clock = freezeScanBudgetClock();
 
@@ -391,7 +394,13 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             expect(applyChunks).toBe(2);
-            expect(refreshWordContrast).toHaveBeenCalledWith(document.querySelector('p'));
+            expect(firstChunkWords).toHaveLength(48);
+            expect(handoversInFirstChunk).toBe(1);
+            const [first, second] = notePaintedWords.mock.calls.map(([words]) => words);
+            expectSameElements(first, firstChunkWords);
+            // Never the first chunk's 48 again: re-handing whole roots made a
+            // page whose text shares one parent quadratic.
+            expectSameElements(second, [...document.querySelectorAll<HTMLElement>('.jpdb-reader-word')].slice(48));
         } finally {
             clock.mockRestore();
             scanner.destroy();
@@ -2222,11 +2231,11 @@ describe('VisiblePageScanner', () => {
             expect(options?.allowSegmentedFallback).toBe(true);
             return paragraphs.map(text => [testToken(text, '日本語', 5, 8)]);
         });
-        const refreshWordContrast = vi.fn();
+        const notePaintedWords = vi.fn();
         const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
             parseJapanese,
-            refreshWordContrast,
+            notePaintedWords,
         });
 
         try {
@@ -2234,7 +2243,7 @@ describe('VisiblePageScanner', () => {
 
             expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ allowSegmentedFallback: true }));
             expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('日本語');
-            expect(refreshWordContrast).toHaveBeenCalledWith(document.querySelector('p'));
+            expect(notePaintedWords).toHaveBeenCalledWith([document.querySelector('.jpdb-reader-word')]);
         } finally {
             restoreRects();
             document.body.innerHTML = '';
@@ -2716,6 +2725,12 @@ function mockVisibleElementRects(): () => void {
     return () => {
         HTMLElement.prototype.getBoundingClientRect = originalRect;
     };
+}
+
+// Identity, not structure: toEqual would accept any equally-shaped spans.
+function expectSameElements(actual: HTMLElement[] | undefined, expected: HTMLElement[]): void {
+    expect(actual).toHaveLength(expected.length);
+    expected.forEach((element, index) => expect(actual?.[index]).toBe(element));
 }
 
 // Stops the scan's frame-budget clock. Tests that pin the 48-target count cap
