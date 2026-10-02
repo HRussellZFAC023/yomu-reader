@@ -7,6 +7,7 @@ import {
     registerSettingsFormCleanup,
     renderHelpLinksPanel,
     renderSettingsForm,
+    SETTINGS_CSS,
 } from './fixtures';
 
 describe('settings help panel', () => {
@@ -55,6 +56,32 @@ describe('settings help panel', () => {
         expect(form.querySelector('[data-help-link="pdf-reader"] svg')).not.toBeNull();
         expect(form.querySelector('[data-help-link="update-userscript"]')?.textContent).toContain('更新');
         expect(form.querySelector('[data-help-link="anki-connect-addon"]')?.textContent).toContain('AnkiConnect');
+    });
+
+    // Only the help-actions grid sized its icons, so the Update button's arrow,
+    // which sits in the version strip, rendered at the width of the panel (a
+    // 261px black arrow on an iPhone-width Study).
+    it('sizes every Help link external-link icon like a glyph', () => {
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.innerHTML = renderHelpLinksPanel();
+        const style = document.createElement('style');
+        style.textContent = SETTINGS_CSS;
+        document.head.append(style);
+        document.body.append(form);
+
+        try {
+            const icons = Array.from(form.querySelectorAll<SVGElement>('[data-help-link] svg'));
+            expect(icons.length).toBeGreaterThan(1);
+            for (const icon of icons) {
+                const link = icon.closest('[data-help-link]')?.getAttribute('data-help-link');
+                expect(getComputedStyle(icon).width, `${link} icon width`).toBe('12px');
+                expect(getComputedStyle(icon).fill, `${link} icon fill`).toBe('none');
+            }
+        } finally {
+            style.remove();
+            form.remove();
+        }
     });
 
     it('shows a compact version and update strip at the top of Help', () => {

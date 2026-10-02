@@ -1388,7 +1388,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-btn svg {
+.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-btn svg,
+.jpdb-reader-settings .jpdb-reader-help-update-link svg {
   flex: 0 0 auto;
   width: 12px;
   height: 12px;
