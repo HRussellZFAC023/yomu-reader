@@ -1054,7 +1054,14 @@ function readerFixtureHasScannedWords() {
 // form lives on Yomu-owned Study, so serve this build's Study at its real origin
 // and open Settings there the way a learner does.
 async function openStudySettings(browser, settings, viewport, contextOptions = {}) {
-    const studySettings = { ...settings, learningTargetChosen: true };
+    const page = await openHostedStudy(browser, { ...settings, learningTargetChosen: true }, viewport, contextOptions);
+    await page.locator('.jpdb-reader-newtab-more summary').click();
+    await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').click();
+    await page.waitForSelector('form.jpdb-reader-settings', { timeout: 10000 });
+    return page;
+}
+
+async function openHostedStudy(browser, studySettings, viewport, contextOptions = {}) {
     const { page } = await newAuditedPage(browser, studySettings, viewport, { serviceWorkers: 'block', ...contextOptions });
     await page.addInitScript(({ key, value }) => {
         if (sessionStorage.getItem('__yomuQaStudySeeded')) return;
@@ -1067,9 +1074,6 @@ async function openStudySettings(browser, settings, viewport, contextOptions = {
     await page.route(url => url.protocol.startsWith('http'), fulfillStudyExternalRoute);
     await page.route(`${HOSTED_STUDY_ORIGIN}/**`, fulfillHostedStudyRoute);
     await page.goto(`${HOSTED_STUDY_ORIGIN}/study/`, { waitUntil: 'domcontentloaded' });
-    await page.locator('.jpdb-reader-newtab-more summary').click();
-    await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').click();
-    await page.waitForSelector('form.jpdb-reader-settings', { timeout: 10000 });
     return page;
 }
 
@@ -1802,7 +1806,20 @@ async function auditOnboardingMobile(browser, server) {
     await page.locator('[data-onboarding-action="close"]').click();
     await waitForAudit(page, () => !document.querySelector('.jpdb-reader-onboarding'), 3000, 'closing the onboarding launcher did not remove it');
     await page.close();
-    record('mobile onboarding', 'pass', 'the Study setup launcher has no page-writable controls and both actions fit an iPhone screen');
+    await assertStudySetupActionsOnScreen(browser);
+    record('mobile onboarding', 'pass', 'the setup launcher has no page-writable controls, and it and Study\'s chooser keep their actions on an iPhone screen');
+}
+
+// The launcher hands a fresh install to Study, whose chooser is taller than an
+// iPhone screen: its setup actions stay pinned at the foot of the panel.
+async function assertStudySetupActionsOnScreen(browser) {
+    const study = await openHostedStudy(browser, { ...baseSettings, onboardingSeen: false, learningTargetChosen: false, apiKey: '' }, { width: 390, height: 844 });
+    await study.waitForSelector('.jpdb-reader-onboarding-actions .jpdb-reader-btn', { timeout: 10000 });
+    const actions = await study.evaluate(() => [...document.querySelectorAll('.jpdb-reader-onboarding-actions .jpdb-reader-btn')]
+        .map(button => ({ label: button.textContent?.trim(), top: button.getBoundingClientRect().top, bottom: button.getBoundingClientRect().bottom, height: innerHeight })));
+    assertAudit(actions.length >= 2 && actions.every(action => action.top >= 0 && action.bottom <= action.height), `Study's setup actions are not all on an iPhone's first screen: ${JSON.stringify(actions)}`);
+    await study.screenshot({ path: path.join(ARTIFACTS, 'onboarding-study-chooser-mobile.png'), fullPage: false });
+    await study.close();
 }
 
 function settingsAuditSeed() {

@@ -109,6 +109,17 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-welcome-panel-narrow.png') });
+    // On an iPhone-sized screen both setup actions show without scrolling the panel.
+    const narrowActions = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-reader-onboarding')?.getBoundingClientRect();
+        return [...document.querySelectorAll('.jpdb-reader-onboarding-actions .jpdb-reader-btn')].map(button => {
+            const rect = button.getBoundingClientRect();
+            return { label: button.textContent?.trim() ?? '', top: rect.top, bottom: rect.bottom, visible: Boolean(panel)
+                && rect.top >= Math.max(0, panel.top) && rect.bottom <= Math.min(innerHeight, panel.bottom) };
+        });
+    });
+    assert(narrowActions.length >= 2 && narrowActions.every(action => action.visible),
+        'The setup actions were not all on screen at 390x844', narrowActions);
     await page.setViewportSize({ width: 820, height: 1180 });
     await page.waitForTimeout(250);
 
