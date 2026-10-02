@@ -1132,12 +1132,17 @@ function withTimeout(promise, timeoutMs, label) {
     ]).finally(() => clearTimeout(timeout));
 }
 
+// A graceful quit flushes the renderer's localStorage. The relaunch step reads
+// what the first launch saved, so a slow runner's quit must not be cut short
+// into a kill: v2.0.7's macOS x64 build lost the just-chosen target that way.
+const GRACEFUL_CLOSE_MS = 15_000;
+
 async function closeElectronApp(app) {
     if (!app) return;
     try {
         await Promise.race([
             app.close(),
-            new Promise((_resolve, reject) => setTimeout(() => reject(new Error('Timed out closing Electron app.')), 2_000)),
+            new Promise((_resolve, reject) => setTimeout(() => reject(new Error('Timed out closing Electron app.')), GRACEFUL_CLOSE_MS)),
         ]);
     } catch {
         try {
