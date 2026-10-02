@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.8
+// @version 2.0.9
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -7917,7 +7917,7 @@ const FORM_CONTROL_TEXT_TARGET_SELECTOR = "select,input,textarea";
 const PROSE_TAGS = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
 const READER_RENDERED_TEXT_BLOCK_TAGS = `${PROSE_TAGS}H1,H2,H3,H4,H5,H6,`;
 const BLOCK_TAGS = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
-const READER_WORD_SELECTOR$2 = ".jpdb-reader-word";
+const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
 const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
 const READER_OWNED_TEXT_SELECTOR = ".jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root]";
 const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
@@ -8985,7 +8985,7 @@ return;
 }
 const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-if (!(node.parentElement && node.parentElement.closest(READER_WORD_SELECTOR$2))) {
+if (!(node.parentElement && node.parentElement.closest(READER_WORD_SELECTOR$1))) {
 destructivePaintTextNodes.add(node);
 }
 }
@@ -10441,9 +10441,9 @@ function documentPortalReaderWordScopeForSource(target) {
 let current = target instanceof HTMLElement ? target : target.parentElement;
 for (let depth = 0; current && depth < 16; depth += 1, current = composedAncestorElement(current)) {
 const inHost = currentInHostTextMirror(current);
-if (inHost?.querySelector(READER_WORD_SELECTOR$2)) return null;
+if (inHost?.querySelector(READER_WORD_SELECTOR$1)) return null;
 const portal = currentDocumentPortalTextMirror(current);
-if (portal?.querySelector(READER_WORD_SELECTOR$2)) return portal;
+if (portal?.querySelector(READER_WORD_SELECTOR$1)) return portal;
 }
 return null;
 }
@@ -10470,7 +10470,7 @@ return renders;
 }
 function mirrorAnnotatedSourceRanges(mirror) {
 const ranges = [];
-for (const word of mirror.querySelectorAll(READER_WORD_SELECTOR$2)) {
+for (const word of mirror.querySelectorAll(READER_WORD_SELECTOR$1)) {
 const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
 const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
 if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue;
@@ -10502,7 +10502,7 @@ if (mirror.style.getPropertyValue("visibility") === "hidden") syncTextMirrorVisi
 return true;
 }
 function textMirrorRenderIsIntact(mirror) {
-return Boolean(mirror.querySelector(READER_WORD_SELECTOR$2));
+return Boolean(mirror.querySelector(READER_WORD_SELECTOR$1));
 }
 function nonDestructiveScanSignature(target, tokens, settings2, suppressRuby = Boolean(target.suppressRuby), detachedReadings = suppressRuby) {
 return JSON.stringify({
@@ -11319,7 +11319,7 @@ return { match, repair: false };
 if (mutationTouchesReaderWordContent(mutation) && renderedHostContainsDamagedReaderWord(match.element)) {
 return { match, repair: true };
 }
-if (elementIsFrameworkManaged(match.element) && addedNodesDuplicateHostSurface(mutation.addedNodes, match.host.text) && Boolean(match.element.querySelector(READER_WORD_SELECTOR$2))) {
+if (elementIsFrameworkManaged(match.element) && addedNodesDuplicateHostSurface(mutation.addedNodes, match.host.text) && Boolean(match.element.querySelector(READER_WORD_SELECTOR$1))) {
 return { match, repair: false, duplicateInsert: true };
 }
 return null;
@@ -11331,7 +11331,7 @@ const addedText = normalizedRenderedHostText(Array.from(addedNodes, (node) => no
 return addedText.length >= previousText.length && addedText.includes(previousText);
 }
 function replaceStaleReaderPaintWithAddedNodes(host) {
-host.querySelectorAll(READER_WORD_SELECTOR$2).forEach((word) => word.remove());
+host.querySelectorAll(READER_WORD_SELECTOR$1).forEach((word) => word.remove());
 const staleTextNodes = [];
 const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
 for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -11377,14 +11377,14 @@ return Array.from(nodes).some(nodeContainsReaderWord);
 }
 function nodeContainsReaderWord(node) {
 if (node instanceof Element) {
-return node.matches(READER_WORD_SELECTOR$2) || Boolean(node.querySelector(READER_WORD_SELECTOR$2));
+return node.matches(READER_WORD_SELECTOR$1) || Boolean(node.querySelector(READER_WORD_SELECTOR$1));
 }
-if (node instanceof DocumentFragment) return Boolean(node.querySelector(READER_WORD_SELECTOR$2));
+if (node instanceof DocumentFragment) return Boolean(node.querySelector(READER_WORD_SELECTOR$1));
 return false;
 }
 function mutationTouchesReaderWordContent(mutation) {
 const target = mutationTargetElement(mutation.target);
-return Boolean(target?.closest(READER_WORD_SELECTOR$2)) || nodesContainReaderWordMarkup(mutation.removedNodes) || nodesContainReaderWordMarkup(mutation.addedNodes);
+return Boolean(target?.closest(READER_WORD_SELECTOR$1)) || nodesContainReaderWordMarkup(mutation.removedNodes) || nodesContainReaderWordMarkup(mutation.addedNodes);
 }
 function nodesContainReaderWordMarkup(nodes) {
 return Array.from(nodes).some(nodeContainsReaderWordMarkup);
@@ -11396,7 +11396,7 @@ const root = node;
 return Boolean(root instanceof Element && root.matches(".jpdb-reader-ruby-base,.jpdb-reader-furi,ruby,rt,rp")) || Boolean(root.querySelector?.(".jpdb-reader-ruby-base,.jpdb-reader-furi,ruby,rt,rp"));
 }
 function renderedHostContainsDamagedReaderWord(host) {
-return Array.from(host.querySelectorAll(READER_WORD_SELECTOR$2)).some(renderedWordLooksDamaged);
+return Array.from(host.querySelectorAll(READER_WORD_SELECTOR$1)).some(renderedWordLooksDamaged);
 }
 function renderedWordLooksDamaged(word) {
 if (!word.classList.contains("jpdb-reader-has-furi")) return false;
@@ -15495,10 +15495,7 @@ const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
 const pendingHoverContrastRefresh = new WeakSet();
 const appliedContrastState = new WeakMap();
 function refreshReaderWordContrast(root = document) {
-refreshContrastForReaderWords(readerWords(root));
-}
-function refreshContrastForReaderWords(words) {
-const plan = readerWordContrastPlan(words);
+const plan = readerWordContrastPlan(readerWords(root));
 const savedVars = temporarilyClearActiveContrastVars(plan);
 const measurements = measureActiveReaderWords(plan.activeWords);
 applyReaderWordContrastPlan(plan, savedVars, measurements);
@@ -34910,7 +34907,7 @@ PARSEABLE_SELECTOR,
 POPOVER_SUMMARY_PARSE_SELECTOR,
 POPOVER_SOURCE_TITLE_PARSE_SELECTOR
 ].join(",");
-const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
+const READER_WORD_SELECTOR = ".jpdb-reader-word";
 const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
 const NESTED_PARSE_EXCLUDE_SELECTOR = ".gloss-image-link";
 function nestedTextParsePlan(root, limit, options = {}) {
@@ -34989,10 +34986,10 @@ changed = unwrapReaderWords(parseRoot, { includeReaderRoot: true }) > 0 || chang
 if (changed) clearNestedParseState(root);
 }
 function shouldNormalizePartiallyParsedRoot(parseRoot) {
-return Boolean(parseRoot.querySelector(READER_WORD_SELECTOR$1)) && hasUnparsedJapaneseText(parseRoot);
+return Boolean(parseRoot.querySelector(READER_WORD_SELECTOR)) && hasUnparsedJapaneseText(parseRoot);
 }
 function preserveExampleTargetMarks(parseRoot) {
-parseRoot.querySelectorAll(`${READER_WORD_SELECTOR$1}${EXAMPLE_TARGET_SELECTOR}`).forEach((word) => {
+parseRoot.querySelectorAll(`${READER_WORD_SELECTOR}${EXAMPLE_TARGET_SELECTOR}`).forEach((word) => {
 if (word.closest(`mark${EXAMPLE_TARGET_SELECTOR}`)) return;
 const mark = document.createElement("mark");
 mark.className = EXAMPLE_TARGET_SELECTOR.slice(1);
@@ -35004,14 +35001,14 @@ function hasUnparsedJapaneseText(parseRoot, excludeSelector = "") {
 const walker = document.createTreeWalker(parseRoot, NodeFilter.SHOW_TEXT, {
 acceptNode: (node) => {
 const parent = node.parentElement;
-if (!parent || parent.closest(READER_WORD_SELECTOR$1) || parent.closest("[data-jpdb-reader-surface-ignore]") || excludeSelector && parent.closest(excludeSelector)) return NodeFilter.FILTER_REJECT;
+if (!parent || parent.closest(READER_WORD_SELECTOR) || parent.closest("[data-jpdb-reader-surface-ignore]") || excludeSelector && parent.closest(excludeSelector)) return NodeFilter.FILTER_REJECT;
 return isTargetLanguageText(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
 }
 });
 return Boolean(walker.nextNode());
 }
 function renderedNestedParseKey(parseRoots) {
-const renderedRoots = parseRoots.filter((parseRoot) => parseRoot.querySelector(READER_WORD_SELECTOR$1)).map((parseRoot) => readerWordSurfaceText(parseRoot).trim()).filter(Boolean);
+const renderedRoots = parseRoots.filter((parseRoot) => parseRoot.querySelector(READER_WORD_SELECTOR)).map((parseRoot) => readerWordSurfaceText(parseRoot).trim()).filter(Boolean);
 return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") : "";
 }
 function nestedParseKey(targets) {
@@ -36752,8 +36749,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.8"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.8"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.9"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.9"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -36896,7 +36893,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.8"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.9"}`;
 } catch {
 return null;
 }
@@ -37060,12 +37057,6 @@ this.fullyScanned = true;
 registerRoot(root) {
 renderedWordsInRoot(root).forEach((word) => this.register(word));
 }
-/** registerRoot for a known set of words: those a scan slice painted or restyled. */
-registerWords(words) {
-for (const word of words) {
-if (isRegisteredRenderedWord(word)) this.register(word);
-}
-}
 register(word) {
 const key = renderedWordElementKey(word);
 if (!isValidRenderedWordKey(key)) return;
@@ -37187,37 +37178,6 @@ if (!words.size) this.entries.delete(key);
 }
 }, RENDERED_WORD_INDEX_PRUNE_DELAY_MS);
 }
-}
-const READER_WORD_SELECTOR = ".jpdb-reader-word";
-class PaintedWordRecorder {
-observer = new MutationObserver(() => void 0);
-watched = new Set();
-watch(root) {
-if (this.watched.has(root)) return;
-this.watched.add(root);
-this.observer.observe(root, { attributes: true, childList: true, subtree: true });
-}
-/** The touched words that are still connected, deduplicated. */
-take() {
-const words = new Set();
-for (const record2 of this.observer.takeRecords()) {
-if (record2.type === "attributes") addReaderWord(record2.target, words);
-else record2.addedNodes.forEach((node) => addReaderWords(node, words));
-}
-this.observer.disconnect();
-this.watched.clear();
-return [...words].filter((word) => word.isConnected);
-}
-}
-function addReaderWord(node, words) {
-if (node.nodeType === Node.ELEMENT_NODE && node.matches(READER_WORD_SELECTOR)) {
-words.add(node);
-}
-}
-function addReaderWords(node, words) {
-if (node.nodeType !== Node.ELEMENT_NODE) return;
-addReaderWord(node, words);
-node.querySelectorAll(READER_WORD_SELECTOR).forEach((word) => words.add(word));
 }
 const AUTHORED_VOCABULARY_ATTRIBUTE = "data-yomu-authored-vocabulary";
 function applyAuthoredVocabularyOverrides(target, tokens) {
@@ -37358,8 +37318,6 @@ const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
 const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
 const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
-const VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS = VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS;
-const APPLY_SLICE_TO_YIELD_RATIO = 2;
 const MAX_VISIBLE_SCAN_COLLECTION_YIELDS = 24;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = "data-yomu-furigana-mode";
 const CLAMPED_ROW_READINGS_ATTRIBUTE = "data-yomu-clamped-readings";
@@ -37387,7 +37345,6 @@ lastSettleWidth = -1;
 lateAnnotationStateRoots = new Set();
 lateAnnotationGeometryRoots = new Set();
 lateAnnotationRefreshTimer;
-applyYieldCostMs = 0;
 makeRoomForRuby(root) {
 return (this.dependencies.makeRoomForRubyInCroppedRows ?? makeRoomForRubyInCroppedRows)(root);
 }
@@ -37741,61 +37698,39 @@ async applyParsedBatch(batch, parsed, scanStartSettings, generation) {
 const resolved = batch.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
 const tokens = resolved.flat();
 const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
-const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, {
-generation,
-frameBudgetMs: VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS
-});
+const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, generation);
 applyAnkiColors?.(changedRoots);
 this.preloadParsed(resolved, changedRoots, {
 skipAnki: Boolean(applyAnkiColors)
 });
 }
-async applyTokens(targets, parsed, scanStartSettings, pacing = {}) {
+async applyTokens(targets, parsed, scanStartSettings, generation) {
 const allChangedRoots = new Set();
 const applyBatchSize = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_APPLY_BATCH_SIZE : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
-for (let index = 0; index < targets.length; ) {
-if (this.shouldStopApplyingTokens(pacing.generation)) return [...allChangedRoots];
-const end = Math.min(targets.length, index + applyBatchSize);
-index = this.applyTokenSlice(targets, parsed, index, end, pacing, allChangedRoots);
-if (index < targets.length) await this.waitForApplyTurn();
+for (let index = 0; index < targets.length; index += applyBatchSize) {
+if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
+const start = index;
+const batch = targets.slice(start, start + applyBatchSize);
+const changedRoots = new Set();
+this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
+if (this.shouldStopApplyingTokens(generation)) return;
+batch.forEach((target, offset) => {
+if (this.shouldStopApplyingTokens(generation)) return;
+if (!isCurrentScanTarget(target)) return;
+applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
+changedRoots.add(target.parent);
+});
+changedRoots.forEach((root) => {
+normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings());
+allChangedRoots.add(root);
+this.dependencies.refreshWordContrast?.(root);
+});
+}));
+if (changedRoots.size) this.dependencies.noteRenderedRoots?.([...changedRoots]);
+if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
 }
 this.reserveRubyRoomForNewRoots(allChangedRoots);
 return [...allChangedRoots];
-}
-applyTokenSlice(targets, parsed, start, end, pacing, changedRoots) {
-const mustStop = this.applySliceStop(start, pacing);
-const sliceRoots = new Set();
-let next = start;
-this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
-const painted = new PaintedWordRecorder();
-for (let candidate = next; candidate < end; candidate += 1) watchScanTargetParents(painted, targets[candidate]);
-for (; next < end && !mustStop(next); next += 1) {
-this.paintScanTarget(targets[next], parsed[next], painted, sliceRoots);
-}
-sliceRoots.forEach((root) => normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings()));
-this.notePaintedWords(painted.take());
-}));
-sliceRoots.forEach((root) => changedRoots.add(root));
-return next > start ? next : end;
-}
-applySliceStop(start, pacing) {
-const budgetMs = pacing.frameBudgetMs === void 0 ? Number.POSITIVE_INFINITY : Math.max(pacing.frameBudgetMs, APPLY_SLICE_TO_YIELD_RATIO * this.applyYieldCostMs);
-const startedAt = Date.now();
-return (next) => next > start && Date.now() - startedAt >= budgetMs || this.shouldStopApplyingTokens(pacing.generation);
-}
-paintScanTarget(target, tokens, painted, roots) {
-if (!isCurrentScanTarget(target)) return;
-painted.watch(target.parent);
-applyTokensToScanTarget(target, tokens ?? [], this.dependencies.getSettings());
-roots.add(target.parent);
-}
-notePaintedWords(words) {
-if (words.length) this.dependencies.notePaintedWords?.(words);
-}
-async waitForApplyTurn() {
-const yieldedAt = Date.now();
-await waitForVisibleScanTurn();
-this.applyYieldCostMs = Date.now() - yieldedAt;
 }
 reserveRubyRoomForNewRoots(roots) {
 for (const root of roots) {
@@ -38124,13 +38059,6 @@ budget += length;
 cursor += 1;
 }
 return { batch, cursor };
-}
-function watchScanTargetParents(painted, target) {
-painted.watch(target.parent);
-if (!("fragments" in target)) return;
-for (const fragment of target.fragments) {
-if (fragment.node.parentElement) painted.watch(fragment.node.parentElement);
-}
 }
 function createAsyncReconciliation(reconcile, onError) {
 let active = true;
@@ -40402,10 +40330,7 @@ beginAnkiWordEnrichment: (tokens) => this.beginAnkiWordEnrichment(tokens),
 prepareAnkiWordEnrichmentBeforeRender: (tokens) => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
 prepareSubtitleTokensBeforeRender: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
 reconcileResolvedWordEffects: (tokens, roots) => this.queueResolvedWordEffects(tokens, roots),
-notePaintedWords: (words) => {
-this.renderedWords.registerWords(words);
-refreshContrastForReaderWords(words);
-},
+noteRenderedRoots: (roots) => roots.forEach((root) => this.registerRenderedWordsInRoot(root)),
 refreshWordContrast: (root) => refreshReaderWordContrast(root),
 toast: (message) => this.toast(message)
 });

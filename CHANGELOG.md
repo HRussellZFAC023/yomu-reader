@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.9] - 2026-10-02
+
+### Fixed
+
+- Undid 2.0.8's change to add furigana and word colours a few lines at a time. On slower devices it could leave buttons and chips, such as Google's search-result chips, without their readings.
+
 ## [2.0.8] - 2026-10-02
 
 ### Fixed

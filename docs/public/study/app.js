@@ -49462,10 +49462,7 @@ ${normalizedReading}`;
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   const appliedContrastState = /* @__PURE__ */ new WeakMap();
   function refreshReaderWordContrast(root = document) {
-    refreshContrastForReaderWords(readerWords(root));
-  }
-  function refreshContrastForReaderWords(words) {
-    const plan = readerWordContrastPlan(words);
+    const plan = readerWordContrastPlan(readerWords(root));
     const savedVars = temporarilyClearActiveContrastVars(plan);
     const measurements = measureActiveReaderWords(plan.activeWords);
     applyReaderWordContrastPlan(plan, savedVars, measurements);
@@ -84821,7 +84818,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.0.8".trim() ? "2.0.8".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.9".trim() ? "2.0.9".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
