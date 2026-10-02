@@ -524,13 +524,14 @@ function serveInlineQaRoute(url, res) {
 async function serveStaticQaFile(root, url, res) {
     const filePath = qaStaticFilePath(root, url.pathname);
     const body = await readFile(filePath);
-    writeQaServerResponse(res, contentType(filePath), filePath.endsWith(path.join('newtab', 'index.html')) ? stampedStudyPage(body) : body);
+    writeQaServerResponse(res, contentType(filePath), servedDistBody(filePath, body));
 }
 
 // Hosted Study (docs/public/study) ships the pre-paint appearance boot that
 // scripts/sync-docs-userscript.cjs stamps in; dist/newtab leaves it empty, which
 // hid how theme "Auto" really resolves. Stamp the current boot the same way.
-function stampedStudyPage(body) {
+function servedDistBody(filePath, body) {
+    if (!filePath.endsWith(path.join('newtab', 'index.html'))) return body;
     return stampAppearanceBoot(body.toString('utf8'), 'surface') ?? body;
 }
 
@@ -1072,28 +1073,30 @@ async function openStudySettings(browser, settings, viewport, contextOptions = {
     return page;
 }
 
+const STUDY_CORS_HEADERS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Private-Network': 'true' };
+const STUDY_UNMOCKED_RESPONSE = { status: 404, contentType: 'text/plain', bytes: [] };
+
 // Keep Study off the live network: its own lookups (also through the public
 // proxies) get the audit's mocks, and anything unmocked a CORS-readable 404.
 async function fulfillStudyExternalRoute(route) {
     const request = route.request();
-    const url = new URL(request.url());
-    const target = url.searchParams.get('url') ?? request.url();
-    const mocked = request.method() === 'OPTIONS' ? null : maybeMockQaRequest({ url: target, data: request.postData() ?? '' });
-    return route.fulfill({
-        status: mocked?.status ?? (request.method() === 'OPTIONS' ? 204 : 404),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Private-Network': 'true' },
-        contentType: mocked?.contentType ?? 'text/plain',
-        body: mocked ? Buffer.from(mocked.bytes) : '',
-    });
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: STUDY_CORS_HEADERS });
+    const target = new URL(request.url()).searchParams.get('url') ?? request.url();
+    const response = maybeMockQaRequest({ url: target, data: request.postData() }) ?? STUDY_UNMOCKED_RESPONSE;
+    return route.fulfill({ status: response.status, headers: STUDY_CORS_HEADERS, contentType: response.contentType, body: Buffer.from(response.bytes) });
 }
 
 async function fulfillHostedStudyRoute(route) {
-    const { pathname } = new URL(route.request().url());
+    const filePath = hostedStudyFilePath(new URL(route.request().url()).pathname);
+    const body = filePath ? await readFile(filePath).catch(() => null) : null;
+    if (!body) return route.fulfill({ status: 404, body: 'Not found' });
+    return route.fulfill({ status: 200, contentType: contentType(filePath), body: servedDistBody(filePath, body) });
+}
+
+function hostedStudyFilePath(pathname) {
     const relative = pathname.startsWith('/study/') ? `newtab/${pathname.slice('/study/'.length) || 'index.html'}` : pathname.slice(1);
     const filePath = path.join(DIST, decodeURIComponent(relative));
-    const body = filePath.startsWith(`${DIST}${path.sep}`) ? await readFile(filePath).catch(() => null) : null;
-    if (!body) return route.fulfill({ status: 404, body: 'Not found' });
-    return route.fulfill({ status: 200, contentType: contentType(filePath), body: filePath.endsWith(path.join('newtab', 'index.html')) ? stampedStudyPage(body) : body });
+    return filePath.startsWith(`${DIST}${path.sep}`) ? filePath : null;
 }
 
 async function auditNoSecretLeak() {
@@ -1705,40 +1708,26 @@ async function seedLocalKanjiDictionaries(page) {
         // product's current version, and IndexedDB refuses a lower one.
         const name = 'jpdb-popup-reader-yomitan';
         const existingVersion = (await indexedDB.databases()).find(database => database.name === name)?.version;
-        const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open(name, existingVersion ?? 5);
-            request.onupgradeneeded = () => {
-                const db = request.result;
-                const tx = request.transaction;
-                const ensureStore = name => db.objectStoreNames.contains(name)
-                    ? tx.objectStore(name)
-                    : db.createObjectStore(name, { keyPath: 'id', autoIncrement: true });
-                const ensureIndex = (store, name, keyPath) => {
-                    if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
-                };
-                const terms = ensureStore('terms');
-                ensureIndex(terms, 'expression', 'expression');
-                ensureIndex(terms, 'reading', 'reading');
-                ensureIndex(terms, 'dictionary', 'dictionary');
-                const kanji = ensureStore('kanji');
-                ensureIndex(kanji, 'character', 'character');
-                ensureIndex(kanji, 'dictionary', 'dictionary');
-                const termMeta = ensureStore('termMeta');
-                ensureIndex(termMeta, 'expression', 'expression');
-                ensureIndex(termMeta, 'dictionary', 'dictionary');
-                const kanjiMeta = ensureStore('kanjiMeta');
-                ensureIndex(kanjiMeta, 'character', 'character');
-                ensureIndex(kanjiMeta, 'dictionary', 'dictionary');
-                if (!db.objectStoreNames.contains('dictionaryInfo')) db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
-                const termSearch = ensureStore('termSearch');
-                ensureIndex(termSearch, 'token', 'token');
-                ensureIndex(termSearch, 'dictionary', 'dictionary');
-                const termKanji = ensureStore('termKanji');
-                ensureIndex(termKanji, 'character', 'character');
-                ensureIndex(termKanji, 'dictionary', 'dictionary');
+        const request = indexedDB.open(name, existingVersion ?? 5);
+        // Only a missing database upgrades here (from 0 to v5), so every store is new.
+        request.onupgradeneeded = () => {
+            const v5Indexes = {
+                terms: ['expression', 'reading', 'dictionary'],
+                kanji: ['character', 'dictionary'],
+                termMeta: ['expression', 'dictionary'],
+                kanjiMeta: ['character', 'dictionary'],
+                termSearch: ['token', 'dictionary'],
+                termKanji: ['character', 'dictionary'],
             };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
+            for (const [storeName, keyPaths] of Object.entries(v5Indexes)) {
+                const store = request.result.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+                keyPaths.forEach(keyPath => store.createIndex(keyPath, keyPath));
+            }
+            request.result.createObjectStore('dictionaryInfo', { keyPath: 'title' });
+        };
+        const db = await new Promise((resolve, reject) => {
+            request.addEventListener('success', () => resolve(request.result));
+            request.addEventListener('error', () => reject(request.error));
         });
         await new Promise((resolve, reject) => {
             // termSearch/termKanji stay empty: Yomu rebuilds them lazily from
@@ -1798,23 +1787,16 @@ async function auditOnboardingMobile(browser, server) {
     await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await page.waitForSelector('.jpdb-reader-onboarding-trusted-launcher', { timeout: 6000 });
-    const snapshot = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-reader-onboarding-trusted-launcher');
-        const actionRects = ['open-trusted-setup', 'close'].map(action => {
-            const rect = panel?.querySelector(`[data-onboarding-action="${action}"]`)?.getBoundingClientRect();
-            return { action, top: rect?.top ?? -1, bottom: rect?.bottom ?? Infinity, left: rect?.left ?? -1, right: rect?.right ?? Infinity };
-        });
-        return {
-            title: panel?.querySelector('h2')?.textContent?.trim(),
-            formControls: panel?.querySelectorAll('form, input, select, textarea, output').length ?? -1,
-            actionRects,
-            viewportWidth: innerWidth,
-            viewportHeight: innerHeight,
-        };
-    });
+    const snapshot = await page.locator('.jpdb-reader-onboarding-trusted-launcher').evaluate(panel => ({
+        title: panel.querySelector('h2')?.textContent?.trim(),
+        formControls: panel.querySelectorAll('form, input, select, textarea, output').length,
+        actions: [...panel.querySelectorAll('[data-onboarding-action]')].map(button => ({ action: button.getAttribute('data-onboarding-action'), ...button.getBoundingClientRect().toJSON() })),
+        viewport: { width: innerWidth, height: innerHeight },
+    }));
+    const onScreen = rect => rect.top >= 0 && rect.left >= 0 && rect.bottom <= snapshot.viewport.height && rect.right <= snapshot.viewport.width;
     assertAudit(snapshot.title === 'よむ', 'onboarding launcher title is missing');
     assertAudit(snapshot.formControls === 0, `the onboarding launcher on an ordinary page must not hold page-writable controls: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.actionRects.every(rect => rect.top >= 0 && rect.bottom <= snapshot.viewportHeight && rect.left >= 0 && rect.right <= snapshot.viewportWidth), `onboarding launcher actions are not visible on the first mobile screen: ${JSON.stringify(snapshot)}`);
+    assertAudit(['open-trusted-setup', 'close'].every(action => snapshot.actions.some(rect => rect.action === action && onScreen(rect))), `onboarding launcher actions are not visible on the first mobile screen: ${JSON.stringify(snapshot)}`);
     await assertAccessibleSurface(page, 'mobile onboarding', '.jpdb-reader-onboarding-trusted-launcher');
     await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-mobile.png'), fullPage: false });
     await page.locator('[data-onboarding-action="close"]').click();
@@ -3236,9 +3218,8 @@ async function auditRuntimeRegressionExampleAudioPlayback(page, runtimeAudioRequ
         // no real install runs the later steps without it.
         await page.evaluate(() => {
             window.__yomuQaHttpBridge = {
-                gmXhr: window.GM_xmlhttpRequest,
-                xmlHttpRequest: window.GM?.xmlHttpRequest,
-                xmlhttpRequest: window.GM?.xmlhttpRequest,
+                window: { GM_xmlhttpRequest: window.GM_xmlhttpRequest },
+                gm: { xmlHttpRequest: window.GM?.xmlHttpRequest, xmlhttpRequest: window.GM?.xmlhttpRequest },
                 marker: document.documentElement.dataset.yomuUserscriptHttpBridge,
             };
             delete window.GM_xmlhttpRequest;
@@ -3256,11 +3237,10 @@ async function auditRuntimeRegressionExampleAudioPlayback(page, runtimeAudioRequ
             assertAudit(!runtimeAudioRequests.some(request => request.kind === 'direct'), `JPDB example sentence audio touched direct static media before proxy/blob fallback: ${JSON.stringify(runtimeAudioRequests)}`);
         } finally {
             await page.evaluate(() => {
-                const { gmXhr, xmlHttpRequest, xmlhttpRequest, marker } = window.__yomuQaHttpBridge ?? {};
-                if (gmXhr) window.GM_xmlhttpRequest = gmXhr;
-                if (window.GM && xmlHttpRequest) window.GM.xmlHttpRequest = xmlHttpRequest;
-                if (window.GM && xmlhttpRequest) window.GM.xmlhttpRequest = xmlhttpRequest;
-                if (marker !== undefined) document.documentElement.dataset.yomuUserscriptHttpBridge = marker;
+                const saved = window.__yomuQaHttpBridge;
+                Object.assign(window, saved.window);
+                Object.assign(window.GM ?? {}, saved.gm);
+                if (saved.marker !== undefined) document.documentElement.dataset.yomuUserscriptHttpBridge = saved.marker;
             });
         }
     }, error => runtimeExampleAudioFailureMessage(page, runtimeAudioRequests, error));
