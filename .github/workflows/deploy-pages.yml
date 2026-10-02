@@ -57,6 +57,27 @@ jobs:
     outputs:
       pages_artifact_id: ${{ steps.pages_artifact.outputs.artifact_id }}
     steps:
+      # Production follows CI: a push deploys only once CI has passed on the same
+      # commit. 2.0.8 reached yomureader.com while CI was failing on it. A manual
+      # dispatch skips the wait; it is the recovery path after a CI rerun passes.
+      # CI ignores dist/yomu.user.js-only pushes, so no run within five minutes
+      # means none is coming.
+      - name: Wait for CI on this commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 100); do
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow CI --commit "$GITHUB_SHA" --event push --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"')
+            case "$run" in
+              "completed success") echo "CI passed for $GITHUB_SHA."; exit 0 ;;
+              completed*) echo "::error::CI ${run#completed } for $GITHUB_SHA; not deploying. Rerun CI, then run Deploy Docs by hand."; exit 1 ;;
+              "") if [ "$attempt" -ge 10 ]; then echo "::warning::No CI run for $GITHUB_SHA; deploying without it."; exit 0; fi ;;
+            esac
+            sleep 30
+          done
+          echo "::error::CI did not finish for $GITHUB_SHA within 50 minutes; not deploying."
+          exit 1
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:

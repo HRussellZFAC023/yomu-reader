@@ -121,6 +121,20 @@ describe('release workflow safety', () => {
         expect(deployPagesWorkflow).toMatch(/^on:\n(?:.*\n)*?\s*workflow_dispatch:/m);
     });
 
+    // 2.0.8 reached yomureader.com while CI was failing on it: a push deploys
+    // only after CI passes on the same commit, before anything is built.
+    it('deploys a push only after CI passes on the same commit', () => {
+        const gate = deployPagesWorkflow.indexOf('name: Wait for CI on this commit');
+        const checkout = deployPagesWorkflow.indexOf('uses: actions/checkout@v6');
+        const gateStep = deployPagesWorkflow.slice(gate, checkout);
+        expect(gate).toBeGreaterThan(-1);
+        expect(checkout).toBeGreaterThan(gate);
+        expect(gateStep).toContain("if: github.event_name == 'push'");
+        expect(gateStep).toContain('gh run list --repo "$GITHUB_REPOSITORY" --workflow CI --commit "$GITHUB_SHA" --event push');
+        expect(gateStep).toContain('"completed success") echo');
+        expect(gateStep).toContain('not deploying');
+    });
+
     it('retries transient Pages metadata failures before a required final attempt', () => {
         const step = (name: string) => {
             const marker = `      - name: ${name}\n`;
