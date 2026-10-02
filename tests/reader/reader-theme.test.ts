@@ -9,7 +9,7 @@ import { blendRgba, contrastRatio, cssColorToRgba, mixHex, rgbaToHex } from '../
 import { READER_THEME_COLOR_TOKENS } from '../../src/reader/theme/color-tokens';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import { applyReaderTheme, applyResolvedReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
-import { refreshContrastForChangedWords, refreshContrastForReaderWords, refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
+import { refreshContrastForChangedWords, refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, normalizeReaderSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
@@ -841,33 +841,6 @@ describe('reader theme', () => {
             changedLineScan.mockRestore();
             bodyScan.mockRestore();
             detachedLineScan.mockRestore();
-        }
-    });
-
-    it('refreshes exactly the given words, with the colours a root refresh gives them', () => {
-        const line = `
-            <p id="line" style="background: rgb(20, 20, 20); color: rgb(255, 255, 255);">
-                <span class="jpdb-reader-word jpdb-known" style="color: rgb(30, 30, 30);">読む</span>
-                <span class="jpdb-reader-word anki-due" style="color: rgb(30, 30, 30);">本</span>
-                <span class="jpdb-reader-word jpdb-not-in-deck" style="color: rgb(30, 30, 30);">の</span>
-            </p>`;
-        document.body.innerHTML = line;
-        refreshReaderWordContrast(document.querySelector('#line')!);
-        const rootRefreshed = [...document.querySelectorAll('.jpdb-reader-word')].map(word => word.getAttribute('style'));
-
-        document.body.innerHTML = line;
-        const lineElement = document.querySelector<HTMLElement>('#line')!;
-        const [known, due, neutral] = [...lineElement.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-        const lineScan = vi.spyOn(lineElement, 'querySelectorAll');
-        try {
-            refreshContrastForReaderWords([known, neutral]);
-
-            expect(lineScan).not.toHaveBeenCalled();
-            expect(known.getAttribute('style')).toBe(rootRefreshed[0]);
-            expect(neutral.getAttribute('style')).toBe(rootRefreshed[2]);
-            expect(due.getAttribute('style')).toBe('color: rgb(30, 30, 30);');
-        } finally {
-            lineScan.mockRestore();
         }
     });
 

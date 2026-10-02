@@ -1,6 +1,5 @@
 import { cardKey } from '../cards/utils';
 import {
-    isRegisteredRenderedWord,
     isValidRenderedWordKey,
     renderedWordCardKey,
     renderedWordElementKey,
@@ -41,13 +40,6 @@ export class RenderedWordIndex {
 
     registerRoot(root: ParentNode): void {
         renderedWordsInRoot(root).forEach(word => this.register(word));
-    }
-
-    /** registerRoot for a known set of words: those a scan slice painted or restyled. */
-    registerWords(words: Iterable<HTMLElement>): void {
-        for (const word of words) {
-            if (isRegisteredRenderedWord(word)) this.register(word);
-        }
     }
 
     register(word: HTMLElement): void {

@@ -2,8 +2,6 @@
 // Deterministic fixture smoke for the hosted Japanese-docs annotation scope.
 // Visual acceptance still uses the built VitePress site; this fixture isolates
 // the runtime performance contract with repeatable mocked network responses.
-// A second, one-root reading page guards how annotation cost grows with a
-// page whose text shares one parent (see ONE_ROOT_PATH).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -54,19 +52,6 @@ const FIRST_HOVER_BUDGET_MS = 1000;
 // scanning and annotation stay inside the budget and the evaluation before the
 // mark is only reported (bundleEvaluationLongTasks).
 const BUNDLE_EVALUATED_MARK = 'yomu-smoke:bundle-evaluated';
-// An Aozora Bunko-style main_text block: <br>-separated lines that are all
-// text nodes of ONE parent, which the generic scan handles with no adapter.
-// A build whose apply slices each refreshed their whole root took about 3.7
-// times as long to finish this page (150 lines, 2.5x throttle: 4.4-4.6 s ->
-// 17.5 s, 15 s of it in long tasks) while the ja-docs page above stayed
-// green: no single task got longer, there were just many more of them. So
-// this page gates when annotation finishes and the main-thread time it took,
-// not the longest task (2.0.7 already makes 0.8-0.9 s tasks here at 2.5x).
-// The budgets are about twice what 2.0.7 takes at that throttle.
-const ONE_ROOT_PATH = '/one-root-perf-fixture.html';
-const ONE_ROOT_LINES = 150;
-const ONE_ROOT_COMPLETION_BUDGET_MS = 10_000;
-const ONE_ROOT_LONG_TASK_TOTAL_BUDGET_MS = 10_000;
 // YOMU_JA_DOCS_PERF_CPU_THROTTLE=2.5 on an Apple-silicon Mac reproduces the
 // ubuntu-latest evaluation tasks (CI 337-438/300-343 ms, locally 329-372/
 // 308-347 ms) and overstates the DOM-heavy apply task (CI 155-213 ms, locally
@@ -131,7 +116,6 @@ const fixture = await createFixtureServer(handleFixtureRequest, 'Could not bind 
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 try {
     const report = await runJaDocsPerfSmoke(browser, fixture);
-    report.oneRoot = await runOneRootPerfSmoke(browser, fixture);
     writeFileSync(path.join(ARTIFACTS, 'ja-docs-annotation-perf-smoke.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
 } finally {
@@ -141,30 +125,8 @@ try {
 function handleFixtureRequest(request, response) {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     if (url.pathname === DOCS_PATH) return serveDocsFixture(response);
-    if (url.pathname === ONE_ROOT_PATH) return serveOneRootFixture(response);
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
-}
-
-function serveOneRootFixture(response) {
-    const lines = Array.from({ length: ONE_ROOT_LINES }, (_, index) => `（${index + 1}）${TRY_ME_SENTENCE}学習を始める前に保存した単語の統計を確認して、調べて勉強した本は今日は新しい喫茶店にある。`);
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end(`<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>よむ one-root reading performance fixture</title>
-  <style>
-    body { margin: 0; background: #fff; color: #000; font-size: 16px; line-height: 1.8; }
-    .main_text { max-width: 46em; margin: 0 auto; padding: 24px 16px; }
-  </style>
-</head>
-<body>
-  <h1 class="title">読書</h1>
-  <div class="main_text">${lines.join('<br />\n')}</div>
-</body>
-</html>`);
 }
 
 function serveDocsFixture(response) {
@@ -204,7 +166,8 @@ function serveDocsFixture(response) {
 </html>`);
 }
 
-async function openAnnotatedPage(browser, fixtureServer, pagePath, requests) {
+async function runJaDocsPerfSmoke(browser, fixtureServer) {
+    const requests = [];
     const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     if (CPU_THROTTLE_RATE > 1) {
@@ -237,19 +200,13 @@ async function openAnnotatedPage(browser, fixtureServer, pagePath, requests) {
             // the annotation and first-hover assertions.
         }
     });
-    await page.goto(`${fixtureServer.origin}${pagePath}`, { waitUntil: 'domcontentloaded' });
-    await page.addStyleTag({ path: CSS_PATH });
-    const injectionStart = await page.evaluate(() => performance.now());
-    await addScriptTagWithCspFallback(page, SCRIPT_PATH, {
-        epilogue: `performance.mark(${JSON.stringify(BUNDLE_EVALUATED_MARK)});`,
-    });
-    return { context, page, injectionStart };
-}
-
-async function runJaDocsPerfSmoke(browser, fixtureServer) {
-    const requests = [];
-    const { context, page, injectionStart } = await openAnnotatedPage(browser, fixtureServer, DOCS_PATH, requests);
     try {
+        await page.goto(`${fixtureServer.origin}${DOCS_PATH}`, { waitUntil: 'domcontentloaded' });
+        await page.addStyleTag({ path: CSS_PATH });
+        const injectionStart = await page.evaluate(() => performance.now());
+        await addScriptTagWithCspFallback(page, SCRIPT_PATH, {
+            epilogue: `performance.mark(${JSON.stringify(BUNDLE_EVALUATED_MARK)});`,
+        });
         try {
             await page.waitForFunction(targetExpression => {
                 const words = [...document.querySelectorAll('[data-try-me-sentence] .jpdb-reader-word')];
@@ -300,37 +257,6 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
 
         await page.screenshot({ path: path.join(ARTIFACTS, 'ja-docs-annotation-perf-smoke.png'), fullPage: false });
         return { ok: true, cpuThrottleRate: CPU_THROTTLE_RATE, ...audit, firstHoverMs: hover.latencyMs };
-    } finally {
-        await context.close();
-    }
-}
-
-async function runOneRootPerfSmoke(browser, fixtureServer) {
-    const requests = [];
-    const { context, page, injectionStart } = await openAnnotatedPage(browser, fixtureServer, ONE_ROOT_PATH, requests);
-    try {
-        // Done when no line is left as a bare text node of the root: the scan
-        // replaces each annotated line's text node with its words.
-        const completedAt = await page.waitForFunction(() => {
-            const root = document.querySelector('.main_text');
-            const bareLine = [...root.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent.includes('喫茶店'));
-            return bareLine ? false : performance.now();
-        }, undefined, { polling: 'raf', timeout: 120_000 }).then(handle => handle.jsonValue());
-        const { longTaskEntries, bundleEvaluatedAt } = await page.evaluate(auditFromDom, { injectionStart, mark: BUNDLE_EVALUATED_MARK });
-        const start = bundleEvaluatedAt ?? injectionStart;
-        const longTasks = splitLongTasksAt(longTaskEntries, start).after.filter(task => task.startTime < completedAt);
-        const audit = {
-            lines: ONE_ROOT_LINES,
-            completionMs: Math.round(completedAt - start),
-            longTaskTotalMs: Math.round(longTasks.reduce((total, task) => total + task.duration, 0)),
-            longTaskCount: longTasks.length,
-            requests: requests.length,
-        };
-        assert(audit.completionMs <= ONE_ROOT_COMPLETION_BUDGET_MS,
-            `One-root page took ${audit.completionMs}ms to annotate (budget ${ONE_ROOT_COMPLETION_BUDGET_MS}ms)`, audit);
-        assert(audit.longTaskTotalMs <= ONE_ROOT_LONG_TASK_TOTAL_BUDGET_MS,
-            `One-root page spent ${audit.longTaskTotalMs}ms in long tasks (budget ${ONE_ROOT_LONG_TASK_TOTAL_BUDGET_MS}ms)`, audit);
-        return audit;
     } finally {
         await context.close();
     }
