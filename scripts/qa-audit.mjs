@@ -14,7 +14,7 @@ import {
     newAutoClosingPage,
     startLoopbackServer,
 } from './lib/smoke-harness.mjs';
-import { userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const { stampAppearanceBoot } = createRequire(import.meta.url)('./lib/hosted-appearance-boot.cjs');
 
@@ -35,6 +35,7 @@ const QA_API_KEY = API_KEY || MOCK_API_KEY;
 const QA_ONLY = process.env.YOMU_QA_ONLY?.trim().toLowerCase() ?? '';
 const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
 const QA_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/';
+const HOSTED_STUDY_ORIGIN = 'https://yomureader.com';
 const TRANSPARENT_CSS_COLORS = new Set(['transparent', 'rgba(0, 0, 0, 0)', 'rgb(0 0 0 / 0)']);
 
 const baseSettings = {
@@ -1046,18 +1047,53 @@ function readerFixtureHasScannedWords() {
     return document.querySelectorAll('.jpdb-reader-word').length > 0;
 }
 
-async function openSettingsFromPuck(page) {
-    await page.waitForSelector('.jpdb-reader-fab', { timeout: 6000 });
-    await page.locator('.jpdb-reader-fab').click();
-    const radialSettings = page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]').first();
-    if (await radialSettings.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)) {
-        await radialSettings.click();
-    }
-    if (!await page.locator('.jpdb-reader-settings').isVisible().catch(() => false)) {
-        await page.keyboard.press('Control+Shift+J');
-    }
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
-    assertAudit(await page.locator('.jpdb-reader-quick').count() === 0, 'puck opened the removed quick controls panel');
+// Since 1.9.1 an ordinary page gets only a no-input "Open Settings in Study"
+// launcher (settings/sensitive-settings-surface.ts trusts Study and the new tab
+// alone; smoke:feedback and smoke:mobile-docs cover that launcher). The editable
+// form lives on Yomu-owned Study, so serve this build's Study at its real origin
+// and open Settings there the way a learner does.
+async function openStudySettings(browser, settings, viewport, contextOptions = {}) {
+    const studySettings = { ...settings, learningTargetChosen: true };
+    const { page } = await newAuditedPage(browser, studySettings, viewport, { serviceWorkers: 'block', ...contextOptions });
+    await page.addInitScript(({ key, value }) => {
+        if (sessionStorage.getItem('__yomuQaStudySeeded')) return;
+        sessionStorage.setItem('__yomuQaStudySeeded', 'true');
+        localStorage.setItem(key, JSON.stringify(value));
+    }, { key: SETTINGS_KEY, value: studySettings });
+    // The launcher only exists where よむ is installed, so Study runs with the
+    // installed reader too (ADR-0017); that is also how Study reaches AnkiConnect.
+    await addUserscriptGraphInitScripts(page, SCRIPT_PATH, { content: [...companionScripts.map(companion => companion.script), userscript].join('\n;\n') });
+    await page.route(url => url.protocol.startsWith('http'), fulfillStudyExternalRoute);
+    await page.route(`${HOSTED_STUDY_ORIGIN}/**`, fulfillHostedStudyRoute);
+    await page.goto(`${HOSTED_STUDY_ORIGIN}/study/`, { waitUntil: 'domcontentloaded' });
+    await page.locator('.jpdb-reader-newtab-more summary').click();
+    await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').click();
+    await page.waitForSelector('form.jpdb-reader-settings', { timeout: 10000 });
+    return page;
+}
+
+// Keep Study off the live network: its own lookups (also through the public
+// proxies) get the audit's mocks, and anything unmocked a CORS-readable 404.
+async function fulfillStudyExternalRoute(route) {
+    const request = route.request();
+    const url = new URL(request.url());
+    const target = url.searchParams.get('url') ?? request.url();
+    const mocked = request.method() === 'OPTIONS' ? null : maybeMockQaRequest({ url: target, data: request.postData() ?? '' });
+    return route.fulfill({
+        status: mocked?.status ?? (request.method() === 'OPTIONS' ? 204 : 404),
+        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Private-Network': 'true' },
+        contentType: mocked?.contentType ?? 'text/plain',
+        body: mocked ? Buffer.from(mocked.bytes) : '',
+    });
+}
+
+async function fulfillHostedStudyRoute(route) {
+    const { pathname } = new URL(route.request().url());
+    const relative = pathname.startsWith('/study/') ? `newtab/${pathname.slice('/study/'.length) || 'index.html'}` : pathname.slice(1);
+    const filePath = path.join(DIST, decodeURIComponent(relative));
+    const body = filePath.startsWith(`${DIST}${path.sep}`) ? await readFile(filePath).catch(() => null) : null;
+    if (!body) return route.fulfill({ status: 404, body: 'Not found' });
+    return route.fulfill({ status: 200, contentType: contentType(filePath), body: filePath.endsWith(path.join('newtab', 'index.html')) ? stampedStudyPage(body) : body });
 }
 
 async function auditNoSecretLeak() {
@@ -2014,11 +2050,10 @@ async function assertSettingsAnkiTest(page) {
     assertAudit(!ankiSnapshot.disabled, 'Test Anki button stayed disabled after the connection check');
 }
 
-async function auditSettings(browser, server) {
-    const { page } = await newAuditedPage(browser, settingsAuditSeed());
-    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
-    await injectUserscript(page);
-    await openSettingsFromPuck(page);
+async function auditSettings(browser) {
+    const page = await openStudySettings(browser, settingsAuditSeed(), { width: 1280, height: 900 });
+    // Study opens Settings on the API panel; the language select is on Appearance.
+    await page.locator('[data-action="settings-panel"][data-panel="appearance"]').click();
     await assertSettingsLocaleSwitch(page);
     await captureSettingsDialog(page);
     await captureHoverShortcut(page);
@@ -2030,16 +2065,13 @@ async function auditSettings(browser, server) {
     record('settings dialog', 'pass', 'actions visible, irrelevant provider fields hidden, Anki test status shown');
 }
 
-async function auditSettingsMobile(browser, server) {
-    const { page, requests } = await newAuditedPage(browser, {
+async function auditSettingsMobile(browser) {
+    const page = await openStudySettings(browser, {
         ...baseSettings,
         apiKey: '',
         showFloatingButton: true,
         ocrEnabled: true,
-    }, { width: 390, height: 844 });
-    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
-    await injectUserscript(page);
-    await openSettingsFromPuck(page);
+    }, { width: 390, height: 844 }, { isMobile: true, hasTouch: true });
     let snapshot = await page.evaluate(mobileSettingsTabsSnapshotFromDom);
     assertAudit(snapshot.tabs.length >= 6, 'mobile settings tabs are missing sections');
     assertAudit(snapshot.tabs.every(tab => tab.left >= 0 && tab.right <= snapshot.viewportWidth && tab.width > 30), 'a mobile settings tab is clipped');
@@ -2069,6 +2101,8 @@ async function auditSettingsMobile(browser, server) {
             return visibleCopy.textContent?.replace(/\s+/g, ' ').trim() ?? '';
         }).join(' '),
     }));
+    const helpIconWidths = await page.evaluate(() => [...document.querySelectorAll('[data-help-link] svg')].map(icon => Math.round(icon.getBoundingClientRect().width)));
+    assertAudit(helpIconWidths.length > 0 && helpIconWidths.every(width => width <= 24), `a mobile Help link icon is not glyph-sized: ${JSON.stringify(helpIconWidths)}`);
     assertAudit(snapshot.helpLinks >= 3, 'mobile Help tab does not expose hosted reader tool links');
     assertAudit(/Video Player|動画プレイヤー/.test(snapshot.linkCopy)
         && /New Tab|Study|新しいタブ|学習/.test(snapshot.linkCopy)
@@ -5228,8 +5262,8 @@ async function main() {
     try {
         await runAudit('secret leak scan', auditNoSecretLeak);
         await runAudit('mobile onboarding', () => auditOnboardingMobile(browser, server));
-        await runAudit('settings dialog', () => auditSettings(browser, server));
-        await runAudit('mobile settings journey', () => auditSettingsMobile(browser, server));
+        await runAudit('settings dialog', () => auditSettings(browser));
+        await runAudit('mobile settings journey', () => auditSettingsMobile(browser));
         await runAudit('new-tab dictionary fallback', () => auditNewTabDictionaryFallback(browser, server));
         await runAudit('hosted Try Me demo', () => auditHostedTryMeDemo(browser, server), { requiresApiKey: true });
         await runAudit('runtime regression fixture', () => auditRuntimeRegressionFixes(browser, server), { requiresApiKey: true });
