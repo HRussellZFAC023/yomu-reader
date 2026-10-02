@@ -4761,12 +4761,14 @@ async function auditVideoFixture(browser, server) {
     });
     const snapshot = await videoFixtureSnapshot(page);
     assertVideoFixtureSnapshot(snapshot);
-    const idleRailSnapshot = await subtitleRailControlSnapshot(page, {
-        addClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-compact-video'],
-        removeClasses: ['jpdb-subtitle-panel-open'],
-        settleMs: 500,
-    });
-    assertCompactIdleRailSnapshot(idleRailSnapshot);
+    // 1.6.151 (91495ff27): a player with no native chrome-fade signal, which is
+    // any non-YouTube <video>, counts the idle timer as the fade, so the idle rail
+    // goes fully away instead of leaving a grip stub. Unit-pinned by
+    // 05-controls-drag-rail-visibility.test.ts ("fully hides the rail on idle for a
+    // generic player with no chrome-fade signal").
+    await waitForAudit(page, () => document.querySelector('.jpdb-subtitle-player')?.classList.contains('jpdb-subtitle-controls-away'), 4000, 'idle generic-video subtitle rail never went away');
+    const idleRailSnapshot = await subtitleRailControlSnapshot(page, { addClasses: [], removeClasses: [], settleMs: 500 });
+    assertAudit(isSubtitleRailVisuallyHidden(idleRailSnapshot), `idle generic-video subtitle rail should hide entirely: ${JSON.stringify(idleRailSnapshot)}`);
     const hiddenControlsRailSnapshot = await subtitleRailControlSnapshot(page, {
         addClasses: ['jpdb-subtitle-controls-hidden', 'jpdb-subtitle-compact-video'],
         removeClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-panel-open'],
@@ -4777,6 +4779,12 @@ async function auditVideoFixture(browser, server) {
         removeClasses: ['jpdb-subtitle-controls-hidden', 'jpdb-subtitle-controls-idle'],
         settleMs: 50,
     });
+    // Wake the rail the way a learner does: move the pointer over the video.
+    const videoBox = await page.locator('video').boundingBox();
+    assertAudit(videoBox, 'fixture video has no bounding box');
+    for (const offset of [0, 24]) {
+        await page.mouse.move(videoBox.x + videoBox.width / 2 + offset, videoBox.y + videoBox.height / 2 + offset / 2, { steps: 4 });
+    }
     await page.evaluate(advanceFixtureVideoCue);
     await page.locator('.jpdb-subtitle-rail button[data-action="panel"]').click();
     await waitForAudit(page, transcriptPanelOpenWithActiveLine, 6000, 'transcript panel did not open with active-line highlighting');
@@ -5117,29 +5125,6 @@ function hasSettledSubtitleWordState(snapshot) {
     ].every(Boolean);
 }
 
-function assertCompactIdleRailSnapshot(snapshot) {
-    assertAudit(
-        isSubtitleRailVisuallyAvailable(snapshot),
-        `idle compact subtitle rail should keep its move grip visible: ${JSON.stringify(snapshot)}`,
-    );
-    assertAudit(
-        (snapshot.rail?.width ?? Number.POSITIVE_INFINITY) <= 120,
-        `idle compact subtitle rail should collapse to a small chip: ${JSON.stringify(snapshot)}`,
-    );
-    for (const action of ['rail-expand']) {
-        const button = snapshot.buttons?.find(candidate => candidate.action === action);
-        assertAudit(
-            isAtLeast(button?.style?.width, 28) && isAtLeast(button?.style?.height, 28),
-            `idle compact subtitle rail is missing its visible ${action} control: ${JSON.stringify(snapshot)}`,
-        );
-    }
-    const expandedControls = snapshot.buttons?.filter(candidate => candidate.action !== 'rail-expand') ?? [];
-    assertAudit(
-        expandedControls.every(button => button.style?.display === 'none' || !isAtLeast(button.style?.width, 1)),
-        `idle compact subtitle rail left expanded controls visible: ${JSON.stringify(snapshot)}`,
-    );
-}
-
 function assertHiddenControlsRailSnapshot(snapshot) {
     assertHiddenSubtitleRailSnapshot(snapshot, 'hidden-controls');
 }
@@ -5157,15 +5142,6 @@ function isSubtitleRailVisuallyHidden(snapshot) {
     const visuallyConcealed = snapshot.rail?.visibility === 'hidden'
         || Number.parseFloat(snapshot.rail?.opacity ?? '1') <= 0.2;
     return visuallyConcealed && snapshot.rail?.pointerEvents === 'none';
-}
-
-function isSubtitleRailVisuallyAvailable(snapshot) {
-    // Compact idle intentionally rests at .55 opacity: visible enough to find
-    // the move/expand grip, quieter than active controls, and well above the
-    // <= .2 hidden-state floor audited separately.
-    return Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.5
-        && snapshot.rail?.pointerEvents !== 'none'
-        && isSubtitleRailLaidOut(snapshot);
 }
 
 function isSubtitleRailLaidOut(snapshot) {
