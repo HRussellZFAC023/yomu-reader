@@ -2371,19 +2371,29 @@ async function auditHostedTryMeDemo(browser, server) {
     const snapshot = await hostedTryMeVisualSnapshot(page);
     assertHostedTryMeAuthenticatedSnapshot(snapshot);
 
-    const downBox = snapshot.down.rect;
-    await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
+    // The mock JPDB parse does not attach 下, so it is a segmenter-fallback lone
+    // kanji. Since 5aa05cb5f (1.8.79) a pointer over a lone kanji the parse could
+    // not attach stays silent instead of opening an empty card; real JPDB and
+    // Jiten parses do attach it. Hover and click a parsed word instead.
+    const center = rect => ({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+    const down = center(snapshot.down.rect);
+    const parsedWord = center(snapshot.jpdbWord.rect);
+    await page.mouse.move(down.x, down.y);
+    await page.mouse.click(down.x, down.y);
+    await page.waitForTimeout(600);
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 0, 'hosted Try Me opened a card for 下, which the parse never attached');
+    await page.mouse.move(parsedWord.x, parsedWord.y);
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await waitForAudit(page, hostedTryMeDownLookupOpenFromDom, 6000, 'hovering hosted Try Me 下 did not open the 下 lookup');
+    await waitForAudit(page, hostedTryMeParsedLookupOpenFromDom, 6000, 'hovering hosted Try Me 日本語 did not open its lookup');
     await page.keyboard.press('Escape');
     await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close hosted Try Me hover popup');
-    await page.mouse.click(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
+    await page.mouse.click(parsedWord.x, parsedWord.y);
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await waitForAudit(page, hostedTryMeDownLookupOpenFromDom, 6000, 'clicking hosted Try Me 下 did not open the 下 lookup');
+    await waitForAudit(page, hostedTryMeParsedLookupOpenFromDom, 6000, 'clicking hosted Try Me 日本語 did not open its lookup');
     assertNoPageBrowserErrors(browserErrors, 'hosted Try Me demo');
     await page.screenshot({ path: path.join(ARTIFACTS, 'hosted-try-me.png'), fullPage: false });
     await page.close();
-    record('hosted Try Me demo', 'pass', 'partial JPDB parses keep 下 clickable and JPDB-backed words keep color/underline styling');
+    record('hosted Try Me demo', 'pass', 'parsed words open on hover and click, an unattached lone kanji stays silent, and JPDB-backed words keep color/underline styling');
 }
 
 function hostedTryMeDownWrappedFromDom() {
@@ -2395,8 +2405,8 @@ function hostedTryMeDownWrappedFromDom() {
     }
 }
 
-function hostedTryMeDownLookupOpenFromDom() {
-    return compactText(document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')).includes('下');
+function hostedTryMeParsedLookupOpenFromDom() {
+    return compactText(document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')).replace(/\([^)]*\)/g, '').includes('日本語');
 
     function compactText(node) {
         return node?.textContent?.replace(/\s+/g, '').trim() ?? '';
@@ -2406,7 +2416,7 @@ function hostedTryMeDownLookupOpenFromDom() {
 function assertHostedTryMeAuthenticatedSnapshot(snapshot) {
     assertAudit(snapshot.wordData.length >= 8, `hosted Try Me parsed too few words: ${JSON.stringify(snapshot)}`);
     assertAudit(hostedTryMeDownExpression(snapshot) === '下', `hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.down.cursor === 'pointer', `hosted Try Me 下 word is not pointer-clickable: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.jpdbWord?.cursor === 'pointer', `hosted Try Me 日本語 word is not pointer-clickable: ${JSON.stringify(snapshot.jpdbWord)}`);
     assertAudit(snapshot.down.display === 'inline', `hosted Try Me 下 should use inline reader word layout: ${JSON.stringify(snapshot.down)}`);
     assertAudit(snapshot.down.minWidth === '0px', `hosted Try Me 下 should not force a flex tap target: ${JSON.stringify(snapshot.down)}`);
     assertAudit(snapshot.down.whiteSpace === 'nowrap', `hosted Try Me 下 should not inherit scan-word wrapping: ${JSON.stringify(snapshot.down)}`);
@@ -2445,6 +2455,11 @@ async function assertHostedTryMeFreshProfile(browser, server) {
         ...baseSettings,
         apiKey: '',
         ankiEnabled: false,
+        // A20 (fd56739bf, 1.8.28): Yomu's own deck, on by default, feeds the
+        // state colour channel too. Only a profile with no deck at all falls
+        // back to pitch underline with text colour off, which is what this
+        // pre-check is about.
+        yomuLocalSrsEnabled: false,
         wordHighlightColorSource: 'jpdb',
         wordUnderlineColorSource: 'jpdb',
         wordTextColorSource: 'jpdb',
