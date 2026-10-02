@@ -830,6 +830,9 @@ export class VisiblePageScanner {
             // for the duration of our own apply — real external re-renders
             // (outside this block) still trigger legitimate rescans.
             const painted = new PaintedWordRecorder();
+            // Watch every parent the slice can paint into before it paints: a
+            // fragment target's parent is only its first fragment's parent.
+            for (let candidate = next; candidate < end; candidate += 1) watchScanTargetParents(painted, targets[candidate]);
             for (; next < end && !mustStop(next); next += 1) {
                 this.paintScanTarget(targets[next], parsed[next], painted, sliceRoots);
             }
@@ -1310,4 +1313,12 @@ function nextVisibleScanParseBatch(
         cursor += 1;
     }
     return { batch, cursor };
+}
+
+function watchScanTargetParents(painted: PaintedWordRecorder, target: ScanTextTarget): void {
+    painted.watch(target.parent);
+    if (!('fragments' in target)) return;
+    for (const fragment of target.fragments) {
+        if (fragment.node.parentElement) painted.watch(fragment.node.parentElement);
+    }
 }
