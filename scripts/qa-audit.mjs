@@ -2783,6 +2783,10 @@ async function auditHoverLookup(browser, server) {
             audioSources: [{ type: 'custom', url: 'https://audio.test/{term}.mp3', voice: '', enabled: true }],
             hoverOpenDelayMs,
             hoverCloseDelayMs: 140,
+            // This fixture's words come from the mocked JPDB parse. The default
+            // parser has been local since 3f61eb322, which made the JPDB-backed
+            // /vocabulary/ link and the parse-count assertions below vacuous.
+            parserProvider: 'jpdb',
             localDictionariesEnabled: true,
             localDictionaryShowKanji: true,
             dictionaryPreferences: [
