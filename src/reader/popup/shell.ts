@@ -42,8 +42,8 @@ const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
 const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
 const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
 const FORCED_POPOVER_SURFACE_DATA_KEY = 'jpdbReaderForcedPopoverSurface';
-export const MINING_DRAWER_HANDLE_SELECTOR = '.jpdb-reader-mining-drawer-handle';
-export const MINING_DRAWER_POINTER_TARGET_SELECTOR = '.jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter';
+const MINING_DRAWER_HANDLE_SELECTOR = '.jpdb-reader-mining-drawer-handle';
+const MINING_DRAWER_POINTER_TARGET_SELECTOR = '.jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter';
 const POPOVER_BODY_ACTION_SELECTOR = [
     'button',
     '[role="button"]',
