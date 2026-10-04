@@ -38,7 +38,8 @@ describe('the popup order in Settings → Sources', () => {
         }
     });
 
-    it.each(['popup', 'order', 'reorder', 'Popup order'])('is what Settings search finds for "%s"', query => {
+    // Not plain "order": the Order column header already matched it before.
+    it.each(['popup', 'reorder', 'Popup order', 'sets the order of sections'])('is what Settings search finds for "%s"', query => {
         expect(sourcesFoundBy(renderSettingsTestForm(DEFAULT_SETTINGS), query)).toBe(true);
     });
 
@@ -54,7 +55,7 @@ describe('the popup order in Settings → Sources', () => {
             expect(first.textContent).not.toContain('未翻訳');
             expect(first.textContent).not.toContain('Popup order');
             expect(sourcesFoundBy(form, 'ポップアップ')).toBe(true);
-            expect(sourcesFoundBy(form, '順序')).toBe(true);
+            expect(sourcesFoundBy(form, 'ポップアップの順序')).toBe(true);
         }
     });
 });
