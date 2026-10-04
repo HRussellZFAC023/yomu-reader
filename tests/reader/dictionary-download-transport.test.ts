@@ -60,6 +60,7 @@ describe('dictionary download on Study with an installed Reader', () => {
     });
 
     afterEach(() => {
+        vi.useRealTimers();
         vi.unstubAllGlobals();
     });
 
@@ -77,14 +78,56 @@ describe('dictionary download on Study with an installed Reader', () => {
 
     it('asks the Reader only when the page may not read that host', async () => {
         const manager = installedReader();
-        vi.stubGlobal('fetch', vi.fn(async () => {
+        const fetchMock = vi.fn(async () => {
             throw new TypeError('Failed to fetch');
-        }));
+        });
+        vi.stubGlobal('fetch', fetchMock);
 
         const blob = await requestDictionaryBlob(GITHUB_ZIP, '');
 
         expect(blob.size).toBe(2);
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe(GITHUB_ZIP);
         expect(manager).toHaveBeenCalledOnce();
+        expect(fetchMock.mock.invocationCallOrder[0]).toBeLessThan(manager.mock.invocationCallOrder[0]!);
+    });
+
+    // A connection reset halfway through is not CORS: retrying the whole
+    // archive through the bridge's single message only ends in its timeout.
+    it('does not fetch an archive that broke off again through the Reader', async () => {
+        const manager = installedReader();
+        const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(new Uint8Array(1024));
+                controller.error(new TypeError('network error'));
+            },
+        });
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(body, { status: 200, headers: { 'content-length': '51170783' } })));
+
+        const error = await requestDictionaryBlob(GITHUB_ZIP, '', () => undefined).catch(caught => caught);
+
+        expect(userFacingCopyKeyOf(error)).toBe('dictionaryDownloadFailed');
+        expect((error as Error).message).toBe('network error');
+        expect(manager).not.toHaveBeenCalled();
+    });
+
+    it('gives up on an archive that stops arriving', async () => {
+        vi.useFakeTimers();
+        const manager = installedReader();
+        const body = new ReadableStream<Uint8Array>({
+            start(controller) { controller.enqueue(new Uint8Array(10)); },
+        });
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(body, { status: 200 })));
+        let outcome: unknown = 'pending';
+        void requestDictionaryBlob(GITHUB_ZIP, '', () => undefined).then(
+            blob => { outcome = blob; },
+            error => { outcome = error; },
+        );
+
+        await vi.advanceTimersByTimeAsync(121_000);
+
+        expect(userFacingCopyKeyOf(outcome)).toBe('dictionaryDownloadTimedOut');
+        expect(manager).not.toHaveBeenCalled();
     });
 
     it('reports a server error from the page fetch without retrying through the Reader', async () => {
@@ -95,6 +138,19 @@ describe('dictionary download on Study with an installed Reader', () => {
 
         expect(userFacingCopyKeyOf(error)).toBe('dictionaryDownloadFailed');
         expect(manager).not.toHaveBeenCalled();
+    });
+
+    it('names the host when the manager reports a failed request', async () => {
+        vi.stubGlobal('location', new URL('https://example.com/article'));
+        vi.stubGlobal('GM_xmlhttpRequest', vi.fn((details: { onerror?: (response: unknown) => void }) => {
+            details.onerror?.({ status: 0 });
+            return { abort: vi.fn() };
+        }));
+
+        const error = await requestDictionaryBlob(GITHUB_ZIP, '').catch(caught => caught);
+
+        expect(userFacingCopyKeyOf(error)).toBe('dictionaryDownloadFailed');
+        expect((error as Error).message).toBe("The userscript manager's request to github.com failed.");
     });
 
     it('leaves an ordinary page on the manager, which is the only way it can reach the host', async () => {

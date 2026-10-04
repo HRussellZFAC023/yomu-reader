@@ -1,5 +1,5 @@
 import { uiText } from '../../app/i18n';
-import { userFacingError } from '../../app/user-facing-errors';
+import { isUserFacingError, userFacingError } from '../../app/user-facing-errors';
 import { Logger } from '../../app/logger';
 import { fetchWithCorsFallbacks } from '../../network/proxy-fetch';
 import type { InterfaceLanguage } from '../../app/types';
@@ -8,6 +8,9 @@ import { localBytesFromView } from '../../platform/binary-realm';
 import { isYomuNewTabUrl } from '../../newtab/url';
 
 const log = Logger.scope('Yomitan');
+// A dictionary archive legitimately needs the widest budget in the reader. A
+// page fetch also spends it per chunk, so a stalled body cannot hang an install.
+const DICTIONARY_DOWNLOAD_TIMEOUT_MS = 120000;
 
 export function filenameFromUrl(url: string): string {
     try {
@@ -100,17 +103,16 @@ function requestBlobViaUserscript(
     onProgress?: (message: string) => void,
     language: InterfaceLanguage = 'en',
 ): Promise<Blob> {
-    // A dictionary archive legitimately needs the widest budget in the reader, so
-    // the 120 s stays exactly as it was — it is now enforced locally too, because
-    // a manager that drops the callback used to leave the import dialog on its
-    // progress line forever with no error and no way back.
+    // The 120 s is enforced locally too, because a manager that drops the
+    // callback used to leave the import dialog on its progress line forever
+    // with no error and no way back.
     return requestViaUserscriptManager<Blob>(userscriptRequest, {
         details: {
             method: 'GET',
             url,
             headers: { accept: 'application/zip,application/octet-stream,*/*' },
             responseType: 'blob',
-            timeout: 120000,
+            timeout: DICTIONARY_DOWNLOAD_TIMEOUT_MS,
             onprogress: event => {
                 if (event.lengthComputable && event.total > 0) {
                     onProgress?.(`${uiText(language, 'dictionaryDownloadProgress')} ${Math.round((event.loaded / event.total) * 100)}%...`);
@@ -135,12 +137,12 @@ function requestBlobViaUserscript(
         onError: () => {
             log.warn('Dictionary download failed', { host: safeHost(url) });
             done();
-            return userFacingError('dictionaryDownloadFailed', { diagnostic: 'The userscript manager reported a request error.' });
+            return userFacingError('dictionaryDownloadFailed', { diagnostic: `The userscript manager's request to ${safeHost(url)} failed.` });
         },
         onTimeout: () => {
             log.warn('Dictionary download timed out', { host: safeHost(url) });
             done();
-            return userFacingError('dictionaryDownloadTimedOut', { diagnostic: 'The dictionary download exceeded its 120s budget.' });
+            return userFacingError('dictionaryDownloadTimedOut');
         },
     });
 }
@@ -184,30 +186,44 @@ async function fetchDictionaryBlob(
         credentials: 'omit',
         redirect: 'follow',
         referrerPolicy: 'no-referrer',
-        timeoutMs: 120000,
+        timeoutMs: DICTIONARY_DOWNLOAD_TIMEOUT_MS,
         allowDirectCrossOrigin: true,
     });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
-    const blob = await responseBlobWithProgress(response, onProgress, language);
+    const blob = await readDictionaryBody(response, onProgress, language);
     log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
     done();
     return blob;
 }
 
+/**
+ * A body that breaks off is a failed download, never a host the page may not
+ * read: it must not look like CORS, or Study would fetch it all again through
+ * the Reader bridge.
+ */
+async function readDictionaryBody(response: Response, onProgress: ((message: string) => void) | undefined, language: InterfaceLanguage): Promise<Blob> {
+    try {
+        return await responseBlobWithProgress(response, onProgress, language);
+    } catch (error) {
+        if (isUserFacingError(error)) throw error;
+        throw userFacingError('dictionaryDownloadFailed', { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
+    }
+}
+
 async function responseBlobWithProgress(response: Response, onProgress: ((message: string) => void) | undefined, language: InterfaceLanguage): Promise<Blob> {
-    if (!response.body || !onProgress) return response.blob();
+    if (!response.body) return response.blob();
     const total = Number(response.headers.get('content-length') ?? 0);
     const type = response.headers.get('content-type') || 'application/zip';
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let loaded = 0;
     for (;;) {
-        const { value, done } = await reader.read();
+        const { value, done } = await readChunkWithinBudget(reader);
         if (done) break;
         const chunk = localBytesFromView(value);
         chunks.push(chunk);
         loaded += chunk.byteLength;
-        onProgress(formatDictionaryDownloadProgress(language, loaded, total));
+        onProgress?.(formatDictionaryDownloadProgress(language, loaded, total));
     }
     const bytes = new Uint8Array(loaded);
     let offset = 0;
@@ -216,6 +232,22 @@ async function responseBlobWithProgress(response: Response, onProgress: ((messag
         offset += chunk.byteLength;
     }
     return new Blob([bytes.buffer.slice(0)], { type });
+}
+
+/** Cancelling ends the pending read as if the body were complete, so the flag tells them apart. */
+async function readChunkWithinBudget(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<ReadableStreamReadResult<Uint8Array>> {
+    let stalled = false;
+    const timer = setTimeout(() => {
+        stalled = true;
+        void reader.cancel().catch(() => undefined);
+    }, DICTIONARY_DOWNLOAD_TIMEOUT_MS);
+    try {
+        const result = await reader.read();
+        if (stalled) throw userFacingError('dictionaryDownloadTimedOut');
+        return result;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 function formatDictionaryDownloadProgress(language: InterfaceLanguage, loaded: number, total: number): string {
@@ -238,6 +270,8 @@ function handleDictionaryFetchError(url: string, downloadUrl: string, error: unk
     }
     log.warn('Dictionary download fetch failed', { host, error });
     done();
+    // An HTTP status or a stalled body already says what happened.
+    if (isUserFacingError(error)) throw error;
     throw userFacingError('dictionaryDownloadFailed', { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
 }
 
