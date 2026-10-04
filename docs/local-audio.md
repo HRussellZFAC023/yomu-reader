@@ -30,7 +30,7 @@ Add it to Yomu:
 3. Press Add audio source.
 4. Set Type to Custom URL.
 5. Paste the personal URL you were given.
-6. Save, look up a word, and press the speaker button.
+6. Save, close Settings, then look up a word and press the speaker button.
 
 ## Local Audio: What You Need
 
@@ -158,7 +158,7 @@ http://localhost:9393/?term={term}&reading={reading}
 ```
 
 8. Move the local audio source above the built-in sources if you want local audio tried first.
-9. Save settings.
+9. Save settings, then close Settings.
 10. Look up a word and press the speaker button.
 
 Leave `{term}` and `{reading}` exactly as written. よむ replaces those placeholders for each word you look up.

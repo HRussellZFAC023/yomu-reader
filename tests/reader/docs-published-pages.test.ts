@@ -284,6 +284,14 @@ describe('one navbar everywhere', () => {
         }
     });
 
+    it('opens Study from the FAQ instead of a VitePress 404', () => {
+        // Study is a static app in docs/public, not a docs page. A plain
+        // in-site link is claimed by the router, which renders "PAGE NOT FOUND".
+        const faq = readProjectFile('docs/faq.md');
+        expect(faq).toContain('<a href="/study/#settings=dictionaries" target="_self">');
+        expect(faq).not.toContain('](/study/#');
+    });
+
     it('keeps Membership carrying target="_self" on every surface', () => {
         // VitePress's router claims in-site link clicks on window and skips any
         // anchor with a target, which is the only reason the membership popover

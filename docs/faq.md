@@ -76,7 +76,7 @@ Word colours show how well you know them when a review system is connected, so a
 
 Open Settings → Sources. The Popup order list at the top of that tab sets the order of the popup's sections. Move a row with its arrows or drag it, then press Save. Kanji sections have their own list further down the same tab, and the link pills at the top of the popup are ordered under Lookup pills.
 
-Straight to that tab: [yomureader.com/study/#settings=dictionaries](/study/#settings=dictionaries)
+Straight to that tab: <a href="/study/#settings=dictionaries" target="_self">yomureader.com/study/#settings=dictionaries</a>
 
 ## Keeping and reviewing words
 
