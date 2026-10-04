@@ -12,7 +12,8 @@ import { setInnerHtml } from '../../src/reader/dom';
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { DEFAULT_SETTINGS, card, emptyCardRenderData, testCardActionController, testCardPopoverRenderer, testCardRenderDataLoader } from './jpdb/fixtures';
 import type { JPDBCard, ReaderSettings } from './jpdb/fixtures';
-import type { CardRenderData } from '../../src/reader/cards/render-data';
+import type { CardRenderData, CardRenderDataLoaderDependencies } from '../../src/reader/cards/render-data';
+import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 
 const SENTENCE = '毎日ご飯を食べる。';
 const WORD: JPDBCard = { ...card, meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }] };
@@ -236,7 +237,7 @@ describe('saving to Jiten', () => {
             try {
                 const listReaderStudyDecks = vi.fn(async () => NO_WORD_LIST);
                 const settings = { ...JITEN_ONLY, localDictionariesEnabled: false, showPitchAccent: false };
-                const data = testCardRenderDataLoader({ settings, jiten: { listReaderStudyDecks } as never, isJpdbBackedCard });
+                const data = testCardRenderDataLoader({ settings, jiten: { listReaderStudyDecks } as never, isJpdbBackedCard, asksForJitenWordList: true });
                 const decksFor = async (spelling: string, jitenWordId: number) => (await data.load({ ...JITEN_WORD, spelling, jitenWordId }).all).jitenDecks;
                 await expect(decksFor('食べる', 9001)).resolves.toEqual([]);
 
@@ -246,6 +247,41 @@ describe('saving to Jiten', () => {
                 // A word list, once found, is kept as long as any deck list.
                 vi.advanceTimersByTime(31_000);
                 await decksFor('見る', 9003);
+                expect(listReaderStudyDecks).toHaveBeenCalledTimes(2);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('is what Study\'s popups load with', () => {
+            vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+            try {
+                const study = new NewTabRuntime() as unknown as { cardRenderData: { dependencies: CardRenderDataLoaderDependencies } };
+                expect(study.cardRenderData.dependencies.asksForJitenWordList).toBe(true);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        // Only Study shows the note, so an ordinary page asks Jiten no more often
+        // than for any other deck list.
+        it('keeps an empty word-list result for the shared five minutes off Study', async () => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            try {
+                const listReaderStudyDecks = vi.fn(async () => NO_WORD_LIST);
+                const settings = { ...WITH_YOMU_DECK, localDictionariesEnabled: false, showPitchAccent: false };
+                const data = testCardRenderDataLoader({ settings, jiten: { listReaderStudyDecks } as never, isJpdbBackedCard });
+                const decksFor = async (spelling: string, jitenWordId: number) => (await data.load({ ...JITEN_WORD, spelling, jitenWordId }).all).jitenDecks;
+                await expect(decksFor('食べる', 9001)).resolves.toEqual([]);
+
+                vi.advanceTimersByTime(31_000);
+                await expect(decksFor('飲む', 9002)).resolves.toEqual([]);
+                vi.advanceTimersByTime(4 * 60_000);
+                await decksFor('見る', 9003);
+                expect(listReaderStudyDecks).toHaveBeenCalledTimes(1);
+
+                vi.advanceTimersByTime(31_000);
+                await decksFor('書く', 9004);
                 expect(listReaderStudyDecks).toHaveBeenCalledTimes(2);
             } finally {
                 vi.useRealTimers();

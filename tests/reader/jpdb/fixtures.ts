@@ -416,6 +416,7 @@ export type TestCardRenderDataLoaderOptions = {
     jpdb?: Partial<JpdbClient>;
     jiten?: Partial<JitenApiClient>;
     isJpdbBackedCard?: (lookupCard: JPDBCard) => boolean;
+    asksForJitenWordList?: boolean;
 };
 export type TestImmersionPopoverInternals = {
     settings: typeof DEFAULT_SETTINGS;
@@ -894,6 +895,7 @@ export function testCardRenderDataLoader(options: TestCardRenderDataLoaderOption
             ...options.jiten,
         } as unknown as JitenApiClient,
         isJpdbBackedCard: options.isJpdbBackedCard ?? (() => true),
+        asksForJitenWordList: options.asksForJitenWordList,
     });
 }
 

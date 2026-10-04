@@ -124,6 +124,8 @@ export interface CardRenderDataLoaderDependencies {
     jiten?: JitenApiClient;
     bunpro?: BunproClient;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
+    /** Study tells a learner with no Jiten word list to create one, so it looks again soon. */
+    asksForJitenWordList?: boolean;
 }
 
 interface LocalMetaEntriesLoad {
@@ -927,8 +929,9 @@ export class CardRenderDataLoader {
         const promise = this.dependencies.jiten.listReaderStudyDecks()
             .then(decks => {
                 const wordLists = decks.filter(isJitenWordListDeck).map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name }));
-                // Study asks a learner with no word list to create one on jiten.moe, so look again soon.
-                if (!wordLists.length && this.jitenDecksCache?.promise === promise) this.jitenDecksCache.expiresAt = Date.now() + CARD_RENDER_DATA_CACHE_TTL_MS;
+                // Study asks a learner with no word list to create one on jiten.moe, so it looks
+                // again soon. Nothing else asks, so other pages keep the shared lifetime.
+                if (!wordLists.length && this.dependencies.asksForJitenWordList && this.jitenDecksCache?.promise === promise) this.jitenDecksCache.expiresAt = Date.now() + CARD_RENDER_DATA_CACHE_TTL_MS;
                 return wordLists;
             })
             .catch(error => {

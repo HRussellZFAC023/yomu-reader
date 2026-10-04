@@ -342,6 +342,7 @@ export class NewTabRuntime {
         jiten: this.jiten,
         bunpro: this.bunpro,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
+        asksForJitenWordList: true,
     });
     private lookupPopoverRenderer = new CardPopoverRenderer({
         getSettings: () => this.settings,
