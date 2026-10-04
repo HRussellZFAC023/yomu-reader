@@ -12,8 +12,10 @@
 // parse, public Jiten and AnkiConnect mocked, so the runtime's gradient and
 // readability pass are the real ones. Static lane: FIXTURE markup under the
 // built yomu.css for the pure cascade contracts (the subtitle channel, the
-// "Only new" opt-out). Chromium by default; YOMU_UNDERLINE_SOURCES_ENGINE=webkit
-// checks the !important custom-property override in WebKit.
+// "Only new" opt-out), and under the built Study CSS for the prompt headword,
+// which keeps its pitch underline in every word-underline mode. Chromium by
+// default; YOMU_UNDERLINE_SOURCES_ENGINE=webkit checks the !important
+// custom-property override in WebKit.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -33,7 +35,8 @@ import {
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
-const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
+const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
+const STUDY_CSS_PATH = path.join(NEWTAB_DIR, 'styles.css');
 const ENGINE = process.env.YOMU_UNDERLINE_SOURCES_ENGINE === 'webkit' ? 'webkit' : 'chromium';
 const OUT = path.join(ARTIFACTS, 'underline-colour-sources', ENGINE);
 const HEIBAN = 'rgb(53, 158, 255)';
@@ -126,9 +129,10 @@ const ROUTES = [
     [url => url.port === '8765', request => mockAnkiConnectResponse(readJsonBody(request.data), action => (action === 'version' ? 6 : []))],
 ];
 
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, STUDY_CSS_PATH], ROOT, 'Run npm run build first.');
 mkdirSync(OUT, { recursive: true });
 const READER_CSS = readFileSync(CSS_PATH, 'utf8');
+const STUDY_CSS = readFileSync(STUDY_CSS_PATH, 'utf8');
 
 let currentPage = '';
 const server = await startLoopbackServer((request, response) => {
@@ -136,12 +140,13 @@ const server = await startLoopbackServer((request, response) => {
     response.end(currentPage);
 }, 'Could not bind underline colour sources smoke server');
 const browser = await launchSmokeBrowser(ENGINE === 'webkit' ? webkit : chromium, ENGINE, { headless: true });
-const report = { engine: ENGINE, page: {}, subtitles: {}, failures: [] };
+const report = { engine: ENGINE, page: {}, subtitles: {}, study: {}, failures: [] };
 
 try {
     await checkCompoundPitch();
     await checkDeckStatusUnderline();
     await checkSubtitleUnderline();
+    await checkStudyHeadword();
 } finally {
     writeFileSync(path.join(OUT, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     await closeSmokeBrowserAndServer(browser, server.server);
@@ -306,7 +311,23 @@ async function checkSubtitleUnderline() {
     expect(!isTransparent(results.status.study.underline), 'A not-in-deck word with an Anki state keeps its Status underline.', results);
 }
 
-// Static fixtures run the built yomu.css only; `read` runs in the page.
+// Study draws the prompt and recall headword on its pitch underline whatever
+// the word-underline mode, so the not-in-deck reset must not outrank that rule.
+// A not-in-deck word elsewhere in Study still gets no deck-status underline.
+async function checkStudyHeadword() {
+    const results = {};
+    for (const underline of ['pitch', 'jpdb', 'status']) {
+        results[underline] = await readStaticFixture(studyFixture(underline), ['headword', 'jiten-headword', 'sentence-word'],
+            word => getComputedStyle(word, '::after').borderBottomColor);
+    }
+    report.study = results;
+    expect(Object.values(results).every(result => result.headword === HEIBAN && result['jiten-headword'] === HEIBAN),
+        'A not-in-deck Study headword should keep its pitch underline in every word-underline mode.', results);
+    expect(['jpdb', 'status'].every(mode => isTransparent(results[mode]['sentence-word'])),
+        'A not-in-deck word outside the Study headword should get no deck-status underline.', results);
+}
+
+// Static fixtures run the built CSS only; `read` runs in the page.
 async function readStaticFixture(html, ids, read) {
     const page = await browser.newPage({ viewport: { width: 900, height: 300 } });
     try {
@@ -339,6 +360,19 @@ function subtitleFixture(underline) {
 <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-primary">
   <span id="not-in-deck" class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">練習</span><span id="new" class="jpdb-reader-word jpdb-new jpdb-pitch-nakadaka" data-pitch-class="nakadaka">新しい</span><span id="known" class="jpdb-reader-word jpdb-known jpdb-pitch-heiban" data-pitch-class="heiban">言葉</span><span id="projected" class="jpdb-reader-word jpdb-known jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">毎日</span><span id="study" class="jpdb-reader-word jpdb-not-in-deck anki-learning jpdb-pitch-heiban" data-pitch-class="heiban">勉強</span>
 </div></div></div>
+</body></html>`;
+}
+
+// FIXTURE markup: the Study prompt headword as renderPromptReaderWord emits it,
+// beside a sentence word, under the root classes applyReaderTheme sets.
+function studyFixture(underline) {
+    const headword = (id, classes) => `<span class="jpdb-reader-newtab-term"><span id="${id}" class="jpdb-reader-word jpdb-reader-parseable ${classes} jpdb-pitch-heiban" data-pitch-class="heiban">練習</span></span>`;
+    return `<!doctype html>
+<html class="jpdb-reader-word-highlight-jpdb jpdb-reader-word-underline-${underline}"><head><meta charset="utf-8"><style>${STUDY_CSS}
+  body { margin: 0; padding: 24px; background: #fff; color: #1f2328; font: 32px/1.9 sans-serif; }
+</style></head><body>
+${headword('headword', 'jpdb-not-in-deck')} ${headword('jiten-headword', 'jpdb-not-in-deck jiten-not-in-deck')}
+<p><span id="sentence-word" class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">練習</span></p>
 </body></html>`;
 }
 

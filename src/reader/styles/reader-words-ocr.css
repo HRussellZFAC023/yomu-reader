@@ -763,18 +763,21 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    jpdb-* on pages or anki-* in Study); each :not() list names the states its
    channel ranks after not-in-deck, which keep their colour. jiten-not-in-deck
    ranks last in both. Only the underline channel changes: the shared source
-   vars also feed the highlight wash and the mirror lanes.
+   vars also feed the highlight wash and the mirror lanes. :where() keeps the
+   reset at the channel rules' specificity, winning on source order alone, so
+   a deliberately stronger rule still wins (Study's headword keeps its pitch
+   underline in every mode).
    tests/reader/underline-colour-sources-css.test.ts holds this to the cascade. */
-.jpdb-reader-word-underline-jpdb .jpdb-reader-word.jpdb-not-in-deck:not(
+.jpdb-reader-word-underline-jpdb .jpdb-reader-word:where(.jpdb-not-in-deck:not(
   .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
   .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
-),
-.jpdb-reader-word-underline-status .jpdb-reader-word.jpdb-not-in-deck:not(
+)),
+.jpdb-reader-word-underline-status .jpdb-reader-word:where(.jpdb-not-in-deck:not(
   .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
   .jpdb-due, .jpdb-failed, .jpdb-suspended,
   .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
-),
-:is(.jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-status) .jpdb-reader-word.jiten-not-in-deck {
+)),
+:is(.jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-status) .jpdb-reader-word:where(.jiten-not-in-deck) {
   --jpdb-reader-word-decoration-source: transparent;
 }
 /* Some expressions have no defensible whole-word accent, but Jiten provides

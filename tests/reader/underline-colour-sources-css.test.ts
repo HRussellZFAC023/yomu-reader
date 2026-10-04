@@ -55,6 +55,28 @@ function channelColourIsNotInDeck(word: HTMLElement, channel: 'jpdb' | 'status')
     return Boolean(winner?.body.includes(`--jpdb-reader-${channel}-color: var(--jpdb-reader-state-not-in-deck)`));
 }
 
+// Each selector in a list, minus its :where(…) groups: what is left is the
+// part that carries specificity.
+function selectorsWithoutWhere(list: string): string[] {
+    const selectors = [''];
+    let depth = 0;
+    let whereDepth = -1;
+    for (let index = 0; index < list.length; index += 1) {
+        const char = list[index]!;
+        if (whereDepth < 0 && list.startsWith(':where(', index)) whereDepth = depth;
+        if (char === '(') depth += 1;
+        if (char === ')') depth -= 1;
+        if (whereDepth >= 0) {
+            if (char === ')' && depth === whereDepth) whereDepth = -1;
+        } else if (char === ',' && depth === 0) {
+            selectors.push('');
+        } else {
+            selectors[selectors.length - 1] += char;
+        }
+    }
+    return selectors.map(selector => selector.trim());
+}
+
 function overrideSelector(css: Rule[], body: string): string {
     const matches = css.filter(rule => rule.body === body && rule.selector.includes('not-in-deck'));
     expect(matches).toHaveLength(1);
@@ -95,6 +117,16 @@ describe('deck-status underline for words in no deck', () => {
             expect(cleared('status', 'jpdb-not-in-deck anki-learning')).toBe(false);
             expect(cleared('status', 'jpdb-not-in-deck')).toBe(true);
             expect(cleared('pitch', 'jpdb-not-in-deck')).toBe(false);
+        });
+
+        it(`keeps the ${surface.name} reset at its channel rule's specificity`, () => {
+            // The reset beats the channel colour on source order alone. Any
+            // state qualifier outside :where() would also outrank rules meant
+            // to win, such as Study's headword keeping its pitch underline in
+            // every mode; the smoke checks that headword in a real engine.
+            for (const selector of selectorsWithoutWhere(surface.selector())) {
+                expect(['jpdb', 'status'].some(mode => mount(surface.markup(mode, '')).matches(selector)), selector).toBe(true);
+            }
         });
     }
 
