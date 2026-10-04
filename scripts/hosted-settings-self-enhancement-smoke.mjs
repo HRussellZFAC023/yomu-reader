@@ -742,7 +742,11 @@ async function verifyLocalOnlyHostedSettings(page) {
         const savedTheme = input.value;
         return { previousTheme, savedTheme };
     });
-    await saveSettingsThenClose(page, 'escape');
+    // Switching the theme again after Save is an unsaved edit: the confirmation
+    // goes, and Escape drops it, so storage keeps the saved theme.
+    await saveSettingsThenClose(page, 'escape', () => page.evaluate(() => {
+        document.querySelector('.jpdb-reader-settings [data-theme-switch]')?.click();
+    }));
     const localOnly = await readStorageState(page);
     assert(storedTheme(localOnly.local) === localSave.savedTheme,
         'Hosted settings save did not persist to website localStorage before installation', { localSave, localOnly });
@@ -844,13 +848,21 @@ async function openSettings(page) {
  * Save keeps Settings open and confirms in its footer; only Cancel or Escape
  * closes it, and closing after a Save leaves the saved settings alone.
  */
-async function saveSettingsThenClose(page, close) {
+async function saveSettingsThenClose(page, close, editAfterSave) {
     await page.locator('.jpdb-reader-settings button[type="submit"]').click();
     await page.waitForFunction(() => {
         const status = document.querySelector('.jpdb-reader-settings [data-settings-save-status]');
         return status instanceof HTMLElement && !status.hidden
             && ['Settings saved.', '設定を保存しました。'].includes(status.textContent?.trim() ?? '');
     }, undefined, { timeout: 15_000 });
+    if (editAfterSave) {
+        await editAfterSave();
+        const status = await page.evaluate(() => {
+            const element = document.querySelector('.jpdb-reader-settings [data-settings-save-status]');
+            return { hidden: element?.hidden, text: element?.textContent ?? '' };
+        });
+        assert(status.hidden === true, '"Settings saved." stayed after an unsaved edit', status);
+    }
     if (close === 'escape') await page.locator('.jpdb-reader-settings').press('Escape');
     else await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });

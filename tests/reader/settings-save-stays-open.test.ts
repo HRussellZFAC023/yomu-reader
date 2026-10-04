@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderSettings } from '../../src/reader/app/types';
+import { createPointerEvent } from './helpers/browser-fixtures';
 import {
     createSettingsDialog,
     DEFAULT_SETTINGS,
@@ -117,6 +118,94 @@ describe('Settings Save keeps the dialog open', () => {
         accent.focus();
         await submitAndSettle(form, saveSettings, 2);
         expect(document.activeElement).toBe(accent);
+    });
+
+    // Popup order's own help says "reorder it with the arrows or by dragging,
+    // then press Save": none of those fire input or change, and Cancel would
+    // silently drop the move while the footer still said "Settings saved."
+    it.each([
+        ['a Popup order arrow', '[data-definition-source-editor] [data-action="dictionary-source-down"]'],
+        ['a lookup link arrow', '[data-action="lookup-link-down"]'],
+        ['adding an audio source', '[data-action="audio-source-add"]'],
+        ['the theme switch', '[data-theme-switch]'],
+    ])('clears the confirmation after %s', async (_label, selector) => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        await submitAndSettle(form, saveSettings, 1);
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+
+        settingsElement<HTMLButtonElement>(form, selector).click();
+
+        expect(saveStatus(form).hidden).toBe(true);
+        expect(saveStatus(form).textContent).toBe('');
+    });
+
+    it('clears the confirmation after a drag in the Popup order', async () => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        await submitAndSettle(form, saveSettings, 1);
+        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-definition-source-editor] [data-source-row]'));
+        rows.forEach((row, index) => {
+            row.getBoundingClientRect = () => new DOMRect(0, index * 48, 300, 40);
+        });
+        const order = () => Array.from(
+            form.querySelectorAll<HTMLElement>('[data-definition-source-editor] [data-source-row]'),
+            row => row.dataset.sourceId,
+        );
+        const before = order();
+
+        rows[0]!.querySelector('[data-source-drag-handle]')!.dispatchEvent(createPointerEvent('pointerdown', { clientY: 4 }));
+        form.dispatchEvent(createPointerEvent('pointermove', { clientY: 100 }));
+        form.dispatchEvent(createPointerEvent('pointerup', { clientY: 100 }));
+
+        expect(order()).not.toEqual(before);
+        expect(saveStatus(form).hidden).toBe(true);
+    });
+
+    it('keeps the confirmation when the learner only switches tabs', async () => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        await submitAndSettle(form, saveSettings, 1);
+
+        settingsElement<HTMLButtonElement>(form, '[data-action="settings-panel"][data-panel="dictionaries"]').click();
+
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+    });
+
+    it('does not confirm a save the form changed under while it ran', async () => {
+        let finishSave!: () => void;
+        const saveSettings = vi.fn()
+            .mockImplementationOnce(() => new Promise<void>(resolve => { finishSave = resolve; }))
+            .mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        const save = settingsElement<HTMLButtonElement>(form, 'button[type="submit"]');
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => saveSettings.mock.calls.length === 1);
+
+        const sticky = settingsElement<HTMLInputElement>(form, 'input[name="stickyBottomSheet"]');
+        sticky.checked = !sticky.checked;
+        sticky.dispatchEvent(new Event('change', { bubbles: true }));
+        finishSave();
+        await waitForCondition(() => !save.disabled);
+
+        expect(saveStatus(form).hidden).toBe(true);
+
+        await submitAndSettle(form, saveSettings, 2);
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+    });
+
+    it('drops an earlier confirmation when a later Save fails', async () => {
+        const saveSettings = vi.fn()
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(new Error('disk full'));
+        const { form } = createSettingsDialog({ saveSettings });
+        await submitAndSettle(form, saveSettings, 1);
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+
+        await submitAndSettle(form, saveSettings, 2);
+
+        expect(saveStatus(form).hidden).toBe(true);
+        expect(saveStatus(form).textContent).toBe('');
     });
 
     it('keeps the dialog open without a confirmation when the save fails', async () => {

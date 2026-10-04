@@ -17,7 +17,8 @@ export function updateSourceRowEditor(action: string, control?: HTMLElement | nu
     moveSourceRow(container, index, targetIndex);
 }
 
-export function installSourceRowDrag(root: HTMLElement): void {
+/** `onReorder` hears a finished drag: it moves rows without an input or change event. */
+export function installSourceRowDrag(root: HTMLElement, onReorder?: () => void): void {
     let drag: SourceRowDragState | null = null;
     const dragDocument = root.ownerDocument;
 
@@ -61,6 +62,7 @@ export function installSourceRowDrag(root: HTMLElement): void {
         releaseSourceRowPointerCapture(drag.handle, event.pointerId);
         drag.row.classList.remove('jpdb-reader-order-row-drag-pending', 'jpdb-reader-order-row-dragging');
         syncSourceRowOrder(drag.container);
+        if (drag.active) onReorder?.();
         drag = null;
         dragDocument.removeEventListener('pointermove', trustedMoveDrag);
         dragDocument.removeEventListener('pointerup', trustedFinishDrag);

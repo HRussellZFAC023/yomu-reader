@@ -305,12 +305,27 @@ async function saveSettings(page) {
     await page.locator('.jpdb-reader-settings [data-settings-save-status]:not([hidden])', { hasText: 'Settings saved.' })
         .waitFor({ state: 'visible', timeout: 15_000 });
     const saved = storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX));
+    await moveAfterSaveClearsConfirmation(page);
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });
     const afterCancel = storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX));
     const cancelDiff = recordDifferences(saved, afterCancel);
     assert(!cancelDiff.length && saved.commit === afterCancel.commit, 'Cancel after a Save changed the stored settings or intent records', cancelDiff);
     return afterCancel;
+}
+
+/**
+ * A Popup order move after Save is not saved: the footer must stop saying
+ * "Settings saved.", and the Cancel that follows drops the move (the caller
+ * checks that nothing stored changed).
+ */
+async function moveAfterSaveClearsConfirmation(page) {
+    const arrow = page.locator(`[data-settings-panel="dictionaries"]:not([hidden]) ${SOURCES_EDITOR} [data-action="dictionary-source-down"]`).first();
+    if (!await arrow.isVisible()) return;
+    await arrow.click();
+    await page.locator('.jpdb-reader-settings [data-settings-save-status]')
+        .waitFor({ state: 'hidden', timeout: 5_000 })
+        .catch(() => assert(false, '"Settings saved." stayed after an unsaved Popup order move'));
 }
 
 function storedRecord(gmValues) {

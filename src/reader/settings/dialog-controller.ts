@@ -786,7 +786,7 @@ export class SettingsDialogController {
 
     private noteSettingsEdited(form: HTMLFormElement, target: EventTarget | null): void {
         if ((target as HTMLElement | null)?.matches?.('[data-settings-search]')) return;
-        this.restoreCoordinator.clearSavedNotice(form);
+        this.restoreCoordinator.noteEdited(form);
     }
 
     private settingsSaveEffectsAreCurrent(form: HTMLFormElement, saveRequestId: number): boolean {
@@ -860,6 +860,7 @@ export class SettingsDialogController {
             if (input) input.value = next;
             applyThemePreview();
             this.syncThemeSwitch(form);
+            this.restoreCoordinator.noteEdited(form);
             publishSettingsChange({ theme: next }, { preview: true });
         });
         bindLiveSettingsSync(form, {
@@ -1028,7 +1029,7 @@ export class SettingsDialogController {
         this.bindAnkiEditorControls(form);
         form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
         installShortcutCapture(form);
-        installSourceRowDrag(form);
+        installSourceRowDrag(form, () => this.restoreCoordinator.noteEdited(form));
         this.actionRouter.bind(form);
     }
 
@@ -1743,34 +1744,35 @@ export class SettingsDialogController {
             this.refreshSettingsJapaneseParse(form);
             return true;
         }
+        if (!this.applySettingsEditorAction(form, action, control)) return false;
+        // These editors rewrite the form without an input or change event.
+        this.restoreCoordinator.noteEdited(form);
+        return true;
+    }
+
+    private applySettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {
         if (isDictionarySourceOrderAction(action)) {
             updateSourceRowEditor(action, control);
-            return true;
-        }
-        if (isAudioSourceEditorAction(action)) {
+        } else if (isAudioSourceEditorAction(action)) {
             updateAudioSourceEditor(form, action, control);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             syncBrowserTtsVoiceOptions(form);
-            return true;
-        }
-        if (isLookupLinkEditorAction(action)) {
+        } else if (isLookupLinkEditorAction(action)) {
             updateDictionaryLookupLinkEditor(form, action, control);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-            return true;
-        }
-        if (action === 'anki-tag-add' || action === 'anki-tag-remove') {
+        } else if (action === 'anki-tag-add' || action === 'anki-tag-remove') {
             updateAnkiTagsEditor(form, action, control);
-            return true;
+        } else {
+            return false;
         }
-        return false;
+        return true;
     }
 
     private handleAnkiTagInputKeydown(form: HTMLFormElement, event: KeyboardEvent): boolean {
         if (event.key !== 'Enter') return false;
         const input = (event.target as HTMLElement | null)?.closest<HTMLInputElement>('[data-anki-tag-input]');
         if (!input) return false;
-        updateAnkiTagsEditor(form, 'anki-tag-add', input);
-        return true;
+        return this.handleSettingsEditorAction(form, 'anki-tag-add', input);
     }
 
     private async handleSettingsAudioAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {

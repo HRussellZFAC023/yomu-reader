@@ -71,6 +71,7 @@ export class SettingsRestoreCoordinator {
     private restorePending = false;
     private revision = 0;
     private savePending = false;
+    private editedDuringSave = false;
     private readonly activeSaves = new Set<Promise<void>>();
     private readonly activeDurableOperations = new Set<Promise<void>>();
     private readonly freezeSnapshots = new WeakMap<HTMLFormElement, FormFreezeSnapshot>();
@@ -119,6 +120,7 @@ export class SettingsRestoreCoordinator {
     beginSave(form: HTMLFormElement): number | undefined {
         if (this.saveIsBlocked(form)) return undefined;
         this.savePending = true;
+        this.editedDuringSave = false;
         try {
             this.sync(form);
         } catch (error) {
@@ -150,7 +152,8 @@ export class SettingsRestoreCoordinator {
 
     finishSave(form: HTMLFormElement, saved = false): void {
         this.savePending = false;
-        if (saved) this.savedNotices.add(form);
+        // Save read the form when it started; an edit made since is not saved.
+        if (saved && !this.editedDuringSave) this.savedNotices.add(form);
         if (form.isConnected) this.sync(form);
         this.syncOtherCurrentForm(form);
     }
@@ -217,7 +220,9 @@ export class SettingsRestoreCoordinator {
         return uiText(this.port.interfaceLanguage(), 'settingsSaved');
     }
 
-    clearSavedNotice(form: HTMLFormElement): void {
+    /** The form changed, so it no longer holds only what was saved. */
+    noteEdited(form: HTMLFormElement): void {
+        if (this.savePending) this.editedDuringSave = true;
         if (this.savedNotices.delete(form) && form.isConnected) this.sync(form);
     }
 
