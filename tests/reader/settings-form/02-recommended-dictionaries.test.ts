@@ -109,6 +109,24 @@ describe('the hand-picked Japanese dictionary shelf', () => {
         expect(findRecommendedDictionary('pixiv-light')?.bytes).toBe(51_170_783);
     });
 
+    // The Kanjium card installs FooSoft's Yomichan repackaging of the Kanjium
+    // data, which README used to say came "straight from" the Kanjium project.
+    it('README and the privacy page say who serves each card that skips the mirror', () => {
+        const servedBy: Record<string, RegExp> = {
+            'wty-ja-ja': /WTY JA-JA comes from its project\b[^.]*Hugging Face/u,
+            'kanjium-pitch': /Kanjium pitch accents from FooSoft's Yomichan repackaging/u,
+            jitendex: /Jitendex and Jiten\b/u,
+            jiten: /Jitendex and Jiten\b/u,
+        };
+        const skipsMirror = RECOMMENDED_JAPANESE_DICTIONARIES.filter(dictionary => dictionary.latestUrl || !dictionary.downloadUrl?.startsWith(MIRROR));
+        expect(skipsMirror.map(dictionary => dictionary.id).sort()).toEqual(Object.keys(servedBy).sort());
+        expect(findRecommendedDictionary('kanjium-pitch')?.downloadUrl).toMatch(/^https:\/\/raw\.githubusercontent\.com\/FooSoft\/yomichan\//u);
+        for (const page of ['README.md', 'docs/privacy/index.md']) {
+            const text = readFileSync(page, 'utf8');
+            for (const [id, claim] of Object.entries(servedBy)) expect(text, `${page}: ${id}`).toMatch(claim);
+        }
+    });
+
     it('does not list the same archives again in the mirror browse below it', () => {
         const curated = new Set(RECOMMENDED_JAPANESE_DICTIONARIES.map(dictionary => dictionary.downloadUrl));
         for (const learnerLanguage of ['en', 'es'] as const) {
