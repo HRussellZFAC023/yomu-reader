@@ -62,7 +62,10 @@ const BUNDLE_EVALUATED_MARK = 'yomu-smoke:bundle-evaluated';
 // green: no single task got longer, there were just many more of them. So
 // this page gates when annotation finishes and the main-thread time it took,
 // not the longest task (2.0.7 already makes 0.8-0.9 s tasks here at 2.5x).
-// The budgets are about twice what 2.0.7 takes at that throttle.
+// At 2.5x on a loaded Mac (load ~30, 2026-10-04, alternating runs) 2.0.10
+// finished in 6.9-8.2 s, 7.1-8.4 s of it in long tasks, and paced apply in
+// 7.0-7.3 s (7.2-7.5 s); 2.0.7 took 4.4-4.6 s on a quiet machine. Slices
+// capped near 240 ms, paying a long frame every few lines, took 8.7-10.2 s.
 const ONE_ROOT_PATH = '/one-root-perf-fixture.html';
 const ONE_ROOT_LINES = 150;
 const ONE_ROOT_LINE_TEXT = `${TRY_ME_SENTENCE}学習を始める前に保存した単語の統計を確認して、調べて勉強した本は今日は新しい喫茶店にある。`;

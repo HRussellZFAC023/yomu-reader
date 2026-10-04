@@ -44,7 +44,7 @@ describe('VisiblePageScanner apply slicing', () => {
         let paintedWhenFirstSliceYielded: number | undefined;
         // Queued during slice one, so it runs before slice two only if the
         // scanner really returns to the event loop in between.
-        const slices = paintedPerSlice(() => { paintedWhenFirstSliceYielded = paintedWordCount(); });
+        const slices = paintedPerSlice(slice => { if (slice === 1) paintedWhenFirstSliceYielded = paintedWordCount(); });
         const scanner = makeScanner({ pauseMutationObserver: slices.pause });
         paintPacedClock();
 
@@ -123,30 +123,96 @@ describe('VisiblePageScanner apply slicing', () => {
         expect(painted.every(word => handed.has(word))).toBe(true);
     });
 
-    it('lengthens the next slice within a cap when a yield costs more than the frame budget', async () => {
+    it('lengthens the next slice to twice a yield that costs more than the frame budget', async () => {
         document.body.innerHTML = paragraphs(16);
         const clock = paintPacedClock();
-        // A second-long turn lands in slice one's yield: a huge block laid out
-        // again for the frame, or a background tab's timer.
-        const slices = paintedPerSlice(() => clock.advance(1_000));
+        // A 100 ms turn lands in slice one's yield: a big block laid out again
+        // for the frame.
+        const slices = paintedPerSlice(slice => { if (slice === 1) clock.advance(100); });
         const scanner = makeScanner({ pauseMutationObserver: slices.pause });
 
         await scanner.scanVisiblePage({ silent: true });
 
-        // The delayed turn permits a larger second slice within the cap;
-        // subsequent inexpensive turns restore the short frame budget.
-        expect(slices.painted).toEqual([1, 13, 14, 15, 16]);
+        // 200 ms buys ten 20 ms targets; cheap turns restore the frame budget.
+        expect(slices.painted).toEqual([1, 11, 12, 13, 14, 15, 16]);
     });
 
-    it('reserves measured handover time when sizing later slices', async () => {
-        document.body.innerHTML = paragraphs(15);
-        const started = Date.now();
-        let followupMs = 0;
-        vi.spyOn(Date, 'now').mockImplementation(() => started + followupMs + 2 * paintedWordCount());
-        const slices = paintedPerSlice(() => undefined);
-        const scanner = makeScanner({ pauseMutationObserver: slices.pause, notePaintedWords: () => { followupMs += 40; } });
+    it('ends slices only at the count cap while each yield is itself a long frame', async () => {
+        // An Aozora Bunko page lays its whole block out again every frame, so
+        // every yield costs 150 ms or more. Capping slices near 240 ms paid
+        // that frame every 12 targets here (and every 5-8 lines on the real
+        // page), finishing later than count caps alone.
+        document.body.innerHTML = paragraphs(96);
+        const clock = paintPacedClock();
+        const slices = paintedPerSlice(() => clock.advance(150));
+        const scanner = makeScanner({ pauseMutationObserver: slices.pause });
+
         await scanner.scanVisiblePage({ silent: true });
-        expect(slices.painted).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+
+        // Parse batches of 80 and 16 targets; count-capped chunks of 48.
+        expect(slices.painted).toEqual([1, 49, 80, 96]);
+    });
+
+    // Every hand-over costs 40 ms and every target 2 ms. After a 50 ms yield a
+    // slice gets twice that less the hand-over: 30 targets. After a free one it
+    // keeps the frame budget, 6 targets, rather than shrinking to one target
+    // that pays the same hand-over and yield.
+    it.each([
+        ['reserves the measured hand-over out of a yield-lengthened slice', 40, 50, [6, 36, 40]],
+        ['never shrinks a slice below the frame budget to make room for its hand-over', 15, 0, [6, 12, 15]],
+    ])('%s', async (_case, targets, yieldMs, painted) => {
+        document.body.innerHTML = paragraphs(targets);
+        const clock = handOverClock();
+        const slices = paintedPerSlice(() => clock.advance(yieldMs));
+        const scanner = makeScanner({ pauseMutationObserver: slices.pause, notePaintedWords: () => clock.advance(40) });
+
+        await scanner.scanVisiblePage({ silent: true });
+
+        expect(slices.painted).toEqual(painted);
+    });
+
+    it('starts each pass at the frame budget, whatever the last pass paid to yield', async () => {
+        document.body.innerHTML = paragraphs(2);
+        const clock = paintPacedClock();
+        const slices = paintedPerSlice(slice => { if (slice === 1) clock.advance(1_000); });
+        const scanner = makeScanner({ pauseMutationObserver: slices.pause });
+        await scanner.scanVisiblePage({ silent: true });
+        expect(slices.painted).toEqual([1, 2]);
+
+        document.body.insertAdjacentHTML('beforeend', paragraphs(6));
+        await scanner.scanVisiblePage({ silent: true });
+
+        expect(slices.painted.slice(2)).toEqual([3, 4, 5, 6, 7, 8]);
+    });
+
+    it('keeps an asbplayer cue batch that runs during a yield out of the page scan pacing', async () => {
+        document.body.innerHTML = paragraphs(60);
+        const clock = handOverClock();
+        let cueBatches = 0;
+        const page: number[] = [];
+        const scanner: VisiblePageScanner = makeScanner({
+            pauseMutationObserver: <T>(callback: () => T): T => {
+                const cueWords = cueWordCount();
+                const result = callback();
+                if (cueWordCount() > cueWords) cueBatches += 1;
+                else page.push(paintedWordCount());
+                if (page.length === 1 && !cueBatches) setTimeout(() => {
+                    document.body.insertAdjacentHTML('beforeend',
+                        '<div class="asbplayer-subtitles-container-bottom"><div><span>日本語を勉強する</span></div></div>');
+                    void scanner.scanAsbPlayerSubtitles();
+                }, 0);
+                return result;
+            },
+            // The cue batch's own hand-over costs 50 ms, inside the page scan's yield.
+            notePaintedWords: words => { if (words[0]?.closest('.asbplayer-subtitles-container-bottom')) clock.advance(50); },
+        });
+
+        await scanner.scanVisiblePage({ silent: true });
+
+        expect(cueBatches).toBe(1);
+        // The 50 ms yield buys the page a 100 ms slice (the count cap ends it
+        // at 48 targets); the cue batch's hand-over is not the page's.
+        expect(page).toEqual([6, 54, 60]);
     });
 
     it('disconnects the paint observer when a target throws after observation starts', async () => {
@@ -196,7 +262,7 @@ describe('VisiblePageScanner apply slicing', () => {
         await scanner.scanAsbPlayerSubtitles();
 
         expect(slices.count()).toBe(1);
-        expect(paintedWordCount()).toBe(5);
+        expect(cueWordCount()).toBe(5);
     });
 });
 
@@ -206,15 +272,15 @@ function makeScanner(overrides: Partial<Deps> = {}): VisiblePageScanner {
     return scanner;
 }
 
-// Records the page's word count as each slice ends, and runs a callback on the
-// first turn after slice one, while the scan is yielding.
-function paintedPerSlice(duringFirstYield: () => void): { pause: Deps['pauseMutationObserver']; painted: number[] } {
+// Records the page's word count as each slice ends, and runs a callback with
+// the slice's number on the next turn, while the scan is yielding.
+function paintedPerSlice(duringYield: (slice: number) => void): { pause: Deps['pauseMutationObserver']; painted: number[] } {
     const painted: number[] = [];
     return {
         pause: <T>(callback: () => T): T => {
             const result = callback();
-            painted.push(paintedWordCount());
-            if (painted.length === 1) setTimeout(duringFirstYield, 0);
+            const slice = painted.push(paintedWordCount());
+            setTimeout(() => duringYield(slice), 0);
             return result;
         },
         painted,
@@ -243,6 +309,15 @@ function paintPacedClock(): { advance: (ms: number) => void } {
     return { advance: ms => { advanced += ms; } };
 }
 
+// Every word on the page adds 2 ms, so a 12 ms budget paints six one-word
+// targets; tests advance it for hand-overs and yields.
+function handOverClock(): { advance: (ms: number) => void } {
+    const start = Date.now();
+    let advanced = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => start + advanced + 2 * paintedWordCount());
+    return { advance: ms => { advanced += ms; } };
+}
+
 function freezeBudgetClock(): { mockRestore: () => void } {
     return vi.spyOn(Date, 'now').mockReturnValue(Date.now());
 }
@@ -251,8 +326,13 @@ function paragraphs(count: number): string {
     return Array.from({ length: count }, (_, index) => `<p>日本語の文${index}</p>`).join('');
 }
 
+// Page words only: an asbplayer cue's words are not the page scan's.
 function paintedWordCount(): number {
-    return document.querySelectorAll('.jpdb-reader-word').length;
+    return document.querySelectorAll('.jpdb-reader-word').length - cueWordCount();
+}
+
+function cueWordCount(): number {
+    return document.querySelectorAll('.asbplayer-subtitles-container-bottom .jpdb-reader-word').length;
 }
 
 function readings(): string[] {
