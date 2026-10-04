@@ -1,5 +1,6 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
 import { readerWordSurfaceText } from '../dom/reader-word';
+import { renderedWordSentenceSpan } from '../dom/rendered-word-policy';
 import {
     hasTargetPointerWord,
     targetPointerWordAt,
@@ -139,11 +140,6 @@ export interface PointerTextLookupNodeOptions {
     allowInteractiveText?: boolean;
 }
 
-interface RenderedWordTokenRange {
-    start: number;
-    end: number;
-}
-
 interface RenderedWordLookupContext {
     sentence: string;
     surface: string;
@@ -196,21 +192,9 @@ export function pointerTextLookupFromRenderedWordStart(word: HTMLElement): Point
 }
 
 function renderedWordLookupContext(word: HTMLElement): RenderedWordLookupContext | null {
-    const sentence = word.dataset.sentence ?? '';
     const surface = readerWordSurfaceText(word);
-    if (!sentence || !surface) return null;
-    const range = renderedWordTokenRange(word);
-    if (!range || sentence.slice(range.start, range.end) !== surface) return null;
-    return { sentence, surface, tokenStart: range.start };
-}
-
-function renderedWordTokenRange(word: HTMLElement): RenderedWordTokenRange | null {
-    const start = Number.parseInt(word.dataset.tokenStart ?? '', 10);
-    const end = Number.parseInt(word.dataset.tokenEnd ?? '', 10);
-    if (![start, end].every(Number.isFinite)) return null;
-    if (start < 0) return null;
-    if (end <= start) return null;
-    return { start, end };
+    const span = renderedWordSentenceSpan(word, word.dataset.sentence ?? '', surface);
+    return span ? { sentence: span.sentence, surface, tokenStart: span.start } : null;
 }
 
 export function pointerTextLookupFromTextNode(node: Text, characterOffset: number, options: PointerTextLookupNodeOptions = {}): PointerTextLookup | null {

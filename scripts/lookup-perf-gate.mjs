@@ -57,6 +57,7 @@ const PAGE_PATH = '/lookup-perf-gate.html';
 // the mini dictionary so the hovered word always resolves locally.
 const SENTENCE = '図書館で漢字を調べています。練習をします。図書館は静かです。';
 const HOVER_WORD = '漢字';
+const LATER_SENTENCE_WORD = '練習';
 
 // The window each counter is attributed over, used for BOTH the idle baseline
 // and the post-hover tail.
@@ -192,13 +193,19 @@ try {
     const observed = await page.evaluate(() => window.__yomuLookupPerfCounters.read());
     // Read after the counters: the counts only mean something if the hover was
     // the local-dictionary lookup this gate prices, not a failed or online one.
-    const localCard = await page.evaluate(({ title, gloss }) => {
+    const localGloss = gloss => page.waitForFunction(({ title, gloss }) => {
         const card = [...document.querySelectorAll('.jpdb-reader-popover [data-source="local-dictionary"]')]
             .find(candidate => candidate.getAttribute('data-dictionary') === title);
         const text = (card?.querySelector('[data-definition-translation-text]')?.textContent ?? '').replace(/\s+/g, ' ').trim();
-        return { rendered: Boolean(card), hasGloss: text.includes(gloss), text };
-    }, { title: MINI_LOOKUP_DICTIONARY_TITLE, gloss: 'kanji' });
-    assert(localCard.rendered && localCard.hasGloss, `The hover on "${HOVER_WORD}" did not render the seeded local dictionary.`, localCard);
+        return text.includes(gloss) && text;
+    }, { title: MINI_LOOKUP_DICTIONARY_TITLE, gloss }, { timeout: 5_000 }).then(handle => handle.jsonValue(), () => null);
+    const popoverText = () => page.evaluate(() => document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? null);
+    assert(await localGloss('kanji'), `The hover on "${HOVER_WORD}" did not render the seeded local dictionary.`, { popover: await popoverText() });
+    // Not counted, but a hover after the paragraph's first sentence must open
+    // too: words there carry paragraph offsets and only their own sentence, and
+    // hover needed the two to agree from 1.8.79 to 2.0.9, so 練習 never opened.
+    await page.locator('[data-gate-sentence] .jpdb-reader-word', { hasText: LATER_SENTENCE_WORD }).first().hover();
+    assert(await localGloss('practice'), `The hover on "${LATER_SENTENCE_WORD}", in the second sentence, opened no local-dictionary popup.`, { popover: await popoverText() });
     const counts = Object.fromEntries(Object.keys(CEILINGS)
         .map(name => [name, Math.max(0, observed[name] - idle[name])]));
 

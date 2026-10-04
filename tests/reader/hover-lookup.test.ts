@@ -2202,6 +2202,35 @@ describe('hover lookup', () => {
         }
     });
 
+    // Paint stamps token offsets from the start of the paragraph the parser read,
+    // but data-sentence holds only the word's own sentence. Hover used to need
+    // the two to agree, so no word after a paragraph's first sentence opened.
+    it('opens a hover lookup on a word after its paragraph\'s first sentence', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const sweep = offsetWordSweepFixture(app, 0);
+        const word = readerWordFixture('練習をします。', '練習');
+        word.dataset.tokenStart = '14';
+        word.dataset.tokenEnd = '16';
+        word.getBoundingClientRect = () => new DOMRect(0, 0, 80, 48);
+        sweep.pointAt(word);
+
+        try {
+            sweep.internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointermove'));
+            await vi.advanceTimersByTimeAsync(50);
+
+            expect(sweep.showLookupCandidate).toHaveBeenCalledTimes(1);
+            const [candidate, trigger] = sweep.showLookupCandidate.mock.calls[0];
+            expect(trigger).toBe('hover');
+            expect(candidate).toMatchObject({ text: '練習をします。', anchor: word });
+            expect(candidate.offset).toBeLessThan(2);
+        } finally {
+            sweep.restore();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
     // The retarget is for the learner's FIRST open delay only. Moving an open hover
     // popup to the next word keeps restarting its 50ms coalescing floor, which is
     // what collapses a sweep into one lookup on the word the pointer stops on.

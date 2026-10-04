@@ -3,6 +3,7 @@ import { normalizedLookupText } from '../lookup/text-helpers';
 import type { JPDBCard } from '../app/types';
 import { renderedWordsInRoot } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
+import { renderedWordSentenceSpan, type RenderedWordSentenceSpan } from '../dom/rendered-word-policy';
 
 export function renderedWordLookupText(word: HTMLElement): string {
     return normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
@@ -92,12 +93,6 @@ export function jitenWordCardForMassReview(word: HTMLElement): JPDBCard {
     };
 }
 
-export interface UnconfirmedRenderedWordSpan {
-    sentence: string;
-    start: number;
-    end: number;
-}
-
 /**
  * The token range a rendered word still holds from an UNCONFIRMED parse, or
  * null when the word's card was confirmed by a dictionary or provider. The
@@ -108,16 +103,11 @@ export function unconfirmedRenderedWordSpan(
     word: HTMLElement,
     card: JPDBCard | undefined,
     context: { sentence?: string },
-): UnconfirmedRenderedWordSpan | null {
+): RenderedWordSentenceSpan | null {
     // A card a dictionary or provider confirmed needs no re-resolution; a
     // fallback card or a cache miss (no card at all) is a span nothing ever
     // vouched for, and interaction is the moment to resolve it properly.
     if (card?.source && card.source !== 'fallback') return null;
-    const sentence = context.sentence || word.dataset.sentence || '';
-    if (!sentence) return null;
-    const start = Number(word.dataset.tokenStart);
-    const end = Number(word.dataset.tokenEnd);
-    if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
-    if (start < 0 || end <= start || end > sentence.length) return null;
-    return { sentence, start, end };
+    const sentence = [context.sentence, word.dataset.sentence].find(Boolean) ?? '';
+    return renderedWordSentenceSpan(word, sentence, readerWordSurfaceText(word));
 }
