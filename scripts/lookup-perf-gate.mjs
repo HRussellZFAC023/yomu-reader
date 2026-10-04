@@ -191,21 +191,27 @@ try {
     // remaining reads a moment so they are counted rather than missed.
     await page.waitForTimeout(IDLE_WINDOW_MS);
     const observed = await page.evaluate(() => window.__yomuLookupPerfCounters.read());
-    // Read after the counters: the counts only mean something if the hover was
-    // the local-dictionary lookup this gate prices, not a failed or online one.
-    const localGloss = gloss => page.waitForFunction(({ title, gloss }) => {
+    const localGloss = ({ title, gloss }) => {
         const card = [...document.querySelectorAll('.jpdb-reader-popover [data-source="local-dictionary"]')]
             .find(candidate => candidate.getAttribute('data-dictionary') === title);
         const text = (card?.querySelector('[data-definition-translation-text]')?.textContent ?? '').replace(/\s+/g, ' ').trim();
-        return text.includes(gloss) && text;
-    }, { title: MINI_LOOKUP_DICTIONARY_TITLE, gloss }, { timeout: 5_000 }).then(handle => handle.jsonValue(), () => null);
+        return text.includes(gloss) ? text : null;
+    };
     const popoverText = () => page.evaluate(() => document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? null);
-    assert(await localGloss('kanji'), `The hover on "${HOVER_WORD}" did not render the seeded local dictionary.`, { popover: await popoverText() });
-    // Not counted, but a hover after the paragraph's first sentence must open
-    // too: words there carry paragraph offsets and only their own sentence, and
-    // hover needed the two to agree from 1.8.79 to 2.0.9, so 練習 never opened.
+    // Read at once, right after the counters, never waited for: the counts only
+    // mean something if the hover was the local-dictionary lookup this gate
+    // prices and it had rendered inside the counted window, not a failed or
+    // online one, nor one that finished after the window closed.
+    const hoverGloss = await page.evaluate(localGloss, { title: MINI_LOOKUP_DICTIONARY_TITLE, gloss: 'kanji' });
+    assert(hoverGloss, `The hover on "${HOVER_WORD}" did not render the seeded local dictionary.`, { popover: await popoverText() });
+    // Not counted, so this one may take its time: a hover after the paragraph's
+    // first sentence must open too. Words there carry paragraph offsets and only
+    // their own sentence, and hover needed the two to agree from 1.8.79 to
+    // 2.0.9, so 練習 never opened.
     await page.locator('[data-gate-sentence] .jpdb-reader-word', { hasText: LATER_SENTENCE_WORD }).first().hover();
-    assert(await localGloss('practice'), `The hover on "${LATER_SENTENCE_WORD}", in the second sentence, opened no local-dictionary popup.`, { popover: await popoverText() });
+    const laterGloss = await page.waitForFunction(localGloss, { title: MINI_LOOKUP_DICTIONARY_TITLE, gloss: 'practice' }, { timeout: 5_000 })
+        .then(() => true, () => false);
+    assert(laterGloss, `The hover on "${LATER_SENTENCE_WORD}", in the second sentence, opened no local-dictionary popup.`, { popover: await popoverText() });
     const counts = Object.fromEntries(Object.keys(CEILINGS)
         .map(name => [name, Math.max(0, observed[name] - idle[name])]));
 
