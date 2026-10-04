@@ -51,6 +51,23 @@ describe('dictionary catalogue manifests', () => {
         expect(runtimeBytes).toBeLessThan(publishedBytes / 2);
     });
 
+    // Audited 2026-10-04 against every mirrored archive's index.json revision.
+    it('projects a revision only where the catalogue version orders like the archive revision', async () => {
+        const published = await json(resolve(PUBLISHED_ROOT, 'catalog.json')) as { entries: Array<{ id: string; version: string }> };
+        const runtime = await json(resolve(PUBLISHED_ROOT, 'runtime-catalog.json')) as { entries: unknown[][] };
+        const versions = new Map(published.entries.map(entry => [entry.id, entry.version]));
+        const revisions = new Map(runtime.entries.filter(entry => entry.length > 9).map(entry => [entry[0] as string, entry[9]]));
+
+        for (const [id, revision] of revisions) expect(revision, id).toBe(versions.get(id));
+        expect(revisions.get('jmdict-en')).toBe('2026-07-23');
+        expect(revisions.get('drive-japanese-ja-ja-ukmi3vhk6')).toBe('smk8;2024-10-14');
+        // A day-count (KANJIDIC), a commit (WTY), a day-first date and a bare edition.
+        for (const id of ['kanjidic-en', 'wty-fr-en', 'drive-japanese-other-unicode-2e57d23e85c0dc21-vy4mew6hgp', 'drive-japanese-pitch-nhk-lpvpeu-xlu']) {
+            expect(revisions.has(id), id).toBe(false);
+        }
+        expect([...revisions.keys()].filter(id => !/^(drive-|jmdict-|jmnedict$)/u.test(id))).toEqual([]);
+    });
+
     it('ships one valid, catalogue-linked recommendation manifest per learner-target pair', async () => {
         const catalog = parseDictionaryCatalogManifest(await json(resolve(MANIFEST_ROOT, 'catalog.json')));
         const files = (await readdir(resolve(MANIFEST_ROOT, 'recommendations')))

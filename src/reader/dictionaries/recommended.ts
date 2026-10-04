@@ -260,6 +260,7 @@ function recommendedDictionaryFromCatalog(
         definitionLanguage: recommendation.definitionLanguage,
         translationMode: recommendation.translationMode,
         installedDictionaryIdentity: catalogInstalledDictionaryIdentity(entry),
+        revision: entry.revision,
     };
 }
 

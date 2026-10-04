@@ -99,6 +99,7 @@ type RuntimeCatalogEntry = readonly [
     projectUrl: string | null,
     catalogueSection: string | null,
     distribution: RuntimeDistribution,
+    revision?: string,
 ];
 interface RuntimeCatalog {
     revision: string;
@@ -129,13 +130,14 @@ function runtimeDictionaryCatalog(input: unknown): DictionaryCatalogManifest {
 }
 
 function expandRuntimeCatalogEntry(entry: RuntimeCatalogEntry): DictionaryCatalogEntry {
-    const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution] = entry;
+    const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution, revision] = entry;
     return {
         id,
         title,
         ...(installedTitle ? { installedTitle } : {}),
         format: 'yomitan',
         version: 'runtime',
+        revision,
         categories,
         headwordLanguages,
         definitionLanguages,

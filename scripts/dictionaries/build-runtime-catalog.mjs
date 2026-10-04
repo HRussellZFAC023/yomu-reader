@@ -21,6 +21,7 @@ const runtime = {
         entry.source.projectUrl ?? null,
         entry.source.catalogueSection ?? null,
         compactDistribution(entry.distribution),
+        ...comparableRevision(entry),
     ]),
 };
 
@@ -32,6 +33,20 @@ if (process.argv.includes('--check')) {
 } else {
     await writeFile(runtimePath, output);
     console.log(`Built runtime dictionary catalog with ${runtime.entries.length} entries.`);
+}
+
+/**
+ * The catalogue `version` a card may compare installs against, number by number,
+ * where it orders like the archive's own index.json `revision`. Audited on
+ * 2026-10-04 against every mirrored archive: a Drive copy's version IS its
+ * revision, and the frozen JMdict/JMnedict date has the same numbers as
+ * "JMdict.2026-07-23". KANJIDIC's revision counts days ("kanjidic2.2026-204"),
+ * WTY's version is a dataset commit, a day-first date ("21-04-2025") orders by
+ * day and a bare edition ("1.0") outlives builds, so those stay unknown.
+ */
+function comparableRevision({ id, version, distribution }) {
+    return distribution.state === 'published' && /^(drive-|jmdict-|jmnedict$)/u.test(id)
+        && /(?<!\d-)\d{4}/u.test(version) ? [version] : [];
 }
 
 function compactDistribution(distribution) {

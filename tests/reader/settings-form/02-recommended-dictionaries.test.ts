@@ -257,3 +257,37 @@ describe('the newest Jitendex and Jiten a page can reach', () => {
         expect((await install('jitendex')).url).toBe(JITENDEX_LATEST);
     });
 });
+
+// The seed's JMdict card installs the mirror's July copy. Without a revision it
+// read "Update" over 2.0.10's newer upstream install, and pressing it replaced
+// JMdict [2026-10-04] with JMdict [2026-07-23]. A seed card carries a revision
+// only where the catalogue's version orders like the archive's own.
+describe('catalogue seed cards over an install of the same dictionary', () => {
+    const installed = (title: string, revision: string): YomitanDictionaryInfo => ({ title, alias: title, enabled: true, priority: 0, revision });
+    const seedButton = (dictionaryId: string, install: YomitanDictionaryInfo, targetLanguage: 'ja' | 'fr' = 'ja') => {
+        const host = document.createElement('div');
+        host.innerHTML = renderRecommendedDictionaries([install], 'en', false, targetLanguage);
+        const id = catalogRecommendedDictionaryId('en', targetLanguage, dictionaryId);
+        const button = host.querySelector<HTMLButtonElement>(`[data-dictionary-id="${id}"]`)!;
+        return [button.textContent?.trim(), button.disabled];
+    };
+
+    it('never offers the mirror copy over the same or a newer upstream build', () => {
+        expect(seedButton('jmdict-en', installed('JMdict [2026-10-04]', 'JMdict.2026-10-04'))).toEqual(['Installed', true]);
+        expect(seedButton('jmdict-en', installed('JMdict [2026-07-23]', 'JMdict.2026-07-23'))).toEqual(['Installed', true]);
+        expect(seedButton('jmnedict', installed('JMnedict [2026-10-04]', 'JMnedict.2026-10-04'))).toEqual(['Installed', true]);
+    });
+
+    it('updates an older build', () => {
+        expect(seedButton('jmdict-en', installed('JMdict [2026-05-01]', 'JMdict.2026-05-01'))).toEqual(['Update', false]);
+    });
+
+    it('keeps offering Update where the catalogue version does not order like the archive revision', () => {
+        // KANJIDIC numbers the days of a year, and WTY's catalogue version is a
+        // dataset commit whose digits would outrank every dated revision.
+        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'ja', 'kanjidic-en'))?.revision).toBeUndefined();
+        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-204]', 'kanjidic2.2026-204'))).toEqual(['Update', false]);
+        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-277]', 'kanjidic2.2026-277'))).toEqual(['Update', false]);
+        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.03.05'), 'fr')).toEqual(['Update', false]);
+    });
+});

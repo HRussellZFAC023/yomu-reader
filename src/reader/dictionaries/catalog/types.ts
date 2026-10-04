@@ -123,6 +123,11 @@ export interface DictionaryCatalogEntry {
     installedTitle?: string;
     format: 'yomitan';
     version: string;
+    /**
+     * A version that orders like the archive's own index.json revision, where
+     * the runtime projection knows one (scripts/dictionaries/build-runtime-catalog.mjs).
+     */
+    revision?: string;
     categories: DictionaryCategory[];
     headwordLanguages: string[];
     definitionLanguages: string[];
