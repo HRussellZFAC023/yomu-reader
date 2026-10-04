@@ -33,6 +33,7 @@ import {
     safeLocationHref,
 } from './transport';
 import { resolvedAnkiDeckName, resolvedAnkiModelName } from './anki-settings';
+import { ankiReviewAnswer } from './review-answer';
 import {
     noteLooksLikeYomuModel,
     shouldTreatExistingModelAsYomuManaged,
@@ -143,15 +144,6 @@ const ANKI_RENDERED_MEDIA_LIMIT = 12;
 const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
 const STATUS_INDEX_REBUILD_CANCELLED = Symbol('status-index-rebuild-cancelled');
 const log = Logger.scope('Anki');
-const ANKI_EASE_BY_GRADE: Record<JPDBGrade, number> = {
-    nothing: 1,
-    fail: 1,
-    something: 2,
-    hard: 2,
-    okay: 3,
-    pass: 3,
-    easy: 4,
-};
 
 export function ankiLookupWithUnavailableDetails(lookup: AnkiLookupResult): AnkiLookupResult {
     const mark = (note: AnkiExistingNote): AnkiExistingNote => ankiNoteHasRenderableDetails(note)
@@ -1602,9 +1594,9 @@ export class AnkiConnectClient {
 
     // Public review action used by card and newtab controls to answer rendered Anki review cards.
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
-        const ease = ankiEaseFromGrade(grade);
-        log.info('Answering Anki card', { cardId, grade, ease });
-        const accepted = await this.invoke<unknown>('answerCards', { answers: [{ cardId, ease }] });
+        const answer = ankiReviewAnswer(cardId, grade);
+        log.info('Answering Anki card', { cardId, grade, ease: answer.ease });
+        const accepted = await this.invoke<unknown>('answerCards', { answers: [answer] });
         if (!Array.isArray(accepted) || accepted.length !== 1 || accepted[0] !== true) {
             throw new Error(this.text('ankiConnectActionFailed'));
         }
@@ -2104,10 +2096,6 @@ function visibleArea(element: HTMLElement): number {
     const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
     const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     return width * height;
-}
-
-function ankiEaseFromGrade(grade: JPDBGrade): number {
-    return ANKI_EASE_BY_GRADE[grade] ?? 3;
 }
 
 function safeDocumentTitle(): string {
