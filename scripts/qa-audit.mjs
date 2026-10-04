@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { chromium, webkit } from 'playwright';
+import { createHash } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { readFile, readdir, mkdir, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -15,6 +16,7 @@ import {
     startLoopbackServer,
 } from './lib/smoke-harness.mjs';
 import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+import { assertPopupNestedParseOverlap } from './lib/popup-nested-parse-probe.mjs';
 
 const { stampAppearanceBoot } = createRequire(import.meta.url)('./lib/hosted-appearance-boot.cjs');
 
@@ -22,9 +24,10 @@ const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.met
 loadLocalEnv(ROOT);
 const DIST = path.join(ROOT, 'dist');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
-const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
+const SCRIPT_OVERRIDE = process.env.YOMU_QA_SCRIPT_PATH?.trim();
+const SCRIPT_PATH = SCRIPT_OVERRIDE ? path.resolve(SCRIPT_OVERRIDE) : path.join(DIST, 'yomu.user.js');
 const CSS_PATH = path.join(DIST, 'yomu.css');
-const SCRIPT_FALLBACK_PATHS = [
+const SCRIPT_FALLBACK_PATHS = SCRIPT_OVERRIDE ? [SCRIPT_PATH] : [
     SCRIPT_PATH,
     path.join(ROOT, 'docs', '.vitepress', 'dist', 'yomu.user.js'),
     path.join(ROOT, 'docs', 'public', 'yomu.user.js'),
@@ -4351,8 +4354,9 @@ async function auditImmersionKitPopover(browser, server) {
     }, 6000, 'nested Immersion lookup back arrow did not return to the source popup');
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'source Immersion lookup kept showing dictionary loading details after back navigation');
     await assertNoVisibleReaderErrorToasts(page, 'Immersion Kit popup examples');
+    await assertPopupNestedParseOverlap(page);
     await page.close();
-    record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
+    record('Immersion Kit popup examples', 'pass', 'nested lookup works and a controlled provider overlap preserves local and example words');
 }
 
 function immersionKitFirstSnapshotFromDom() {
@@ -5254,6 +5258,7 @@ function shouldSkipAudit(options) {
 async function main() {
     await mkdir(ARTIFACTS, { recursive: true });
     userscript = await readBuiltUserscript();
+    console.log(`QA core SHA256: ${createHash('sha256').update(userscript).digest('hex')}`);
     companionScripts = await readBuiltCompanionScripts();
     readerCss = await readBuiltReaderCss();
 
