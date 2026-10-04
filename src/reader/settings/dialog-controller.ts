@@ -13,11 +13,6 @@ import { configureLogger, Logger } from '../app/logger';
 import { clearNewTabOfflineCache } from '../newtab/cache';
 import { requestJson } from '../network/http';
 import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
-import {
-    findRecommendedDictionary,
-    recommendedDictionaryImportOptions,
-    type RecommendedDictionary,
-} from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
@@ -90,12 +85,12 @@ import {
     clearPendingCloudSettingsAction,
     readPendingCloudSettingsAction,
 } from './cloud-settings-pending-action';
-import { dateStamp, downloadBlob, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from './file-io';
+import { dateStamp, downloadBlob, pickFile, pickFiles, readerDictionaryExportHasData, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from './file-io';
 import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import { selectAnkiLibraryChoices } from './anki-library-selection';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { formatUiText, uiText } from '../app/i18n';
-import { userFacingCopyKeyOf, userFacingErrorText } from '../app/user-facing-errors';
+import { userFacingErrorText } from '../app/user-facing-errors';
 import {
     isLearningTargetRosterId,
     learningTargetRosterEntry,
@@ -109,7 +104,15 @@ import {
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, type ImportSummary } from '../dictionaries/yomitan';
 import { requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
-import { dictionaryInstallFailureText } from '../dictionaries/install-failure';
+import {
+    importRecommendedDictionary,
+    recommendedDictionaryDownloadStatus,
+    recommendedDictionaryFailureText,
+    recommendedDictionaryForControl,
+    syncRecommendedDictionaryCards,
+    type RecommendedDictionaryInstallState,
+    type RecommendedDictionaryOperationState,
+} from './recommended-dictionary-card';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
 import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
@@ -181,7 +184,6 @@ function isSettingsCommandWord(word: HTMLElement): boolean {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
 }
 
-type RecommendedDictionaryInstallState = 'queued' | 'installing' | 'failed';
 type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
 type AnkiConnectionAction = 'test-anki' | 'prepare-anki' | 'update-anki-model';
 type AnkiStatusTone = 'pending' | 'success' | 'error';
@@ -197,11 +199,6 @@ interface JpdbConnectionProbe {
     readonly formSettings: ReaderSettings;
     readonly apiKey: string;
     readonly requestId: number;
-}
-
-interface RecommendedDictionaryOperationState {
-    state: RecommendedDictionaryInstallState;
-    message: string;
 }
 
 interface DictionaryImportFailure {
@@ -220,17 +217,6 @@ const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
 const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-function recommendedDictionaryForControl(control: HTMLElement | null | undefined): RecommendedDictionary {
-    const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : undefined;
-    if (!dictionary) throw new Error('Recommended dictionary not found.');
-    return dictionary;
-}
-
-function recommendedDictionaryDownloadStatus(control: HTMLElement | null | undefined, dictionaryName: string, language: InterfaceLanguage): string {
-    const action = control?.dataset.installed === 'true' ? uiText(language, 'update') : uiText(language, 'dictionaryDownloading');
-    return `${dictionaryName}: ${action}...`;
-}
-
 function settingsActionButton(control: HTMLElement | null | undefined): HTMLButtonElement | null {
     return control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button') ?? null;
 }
@@ -1720,34 +1706,7 @@ export class SettingsDialogController {
     }
 
     private syncRecommendedDictionaryInstallControls(form: HTMLFormElement): void {
-        form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
-            const operation = this.recommendedDictionaryOperations.get(button.dataset.dictionaryId ?? '');
-            syncRecommendedDictionaryStatus(button, operation);
-            if (recommendedDictionaryBusy(operation)) this.showRecommendedDictionaryBusy(button, operation);
-            else this.showRecommendedDictionaryAction(button);
-        });
-    }
-
-    /** Install or Update, ready to click; a failed card keeps its reason in the status line. */
-    private showRecommendedDictionaryAction(button: HTMLButtonElement): void {
-        delete button.dataset.importState;
-        delete button.dataset.importMessage;
-        button.disabled = false;
-        button.removeAttribute('disabled');
-        const label = uiText(this.settings.interfaceLanguage, button.dataset.installed === 'true' ? 'update' : 'install');
-        button.replaceChildren(label);
-        button.title = label;
-        button.setAttribute('aria-label', label);
-    }
-
-    private showRecommendedDictionaryBusy(button: HTMLButtonElement, operation: RecommendedDictionaryOperationState): void {
-        const label = uiText(this.settings.interfaceLanguage, operation.state === 'installing' ? 'installing' : 'queued');
-        button.disabled = true;
-        button.dataset.importState = operation.state;
-        button.dataset.importMessage = operation.message;
-        button.replaceChildren(label);
-        button.title = operation.message;
-        button.setAttribute('aria-label', operation.message);
+        syncRecommendedDictionaryCards(form, this.recommendedDictionaryOperations, this.settings.interfaceLanguage);
     }
 
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2507,7 +2466,7 @@ export class SettingsDialogController {
             setStatus(startedMessage);
             let summary: ImportSummary;
             try {
-                summary = await this.downloadRecommendedDictionary(dictionary, message => {
+                summary = await importRecommendedDictionary(this.dependencies.dictionaries, dictionary, message => {
                     setStatus(message);
                     this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
                 });
@@ -2515,7 +2474,7 @@ export class SettingsDialogController {
             } catch (error) {
                 // The card keeps the reason until its next click; the toast fades.
                 log.warn('Recommended dictionary install failed', { dictionary: dictionary.name }, error);
-                const message = this.recommendedDictionaryFailureText(error);
+                const message = recommendedDictionaryFailureText(this.settings.interfaceLanguage, error);
                 this.setRecommendedDictionaryInstallState(form, dictionary.id, 'failed', message);
                 setStatus(message);
                 this.dependencies.toast(message);
@@ -2529,12 +2488,6 @@ export class SettingsDialogController {
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
         });
-    }
-
-    private recommendedDictionaryFailureText(error: unknown): string {
-        const language = this.settings.interfaceLanguage;
-        if (!this.shouldPromptManualDictionaryDownload(error)) return dictionaryInstallFailureText(language, error);
-        return `${userFacingErrorText(language, 'dictionaryDownloadBlocked', error)} ${uiText(language, 'dictionaryManualDownloadHint')}`;
     }
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
@@ -2553,45 +2506,6 @@ export class SettingsDialogController {
         await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
-    }
-
-    private async downloadRecommendedDictionary(
-        dictionary: RecommendedDictionary,
-        setStatus: SettingsStatusSetter,
-    ): Promise<ImportSummary> {
-        const downloadUrl = dictionary.downloadUrl ?? '';
-        const importOptions = recommendedDictionaryImportOptions(dictionary);
-        return importOptions
-            ? await this.dependencies.dictionaries.importFromUrl(
-                downloadUrl,
-                recommendedDictionaryFilename(dictionary),
-                message => setStatus(message),
-                importOptions,
-            )
-            : await this.dependencies.dictionaries.importFromUrl(
-                downloadUrl,
-                recommendedDictionaryFilename(dictionary),
-                message => setStatus(message),
-            );
-    }
-
-    /**
-     * Whether to offer "import the ZIP by hand" instead of failing outright.
-     *
-     * This used to substring-match `error.message` against fifteen hints such as
-     * 'blocked in this browser' and 'request bridge'. Not one of the five real
-     * strings contains any of them -- the copy says 'Download blocked.' and
-     * 'Download needs bridge; else import ZIP.' -- so the matcher always returned
-     * false and the manual-import recovery, written for exactly the case where a
-     * userscript manager refuses the request, could never reach anyone (GitHub #39).
-     *
-     * Matching rendered COPY is the defect: it is localized, it gets shortened for
-     * width, and neither change touches this file. The copy KEY is stable, so that
-     * is what this reads.
-     */
-    private shouldPromptManualDictionaryDownload(error: unknown): boolean {
-        const copyKey = userFacingCopyKeyOf(error);
-        return copyKey === 'dictionaryDownloadBlocked' || copyKey === 'dictionaryDownloadNeedsBridge';
     }
 
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
@@ -2648,26 +2562,6 @@ export class SettingsDialogController {
         for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
     }
 
-}
-
-function recommendedDictionaryBusy(
-    operation: RecommendedDictionaryOperationState | undefined,
-): operation is RecommendedDictionaryOperationState {
-    return operation !== undefined && operation.state !== 'failed';
-}
-
-function syncRecommendedDictionaryStatus(button: HTMLButtonElement, operation: RecommendedDictionaryOperationState | undefined): void {
-    const status = button.closest<HTMLElement>('.jpdb-reader-recommended-item')
-        ?.querySelector<HTMLElement>('[data-recommended-dictionary-status]');
-    if (!status) return;
-    status.hidden = !operation;
-    if (operation) {
-        status.textContent = operation.message;
-        status.dataset.importState = operation.state;
-    } else {
-        status.textContent = '';
-        delete status.dataset.importState;
-    }
 }
 
 function isDictionarySourceOrderAction(action: string): boolean {
