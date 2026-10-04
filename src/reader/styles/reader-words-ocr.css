@@ -2301,6 +2301,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    state color, underline, or highlight. */
 html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   --jpdb-reader-word-underline: transparent;
+  /* A compound's pitch gradient is an inline var; !important beats inline. */
+  --jpdb-reader-inline-pitch-gradient: none !important;
   --jpdb-reader-jpdb-color: transparent;
   --jpdb-reader-jpdb-readable: inherit;
   --jpdb-reader-jpdb-soft: transparent;

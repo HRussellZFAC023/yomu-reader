@@ -4,7 +4,8 @@
 // grey the learner never picked:
 //   * a compound with no whole-word accent but one resolved part (申し訳ありません)
 //     painted the unresolved part in the "Unknown" pitch swatch, and the
-//     "hide this group" / "Only new" options left that gradient in place;
+//     "hide this group", "Only new" and "Hide JPDB-redundant styling" options
+//     left that gradient in place;
 //   * under a deck-status underline (JPDB/Jiten status or Status), every word in
 //     none of the learner's decks got a derived grey with no picker.
 //
@@ -12,10 +13,10 @@
 // parse, public Jiten and AnkiConnect mocked, so the runtime's gradient and
 // readability pass are the real ones. Static lane: FIXTURE markup under the
 // built yomu.css for the pure cascade contracts (the subtitle channel, the
-// "Only new" opt-out), and under the built Study CSS for the prompt headword,
-// which keeps its pitch underline in every word-underline mode. Chromium by
-// default; YOMU_UNDERLINE_SOURCES_ENGINE=webkit checks the !important
-// custom-property override in WebKit.
+// "Only new" and redundant opt-outs), and under the built Study CSS for the
+// prompt headword, which keeps its pitch underline in every word-underline
+// mode. Chromium by default; YOMU_UNDERLINE_SOURCES_ENGINE=webkit checks the
+// !important custom-property override in WebKit.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -169,11 +170,17 @@ async function checkCompoundPitch() {
     // "Only new / not-in-deck words" keeps this not-in-deck compound by design,
     // so its opt-out is checked on fixture markup: a known compound loses the
     // inline gradient, a New one keeps it.
-    const newOnly = await readStaticFixture(compoundFixture('yomu-word-color-new-only'), ['known', 'fresh'],
+    const gradients = (rootClass, states) => readStaticFixture(compoundFixture(rootClass, states), Object.keys(states),
         word => getComputedStyle(word, '::after').backgroundImage);
+    const newOnly = await gradients('yomu-word-color-new-only', { known: 'known', fresh: 'new' });
     report.page['compound-new-only-fixture'] = newOnly;
     expect(newOnly.known === 'none', '"Only new / not-in-deck words" should drop a known compound\'s pitch underline.', newOnly);
     expect(newOnly.fresh !== 'none', '"Only new / not-in-deck words" should keep a New compound\'s pitch underline.', newOnly);
+
+    const redundant = await gradients('jpdb-reader-suppress-redundant', { redundant: 'redundant', known: 'known' });
+    report.page['compound-suppress-redundant-fixture'] = redundant;
+    expect(redundant.redundant === 'none', '"Hide JPDB-redundant styling" should drop a redundant compound\'s pitch underline.', redundant);
+    expect(redundant.known !== 'none', '"Hide JPDB-redundant styling" should keep a known compound\'s pitch underline.', redundant);
 }
 
 async function compoundScenario(id, settings) {
@@ -340,14 +347,15 @@ async function readStaticFixture(html, ids, read) {
     }
 }
 
-// FIXTURE markup: an inline compound gradient as rendered-word-state writes it.
-function compoundFixture(rootClass) {
+// FIXTURE markup: inline compound gradients as rendered-word-state writes them,
+// one word per { id: state } entry.
+function compoundFixture(rootClass, states) {
     const gradient = 'linear-gradient(to right, var(--jpdb-reader-pitch-heiban) 0%, var(--jpdb-reader-pitch-heiban) 50%, transparent 50%, transparent 100%)';
     const word = (id, state) => `<span id="${id}" class="jpdb-reader-word jpdb-${state} jpdb-pitch-unknown" data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${gradient}">申し訳ない</span>`;
     return `<!doctype html>
 <html class="jpdb-reader-word-underline-pitch ${rootClass}"><head><meta charset="utf-8"><style>${READER_CSS}
   body { margin: 0; padding: 24px; background: #fff; color: #1f2328; font: 32px/1.9 sans-serif; }
-</style></head><body><p>${word('known', 'known')} ${word('fresh', 'new')}</p></body></html>`;
+</style></head><body><p>${Object.entries(states).map(([id, state]) => word(id, state)).join(' ')}</p></body></html>`;
 }
 
 // FIXTURE markup: the class shape the subtitle renderer emits on the on-video

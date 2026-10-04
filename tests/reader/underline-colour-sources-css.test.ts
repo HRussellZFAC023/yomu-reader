@@ -132,10 +132,14 @@ describe('deck-status underline for words in no deck', () => {
 
     it('lets every word-colour opt-out reach the inline compound pitch gradient', () => {
         // The gradient is an inline custom property painted by ::after, so a
-        // rule that hides a word's colours must clear it with !important.
-        const optOuts = WORD_CSS.filter(rule => rule.selector.includes('.yomu-word-color-')
+        // rule that hides a word's colours must clear it with !important. The
+        // opt-outs are the root classes applyReaderTheme sets from the
+        // learner's settings: "Only new", a hidden state group, and "Hide
+        // JPDB-redundant styling".
+        const optOutRoots = ['.yomu-word-color-new-only', '.yomu-word-color-hide-', '.jpdb-reader-suppress-redundant'];
+        const optOuts = WORD_CSS.filter(rule => optOutRoots.some(root => rule.selector.includes(root))
             && rule.body.includes('--jpdb-reader-word-underline: transparent;'));
-        expect(optOuts.length).toBeGreaterThanOrEqual(2);
+        expect(optOutRoots.filter(root => !optOuts.some(rule => rule.selector.includes(root)))).toEqual([]);
         for (const rule of optOuts) {
             expect(rule.body, rule.selector).toContain('--jpdb-reader-inline-pitch-gradient: none !important;');
         }
