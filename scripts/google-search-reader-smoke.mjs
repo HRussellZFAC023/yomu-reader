@@ -34,6 +34,12 @@ const JPDB_API_PREFIX = '/api/v1/';
 const JITEN_API_ORIGIN = 'https://api.jiten.moe';
 const JITEN_API_PREFIX = '/api/';
 const LANGUAGE_PROFILE_ID = 'google-search-smoke';
+// How long the chip may show its words without both readings. At 4x CPU
+// (2026-10-04, alternating runs, load 10-13): 2.0.10 450-567 ms, 2.0.8 267-300
+// ms, paced apply 283-317 ms; 50-83 ms unthrottled. A build that projected
+// readings 1 s late, as one waiting for the 1.5 s post-scan sweep would, took
+// 1,283-1,333 ms at 4x and 1,050-1,067 ms unthrottled.
+const CHIP_READING_LAG_BUDGET_MS = 800;
 
 const VOCABULARY = [
     ['アプリ', 'アプリ', 'アプリ', 'app', 'n', 100, ['not-in-deck'], ['LHH']],
@@ -174,9 +180,12 @@ const server = await startLoopbackServer((_request, response) => {
 
 try {
     const chromiumResult = await runGoogleSearchCase('chromium', chromium);
-    // The same contract on a slow device. 2.0.8's apply slices passed at full
-    // speed on fast machines but left the chip without its at-rest readings at
-    // 4x CPU (and on CI), where 2.0.7 kept them.
+    // The same contract on a slow device. 2.0.8's apply slices failed this case
+    // at 4x CPU and on CI, so 2.0.9 reverted them, but the chip never lost its
+    // readings: they followed its words sooner than under 2.0.7's apply (see
+    // CHIP_READING_LAG_BUDGET_MS). The old wait ended on the other content and
+    // sampled between two slices. It now waits for both chip readings, and the
+    // lag budget bounds how late they may come.
     const slowChromiumResult = await runGoogleSearchCase('chromium', chromium, { cpuThrottle: 4 });
     const keylessPitchResult = await runKeylessGooglePitchCase('chromium', chromium);
     const webkitResult = await runOptionalGoogleSearchCase('webkit', webkit);
@@ -243,6 +252,7 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions =
         await page.goto(GOOGLE_URL, { waitUntil: 'domcontentloaded' });
         const baseline = await page.evaluate(snapshotGoogleLayout);
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
+        await page.evaluate(trackChipReadingTiming);
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         try {
             await page.waitForFunction(() => {
@@ -252,17 +262,9 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions =
                     ?? snippetWords[0];
                 const headingWords = document.querySelectorAll('#weblio-heading .jpdb-reader-word');
                 const weblioSnippetWords = document.querySelectorAll('#weblio-snippet .jpdb-reader-word');
-                if (!chip) return false;
-                const chipRect = chip.getBoundingClientRect();
-                const projected = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
-                    .filter(reading => {
-                        const x = Number(reading.dataset.yomuSourceLeft) + Number(reading.dataset.yomuSourceWidth) / 2;
-                        const y = Number(reading.dataset.yomuSourceTop) + Number(reading.dataset.yomuSourceHeight) / 2;
-                        return [x >= chipRect.left, x <= chipRect.right, y >= chipRect.top, y <= chipRect.bottom].every(Boolean);
-                    }).map(reading => reading.textContent?.trim()));
-                return [chip.textContent?.includes('検索結果'), snippetWord, snippetWords.length >= 4,
+                return [chip?.textContent?.includes('検索結果'), snippetWord, snippetWords.length >= 4,
                     headingWords.length > 0, weblioSnippetWords.length > 0,
-                    projected.has('けんさくけっか'), projected.has('ひょうじ')].every(Boolean);
+                    window.__yomuChipTiming.readingsAt !== undefined].every(Boolean);
             }, null, { timeout: 20_000 });
         } catch (error) {
             const debug = await page.evaluate(() => ({
@@ -294,6 +296,12 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions =
             throw new Error(`Google Search smoke did not parse fixture: ${String(error)}\n${JSON.stringify({ debug, requests, consoleErrors }, null, 2)}`);
         }
 
+        const { wordsAt, readingsAt } = await page.evaluate(() => window.__yomuChipTiming);
+        // NaN, when the chip never showed a word, fails too.
+        const chipReadingLagMs = Math.round(readingsAt - wordsAt);
+        assert(chipReadingLagMs <= CHIP_READING_LAG_BUDGET_MS,
+            `Google chip showed its words ${chipReadingLagMs}ms before both readings (budget ${CHIP_READING_LAG_BUDGET_MS}ms)`, { wordsAt, readingsAt });
+
         // Every annotated word keeps its status highlight at rest — content
         // and chrome alike. Chrome is protected by geometry, never by hiding.
         const beforeHover = await snapshotGoogleSearchFixture(page);
@@ -318,10 +326,34 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions =
         assertGoogleChipRevealed((await snapshotGoogleSearchFixture(page)).chip, 'chip after hover');
 
         await page.screenshot({ path: path.join(ARTIFACTS, `google-search-reader-smoke-${engineName}.png`), fullPage: true });
-        return { baseline, beforeHover, afterHover, requests: requests.length };
+        return { chipReadingLagMs, baseline, beforeHover, afterHover, requests: requests.length };
     } finally {
         await browser.close().catch(() => undefined);
     }
+}
+
+// In-page, from before the reader loads: the first frames that showed the
+// chip's words and both of its readings (see CHIP_READING_LAG_BUDGET_MS).
+function trackChipReadingTiming() {
+    const timing = (window.__yomuChipTiming = {});
+    const chip = document.querySelector('#chip');
+    const insideChip = reading => {
+        const rect = chip.getBoundingClientRect();
+        const x = Number(reading.dataset.yomuSourceLeft) + Number(reading.dataset.yomuSourceWidth) / 2;
+        const y = Number(reading.dataset.yomuSourceTop) + Number(reading.dataset.yomuSourceHeight) / 2;
+        return [x >= rect.left, x <= rect.right, y >= rect.top, y <= rect.bottom].every(Boolean);
+    };
+    const bothReadings = () => {
+        const texts = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
+            .filter(insideChip).map(reading => reading.textContent.trim()));
+        return texts.has('けんさくけっか') && texts.has('ひょうじ');
+    };
+    const frame = now => {
+        if (chip.querySelector('.jpdb-reader-word')) timing.wordsAt ??= now;
+        if (bothReadings()) timing.readingsAt = now;
+        else requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
 }
 
 // `cpuThrottle` slows the page's CPU through Chromium's DevTools protocol.
