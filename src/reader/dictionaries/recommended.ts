@@ -71,7 +71,7 @@ const CATALOG_ENTRY_BY_ID = new Map(
  * Yomu's mirror, verified by its digest, except the two whose only copy is
  * upstream; both of those hosts send CORS, so Study can fetch them directly.
  */
-export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = ([
+const CURATED_JAPANESE_DICTIONARIES = [
     ['jitendex', 'terms', 'Jitendex', 'recommendedJitendex', 'drive-japanese-ja-en-jitendex-yomitan-2026-07-09-icndfbtjny'],
     ['wty-ja-ja', 'terms', 'WTY JA-JA', 'recommendedWtyJapaneseJapanese', 'https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip'],
     ['pixiv-light', 'terms', 'Pixiv Light', 'recommendedPixivLight', 'drive-japanese-ja-ja-encyclopedia-pixivlight-2026-07-23-b2yz0hz8ye'],
@@ -79,10 +79,17 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = ([
     ['kanjium-pitch', 'pitch', 'Kanjium pitch accents', 'recommendedKanjiumPitch', 'https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip'],
     ['jiten', 'frequency', 'Jiten', 'recommendedJiten', 'drive-japanese-ja-freq-jiten-freq-global-2026-07-23-gtrllz-fon'],
     ['bccwj', 'frequency', 'BCCWJ', 'recommendedBccwj', 'drive-japanese-ja-freq-bccwj-suw-luw-combined-wpf0pnuvsu'],
-] satisfies readonly CuratedDictionary[]).map(
+] satisfies readonly CuratedDictionary[];
+
+export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = CURATED_JAPANESE_DICTIONARIES.map(
     ([id, category, name, descriptionKey, source]) =>
         ({ id, category, name, descriptionKey, ...curatedDownload(source) }),
 );
+
+/** The mirror archives the hand-picked cards install, so the browse below them skips those. */
+const CURATED_JAPANESE_CATALOG_IDS: readonly string[] = CURATED_JAPANESE_DICTIONARIES
+    .map(([, , , , source]) => source)
+    .filter(source => !source.startsWith('https://'));
 
 function curatedDownload(source: string): Pick<RecommendedDictionary, 'downloadUrl' | 'sha256' | 'bytes'> {
     if (source.startsWith('https://')) return { downloadUrl: source };
@@ -350,11 +357,12 @@ function recommendedCatalogIds(
     learnerLanguage: Slice1LearnerLanguage,
     targetLanguage: LearningTargetRosterId,
 ): ReadonlySet<string> {
-    return new Set(
-        recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
+    return new Set([
+        ...recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
             .map(dictionary => dictionary.catalogDictionaryId)
             .filter((id): id is string => Boolean(id)),
-    );
+        ...(targetLanguage === 'ja' ? CURATED_JAPANESE_CATALOG_IDS : []),
+    ]);
 }
 
 const CATALOG_BROWSE_BY_ID = new Map<string, RecommendedDictionary>(

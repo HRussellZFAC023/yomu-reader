@@ -30,6 +30,15 @@ export function yomitanDictionaryIdentity(title: string): string {
         .toLowerCase() || title.trim().toLowerCase();
 }
 
+/**
+ * The identity an import replaces and the duplicate sweep merges by. It ignores
+ * spacing, so the mirror's "Pixiv Light [2026-07-23]" replaces an upstream
+ * "PixivLight [2023-11-24]". Archive keys keep the spaced identity above.
+ */
+export function yomitanDictionaryReplacementKey(title: string): string {
+    return yomitanDictionaryIdentity(title).replace(/\s+/gu, '');
+}
+
 export function yomitanZipVersion(index: YomitanZipIndex): number {
     return index.format ?? index.version ?? 3;
 }

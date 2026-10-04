@@ -187,7 +187,13 @@ describe('mirrored dictionary catalogue browsing', () => {
         const seededCards = [...form.querySelectorAll<HTMLElement>(
             '[data-catalog-recommendation-seed] [data-catalog-recommendation]',
         )].map(catalogCardSnapshot);
-        const cards = [...browsedCards, ...seededCards];
+        // The hand-picked Japanese cards install mirror archives too, so the
+        // browse leaves those out rather than offering them twice.
+        const curatedCards = RECOMMENDED_JAPANESE_DICTIONARIES
+            .filter(dictionary => dictionary.sha256 && form.querySelector(`[data-dictionary-id="${dictionary.id}"]`))
+            .map(dictionary => ({ catalogId: '', dictionaryId: dictionary.id, headwordLanguage: 'ja', sha256: dictionary.sha256 }));
+        expect(curatedCards).toHaveLength(5);
+        const cards = [...browsedCards, ...seededCards, ...curatedCards];
         const renderedIds = new Set(cards.map(card => card.catalogId));
         // Keyed by the card's own headword language, so a byte-identical twin
         // only excuses an entry when the reader meets it on the right shelf —

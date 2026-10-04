@@ -61,7 +61,7 @@ import {
     normalizeZipKanjiRow,
     normalizeZipTermMetaRow,
     normalizeZipTermRow,
-    yomitanDictionaryIdentity,
+    yomitanDictionaryReplacementKey,
     yomitanZipDictionaryName,
     yomitanZipVersion,
     type YomitanZipIndex,
@@ -1187,14 +1187,14 @@ export class YomitanDictionaryStore {
     // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
     // duplicate term rows double every lookup's index scans.
     private async deleteDictionariesWithSameIdentity(dictionary: string, importing?: DictionaryImportMutation): Promise<string[]> {
-        const identity = yomitanDictionaryIdentity(dictionary);
+        const identity = yomitanDictionaryReplacementKey(dictionary);
         let stale: string[] = [];
         try {
             const db = await this.db();
             const installed = await this.getAllDictionaryInfo(db);
             stale = installed
                 .map(info => info.title)
-                .filter(title => title === dictionary || yomitanDictionaryIdentity(title) === identity);
+                .filter(title => title === dictionary || yomitanDictionaryReplacementKey(title) === identity);
         } catch {
             stale = [dictionary];
         }
@@ -1607,7 +1607,7 @@ export class YomitanDictionaryStore {
         this.duplicateIdentitySweepDone = true;
         const byIdentity = new Map<string, YomitanDictionaryInfo[]>();
         for (const info of items) {
-            const identity = yomitanDictionaryIdentity(info.title);
+            const identity = yomitanDictionaryReplacementKey(info.title);
             byIdentity.set(identity, [...(byIdentity.get(identity) ?? []), info]);
         }
         const stale: string[] = [];

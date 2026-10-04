@@ -464,7 +464,8 @@ function recommendedDictionaryMatchesInstalled(dictionary: RecommendedDictionary
 const RECOMMENDED_DICTIONARY_MATCH_TOKENS: Record<string, string[][]> = {
     jitendex: [['jitendex']],
     'wty-ja-ja': [['wty', 'ja']],
-    'pixiv-light': [['pixiv', 'light']],
+    // The retired upstream card installed it as "PixivLight [2023-11-24]".
+    'pixiv-light': [['pixiv', 'light'], ['pixivlight']],
     'jpdb-kanji': [['jpdb', 'kanji']],
     'kanjium-pitch': [['kanjium', 'pitch'], ['kanjium'], ['pitch', 'accents']],
     jiten: [['jiten']],

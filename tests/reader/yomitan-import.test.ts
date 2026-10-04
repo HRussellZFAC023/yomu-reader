@@ -282,6 +282,26 @@ describe('Yomitan ZIP import performance path', () => {
         expect(entries).toMatchObject([{ dictionary: 'Jitendex.org [2026-06-06]', glossary: ['to read (new)'] }]);
     });
 
+    it('replaces a copy whose title differs only in spacing', async () => {
+        // The retired curated card installed "PixivLight [2023-11-24]"; the
+        // mirror's copy is "Pixiv Light [2026-07-23]". Updating left both, so
+        // every lookup showed Pixiv Light twice.
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'PixivLight [2023-11-24]', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', '', 10, ['old'], 1, '']],
+        })], 'pixiv-old.zip', { type: 'application/zip' }));
+        const importSummary = await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Pixiv Light [2026-07-23]', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', '', 10, ['new'], 1, '']],
+        })], 'pixiv-new.zip', { type: 'application/zip' }));
+
+        expect(importSummary.replacedDictionaries).toEqual(['PixivLight [2023-11-24]']);
+        expect((await store.summary()).dictionaries.map(info => info.title)).toEqual(['Pixiv Light [2026-07-23]']);
+        expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Pixiv Light [2026-07-23]' }]);
+    });
+
     it('keeps distinct dictionaries with similar names apart on import', async () => {
         const store = createStore();
         await store.clear();

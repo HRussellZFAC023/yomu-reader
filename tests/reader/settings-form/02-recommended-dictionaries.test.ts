@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
+    catalogBrowseLanguageSectionsForLearnerLanguage,
     catalogRecommendedDictionaryId,
     recommendedDictionaryImportOptions,
 } from '../../../src/reader/dictionaries/recommended';
@@ -106,13 +107,26 @@ describe('the hand-picked Japanese dictionary shelf', () => {
         expect(findRecommendedDictionary('pixiv-light')?.bytes).toBe(51_170_783);
     });
 
+    it('does not list the same archives again in the mirror browse below it', () => {
+        const curated = new Set(RECOMMENDED_JAPANESE_DICTIONARIES.map(dictionary => dictionary.downloadUrl));
+        for (const learnerLanguage of ['en', 'es'] as const) {
+            const browsed = catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage, 'ja')
+                .flatMap(section => section.groups.flatMap(group => group.dictionaries));
+            expect(browsed.length).toBeGreaterThan(0);
+            expect(browsed.filter(dictionary => curated.has(dictionary.downloadUrl)).map(dictionary => dictionary.id)).toEqual([]);
+        }
+    });
+
     it('still counts a dictionary installed from a retired or upstream card as installed', () => {
         const installed = (title: string, downloadUrl: string): YomitanDictionaryInfo => ({ title, alias: title, enabled: true, priority: 0, downloadUrl });
         const host = document.createElement('div');
+        // The titles are the archives' own index.json titles, as installed.
         host.innerHTML = renderRecommendedDictionaries([
-            installed('JMdict', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'),
-            installed('JMnedict', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip'),
-            installed('KANJIDIC', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip'),
+            installed('Jitendex.org [2026-10-03]', 'https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip'),
+            installed('JMdict [2026-10-04]', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'),
+            installed('JMnedict [2026-10-04]', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip'),
+            installed('KANJIDIC [2026-277]', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip'),
+            installed('PixivLight [2023-11-24]', 'https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip'),
             installed('JPDBv2㋕', 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip'),
             installed('Jiten', 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan'),
         ], 'en', false, 'ja');
@@ -121,7 +135,7 @@ describe('the hand-picked Japanese dictionary shelf', () => {
         for (const id of ['jmdict-en', 'jmnedict', 'kanjidic-en', 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0']) {
             expect(button(catalogRecommendedDictionaryId('en', 'ja', id))?.dataset.installed, id).toBe('true');
         }
-        expect(button('jiten')?.dataset.installed).toBe('true');
+        for (const id of ['jitendex', 'pixiv-light', 'jiten']) expect(button(id)?.dataset.installed, id).toBe('true');
         expect(button('bccwj')?.dataset.installed).toBe('false');
         expect(button(catalogRecommendedDictionaryId('en', 'ja', 'drive-japanese-pitch-nhk-lpvpeu-xlu'))?.dataset.installed).toBe('false');
     });

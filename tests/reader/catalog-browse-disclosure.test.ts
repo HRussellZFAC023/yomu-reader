@@ -38,7 +38,8 @@ describe('the exhaustive dictionary catalogue disclosure', () => {
             `initial catalogue DOM contained ${catalogueElementCount} elements and ${catalogueCardCount} cards`,
         ).toBe(5);
         expect(catalogueCardCount).toBe(0);
-        expect(section!.dataset.catalogBrowseCount).toBe('1600');
+        // Five mirror archives are offered once, by the hand-picked Japanese cards.
+        expect(section!.dataset.catalogBrowseCount).toBe('1595');
         expect(section!.dataset.catalogBrowseExpanded).toBe('false');
         expect(section!.querySelector('[data-catalog-browse-filter]')).toBeNull();
         expect(section!.querySelector('[data-action="toggle-catalog-browse"]')?.getAttribute('aria-expanded')).toBe('false');
