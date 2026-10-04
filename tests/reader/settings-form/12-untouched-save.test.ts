@@ -132,6 +132,42 @@ describe('an untouched settings Save', () => {
     });
 });
 
+// A browser leaves an unticked checkbox out of FormData, so "absent" can never
+// mean "this control was not rendered". Reading it that way kept Show
+// pronunciation switched on after every Save.
+describe('a settings checkbox flipped before Save', () => {
+    registerSettingsFormCleanup();
+
+    it('saves Show pronunciation turned off', () => {
+        const current = { ...DEFAULT_SETTINGS, showPitchAccent: true };
+        const form = renderSettingsTestForm(current);
+        (form.elements.namedItem('showPitchAccent') as HTMLInputElement).checked = false;
+
+        expect(readFormSettings(new FormData(form), current).showPitchAccent).toBe(false);
+    });
+
+    it('saves every boolean setting checkbox in both directions', () => {
+        const defaults = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const keys = [...new Set(Array.from(defaults.querySelectorAll<HTMLInputElement>('input[type="checkbox"][name]'), box => box.name))]
+            .filter((name): name is BooleanSettingKey => typeof DEFAULT_SETTINGS[name as keyof ReaderSettings] === 'boolean');
+        expect(keys.length).toBeGreaterThan(60);
+
+        const lost = keys.flatMap(key => [DEFAULT_SETTINGS[key], !DEFAULT_SETTINGS[key]].flatMap(stored => {
+            const current = { ...DEFAULT_SETTINGS, [key]: stored };
+            const form = stored === DEFAULT_SETTINGS[key] ? defaults : renderSettingsTestForm(current);
+            const box = form.querySelector<HTMLInputElement>(`input[type="checkbox"][name="${key}"]`)!;
+            box.checked = !stored;
+            const saved = readFormSettings(new FormData(form), current)[key];
+            box.checked = stored;
+            return saved === !stored ? [] : [`${key}: ${stored} -> ${!stored} saved ${saved}`];
+        }));
+
+        expect(lost).toEqual([]);
+    });
+});
+
+type BooleanSettingKey = { [K in keyof ReaderSettings]-?: ReaderSettings[K] extends boolean ? K : never }[keyof ReaderSettings];
+
 const KANJIDIC_ROW = '__kanji_dictionary__:KANJIDIC';
 
 function repeatedDictionaryFields(form: HTMLFormElement): string[] {

@@ -296,7 +296,6 @@ function preserveDetachedJapaneseSettings(
         settings.clampedRowReadings = current.clampedRowReadings;
         settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
     }
-    if (!data.has('showPitchAccent')) settings.showPitchAccent = current.showPitchAccent;
     if (!data.has('pitchColorHeiban')) {
         settings.pitchColorHeiban = current.pitchColorHeiban;
         settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
