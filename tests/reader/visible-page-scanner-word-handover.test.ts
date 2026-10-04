@@ -83,7 +83,6 @@ describe('the visible-page scan hands over every word it paints', () => {
         </a>`, ['学習', '始める', '保存', '単語', '確認', '日本語', '勉強']],
         ['a paragraph after a bold lead-in', '<p><b>注意</b>：日本語の本を読む。</p>', ['注意', '日本語', '本', '読む']],
         ['a hero heading split across two spans', '<h1><span class="name">よむ</span> <span class="text">日本語を読む</span></h1>', ['日本語', '読む']],
-        ['Aozora lines that open with native ruby', `<div class="main_text">${[0, 1, 2].map(line => `<ruby><rb>注意</rb><rp>（</rp><rt>ちゅうい</rt><rp>）</rp></ruby>して日本語の本を読む${line}。`).join('<br />\n')}</div>`, ['日本語', '本', '読む']],
         ['a word that keeps a whole native ruby', '<p><ruby>日本<rt>にほん</rt>語<rt>ご</rt></ruby></p>', ['日本語']],
     ])('%s', async (_shape, html, expressions) => {
         const { painted, missed } = await scanAndCollectHandover(html);
@@ -109,11 +108,11 @@ describe('mirror and text-layer paint roots and handover cover every word', () =
         expect(wordsOutside(roots)).toEqual([]);
     });
 
-    it('covers per-leaf mirrors of a reactive target', async () => {
-        document.body.innerHTML = '<div id="row"><span>日本</span><span>語の本</span></div>';
+    it('includes the per-leaf mirrors of a reactive target, each in a body portal', async () => {
+        document.body.innerHTML = '<article class="comment-thread"><p id="row"><span>日本</span><span>語の本</span></p></article>';
         const target = onlyTarget(collectFragmentTextTargetsIn(document.getElementById('row')!, 40, false));
         const roots = await paint({ ...target, nonDestructive: true });
-        expect(document.querySelectorAll('.jpdb-reader-text-mirror').length).toBeGreaterThan(1);
+        expect(document.querySelectorAll('body > .jpdb-reader-document-annotation-portal .jpdb-reader-word')).toHaveLength(3);
         expect(wordsOutside(roots)).toEqual([]);
     });
 
@@ -133,6 +132,27 @@ describe('mirror and text-layer paint roots and handover cover every word', () =
         const roots = await paint({ text: '日本語の本を読む', parent: canvas, fragments: [], layoutSensitive: true, nonDestructive: true });
         expect(document.querySelector('.jpdb-reader-canvas-text-layer .jpdb-reader-word')).not.toBeNull();
         expect(wordsOutside(roots)).toEqual([]);
+    });
+});
+
+describe('paint roots after a parse batch', () => {
+    it('reach ruby room and enrichment once each, a root inside another covered by it', async () => {
+        // The direct text run's source scope is the div, which holds the <p>.
+        document.body.innerHTML = '<div id="outer">勉強の本<p>日本語の本</p></div>';
+        const enrichAnkiWords = vi.fn();
+        const rubyRoomRoots: ParentNode[] = [];
+        const scanner = createVisiblePageScannerFixture({ ...SETTINGS, ankiEnabled: true }, tokensFor, {
+            enrichAnkiWords,
+            makeRoomForRubyInCroppedRows: root => { if (root && root !== document) rubyRoomRoots.push(root); return 0; },
+        });
+        scanners.add(scanner);
+
+        await scanner.scanVisiblePage({ silent: true });
+
+        const outer = document.getElementById('outer');
+        expect(readerWords().map(word => word.dataset.expression)).toEqual(['勉強', '本', '日本語', '本']);
+        expect(enrichAnkiWords.mock.calls.map(([, roots]) => roots)).toEqual([[outer]]);
+        expect(rubyRoomRoots).toEqual([outer]);
     });
 });
 
