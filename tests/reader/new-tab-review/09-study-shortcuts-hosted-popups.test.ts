@@ -1204,10 +1204,11 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             const first = internals.parseNewTabContent(root);
             const second = internals.parseNewTabContent(root);
 
-            expect(parse).toHaveBeenCalledTimes(1);
+            await vi.waitFor(() => expect(parse).toHaveBeenCalledTimes(1));
 
             parseResult.resolve([[]]);
             await Promise.all([first, second]);
+            expect(parse).toHaveBeenCalledTimes(1);
         } finally {
             runtime.destroy();
             document.body.replaceChildren();

@@ -244,6 +244,58 @@ export function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][
     });
 }
 
+interface NestedParseTicket {
+    parseKey: string;
+    id: string;
+    abandon: () => void;
+}
+
+const inFlightNestedParseTickets = new WeakMap<HTMLElement, NestedParseTicket>();
+
+/**
+ * Loads one plan under the root's loading ticket and paints it only while that
+ * ticket is still the root's. Resolves false when the ticket was cleared first:
+ * whatever cleared it re-rendered the root and asks for its own parse.
+ */
+export async function parseUnderNestedTicket<T>(
+    root: HTMLElement,
+    parseKey: string,
+    load: () => Promise<T>,
+    paint: (result: T) => void,
+): Promise<boolean> {
+    let abandon!: () => void;
+    const abandoned = new Promise<void>(resolve => { abandon = resolve; });
+    const ticket = { parseKey, id: `${Date.now()}:${Math.random()}`, abandon };
+    root.dataset.jpdbReaderParseLoadingKey = parseKey;
+    root.dataset.jpdbReaderParseLoadingId = ticket.id;
+    inFlightNestedParseTickets.set(root, ticket);
+    try {
+        const result = await Promise.race([load(), abandoned]);
+        if (!ownsNestedParseTicket(root, ticket)) return false;
+        paint(result as T);
+    } catch {
+    } finally {
+        if (inFlightNestedParseTickets.get(root) === ticket) inFlightNestedParseTickets.delete(root);
+        clearNestedParseLoadingKey(root, parseKey, ticket.id);
+    }
+    return true;
+}
+
+/**
+ * A re-render clears the root's ticket and then asks for a new parse. Stop the
+ * old pass waiting on a result it can no longer paint, so the new request runs
+ * at once. Its load keeps going and fills the parse cache for the new pass.
+ */
+export function abandonStaleNestedParse(root: HTMLElement): void {
+    const ticket = inFlightNestedParseTickets.get(root);
+    if (ticket && !ownsNestedParseTicket(root, ticket)) ticket.abandon();
+}
+
+function ownsNestedParseTicket(root: HTMLElement, ticket: NestedParseTicket): boolean {
+    return root.dataset.jpdbReaderParseLoadingKey === ticket.parseKey
+        && root.dataset.jpdbReaderParseLoadingId === ticket.id;
+}
+
 export function clearNestedParseLoadingKey(root: HTMLElement, parseKey: string, parseLoadingId?: string): void {
     const matchesKey = root.dataset.jpdbReaderParseLoadingKey === parseKey;
     const matchesId = parseLoadingId === undefined || root.dataset.jpdbReaderParseLoadingId === parseLoadingId;

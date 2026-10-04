@@ -77,48 +77,46 @@ describe('enhanced-page addon parse coalescing', () => {
         }
     });
 
-    it('runs a follow-up pass when an update arrives after the drain check but before running is released', async () => {
-        const app = new ReaderApp();
-        const internals = app as unknown as ReaderAppPageAddonParseInternals;
-        const root = mountPageAddon();
-        const pending = deferred();
-        const followUp = deferred();
-        const started = deferred();
-        let boundaryRequest: Promise<void> | undefined;
-        let parseCount = 0;
-        let activeParses = 0;
-        let maximumActiveParses = 0;
+    it('serves an update landing around the owner release with an awaited follow-up pass', async () => {
+        // Sweep the microtasks around the drain's final check and release
+        // instead of trusting one hand-picked interleaving.
+        for (let offset = 0; offset < 8; offset += 1) {
+            const app = new ReaderApp();
+            const internals = app as unknown as ReaderAppPageAddonParseInternals;
+            const root = mountPageAddon();
+            const passes: Array<ReturnType<typeof deferred>> = [];
+            let activeParses = 0;
+            let maximumActiveParses = 0;
 
-        internals.performJpdbPageAddonJapaneseParse = vi.fn(() => {
-            activeParses += 1;
-            maximumActiveParses = Math.max(maximumActiveParses, activeParses);
-            const pass = parseCount++ === 0 ? pending.promise : followUp.promise;
-            void pass.then(() => { activeParses -= 1; });
-            started.resolve();
-            return pass;
-        });
+            // A plain function, not vi.fn: a spy wraps the returned promise in
+            // extra microtask hops and moves the update into the running pass.
+            internals.performJpdbPageAddonJapaneseParse = () => {
+                const pass = deferred();
+                passes.push(pass);
+                activeParses += 1;
+                maximumActiveParses = Math.max(maximumActiveParses, activeParses);
+                return pass.promise.then(() => { activeParses -= 1; });
+            };
 
-        try {
-            const initialParse = internals.parseJpdbPageAddonJapanese(root);
-            let completed = false;
-            void initialParse.then(() => { completed = true; });
-            await started.promise;
-            pending.resolve();
-            // The awaiting drain resumes first and finishes its dirty check;
-            // this commit precedes the owner's queued finally continuation.
-            queueMicrotask(() => { boundaryRequest = internals.parseJpdbPageAddonJapanese(root); });
-            await vi.waitFor(() => expect(parseCount).toBe(2));
-            expect(boundaryRequest).toBe(initialParse);
-            expect(completed).toBe(false);
-            followUp.resolve();
-            await initialParse;
-            expect(completed).toBe(true);
-            expect(internals.performJpdbPageAddonJapaneseParse).toHaveBeenCalledTimes(2);
-            expect(maximumActiveParses).toBe(1);
-        } finally {
-            pending.resolve();
-            followUp.resolve();
-            app.destroy();
+            try {
+                const initialParse = internals.parseJpdbPageAddonJapanese(root);
+                await vi.waitFor(() => expect(passes).toHaveLength(1));
+                passes[0].resolve();
+                for (let tick = 0; tick < offset; tick += 1) await Promise.resolve();
+                const update = internals.parseJpdbPageAddonJapanese(root);
+                let updateSettled = false;
+                void update.then(() => { updateSettled = true; });
+                await vi.waitFor(() => expect(passes, `offset ${offset}`).toHaveLength(2));
+                expect(updateSettled, `offset ${offset}`).toBe(false);
+                passes[1].resolve();
+                await Promise.all([initialParse, update]);
+                expect(passes, `offset ${offset}`).toHaveLength(2);
+                expect(maximumActiveParses, `offset ${offset}`).toBe(1);
+            } finally {
+                passes.forEach(pass => pass.resolve());
+                app.destroy();
+                document.body.replaceChildren();
+            }
         }
     });
 });

@@ -78,7 +78,8 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import { newTabSettingsWithPageInterfaceLanguage, newTabSettingsWithPageTarget } from './runtime-target-policy';
@@ -459,6 +460,7 @@ export class NewTabRuntime {
         warnPublicSearch: (term, error) => log.warn('Public JPDB fallback search failed', { term }, error),
         targetScope: this.lookupTarget,
     });
+    private readonly nestedParseCoordinator = new NestedParseCoordinator();
     private readonly parseContentCache = new NewTabTargetParseCache({
         getSettings: () => this.settings,
         parse: (texts, options) => this.parser.parse(texts, options),
@@ -2289,8 +2291,11 @@ export class NewTabRuntime {
         await this.dictionaryStyles.refresh();
     }
 
-    private async parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
-        if (!root.isConnected) return;
+    private parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
+        return this.nestedParseCoordinator.run(root, () => this.performNewTabContentParse(root, options), () => root.isConnected);
+    }
+
+    private async performNewTabContentParse(root: HTMLElement, options: NewTabParseContentOptions): Promise<void> {
         void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(root, this.settings);
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
@@ -2302,31 +2307,21 @@ export class NewTabRuntime {
         });
         this.enrichJpdbRelatedWords(root);
         const plan = nestedTextParsePlan(root, 160, { excludeProviderExamples: true });
-        if (plan && !nestedParseAlreadyScheduled(root, plan.parseKey)) {
-            await this.parseNewTabPlan(root, plan, options);
-        }
-        if (!root.isConnected) return;
-        const providerPlan = providerExampleTextParsePlan(root, 24);
-        if (providerPlan && !nestedParseAlreadyScheduled(root, providerPlan.parseKey)) {
-            await this.parseNewTabPlan(root, providerPlan, options, 24, false);
-        }
+        if (!await this.parseNewTabPlan(root, plan, options) || !root.isConnected) return;
+        await this.parseNewTabPlan(root, providerExampleTextParsePlan(root, 24), options, 24, false);
     }
 
+    /** Resolves false when a re-render took the plan's loading ticket. */
     private async parseNewTabPlan(
         root: HTMLElement,
-        plan: NestedParsePlan,
+        plan: NestedParsePlan | null,
         options: NewTabParseContentOptions,
         publicJitenDetailLimit?: number,
         recordParseKey = true,
-    ): Promise<void> {
-        const parseLoadingId = `${Date.now()}:${Math.random()}`;
-        root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-        root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
-        try {
-            const parsed = await this.loadParsedNewTabContent(plan.targets.map(target => target.text), options, publicJitenDetailLimit);
-            if (!root.isConnected
-                || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
-                || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
+    ): Promise<boolean> {
+        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return true;
+        return parseUnderNestedTicket(root, plan.parseKey, () => this.loadParsedNewTabContent(plan.targets.map(target => target.text), options, publicJitenDetailLimit), parsed => {
+            if (!root.isConnected) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             highlightCardTargetScopes(root);
             if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
@@ -2334,10 +2329,7 @@ export class NewTabRuntime {
             void this.enrichPublicVocabularyWords(tokens);
             void this.enrichPitchWords(tokens);
             void this.enrichAnkiWords(tokens, [root]);
-        } catch {
-        } finally {
-            clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
-        }
+        });
     }
 
     private enrichJpdbRelatedWords(root: ParentNode): void {

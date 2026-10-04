@@ -263,7 +263,7 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayReveal
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
@@ -1107,9 +1107,7 @@ export class ReaderApp {
 
     private async parseYoutubeShelfJapanese(root: HTMLElement): Promise<void> {
         if (!root.isConnected) return;
-        const plan = nestedTextParsePlan(root, 160);
-        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(root, plan, () => root.isConnected);
+        await this.parseNestedJapaneseContent(root, nestedTextParsePlan(root, 160), () => root.isConnected);
     }
 
     private createImageOcrController(): ImageOcrController {
@@ -7721,7 +7719,6 @@ export class ReaderApp {
     }
 
     private async performPopoverJapaneseParse(popover: HTMLElement): Promise<void> {
-        if (!this.isCurrentPopoverRoot(popover)) return;
         void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(popover, this.settings);
         installProviderExampleBehaviors(popover, {
             interfaceLanguage: this.settings.interfaceLanguage,
@@ -7731,11 +7728,11 @@ export class ReaderApp {
             isCurrentRoot: root => this.isCurrentPopoverRoot(root),
         });
         this.enrichJpdbRelatedWords(popover);
+        const isCurrent = () => this.isCurrentPopoverRoot(popover);
         const plan = nestedTextParsePlan(popover, 120, { excludeProviderExamples: true });
-        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
-        if (!this.isCurrentPopoverRoot(popover)) return;
+        if (!await this.parseNestedJapaneseContent(popover, plan, isCurrent) || !isCurrent()) return;
         const providerPlan = providerExampleTextParsePlan(popover, 24);
-        await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
+        await this.parseNestedJapaneseContent(popover, providerPlan, isCurrent, {
             publicJitenDetailLimit: 24,
         }, false);
     }
@@ -7749,12 +7746,9 @@ export class ReaderApp {
     }
 
     private async performJpdbPageAddonJapaneseParse(root: HTMLElement): Promise<void> {
-        if (!this.isJpdbPageAddonRoot(root)) return;
         this.enrichJpdbRelatedWords(root);
         clearNestedParseState(root);
-        const plan = nestedTextParsePlan(root, 120);
-        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
+        await this.parseNestedJapaneseContent(root, nestedTextParsePlan(root, 120), () => this.isJpdbPageAddonRoot(root));
     }
 
     // Welcome panel: furigana + pitch on its Japanese, through the same chrome
@@ -7763,9 +7757,7 @@ export class ReaderApp {
         if (!panel.isConnected) return;
         clearNestedParseState(panel);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return;
-        const plan = nestedTextParsePlan(panel, 120);
-        if (!plan || nestedParseAlreadyScheduled(panel, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(panel, plan, () => panel.isConnected, {
+        await this.parseNestedJapaneseContent(panel, nestedTextParsePlan(panel, 120), () => panel.isConnected, {
             allowJpdbTimeoutFallback: true,
             allowSegmentedFallback: true,
             skipJpdb: true,
@@ -7873,36 +7865,28 @@ export class ReaderApp {
         this.queueAnkiWordEnrichment(tokens, [form]);
     }
 
+    /** Resolves false when a re-render took the plan's loading ticket. */
     private async parseNestedJapaneseContent(
         root: HTMLElement,
         plan: NestedParsePlan | null,
         isCurrent: () => boolean,
         options: ReaderParserParseOptions = {},
         recordParseKey = true,
-    ): Promise<void> {
-        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
-        const parseLoadingId = `${Date.now()}:${Math.random()}`;
-        root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-        root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
-        try {
-            const parsed = await this.loadParsedNestedJapaneseContent(plan.targets.map(target => target.text), {
-                includeLocalPitch: false,
-                jpdbTimeoutMs: 1_200,
-                ...options,
-            });
-            if (!isCurrent()
-                || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
-                || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
+    ): Promise<boolean> {
+        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return true;
+        return parseUnderNestedTicket(root, plan.parseKey, () => this.loadParsedNestedJapaneseContent(plan.targets.map(target => target.text), {
+            includeLocalPitch: false,
+            jpdbTimeoutMs: 1_200,
+            ...options,
+        }), parsed => {
+            if (!isCurrent()) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             this.scheduleCachedPublicVocabularyHydration(root);
             highlightCardTargetScopes(root);
             refreshReaderWordContrast(root);
             if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
             this.afterNestedJapaneseParsed(parsed, root, options.skipJpdb ? { publicLookup: false } : undefined);
-        } catch {
-        } finally {
-            clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
-        }
+        });
     }
 
     private loadParsedNestedJapaneseContent(texts: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
