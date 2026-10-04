@@ -1118,13 +1118,12 @@ describe('reader helpers', () => {
             const store = new YomitanDictionaryStore();
             await store.clear();
 
+            // The archive is tried directly (credentials omitted); the browser's
+            // CORS refusal is reported as a blocked download, which Settings turns
+            // into the manual-import hint.
             await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
-                .rejects.toThrow(/configured proxy/i);
-            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls
-                .map(([url]) => String(url))
-                .filter(url => url.includes('dict.zip'));
-            expect(urls).toEqual([]);
-            expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('dict.zip'), expect.objectContaining({ credentials: 'omit' }));
+                .rejects.toThrow(/blocked for github\.com/i);
+            expect(fetch).toHaveBeenCalledWith('https://github.com/example/dict.zip', expect.objectContaining({ credentials: 'omit' }));
         } finally {
             vi.unstubAllGlobals();
         }
