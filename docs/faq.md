@@ -54,6 +54,18 @@ That is where Yomu is heading. Today Yomu makes real pages readable from day one
 
 Check that Yomu is allowed on that site — in your browser's extensions menu, or in your userscript manager — then refresh the page. That covers almost every report we get.
 
+### Can I turn よむ off on one website?
+
+Not from inside よむ yet. The よむ menu's **Pause annotations** applies to every site and every open tab, not only the page you are on. To keep よむ off on one site, change it in your userscript manager or your browser, then reload the page:
+
+- **Tampermonkey:** open the Tampermonkey menu, choose Dashboard and click よむ. On its Settings tab, add the site to **User excludes** and press Save. A pattern like `*://example.com/*` covers every page of example.com.
+- **Violentmonkey:** on that site, open the Violentmonkey menu, press the three dots next to よむ, choose **Exclude...** and press the site's name.
+- **Safari on a Mac:** with the site open, go to Safari → Settings → Extensions and select よむ, or Userscripts if you installed よむ through it (that stops every userscript on the site). Press **Edit Websites...** and set the site to Deny.
+- **Chrome, Edge and Brave** work the other way round: you list the sites where よむ may run. Open `chrome://extensions`, press Details under よむ and choose **On specific sites** for its site access, then add the sites you want.
+- **Firefox** also works the other way round. In `about:addons`, open よむ and turn off **Access your data for all websites** on its Permissions tab, then allow the sites you want from the Extensions button (the puzzle piece).
+
+On iPhone and iPad there is no per-site switch yet, so pausing from the よむ menu is the closest option.
+
 ## Reading
 
 ### Which sites does it work on?
