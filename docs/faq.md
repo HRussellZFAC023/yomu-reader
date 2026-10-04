@@ -72,6 +72,12 @@ Yes. [Yomu Gaming](/learn/manga-and-games#read-a-game-frame) is a small desktop 
 
 Word colours show how well you know them when a review system is connected, so a page shows you at a glance what is new and what is due. For Japanese, underline colours can also show pitch-accent patterns. All of it can be turned off in Settings.
 
+### How do I change the order of the popup?
+
+Open Settings → Sources. The Popup order list at the top of that tab sets the order of the popup's sections. Move a row with its arrows or drag it, then press Save. Kanji sections have their own list further down the same tab, and the link pills at the top of the popup are ordered under Lookup pills.
+
+Straight to that tab: [yomureader.com/study/#settings=dictionaries](/study/#settings=dictionaries)
+
 ## Keeping and reviewing words
 
 ### How do reviews work?

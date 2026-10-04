@@ -18,8 +18,6 @@ export type CardCommandAction =
     | 'jiten-audio'
     | 'jpdb-example-audio'
     | 'neverforget'
-    | 'setup-dictionaries'
-    | 'setup-jpdb'
     | 'study-grammar'
     | 'study-grammar-toggle-known'
     | 'study-grammar-toggle-known-visibility'

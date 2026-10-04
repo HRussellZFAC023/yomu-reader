@@ -1295,7 +1295,6 @@ describe('reader helpers', () => {
             parsePopoverJapanese,
             playAudio: vi.fn(),
             playSentenceAudio: vi.fn(),
-            showSettings: vi.fn(),
             toast: vi.fn(),
         } as unknown as ConstructorParameters<typeof CardActionController>[0]);
 
@@ -1345,7 +1344,6 @@ describe('reader helpers', () => {
             parsePopoverJapanese,
             playAudio: vi.fn(),
             playSentenceAudio: vi.fn(),
-            showSettings: vi.fn(),
             toast: vi.fn(),
         } as unknown as ConstructorParameters<typeof CardActionController>[0]);
 

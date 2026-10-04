@@ -30,7 +30,7 @@ Useful places to begin:
 
 Furigana can appear above every word, only uncommon kanji or only words you have not learned. Pitch underlines show the accent pattern. Study-state colours show what is new, learning, known or due.
 
-The popup brings together the reading, meanings in your chosen language, frequency, pitch, audio, examples and the state held by your study services. Imported Yomitan dictionaries answer on your device. Source tabs can add Jiten, Bunpro, JPDB and other entries when you enable them.
+The popup brings together the reading, meanings in your chosen language, frequency, pitch, audio, examples and the state held by your study services. Imported Yomitan dictionaries answer on your device. Jiten, Bunpro, JPDB and other sources add their own sections when you enable them, in the order set under Popup order in Settings → Sources.
 
 ## Slow down on one kanji
 

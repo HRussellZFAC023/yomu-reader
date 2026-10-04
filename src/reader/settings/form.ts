@@ -1248,14 +1248,18 @@ function renderDictionariesSettingsPanel(
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content hidden>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-help-key="popupOrderTitle">${escapedUiText(language, 'popupOrderTitle')}</div>
+                    <div class="jpdb-reader-help" data-help-key="popupOrderHelp">${escapedUiText(language, 'popupOrderHelp')}</div>
+                    <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
+                        ${renderDictionarySourceRows(settings)}
+                    </div>
+                </div>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
                 ${renderLocalDictionaryStorageControls(settings)}
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
-                </div>
-                <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
-                    ${renderDictionarySourceRows(settings)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language, 'lookupPills')}</div>

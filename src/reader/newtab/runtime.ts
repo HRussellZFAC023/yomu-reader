@@ -429,7 +429,6 @@ export class NewTabRuntime {
         showCard: (card, sentence, anchor, options) => this.showLookupCard(card, sentence, anchor, options),
         getActivePopoverAnchor: () => this.activeLookupAnchor?.isConnected ? this.activeLookupAnchor : undefined,
         getActivePopoverMode: () => 'modal',
-        showSettings: panel => this.showSettings(panel),
         playAudio: (card, options) => this.audioActions.playTermAudio(card, options),
         playMediaUrl: audioUrl => this.audioActions.playMediaUrl(audioUrl),
         playSentenceAudio: sentence => this.audioActions.playSentenceAudio(sentence),

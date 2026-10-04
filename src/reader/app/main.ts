@@ -669,7 +669,6 @@ export class ReaderApp {
         showCard: (card, sentence, anchor, options) => this.showCard(card, sentence, anchor, options),
         getActivePopoverAnchor: () => this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined,
         getActivePopoverMode: () => this.activePopoverMode,
-        showSettings: panel => this.showSettings(panel),
         playAudio: (card, options) => this.audioActions.playTermAudio(card, options),
         playMediaUrl: audioUrl => this.audioActions.playMediaUrl(audioUrl),
         playSentenceAudio: sentence => this.audioActions.playSentenceAudio(sentence),

@@ -60,7 +60,6 @@ interface CardActionControllerOptions {
     showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: ShowCardOptions) => Promise<void>;
     getActivePopoverAnchor: () => HTMLElement | undefined;
     getActivePopoverMode: () => 'modal' | 'hover' | undefined;
-    showSettings: (panel?: string) => void;
     playAudio: (card: JPDBCard, options?: { userGesture?: boolean }) => Promise<void>;
     playMediaUrl?: (audioUrl: string) => Promise<boolean | void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
@@ -261,8 +260,6 @@ export class CardActionController {
         const handlers: Record<string, () => Promise<boolean>> = {
             'copy-word': () => this.copyWord(card),
             audio: () => this.playCardAudio(card),
-            'setup-dictionaries': () => this.openSettingsPanel('dictionaries'),
-            'setup-jpdb': () => this.openSettingsPanel('api'),
         };
         return handlers[action]?.();
     }
@@ -275,11 +272,6 @@ export class CardActionController {
 
     private async playCardAudio(card: JPDBCard): Promise<boolean> {
         await this.options.playAudio(card, { userGesture: true });
-        return false;
-    }
-
-    private async openSettingsPanel(panel: string): Promise<boolean> {
-        this.options.showSettings(panel);
         return false;
     }
 

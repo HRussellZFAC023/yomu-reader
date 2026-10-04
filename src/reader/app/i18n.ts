@@ -1111,6 +1111,8 @@ const COPY = {
         orderHeader: 'Order',
         removeHeader: 'Remove',
         definitionSource: 'Definition source',
+        popupOrderTitle: 'Popup order',
+        popupOrderHelp: 'This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.',
         kanjiSection: 'Kanji section',
         dragToReorder: 'Drag to reorder',
         moveUp: 'Move up',
@@ -2340,6 +2342,8 @@ displayName	表示名
 orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
+popupOrderTitle	ポップアップの順序
+popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動

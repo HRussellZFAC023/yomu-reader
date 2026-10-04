@@ -286,6 +286,7 @@ const HOSTED_DOCS_JA_COPY_VERBATIM = new Set([
     'Okay',
     'https://yomureader.com/yomu.user.js',
     'yomureader.com',
+    'yomureader.com/study/#settings=dictionaries',
     'tampermonkey.net',
     'tadoku.org',
     'nyaa.si/view/1957972',

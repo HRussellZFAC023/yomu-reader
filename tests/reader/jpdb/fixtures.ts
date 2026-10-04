@@ -759,7 +759,6 @@ export function testCardActionController(
         showCard: vi.fn(),
         getActivePopoverAnchor: () => undefined,
         getActivePopoverMode: () => undefined,
-        showSettings: vi.fn(),
         playAudio: vi.fn(),
         playSentenceAudio: vi.fn(),
         detectGrammarHints: vi.fn(),
