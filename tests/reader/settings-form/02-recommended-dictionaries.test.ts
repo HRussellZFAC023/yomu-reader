@@ -290,4 +290,11 @@ describe('catalogue seed cards over an install of the same dictionary', () => {
         expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-277]', 'kanjidic2.2026-277'))).toEqual(['Update', false]);
         expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.03.05'), 'fr')).toEqual(['Update', false]);
     });
+
+    it('still installs the JPDB Kana card over a different JPDB v2.2 build', () => {
+        // The card counts any "jpdbv2" title as its own, so a revision would
+        // have called the plain frequency build Installed and hidden the Kana one.
+        const jpdb = 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0';
+        expect(seedButton(jpdb, installed('JPDB v2.2 Frequency 2024-10-13', 'JPDB v2.2 Frequency 2024-10-13'))).toEqual(['Update', false]);
+    });
 });

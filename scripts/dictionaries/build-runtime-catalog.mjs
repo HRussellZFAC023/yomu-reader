@@ -38,14 +38,16 @@ if (process.argv.includes('--check')) {
 /**
  * The catalogue `version` a card may compare installs against, number by number,
  * where it orders like the archive's own index.json `revision`. Audited on
- * 2026-10-04 against every mirrored archive: a Drive copy's version IS its
- * revision, and the frozen JMdict/JMnedict date has the same numbers as
- * "JMdict.2026-07-23". KANJIDIC's revision counts days ("kanjidic2.2026-204"),
- * WTY's version is a dataset commit, a day-first date ("21-04-2025") orders by
- * day and a bare edition ("1.0") outlives builds, so those stay unknown.
+ * 2026-10-04 against every mirrored archive: the frozen JMdict/JMnedict date
+ * has the same numbers as "JMdict.2026-07-23", and those seed cards match
+ * installs by exact identity. A Drive copy's version is its revision too, but
+ * its seed card matches loosely (any "jpdbv2" title is the JPDB Kana card), so
+ * a revision there could call a different build Installed and hide the card.
+ * KANJIDIC's revision counts days ("kanjidic2.2026-204") and WTY's version is a
+ * dataset commit, so those stay unknown.
  */
 function comparableRevision({ id, version, distribution }) {
-    return distribution.state === 'published' && /^(drive-|jmdict-|jmnedict$)/u.test(id)
+    return distribution.state === 'published' && /^(jmdict-|jmnedict$)/u.test(id)
         && /(?<!\d-)\d{4}/u.test(version) ? [version] : [];
 }
 

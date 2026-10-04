@@ -60,12 +60,13 @@ describe('dictionary catalogue manifests', () => {
 
         for (const [id, revision] of revisions) expect(revision, id).toBe(versions.get(id));
         expect(revisions.get('jmdict-en')).toBe('2026-07-23');
-        expect(revisions.get('drive-japanese-ja-ja-ukmi3vhk6')).toBe('smk8;2024-10-14');
-        // A day-count (KANJIDIC), a commit (WTY), a day-first date and a bare edition.
-        for (const id of ['kanjidic-en', 'wty-fr-en', 'drive-japanese-other-unicode-2e57d23e85c0dc21-vy4mew6hgp', 'drive-japanese-pitch-nhk-lpvpeu-xlu']) {
+        expect(revisions.get('jmnedict')).toBe('2026-07-23');
+        // A day-count (KANJIDIC), a commit (WTY), and Drive copies, whose seed
+        // cards match installs too loosely for a revision to be safe.
+        for (const id of ['kanjidic-en', 'wty-fr-en', 'drive-japanese-ja-ja-ukmi3vhk6', 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0']) {
             expect(revisions.has(id), id).toBe(false);
         }
-        expect([...revisions.keys()].filter(id => !/^(drive-|jmdict-|jmnedict$)/u.test(id))).toEqual([]);
+        expect([...revisions.keys()].filter(id => !/^(jmdict-|jmnedict$)/u.test(id))).toEqual([]);
     });
 
     it('ships one valid, catalogue-linked recommendation manifest per learner-target pair', async () => {
