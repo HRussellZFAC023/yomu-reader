@@ -281,6 +281,8 @@ export interface JPDBToken {
     rubies: JPDBRuby[];
     pitchClass: string;
     sentence?: string;
+    /** Where `sentence` starts in the text `start` and `end` count from; set by paint when not 0. */
+    sentenceStart?: number;
 }
 
 export type JPDBRawVocabulary = [

@@ -4,11 +4,13 @@ import { ReaderApp } from '../../src/reader/app/main';
 import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS } from '../../src/reader/popup/hover-transit';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { applyTokensToScanTarget, collectFragmentTextTargetsIn } from '../../src/reader/dom/index';
 import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
 import {
     registerRenderedWordPrivateState,
     renderedWordPrivateValue,
 } from '../../src/reader/dom/rendered-word-private-state';
+import { assignSentenceInfo } from '../../src/reader/jpdb/jpdb-parser-sentences';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 import {
@@ -420,6 +422,23 @@ function setupSubtitleHoverMiningPause() {
     const { pause, play } = appendPlayingVideo();
     const { firstWord, nextWord } = appendSubtitleHoverWordPair();
     return { app, internals, pause, play, firstWord, nextWord };
+}
+
+/** Paints `<p>はい。本屋と<b>本</b>を読む。</p>` through the page scan and returns the bold 本. */
+function scanPaintBoldBookSentence(): HTMLElement {
+    document.body.innerHTML = '<p>はい。本屋と<b>本</b>を読む。</p>';
+    const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
+    const tokens = ([['はい', 0], ['本屋', 3], ['と', 5], ['本', 6], ['を', 7], ['読む', 8]] as const).map(([surface, start], index): JPDBToken => ({
+        card: { ...HOVER_LOOKUP_CARD, vid: -(index + 1), sid: -(index + 1), spelling: surface, reading: '', source: 'fallback', cardState: ['not-in-deck'] },
+        start,
+        end: start + surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: 'unknown',
+    }));
+    assignSentenceInfo([target.text], [tokens]);
+    applyTokensToScanTarget(target, tokens, DEFAULT_SETTINGS);
+    return document.querySelector<HTMLElement>('b > .jpdb-reader-word')!;
 }
 
 function stubElementFromPoint(element: Element): () => void {
@@ -2204,7 +2223,8 @@ describe('hover lookup', () => {
 
     // Paint stamps token offsets from the start of the paragraph the parser read,
     // but data-sentence holds only the word's own sentence. Hover used to need
-    // the two to agree, so no word after a paragraph's first sentence opened.
+    // the two to agree, so no word after a paragraph's first sentence opened;
+    // paint now also stamps where that sentence starts in the paragraph.
     it('opens a hover lookup on a word after its paragraph\'s first sentence', async () => {
         vi.useFakeTimers();
         const app = new ReaderApp();
@@ -2212,6 +2232,7 @@ describe('hover lookup', () => {
         const word = readerWordFixture('練習をします。', '練習');
         word.dataset.tokenStart = '14';
         word.dataset.tokenEnd = '16';
+        word.dataset.sentenceStart = '14';
         word.getBoundingClientRect = () => new DOMRect(0, 0, 80, 48);
         sweep.pointAt(word);
 
@@ -2226,6 +2247,49 @@ describe('hover lookup', () => {
             expect(candidate.offset).toBeLessThan(2);
         } finally {
             sweep.restore();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
+    // The page scan paints a word inside <b> into the <b>, alone, and 本 also
+    // opens this sentence inside 本屋. A lookup that found the word by its
+    // surface opened 本屋 for a click, tap or hover on the bold 本.
+    it('opens the bold word itself, not an earlier word sharing its surface, on hover, click and tap', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals & {
+            beginTapLookup(event: PointerEvent): void;
+            finishTapLookup(event: PointerEvent): void;
+        };
+        const book = scanPaintBoldBookSentence();
+        book.getBoundingClientRect = () => new DOMRect(0, 0, 16, 16);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            hoverOpenDelayMs: 0,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showLookupCandidate = showLookupCandidate;
+        internals.lastPointerPosition = { x: 8, y: 8 };
+        const restorers = [stubElementFromPoint(book), stubElementsFromPoint([book])];
+        const controller = new AbortController();
+        document.addEventListener('click', event => internals.handleDocumentClick(event), { capture: true, signal: controller.signal });
+        const point = { x: 8, y: 8 };
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(book, 'mouse', 'pointermove', {}, null, point));
+            await vi.advanceTimersByTimeAsync(50);
+            book.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: point.x, clientY: point.y }));
+            internals.beginTapLookup(hoverPointerEvent(book, 'touch', 'pointerdown', {}, null, point));
+            internals.finishTapLookup(hoverPointerEvent(book, 'touch', 'pointerup', {}, null, point));
+
+            expect(showLookupCandidate.mock.calls.map(([candidate, trigger]) => [trigger, candidate.text, candidate.offset]))
+                .toEqual([['hover', '本屋と本を読む。', 3], ['modal', '本屋と本を読む。', 3], ['modal', '本屋と本を読む。', 3]]);
+        } finally {
+            controller.abort();
+            restorers.forEach(restore => restore());
             vi.useRealTimers();
             cleanupReaderApp(app);
         }

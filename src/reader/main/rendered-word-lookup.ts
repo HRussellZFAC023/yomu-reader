@@ -94,20 +94,16 @@ export function jitenWordCardForMassReview(word: HTMLElement): JPDBCard {
 }
 
 /**
- * The token range a rendered word still holds from an UNCONFIRMED parse, or
- * null when the word's card was confirmed by a dictionary or provider. The
- * span authority re-resolves only these: a fallback card means segmentation
- * guessed the boundary, and the guess may cover a fragment of the real word.
+ * The token range a rendered word still holds from an UNCONFIRMED parse, in
+ * the sentence it was painted with, or null when the word's card was confirmed
+ * by a dictionary or provider. The span authority re-resolves only these: a
+ * fallback card means segmentation guessed the boundary, and the guess may
+ * cover a fragment of the real word.
  */
-export function unconfirmedRenderedWordSpan(
-    word: HTMLElement,
-    card: JPDBCard | undefined,
-    context: { sentence?: string },
-): RenderedWordSentenceSpan | null {
+export function unconfirmedRenderedWordSpan(word: HTMLElement, card: JPDBCard | undefined): RenderedWordSentenceSpan | null {
     // A card a dictionary or provider confirmed needs no re-resolution; a
     // fallback card or a cache miss (no card at all) is a span nothing ever
     // vouched for, and interaction is the moment to resolve it properly.
     if (card?.source && card.source !== 'fallback') return null;
-    const sentence = [context.sentence, word.dataset.sentence].find(Boolean) ?? '';
-    return renderedWordSentenceSpan(word, sentence, readerWordSurfaceText(word));
+    return renderedWordSentenceSpan(word, readerWordSurfaceText(word));
 }

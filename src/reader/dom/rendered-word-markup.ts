@@ -29,6 +29,7 @@ export function createRenderedWordSpan(token: JPDBToken, options: TokenRenderOpt
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
     span.dataset.sentence = token.sentence ?? '';
+    if (token.sentenceStart) span.dataset.sentenceStart = String(token.sentenceStart);
     applyRenderedWordLookupDataset(span, token);
     applyRenderedWordPitchDataset(span, token, showPitchAccent);
     applyRenderedWordDeckDataset(span, token.card);
@@ -134,6 +135,7 @@ function renderedWordAttributes(
         optionalDataAttribute('pitch-class', pitchClass),
         renderedWordPitchComponentAttributes(token.card, settings.showPitchAccent),
         ` data-sentence="${escapeHtml(token.sentence ?? '')}"`,
+        optionalDataAttribute('sentence-start', String(token.sentenceStart ?? '')),
         conditionalDataAttribute('mining-insight', hasMiningInsight, 'i-plus-one'),
         optionalDataAttribute('expression', token.card.spelling),
         optionalDataAttribute('reading', token.card.reading),

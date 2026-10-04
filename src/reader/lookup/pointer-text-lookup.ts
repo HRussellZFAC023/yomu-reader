@@ -193,7 +193,7 @@ export function pointerTextLookupFromRenderedWordStart(word: HTMLElement): Point
 
 function renderedWordLookupContext(word: HTMLElement): RenderedWordLookupContext | null {
     const surface = readerWordSurfaceText(word);
-    const span = renderedWordSentenceSpan(word, word.dataset.sentence ?? '', surface);
+    const span = renderedWordSentenceSpan(word, surface);
     return span ? { sentence: span.sentence, surface, tokenStart: span.start } : null;
 }
 

@@ -107,6 +107,7 @@ import {
     type TokenRenderOptions,
 } from './token-text-rendering';
 import { createRenderedWordSpan, renderRenderedWordHtml } from './rendered-word-markup';
+import { tokenWithSentenceStart } from './rendered-word-policy';
 
 export {
     inferredInflectedSurfaceRubies,
@@ -6595,7 +6596,7 @@ function insertMultiFragmentToken(range: Range, surface: string, token: JPDBToke
 
 function tokenWithReadableSentence(token: JPDBToken, text: string, fallback?: string): JPDBToken {
     const sentence = sentenceAroundRange(text, token.start, token.end, fallback) || fallback || token.sentence;
-    return sentence === token.sentence ? token : { ...token, sentence };
+    return tokenWithSentenceStart(token, text, sentence);
 }
 
 type IndexedTextFragment = TextFragment & {
@@ -6668,7 +6669,7 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
         if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
-        html += renderRenderedWordHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
+        html += renderRenderedWordHtml(text.slice(token.start, token.end), tokenWithSentenceStart(token, text), settings, miningInsightKeys);
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));

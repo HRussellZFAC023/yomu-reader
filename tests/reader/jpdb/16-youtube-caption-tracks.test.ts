@@ -1197,7 +1197,7 @@ describe('reader helpers', () => {
             spelling: '日本語',
             reading: 'にほんご',
         });
-        const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん' });
+        const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん', tokenStart: 1 });
         word.dataset.sentence = 'にほんごのじかん';
         const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
         const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
@@ -1253,7 +1253,7 @@ describe('reader helpers', () => {
             end: 4,
             pitchClass: 'heiban',
         });
-        const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん' });
+        const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん', tokenStart: 1 });
         word.dataset.sentence = 'にほんごのじかん';
         const parseJapanese = vi.fn(async () => [[token]]);
         const { internals, publicLookupCard, lookupText, showCard } = configureJitenRenderedWordTest(app, {
@@ -1296,7 +1296,7 @@ describe('reader helpers', () => {
             end: 4,
             pitchClass: 'heiban',
         });
-        const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん' });
+        const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん', tokenStart: 1 });
         word.dataset.sentence = 'にほんごのじかん';
         const parseJapanese = vi.fn(async () => [[token]]);
         const { internals, publicLookupCard, lookupText, showCard } = configureJitenRenderedWordTest(app, {

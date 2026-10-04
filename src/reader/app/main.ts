@@ -5939,7 +5939,7 @@ export class ReaderApp {
         stackOverSettings: boolean,
         scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
-        const span = unconfirmedRenderedWordSpan(word, card, context);
+        const span = unconfirmedRenderedWordSpan(word, card);
         if (!span) return false;
         try {
             const token = await this.parser.lookupTokenAt(
@@ -5959,7 +5959,7 @@ export class ReaderApp {
             this.parser.cacheCards?.([token.card]);
             await this.showRenderedWordCard(
                 token.card,
-                { ...context, sentence: span.sentence },
+                { ...context, sentence: context.sentence || span.sentence },
                 options,
                 stackOverSettings,
                 scope,
