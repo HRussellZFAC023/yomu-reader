@@ -420,6 +420,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   --jpdb-reader-subtitle-review-color: var(--jpdb-reader-review-color, transparent);
   --jpdb-reader-subtitle-review-text: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, var(--jpdb-reader-subtitle-fallback, currentColor)));
   --jpdb-reader-subtitle-review-decoration: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, transparent));
+  --jpdb-reader-subtitle-new-decoration: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-subtitle-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
   --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-subtitle-pitch-color));
   --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
@@ -448,6 +449,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   --jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, transparent));
   --jpdb-reader-subtitle-review-text: var(--jpdb-reader-review-color, var(--jpdb-reader-review-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
   --jpdb-reader-subtitle-review-decoration: var(--jpdb-reader-review-color, var(--jpdb-reader-review-readable, transparent));
+  --jpdb-reader-subtitle-new-decoration: var(--jpdb-reader-state-new);
   --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-subtitle-pitch-color);
   --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
 }
@@ -458,20 +460,23 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }
 .jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
 .jpdb-reader-subtitle-underline-review :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-review-decoration); }
-/* Not-in-deck draws no deck-status underline, as on the page (see the matching
-   reader-words-ocr.css rule for the :not() lists and the :where() specificity).
-   The subtitle highlight wash derives from the same decoration vars, so only
-   the underline is reset. */
-.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jpdb-not-in-deck:not(
+/* The underline view of the JPDB and Status channels, as on the page: not-in-deck
+   ranks below every other state and, alone, draws nothing (see the
+   reader-words-ocr.css underline view for the :not() lists and the :where()
+   specificity). The subtitle highlight wash derives from the same decoration
+   vars, so only the underline changes. */
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
   .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
   .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
 )),
-.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jpdb-not-in-deck:not(
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
   .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
   .jpdb-due, .jpdb-failed, .jpdb-suspended,
   .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
-)),
-:is(.jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-status) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jiten-not-in-deck) { --jpdb-reader-word-underline: transparent; }
+)) { --jpdb-reader-word-underline: transparent; }
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed)) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended)) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-review-decoration); }
+:is(.jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-status) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-new, .jpdb-in-deck)) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-new-decoration); }
 /* Unknown-pitch words keep their internal class for later enrichment, but do
    not paint the old neutral grey underline. A pitch underline should mean an
    actual resolved pitch class. */

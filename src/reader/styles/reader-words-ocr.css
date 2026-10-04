@@ -29,6 +29,10 @@
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
+  /* What the JPDB and Status channels draw as an underline: their decoration,
+     except where the not-in-deck rules below the state cascade step in. */
+  --jpdb-reader-jpdb-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-status-underline: var(--jpdb-reader-source-status-decoration, transparent);
   position: relative;
   display: inline !important;
   white-space: nowrap;
@@ -745,40 +749,56 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   );
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
+/* The underline view of the JPDB and Status channels, read by page words and
+   additive mirrors (subtitles-youtube.css repeats it for subtitle lanes).
+   Not-in-deck has no colour picker, so on the underline it ranks below every
+   other state and, alone, draws nothing, as unknown pitch draws nothing
+   (1.6.98). The cascade above ranks it higher, which still sets the quiet
+   highlight wash and the text colour; only these two vars change. A word can
+   carry a second state: Anki's (projected as jpdb-* on pages, anki-* in Study)
+   and, in Study, jiten-<state> beside jpdb-<state>. :where() keeps every rule
+   at one specificity, so source order decides.
+   tests/reader/underline-colour-sources-css.test.ts holds this to the cascade. */
+/* Where the channel colour resolves to not-in-deck: nothing. Each :not() list
+   names the states its channel ranks after jpdb-not-in-deck, which keep their
+   colour; jiten-not-in-deck ranks after every state a word carries with it. */
+.jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
+)) {
+  --jpdb-reader-jpdb-underline: transparent;
+}
+.jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended,
+  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+)) {
+  --jpdb-reader-status-underline: transparent;
+}
+/* Where that hid a state the learner has a colour for, show that state. The
+   JPDB lane already ranks Ignored (and frequent/unparsed) after not-in-deck,
+   and the review lane holds Study's Anki state. */
+.jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed)) {
+  --jpdb-reader-status-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
+}
+.jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended)) {
+  --jpdb-reader-status-underline: var(--jpdb-reader-source-review-decoration, transparent);
+}
+.jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-new, .jpdb-in-deck)) {
+  --jpdb-reader-jpdb-underline: var(--jpdb-reader-state-new);
+  --jpdb-reader-status-underline: var(--jpdb-reader-state-new);
+}
 .jpdb-reader-word-underline-status .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
 .jpdb-reader-word-underline-jpdb .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-jpdb-underline, transparent);
 }
 .jpdb-reader-word-underline-review .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-review-decoration, transparent);
 }
 .jpdb-reader-word-underline-pitch .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
-}
-/* Not-in-deck has no colour picker, so a deck-status underline draws nothing
-   where the channel colour above resolves to it, as unknown pitch draws
-   nothing (1.6.98). A word can carry a second state (Anki's, projected as
-   jpdb-* on pages or anki-* in Study); each :not() list names the states its
-   channel ranks after not-in-deck, which keep their colour. jiten-not-in-deck
-   ranks last in both. Only the underline channel changes: the shared source
-   vars also feed the highlight wash and the mirror lanes. :where() keeps the
-   reset at the channel rules' specificity, winning on source order alone, so
-   a deliberately stronger rule still wins (Study's headword keeps its pitch
-   underline in every mode).
-   tests/reader/underline-colour-sources-css.test.ts holds this to the cascade. */
-.jpdb-reader-word-underline-jpdb .jpdb-reader-word:where(.jpdb-not-in-deck:not(
-  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
-  .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
-)),
-.jpdb-reader-word-underline-status .jpdb-reader-word:where(.jpdb-not-in-deck:not(
-  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
-  .jpdb-due, .jpdb-failed, .jpdb-suspended,
-  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
-)),
-:is(.jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-status) .jpdb-reader-word:where(.jiten-not-in-deck) {
-  --jpdb-reader-word-decoration-source: transparent;
 }
 /* Some expressions have no defensible whole-word accent, but Jiten provides
    an exact aligned decomposition whose components each do (王子様 → 王子 +
@@ -1012,14 +1032,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-text-status
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-jpdb,
   .jpdb-reader-word-underline-jpdb,
   .jpdb-reader-word-text-jpdb
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-jpdb-underline, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-review,

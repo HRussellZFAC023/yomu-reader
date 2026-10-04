@@ -7,16 +7,20 @@
 //     "hide this group", "Only new" and "Hide JPDB-redundant styling" options
 //     left that gradient in place;
 //   * under a deck-status underline (JPDB/Jiten status or Status), every word in
-//     none of the learner's decks got a derived grey with no picker.
+//     none of the learner's decks got a derived grey with no picker. Not-in-deck
+//     now ranks last on that underline: alone it draws nothing, and beside a
+//     state the learner has a colour for (JPDB New that Anki lacks, a Study
+//     word Anki tracks) that state's colour shows.
 //
 // Page lane: the built userscript and yomu.css on a fixture page, with JPDB
 // parse, public Jiten and AnkiConnect mocked, so the runtime's gradient and
 // readability pass are the real ones. Static lane: FIXTURE markup under the
-// built yomu.css for the pure cascade contracts (the subtitle channel, the
-// "Only new" and redundant opt-outs), and under the built Study CSS for the
-// prompt headword, which keeps its pitch underline in every word-underline
-// mode. Chromium by default; YOMU_UNDERLINE_SOURCES_ENGINE=webkit checks the
-// !important custom-property override in WebKit.
+// built yomu.css for the pure cascade contracts (the subtitle channel, additive
+// mirrors, the "Only new" and redundant opt-outs), and under the built Study
+// CSS for the prompt headword, which keeps its pitch underline in every
+// word-underline mode, and for Study words Anki tracks. Chromium by default;
+// YOMU_UNDERLINE_SOURCES_ENGINE=webkit checks the !important custom-property
+// override in WebKit.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -41,6 +45,7 @@ const STUDY_CSS_PATH = path.join(NEWTAB_DIR, 'styles.css');
 const ENGINE = process.env.YOMU_UNDERLINE_SOURCES_ENGINE === 'webkit' ? 'webkit' : 'chromium';
 const OUT = path.join(ARTIFACTS, 'underline-colour-sources', ENGINE);
 const HEIBAN = 'rgb(53, 158, 255)';
+const LEARNING = 'rgb(255, 209, 102)';
 const UNKNOWN_SWATCH = 'rgb(148, 163, 184)';
 // White New on a white page: the readability pass darkens the underline to
 // #858585 so it stays visible. That grey is by design and must survive.
@@ -102,17 +107,18 @@ const BASE_SETTINGS = {
 
 const IN_DECK = ['jpdb-new', 'jpdb-known', 'jpdb-due', 'jpdb-failed', 'jpdb-blacklisted'];
 const DECK_SCENARIOS = [
-    { id: 'underline-jpdb-light', theme: 'light', settings: { wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb', keep: IN_DECK },
-    { id: 'underline-jpdb-dark', theme: 'dark', settings: { wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb', keep: IN_DECK },
+    { id: 'underline-jpdb-light', theme: 'light', settings: { wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
+    { id: 'underline-jpdb-dark', theme: 'dark', settings: { wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
     // With Anki on, an ordinary page projects Anki's verdict as a second state
     // class, so every word the mock collection lacks also carries
-    // jpdb-not-in-deck. A state each channel ranks after not-in-deck keeps its
-    // colour; one ranked before it (New, and Ignored under Status) painted the
-    // not-in-deck grey and now paints nothing.
-    { id: 'underline-jpdb-anki-light', theme: 'light', settings: { wordUnderlineColorSource: 'jpdb', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-jpdb', keep: IN_DECK.slice(1) },
+    // jpdb-not-in-deck. Each channel's colour cascade ranks some states below
+    // not-in-deck (New, and Ignored under Status); those painted the
+    // not-in-deck grey and must now show their own colour, the same as on the
+    // page without Anki.
+    { id: 'underline-jpdb-anki-light', theme: 'light', settings: { wordUnderlineColorSource: 'jpdb', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-jpdb', sameAs: 'underline-jpdb-light' },
     // Status needs a review source beside the deck state, or it resolves to
     // the JPDB channel.
-    { id: 'underline-status-light', theme: 'light', settings: { wordUnderlineColorSource: 'status', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-status', keep: ['jpdb-known', 'jpdb-due', 'jpdb-failed'] },
+    { id: 'underline-status-light', theme: 'light', settings: { wordUnderlineColorSource: 'status', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-status', sameAs: 'underline-jpdb-light' },
 ];
 
 // [matches(url), respond(request, rows, url)], first match wins.
@@ -147,6 +153,7 @@ try {
     await checkCompoundPitch();
     await checkDeckStatusUnderline();
     await checkSubtitleUnderline();
+    await checkMirrorUnderline();
     await checkStudyHeadword();
 } finally {
     writeFileSync(path.join(OUT, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
@@ -207,25 +214,38 @@ async function checkDeckStatusUnderline() {
     for (const scenario of DECK_SCENARIOS) {
         expectNoNotInDeckUnderline(scenario, await deckScenario(scenario.id, scenario.theme, scenario.settings));
     }
-    const light = report.page['underline-jpdb-light'];
-    expect(light.words.find(word => word.classes.includes('jpdb-new'))?.underline === NEW_ON_WHITE,
-        'A white New underline on a white page should still darken to #858585.', light);
+    // Exact, because the not-in-deck grey it used to get with Anki on
+    // (rgb(120, 125, 134)) is close.
+    for (const id of ['underline-jpdb-light', 'underline-jpdb-anki-light', 'underline-status-light']) {
+        const result = report.page[id];
+        expect(result.words.find(word => word.classes.includes('jpdb-new'))?.underline === NEW_ON_WHITE,
+            `${id}: a white New underline on a white page should still darken to #858585, Anki card or not.`, result);
+    }
 }
 
-function expectNoNotInDeckUnderline({ id, rootClass, keep }, result) {
+function expectNoNotInDeckUnderline({ id, rootClass, sameAs }, result) {
     assert(result.root.split(' ').includes(rootClass), `Expected the page to use ${rootClass}.`, result);
-    const marked = result.words.filter(word => word.classes.includes('jpdb-not-in-deck'));
-    const untracked = marked.filter(word => !word.classes.some(isOtherDeckState));
+    const untracked = result.words.filter(word => word.classes.includes('jpdb-not-in-deck') && !word.classes.some(isOtherDeckState));
     assert(untracked.length >= 3, 'Expected the words in no deck to be annotated.', result);
     expect(untracked.every(word => isTransparent(word.underline)),
         `${id}: words in none of the learner's decks should get no deck-status underline.`, result);
-    expect(marked.every(word => !isGrey(word.underline)),
-        `${id}: no word marked not-in-deck should paint a grey underline.`, result);
     expect(untracked.every(word => !isTransparent(word.highlight)),
         `${id}: words in no deck should keep their quiet highlight wash.`, result);
-    for (const state of keep) {
+    for (const state of IN_DECK) {
         expect(!isTransparent(result.words.find(word => word.classes.includes(state))?.underline),
             `${id}: a ${state} word should keep its state underline.`, result);
+    }
+    if (sameAs) expectSameStateUnderlines(id, result, report.page[sameAs]);
+}
+
+// The same words without Anki's not-in-deck beside them: same state, same
+// colour, not the not-in-deck grey. The readability pass may move a colour a
+// shade, because the not-in-deck wash behind it is lighter.
+function expectSameStateUnderlines(id, result, reference) {
+    for (const word of result.words.filter(entry => entry.classes.some(isOtherDeckState))) {
+        const without = reference.words.find(entry => entry.text === word.text);
+        expect(colourDistance(word.underline, without?.underline) <= 24,
+            `${id}: ${word.text}, which Anki lacks, should keep the underline it has without Anki.`, { word, without });
     }
 }
 
@@ -292,7 +312,7 @@ function readWords() {
 async function checkSubtitleUnderline() {
     const results = {};
     for (const underline of ['pitch', 'off', 'jpdb', 'status']) {
-        results[underline] = await readStaticFixture(subtitleFixture(underline), ['not-in-deck', 'new', 'known', 'projected', 'study'], word => ({
+        results[underline] = await readStaticFixture(subtitleFixture(underline), ['not-in-deck', 'new', 'known', 'projected', 'projected-new', 'projected-ignored', 'study'], word => ({
             underline: getComputedStyle(word, '::after').borderBottomColor,
             highlight: getComputedStyle(word).backgroundImage,
             subtitleHighlight: getComputedStyle(word).getPropertyValue('--jpdb-reader-subtitle-highlight').trim(),
@@ -312,10 +332,32 @@ async function checkSubtitleUnderline() {
             `A not-in-deck subtitle word should get no ${mode} underline.`, results);
         expect(['new', 'known', 'projected'].every(id => !isTransparent(results[mode][id].underline)),
             `In-deck subtitle words, including one Anki holds no card for, should keep their ${mode} underline.`, results);
+        expect(results[mode]['projected-new'].underline === results[mode].new.underline,
+            `A JPDB New subtitle word Anki lacks should keep the New ${mode} underline.`, results);
     }
+    expect(results.status['projected-ignored'].underline === results.jpdb['projected-ignored'].underline
+        && !isTransparent(results.status['projected-ignored'].underline),
+    'An Ignored subtitle word Anki lacks should keep the Ignored Status underline.', results);
     // Study marks a word Anki holds with its Anki state; Status still
-    // shows that state even when no JPDB/Jiten deck has the word.
-    expect(!isTransparent(results.status.study.underline), 'A not-in-deck word with an Anki state keeps its Status underline.', results);
+    // shows that state for a keyless Jiten word no JPDB/Jiten deck has.
+    expect(results.status.study.underline === LEARNING, 'A not-in-deck Study word with an Anki state keeps its Status underline.', results);
+}
+
+// Additive mirrors (YouTube buttons, menus, comments) cannot repaint the host's
+// glyphs, so every colour mode, highlight included, lands on their underline.
+// They follow the page: not-in-deck alone draws nothing there either.
+async function checkMirrorUnderline() {
+    const results = {};
+    for (const roots of ['jpdb-reader-word-highlight-jpdb', 'jpdb-reader-word-underline-status']) {
+        results[roots] = await readStaticFixture(mirrorFixture(roots), ['not-in-deck', 'projected-new', 'known'],
+            word => getComputedStyle(word, '::after').borderBottomColor);
+    }
+    report.mirrors = results;
+    for (const result of Object.values(results)) {
+        expect(isTransparent(result['not-in-deck']), 'A not-in-deck word on an additive mirror should get no underline.', results);
+        expect(['projected-new', 'known'].every(id => !isTransparent(result[id])),
+            'Words with a state, including a New one Anki lacks, keep their underline on an additive mirror.', results);
+    }
 }
 
 // Study draws the prompt and recall headword on its pitch underline whatever
@@ -324,7 +366,7 @@ async function checkSubtitleUnderline() {
 async function checkStudyHeadword() {
     const results = {};
     for (const underline of ['pitch', 'jpdb', 'status']) {
-        results[underline] = await readStaticFixture(studyFixture(underline), ['headword', 'jiten-headword', 'sentence-word'],
+        results[underline] = await readStaticFixture(studyFixture(underline), ['headword', 'jiten-headword', 'sentence-word', 'anki-word'],
             word => getComputedStyle(word, '::after').borderBottomColor);
     }
     report.study = results;
@@ -332,6 +374,11 @@ async function checkStudyHeadword() {
         'A not-in-deck Study headword should keep its pitch underline in every word-underline mode.', results);
     expect(['jpdb', 'status'].every(mode => isTransparent(results[mode]['sentence-word'])),
         'A not-in-deck word outside the Study headword should get no deck-status underline.', results);
+    // Keyless public Jiten makes every Study word jpdb- and jiten-not-in-deck;
+    // Status still shows the state Anki has for it, and the JPDB/Jiten
+    // underline, which never reads Anki, stays bare.
+    expect(results.status['anki-word'] === LEARNING, 'A Study word Anki tracks should keep its Anki state on the Status underline.', results);
+    expect(isTransparent(results.jpdb['anki-word']), 'The JPDB/Jiten underline should stay bare on a Study word only Anki tracks.', results);
 }
 
 // Static fixtures run the built CSS only; `read` runs in the page.
@@ -366,13 +413,14 @@ function subtitleFixture(underline) {
   body { margin: 0; background: #101010; color: #fff; font: 40px/1.6 sans-serif; }
 </style></head><body>
 <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-primary">
-  <span id="not-in-deck" class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">練習</span><span id="new" class="jpdb-reader-word jpdb-new jpdb-pitch-nakadaka" data-pitch-class="nakadaka">新しい</span><span id="known" class="jpdb-reader-word jpdb-known jpdb-pitch-heiban" data-pitch-class="heiban">言葉</span><span id="projected" class="jpdb-reader-word jpdb-known jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">毎日</span><span id="study" class="jpdb-reader-word jpdb-not-in-deck anki-learning jpdb-pitch-heiban" data-pitch-class="heiban">勉強</span>
+  <span id="not-in-deck" class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">練習</span><span id="new" class="jpdb-reader-word jpdb-new jpdb-pitch-nakadaka" data-pitch-class="nakadaka">新しい</span><span id="known" class="jpdb-reader-word jpdb-known jpdb-pitch-heiban" data-pitch-class="heiban">言葉</span><span id="projected" class="jpdb-reader-word jpdb-known jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">毎日</span><span id="projected-new" class="jpdb-reader-word jpdb-new jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">新しい</span><span id="projected-ignored" class="jpdb-reader-word jpdb-blacklisted jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">上手</span><span id="study" class="jpdb-reader-word jpdb-not-in-deck jiten-not-in-deck anki-learning jpdb-pitch-heiban" data-pitch-class="heiban">勉強</span>
 </div></div></div>
 </body></html>`;
 }
 
 // FIXTURE markup: the Study prompt headword as renderPromptReaderWord emits it,
-// beside a sentence word, under the root classes applyReaderTheme sets.
+// beside sentence words with the classes a keyless Jiten parse and Anki give
+// them, under the root classes applyReaderTheme sets.
 function studyFixture(underline) {
     const headword = (id, classes) => `<span class="jpdb-reader-newtab-term"><span id="${id}" class="jpdb-reader-word jpdb-reader-parseable ${classes} jpdb-pitch-heiban" data-pitch-class="heiban">練習</span></span>`;
     return `<!doctype html>
@@ -380,8 +428,18 @@ function studyFixture(underline) {
   body { margin: 0; padding: 24px; background: #fff; color: #1f2328; font: 32px/1.9 sans-serif; }
 </style></head><body>
 ${headword('headword', 'jpdb-not-in-deck')} ${headword('jiten-headword', 'jpdb-not-in-deck jiten-not-in-deck')}
-<p><span id="sentence-word" class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">練習</span></p>
+<p><span id="sentence-word" class="jpdb-reader-word jpdb-not-in-deck jiten-not-in-deck jpdb-pitch-heiban" data-pitch-class="heiban">練習</span><span id="anki-word" class="jpdb-reader-word jpdb-not-in-deck jiten-not-in-deck anki-learning jpdb-pitch-heiban" data-pitch-class="heiban">勉強</span></p>
 </body></html>`;
+}
+
+// FIXTURE markup: an additive text mirror over a host label, as
+// text-mirror rendering emits it, under the given root classes.
+function mirrorFixture(roots) {
+    const word = (id, classes) => `<span id="${id}" class="jpdb-reader-word ${classes}">語</span>`;
+    return `<!doctype html>
+<html class="${roots}"><head><meta charset="utf-8"><style>${READER_CSS}
+  body { margin: 0; padding: 24px; background: #fff; color: #1f2328; font: 32px/1.9 sans-serif; }
+</style></head><body><button><span class="jpdb-reader-text-mirror jpdb-reader-additive-text-mirror">${word('not-in-deck', 'jpdb-not-in-deck')}${word('projected-new', 'jpdb-new jpdb-not-in-deck')}${word('known', 'jpdb-known jpdb-not-in-deck')}</span></button></body></html>`;
 }
 
 function fixturePage(theme, text) {
@@ -419,10 +477,12 @@ function isOtherDeckState(className) {
     return /^(jpdb|anki)-(new|in-deck|learning|young|known|mature|mastered|never-forget|redundant|due|failed|suspended|blacklisted|locked)$/.test(className);
 }
 
-// Visible and low-chroma: the derived not-in-deck colour is #9ea5b0/#a3aab4.
-function isGrey(value) {
-    const [r, g, b, alpha = 1] = (gradientColours(value)[0] ?? '').match(/[\d.]+/g)?.map(Number) ?? [];
-    return alpha > 0.05 && Math.max(r, g, b) - Math.min(r, g, b) < 24;
+// Largest per-channel gap between two colours; Infinity if either is missing
+// or transparent.
+function colourDistance(left, right) {
+    if (isTransparent(left) || isTransparent(right)) return Infinity;
+    const [a, b] = [left, right].map(value => gradientColours(value)[0].match(/[\d.]+/g).map(Number));
+    return Math.max(...[0, 1, 2].map(index => Math.abs(a[index] - b[index])));
 }
 
 // 'none', a transparent colour, or a gradient whose every stop is transparent.
