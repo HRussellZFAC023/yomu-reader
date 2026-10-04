@@ -150,7 +150,17 @@ async function fetchDictionaryBlob(
     onProgress: ((message: string) => void) | undefined,
     language: InterfaceLanguage,
 ): Promise<Blob> {
-    const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', timeoutMs: 120000 });
+    // Direct first: the dictionary mirror answers any origin, and an extension
+    // page holds host permission for the rest. Without it a cross-origin archive
+    // had no candidate at all unless a proxy was configured, so every install on
+    // Study failed at once with "No configured proxy."
+    const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, {
+        credentials: 'omit',
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer',
+        timeoutMs: 120000,
+        allowDirectCrossOrigin: true,
+    });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
     log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });

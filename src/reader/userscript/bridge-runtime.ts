@@ -292,10 +292,19 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
                 return;
             }
             cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
-            const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-            dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+            dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: withoutCallbacks(options) });
         });
     }));
+}
+
+/**
+ * Every callback stays on this side. A function cannot be structured-cloned, and
+ * the browser hands an installed Reader in another world a `null` detail rather
+ * than the rest of the request -- so one `onprogress` silently dropped every
+ * dictionary download until the page's own 120 s deadline fired.
+ */
+function withoutCallbacks(options: UserscriptHttpRequestOptions): UserscriptHttpRequestOptions {
+    return Object.fromEntries(Object.entries(options).filter(([, value]) => typeof value !== 'function')) as UserscriptHttpRequestOptions;
 }
 
 function tagEventBridgeRequest(request: (options: UserscriptHttpRequestOptions) => Promise<UserscriptHttpResponse>): UserscriptHttpRequest {

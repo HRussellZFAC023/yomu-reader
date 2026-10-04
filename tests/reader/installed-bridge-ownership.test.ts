@@ -160,6 +160,27 @@ describe('hosted page bridge ownership', () => {
         expect(userscript.requests).toEqual([]);
     });
 
+    it('sends a request with a progress callback to a Reader in another world', async () => {
+        const extension = gmStore();
+        runExtensionPrelude();
+        await startInstalledRealm('extension', extension);
+        const page = await pageWorld();
+        // A browser structured-clones an event detail into another world and
+        // hands over null when that fails, so the detail must clone cleanly.
+        const details: unknown[] = [];
+        const capture = (event: Event) => details.push((event as CustomEvent).detail);
+        window.addEventListener('yomu-userscript-http-request', capture);
+
+        const request = page.http.getUserscriptHttpRequest();
+        const response = await request!({ method: 'GET', url: KANJI_URL, responseType: 'blob', onprogress: () => undefined });
+        window.removeEventListener('yomu-userscript-http-request', capture);
+
+        expect(response).toMatchObject({ responseText: 'extension' });
+        expect(extension.requests).toEqual([KANJI_URL]);
+        expect(details.length).toBeGreaterThan(0);
+        for (const detail of details) expect(() => structuredClone(detail)).not.toThrow();
+    });
+
     it('fetches at once while the installed Reader has no Learning Target and so no request responder', async () => {
         vi.useFakeTimers();
         await startInstalledRealm('userscript', gmStore(), { targetChosen: false });
