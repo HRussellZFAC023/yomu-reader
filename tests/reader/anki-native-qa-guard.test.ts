@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 
-const source = readFileSync(resolve(process.env.YOMU_NATIVE_QA_GUARD_SOURCE ?? 'scripts/manual/prepare-firefox-anki-qa.mjs'), 'utf8');
+const source = readFileSync(resolve('scripts/manual/prepare-firefox-anki-qa.mjs'), 'utf8');
 const start = source.indexOf('function installGuard(');
 if (start < 0) throw new Error('Native QA guard was not found.');
 const config = { endpoint: 'http://127.0.0.1:8765', phaseId: 'qa-phase', cardId: 17, noteId: 19,
