@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { userFacingCopyKeyOf } from '../../../src/reader/app/user-facing-errors';
 import {
     registerReaderHelpersCleanup,
     CardActionController,
@@ -526,24 +527,16 @@ describe('reader helpers', () => {
     });
 
     it('ships recommended dictionary downloads for every install card', () => {
-        const dictionary = findRecommendedDictionary('jmdict');
-        expect(dictionary?.downloadUrl).toContain('JMdict_english.zip');
+        expect(findRecommendedDictionary('jitendex')?.downloadUrl).toMatch(/^https:\/\/dictionaries\.yomureader\.com\/objects\/sha256\/[0-9a-f]{64}\.zip$/u);
         expect(findRecommendedDictionary('wty-ja-ja')?.downloadUrl).toContain('wty-ja-ja.zip');
-        expect(findRecommendedDictionary('pixiv-light')?.downloadUrl).toContain('PixivLight.zip');
-        expect(findRecommendedDictionary('jpdb-kanji')?.downloadUrl).toContain('JPDB%20Kanji.zip');
         expect(findRecommendedDictionary('kanjium-pitch')?.downloadUrl).toContain('kanjium_pitch_accents.zip');
-        expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl || item.helpUrl))).toBe(true);
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
             'Jitendex',
-            'JMdict',
-            'JMnedict',
             'WTY JA-JA',
             'Pixiv Light',
-            'KANJIDIC',
             'JPDB Kanji',
             'Kanjium pitch accents',
-            'JPDBv2㋕',
             'Jiten',
             'BCCWJ',
         ]);
@@ -1118,11 +1111,15 @@ describe('reader helpers', () => {
             const store = new YomitanDictionaryStore();
             await store.clear();
 
-            // The archive is tried directly (credentials omitted); the browser's
-            // CORS refusal is reported as a blocked download, which Settings turns
-            // into the manual-import hint.
-            await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
-                .rejects.toThrow(/blocked for github\.com/i);
+            // The page tries the host itself (18ebbbe80); a refused cross-origin
+            // read is named as blocked, so Settings can offer the manual import.
+            const error = await store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip').catch(caught => caught);
+            expect(userFacingCopyKeyOf(error)).toBe('dictionaryDownloadBlocked');
+            expect(String((error as Error).message)).toMatch(/blocked for github\.com/i);
+            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls
+                .map(([url]) => String(url))
+                .filter(url => url.includes('dict.zip'));
+            expect(urls).toEqual(['https://github.com/example/dict.zip']);
             expect(fetch).toHaveBeenCalledWith('https://github.com/example/dict.zip', expect.objectContaining({ credentials: 'omit' }));
         } finally {
             vi.unstubAllGlobals();

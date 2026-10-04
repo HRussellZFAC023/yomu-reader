@@ -41,7 +41,9 @@ export class OfflineDictionarySetupController {
     private async finish(result: OfflineDictionarySetupResult): Promise<void> {
         if (result.installed.length) await this.options.afterInstalled();
         const copyKey = offlineDictionarySetupCopyKey(result);
-        if (copyKey) this.options.notify(uiText(this.options.getSettings().interfaceLanguage, copyKey));
+        if (!copyKey) return;
+        const message = uiText(this.options.getSettings().interfaceLanguage, copyKey);
+        this.options.notify(result.reason ? `${message} ${result.reason}` : message);
     }
 }
 

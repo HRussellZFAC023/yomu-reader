@@ -95,7 +95,7 @@ import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import { selectAnkiLibraryChoices } from './anki-library-selection';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { formatUiText, uiText } from '../app/i18n';
-import { isUserFacingError, userFacingCopyKeyOf, userFacingError, userFacingErrorText } from '../app/user-facing-errors';
+import { userFacingCopyKeyOf, userFacingErrorText } from '../app/user-facing-errors';
 import {
     isLearningTargetRosterId,
     learningTargetRosterEntry,
@@ -109,6 +109,7 @@ import {
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, type ImportSummary } from '../dictionaries/yomitan';
 import { requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
+import { dictionaryInstallFailureText } from '../dictionaries/install-failure';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
 import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
@@ -180,7 +181,7 @@ function isSettingsCommandWord(word: HTMLElement): boolean {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
 }
 
-type RecommendedDictionaryInstallState = 'queued' | 'installing';
+type RecommendedDictionaryInstallState = 'queued' | 'installing' | 'failed';
 type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
 type AnkiConnectionAction = 'test-anki' | 'prepare-anki' | 'update-anki-model';
 type AnkiStatusTone = 'pending' | 'success' | 'error';
@@ -1720,40 +1721,33 @@ export class SettingsDialogController {
 
     private syncRecommendedDictionaryInstallControls(form: HTMLFormElement): void {
         form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
-            const dictionaryId = button.dataset.dictionaryId ?? '';
-            const operation = this.recommendedDictionaryOperations.get(dictionaryId);
-            const status = button.closest<HTMLElement>('.jpdb-reader-recommended-item')
-                ?.querySelector<HTMLElement>('[data-recommended-dictionary-status]');
-            if (!operation) {
-                delete button.dataset.importState;
-                delete button.dataset.importMessage;
-                button.disabled = false;
-                button.removeAttribute('disabled');
-                if (status) {
-                    status.hidden = true;
-                    status.textContent = '';
-                    delete status.dataset.importState;
-                }
-                const installed = button.dataset.installed === 'true';
-                const label = installed ? uiText(this.settings.interfaceLanguage, 'update') : uiText(this.settings.interfaceLanguage, 'install');
-                button.replaceChildren(label);
-                button.title = label;
-                button.setAttribute('aria-label', label);
-                return;
-            }
-            const label = uiText(this.settings.interfaceLanguage, operation.state === 'installing' ? 'installing' : 'queued');
-            button.disabled = true;
-            button.dataset.importState = operation.state;
-            button.dataset.importMessage = operation.message;
-            button.replaceChildren(label);
-            button.title = operation.message;
-            button.setAttribute('aria-label', operation.message);
-            if (status) {
-                status.hidden = false;
-                status.dataset.importState = operation.state;
-                status.textContent = operation.message;
-            }
+            const operation = this.recommendedDictionaryOperations.get(button.dataset.dictionaryId ?? '');
+            syncRecommendedDictionaryStatus(button, operation);
+            if (recommendedDictionaryBusy(operation)) this.showRecommendedDictionaryBusy(button, operation);
+            else this.showRecommendedDictionaryAction(button);
         });
+    }
+
+    /** Install or Update, ready to click; a failed card keeps its reason in the status line. */
+    private showRecommendedDictionaryAction(button: HTMLButtonElement): void {
+        delete button.dataset.importState;
+        delete button.dataset.importMessage;
+        button.disabled = false;
+        button.removeAttribute('disabled');
+        const label = uiText(this.settings.interfaceLanguage, button.dataset.installed === 'true' ? 'update' : 'install');
+        button.replaceChildren(label);
+        button.title = label;
+        button.setAttribute('aria-label', label);
+    }
+
+    private showRecommendedDictionaryBusy(button: HTMLButtonElement, operation: RecommendedDictionaryOperationState): void {
+        const label = uiText(this.settings.interfaceLanguage, operation.state === 'installing' ? 'installing' : 'queued');
+        button.disabled = true;
+        button.dataset.importState = operation.state;
+        button.dataset.importMessage = operation.message;
+        button.replaceChildren(label);
+        button.title = operation.message;
+        button.setAttribute('aria-label', operation.message);
     }
 
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2502,31 +2496,45 @@ export class SettingsDialogController {
 
     private async downloadRecommendedDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
         const dictionary = recommendedDictionaryForControl(control);
-        if (this.recommendedDictionaryOperations.has(dictionary.id)) return;
+        const previous = this.recommendedDictionaryOperations.get(dictionary.id);
+        if (previous && previous.state !== 'failed') return;
         const queuedMessage = formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryInstallQueued'), { dictionary: dictionary.name });
         this.setRecommendedDictionaryInstallState(form, dictionary.id, 'queued', queuedMessage);
         setStatus(queuedMessage);
         await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
+            const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
+            this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', startedMessage);
+            setStatus(startedMessage);
+            let summary: ImportSummary;
             try {
-                const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
-                this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', startedMessage);
-                setStatus(startedMessage);
-                const summary = await this.downloadRecommendedDictionary(dictionary, control, message => {
+                summary = await this.downloadRecommendedDictionary(dictionary, message => {
                     setStatus(message);
                     this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
                 });
-                if (!summary) return;
                 await this.persistDictionaryImport(summary);
-                setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRecordsImported'), {
-                    dictionary: dictionary.name,
-                    records: summary.entries.toLocaleString(),
-                }));
-                await this.refreshDictionaryStatus(form);
-                this.dependencies.refreshNewTabIfCurrent();
-            } finally {
-                this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+            } catch (error) {
+                // The card keeps the reason until its next click; the toast fades.
+                log.warn('Recommended dictionary install failed', { dictionary: dictionary.name }, error);
+                const message = this.recommendedDictionaryFailureText(error);
+                this.setRecommendedDictionaryInstallState(form, dictionary.id, 'failed', message);
+                setStatus(message);
+                this.dependencies.toast(message);
+                return;
             }
+            this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRecordsImported'), {
+                dictionary: dictionary.name,
+                records: summary.entries.toLocaleString(),
+            }));
+            await this.refreshDictionaryStatus(form);
+            this.dependencies.refreshNewTabIfCurrent();
         });
+    }
+
+    private recommendedDictionaryFailureText(error: unknown): string {
+        const language = this.settings.interfaceLanguage;
+        if (!this.shouldPromptManualDictionaryDownload(error)) return dictionaryInstallFailureText(language, error);
+        return `${userFacingErrorText(language, 'dictionaryDownloadBlocked', error)} ${uiText(language, 'dictionaryManualDownloadHint')}`;
     }
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
@@ -2549,56 +2557,22 @@ export class SettingsDialogController {
 
     private async downloadRecommendedDictionary(
         dictionary: RecommendedDictionary,
-        control: HTMLElement | null | undefined,
         setStatus: SettingsStatusSetter,
-    ): Promise<ImportSummary | null> {
-        if (!dictionary.downloadUrl) return null;
-        const downloadUrl = dictionary.downloadUrl;
-        try {
-            const importOptions = recommendedDictionaryImportOptions(dictionary);
-            return importOptions
-                ? await this.dependencies.dictionaries.importFromUrl(
-                    downloadUrl,
-                    recommendedDictionaryFilename(dictionary),
-                    message => setStatus(message),
-                    importOptions,
-                )
-                : await this.dependencies.dictionaries.importFromUrl(
-                    downloadUrl,
-                    recommendedDictionaryFilename(dictionary),
-                    message => setStatus(message),
-                );
-        } catch (error) {
-            return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
-        }
-    }
-
-    private handleRecommendedDictionaryDownloadError(
-        dictionary: RecommendedDictionary,
-        downloadUrl: string,
-        control: HTMLElement | null | undefined,
-        setStatus: SettingsStatusSetter,
-        error: unknown,
-    ): null {
-        control?.removeAttribute('disabled');
-        if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
-            // Re-throw an error that already knows what it is. Wrapping it in
-            // `dictionaryDownloadFailed` collapsed at least six distinct failures --
-            // a non-2xx, a non-ZIP payload, a timeout, a blocked cross-origin
-            // request, an integrity mismatch and an IndexedDB fault -- into one
-            // sentence, which is why GitHub #39 arrived with nothing to act on.
-            if (isUserFacingError(error)) throw error;
-            throw userFacingError('dictionaryDownloadFailed', {
-                cause: error,
-                diagnostic: error instanceof Error ? error.message : String(error),
-            });
-        }
-        const message = userFacingErrorText(this.settings.interfaceLanguage, 'dictionaryDownloadBlocked', error);
-        const status = `${message} ${uiText(this.settings.interfaceLanguage, 'dictionaryManualDownloadHint')}`;
-        setStatus(status);
-        this.dependencies.toast(status);
-        log.warn('Dictionary auto-download unavailable', { dictionary: dictionary.name, message });
-        return null;
+    ): Promise<ImportSummary> {
+        const downloadUrl = dictionary.downloadUrl ?? '';
+        const importOptions = recommendedDictionaryImportOptions(dictionary);
+        return importOptions
+            ? await this.dependencies.dictionaries.importFromUrl(
+                downloadUrl,
+                recommendedDictionaryFilename(dictionary),
+                message => setStatus(message),
+                importOptions,
+            )
+            : await this.dependencies.dictionaries.importFromUrl(
+                downloadUrl,
+                recommendedDictionaryFilename(dictionary),
+                message => setStatus(message),
+            );
     }
 
     /**
@@ -2615,8 +2589,7 @@ export class SettingsDialogController {
      * width, and neither change touches this file. The copy KEY is stable, so that
      * is what this reads.
      */
-    private shouldPromptManualDictionaryDownload(error: unknown, downloadUrl: string): boolean {
-        if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) return false;
+    private shouldPromptManualDictionaryDownload(error: unknown): boolean {
         const copyKey = userFacingCopyKeyOf(error);
         return copyKey === 'dictionaryDownloadBlocked' || copyKey === 'dictionaryDownloadNeedsBridge';
     }
@@ -2675,6 +2648,26 @@ export class SettingsDialogController {
         for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
     }
 
+}
+
+function recommendedDictionaryBusy(
+    operation: RecommendedDictionaryOperationState | undefined,
+): operation is RecommendedDictionaryOperationState {
+    return operation !== undefined && operation.state !== 'failed';
+}
+
+function syncRecommendedDictionaryStatus(button: HTMLButtonElement, operation: RecommendedDictionaryOperationState | undefined): void {
+    const status = button.closest<HTMLElement>('.jpdb-reader-recommended-item')
+        ?.querySelector<HTMLElement>('[data-recommended-dictionary-status]');
+    if (!status) return;
+    status.hidden = !operation;
+    if (operation) {
+        status.textContent = operation.message;
+        status.dataset.importState = operation.state;
+    } else {
+        status.textContent = '';
+        delete status.dataset.importState;
+    }
 }
 
 function isDictionarySourceOrderAction(action: string): boolean {

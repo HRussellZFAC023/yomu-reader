@@ -3133,20 +3133,23 @@ describe('settings dialog dictionary imports', () => {
             },
         });
 
+        const save = () => form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+        const saveStatus = () => form.querySelector<HTMLElement>('[data-settings-save-status]')!;
         recommendedButton(form, 'jitendex').click();
-        recommendedButton(form, 'jmdict').click();
+        recommendedButton(form, 'wty-ja-ja').click();
 
         await waitForCondition(() => importFromUrl.mock.calls.length === 1);
-        expect(importFromUrl.mock.calls[0]?.[3]).toBeUndefined();
+        // Jitendex installs from the mirror, so its digest travels with it.
+        expect(importFromUrl.mock.calls[0]![3]).toEqual({ integrity: { sha256: expect.any(String), bytes: expect.any(Number) } });
 
         expect(recommendedButton(form, 'jitendex').dataset.importState).toBe('installing');
         expect(recommendedStatus(form, 'jitendex').textContent).toContain('Reading dictionary ZIP');
-        expect(recommendedButton(form, 'jmdict').dataset.importState).toBe('queued');
-        expect(recommendedStatus(form, 'jmdict').textContent).toContain('queued');
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked).toBe('dictionary-import');
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save after install');
-        expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.textContent).toContain('2 installs running');
+        expect(recommendedButton(form, 'wty-ja-ja').dataset.importState).toBe('queued');
+        expect(recommendedStatus(form, 'wty-ja-ja').textContent).toContain('queued');
+        expect(save().disabled).toBe(true);
+        expect(save().dataset.saveBlocked).toBe('dictionary-import');
+        expect(save().textContent).toBe('Save after install');
+        expect(saveStatus().textContent).toContain('2 installs running');
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
@@ -3156,16 +3159,16 @@ describe('settings dialog dictionary imports', () => {
         firstImport.resolve(importSummary('Jitendex'));
         await waitForCondition(() => importFromUrl.mock.calls.length === 2);
 
-        expect(recommendedButton(form, 'jmdict').dataset.importState).toBe('installing');
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked).toBe('dictionary-import');
+        expect(recommendedButton(form, 'wty-ja-ja').dataset.importState).toBe('installing');
+        expect(save().disabled).toBe(true);
+        expect(save().dataset.saveBlocked).toBe('dictionary-import');
 
-        secondImport.resolve(importSummary('JMdict'));
-        await waitForCondition(() => form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked == null);
+        secondImport.resolve(importSummary('WTY JA-JA'));
+        await waitForCondition(() => save().dataset.saveBlocked == null);
 
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
-        expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.hidden).toBe(true);
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save');
+        expect(save().disabled).toBe(false);
+        expect(saveStatus().hidden).toBe(true);
+        expect(save().textContent).toBe('Save');
     }, 30_000);
 
     it('bulk imports every selected dictionary ZIP through the serialized queue', async () => {
@@ -3316,8 +3319,10 @@ describe('settings dialog dictionary imports', () => {
         recommendedButton(form, 'jitendex').click();
         await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
 
-        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe('Dictionary download failed.');
-        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary download failed.');
+        // The reason the error carries now follows the copy.
+        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent)
+            .toBe('Dictionary download failed. Could not remove old dictionary entries.');
+        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary download failed. Could not remove old dictionary entries.');
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
     });
 

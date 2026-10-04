@@ -7,6 +7,7 @@ import {
     dictionaryEntryDownload,
     type DictionaryCategory,
     type DictionaryCatalogEntry,
+    type DictionaryEntryDownload,
     type DictionaryRecommendation,
     type RecommendationRole,
     type Slice1LearnerLanguage,
@@ -56,29 +57,45 @@ type CuratedDictionary = readonly [
     category: RecommendedDictionaryCategory,
     name: string,
     descriptionKey: UiCopyKey,
-    downloadUrl: string,
+    /** The id of the published mirror copy, or an upstream URL that sends CORS. */
+    source: string,
 ];
-
-export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = ([
-    ['jitendex', 'terms', 'Jitendex', 'recommendedJitendex', 'https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip'],
-    ['jmdict', 'terms', 'JMdict', 'recommendedJmdict', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'],
-    ['jmnedict', 'terms', 'JMnedict', 'recommendedJmnedict', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip'],
-    ['wty-ja-ja', 'terms', 'WTY JA-JA', 'recommendedWtyJapaneseJapanese', 'https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip'],
-    ['pixiv-light', 'terms', 'Pixiv Light', 'recommendedPixivLight', 'https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip'],
-    ['kanjidic', 'kanji', 'KANJIDIC', 'recommendedKanjidic', 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip'],
-    ['jpdb-kanji', 'kanji', 'JPDB Kanji', 'recommendedJpdbKanji', 'https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip'],
-    ['kanjium-pitch', 'pitch', 'Kanjium pitch accents', 'recommendedKanjiumPitch', 'https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip'],
-    ['jpdbv2-kana', 'frequency', 'JPDBv2㋕', 'recommendedJpdbv2Kana', 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip'],
-    ['jiten', 'frequency', 'Jiten', 'recommendedJiten', 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan'],
-    ['bccwj', 'frequency', 'BCCWJ', 'recommendedBccwj', 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip'],
-] satisfies readonly CuratedDictionary[]).map(
-    ([id, category, name, descriptionKey, downloadUrl]) =>
-        ({ id, category, name, descriptionKey, downloadUrl }),
-);
 
 const CATALOG_ENTRY_BY_ID = new Map(
     FROZEN_DICTIONARY_CATALOG.entries.map(entry => [entry.id, entry]),
 );
+
+/**
+ * Hand-picked Japanese cards shown after the catalogue's own seed (which
+ * already offers JMdict, JMnedict, KANJIDIC and JPDBv2㋕). Each installs from
+ * Yomu's mirror, verified by its digest, except the two whose only copy is
+ * upstream; both of those hosts send CORS, so Study can fetch them directly.
+ */
+export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = ([
+    ['jitendex', 'terms', 'Jitendex', 'recommendedJitendex', 'drive-japanese-ja-en-jitendex-yomitan-2026-07-09-icndfbtjny'],
+    ['wty-ja-ja', 'terms', 'WTY JA-JA', 'recommendedWtyJapaneseJapanese', 'https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip'],
+    ['pixiv-light', 'terms', 'Pixiv Light', 'recommendedPixivLight', 'drive-japanese-ja-ja-encyclopedia-pixivlight-2026-07-23-b2yz0hz8ye'],
+    ['jpdb-kanji', 'kanji', 'JPDB Kanji', 'recommendedJpdbKanji', 'drive-japanese-kanji-jpdb-kanji-gyuvmtw8ve'],
+    ['kanjium-pitch', 'pitch', 'Kanjium pitch accents', 'recommendedKanjiumPitch', 'https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip'],
+    ['jiten', 'frequency', 'Jiten', 'recommendedJiten', 'drive-japanese-ja-freq-jiten-freq-global-2026-07-23-gtrllz-fon'],
+    ['bccwj', 'frequency', 'BCCWJ', 'recommendedBccwj', 'drive-japanese-ja-freq-bccwj-suw-luw-combined-wpf0pnuvsu'],
+] satisfies readonly CuratedDictionary[]).map(
+    ([id, category, name, descriptionKey, source]) =>
+        ({ id, category, name, descriptionKey, ...curatedDownload(source) }),
+);
+
+function curatedDownload(source: string): Pick<RecommendedDictionary, 'downloadUrl' | 'sha256' | 'bytes'> {
+    if (source.startsWith('https://')) return { downloadUrl: source };
+    const { url, sha256, bytes } = mirroredCatalogDownload(source);
+    return { downloadUrl: url, sha256, bytes };
+}
+
+function mirroredCatalogDownload(id: string): DictionaryEntryDownload {
+    const entry = CATALOG_ENTRY_BY_ID.get(id);
+    const download = entry && dictionaryEntryDownload(entry, FROZEN_DICTIONARY_CATALOG.objectsBaseUrl);
+    if (!download?.mirrored) throw new Error(`Curated dictionary "${id}" is not published on the mirror.`);
+    return download;
+}
 
 const CATALOG_RECOMMENDATIONS_BY_LANGUAGE: Readonly<
     Record<Slice1LearnerLanguage, readonly RecommendedDictionary[]>
@@ -145,21 +162,20 @@ export function recommendedDictionaryInstalledIdentity(
 }
 
 /**
- * Integrity terms for a catalogue install, where there are any to state.
+ * Integrity terms for an install, where there are any to state.
  *
  * A mirror-served archive is content-addressed, so a missing digest means the
  * catalogue is wrong and the install must fail loudly rather than fetch
- * unverified bytes. An archive the publishing project serves itself has no
- * digest to state — its URL names the project's current build — so it installs
- * on the same terms as the hand-curated upstream cards above it.
+ * unverified bytes, whichever card offers it. An archive the publishing
+ * project serves itself has no digest to state — its URL names the project's
+ * current build.
  */
 export function recommendedDictionaryImportOptions(
     dictionary: RecommendedDictionary,
 ): DictionaryImportOptions | undefined {
-    if (dictionary.origin !== 'catalog') return undefined;
     if (!isMirrorServedDownload(dictionary.downloadUrl)) return undefined;
     if (!dictionary.sha256 || !dictionary.bytes) {
-        throw new Error(`Catalogue dictionary "${dictionary.id}" is missing integrity metadata.`);
+        throw new Error(`Mirrored dictionary "${dictionary.id}" is missing integrity metadata.`);
     }
     return {
         integrity: {

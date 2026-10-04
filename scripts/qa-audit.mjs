@@ -2025,11 +2025,13 @@ function hasHelpLinks(snapshot) {
         && /Docs|ドキュメント/.test(snapshot.helpCopy);
 }
 
+// The catalogue seed (JMdict, JMnedict, KANJIDIC, JPDB v2.2 kana frequency)
+// comes first; the hand-picked Japanese cards no longer repeat it.
 function hasRecommendedDictionaryDownloads(snapshot) {
-    const requiredNames = ['JMdict', 'Jitendex', 'JMnedict', 'KANJIDIC', 'Jiten', 'JPDBv2', 'BCCWJ'];
+    const requiredNames = ['JMdict', 'JMnedict', 'KANJIDIC', 'JPDB_v2', 'Jitendex', 'Jiten', 'BCCWJ'];
     return snapshot.recommendedDownloads >= requiredNames.length
         && requiredNames.every(name => new RegExp(name, 'i').test(snapshot.recommendedDownloadText))
-        && textAppearsBefore(snapshot.recommendedDownloadText, 'Jiten', 'JPDBv2');
+        && textAppearsBefore(snapshot.recommendedDownloadText, 'JMdict', 'Jitendex');
 }
 
 function textAppearsBefore(text, first, second) {

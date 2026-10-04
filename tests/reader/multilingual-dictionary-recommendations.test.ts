@@ -155,7 +155,7 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
         for (const curated of RECOMMENDED_JAPANESE_DICTIONARIES) {
             expect(form.querySelector(`[data-dictionary-id="${curated.id}"]`)).not.toBeNull();
         }
-        expect(findRecommendedDictionary('jitendex')!.downloadUrl).toBe('https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip');
+        expect(findRecommendedDictionary('jitendex')!.downloadUrl).toBe('https://dictionaries.yomureader.com/objects/sha256/807d911114af9d2154d270702972aafb2b6a6c2dc2400afa98db870d035c1a0b.zip');
     });
 
     it('renders the selected target seed without offering curated Japanese defaults', () => {

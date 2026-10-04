@@ -1640,6 +1640,9 @@
 .jpdb-reader-recommended-status[data-import-state="queued"] {
   color: var(--jpdb-reader-muted);
 }
+.jpdb-reader-recommended-status[data-import-state="failed"] {
+  color: var(--jpdb-reader-danger-readable);
+}
 .jpdb-reader-order-head,
 .jpdb-reader-order-row {
   --jpdb-reader-order-tools-width: 112px;

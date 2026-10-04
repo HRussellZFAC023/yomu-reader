@@ -14,6 +14,7 @@ import type {
     YomitanDictionaryInfo,
 } from './yomitan';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
+import { dictionaryInstallFailureText } from './install-failure';
 import type { ReaderSettings } from '../app/types';
 import {
     activeLanguageProfile,
@@ -53,6 +54,8 @@ export interface OfflineDictionarySetupResult {
     installed: string[];
     skipped: string[];
     failed: string[];
+    /** The first failure, named and explained, for the setup's closing message. */
+    reason?: string;
 }
 
 interface OfflineDictionarySetupPlan {
@@ -92,11 +95,21 @@ export async function installOfflineParsingDictionaries(options: OfflineDictiona
             ));
             result.installed.push(target.name);
         } catch (error) {
-            result.failed.push(target.name);
-            log.warn('Offline dictionary install failed', { dictionary: target.name }, error);
+            recordOfflineInstallFailure(result, target.name, error, options.getSettings().interfaceLanguage);
         }
     }
     return result;
+}
+
+function recordOfflineInstallFailure(
+    result: OfflineDictionarySetupResult,
+    name: string,
+    error: unknown,
+    language: ReaderSettings['interfaceLanguage'],
+): void {
+    result.failed.push(name);
+    result.reason ??= `${name}: ${dictionaryInstallFailureText(language, error)}`;
+    log.warn('Offline dictionary install failed', { dictionary: name }, error);
 }
 
 async function offlineDictionarySetupPlan(

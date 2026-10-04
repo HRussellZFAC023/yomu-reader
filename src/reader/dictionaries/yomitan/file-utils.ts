@@ -5,6 +5,7 @@ import { fetchWithCorsFallbacks } from '../../network/proxy-fetch';
 import type { InterfaceLanguage } from '../../app/types';
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../../userscript/index';
 import { localBytesFromView } from '../../platform/binary-realm';
+import { isYomuNewTabUrl } from '../../newtab/url';
 
 const log = Logger.scope('Yomitan');
 
@@ -63,8 +64,33 @@ export function formatBytes(value: number): string {
 export async function requestBlob(url: string, proxyUrl: string, onProgress?: (message: string) => void, language: InterfaceLanguage = 'en'): Promise<Blob> {
     const done = log.time('Dictionary download', { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
-    return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
+    if (!userscriptRequest) return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
+    if (!studyPageCanFetch(url)) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
+    return await requestBlobOnStudyPage(url, userscriptRequest, done, onProgress, language);
+}
+
+/**
+ * On Study the page itself reads any host that sends CORS, streaming its
+ * progress. The Reader bridge carries the whole archive in one message, which a
+ * 51 MB dictionary outlasts, so it only serves hosts the page may not read.
+ */
+function studyPageCanFetch(url: string): boolean {
+    return url.startsWith('https://') && isYomuNewTabUrl(location.href);
+}
+
+async function requestBlobOnStudyPage(
+    url: string,
+    userscriptRequest: NonNullable<ReturnType<typeof getUserscriptHttpRequest>>,
+    done: () => void,
+    onProgress: ((message: string) => void) | undefined,
+    language: InterfaceLanguage,
+): Promise<Blob> {
+    try {
+        return await fetchDictionaryBlob(url, url, '', done, onProgress, language);
+    } catch (error) {
+        if (isDictionaryCorsError(error)) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
+        return handleDictionaryFetchError(url, url, error, done);
+    }
 }
 
 function requestBlobViaUserscript(

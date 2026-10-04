@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { installOfflineParsingDictionaries } from '../../src/reader/dictionaries/offline-setup';
+import { OfflineDictionarySetupController } from '../../src/reader/dictionaries/offline-setup-controller';
 import {
     findRecommendedDictionary,
     recommendedDictionariesForLanguageProfile,
@@ -91,7 +92,12 @@ describe('offline dictionary setup', () => {
     it('reports every unavailable archive without applying settings', async () => {
         const harness = setupHarness({ unavailable: true });
         const result = await harness.run();
-        expect(result).toEqual({ installed: [], skipped: [], failed: ENGLISH_STARTER.map(dictionary => dictionary.name) });
+        expect(result).toEqual({
+            installed: [],
+            skipped: [],
+            failed: ENGLISH_STARTER.map(dictionary => dictionary.name),
+            reason: `${ENGLISH_STARTER[0]!.name}: Dictionary download failed. download failed`,
+        });
         expect(harness.importFromUrl).toHaveBeenCalledTimes(ENGLISH_STARTER.length);
         expect(harness.applySettings).not.toHaveBeenCalled();
         expect(harness.getSettings().localDictionariesEnabled).toBe(false);
@@ -107,7 +113,12 @@ describe('offline dictionary setup', () => {
     it('keeps installed, failed and successful archives distinct in a partial install', async () => {
         const harness = setupHarness({ installedUrls: [ENGLISH_STARTER[0]!.downloadUrl!], failUrl: ENGLISH_STARTER[1]!.downloadUrl });
         const result = await harness.run();
-        expect(result).toEqual({ skipped: [ENGLISH_STARTER[0]!.name], failed: [ENGLISH_STARTER[1]!.name], installed: ENGLISH_STARTER.slice(2).map(dictionary => dictionary.name) });
+        expect(result).toEqual({
+            skipped: [ENGLISH_STARTER[0]!.name],
+            failed: [ENGLISH_STARTER[1]!.name],
+            installed: ENGLISH_STARTER.slice(2).map(dictionary => dictionary.name),
+            reason: `${ENGLISH_STARTER[1]!.name}: Dictionary download failed. download failed`,
+        });
         expect(harness.getSettings().languageProfiles[0]!.dictionaries.installed).not.toContain(ENGLISH_STARTER[1]!.name);
     });
 
@@ -328,5 +339,30 @@ describe('offline dictionary setup', () => {
             .toEqual(english.dictionaries);
         expect(harness.getSettings().languageProfiles.find(profile => profile.id === korean.id)?.dictionaries.enabled)
             .toEqual(starterNames);
+    });
+});
+
+// The starter setup used to end on "Offline dictionary setup failed." alone,
+// with the reason only in the console.
+describe('offline dictionary setup message', () => {
+    it('ends with the first failure, named and explained', async () => {
+        const harness = setupHarness({ failUrl: ENGLISH_STARTER[0]!.downloadUrl });
+        const notify = vi.fn();
+        vi.stubGlobal('__yomuCompanions', { settings: { installOfflineParsingDictionaries } });
+        try {
+            await new OfflineDictionarySetupController({
+                dictionaries: harness.store,
+                getSettings: harness.getSettings,
+                applySettings: harness.applySettings,
+                notify,
+                afterInstalled: vi.fn(),
+            }).run();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+
+        expect(notify).toHaveBeenLastCalledWith(
+            `Offline dictionary setup failed. Retry from Settings → Sources. ${ENGLISH_STARTER[0]!.name}: Dictionary download failed. download failed`,
+        );
     });
 });

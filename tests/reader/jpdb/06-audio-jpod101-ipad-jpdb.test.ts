@@ -1784,8 +1784,8 @@ describe('reader helpers', () => {
     it('keeps recommended dictionary downloads as in-reader import buttons', () => {
         const html = renderRecommendedDictionaries([]);
         document.body.innerHTML = `<form>${html}</form>`;
-        const dictionary = findRecommendedDictionary('jmdict')!;
-        const button = document.querySelector<HTMLButtonElement>('[data-action="download-recommended-dictionary"][data-dictionary-id="jmdict"]');
+        const dictionary = findRecommendedDictionary('jitendex')!;
+        const button = document.querySelector<HTMLButtonElement>('[data-action="download-recommended-dictionary"][data-dictionary-id="jitendex"]');
         const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-recommended-name a'));
 
         expect(button?.tagName).toBe('BUTTON');
