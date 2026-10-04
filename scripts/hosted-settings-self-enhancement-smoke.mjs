@@ -504,11 +504,18 @@ async function verifyCredentialFreeBackupImport({ page, authoritativeRaw }) {
     assert(afterImport.saveEnabled,
         'Save did not unlock after credential-free backup import completed', afterImport);
 
-    await saveSettingsThenClose(page, 'cancel');
+    // A shortcut is recorded from the key press rather than typed. That is an
+    // unsaved edit too: the confirmation goes, and Cancel drops it.
+    let recordedShortcut = '';
+    await saveSettingsThenClose(page, 'cancel', async () => {
+        recordedShortcut = await recordScanPageShortcut(page);
+    });
     const afterSaveRaw = await page.evaluate(gmKey => localStorage.getItem(gmKey), GM_SETTINGS_STORAGE_KEY);
     const afterSave = storedSettings(afterSaveRaw);
     assert(importedAppearanceMatches(afterSave),
         'Save did not persist the credential-free imported settings', { afterSave });
+    assert(afterSave?.shortcuts?.scanPage !== recordedShortcut,
+        'Cancel kept a shortcut recorded after Save', { recordedShortcut, stored: afterSave?.shortcuts?.scanPage });
 
     await addGmStorageBridgeInitScript(page, {
         key: YOMU_SETTINGS_KEY,
@@ -866,6 +873,16 @@ async function saveSettingsThenClose(page, close, editAfterSave) {
     if (close === 'escape') await page.locator('.jpdb-reader-settings').press('Escape');
     else await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });
+}
+
+async function recordScanPageShortcut(page) {
+    await page.locator('.jpdb-reader-settings [data-action="settings-panel"][data-panel="shortcuts"]').click();
+    const field = page.locator('.jpdb-reader-settings [data-settings-panel="shortcuts"] [data-shortcut-input][name="shortcuts.scanPage"]');
+    const before = await field.inputValue();
+    await field.press('Alt+K');
+    const recorded = await field.inputValue();
+    assert(recorded && recorded !== before, 'Pressing a key did not record a shortcut', { before, recorded });
+    return recorded;
 }
 
 async function readStorageState(page) {

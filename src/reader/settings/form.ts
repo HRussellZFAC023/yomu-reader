@@ -8,6 +8,7 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
+import { dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
 import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
@@ -2609,13 +2610,12 @@ export function installShortcutCapture(root: HTMLElement): void {
         inputEl.addEventListener('keydown', event => {
             event.preventDefault();
             event.stopPropagation();
-            if (event.key === 'Backspace' || event.key === 'Delete') {
-                inputEl.value = '';
-                syncDuplicateShortcutInputs(root, inputEl);
-                return;
-            }
-            inputEl.value = formatShortcutEvent(event);
-            syncDuplicateShortcutInputs(root, inputEl);
+            const shortcut = event.key === 'Backspace' || event.key === 'Delete' ? '' : formatShortcutEvent(event);
+            if (shortcut === inputEl.value) return;
+            inputEl.value = shortcut;
+            // The key was recorded instead of typed, so announce the edit the
+            // way typing would: the form's listeners count it as unsaved.
+            dispatchAuthorizedReaderControlEvent(inputEl, new Event('input', { bubbles: true }));
         });
         inputEl.addEventListener('input', () => syncDuplicateShortcutInputs(root, inputEl));
         inputEl.addEventListener('paste', event => event.preventDefault());

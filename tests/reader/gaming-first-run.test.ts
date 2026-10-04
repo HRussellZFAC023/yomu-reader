@@ -288,6 +288,20 @@ describe('Yomu Gaming first run', () => {
         expect(settingsForm().querySelector('[data-native-capture-shortcut]')).not.toBeNull();
     });
 
+    // Gaming settings save as they change. A Reader shortcut is recorded from the
+    // keydown rather than typed, so it has to announce itself to be kept.
+    it('keeps a Reader shortcut recorded on the Shortcuts tab', async () => {
+        click(home(), '[data-action="open-settings"]');
+        const scanPage = settingsForm().querySelector<HTMLInputElement>('[data-shortcut-input][name="shortcuts.scanPage"]')!;
+        const key = scanPage.value === 'Alt+K' ? 'L' : 'K';
+
+        scanPage.dispatchEvent(new KeyboardEvent('keydown', { key, altKey: true, bubbles: true, cancelable: true }));
+
+        await vi.waitFor(() => {
+            expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}').shortcuts?.scanPage).toBe(`Alt+${key}`);
+        });
+    });
+
     it('routes the inline Reader settings surface to the native settings window', async () => {
         const { showApp, hideOverlay, surface } = settingsSurfaceFixture();
 

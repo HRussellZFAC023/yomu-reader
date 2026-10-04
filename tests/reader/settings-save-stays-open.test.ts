@@ -15,6 +15,10 @@ function saveStatus(form: HTMLFormElement): HTMLElement {
     return settingsElement<HTMLElement>(form, '[data-settings-save-status]');
 }
 
+function shortcutField(form: HTMLFormElement, name: string): HTMLInputElement {
+    return settingsElement<HTMLInputElement>(form, `[data-shortcut-input][name="${name}"]`);
+}
+
 async function submitAndSettle(form: HTMLFormElement, saveSettings: { mock: { calls: unknown[][] } }, calls: number): Promise<void> {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await waitForCondition(() => saveSettings.mock.calls.length === calls
@@ -140,6 +144,38 @@ describe('Settings Save keeps the dialog open', () => {
         expect(saveStatus(form).textContent).toBe('');
     });
 
+    // Every Shortcuts field records the key itself instead of letting the
+    // browser type, so no input or change event came of it: Cancel then
+    // dropped the new key while the footer still said "Settings saved."
+    it.each([
+        ['recording a shortcut', { key: 'K', altKey: true }, 'Alt+K'],
+        ['clearing a shortcut', { key: 'Backspace' }, ''],
+    ])('clears the confirmation after %s', async (_label, key, recorded) => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        await submitAndSettle(form, saveSettings, 1);
+        const scanPage = shortcutField(form, 'shortcuts.scanPage');
+        expect(scanPage.value).not.toBe(recorded);
+
+        scanPage.dispatchEvent(new KeyboardEvent('keydown', { ...key, bubbles: true, cancelable: true }));
+
+        expect(scanPage.value).toBe(recorded);
+        expect(saveStatus(form).hidden).toBe(true);
+        expect(saveStatus(form).textContent).toBe('');
+    });
+
+    it('keeps the confirmation when a shortcut is pressed again unchanged', async () => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        const scanPage = shortcutField(form, 'shortcuts.scanPage');
+        scanPage.dispatchEvent(new KeyboardEvent('keydown', { key: 'K', altKey: true, bubbles: true, cancelable: true }));
+        await submitAndSettle(form, saveSettings, 1);
+
+        scanPage.dispatchEvent(new KeyboardEvent('keydown', { key: 'K', altKey: true, bubbles: true, cancelable: true }));
+
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+    });
+
     it('clears the confirmation after a drag in the Popup order', async () => {
         const saveSettings = vi.fn().mockResolvedValue(undefined);
         const { form } = createSettingsDialog({ saveSettings });
@@ -172,7 +208,17 @@ describe('Settings Save keeps the dialog open', () => {
         expect(saveStatus(form).textContent).toBe('Settings saved.');
     });
 
-    it('does not confirm a save the form changed under while it ran', async () => {
+    it.each([
+        ['a checkbox', (form: HTMLFormElement) => {
+            const sticky = settingsElement<HTMLInputElement>(form, 'input[name="stickyBottomSheet"]');
+            sticky.checked = !sticky.checked;
+            sticky.dispatchEvent(new Event('change', { bubbles: true }));
+        }],
+        ['a recorded shortcut', (form: HTMLFormElement) => {
+            shortcutField(form, 'shortcuts.scanPage')
+                .dispatchEvent(new KeyboardEvent('keydown', { key: 'K', altKey: true, bubbles: true, cancelable: true }));
+        }],
+    ])('does not confirm a save %s changed under while it ran', async (_label, edit) => {
         let finishSave!: () => void;
         const saveSettings = vi.fn()
             .mockImplementationOnce(() => new Promise<void>(resolve => { finishSave = resolve; }))
@@ -182,9 +228,7 @@ describe('Settings Save keeps the dialog open', () => {
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await waitForCondition(() => saveSettings.mock.calls.length === 1);
 
-        const sticky = settingsElement<HTMLInputElement>(form, 'input[name="stickyBottomSheet"]');
-        sticky.checked = !sticky.checked;
-        sticky.dispatchEvent(new Event('change', { bubbles: true }));
+        edit(form);
         finishSave();
         await waitForCondition(() => !save.disabled);
 
