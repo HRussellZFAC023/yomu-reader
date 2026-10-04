@@ -42,7 +42,7 @@ if (note?.modelName !== config.model || card?.deckName !== config.deck || card.n
     || card.reps !== 0 || !note.cards.includes(config.cardId) || !note.tags.includes('yomu_v2_qa')
     || text(note.fields?.Expression?.value) !== '読む' || text(note.fields?.Sentence?.value) !== '本を読む。') throw new Error('QA ownership/content or zero-review state did not match.');
 dom.window.close();
-config = { ...config, endpoint, allowReview: enabling, phaseId: randomUUID(),
+config = { ...config, endpoint, allowReview: enabling, permittedEase: 3, phaseId: randomUUID(),
     expression: note.fields.Expression.value, sentence: note.fields.Sentence.value };
 
 if (!enabling) {
@@ -136,7 +136,7 @@ function installGuard(config) {
         if (!config.allowReview) return refuse('Native QA is read-only.');
         const answers = request.params?.answers;
         if (request.action !== 'answerCards' || !Array.isArray(answers) || answers.length !== 1
-            || answers[0].cardId !== config.cardId || ![1, 2, 3, 4].includes(answers[0].ease)) return refuse('QA refused an unscoped or repeated mutation.');
+            || answers[0].cardId !== config.cardId || answers[0].ease !== config.permittedEase) return refuse('QA refused an unscoped or repeated mutation.');
         const permitted = config.surface === 'background' ? await reserve()
             : await api.runtime.sendMessage({ channel: 'yomu.qa-anki-grant', phaseId: config.phaseId });
         if (permitted !== true) return refuse('QA review permission was already consumed or unavailable.');

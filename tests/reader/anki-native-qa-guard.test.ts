@@ -3,11 +3,11 @@ import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 
-const source = readFileSync(resolve('scripts/manual/prepare-firefox-anki-qa.mjs'), 'utf8');
+const source = readFileSync(resolve(process.env.YOMU_NATIVE_QA_GUARD_SOURCE ?? 'scripts/manual/prepare-firefox-anki-qa.mjs'), 'utf8');
 const start = source.indexOf('function installGuard(');
 if (start < 0) throw new Error('Native QA guard was not found.');
 const config = { endpoint: 'http://127.0.0.1:8765', phaseId: 'qa-phase', cardId: 17, noteId: 19,
-    deck: 'QA deck', model: 'QA model', expression: '読む', sentence: '本を読む。' };
+    deck: 'QA deck', model: 'QA model', expression: '読む', sentence: '本を読む。', permittedEase: 3 };
 
 interface Faults {
     note?: Record<string, unknown>;
@@ -106,6 +106,15 @@ it('permits only one scoped native review across page/background contexts', asyn
     expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
     expect(actions.filter(action => action === 'answerCards')).toHaveLength(1);
     expect(reps()).toBe(1);
+});
+
+it.each([1, 2, 4, 0, 5, undefined])('never dispatches an answer outside the approved Good scope: %s', async ease => {
+    const { page, actions, reps } = fixture(true);
+    await expect(page('answerCards', { answers: [{ cardId: 17, ease }] })).rejects.toThrow('unscoped');
+    expect(actions).toEqual([]);
+    expect(reps()).toBe(0);
+    await expect(page('answerCards', { answers: [{ cardId: 17, ease: 3 }] })).resolves.toBeDefined();
+    expect(actions.filter(action => action === 'answerCards')).toHaveLength(1);
 });
 
 it('preserves the completed receipt when Study and the background restart', async () => {
