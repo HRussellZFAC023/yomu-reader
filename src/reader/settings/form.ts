@@ -68,6 +68,7 @@ import { renderLocalDictionaryStorageControls } from './local-dictionary-storage
 import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
 import { localizeCatalogBrowse } from './catalog-browse-localization';
 import { renderRecommendedDictionaries } from './dictionary-recommendations-view';
+import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, storedCredentialClearName } from './credential-form';
 
 export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
@@ -2229,13 +2230,12 @@ function localizedAudioUrlPlaceholder(input: HTMLInputElement, text: SettingsTex
 
 function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: SettingsText): void {
     form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
-        const installed = button.dataset.installed === 'true';
         const state = button.dataset.importState;
         const label = state === 'installing'
             ? text('installing')
             : state === 'queued'
                 ? text('queued')
-                : installed ? text('update') : text('install');
+                : text(recommendedDictionaryActionKey(button));
         button.textContent = label;
         button.title = button.dataset.importMessage || label;
         button.setAttribute('aria-label', button.title);

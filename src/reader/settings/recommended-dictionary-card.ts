@@ -1,19 +1,24 @@
-import { uiText } from '../app/i18n';
+import { uiText, type UiCopyKey } from '../app/i18n';
+import { readTrustedYomuUrl } from '../app/trusted-hosted-url';
 import type { InterfaceLanguage } from '../app/types';
 import { userFacingCopyKeyOf, userFacingErrorText } from '../app/user-facing-errors';
 import { dictionaryInstallFailureText } from '../dictionaries/install-failure';
 import {
     findRecommendedDictionary,
+    recommendedDictionaryBuild,
     recommendedDictionaryImportOptions,
     type RecommendedDictionary,
 } from '../dictionaries/recommended';
 import type { ImportSummary, YomitanDictionaryStore } from '../dictionaries/yomitan';
+import { getUserscriptHttpRequest } from '../userscript/index';
 import { recommendedDictionaryFilename } from './file-io';
 
 /**
  * A recommended dictionary card in Settings → Sources: its Install/Update
  * button and the status line under it, while an install is queued, running or
  * has failed. A failed card keeps its reason until the learner clicks again.
+ * A card whose install already holds its build, or a newer one, says Installed
+ * and offers nothing, so it can never install an older copy over a newer one.
  */
 export type RecommendedDictionaryInstallState = 'queued' | 'installing' | 'failed';
 
@@ -26,6 +31,22 @@ export function recommendedDictionaryForControl(control: HTMLElement | null | un
     const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : undefined;
     if (!dictionary) throw new Error('Recommended dictionary not found.');
     return dictionary;
+}
+
+/**
+ * The build a card installs on this page. A userscript manager, the Reader
+ * bridge and an extension page's host permission read hosts that send no CORS;
+ * Study on its own does not.
+ */
+export function recommendedDictionaryBuildHere(dictionary: RecommendedDictionary): RecommendedDictionary {
+    if (!dictionary.latestUrl) return dictionary;
+    const readsAnyHost = Boolean(getUserscriptHttpRequest()) || readTrustedYomuUrl(location.href)?.originKind === 'extension';
+    return recommendedDictionaryBuild(dictionary, readsAnyHost);
+}
+
+export function recommendedDictionaryActionKey(button: HTMLElement): UiCopyKey {
+    if (button.dataset.current === 'true') return 'installed';
+    return button.dataset.installed === 'true' ? 'update' : 'install';
 }
 
 export function recommendedDictionaryDownloadStatus(control: HTMLElement | null | undefined, dictionaryName: string, language: InterfaceLanguage): string {
@@ -46,13 +67,12 @@ export function syncRecommendedDictionaryCards(
     });
 }
 
-/** Install or Update, ready to click. */
+/** Install or Update, ready to click, or Installed. */
 function showRecommendedDictionaryAction(button: HTMLButtonElement, language: InterfaceLanguage): void {
     delete button.dataset.importState;
     delete button.dataset.importMessage;
-    button.disabled = false;
-    button.removeAttribute('disabled');
-    const label = uiText(language, button.dataset.installed === 'true' ? 'update' : 'install');
+    button.disabled = button.dataset.current === 'true';
+    const label = uiText(language, recommendedDictionaryActionKey(button));
     button.replaceChildren(label);
     button.title = label;
     button.setAttribute('aria-label', label);
@@ -84,9 +104,10 @@ function syncRecommendedDictionaryStatus(button: HTMLButtonElement, operation: R
 
 export async function importRecommendedDictionary(
     dictionaries: Pick<YomitanDictionaryStore, 'importFromUrl'>,
-    dictionary: RecommendedDictionary,
+    card: RecommendedDictionary,
     setStatus: (message: string) => void,
 ): Promise<ImportSummary> {
+    const dictionary = recommendedDictionaryBuildHere(card);
     const downloadUrl = dictionary.downloadUrl ?? '';
     const importOptions = recommendedDictionaryImportOptions(dictionary);
     return importOptions

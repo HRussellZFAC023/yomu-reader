@@ -19,6 +19,7 @@ import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
     catalogBrowseLanguageSectionsForLearnerLanguage,
     recommendedDictionariesForLanguageProfile,
+    recommendedDictionaryInstallIsCurrent,
     recommendedDictionaryInstalledIdentity,
     type RecommendedDictionary,
 } from '../dictionaries/recommended';
@@ -31,6 +32,7 @@ import {
     type LearnerLanguageId,
 } from '../locales';
 import { externalLinkIcon } from '../ui/icons';
+import { recommendedDictionaryBuildHere } from './recommended-dictionary-card';
 import {
     CATALOG_BROWSE_CATEGORY_TEXT_KEYS,
     CATALOG_BROWSE_PAGE_SIZE,
@@ -275,7 +277,7 @@ function renderRecommendedDictionary(
 ): string {
     const alreadyInstalled = typeof installed === 'boolean'
         ? installed
-        : isRecommendedDictionaryInstalled(dictionary, installed);
+        : recommendedDictionaryInstallState(dictionary, installed);
     return `
         <div class="jpdb-reader-recommended-item"${catalogRecommendationAttributes(dictionary)}>
             <div>
@@ -290,10 +292,11 @@ function renderRecommendedDictionary(
     `;
 }
 
-function recommendedDictionaryAction(dictionary: RecommendedDictionary, alreadyInstalled: boolean): string {
+function recommendedDictionaryAction(dictionary: RecommendedDictionary, alreadyInstalled: boolean | 'current'): string {
     if (dictionary.downloadUrl) {
-        return `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? 'Update' : 'Install'}
+        const current = alreadyInstalled === 'current';
+        return `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${Boolean(alreadyInstalled)}"${current ? ' data-current="true" disabled' : ''}>
+                ${current ? 'Installed' : alreadyInstalled ? 'Update' : 'Install'}
             </button>`;
     }
     if (!dictionary.helpUrl) return '';
@@ -445,6 +448,14 @@ function localizedNumber(value: number, locale: string): string {
 
 function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
     return installed.some(item => recommendedDictionaryMatchesInstalled(dictionary, item));
+}
+
+/** 'current' when an install already holds the build this page would install, or a newer one. */
+function recommendedDictionaryInstallState(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean | 'current' {
+    const matches = installed.filter(item => recommendedDictionaryMatchesInstalled(dictionary, item));
+    if (!matches.length) return false;
+    const build = recommendedDictionaryBuildHere(dictionary);
+    return matches.some(item => recommendedDictionaryInstallIsCurrent(build, item.revision)) ? 'current' : true;
 }
 
 /**

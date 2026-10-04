@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
     catalogBrowseLanguageSectionsForLearnerLanguage,
     catalogRecommendedDictionaryId,
     recommendedDictionaryImportOptions,
 } from '../../../src/reader/dictionaries/recommended';
-import type { YomitanDictionaryInfo } from '../../../src/reader/dictionaries/yomitan';
+import type { ImportSummary, YomitanDictionaryInfo } from '../../../src/reader/dictionaries/yomitan';
 import { renderRecommendedDictionaries } from '../../../src/reader/settings/dictionary-recommendations-view';
+import { importRecommendedDictionary, syncRecommendedDictionaryCards } from '../../../src/reader/settings/recommended-dictionary-card';
 import {
     DEFAULT_SETTINGS,
     findRecommendedDictionary,
@@ -138,5 +140,102 @@ describe('the hand-picked Japanese dictionary shelf', () => {
         for (const id of ['jitendex', 'pixiv-light', 'jiten']) expect(button(id)?.dataset.installed, id).toBe('true');
         expect(button('bccwj')?.dataset.installed).toBe('false');
         expect(button(catalogRecommendedDictionaryId('en', 'ja', 'drive-japanese-pitch-nhk-lpvpeu-xlu'))?.dataset.installed).toBe('false');
+    });
+});
+
+// Jitendex and Jiten publish newer builds than the mirror's copies, from hosts
+// that send no CORS (GitHub releases, api.jiten.moe). 2.0.11's first cut pinned
+// both cards to the mirror's July copies and called them "Update" over a newer
+// install, so pressing Update replaced Jitendex 2026.10.03.0 with 2026.07.09.0.
+describe('the newest Jitendex and Jiten a page can reach', () => {
+    const JITENDEX_LATEST = 'https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip';
+    const JITEN_LATEST = 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan';
+    const BRIDGE_MARKERS = { yomuUserscriptHttpBridge: 'true', yomuHttpBridgeOwner: 'reader-under-test', yomuHttpBridgeKind: 'userscript' };
+    const studyOnItsOwn = () => vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+    const studyWithReader = () => {
+        studyOnItsOwn();
+        Object.assign(document.documentElement.dataset, BRIDGE_MARKERS);
+    };
+    const installed = (title: string, revision?: string): YomitanDictionaryInfo => ({ title, alias: title, enabled: true, priority: 0, revision });
+    const card = (id: string, installs: YomitanDictionaryInfo[], language: 'en' | 'ja' = 'en') => {
+        const form = document.createElement('form');
+        form.innerHTML = renderRecommendedDictionaries(installs, 'en', false, 'ja');
+        syncRecommendedDictionaryCards(form, new Map(), language);
+        return recommendedDictionaryButton(form, id);
+    };
+    const install = async (id: string) => {
+        const importFromUrl = vi.fn(async (): Promise<ImportSummary> => ({ dictionaries: [], entries: 1, terms: 1, kanji: 0, termMeta: 0, kanjiMeta: 0 }));
+        await importRecommendedDictionary({ importFromUrl }, findRecommendedDictionary(id)!, () => undefined);
+        const [url, , , options] = importFromUrl.mock.calls[0] as unknown as [string, string, unknown, unknown];
+        return { url, options };
+    };
+
+    afterEach(() => {
+        for (const key of Object.keys(BRIDGE_MARKERS)) delete document.documentElement.dataset[key];
+        vi.unstubAllGlobals();
+    });
+
+    it('records the revision of the mirror copy each card falls back to', () => {
+        const catalog = JSON.parse(readFileSync('config/dictionaries/published/v1/catalog.json', 'utf8')) as {
+            entries: Array<{ version: string; distribution: { object?: { sha256: string } } }>;
+        };
+        for (const id of ['jitendex', 'jiten']) {
+            const dictionary = findRecommendedDictionary(id)!;
+            const mirrored = catalog.entries.find(entry => entry.distribution.object?.sha256 === dictionary.sha256);
+            expect(dictionary.revision, id).toBe(mirrored?.version);
+        }
+    });
+
+    it('installs the mirror copy, checked by its digest, on Study without a Reader', async () => {
+        studyOnItsOwn();
+        for (const id of ['jitendex', 'jiten']) {
+            const dictionary = findRecommendedDictionary(id)!;
+            expect(await install(id)).toEqual({
+                url: `${MIRROR}${dictionary.sha256}.zip`,
+                options: { integrity: { sha256: dictionary.sha256, bytes: dictionary.bytes } },
+            });
+        }
+    });
+
+    it('installs the project\'s latest build where the Reader bridge can fetch it', async () => {
+        studyWithReader();
+        expect(await install('jitendex')).toEqual({ url: JITENDEX_LATEST, options: undefined });
+        expect(await install('jiten')).toEqual({ url: JITEN_LATEST, options: undefined });
+    });
+
+    it('installs the latest build from an extension page, which holds host permission', async () => {
+        vi.stubGlobal('location', new URL('chrome-extension://yomuextensionid/newtab/index.html'));
+        expect(await install('jitendex')).toEqual({ url: JITENDEX_LATEST, options: undefined });
+    });
+
+    it('never offers the mirror copy over the same or a newer install', () => {
+        studyOnItsOwn();
+        for (const [id, installs] of [
+            ['jitendex', [installed('Jitendex.org [2026-10-03]', '2026.10.03.0')]],
+            ['jitendex', [installed('Jitendex.org [2026-07-09]', '2026.07.09.0')]],
+            ['jiten', [installed('Jiten', 'Jiten 26-09-30')]],
+        ] as const) {
+            const button = card(id, [...installs]);
+            expect(button.dataset.installed, id).toBe('true');
+            expect(button.disabled, id).toBe(true);
+            expect(button.textContent, id).toBe('Installed');
+        }
+        expect(card('jitendex', [installed('Jitendex.org [2026-10-03]', '2026.10.03.0')], 'ja').textContent).toBe('インストール済み');
+    });
+
+    it('updates an older install to the newest build the page can reach', async () => {
+        studyOnItsOwn();
+        const older = card('jitendex', [installed('Jitendex.org [2026-05-05]', '2026.05.05.0')]);
+        expect([older.textContent, older.disabled]).toEqual(['Update', false]);
+        // An install from before revisions were recorded is older than any mirror copy.
+        expect(card('jiten', [installed('Jiten')]).textContent).toBe('Update');
+        expect((await install('jitendex')).url).toBe(`${MIRROR}${findRecommendedDictionary('jitendex')!.sha256}.zip`);
+
+        // With the Reader, Update fetches the project's latest build, which
+        // nothing installed can be newer than.
+        studyWithReader();
+        const newer = card('jitendex', [installed('Jitendex.org [2026-10-03]', '2026.10.03.0')]);
+        expect([newer.textContent, newer.disabled]).toEqual(['Update', false]);
+        expect((await install('jitendex')).url).toBe(JITENDEX_LATEST);
     });
 });

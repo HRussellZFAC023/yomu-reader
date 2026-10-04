@@ -50,6 +50,10 @@ export interface RecommendedDictionary {
     sha256?: string;
     bytes?: number;
     installedDictionaryIdentity?: string;
+    /** The project's own newest build, for a page that may read a host without CORS. */
+    latestUrl?: string;
+    /** The index.json revision of the archive `downloadUrl` serves, where it is known. */
+    revision?: string;
 }
 
 type CuratedDictionary = readonly [
@@ -59,6 +63,8 @@ type CuratedDictionary = readonly [
     descriptionKey: UiCopyKey,
     /** The id of the published mirror copy, or an upstream URL that sends CORS. */
     source: string,
+    /** Where the project serves newer builds than that copy, and the copy's revision. */
+    latest?: readonly [url: string, mirrorRevision: string],
 ];
 
 const CATALOG_ENTRY_BY_ID = new Map(
@@ -70,21 +76,50 @@ const CATALOG_ENTRY_BY_ID = new Map(
  * already offers JMdict, JMnedict, KANJIDIC and JPDBv2㋕). Each installs from
  * Yomu's mirror, verified by its digest, except the two whose only copy is
  * upstream; both of those hosts send CORS, so Study can fetch them directly.
+ * Jitendex and Jiten publish newer builds than the mirror holds, from hosts
+ * that send no CORS: see recommendedDictionaryBuild.
  */
 const CURATED_JAPANESE_DICTIONARIES = [
-    ['jitendex', 'terms', 'Jitendex', 'recommendedJitendex', 'drive-japanese-ja-en-jitendex-yomitan-2026-07-09-icndfbtjny'],
+    ['jitendex', 'terms', 'Jitendex', 'recommendedJitendex', 'drive-japanese-ja-en-jitendex-yomitan-2026-07-09-icndfbtjny', ['https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip', '2026.07.09.0']],
     ['wty-ja-ja', 'terms', 'WTY JA-JA', 'recommendedWtyJapaneseJapanese', 'https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip'],
     ['pixiv-light', 'terms', 'Pixiv Light', 'recommendedPixivLight', 'drive-japanese-ja-ja-encyclopedia-pixivlight-2026-07-23-b2yz0hz8ye'],
     ['jpdb-kanji', 'kanji', 'JPDB Kanji', 'recommendedJpdbKanji', 'drive-japanese-kanji-jpdb-kanji-gyuvmtw8ve'],
     ['kanjium-pitch', 'pitch', 'Kanjium pitch accents', 'recommendedKanjiumPitch', 'https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip'],
-    ['jiten', 'frequency', 'Jiten', 'recommendedJiten', 'drive-japanese-ja-freq-jiten-freq-global-2026-07-23-gtrllz-fon'],
+    ['jiten', 'frequency', 'Jiten', 'recommendedJiten', 'drive-japanese-ja-freq-jiten-freq-global-2026-07-23-gtrllz-fon', ['https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan', 'Jiten 26-07-13']],
     ['bccwj', 'frequency', 'BCCWJ', 'recommendedBccwj', 'drive-japanese-ja-freq-bccwj-suw-luw-combined-wpf0pnuvsu'],
 ] satisfies readonly CuratedDictionary[];
 
 export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = CURATED_JAPANESE_DICTIONARIES.map(
-    ([id, category, name, descriptionKey, source]) =>
-        ({ id, category, name, descriptionKey, ...curatedDownload(source) }),
+    ([id, category, name, descriptionKey, source, latest]: CuratedDictionary) => ({
+        id, category, name, descriptionKey, ...curatedDownload(source),
+        ...(latest && { latestUrl: latest[0], revision: latest[1] }),
+    }),
 );
+
+/**
+ * The build a card installs. A page that may read any host (a userscript
+ * manager, the Reader bridge, an extension page) takes the project's newest
+ * build; Study on its own reads only hosts that send CORS, so it keeps the
+ * mirror's integrity-checked copy.
+ */
+export function recommendedDictionaryBuild(dictionary: RecommendedDictionary, readsAnyHost: boolean): RecommendedDictionary {
+    if (!readsAnyHost || !dictionary.latestUrl) return dictionary;
+    return { ...dictionary, downloadUrl: dictionary.latestUrl, sha256: undefined, bytes: undefined, revision: undefined };
+}
+
+/**
+ * Whether an install already holds this build or a newer one, so installing it
+ * would gain nothing or go backwards. Only a known revision compares, number by
+ * number: "2026.07.09.0" is older than "2026.10.03.0". A project's latest build
+ * has none, and an install recorded without one predates every mirror copy.
+ */
+export function recommendedDictionaryInstallIsCurrent(build: RecommendedDictionary, installedRevision: string | undefined): boolean {
+    const installed = installedRevision?.match(/\d+/gu)?.map(Number);
+    const offered = build.revision?.match(/\d+/gu)?.map(Number);
+    if (!installed || !offered) return false;
+    const index = installed.findIndex((value, at) => value !== offered[at]);
+    return index < 0 || index >= offered.length || installed[index]! > offered[index]!;
+}
 
 /** The mirror archives the hand-picked cards install, so the browse below them skips those. */
 const CURATED_JAPANESE_CATALOG_IDS: readonly string[] = CURATED_JAPANESE_DICTIONARIES

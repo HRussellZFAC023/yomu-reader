@@ -634,6 +634,7 @@ const COPY = {
         mirroredDictionaryLanguageNote: 'Dictionaries for reading {language}.',
         install: 'Install',
         installing: 'Installing',
+        installed: 'Installed',
         queued: 'Queued',
         dictionaryGuide: 'Guide',
         saveAfterInstall: 'Save after install',
@@ -2244,6 +2245,7 @@ mirroredDictionarySearchNoResults	検索に一致する辞書がありません�
 mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
+installed	インストール済み
 queued	待機中
 dictionaryGuide	ガイド
 download	ダウンロード
