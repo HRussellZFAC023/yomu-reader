@@ -1,4 +1,4 @@
-import { uiText, type UiCopyKey } from '../app/i18n';
+import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
 import { userFacingCopyKeyOf } from '../app/user-facing-errors';
 
@@ -10,19 +10,13 @@ import { userFacingCopyKeyOf } from '../app/user-facing-errors';
 export function dictionaryInstallFailureText(language: InterfaceLanguage, error: unknown): string {
     if (isStorageFull(error)) return uiText(language, 'dictionaryStorageFull');
     const copyKey = userFacingCopyKeyOf(error) ?? 'dictionaryDownloadFailed';
-    return withDiagnostic(uiText(language, copyKey), diagnosticOf(error, copyKey));
-}
-
-/** The English diagnostic, unless it is only the error's own copy again. */
-function diagnosticOf(error: unknown, copyKey: UiCopyKey): string {
+    const copy = uiText(language, copyKey);
     const diagnostic = error instanceof Error ? error.message.trim() : '';
-    return diagnostic === uiText('en', copyKey) ? '' : diagnostic;
-}
-
-function withDiagnostic(copy: string, diagnostic: string): string {
-    if (!diagnostic) return copy;
-    // A localized diagnostic such as "Dictionary download failed (404)." already says it all.
-    return diagnostic.includes(copy.replace(/[.。]$/u, '')) ? diagnostic : `${copy} ${diagnostic}`;
+    // A diagnostic that already states the copy, such as a localized
+    // "Dictionary download failed (404).", says it all.
+    if (diagnostic.includes(copy.replace(/[.。]$/u, ''))) return diagnostic;
+    // Any other diagnostic is English, so it only extends English copy.
+    return diagnostic && copy === uiText('en', copyKey) ? `${copy} ${diagnostic}` : copy;
 }
 
 function isStorageFull(error: unknown): boolean {
