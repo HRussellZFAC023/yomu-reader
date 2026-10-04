@@ -248,7 +248,9 @@ async function saveFormChoice(name, value) {
     if (await radio.count()) await radio.check();
     else await page.locator(`${SETTINGS_FORM} select[name="${name}"]`).selectOption(value);
     await page.locator(`${SETTINGS_FORM} button[type="submit"]`).click();
-    await page.waitForSelector(SETTINGS_FORM, { state: 'detached', timeout: 10_000 });
+    // Save keeps Settings open and confirms in its footer status.
+    await page.waitForSelector(`${SETTINGS_FORM} [data-settings-save-status]:not([hidden])`, { timeout: 10_000 });
+    await closeSettings();
 }
 
 async function cyclePuckTo(expectedState) {

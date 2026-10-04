@@ -673,6 +673,7 @@ export class SettingsDialogController {
             const settingsImportRevision = this.restoreCoordinator.beginSave(form);
             if (settingsImportRevision === undefined) return;
             const saveRequestId = ++this.saveRequestId;
+            let saved = false;
             // Invoke the native Firefox request synchronously from Submit. The
             // returned promise may settle later, but the user gesture must not
             // be separated from permissions.request() by an earlier await.
@@ -693,7 +694,7 @@ export class SettingsDialogController {
                     this.dependencies.clearDictionarySourceOpenOverrides();
                 }
                 return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
-                    this.afterSettingsSaved(form, saveRequestId);
+                    saved = this.afterSettingsSaved(form, saveRequestId);
                 });
             })
                 .catch(error => {
@@ -701,10 +702,13 @@ export class SettingsDialogController {
                     this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, 'settingsSaveFailed', error));
                 })
                 .finally(() => {
-                    this.restoreCoordinator.finishSave(form);
+                    this.restoreCoordinator.finishSave(form, saved);
+                    if (saved) keepFocusInSettings(form);
                 });
         }, () => reportInvalidSettingsForm(form, this.settings.interfaceLanguage,
             message => this.dependencies.toast(message)));
+        form.addEventListener('input', event => this.noteSettingsEdited(form, event.target));
+        form.addEventListener('change', event => this.noteSettingsEdited(form, event.target));
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismissSettings());
         form.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || event.isComposing) return;
@@ -770,8 +774,14 @@ export class SettingsDialogController {
         });
     }
 
-    private afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): void {
-        if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return;
+    /**
+     * Save keeps the dialog open: learners tweak, save and tweak again.
+     * notifySettingsPersisted already made the saved settings the preview
+     * baseline, so a later Cancel discards only edits made after this Save.
+     */
+    private afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): boolean {
+        if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return false;
+        this.previewBaseline.commitInterfaceLanguagePreview();
         const effects: Array<[string, () => void | Promise<void>]> = [
             ['JPDB cache clear', () => this.dependencies.jpdb.clear()],
             ['theme refresh', () => this.dependencies.applyTheme()],
@@ -779,16 +789,17 @@ export class SettingsDialogController {
             ['subtitle refresh', () => this.dependencies.subtitles.refresh()],
             ['OCR refresh', () => this.dependencies.ocr.refresh()],
             ['YouTube refresh', () => this.dependencies.youtube.refresh()],
-            ['preview cleanup', () => this.dependencies.clearSettingsPreview()],
-            ['settings dialog dismissal', () => this.dismissSettings()],
             ['dictionary rescan scheduling', () => this.dependencies.scheduleDictionaryRescan()],
             ['new-tab refresh', () => this.dependencies.refreshNewTabIfCurrent()],
-            ['settings save status reporting', () => this.dependencies.toast(
-                uiText(this.settings.interfaceLanguage, 'settingsSaved'),
-            )],
             ['dictionary style refresh', () => this.refreshDictionaryStylesAfterSave()],
         ];
         for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+        return true;
+    }
+
+    private noteSettingsEdited(form: HTMLFormElement, target: EventTarget | null): void {
+        if ((target as HTMLElement | null)?.matches?.('[data-settings-search]')) return;
+        this.restoreCoordinator.clearSavedNotice(form);
     }
 
     private settingsSaveEffectsAreCurrent(form: HTMLFormElement, saveRequestId: number): boolean {
@@ -2691,6 +2702,14 @@ function settingsWithDiscoveredDictionaries(
     );
     if (JSON.stringify(merged) === JSON.stringify(current.dictionaryPreferences)) return null;
     return captureActiveLanguageProfileDictionaries(current, merged);
+}
+
+/** A focused Save is disabled while it runs; some engines drop focus to the page. */
+function keepFocusInSettings(form: HTMLFormElement): void {
+    if (!form.isConnected) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    form.querySelector<HTMLButtonElement>('button[type="submit"]')?.focus({ preventScroll: true });
 }
 
 function publishSettingsChange(settings: Partial<ReaderSettings>, options: { preview?: boolean } = {}): void {

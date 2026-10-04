@@ -256,8 +256,14 @@ async function submitSettingsAndWait(
     persisted?: CallTracker,
 ): Promise<void> {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await waitForCondition(() => dismiss.mock.calls.length === 1
+    await waitForCondition(() => settingsSavedShown(form)
         && (persisted === undefined || persisted.mock.calls.length === 1));
+    expect(dismiss.mock.calls).toHaveLength(0);
+}
+
+function settingsSavedShown(form: HTMLFormElement): boolean {
+    const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
+    return status?.hidden === false && ['Settings saved.', '設定を保存しました。'].includes(status.textContent ?? '');
 }
 
 async function clickTrustedSettingsSaveAndWait(
@@ -265,7 +271,7 @@ async function clickTrustedSettingsSaveAndWait(
     ...signals: CallTracker[]
 ): Promise<void> {
     form.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
-    await waitForCondition(() => signals.every(signal => signal.mock.calls.length === 1));
+    await waitForCondition(() => settingsSavedShown(form) && signals.every(signal => signal.mock.calls.length === 1));
 }
 
 function expectExplicitSettingSaved<K extends keyof ReaderSettings>(
@@ -670,9 +676,9 @@ describe('settings dialog keyboard dismissal', () => {
         expect(mode.value).toBe('difficult-kanji');
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => onSettingsPersisted.mock.calls.length === 1);
+        await waitForCondition(() => onSettingsPersisted.mock.calls.length === 1 && settingsSavedShown(form));
 
-        expect(dismiss).toHaveBeenCalledOnce();
+        expect(dismiss).not.toHaveBeenCalled();
         expect(current.furiganaMode).toBe('difficult-kanji');
         expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({
             furiganaMode: 'difficult-kanji',
@@ -1263,7 +1269,8 @@ describe('settings dialog keyboard dismissal', () => {
         expect(current.theme).toBe('dark');
         expect((await loadSettings()).theme).toBe('light');
 
-        await clickTrustedSettingsSaveAndWait(form, dismiss, persisted);
+        await clickTrustedSettingsSaveAndWait(form, persisted);
+        expect(dismiss).not.toHaveBeenCalled();
 
         expectExplicitSettingSaved(saveSettings, 'theme', 'dark');
         expect(current.theme).toBe('dark');
@@ -1297,7 +1304,8 @@ describe('settings dialog keyboard dismissal', () => {
         expect(installedLanguages).toContain('ja');
         expect(current.interfaceLanguage).toBe('en');
 
-        await clickTrustedSettingsSaveAndWait(form, dismiss, persisted);
+        await clickTrustedSettingsSaveAndWait(form, persisted);
+        expect(dismiss).not.toHaveBeenCalled();
 
         expectExplicitSettingSaved(saveSettings, 'interfaceLanguage', 'ja');
         expect(current.interfaceLanguage).toBe('ja');
@@ -1336,7 +1344,8 @@ describe('settings dialog keyboard dismissal', () => {
         expect(current.theme).toBe('dark');
         expect(form.querySelector<HTMLInputElement>('[data-theme-value]')?.value).toBe('light');
 
-        await clickTrustedSettingsSaveAndWait(form, dismiss, persisted);
+        await clickTrustedSettingsSaveAndWait(form, persisted);
+        expect(dismiss).not.toHaveBeenCalled();
 
         expectExplicitSettingSaved(saveSettings, 'theme', 'light');
     });
@@ -1486,8 +1495,8 @@ describe('settings dialog keyboard dismissal', () => {
 
         expectExplicitSettingSaved(saveSettings, 'theme', 'dark');
         expect(hostDismiss).toHaveBeenCalledOnce();
-        expect(dialog.dismiss).toHaveBeenCalledOnce();
-        expect(dialog.dependencies.toast).toHaveBeenCalledWith('Settings saved.');
+        expect(dialog.dismiss).not.toHaveBeenCalled();
+        expect(settingsSavedShown(replacement)).toBe(true);
     });
 
     it('coalesces accent picker previews and publishes only committed color changes', async () => {
@@ -1645,7 +1654,7 @@ describe('settings dialog keyboard dismissal', () => {
             .map(chip => chip.dataset.tag)).toEqual(['yomu', 'immersion']);
     });
 
-    it('dismisses and toasts without waiting for dictionary styles to refresh', async () => {
+    it('confirms the save without waiting for dictionary styles to refresh', async () => {
         const refresh = deferred<void>();
         const refreshDictionaryStyles = vi.fn(() => refresh.promise);
         const { dependencies, dismiss, form } = createSettingsDialog({
@@ -1656,10 +1665,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => dismiss.mock.calls.length === 1);
+        await waitForCondition(() => settingsSavedShown(form));
 
         expect(refreshDictionaryStyles).toHaveBeenCalled();
-        expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
+        expect(dismiss).not.toHaveBeenCalled();
+        expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
 
         refresh.resolve();
     });
@@ -1684,7 +1694,8 @@ describe('settings dialog keyboard dismissal', () => {
         preferJapaneseSites.checked = false;
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => dismiss.mock.calls.length === 1);
+        await waitForCondition(() => settingsSavedShown(form));
+        expect(dismiss).not.toHaveBeenCalled();
 
         expect(JSON.parse(
             localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) ?? 'null',
@@ -1790,6 +1801,8 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(dismiss).not.toHaveBeenCalled();
         expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
+        expect(settingsSavedShown(form)).toBe(false);
+        expect(settingsSavedShown(document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!)).toBe(false);
     });
 
 
@@ -2907,7 +2920,7 @@ describe('settings dialog dictionary imports', () => {
         expect(dialog.dependencies.refreshDictionaryStyles).toHaveBeenCalled();
 
         dialog.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => dialog.dismiss.mock.calls.length === 1);
+        await waitForCondition(() => settingsSavedShown(dialog.form));
         expect(settings.dictionaryLookupLinks.map(link => link.id).indexOf(bccwjId))
             .toBeLessThan(settings.dictionaryLookupLinks.map(link => link.id).indexOf(jitenId));
 

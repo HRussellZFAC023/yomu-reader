@@ -504,8 +504,7 @@ async function verifyCredentialFreeBackupImport({ page, authoritativeRaw }) {
     assert(afterImport.saveEnabled,
         'Save did not unlock after credential-free backup import completed', afterImport);
 
-    await page.locator('.jpdb-reader-settings button[type="submit"]').click();
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });
+    await saveSettingsThenClose(page, 'cancel');
     const afterSaveRaw = await page.evaluate(gmKey => localStorage.getItem(gmKey), GM_SETTINGS_STORAGE_KEY);
     const afterSave = storedSettings(afterSaveRaw);
     assert(importedAppearanceMatches(afterSave),
@@ -743,8 +742,7 @@ async function verifyLocalOnlyHostedSettings(page) {
         const savedTheme = input.value;
         return { previousTheme, savedTheme };
     });
-    await page.locator('.jpdb-reader-settings button[type="submit"]').click();
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+    await saveSettingsThenClose(page, 'escape');
     const localOnly = await readStorageState(page);
     assert(storedTheme(localOnly.local) === localSave.savedTheme,
         'Hosted settings save did not persist to website localStorage before installation', { localSave, localOnly });
@@ -840,6 +838,22 @@ async function openSettings(page) {
         button.click();
     });
     await page.waitForSelector('.jpdb-reader-settings', { state: 'visible', timeout: 20_000 });
+}
+
+/**
+ * Save keeps Settings open and confirms in its footer; only Cancel or Escape
+ * closes it, and closing after a Save leaves the saved settings alone.
+ */
+async function saveSettingsThenClose(page, close) {
+    await page.locator('.jpdb-reader-settings button[type="submit"]').click();
+    await page.waitForFunction(() => {
+        const status = document.querySelector('.jpdb-reader-settings [data-settings-save-status]');
+        return status instanceof HTMLElement && !status.hidden
+            && ['Settings saved.', '設定を保存しました。'].includes(status.textContent?.trim() ?? '');
+    }, undefined, { timeout: 15_000 });
+    if (close === 'escape') await page.locator('.jpdb-reader-settings').press('Escape');
+    else await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });
 }
 
 async function readStorageState(page) {

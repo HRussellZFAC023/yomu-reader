@@ -86,6 +86,11 @@ export class SettingsPreviewBaseline {
         this.interfaceLanguagePreviewed = true;
     }
 
+    /** Save made the previewed language the saved one: Cancel has nothing left to undo. */
+    commitInterfaceLanguagePreview(): void {
+        this.interfaceLanguagePreviewed = false;
+    }
+
     restoreInterfaceLanguagePreview(): void {
         if (!this.interfaceLanguagePreviewed) return;
         this.interfaceLanguagePreviewed = false;

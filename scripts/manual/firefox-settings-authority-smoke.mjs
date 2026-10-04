@@ -1437,11 +1437,13 @@ function manualInstruction(phase) {
         'study-ui-to-reader': [
             'In the moz-extension Study tab, open Connections & settings (use the overflow menu on a narrow window).',
             'Choose Appearance, switch Light to Dark, then press Save. The already-open ordinary Reader tab must turn dark.',
+            'When "Settings saved." shows beside the buttons, press Cancel to close Settings.',
         ].join('\n'),
         'reader-launcher-to-study': [
             'Switch to the ordinary 127.0.0.1 Reader tab. Open the floating よ puck, then the gear Settings action.',
             'Verify that the handoff dialog has no settings inputs, then press its Open settings button.',
-            'Firefox must open a packaged moz-extension Study tab directly on Appearance. Switch Dark to Light and press Save there.',
+            'Firefox must open a packaged moz-extension Study tab directly on Appearance. Switch Dark to Light and press Save there,',
+            'then press Cancel once "Settings saved." shows beside the buttons.',
             'The already-open ordinary Reader tab must turn light; do not close or reload it.',
         ].join('\n'),
         'backup-import': [
@@ -1449,11 +1451,11 @@ function manualInstruction(phase) {
             `Select exactly: ${path.join(artifactDirectory, `${runId}-backup.json`)}`,
             'Do not press Save during import. The probe requires visible Save/import locking, a result, and an unlocked reopened form.',
         ].join('\n'),
-        'backup-save': 'Press the exact Save button once in the reopened imported-settings form. Its trusted activation and the durable form close are required.',
+        'backup-save': 'Press the exact Save button once in the reopened imported-settings form, then press Cancel once "Settings saved." shows. Its trusted activation, the confirmation and the form close are required.',
         'backup-reload': 'Reload the same Study tab with Firefox Reload (not a scripted reload). Imported Dark / 43px settings must survive.',
         'storage-failure': [
             'The observer is ready to fail the next exact Save. In Study Appearance, switch Dark to Light and press Save once.',
-            'Pass requires the form to stay open, the imported Dark / 43px canonical state to remain, and no success toast.',
+            'Pass requires the form to stay open, the imported Dark / 43px canonical state to remain, and no "Settings saved." confirmation.',
         ].join('\n'),
         'factory-reset': [
             'In the still-open Study Settings choose Help, press Factory Reset, and accept the Firefox confirmation.',
@@ -1619,9 +1621,8 @@ function sharedProbeHelpers() {
         reportFormCloseOnce,
         takePendingFormClose,
         durableSaveClose,
-        settingsSaveSuccessToasts,
-        newSettingsSaveSuccessVisible,
-        waitForNewSettingsSaveSuccess,
+        settingsSaveConfirmations,
+        notePendingSaveConfirmation,
         successToastVisible,
         reportFormOpened,
         reportChangedFormState,
@@ -2193,7 +2194,8 @@ function reportSettingsSaveActivation(context, tracker, event) {
     tracker.pendingSaveAttempt = {
         attemptId,
         activation: context.activeSaveActivation,
-        priorSuccessToasts: settingsSaveSuccessToasts(),
+        confirmationCleared: false,
+        confirmed: false,
     };
     tracker.pendingFormCloseAttemptId = '';
     tracker.pendingFormCloseReported = false;
@@ -2268,8 +2270,7 @@ async function completePendingFormClose(context, tracker, pending) {
         takePendingFormClose(tracker, pending);
         return false;
     }
-    const successVisible = await waitForNewSettingsSaveSuccess(pending.priorSuccessToasts);
-    if (!durableSaveClose(context, pending, successVisible)) return false;
+    if (!durableSaveClose(context, pending, pending.confirmed)) return false;
     return takePendingFormClose(tracker, pending);
 }
 
@@ -2730,6 +2731,7 @@ async function installStudyFormObserver(context) {
     const tracker = createSettingsFormTracker();
     document.addEventListener('click', event => reportSettingsSaveActivation(context, tracker, event), true);
     new MutationObserver(records => {
+        notePendingSaveConfirmation(tracker);
         observeStudySuccessToast(context);
         observeStudyFailureToast(context);
         observeStudyImportResult(context, tracker, records);
@@ -3111,24 +3113,29 @@ function observeStudySuccessToast(context) {
     if (successToastVisible()) context.successToastObserved = true;
 }
 
-function settingsSaveSuccessToasts() {
-    return [...document.querySelectorAll('.jpdb-reader-toast')]
-        .filter(toast => toast.textContent?.trim() === 'Settings saved.');
+/**
+ * Since 2.0.10 Save keeps Settings open and confirms in the form's footer
+ * status instead of a toast. The reported `successToast*` fields keep their
+ * names so earlier artifacts stay comparable.
+ */
+function settingsSaveConfirmations() {
+    return [...document.querySelectorAll('form.jpdb-reader-settings [data-settings-save-status]')]
+        .filter(status => !status.hidden && status.textContent?.trim() === 'Settings saved.');
 }
 
-function newSettingsSaveSuccessVisible(priorToasts) {
-    return settingsSaveSuccessToasts().some(toast => [
-        !priorToasts.includes(toast),
-        toast.classList.contains('is-visible'),
-    ].every(Boolean));
-}
-
-function waitForNewSettingsSaveSuccess(priorToasts) {
-    return browserWaitFor(() => newSettingsSaveSuccessVisible(priorToasts), 4_000);
+/**
+ * A Save clears any earlier confirmation before it runs, so only a confirmation
+ * seen after a cleared footer belongs to the pending attempt.
+ */
+function notePendingSaveConfirmation(tracker) {
+    const pending = tracker.pendingSaveAttempt;
+    if (!pending) return;
+    if (!successToastVisible()) pending.confirmationCleared = true;
+    else if (pending.confirmationCleared) pending.confirmed = true;
 }
 
 function successToastVisible() {
-    return settingsSaveSuccessToasts().some(toast => toast.classList.contains('is-visible'));
+    return settingsSaveConfirmations().length > 0;
 }
 
 function settingsSaveFailureToasts() {

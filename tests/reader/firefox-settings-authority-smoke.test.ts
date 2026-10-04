@@ -402,7 +402,7 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(referencedIdentifiers('reportSettingsSaveActivation')).toEqual(expect.arrayContaining([
             'tracker',
             'pendingSaveAttempt',
-            'priorSuccessToasts',
+            'confirmationCleared',
             'activeSaveAttemptId',
             'activeSaveActivation',
             'randomUUID',
@@ -416,39 +416,48 @@ describe('Firefox settings-authority browser proof contract', () => {
         ]));
         const completionCalls = calledFunctions('completePendingFormClose');
         expect(completionCalls).toEqual(expect.arrayContaining([
-            'waitForNewSettingsSaveSuccess',
             'durableSaveClose',
             'takePendingFormClose',
         ]));
-        const successWait = completionCalls.indexOf('waitForNewSettingsSaveSuccess');
+        expect(referencedIdentifiers('completePendingFormClose')).toContain('confirmed');
+        const successCheck = completionCalls.indexOf('durableSaveClose');
         const successfulConsume = completionCalls.lastIndexOf('takePendingFormClose');
         const completion = closeCalls.indexOf('completePendingFormClose');
         const durableReport = closeCalls.lastIndexOf('context.post');
-        expect(successWait).toBeGreaterThanOrEqual(0);
-        expect(successfulConsume).toBeGreaterThan(successWait);
+        expect(successfulConsume).toBeGreaterThan(successCheck);
         expect(durableReport).toBeGreaterThan(completion);
+        expect(calledFunctions('installStudyFormObserver')).toContain('notePendingSaveConfirmation');
         expect(SOURCE).toContain("type: 'settings-save-durable-close'");
         expect(SOURCE).toContain('attemptId: pending.attemptId');
         expect(SOURCE).toContain('successToastVisible: true');
     });
 
-    it('accepts only a newly created visible success toast before consuming that Save attempt', () => {
-        const { settingsSaveSuccessToasts, newSettingsSaveSuccessVisible } = runtimeFunctions<{
-            settingsSaveSuccessToasts: () => Element[];
-            newSettingsSaveSuccessVisible: (priorToasts: Element[]) => boolean;
-        }>(['settingsSaveSuccessToasts', 'newSettingsSaveSuccessVisible']);
-        document.body.innerHTML = '<div class="jpdb-reader-toast is-visible">Settings saved.</div>';
-        const priorToasts = settingsSaveSuccessToasts();
-        expect(priorToasts).toHaveLength(1);
-        expect(newSettingsSaveSuccessVisible(priorToasts)).toBe(false);
+    it('accepts only a footer confirmation that follows the Save attempt clearing the last one', () => {
+        // Save keeps Settings open: success is "Settings saved." in the form's
+        // footer status, which the Save itself first clears.
+        const { notePendingSaveConfirmation } = runtimeFunctions<{
+            notePendingSaveConfirmation: (tracker: Record<string, unknown>) => void;
+        }>(['settingsSaveConfirmations', 'successToastVisible', 'notePendingSaveConfirmation']);
+        document.body.innerHTML = '<form class="jpdb-reader-settings"><p data-settings-save-status>Settings saved.</p></form>';
+        const status = document.querySelector<HTMLElement>('[data-settings-save-status]')!;
+        const pendingAttempt = { attemptId: '11111111-1111-4111-8111-111111111111', confirmationCleared: false, confirmed: false };
+        const watching = { pendingSaveAttempt: pendingAttempt };
 
-        const newToast = document.createElement('div');
-        newToast.className = 'jpdb-reader-toast';
-        newToast.textContent = 'Settings saved.';
-        document.body.append(newToast);
-        expect(newSettingsSaveSuccessVisible(priorToasts)).toBe(false);
-        newToast.classList.add('is-visible');
-        expect(newSettingsSaveSuccessVisible(priorToasts)).toBe(true);
+        notePendingSaveConfirmation(watching);
+        expect(pendingAttempt.confirmed).toBe(false);
+        status.hidden = true;
+        notePendingSaveConfirmation(watching);
+        expect(pendingAttempt.confirmed).toBe(false);
+        status.textContent = 'Another status message.';
+        status.hidden = false;
+        notePendingSaveConfirmation(watching);
+        expect(pendingAttempt.confirmed).toBe(false);
+        status.textContent = 'Settings saved.';
+        notePendingSaveConfirmation(watching);
+        expect(pendingAttempt.confirmed).toBe(true);
+        status.hidden = true;
+        notePendingSaveConfirmation(watching);
+        expect(pendingAttempt.confirmed).toBe(true);
 
         const takePending = runtimeFunction<(
             tracker: Record<string, unknown>,
@@ -464,7 +473,6 @@ describe('Firefox settings-authority browser proof contract', () => {
         expect(tracker.pendingSaveAttempt).toBe(pending);
         expect(takePending(tracker, pending)).toBe(true);
         expect(tracker.pendingSaveAttempt).toBeNull();
-        expect(calledFunctions('waitForNewSettingsSaveSuccess')).toContain('browserWaitFor');
     });
 
     it('pairs each trusted Save with only its own later durable outcome', () => {

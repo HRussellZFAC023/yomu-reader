@@ -74,6 +74,7 @@ export class SettingsRestoreCoordinator {
     private readonly activeSaves = new Set<Promise<void>>();
     private readonly activeDurableOperations = new Set<Promise<void>>();
     private readonly freezeSnapshots = new WeakMap<HTMLFormElement, FormFreezeSnapshot>();
+    private readonly savedNotices = new WeakSet<HTMLFormElement>();
 
     constructor(private readonly port: SettingsRestoreCoordinatorPort) {}
 
@@ -147,8 +148,9 @@ export class SettingsRestoreCoordinator {
         return this.savePending || this.activeDurableOperations.size > 0;
     }
 
-    finishSave(form: HTMLFormElement): void {
+    finishSave(form: HTMLFormElement, saved = false): void {
         this.savePending = false;
+        if (saved) this.savedNotices.add(form);
         if (form.isConnected) this.sync(form);
         this.syncOtherCurrentForm(form);
     }
@@ -201,10 +203,22 @@ export class SettingsRestoreCoordinator {
         const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
         syncSettingsSaveControl(save, state);
         this.syncFormFreeze(form, save);
+        const message = this.saveStatusMessage(form, state);
         if (status) {
-            status.hidden = !state.message;
-            status.textContent = state.message;
+            status.hidden = !message;
+            status.textContent = message;
         }
+    }
+
+    /** "Settings saved." lasts until the next edit or the next operation on this form. */
+    private saveStatusMessage(form: HTMLFormElement, state: SettingsOperationUiState): string {
+        if (state.busy) this.savedNotices.delete(form);
+        if (state.message || !this.savedNotices.has(form)) return state.message;
+        return uiText(this.port.interfaceLanguage(), 'settingsSaved');
+    }
+
+    clearSavedNotice(form: HTMLFormElement): void {
+        if (this.savedNotices.delete(form) && form.isConnected) this.sync(form);
     }
 
     showRestoreBlocked(form: HTMLFormElement): void {

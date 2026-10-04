@@ -203,13 +203,11 @@ describe('settings dialog restore and save interlocks', () => {
         const saveButton = settingsElement<HTMLButtonElement>(form, 'button[type="submit"]');
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => dismiss.mock.calls.length === 1);
-        await waitForCondition(() => !saveButton.disabled);
+        await waitForCondition(() => !saveButton.disabled && saveStatusText(form) === 'Settings saved.');
 
         expect(saveSettings).toHaveBeenCalledOnce();
-        expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
         expect(dependencies.toast).not.toHaveBeenCalledWith('Settings save failed.');
-        expect(dismiss).toHaveBeenCalledOnce();
+        expect(dismiss).not.toHaveBeenCalled();
     });
 
     it('locks Save and repeat import until the imported settings are persisted and reopened', async () => {
@@ -322,7 +320,8 @@ describe('settings dialog restore and save interlocks', () => {
         expect(requestPermission).toHaveBeenCalledOnce();
         expect(saveSettings).toHaveBeenCalledOnce();
         expect(settings.accentColor).toBe('#654321');
-        expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
+        await waitForCondition(() => saveStatusText(form) === 'Settings saved.');
+        expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
     });
 
     it('discards permission-delayed Save and action tickets after cloud restore publication', async () => {
@@ -535,7 +534,7 @@ describe('settings dialog restore and save interlocks', () => {
         expect(probes.every(({ button }) => !button.disabled)).toBe(true);
         expect(unknown.disabled).toBe(false);
         expect(resetAllData).not.toHaveBeenCalled();
-        expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
+        expect(saveStatusText(form)).toBe('Settings saved.');
         expect(dependencies.toast).not.toHaveBeenCalledWith('Settings save failed.');
     });
 
@@ -1073,3 +1072,8 @@ describe('settings dialog restore and save interlocks', () => {
         expect(fixture.dependencies.toast).toHaveBeenCalledWith(endpoint.validationMessage);
     });
 });
+
+function saveStatusText(form: HTMLFormElement): string {
+    const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
+    return status && !status.hidden ? status.textContent ?? '' : '';
+}

@@ -288,7 +288,11 @@ async function moveRow(page, sourceId, direction, done, editor = SOURCES_EDITOR)
     assert(done(await sourceRows(page, editor)), `Could not move ${sourceId} ${direction}`, { rows: await sourceRows(page, editor) });
 }
 
-/** Presses Save and waits until the settings/intent pair carries a new commit. */
+/**
+ * Presses Save and waits until the settings/intent pair carries a new commit.
+ * Save keeps Settings open with "Settings saved." in its footer; Cancel then
+ * closes it without touching what was stored.
+ */
 async function saveSettings(page) {
     const before = storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX)).commit;
     await page.locator('.jpdb-reader-settings button[type="submit"]').click();
@@ -298,8 +302,15 @@ async function saveSettings(page) {
         const ledger = read(ledgerKey);
         return Boolean(settings?.[field] && settings[field] !== previous && ledger?.[field] === settings[field]);
     }, { prefix: GM_STORAGE_PREFIX, settingsKey: YOMU_SETTINGS_KEY, ledgerKey: INTENT_LEDGER_KEY, field: COMMIT_FIELD, previous: before }, { timeout: 15_000 });
+    await page.locator('.jpdb-reader-settings [data-settings-save-status]:not([hidden])', { hasText: 'Settings saved.' })
+        .waitFor({ state: 'visible', timeout: 15_000 });
+    const saved = storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX));
+    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'), undefined, { timeout: 15_000 });
-    return storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX));
+    const afterCancel = storedRecord(await readPrefixedGmValues(page, GM_STORAGE_PREFIX));
+    const cancelDiff = recordDifferences(saved, afterCancel);
+    assert(!cancelDiff.length && saved.commit === afterCancel.commit, 'Cancel after a Save changed the stored settings or intent records', cancelDiff);
+    return afterCancel;
 }
 
 function storedRecord(gmValues) {

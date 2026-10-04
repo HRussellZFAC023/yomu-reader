@@ -99,7 +99,7 @@ describe('save waiting for another tab', () => {
 describe('Settings Save waiting for another tab', () => {
     afterEach(() => { resetSettingsDialogTestEnvironment(); });
 
-    it('says so while the save waits, then reports the save as usual', async () => {
+    it('says so while the save waits, then confirms the save in the dialog', async () => {
         // The dialog fixture reloads the controller's modules: report through the same instance.
         const { reportSaveWaitingForAnotherTab: report } = await import('../../src/reader/app/save-wait');
         const proceeded = deferred();
@@ -116,9 +116,8 @@ describe('Settings Save waiting for another tab', () => {
         expect(dependencies.toast).not.toHaveBeenCalled();
 
         proceeded.resolve();
-        await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
-        expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
         await waitForCondition(() => !settingsElement<HTMLButtonElement>(form, 'button[type="submit"]').disabled);
+        expect(settingsElement<HTMLElement>(form, '[data-settings-save-status]').textContent).toBe('Settings saved.');
         await vi.waitFor(() => expect(statuses()).toEqual([]));
     });
 });
