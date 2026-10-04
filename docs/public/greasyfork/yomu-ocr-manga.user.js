@@ -3122,7 +3122,7 @@ function pitchComponentUnderlineGradient(card) {
   const start = offset / total * 100;
   offset += lengths[index] ?? 0;
   const end = offset / total * 100;
-  const color = PITCH_CLASSES$1.has(component.pitchClass) ? `var(--jpdb-reader-pitch-${component.pitchClass})` : "var(--jpdb-reader-pitch-unknown)";
+  const color = PITCH_CLASSES$1.has(component.pitchClass) ? `var(--jpdb-reader-pitch-${component.pitchClass})` : "transparent";
   stops.push(`${color} ${formatPercent(start)}`, `${color} ${formatPercent(end)}`);
   });
   return `linear-gradient(to right, ${stops.join(", ")})`;
@@ -8625,7 +8625,8 @@ const EN = {
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
   jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  // Jiten takes a single word only into a word list (StudyDeckType 2).
+  jitenNeedsWordList: "To save words to Jiten, create a word list on jiten.moe.",
   addedToJiten: "Added to Jiten.",
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
@@ -8646,7 +8647,7 @@ const JA = {
   jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
   addedToJpdb: "JPDBに追加しました。",
   jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
-  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  jitenNeedsWordList: "Jitenに単語を保存するには、jiten.moeで単語リストを作成してください。",
   addedToJiten: "Jitenに追加しました。",
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
@@ -9313,6 +9314,7 @@ const COPY = {
   mirroredDictionaryLanguageNote: "Dictionaries for reading {language}.",
   install: "Install",
   installing: "Installing",
+  installed: "Installed",
   queued: "Queued",
   dictionaryGuide: "Guide",
   saveAfterInstall: "Save after install",
@@ -9344,6 +9346,7 @@ const COPY = {
   storageRuntimeUnavailable: "よむ storage is unavailable. Reload the page; if this continues, reinstall よむ.",
   dictionaryDownloadTimedOut: "Dictionary download timed out.",
   dictionaryDownloadNotZip: "Download was not a ZIP.",
+  dictionaryStorageFull: "Not enough storage space for this dictionary. Free up space or remove a dictionary, then try again.",
   dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
   dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
   dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
@@ -9790,6 +9793,8 @@ const COPY = {
   orderHeader: "Order",
   removeHeader: "Remove",
   definitionSource: "Definition source",
+  popupOrderTitle: "Popup order",
+  popupOrderHelp: "This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.",
   kanjiSection: "Kanji section",
   dragToReorder: "Drag to reorder",
   moveUp: "Move up",
@@ -9825,14 +9830,10 @@ const COPY = {
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
   recommendedJitendex: "Term definitions with examples.",
-  recommendedJmdict: "Core term definitions.",
-  recommendedJmnedict: "Proper names.",
   recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
   recommendedPixivLight: "Pixiv terms.",
-  recommendedKanjidic: "Kanji facts.",
   recommendedJpdbKanji: "JPDB kanji.",
   recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
-  recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
   recommendedBccwj: "Frequency badges from BCCWJ.",
   recommendedJiten: "Frequency badges from Jiten.",
   lines: "Lines",
@@ -9995,6 +9996,7 @@ dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
+dictionaryStorageFull	この辞書を保存する空き容量が足りません。空き容量を増やすか辞書を削除してから、もう一度お試しください。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
@@ -10913,6 +10915,7 @@ mirroredDictionarySearchNoResults	検索に一致する辞書がありません�
 mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
+installed	インストール済み
 queued	待機中
 dictionaryGuide	ガイド
 download	ダウンロード
@@ -11009,6 +11012,8 @@ displayName	表示名
 orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
+popupOrderTitle	ポップアップの順序
+popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動
@@ -11044,14 +11049,10 @@ sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
 recommendedJitendex	例文付きの語句定義です。
-recommendedJmdict	基本語句定義です。
-recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
-recommendedKanjidic	漢字情報です。
 recommendedJpdbKanji	JPDB漢字情報です。
 recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
-recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
@@ -12862,6 +12863,16 @@ function datasetAttributeName(key) {
 function escapeAttributeValue(value) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+function tokenWithSentenceStart(token, text, sentence = token.sentence) {
+  const sentenceStart = sentence ? sentenceStartAround(text, token, sentence) : void 0;
+  if (sentence === token.sentence && sentenceStart === token.sentenceStart) return token;
+  return { ...token, sentence, sentenceStart };
+}
+function sentenceStartAround(text, token, sentence) {
+  const from = Math.max(0, token.end - sentence.length);
+  const start = from + text.slice(from, token.start + sentence.length).indexOf(sentence);
+  return start > 0 && start >= from ? start : void 0;
+}
 function renderedWordsInRoot(root) {
   const words = /* @__PURE__ */ new Set();
   if (root instanceof HTMLElement && isRegisteredRenderedWord(root)) words.add(root);
@@ -12926,6 +12937,7 @@ function renderedWordAttributes(surface, token, settings, pitchClass, hasMiningI
   optionalDataAttribute("pitch-class", pitchClass),
   renderedWordPitchComponentAttributes(token.card, settings.showPitchAccent),
   ` data-sentence="${escapeHtml(token.sentence ?? "")}"`,
+  optionalDataAttribute("sentence-start", String(token.sentenceStart ?? "")),
   conditionalDataAttribute("mining-insight", hasMiningInsight, "i-plus-one"),
   optionalDataAttribute("expression", token.card.spelling),
   optionalDataAttribute("reading", token.card.reading),
@@ -12970,7 +12982,7 @@ function renderTokensToHtml(text, tokens, settings) {
   const miningInsightKeys = miningInsightTokenKeys(safeTokens);
   for (const token of safeTokens) {
   if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
-  html += renderRenderedWordHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
+  html += renderRenderedWordHtml(text.slice(token.start, token.end), tokenWithSentenceStart(token, text), settings, miningInsightKeys);
   offset = token.end;
   }
   if (offset < text.length) html += escapeHtml(text.slice(offset));

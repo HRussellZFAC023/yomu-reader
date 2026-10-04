@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.11] - 2026-10-04
+
+### Changed
+
+- Saving settings keeps Settings open and shows “Settings saved.” beside the buttons; your next change clears it. Cancel, Esc or tapping outside still close Settings and only undo changes you have not saved.
+- Settings → Sources now opens on “Popup order”, the list that sets the order of the sections in the popup, and Settings search finds it.
+- The hand-picked dictionary shelf no longer repeats dictionaries the catalogue above it already offers. Without the extension or userscript, Study installs checked copies from the よむ dictionary mirror; with them, Jitendex and Jiten install the project’s newest build. The Jitendex, Jiten, JMdict and JMnedict cards show “Installed” instead of “Update” when you already have the same or a newer build, so they never replace a newer copy with an older one.
+- Saving a word to Jiten goes to your first Jiten word list. Jiten accepts single words only into word-list decks, so a save used to fail when an anime, frequency or smart deck was first in your list. Study’s deck picker lists only word lists, and if you have none, the word goes to your next save option and Study tells you to create a word list on jiten.moe.
+- New FAQ answers explain how to change the popup order and how to keep よむ off on one website.
+
+### Fixed
+
+- “Show pronunciation” stays off after you untick it and save; it used to switch itself back on.
+- Words no longer get grey underlines you never chose. The unknown part of a longer word (such as ありません in 申し訳ありません) and words that are in none of your decks under a deck-status underline now get no underline, while words with a state you picked a colour for keep that colour.
+- Hovering a word after the first sentence of a paragraph opens its popup again; since 1.8.79 only words in a paragraph’s first sentence opened on hover.
+- Words in paragraphs that mix links, bold text or ruby now get the same readable colours, late card and pitch updates and room for furigana as the rest of the paragraph, and long pages stay responsive while よむ annotates them.
+- Example sentences in the popup, such as Immersion Kit examples, no longer leave local-dictionary words unannotated when another source answers at the same moment.
+- A dictionary download that breaks off or stalls now fails with a reason instead of hanging, a full device is reported as full storage, and Japanese learners see install errors in Japanese.
+- よむ refuses a review grade it cannot map instead of sending it to Anki as Good.
+
 ## [2.0.10] - 2026-10-04
 
 ### Fixed

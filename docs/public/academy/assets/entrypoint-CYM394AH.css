@@ -7007,6 +7007,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
+  /* What the JPDB and Status channels draw as an underline: their decoration,
+     except where the not-in-deck rules below the state cascade step in. */
+  --jpdb-reader-jpdb-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-status-underline: var(--jpdb-reader-source-status-decoration, transparent);
   position: relative;
   display: inline !important;
   white-space: nowrap;
@@ -7793,12 +7797,59 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 
+/* The underline view of the JPDB and Status channels, read by page words and
+   additive mirrors (subtitles-youtube.css repeats it for subtitle lanes).
+   Not-in-deck has no colour picker, so on the underline it ranks below every
+   other state and, alone, draws nothing, as unknown pitch draws nothing
+   (1.6.98). The cascade above ranks it higher, which still sets the quiet
+   highlight wash and the text colour; only these two vars change. A word can
+   carry a second state: Anki's (projected as jpdb-* on pages, anki-* in Study)
+   and, in Study, jiten-<state> beside jpdb-<state>. :where() keeps every rule
+   at one specificity, so source order decides.
+   tests/reader/underline-colour-sources-css.test.ts holds this to the cascade. */
+
+/* Where the channel colour resolves to not-in-deck: nothing. Each :not() list
+   names the states its channel ranks after jpdb-not-in-deck, which keep their
+   colour; jiten-not-in-deck ranks after every state a word carries with it. */
+
+.jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
+)) {
+  --jpdb-reader-jpdb-underline: transparent;
+}
+
+.jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended,
+  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+)) {
+  --jpdb-reader-status-underline: transparent;
+}
+
+/* Where that hid a state the learner has a colour for, show that state. The
+   JPDB lane already ranks Ignored (and frequent/unparsed) after not-in-deck,
+   and the review lane holds Study's Anki state. */
+
+.jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed)) {
+  --jpdb-reader-status-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
+}
+
+.jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended)) {
+  --jpdb-reader-status-underline: var(--jpdb-reader-source-review-decoration, transparent);
+}
+
+.jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-new, .jpdb-in-deck)) {
+  --jpdb-reader-jpdb-underline: var(--jpdb-reader-state-new);
+  --jpdb-reader-status-underline: var(--jpdb-reader-state-new);
+}
+
 .jpdb-reader-word-underline-status .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
 
 .jpdb-reader-word-underline-jpdb .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-jpdb-underline, transparent);
 }
 
 .jpdb-reader-word-underline-review .jpdb-reader-word {
@@ -8069,7 +8120,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-text-status
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
 
 :is(
@@ -8077,7 +8128,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word-underline-jpdb,
   .jpdb-reader-word-text-jpdb
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-jpdb-underline, transparent);
 }
 
 :is(
@@ -8391,6 +8442,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-word-color-new-only
   .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
+  /* A compound's pitch gradient is an inline var painted by ::after, out of
+     reach of the background-image reset below; !important beats inline. */
+  --jpdb-reader-inline-pitch-gradient: none !important;
   color: inherit !important;
   /* WebKit paints text via -webkit-text-fill-color, which the colour-source
      rules set with their own !important — reset it too or Safari/iOS keeps the
@@ -8430,6 +8484,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-word-color-hide-new
   .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-inline-pitch-gradient: none !important;
   color: inherit !important;
   /* WebKit paints text via -webkit-text-fill-color, which the colour-source
      rules set with their own !important — reset it too or Safari/iOS keeps the
@@ -9452,6 +9507,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   --jpdb-reader-word-underline: transparent;
+  /* A compound's pitch gradient is an inline var; !important beats inline. */
+  --jpdb-reader-inline-pitch-gradient: none !important;
   --jpdb-reader-jpdb-color: transparent;
   --jpdb-reader-jpdb-readable: inherit;
   --jpdb-reader-jpdb-soft: transparent;
@@ -15625,6 +15682,12 @@ html.jpdb-reader-doodle-active * {
   min-height: 40px;
 }
 
+.jpdb-reader-collect > .jpdb-reader-help {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .jpdb-reader-add-deck-select {
   position: absolute;
   width: 1px;
@@ -17998,6 +18061,10 @@ html.jpdb-reader-doodle-active * {
   color: var(--jpdb-reader-muted);
 }
 
+.jpdb-reader-recommended-status[data-import-state="failed"] {
+  color: var(--jpdb-reader-danger-readable);
+}
+
 .jpdb-reader-order-head,
 .jpdb-reader-order-row {
   --jpdb-reader-order-tools-width: 112px;
@@ -19786,6 +19853,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   --jpdb-reader-subtitle-review-color: var(--jpdb-reader-review-color, transparent);
   --jpdb-reader-subtitle-review-text: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, var(--jpdb-reader-subtitle-fallback, currentColor)));
   --jpdb-reader-subtitle-review-decoration: var(--jpdb-reader-review-readable, var(--jpdb-reader-review-color, transparent));
+  --jpdb-reader-subtitle-new-decoration: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-subtitle-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
   --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-subtitle-pitch-color));
   --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
@@ -19815,6 +19883,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   --jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, transparent));
   --jpdb-reader-subtitle-review-text: var(--jpdb-reader-review-color, var(--jpdb-reader-review-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
   --jpdb-reader-subtitle-review-decoration: var(--jpdb-reader-review-color, var(--jpdb-reader-review-readable, transparent));
+  --jpdb-reader-subtitle-new-decoration: var(--jpdb-reader-state-new);
   --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-subtitle-pitch-color);
   --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
 }
@@ -19832,6 +19901,28 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
 
 .jpdb-reader-subtitle-underline-review :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-review-decoration); }
+
+/* The underline view of the JPDB and Status channels, as on the page: not-in-deck
+   ranks below every other state and, alone, draws nothing (see the
+   reader-words-ocr.css underline view for the :not() lists and the :where()
+   specificity). The subtitle highlight wash derives from the same decoration
+   vars, so only the underline changes. */
+
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
+)),
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended,
+  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+)) { --jpdb-reader-word-underline: transparent; }
+
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed)) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
+
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended)) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-review-decoration); }
+
+:is(.jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-status) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-new, .jpdb-in-deck)) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-new-decoration); }
 
 /* Unknown-pitch words keep their internal class for later enrichment, but do
    not paint the old neutral grey underline. A pitch underline should mean an

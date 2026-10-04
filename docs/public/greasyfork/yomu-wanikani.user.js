@@ -8171,6 +8171,7 @@ dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
+dictionaryStorageFull	この辞書を保存する空き容量が足りません。空き容量を増やすか辞書を削除してから、もう一度お試しください。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
@@ -9076,6 +9077,7 @@ mirroredDictionarySearchNoResults	検索に一致する辞書がありません�
 mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
+installed	インストール済み
 queued	待機中
 dictionaryGuide	ガイド
 download	ダウンロード
@@ -9172,6 +9174,8 @@ displayName	表示名
 orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
+popupOrderTitle	ポップアップの順序
+popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動
@@ -9207,14 +9211,10 @@ sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
 recommendedJitendex	例文付きの語句定義です。
-recommendedJmdict	基本語句定義です。
-recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
-recommendedKanjidic	漢字情報です。
 recommendedJpdbKanji	JPDB漢字情報です。
 recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
-recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),

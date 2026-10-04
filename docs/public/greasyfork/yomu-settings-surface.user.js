@@ -7561,7 +7561,8 @@ const EN = {
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
   jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  // Jiten takes a single word only into a word list (StudyDeckType 2).
+  jitenNeedsWordList: "To save words to Jiten, create a word list on jiten.moe.",
   addedToJiten: "Added to Jiten.",
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
@@ -7582,7 +7583,7 @@ const JA = {
   jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
   addedToJpdb: "JPDBに追加しました。",
   jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
-  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  jitenNeedsWordList: "Jitenに単語を保存するには、jiten.moeで単語リストを作成してください。",
   addedToJiten: "Jitenに追加しました。",
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
@@ -8249,6 +8250,7 @@ const COPY = {
   mirroredDictionaryLanguageNote: "Dictionaries for reading {language}.",
   install: "Install",
   installing: "Installing",
+  installed: "Installed",
   queued: "Queued",
   dictionaryGuide: "Guide",
   saveAfterInstall: "Save after install",
@@ -8280,6 +8282,7 @@ const COPY = {
   storageRuntimeUnavailable: "よむ storage is unavailable. Reload the page; if this continues, reinstall よむ.",
   dictionaryDownloadTimedOut: "Dictionary download timed out.",
   dictionaryDownloadNotZip: "Download was not a ZIP.",
+  dictionaryStorageFull: "Not enough storage space for this dictionary. Free up space or remove a dictionary, then try again.",
   dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
   dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
   dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
@@ -8726,6 +8729,8 @@ const COPY = {
   orderHeader: "Order",
   removeHeader: "Remove",
   definitionSource: "Definition source",
+  popupOrderTitle: "Popup order",
+  popupOrderHelp: "This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.",
   kanjiSection: "Kanji section",
   dragToReorder: "Drag to reorder",
   moveUp: "Move up",
@@ -8761,14 +8766,10 @@ const COPY = {
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
   recommendedJitendex: "Term definitions with examples.",
-  recommendedJmdict: "Core term definitions.",
-  recommendedJmnedict: "Proper names.",
   recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
   recommendedPixivLight: "Pixiv terms.",
-  recommendedKanjidic: "Kanji facts.",
   recommendedJpdbKanji: "JPDB kanji.",
   recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
-  recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
   recommendedBccwj: "Frequency badges from BCCWJ.",
   recommendedJiten: "Frequency badges from Jiten.",
   lines: "Lines",
@@ -8950,6 +8951,7 @@ dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
+dictionaryStorageFull	この辞書を保存する空き容量が足りません。空き容量を増やすか辞書を削除してから、もう一度お試しください。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
@@ -9868,6 +9870,7 @@ mirroredDictionarySearchNoResults	検索に一致する辞書がありません�
 mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
+installed	インストール済み
 queued	待機中
 dictionaryGuide	ガイド
 download	ダウンロード
@@ -9964,6 +9967,8 @@ displayName	表示名
 orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
+popupOrderTitle	ポップアップの順序
+popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動
@@ -9999,14 +10004,10 @@ sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
 recommendedJitendex	例文付きの語句定義です。
-recommendedJmdict	基本語句定義です。
-recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
-recommendedKanjidic	漢字情報です。
 recommendedJpdbKanji	JPDB漢字情報です。
 recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
-recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
@@ -14090,6 +14091,9 @@ function yomitanZipDictionaryName(index, filename) {
 }
 function yomitanDictionaryIdentity(title) {
   return title.replace(/\s*[\[(][^\])]*\d[^\])]*[\])]\s*$/u, "").replace(/\s+v?\d{4}[-.]\d{2}[-.]\d{2}\s*$/u, "").replace(/\s+v\d+(?:\.\d+)*\s*$/u, "").trim().toLowerCase() || title.trim().toLowerCase();
+}
+function yomitanDictionaryReplacementKey(title) {
+  return yomitanDictionaryIdentity(title).replace(/\s+/gu, "");
 }
 function yomitanZipVersion(index) {
   return index.format ?? index.version ?? 3;
@@ -18252,7 +18256,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.0.10".trim() ? "2.0.10".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.11".trim() ? "2.0.11".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -18284,6 +18288,3528 @@ function semanticVersionParts(value) {
   const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/);
   if (!match) return null;
   return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+function createHandleDragController(options) {
+  let state = initialDragState();
+  let pointerId = 0;
+  let touchId = 0;
+  let dragging = false;
+  let moved = false;
+  let activeInput = null;
+  let activeHandle = null;
+  let activeCaptureTarget = null;
+  const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
+  const setLastPoint = (point) => {
+  state = {
+    ...state,
+    lastX: point.x,
+    lastY: point.y,
+    deltaX: point.x - state.startX,
+    deltaY: point.y - state.startY
+  };
+  };
+  const updateDrag = (point) => {
+  if (!activeHandle) return;
+  setLastPoint(point);
+  if (movementDistance(state) > options.tapMovementPx) moved = true;
+  options.onUpdate?.(state, activeHandle);
+  };
+  const beginDrag = (handle, point, input2) => {
+  if (dragging || activeInput) return false;
+  state = {
+    startX: point.x,
+    startY: point.y,
+    lastX: point.x,
+    lastY: point.y,
+    deltaX: 0,
+    deltaY: 0
+  };
+  dragging = true;
+  moved = false;
+  activeInput = input2;
+  activeHandle = handle;
+  options.onBegin?.(handle, state, input2);
+  return true;
+  };
+  const finishDrag = () => {
+  if (!dragging) return;
+  const wasMoved = moved;
+  const handle = activeHandle;
+  const captureTarget = activeCaptureTarget;
+  dragging = false;
+  moved = false;
+  activeInput = null;
+  activeHandle = null;
+  activeCaptureTarget = null;
+  cleanupListeners();
+  releasePointerCapture(captureTarget, pointerId);
+  options.onFinish(state, wasMoved, handle);
+  };
+  function cleanupListeners() {
+  if (typeof document === "undefined") return;
+  document.removeEventListener("pointermove", handlePointerMove, true);
+  document.removeEventListener("pointerup", handlePointerUp, true);
+  document.removeEventListener("pointercancel", handlePointerCancel, true);
+  document.removeEventListener("touchmove", handleTouchMove, true);
+  document.removeEventListener("touchend", handleTouchEnd, true);
+  document.removeEventListener("touchcancel", handleTouchCancel, true);
+  }
+  function cancel() {
+  if (!dragging) return;
+  const handle = activeHandle;
+  const captureTarget = activeCaptureTarget;
+  dragging = false;
+  moved = false;
+  activeInput = null;
+  activeHandle = null;
+  activeCaptureTarget = null;
+  cleanupListeners();
+  releasePointerCapture(captureTarget, pointerId);
+  options.onCancel?.(state, handle);
+  }
+  function handlePointerMove(event) {
+  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+  consumeDragEvent(event);
+  updateDrag({ x: event.clientX, y: event.clientY });
+  }
+  function handlePointerUp(event) {
+  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+  consumeDragEvent(event);
+  if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
+  else setLastPoint({ x: event.clientX, y: event.clientY });
+  finishDrag();
+  }
+  function handlePointerCancel(event) {
+  if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
+  cancel();
+  }
+  function handleTouchMove(event) {
+  if (!dragging || activeInput !== "touch") return;
+  const touch = changedTouch(event, touchId);
+  if (!touch) return;
+  consumeDragEvent(event);
+  updateDrag({ x: touch.clientX, y: touch.clientY });
+  }
+  function handleTouchEnd(event) {
+  if (!dragging || activeInput !== "touch") return;
+  const touch = changedTouch(event, touchId);
+  if (!touch) return;
+  consumeDragEvent(event);
+  if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
+  else setLastPoint({ x: touch.clientX, y: touch.clientY });
+  finishDrag();
+  }
+  function handleTouchCancel(event) {
+  if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
+  cancel();
+  }
+  return {
+  isDragging: () => dragging,
+  pointerDown(handle, event) {
+    if (activeInput) return;
+    if (event.button !== void 0 && event.button !== 0) return;
+    consumeDragEvent(event);
+    if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
+    pointerId = event.pointerId;
+    activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+    setPointerCapture(activeCaptureTarget, event.pointerId);
+    document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+    document.addEventListener("pointerup", handlePointerUp, true);
+    document.addEventListener("pointercancel", handlePointerCancel, true);
+  },
+  touchStart(handle, event) {
+    if (activeInput) return;
+    const touch = firstChangedTouch(event);
+    if (!touch) return;
+    consumeDragEvent(event);
+    if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
+    touchId = touch.identifier;
+    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
+    document.addEventListener("touchend", handleTouchEnd, true);
+    document.addEventListener("touchcancel", handleTouchCancel, true);
+  },
+  cancel,
+  cleanupListeners
+  };
+}
+function initialDragState() {
+  return {
+  startX: 0,
+  startY: 0,
+  lastX: 0,
+  lastY: 0,
+  deltaX: 0,
+  deltaY: 0
+  };
+}
+function getContainedClosest(target, root, selector, onFound) {
+  if (!(target instanceof Element)) return null;
+  const element2 = target.closest(selector);
+  if (!element2 || !root.contains(element2)) return null;
+  onFound?.(element2);
+  return element2;
+}
+function consumeDragEvent(event) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+function changedTouch(event, touchId) {
+  for (const touch of Array.from(event.changedTouches)) {
+  if (touch.identifier === touchId) return touch;
+  }
+  return null;
+}
+function firstChangedTouch(event) {
+  return event.changedTouches.item(0);
+}
+function releasePointerCapture(handle, id) {
+  try {
+  handle?.releasePointerCapture?.(id);
+  } catch {
+  }
+}
+function setPointerCapture(handle, id) {
+  try {
+  handle.setPointerCapture?.(id);
+  } catch {
+  }
+}
+function addViewportChangeListeners(listener, signal) {
+  const options = { passive: true, signal };
+  window.addEventListener("resize", listener, options);
+  window.addEventListener("orientationchange", listener, options);
+  window.visualViewport?.addEventListener?.("resize", listener, options);
+  window.visualViewport?.addEventListener?.("scroll", listener, options);
+}
+const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
+const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
+const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
+const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
+const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
+const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
+function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
+  if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
+  drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
+  let viewportHeight = 0;
+  let drawerHeight = 0;
+  let startHeight = 0;
+  let rawDragHeight = 0;
+  let dragPageScale = 1;
+  let suppressNextHandleClick = false;
+  const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
+  const syncHandle = (handle) => {
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", label);
+  handle.setAttribute("aria-orientation", "horizontal");
+  handle.setAttribute("aria-valuemin", String(settingsDrawerMinHeight(viewportHeight)));
+  handle.setAttribute("aria-valuemax", String(viewportHeight));
+  handle.setAttribute("aria-valuenow", String(Math.round(drawerHeight)));
+  };
+  const syncHandleState = () => {
+  drawer.querySelectorAll(".jpdb-reader-settings-drag-handle").forEach(syncHandle);
+  };
+  const applyDrawerHeight = (height, persist = false) => {
+  const nextHeight = clampDrawerHeight(height, viewportHeight, settingsDrawerMinHeight(viewportHeight));
+  drawerHeight = nextHeight;
+  drawer.style.setProperty("--jpdb-reader-settings-drawer-height", `${Math.round(nextHeight)}px`);
+  drawer.classList.toggle("jpdb-reader-settings-drawer-expanded", isFullHeight());
+  syncHandleState();
+  if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
+  };
+  const applyViewportSize = () => {
+  applyOverlayPageScale(drawer);
+  const previousViewportHeight = viewportHeight;
+  const { pageScale } = overlayViewport();
+  const bottomInset = settingsDrawerBottomInset() * pageScale;
+  viewportHeight = fixedChromeViewportHeight();
+  drawer.style.setProperty("--jpdb-reader-settings-drawer-bottom", `${bottomInset}px`);
+  drawer.style.setProperty("--jpdb-reader-settings-drawer-viewport-height", `${viewportHeight}px`);
+  drawer.style.setProperty("--jpdb-reader-settings-drawer-min-height", `${settingsDrawerMinHeight(viewportHeight)}px`);
+  drawer.classList.toggle("jpdb-reader-settings-keyboard-open", bottomInset > 0);
+  const ratio = previousViewportHeight > 0 && drawerHeight > 0 ? drawerHeight / previousViewportHeight : readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO);
+  applyDrawerHeight(viewportHeight * ratio);
+  };
+  const clearDragStyles = () => {
+  drawer.classList.remove("jpdb-reader-settings-drawer-resizing");
+  };
+  const reset = () => {
+  drawer.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease";
+  clearDragStyles();
+  window.setTimeout(() => {
+    drawer.style.transition = "";
+  }, 180);
+  };
+  const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
+  const drawerDrag = createHandleDragController({
+  tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
+  movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
+  onBegin: () => {
+    dragPageScale = overlayViewport().pageScale;
+    startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
+    rawDragHeight = startHeight;
+    drawer.style.transition = "";
+    drawer.classList.add("jpdb-reader-settings-drawer-resizing");
+  },
+  onUpdate: (state) => {
+    rawDragHeight = startHeight - state.deltaY * dragPageScale;
+    applyDrawerHeight(rawDragHeight);
+  },
+  onFinish: (_state, wasMoved) => {
+    const finishHeight = rawDragHeight;
+    if (wasMoved) {
+      suppressNextHandleClick = true;
+      applyDrawerHeight(finishHeight, true);
+    }
+    reset();
+  },
+  onCancel: reset
+  });
+  const handleViewportChange = () => {
+  if (drawerDrag.isDragging()) drawerDrag.cancel();
+  drawer.style.transition = "";
+  applyViewportSize();
+  clearDragStyles();
+  syncHandleState();
+  };
+  applyViewportSize();
+  syncHandleState();
+  const viewportController = new AbortController();
+  let disposed = false;
+  let disposeObserver;
+  const dispose = () => {
+  if (disposed) return;
+  disposed = true;
+  drawerDrag.cleanupListeners();
+  viewportController.abort();
+  disposeObserver?.disconnect();
+  };
+  disposeObserver = new MutationObserver(() => {
+  if (!drawer.isConnected) dispose();
+  });
+  if (document.documentElement) {
+  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
+  drawer.addEventListener("click", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (suppressNextHandleClick) {
+    suppressNextHandleClick = false;
+    return;
+  }
+  onTap?.();
+  });
+  drawer.addEventListener("pointerdown", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  drawerDrag.pointerDown(handle, event);
+  });
+  drawer.addEventListener("touchstart", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  drawerDrag.touchStart(handle, event);
+  }, { capture: true, passive: false });
+  drawer.addEventListener("keydown", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    event.stopPropagation();
+    applyDrawerHeight(drawerHeight + (event.key === "ArrowUp" ? SETTINGS_DRAWER_KEYBOARD_STEP_PX : -SETTINGS_DRAWER_KEYBOARD_STEP_PX), true);
+    reset();
+  }
+  });
+  addViewportChangeListeners(handleViewportChange, viewportController.signal);
+}
+function fixedChromeViewportHeight() {
+  const scaledViewport = overlayViewport();
+  return scaledViewport.pageScale > 1 ? Math.max(0, Math.round(overlayViewportBounds().height)) : visualViewportHeight();
+}
+function visualViewportHeight() {
+  return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
+}
+function settingsDrawerBottomInset() {
+  const visual = window.visualViewport;
+  if (!visual) return 0;
+  const layoutHeight = layoutViewportHeight();
+  if (layoutHeight <= 0) return 0;
+  return Math.max(0, Math.round(layoutHeight - visual.offsetTop - visual.height));
+}
+function layoutViewportHeight() {
+  return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
+}
+function settingsDrawerMinHeight(viewportHeight) {
+  if (viewportHeight <= 0) return MIN_SETTINGS_DRAWER_HEIGHT_PX;
+  return Math.min(viewportHeight, MIN_SETTINGS_DRAWER_HEIGHT_PX, Math.max(220, Math.round(viewportHeight * 0.38)));
+}
+function restoredSettingsDrawerHeight(viewportHeight) {
+  return clampDrawerHeight(
+  viewportHeight * readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO),
+  viewportHeight,
+  settingsDrawerMinHeight(viewportHeight)
+  );
+}
+function clampDrawerHeight(height, viewportHeight, minHeight) {
+  if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
+  return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
+}
+function readHeightRatio(storageKey, fallback) {
+  const value = gmStorageGetSync(storageKey, fallback);
+  return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
+}
+function storeHeightRatio(storageKey, height, viewportHeight) {
+  if (viewportHeight <= 0) return;
+  const ratio = Math.max(0, Math.min(1, height / viewportHeight));
+  gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
+}
+const FOCUSABLE_SELECTOR = 'button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"])';
+class LookupModalAccessibility {
+  dialog;
+  returnTo;
+  hidden = [];
+  activate(root, trigger) {
+  const active = document.activeElement;
+  const restoreTarget = this.returnTo?.isConnected ? this.returnTo : trigger?.isConnected ? trigger : active instanceof HTMLElement && !root.contains(active) ? active : void 0;
+  this.release(true);
+  this.dialog = root;
+  root.setAttribute("role", "dialog");
+  root.setAttribute("aria-modal", "true");
+  this.returnTo = restoreTarget;
+  this.hidden = hideBackground(root);
+  root.addEventListener("keydown", this.handleKeydown);
+  }
+  release(preserveRestoreTarget = false) {
+  this.dialog?.removeEventListener("keydown", this.handleKeydown);
+  this.dialog = void 0;
+  for (const [element2, ariaHidden] of this.hidden) {
+    if (ariaHidden === null) element2.removeAttribute("aria-hidden");
+    else element2.setAttribute("aria-hidden", ariaHidden);
+  }
+  this.hidden = [];
+  if (preserveRestoreTarget) return false;
+  const restoreTarget = this.returnTo?.isConnected ? this.returnTo : void 0;
+  this.returnTo = void 0;
+  restoreTarget?.focus({ preventScroll: true });
+  return Boolean(restoreTarget);
+  }
+  handleKeydown = (event) => {
+  if (event.key !== "Tab" || event.isComposing || !this.dialog) return;
+  const focusable = Array.from(this.dialog.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element2) => !element2.closest("[hidden]") && !element2.closest('[aria-hidden="true"]') && element2.tabIndex >= 0).sort((left, right) => (left.tabIndex || Infinity) - (right.tabIndex || Infinity));
+  const destination = event.shiftKey ? focusable.at(-1) : focusable[0];
+  const edge = event.shiftKey ? focusable[0] : focusable.at(-1);
+  if (document.activeElement !== edge && document.activeElement !== this.dialog && this.dialog.contains(document.activeElement)) return;
+  event.preventDefault();
+  (destination ?? this.dialog).focus();
+  };
+}
+function hideBackground(root) {
+  const hidden = [];
+  let branch = root;
+  while (branch.parentElement) {
+  const parent = branch.parentElement;
+  for (const sibling of Array.from(parent.children)) {
+    if (!(sibling instanceof HTMLElement) || sibling === branch) continue;
+    hidden.push([sibling, sibling.getAttribute("aria-hidden")]);
+    sibling.setAttribute("aria-hidden", "true");
+  }
+  if (parent === document.body) break;
+  branch = parent;
+  }
+  return hidden;
+}
+function createSettingsFormReader(data, colorSource) {
+  const get = (key) => String(data.get(key) ?? "");
+  const getAll = (key) => data.getAll(key).map((value) => String(value));
+  const number = (key, fallback) => readNumber(get(key), fallback);
+  return {
+  get,
+  getAll,
+  has: (key) => data.has(key),
+  number,
+  clamped: (key, min, max2, fallback) => Math.max(min, Math.min(max2, number(key, fallback))),
+  colorSource
+  };
+}
+function readNumber(value, fallback) {
+  if (!value.trim()) return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+function ocrInteractionModeFromSettings(settings) {
+  if (!settings.ocrEnabled) return "off";
+  return settings.ocrAutoScanImages ? "auto" : "manual";
+}
+const NATIVE_SUBTITLE_DISPLAY_MODES = ["blurred", "shown", "hidden"];
+function nativeSubtitleDisplayMode(settings) {
+  if (!settings.subtitleSecondaryVisible && settings.subtitleSecondaryVisibleChosen) return "hidden";
+  return settings.subtitleNativeBlurred ? "blurred" : "shown";
+}
+function applyNativeSubtitleDisplayMode(settings, mode, options = {}) {
+  const visible = mode !== "hidden";
+  const blurred = mode === "blurred";
+  const markVisibilityChosen = options.markVisibilityChosen ?? true;
+  const changed = settings.subtitleSecondaryVisible !== visible || settings.subtitleNativeBlurred !== blurred || markVisibilityChosen && !settings.subtitleSecondaryVisibleChosen;
+  settings.subtitleSecondaryVisible = visible;
+  settings.subtitleNativeBlurred = blurred;
+  if (markVisibilityChosen) settings.subtitleSecondaryVisibleChosen = true;
+  return changed;
+}
+function readingAnnotationModeForTarget(mode, targetLanguage2) {
+  return targetLanguage2 !== "ja" && mode === "difficult-kanji" ? "all" : mode;
+}
+const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
+  "auto",
+  ...availableInterfaceLocales().map((locale) => locale.tag)
+]);
+const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
+const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
+const DEFAULT_COLOR_SOURCE_VALUES = {
+  wordHighlightColorSource: "jpdb",
+  wordUnderlineColorSource: "pitch",
+  wordTextColorSource: "anki",
+  subtitleHighlightColorSource: "jpdb",
+  subtitleUnderlineColorSource: "pitch",
+  subtitleTextColorSource: "anki"
+};
+const ACCENT_COLOR_SETTING_NAMES = [
+  "accentColor",
+  "wordColorNew",
+  "wordColorLearning",
+  "wordColorKnown",
+  "wordColorDue",
+  "wordColorFailed",
+  "wordColorIgnored",
+  "pitchColorHeiban",
+  "pitchColorAtamadaka",
+  "pitchColorNakadaka",
+  "pitchColorOdaka",
+  "pitchColorUnknown"
+];
+const COLOR_SOURCE_SETTING_NAMES = [
+  "wordHighlightColorSource",
+  "wordUnderlineColorSource",
+  "wordTextColorSource",
+  "subtitleHighlightColorSource",
+  "subtitleUnderlineColorSource",
+  "subtitleTextColorSource"
+];
+const SHORTCUT_SETTING_NAMES = [
+  "scanPage",
+  "hoverLookup",
+  "massReviewVisible",
+  "openSettings",
+  "playAudio",
+  "closePopup",
+  "previousLookupWord",
+  "nextLookupWord",
+  "previousSubtitle",
+  "nextSubtitle",
+  "copySubtitle",
+  "toggleOcr",
+  "toggleSubtitleOverlay",
+  "toggleYoutubeImmersion",
+  "scanImages",
+  "studyReveal",
+  "studyRevealAlternate",
+  "studyUndo",
+  "studyPrevious",
+  "studyPreviousAlternate",
+  "studyNext",
+  "studyNextAlternate",
+  "gradeNothing",
+  "gradeSomething",
+  "gradeHard",
+  "gradeOkay",
+  "gradeEasy",
+  "gradeFail",
+  "gradePass"
+];
+const KANJI_ADDON_SOURCE_ROWS = [
+  ["jpdbKanji", "jpdbKanjiEnabled", "jpdbKanjiPriority", "jpdbKanjiAlias"],
+  ["kanjiImmersionKit", "kanjiImmersionKitEnabled", "kanjiImmersionKitPriority", "kanjiImmersionKitAlias"],
+  ["wanikaniKanji", "wanikaniKanjiEnabled", "wanikaniKanjiPriority", "wanikaniKanjiAlias"],
+  ["rtk", "rtkEnabled", "rtkPriority", "rtkAlias"],
+  ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
+  ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority", "kanjiOriginsAlias"]
+];
+function settingsColorSourceValue(settings, name) {
+  const source = settings[name];
+  return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
+}
+function readFormSettings(data, current) {
+  const colorSource = (key, fallback) => readOption(String(data.get(key) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
+  const reader = createSettingsFormReader(data, colorSource);
+  const { get, has } = reader;
+  const audioSources = readAudioSources(data);
+  const furiganaMode = readOption(get("furiganaMode"), ["all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode === "auto" ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
+  const apiDefinitionRowsPresent = {
+  jpdb: hasSourceRow(has, "jpdbDefinitions"),
+  jiten: hasSourceRow(has, "jitenDefinitions"),
+  bunpro: hasSourceRow(has, "bunproDefinitions"),
+  wanikani: hasSourceRow(has, "wanikaniDefinitions")
+  };
+  const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
+  const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
+  readDictionaryPreferences(data, current.dictionaryPreferences, reader),
+  dictionaryLookupLinks
+  );
+  const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
+  const apiCredentials = readApiCredentialsFromFormData(data, current);
+  const interfaceLanguage = readOption(
+  get("interfaceLanguage"),
+  SELECTABLE_INTERFACE_LANGUAGES,
+  current.interfaceLanguage
+  );
+  const settings = {
+  ...current,
+  ...apiCredentials,
+  // The deprecated key is no longer shown because Bunpro's full Yomu
+  // integration uses only the frontend token. Preserve an older saved
+  // value so opening Settings does not silently destroy user data.
+  bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
+  interfaceLanguage,
+  ...readLanguageProfileFormSettings(
+    data,
+    current,
+    interfaceLanguage,
+    dictionaryPreferences
+  ),
+  ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
+  ...readKanjiAddonFormSettings(reader, current),
+  ...readAudioFormSettings(reader, current, audioSources),
+  ...readColorFormSettings(reader, current),
+  ...readImmersionKitFormSettings(reader, current),
+  ...readLookupBehaviorFormSettings(reader, current),
+  ...readNewTabFormSettings(reader, current),
+  ...readReadingDisplayFormSettings(reader, current, furiganaMode),
+  ...readOcrFormSettings(reader, current),
+  ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
+  dictionaryPreferences,
+  dictionaryLookupLinks,
+  ...readSubtitleFormSettings(reader, current),
+  ...readYoutubeFormSettings(reader, current),
+  ...readAnkiFormSettings(reader, current),
+  ...readStudyToolFormSettings(reader, current),
+  enableLogging: has("enableLogging"),
+  ...readPopupFormSettings(reader, current),
+  ...readMiningFormSettings(reader, current),
+  shortcuts: readShortcutFormSettings(reader, current)
+  };
+  preserveDetachedJapaneseSettings(settings, current, data);
+  enforceTargetReadingAnnotationMode(settings);
+  return normalizeReaderSettings(settings);
+}
+function readLanguageProfileFormSettings(data, current, interfaceLanguage, dictionaryPreferences) {
+  const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
+  if (!active) {
+  return {
+    languageProfiles: current.languageProfiles,
+    activeLanguageProfileId: current.activeLanguageProfileId
+  };
+  }
+  const fallbackOutputLanguage = slice1LanguageIdForTag(active.outputLanguage) ?? "en";
+  const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
+  const outputLanguageTag = outputLanguage === fallbackOutputLanguage ? active.outputLanguage : canonicalTagForSlice1Language(outputLanguage);
+  const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? "ja";
+  const targetLanguageId2 = readTargetLanguage(data, fallbackTargetLanguage);
+  const targetLanguage2 = canonicalTagForLearningTarget(targetLanguageId2);
+  const parserProvider = readOption(
+  String(data.get("parserProvider") ?? ""),
+  ["local", "jiten", "jpdb", "auto"],
+  current.parserProvider
+  );
+  const definitionTranslationProviderIds = data.has("definitionTranslationControlsPresent") ? normalizedStringIds(data.getAll("definitionTranslationProviderIds")) : [...active.definitionTranslationProviderIds];
+  const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
+  if (outputLanguage !== fallbackOutputLanguage) {
+  const activated = activateLanguageProfileForOutputLanguage(
+    current.languageProfiles,
+    current.activeLanguageProfileId,
+    outputLanguageTag,
+    {
+      uiLocale: interfaceLanguage,
+      parserProvider,
+      targetLanguage: targetLanguage2,
+      dictionaries: dictionaries2,
+      definitionTranslationProviderIds
+    }
+  );
+  return {
+    languageProfiles: activated.profiles,
+    activeLanguageProfileId: activated.activeProfileId
+  };
+  }
+  return {
+  languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? {
+    ...profile,
+    // Keep an existing supported script/region variant when the
+    // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
+    outputLanguage: outputLanguageTag,
+    learnerLanguage: outputLanguageTag,
+    targetLanguage: targetLanguage2,
+    uiLocale: interfaceLanguage,
+    parserProvider,
+    dictionaries: dictionaries2,
+    definitionTranslationProviderIds
+  } : profile),
+  activeLanguageProfileId: active.id
+  };
+}
+function readOutputLanguage(data, fallback) {
+  const value = String(data.get("learnerLanguage") ?? "");
+  return isLearnerLanguageId(value) ? value : fallback;
+}
+function readTargetLanguage(data, fallback) {
+  const value = String(data.get("targetLanguage") ?? "");
+  return isLearningTargetRosterId(value) ? value : fallback;
+}
+function preserveDetachedJapaneseSettings(settings, current, data) {
+  if (!data.has("furiganaMode")) {
+  settings.furiganaMode = current.furiganaMode;
+  settings.clampedRowReadings = current.clampedRowReadings;
+  settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
+  }
+  if (!data.has("pitchColorHeiban")) {
+  settings.pitchColorHeiban = current.pitchColorHeiban;
+  settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
+  settings.pitchColorNakadaka = current.pitchColorNakadaka;
+  settings.pitchColorOdaka = current.pitchColorOdaka;
+  settings.pitchColorUnknown = current.pitchColorUnknown;
+  }
+  if (readTargetLanguage(data, "ja") !== "ja") {
+  for (const name of COLOR_SOURCE_SETTING_NAMES) {
+    if (current[name] === "pitch") settings[name] = current[name];
+  }
+  }
+}
+function enforceTargetReadingAnnotationMode(settings) {
+  const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+  const targetLanguage2 = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
+  const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage2);
+  if (mode === settings.furiganaMode) return;
+  settings.furiganaMode = mode;
+  settings.showFurigana = mode !== "off";
+  settings.hideKnownFurigana = mode === "known-status";
+}
+function normalizedStringIds(values) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  values.forEach((value) => {
+  if (typeof value !== "string") return;
+  const id = value.trim();
+  if (!id || id.length > 160 || seen.has(id)) return;
+  seen.add(id);
+  result.push(id);
+  });
+  return result;
+}
+function colorSourceFallback(key, fallback) {
+  if (fallback !== "auto") return fallback;
+  return isColorSourceSettingName(key) ? DEFAULT_COLOR_SOURCE_VALUES[key] : "jpdb";
+}
+function isColorSourceSettingName(value) {
+  return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
+}
+function hasSourceRow(has, prefix) {
+  return has(`${prefix}.name`) || has(`${prefix}.priority`) || has(`${prefix}.enabled`);
+}
+function readApiDefinitionFormSettings(reader, current, rowsPresent) {
+  const { has, clamped } = reader;
+  const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
+  return {
+  jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : current.jpdbDefinitionsEnabled,
+  jpdbDefinitionsAlias: readSourceAlias(reader, "jpdbDefinitions", current.jpdbDefinitionsAlias),
+  jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
+  jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
+  jitenDefinitionsAlias: readSourceAlias(reader, "jitenDefinitions", current.jitenDefinitionsAlias),
+  jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
+  bunproDefinitionsEnabled: rowsPresent.bunpro ? has("bunproDefinitions.enabled") : current.bunproDefinitionsEnabled,
+  bunproDefinitionsAlias: readSourceAlias(reader, "bunproDefinitions", current.bunproDefinitionsAlias),
+  bunproDefinitionsPriority: clamped("bunproDefinitions.priority", 0, 999, current.bunproDefinitionsPriority),
+  wanikaniDefinitionsEnabled: rowsPresent.wanikani ? has("wanikaniDefinitions.enabled") : current.wanikaniDefinitionsEnabled,
+  wanikaniDefinitionsAlias: readSourceAlias(reader, "wanikaniDefinitions", current.wanikaniDefinitionsAlias),
+  wanikaniDefinitionsPriority: clamped("wanikaniDefinitions.priority", 0, 999, current.wanikaniDefinitionsPriority),
+  jpdbPageEnhancementsEnabled,
+  jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
+  jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
+  };
+}
+function readKanjiAddonFormSettings(reader, current) {
+  const { has, clamped } = reader;
+  return {
+  ...readSourcePriorityRows(reader, current, KANJI_ADDON_SOURCE_ROWS),
+  kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
+  kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
+  kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
+  similarKanjiWordLimit: clamped("similarKanjiWordLimit", 2, 24, current.similarKanjiWordLimit)
+  };
+}
+function readSourcePriorityRows(reader, current, rows) {
+  const settings = {};
+  const out = settings;
+  for (const [rowName, enabledKey, priorityKey, aliasKey] of rows) {
+  out[enabledKey] = reader.has(`${rowName}.enabled`);
+  out[priorityKey] = reader.clamped(`${rowName}.priority`, 0, 999, Number(current[priorityKey]));
+  if (aliasKey) out[aliasKey] = readSourceAlias(reader, rowName, String(current[aliasKey] ?? ""));
+  }
+  return settings;
+}
+function readSourceAlias(reader, prefix, current) {
+  const key = `${prefix}.alias`;
+  return reader.has(key) ? reader.get(key).trim() : current;
+}
+function readAudioFormSettings(reader, current, audioSources) {
+  const { get, has, clamped } = reader;
+  const audioAutoPlayMode = readOption(get("audioAutoPlayMode"), ["off", "all", "hover", "tap"], current.audioAutoPlayMode);
+  return {
+  audioEnabled: has("audioEnabled"),
+  autoPlayAudio: has("autoPlayAudio") && audioAutoPlayMode !== "off",
+  suppressAutoAudioOnVideo: has("suppressAutoAudioOnVideo"),
+  audioAutoPlayMode,
+  audioSources,
+  audioEnableDefaultSources: has("audioEnableDefaultSources"),
+  audioSourceUrl: audioSources.find((source) => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
+  audioViaBlob: current.audioViaBlob,
+  audioFallbackChimeEnabled: has("audioFallbackChimeEnabled"),
+  audioTimeoutMs: clamped("audioTimeoutMs", 1e3, 3e4, current.audioTimeoutMs),
+  audioSelectionMode: readOption(get("audioSelectionMode"), ["first", "random"], current.audioSelectionMode),
+  audioTtsMode: readOption(get("audioTtsMode"), ["fallback", "source-order"], current.audioTtsMode)
+  };
+}
+function readColorFormSettings(reader, current) {
+  return {
+  ...readAccentColorSettings(reader, current),
+  ...readColorSourceSettings(reader, current)
+  };
+}
+function readAccentColorSettings(reader, current) {
+  const settings = {};
+  ACCENT_COLOR_SETTING_NAMES.forEach((name) => {
+  settings[name] = sanitizeAccentColor(reader.get(name), current[name]);
+  });
+  return settings;
+}
+function readColorSourceSettings(reader, current) {
+  const settings = {};
+  COLOR_SOURCE_SETTING_NAMES.forEach((name) => {
+  settings[name] = reader.colorSource(name, current[name]);
+  });
+  return settings;
+}
+function readLookupBehaviorFormSettings(reader, current) {
+  const { get, has, clamped } = reader;
+  const pageScanMode = readOption(get("pageScanMode"), ["off", "auto", "manual"], pageScanModeFromSettings$2(current));
+  return {
+  lookupOnClick: has("lookupOnClick"),
+  lookupOnHover: has("lookupOnHover"),
+  lookupOnMiddleMouse: has("lookupOnMiddleMouse"),
+  hoverOpenDelayMs: clamped("hoverOpenDelayMs", 0, 1500, current.hoverOpenDelayMs),
+  hoverCloseDelayMs: clamped("hoverCloseDelayMs", 0, 3e3, current.hoverCloseDelayMs),
+  popupActivationMode: has("popupLookupEnabled") ? current.popupActivationMode === "off" ? DEFAULT_SETTINGS.popupActivationMode : current.popupActivationMode : "off",
+  scanModifierKey: current.scanModifierKey,
+  showFloatingButton: has("showFloatingButton"),
+  annotationsPaused: pageScanMode === "off",
+  manualScanEnabled: pageScanMode === "manual"
+  };
+}
+function pageScanModeFromSettings$2(settings) {
+  if (settings.annotationsPaused) return "off";
+  return settings.manualScanEnabled ? "manual" : "auto";
+}
+function readNewTabFormSettings(reader, current) {
+  const { get, has, clamped } = reader;
+  return {
+  newTabAnkiEnabled: has("newTabAnkiEnabled"),
+  newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
+  newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "bunpro", "wanikani", "yomu-local", "anki", "dictionary"], current.newTabSource),
+  newTabJpdbDeck: get("newTabJpdbDeck").trim() || current.newTabJpdbDeck,
+  newTabJpdbReviewMode: readOption(get("newTabJpdbReviewMode"), ["auto", "api-vocabulary", "live-review"], current.newTabJpdbReviewMode),
+  corsProxyUrl: get("corsProxyUrl").trim(),
+  newTabKanjiKeywordSource: readOption(get("newTabKanjiKeywordSource"), ["auto", "rtk", "jpdb", "local"], current.newTabKanjiKeywordSource),
+  newTabParsingEnabled: has("newTabParsingEnabled"),
+  newTabFrontSentenceEnabled: has("newTabFrontSentenceEnabled"),
+  newTabOfflineEnabled: has("newTabOfflineEnabled"),
+  newTabOfflineLimit: clamped("newTabOfflineLimit", 0, 500, current.newTabOfflineLimit),
+  newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
+  newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
+  newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
+  newTabSwipeReviews: has("newTabSwipeReviews"),
+  newTabShortcutHintsEnabled: has("newTabShortcutHintsEnabled"),
+  newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled")
+  };
+}
+function readReadingDisplayFormSettings(reader, current, furiganaMode) {
+  const { has } = reader;
+  const { get } = reader;
+  return {
+  showFurigana: furiganaMode !== "off",
+  furiganaMode,
+  furiganaHiddenStateGroups: FURIGANA_HIDE_STATE_GROUPS.filter((group) => has(`furiganaHide-${group}`)),
+  wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
+  clampedRowReadings: readOption(get("clampedRowReadings"), ["show", "hover"], "show"),
+  wordColorHiddenStateGroups: WORD_COLOR_HIDE_STATE_GROUPS.filter((group) => has(`colorHide-${group}`)),
+  showPitchAccent: has("showPitchAccent"),
+  showLookupPillFrequency: has("showLookupPillFrequency"),
+  suppressRedundantWordUi: has("suppressRedundantWordUi"),
+  sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
+  // Rendering follows `furiganaMode`; this flag only mirrors it, so it is
+  // re-derived when the mode moves, not rewritten by every Save.
+  hideKnownFurigana: furiganaMode === current.furiganaMode ? current.hideKnownFurigana : furiganaMode === "known-status"
+  };
+}
+function readLocalDictionaryFormSettings(reader, current, kanjiPreferences) {
+  const { get, has, clamped } = reader;
+  return {
+  localDictionariesEnabled: has("localDictionariesEnabled"),
+  parserProvider: readOption(get("parserProvider"), ["local", "jiten", "jpdb", "auto"], current.parserProvider),
+  localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
+  kanjiDictionariesAlias: readSourceAlias(reader, "kanjiDictionaries", current.kanjiDictionariesAlias),
+  kanjiDictionariesPriority: clamped("kanjiDictionaries.priority", 0, 999, current.kanjiDictionariesPriority),
+  dictionarySourcesInitiallyExpanded: true,
+  localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults
+  };
+}
+function readAnkiFormSettings(reader, current) {
+  const { get, has } = reader;
+  const ankiEnabled = has("ankiEnabled");
+  return {
+  ankiEnabled,
+  ...readAnkiSectionFormSettings(reader, current, ankiEnabled),
+  ankiConnectUrl: get("ankiConnectUrl").trim() || current.ankiConnectUrl,
+  ankiDeck: get("ankiDeck").trim() || current.ankiDeck,
+  ankiModel: get("ankiModel").trim() || current.ankiModel,
+  ankiTemplateMode: readOption(get("ankiTemplateMode"), ["recognition", "context"], current.ankiTemplateMode),
+  ankiFrontReading: has("ankiFrontReading"),
+  ankiFrontSentence: has("ankiFrontSentence"),
+  ankiFrontImage: has("ankiFrontImage"),
+  ankiFieldMappings: readAnkiFieldMappings(get("ankiFieldMappings"), current.ankiFieldMappings),
+  ankiTags: get("ankiTags").trim(),
+  ankiMineWithJpdb: has("ankiMineWithJpdb"),
+  ankiCaptureScreenshot: has("ankiCaptureScreenshot"),
+  ankiMobileHandoff: has("ankiMobileHandoff")
+  };
+}
+function readAnkiSectionFormSettings(reader, current, ankiEnabled) {
+  if (!ankiSectionRowPresent(reader)) {
+  return {
+    ankiSectionEnabled: current.ankiSectionEnabled,
+    ankiSectionAlias: current.ankiSectionAlias,
+    ankiSectionPriority: current.ankiSectionPriority
+  };
+  }
+  return {
+  ankiSectionEnabled: reader.has("ankiSection.enabled") || shouldAutoEnableAnkiSection(ankiEnabled, current),
+  ankiSectionAlias: readSourceAlias(reader, "ankiSection", current.ankiSectionAlias),
+  ankiSectionPriority: reader.clamped("ankiSection.priority", 0, 999, current.ankiSectionPriority)
+  };
+}
+function ankiSectionRowPresent(reader) {
+  return formReaderValuePresent(reader, "ankiSection.name") || formReaderValuePresent(reader, "ankiSection.priority") || reader.has("ankiSection.enabled");
+}
+function formReaderValuePresent(reader, name) {
+  return Boolean(reader.get(name));
+}
+function shouldAutoEnableAnkiSection(ankiEnabled, current) {
+  return ankiEnabled && !current.ankiEnabled && !current.ankiSectionEnabled;
+}
+function readAnkiFieldMappings(value, fallback) {
+  if (!value.trim()) return fallback;
+  try {
+  const parsed = JSON.parse(value);
+  return normalizeAnkiFieldMappings(parsed);
+  } catch {
+  return fallback;
+  }
+}
+function readStudyToolFormSettings(reader, current) {
+  const { has, clamped } = reader;
+  return {
+  studyTranslationEnabled: has("studyTranslation.enabled"),
+  studyTranslationAlias: readSourceAlias(reader, "studyTranslation", current.studyTranslationAlias),
+  studyTranslationPriority: clamped("studyTranslation.priority", 0, 999, current.studyTranslationPriority),
+  studyGrammarEnabled: has("studyGrammar.enabled"),
+  studyGrammarAlias: readSourceAlias(reader, "studyGrammar", current.studyGrammarAlias),
+  studyGrammarPriority: clamped("studyGrammar.priority", 0, 999, current.studyGrammarPriority)
+  };
+}
+function readPopupFormSettings(reader, current) {
+  const { get, has, clamped } = reader;
+  const popupMode = readOption(get("popupMode"), ["auto", "sheet", "popover"], current.popupMode);
+  return {
+  theme: readOption(get("theme"), ["auto", "dark", "light"], current.theme),
+  popupMode,
+  hoverPopupMode: readOption(get("hoverPopupMode"), ["auto", "sheet", "popover"], current.hoverPopupMode),
+  stickyBottomSheet: has("stickyBottomSheet"),
+  popoverBackdropEnabled: has("popoverBackdropEnabled"),
+  popoverWidth: clamped("popoverWidth", 280, 900, current.popoverWidth),
+  popoverHeight: clamped("popoverHeight", 220, 900, current.popoverHeight),
+  popoverHeightMode: readOption(get("popoverHeightMode"), ["available", "fixed"], current.popoverHeightMode),
+  readerFontFamily: readFontFamilySetting(reader, "readerFontFamily", current.readerFontFamily),
+  popupFontFamily: readFontFamilySetting(reader, "popupFontFamily", current.popupFontFamily),
+  popupFontWeight: clamped("popupFontWeight", 300, 900, current.popupFontWeight)
+  };
+}
+function readFontFamilySetting(reader, name, fallback) {
+  const value = reader.get(name).trim();
+  if (value === CUSTOM_FONT_FAMILY_VALUE) return reader.get(`${name}Custom`).trim() || fallback;
+  return value || fallback;
+}
+function readMiningFormSettings(reader, current) {
+  const { get, has } = reader;
+  return {
+  jpdbMiningEnabled: has("jpdbMiningEnabled"),
+  bunproMiningEnabled: has("bunproMiningEnabled"),
+  wanikaniReviewEnabled: has("wanikaniReviewEnabled"),
+  yomuLocalSrsEnabled: has("yomuLocalSrsEnabled"),
+  autoMineOnReview: has("autoMineOnReview"),
+  miningDeck: get("miningDeck").trim() || "forq",
+  neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
+  blacklistDeck: get("blacklistDeck").trim() || "blacklist",
+  addToForq: has("addToForq"),
+  enableReviews: has("enableReviews"),
+  twoButtonReviews: get("twoButtonReviews") === "true",
+  apiGradingProvider: readOption(get("apiGradingProvider"), ["jiten", "jpdb"], current.apiGradingProvider === "jpdb" ? "jpdb" : "jiten")
+  };
+}
+function readOcrFormSettings(reader, current) {
+  const { get, has, clamped } = reader;
+  const ocrInteractionMode = readOption(get("ocrInteractionMode"), ["auto", "manual", "off"], ocrInteractionModeFromSettings(current));
+  return {
+  ocrEnabled: ocrInteractionMode !== "off",
+  ocrAutoScanImages: ocrInteractionMode === "auto",
+  ocrShowTextOverlay: has("ocrShowTextOverlay"),
+  ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
+  ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
+  ocrOverlayTheme: readOption(get("ocrOverlayTheme"), ["auto", "dark", "light"], current.ocrOverlayTheme),
+  ocrProvider: normalizeOcrProvider(get("ocrProvider")),
+  ocrEndpointUrl: get("ocrEndpointUrl").trim(),
+  ocrEngine: get("ocrEngine").trim() || "auto",
+  ocrCloudVisionApiKey: credentialValueFromReader(reader, "ocrCloudVisionApiKey", current.ocrCloudVisionApiKey),
+  // Blank means "follow the language being studied" and has to SURVIVE
+  // the round trip. Resolving it to a literal here turned the sentinel
+  // into whichever target happened to be active the first time anything
+  // in the dialog was saved, and the field is hidden, so nothing could
+  // ever unpin it again. Read it back exactly as rendered.
+  ocrLanguage: get("ocrLanguage").trim(),
+  ocrMaxImagePixels: clamped("ocrMaxImagePixels", 16e4, 28e5, current.ocrMaxImagePixels),
+  ocrMinImageArea: clamped("ocrMinImageArea", 1e4, 8e5, current.ocrMinImageArea),
+  ocrMaxImagesPerPage: clamped("ocrMaxImagesPerPage", 1, 30, current.ocrMaxImagesPerPage),
+  ocrPrefetchMargin: clamped("ocrPrefetchMargin", 0, 3e3, current.ocrPrefetchMargin),
+  ocrPrefetchPages: clamped("ocrPrefetchPages", 0, 10, current.ocrPrefetchPages),
+  ocrConcurrency: clamped("ocrConcurrency", 1, 8, current.ocrConcurrency),
+  ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
+  ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
+  ocrBackgroundOpacity: clamped("ocrBackgroundOpacity", 0, 1, current.ocrBackgroundOpacity),
+  ocrFontScale: clamped("ocrFontScale", 0.7, 1.8, current.ocrFontScale)
+  };
+}
+function readSubtitleFormSettings(reader, current) {
+  const { get, has, clamped } = reader;
+  const overlayVisible = has("subtitleOverlayVisible");
+  const currentNativeDisplay = nativeSubtitleDisplayMode(current);
+  const nativeDisplay = readOption(get("subtitleNativeDisplay"), NATIVE_SUBTITLE_DISPLAY_MODES, currentNativeDisplay);
+  const nativeDisplaySettings = {
+  subtitleSecondaryVisible: current.subtitleSecondaryVisible,
+  subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen,
+  subtitleNativeBlurred: current.subtitleNativeBlurred
+  };
+  if (nativeDisplay !== currentNativeDisplay) applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay);
+  return {
+  subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
+  subtitleAutoDetect: has("subtitleAutoDetect"),
+  subtitleOverlayVisible: overlayVisible,
+  ...nativeDisplaySettings,
+  // Only a flip is a deliberate choice: saving the dialog after editing
+  // something unrelated must not freeze an overlay the user never touched
+  // out of the automatic reveal that first shows it.
+  subtitleOverlayVisibleChosen: current.subtitleOverlayVisibleChosen || overlayVisible !== current.subtitleOverlayVisible,
+  subtitleKaraokeMode: has("subtitleKaraokeMode"),
+  subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
+  subtitlePausePanel: has("subtitlePausePanel"),
+  subtitleShadowAutoPause: has("subtitleShadowAutoPause"),
+  subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
+  subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
+  subtitleTranscriptAutoScrollResumeSeconds: clamped("subtitleTranscriptAutoScrollResumeSeconds", 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),
+  subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
+  subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
+  subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
+  subtitleFontSize: clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
+  // The drag gesture may park the line anywhere on screen, which for a short
+  // frame near the bottom of a tall viewport is far above 100% of the frame
+  // height; only guard against garbage, not against legitimate positions.
+  subtitleBottomOffset: clamped("subtitleBottomOffset", -200, 500, current.subtitleBottomOffset),
+  subtitleTextColor: sanitizeAccentColor(get("subtitleTextColor"), current.subtitleTextColor),
+  subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
+  subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
+  subtitleBackgroundOpacity: clamped("subtitleBackgroundOpacity", 0, 1, current.subtitleBackgroundOpacity),
+  subtitleNativeBlurStrength: clamped("subtitleNativeBlurStrength", 4, 20, current.subtitleNativeBlurStrength),
+  subtitleFontFamily: readFontFamilySetting(reader, "subtitleFontFamily", current.subtitleFontFamily),
+  subtitleFontWeight: clamped("subtitleFontWeight", 100, 900, current.subtitleFontWeight),
+  subtitleMiningPause: has("subtitleMiningPause"),
+  subtitleHoverPause: has("subtitleHoverPause"),
+  subtitleSeekPadding: clamped("subtitleSeekPadding", -2, 2, current.subtitleSeekPadding)
+  };
+}
+function readImmersionKitFormSettings(reader, current) {
+  const { get, has, clamped } = reader;
+  return {
+  immersionKitEnabled: readImmersionKitEnabled(reader),
+  immersionKitAlias: readSourceAlias(reader, "immersionKit", current.immersionKitAlias),
+  immersionKitExampleSource: readOption(get("immersionKitExampleSource"), ["immersion-kit", "nadeshiko", "combined"], current.immersionKitExampleSource),
+  nadeshikoApiKey: credentialValueFromReader(reader, "nadeshikoApiKey", current.nadeshikoApiKey),
+  immersionKitPriority: clamped("immersionKit.priority", 0, 999, current.immersionKitPriority),
+  immersionKitLimitEnabled: get("immersionKitLimitEnabled") === "on",
+  immersionKitLimit: clamped("immersionKitLimit", 1, 12, current.immersionKitLimit),
+  immersionKitMinLength: clamped("immersionKitMinLength", 0, 120, current.immersionKitMinLength),
+  immersionKitMaxLength: clamped("immersionKitMaxLength", 0, 240, current.immersionKitMaxLength),
+  immersionKitCategory: readOption(get("immersionKitCategory"), ["all", "anime", "drama", "games"], current.immersionKitCategory),
+  immersionKitSort: readOption(get("immersionKitSort"), ["sentence_length:asc", "sentence_length:desc"], current.immersionKitSort),
+  immersionKitExactMatch: has("immersionKitExactMatch"),
+  immersionKitShowTranslation: has("immersionKitShowTranslation"),
+  immersionKitRevealTranslationOnClick: readEnabledChildCheckbox(reader, "immersionKitShowTranslation", "immersionKitRevealTranslationOnClick"),
+  immersionKitShowImages: has("immersionKitShowImages"),
+  immersionKitAutoPlayAudio: has("immersionKitAutoPlayAudio"),
+  immersionKitPlayOnHover: has("immersionKitPlayOnHover"),
+  immersionKitPlayOnImageClick: has("immersionKitPlayOnImageClick"),
+  immersionKitPlaybackRate: clamped("immersionKitPlaybackRate", 0.5, 2, current.immersionKitPlaybackRate)
+  };
+}
+function readImmersionKitEnabled(reader) {
+  if (!reader.has("immersionKitEnabled")) return false;
+  const sourceRowPresent = [reader.get("immersionKit.name"), reader.get("immersionKit.priority")].some(Boolean);
+  return sourceRowPresent ? reader.has("immersionKit.enabled") : true;
+}
+function readEnabledChildCheckbox(reader, parent, child) {
+  if (!reader.has(parent)) return false;
+  return reader.has(child);
+}
+function readYoutubeFormSettings(reader, current) {
+  const { get, has } = reader;
+  const youtubeControlsPresent = has("youtubeImmersionSettingsPresent");
+  const channelControlsPresent = has("youtubeChannelSuggestionSettingsPresent");
+  const immersionEnabled = youtubeControlsPresent ? has("youtubeImmersionEnabled") : current.youtubeImmersionEnabled;
+  const initialImmersionEnabled = get("youtubeImmersionEnabledInitial") === "on";
+  const immersionChanged = youtubeControlsPresent && has("youtubeImmersionEnabledInitial") && immersionEnabled !== initialImmersionEnabled;
+  const channelRecommendations = channelControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
+  const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
+  return {
+  // Site-language navigation is opt-in. The checkbox renders the effective
+  // state, so an unchanged save preserves it while a real toggle records
+  // the submitted value as an explicit choice.
+  youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
+  youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
+  preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
+  youtubeShowChannelRecommendations: channelRecommendations,
+  youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
+  youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
+  };
+}
+function readShortcutFormSettings(reader, current) {
+  return Object.fromEntries(SHORTCUT_SETTING_NAMES.map((name) => {
+  const key = `shortcuts.${name}`;
+  return [name, reader.has(key) ? readShortcutFormValue(reader, key, current.shortcuts[name]) : current.shortcuts[name]];
+  }));
+}
+function readShortcutFormValue(reader, key, currentValue) {
+  const values = reader.getAll(key);
+  if (!values.length) return currentValue;
+  const changedValues = Array.from(new Set(values.filter((value) => value !== currentValue)));
+  if (changedValues.length === 1) return changedValues[0] ?? "";
+  return values.at(-1) ?? "";
+}
+function readOption(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+function readDictionaryPreferences(data, current, reader) {
+  const get = (key) => String(data.get(key) ?? "");
+  const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
+  if (!count) return current;
+  return Array.from({ length: count }, (_, index) => ({
+  name: get(`dictionaryPreferences.${index}.name`).trim(),
+  alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
+  enabled: data.has(`dictionaryPreferences.${index}.enabled`),
+  priority: reader.number(`dictionaryPreferences.${index}.priority`, index),
+  type: readDictionaryType(get(`dictionaryPreferences.${index}.type`))
+  })).filter((item) => item.name).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+}
+function reorderLocalFrequencyDictionaryPreferences(preferences, lookupLinks) {
+  const localFrequencyPrefix = "frequency-local:";
+  const preferenceByName = new Map(preferences.filter((preference) => preference.type === "frequency").map((preference) => [preference.name, preference]));
+  const ordered = lookupLinks.filter((link) => link.action === "frequency-local" && link.id.startsWith(localFrequencyPrefix)).map((link) => preferenceByName.get(link.id.slice(localFrequencyPrefix.length))).filter((preference) => preference !== void 0);
+  if (ordered.length < 2) return preferences;
+  const orderedNames = new Set(ordered.map((preference) => preference.name));
+  let next = 0;
+  return preferences.map((slot) => {
+  if (slot.type !== "frequency" || !orderedNames.has(slot.name)) return slot;
+  return { ...ordered[next++], priority: slot.priority };
+  });
+}
+function readDictionaryType(value) {
+  return value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata" ? value : "terms";
+}
+function readAudioSources(data) {
+  const get = (key) => String(data.get(key) ?? "");
+  const count = Math.max(0, Number(get("audioSourceCount")) || 0);
+  const sources = [];
+  const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
+  for (let index = 0; index < count; index++) {
+  const source = readAudioSourceRow(data, get, index);
+  if (!source || shouldSkipAudioSourceRow(source, builtInTypes)) continue;
+  sources.push(source);
+  }
+  return sources;
+}
+function readAudioSourceRow(data, get, index) {
+  return normalizeAudioSource({
+  type: get(`audioSources.${index}.type`),
+  url: get(`audioSources.${index}.url`).trim(),
+  voice: get(`audioSources.${index}.voice`).trim(),
+  enabled: data.has(`audioSources.${index}.enabled`),
+  subSources: readAudioSubSources(data, get, index)
+  });
+}
+function readAudioSubSources(data, get, index) {
+  const count = Math.max(0, Number(get(`audioSources.${index}.subSourceCount`)) || 0);
+  const subSources = [];
+  for (let subIndex = 0; subIndex < count; subIndex++) {
+  const name = get(`audioSources.${index}.subSources.${subIndex}.name`).trim();
+  if (!name) continue;
+  subSources.push({ name, enabled: data.has(`audioSources.${index}.subSources.${subIndex}.enabled`) });
+  }
+  return subSources;
+}
+function shouldSkipAudioSourceRow(source, builtInTypes) {
+  return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
+}
+function readDictionaryLookupLinks(data) {
+  return normalizeDictionaryLookupLinks(lookupLinkRows(data), false, readTargetLanguage(data, "ja"));
+}
+function lookupLinkRows(data) {
+  const get = (key) => String(data.get(key) ?? "");
+  const count = Math.max(0, Math.min(MAX_LOOKUP_LINK_ROWS, Number(get("dictionaryLookupLinkCount")) || 0));
+  const links = [];
+  for (let index = 0; index < count; index++) {
+  const link = readDictionaryLookupLinkRow(data, get, index);
+  if (link) links.push(link);
+  }
+  return links;
+}
+function readTargetAwareDictionaryLookupLinks(data, current) {
+  const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
+  const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
+  const next = readTargetLanguage(data, previous);
+  return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
+}
+function readDictionaryLookupLinkRow(data, get, index) {
+  const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
+  const label = get(`dictionaryLookupLinks.${index}.label`).trim();
+  const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
+  const action = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
+  if (!shouldKeepDictionaryLookupLink(label, urlTemplate, action)) return null;
+  return {
+  id: get(`dictionaryLookupLinks.${index}.id`).trim() || `custom-${index}`,
+  label: dictionaryLookupLinkLabel(label, action),
+  urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
+  enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
+  action,
+  priority
+  };
+}
+function readSubmittedRowPriority(value, index) {
+  if (!value.trim()) return index;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : index;
+}
+function dictionaryLookupLinkAction(value) {
+  if (value === "copy") return "copy";
+  if (value === "frequency-live") return "frequency-live";
+  if (value === "frequency-local") return "frequency-local";
+  return "open";
+}
+function shouldKeepDictionaryLookupLink(label, urlTemplate, action) {
+  return Boolean(label || urlTemplate || action === "copy" || action === "frequency-live" || action === "frequency-local");
+}
+function dictionaryLookupLinkLabel(label, action) {
+  return action === "copy" && !label ? COPY_LOOKUP_LINK.label : label;
+}
+function dictionaryLookupLinkUrlTemplate(urlTemplate, action) {
+  return action === "copy" || action === "frequency-live" || action === "frequency-local" ? "" : urlTemplate;
+}
+function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
+  const language2 = options.language ?? "en";
+  const requestOptions = {
+  method: options.method ?? "GET",
+  headers: options.headers,
+  data: options.data,
+  proxyUrl: options.proxyUrl,
+  allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
+  allowPublicProxies: options.allowPublicProxies,
+  allowConfiguredProxy: options.allowConfiguredProxy,
+  preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
+  credentials: options.credentials,
+  withCredentials: options.withCredentials,
+  timeoutMs,
+  failureLabel: uiText(language2, "audioRequest"),
+  timeoutLabel: uiText(language2, "audioRequestTimedOut")
+  };
+  return responseType === "blob" ? requestBlob$1(responseUrl, requestOptions) : requestText(responseUrl, requestOptions);
+}
+function shouldPreferFetchForAudioRequests() {
+  return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
+}
+const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
+function formatAudioUrl(template, card) {
+  const replacements = {
+  term: card.spelling,
+  reading: card.reading,
+  language: targetAudioTemplateLanguageToken()
+  };
+  return template.replace(
+  /\{(term|reading|language)\}/g,
+  (_, key) => encodeURIComponent(replacements[key] ?? "")
+  );
+}
+function namedAudioSubSources(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const record2 = value;
+  const entries2 = [];
+  for (const list of [record2.audioSources, record2.sources]) {
+  if (!Array.isArray(list)) continue;
+  for (const item of list) {
+    const entry = namedAudioSubSource(item);
+    if (entry) entries2.push(entry);
+  }
+  }
+  return entries2;
+}
+function namedAudioSubSource(value) {
+  if (!value || typeof value !== "object") return null;
+  const record2 = value;
+  if (typeof record2.name !== "string" || !record2.name.trim()) return null;
+  if (typeof record2.url !== "string" || !record2.url.trim()) return null;
+  return { name: record2.name.trim(), url: record2.url };
+}
+const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
+const audioSubSourceProbes = /* @__PURE__ */ new Map();
+function recordAudioSubSourceNames(url, names) {
+  const template = url.trim();
+  if (!template) return [];
+  const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+  const seen = new Set(known.map(audioSubSourceNameKey));
+  const merged = [...known];
+  for (const name of names) {
+  const trimmed = name.trim();
+  if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+  seen.add(audioSubSourceNameKey(trimmed));
+  merged.push(trimmed);
+  }
+  knownAudioSubSourcesByUrl.set(template, merged);
+  return [...merged];
+}
+function knownAudioSubSourceNames(url) {
+  return [...knownAudioSubSourcesByUrl.get(url.trim()) ?? []];
+}
+const AUDIO_SUB_SOURCE_PROBES = [
+  { spelling: "日本", reading: "にほん" },
+  { spelling: "食べる", reading: "たべる" },
+  { spelling: "ヨム音声テスト", reading: "" }
+];
+function detectCustomJsonAudioSubSources(url, timeoutMs, proxyUrl) {
+  const template = url.trim();
+  if (!template) return Promise.resolve([]);
+  const pending2 = audioSubSourceProbes.get(template);
+  if (pending2) return pending2;
+  const probe = probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl).then((result) => {
+  if (!result.reached) audioSubSourceProbes.delete(template);
+  return recordAudioSubSourceNames(template, result.names);
+  }, (error) => {
+  audioSubSourceProbes.delete(template);
+  throw error;
+  });
+  audioSubSourceProbes.set(template, probe);
+  return probe;
+}
+async function probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl) {
+  const results = await Promise.allSettled(AUDIO_SUB_SOURCE_PROBES.map(async (probe) => {
+  const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), probe);
+  const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
+  if (typeof response !== "string") throw new Error("Audio source returned no text.");
+  return namedAudioSubSources(parseJsonValue(response));
+  }));
+  const seen = /* @__PURE__ */ new Set();
+  const names = [];
+  let reached = false;
+  for (const result of results) {
+  if (result.status !== "fulfilled") continue;
+  reached = true;
+  for (const entry of result.value) {
+    const key = audioSubSourceNameKey(entry.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(audioSubSourceProviderName(entry.name));
+  }
+  }
+  return { names, reached };
+}
+function parseJsonValue(text2) {
+  return parseJson(text2, null, "candidates.parseJsonValue");
+}
+function withAudioQueryPlaceholders(template) {
+  if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
+  const [base, fragment = ""] = splitUrlFragment(template);
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}term={term}&reading={reading}${fragment}`;
+}
+function splitUrlFragment(value) {
+  const hash = value.indexOf("#");
+  return hash < 0 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
+}
+function httpStatusFromError(error) {
+  if (!error || typeof error !== "object") return void 0;
+  const value = error;
+  const status = value.status ?? value.statusCode;
+  return typeof status === "number" && Number.isFinite(status) ? status : void 0;
+}
+function sensitiveFingerprint(value) {
+  const secret = value.trim();
+  if (!secret) return "";
+  let first = 2166136261;
+  let second = 2654435769;
+  for (let index = 0; index < secret.length; index += 1) {
+  const code = secret.charCodeAt(index);
+  first = Math.imul(first ^ code, 16777619) >>> 0;
+  second = Math.imul(second ^ code, 2246822507) >>> 0;
+  }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
+}
+const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
+const WANIKANI_REVISION = "20170710";
+const WANIKANI_TOKEN_SETTINGS_URL = "https://www.wanikani.com/settings/personal_access_tokens";
+const REQUEST_TIMEOUT_MS = 3e4;
+const FREE_TIER_MAX_LEVEL = 3;
+class WanikaniApiError extends Error {
+  constructor(message, status) {
+  super(message);
+  this.status = status;
+  this.name = "WanikaniApiError";
+  }
+}
+const MIN_REQUEST_INTERVAL_MS = 1100;
+function fingerprintWanikaniToken(value) {
+  return sensitiveFingerprint(value);
+}
+class WanikaniClient {
+  getToken;
+  baseUrl;
+  requestImpl;
+  timeoutMs;
+  minRequestIntervalMs;
+  now;
+  sleep;
+  lastRequestAt = 0;
+  requestStartQueue = Promise.resolve();
+  pending = /* @__PURE__ */ new Map();
+  responseCache = /* @__PURE__ */ new Map();
+  verifiedUser = null;
+  verifiedContext = "";
+  activeFingerprint = "";
+  contextGeneration = 0;
+  constructor(options = {}) {
+  this.getToken = options.getToken ?? (() => "");
+  this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
+  this.requestImpl = options.requestImpl ?? requestHttp;
+  this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? MIN_REQUEST_INTERVAL_MS);
+  this.now = options.now ?? Date.now;
+  this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  }
+  hasCredential() {
+  return Boolean(this.getToken().trim());
+  }
+  tokenFingerprint() {
+  return fingerprintWanikaniToken(this.getToken());
+  }
+  clear() {
+  this.resetAccountContext("");
+  }
+  async getUser(force = false) {
+  return this.getUserFor(this.accountContext(), force);
+  }
+  async effectiveMaxLevel() {
+  const context = this.accountContext();
+  return effectiveMaxLevelForUser(await this.getUserFor(context));
+  }
+  async getSummary() {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.request(context, "/summary", {}, { cacheTtlMs: 3e4 });
+  }
+  async getAssignments(options = {}) {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/assignments", options, 3e4);
+  }
+  async getSubjects(options = {}) {
+  const context = this.accountContext();
+  const maxLevel = effectiveMaxLevelForUser(await this.ensureUser(context));
+  const levels = permittedSubjectLevels(options.levels, maxLevel);
+  if (!levels) return [];
+  const subjects = await this.collect(context, "/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
+  return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
+  }
+  async getStudyMaterials(options = {}) {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/study_materials", options, 6e4);
+  }
+  async getReviewStatistics(options = {}) {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/review_statistics", options, 6e4);
+  }
+  async createReview(body) {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  const response = await this.request(context, "/reviews", {
+    method: "POST",
+    body: { review: body }
+  });
+  this.invalidateReviewStateCaches(context);
+  return response;
+  }
+  async getUserFor(context, force = false) {
+  const cached = this.cachedUserFor(context, force);
+  if (cached) return cached;
+  const raw = await this.request(context, "/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
+  const user = parseWanikaniUser(raw);
+  if (this.isCurrentContext(context)) {
+    this.verifiedUser = user;
+    this.verifiedContext = context.cacheNamespace;
+  }
+  return user;
+  }
+  cachedUserFor(context, force) {
+  if (force) return null;
+  if (this.verifiedContext !== context.cacheNamespace) return null;
+  return this.verifiedUser;
+  }
+  async ensureUser(context) {
+  return this.getUserFor(context);
+  }
+  async collect(context, path, options, cacheTtlMs = 0) {
+  const cacheKey = `${context.cacheNamespace}:${path}?${stableOptionsKey(options)}`;
+  const cachedResponse = this.responseCache.get(cacheKey);
+  if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
+  const cached = this.pending.get(cacheKey);
+  if (cached) return cached;
+  const promise = this.collectUncached(context, path, options).then((items) => {
+    if (cacheTtlMs > 0 && this.isCurrentContext(context)) {
+      this.responseCache.set(cacheKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+    }
+    return items;
+  }).finally(() => this.pending.delete(cacheKey));
+  this.pending.set(cacheKey, promise);
+  return promise;
+  }
+  async collectUncached(context, path, options) {
+  const items = [];
+  let url = `${this.baseUrl}${path}${queryString(options)}`;
+  const visited = /* @__PURE__ */ new Set();
+  while (url) {
+    assertWanikaniPaginationUrl(url, visited, (value) => this.isSafeApiUrl(value));
+    visited.add(url);
+    const page = await this.requestUrl(context, url);
+    url = appendWanikaniCollectionPage(items, page);
+  }
+  return items;
+  }
+  request(context, path, options = {}, cache = {}) {
+  const url = `${this.baseUrl}${path}`;
+  const cacheTtlMs = wanikaniCacheTtl(cache);
+  if (!isCacheableWanikaniRequest(cacheTtlMs, options.method)) return this.requestUrl(context, url, options);
+  const key = `${context.cacheNamespace}:${url}`;
+  const existing = this.cachedOrPendingResponse(key);
+  if (existing) return existing;
+  const request = this.requestUrl(context, url, options).then((value) => {
+    this.cacheResponseForCurrentContext(context, key, cacheTtlMs, value);
+    return value;
+  }).finally(() => this.pending.delete(key));
+  this.pending.set(key, request);
+  return request;
+  }
+  cachedOrPendingResponse(key) {
+  const cached = this.responseCache.get(key);
+  if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
+  return this.pending.get(key) ?? null;
+  }
+  cacheResponseForCurrentContext(context, key, cacheTtlMs, value) {
+  if (!this.isCurrentContext(context)) return;
+  this.responseCache.set(key, { expiresAt: this.now() + cacheTtlMs, value });
+  }
+  async requestUrl(context, url, options = {}) {
+  assertSafeWanikaniRequestUrl(url, (value) => this.isSafeApiUrl(value));
+  return this.requestWithRateLimitRetry(context, url, options);
+  }
+  async requestWithRateLimitRetry(context, url, options) {
+  try {
+    return await this.requestAttempt(context, url, options);
+  } catch (error) {
+    const normalized = normalizeWanikaniError(error);
+    if (!isRateLimitError(normalized)) throw normalized;
+    await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
+    try {
+      return await this.requestAttempt(context, url, options);
+    } catch (retryError) {
+      throw normalizeWanikaniError(retryError);
+    }
+  }
+  }
+  async requestAttempt(context, url, options) {
+  await this.throttle();
+  return this.requestImpl(url, {
+    method: options.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${context.token}`,
+      "Wanikani-Revision": WANIKANI_REVISION,
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+    responseType: "json",
+    timeoutMs: this.timeoutMs,
+    preferFetch: true,
+    allowDirectCrossOrigin: true,
+    proxyUrl: "",
+    allowPublicProxies: false,
+    allowConfiguredProxy: false,
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
+    failureLabel: "WaniKani request",
+    statusFailureMessage: wanikaniStatusFailureMessage
+  });
+  }
+  throttle() {
+  const scheduled2 = this.requestStartQueue.then(async () => {
+    const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
+    if (wait > 0) await this.sleep(wait);
+    this.lastRequestAt = this.now();
+  });
+  this.requestStartQueue = scheduled2.catch(() => void 0);
+  return scheduled2;
+  }
+  accountContext() {
+  const token = this.getToken().trim();
+  if (!token) {
+    this.clear();
+    throw new WanikaniApiError("WaniKani API token is not set.");
+  }
+  const fingerprint2 = fingerprintWanikaniToken(token);
+  if (fingerprint2 !== this.activeFingerprint) this.resetAccountContext(fingerprint2);
+  const generation = this.contextGeneration;
+  return { token, fingerprint: fingerprint2, generation, cacheNamespace: `${generation}:${fingerprint2}` };
+  }
+  resetAccountContext(fingerprint2) {
+  this.contextGeneration += 1;
+  this.activeFingerprint = fingerprint2;
+  this.verifiedUser = null;
+  this.verifiedContext = "";
+  this.pending.clear();
+  this.responseCache.clear();
+  }
+  isCurrentContext(context) {
+  return context.generation === this.contextGeneration && context.fingerprint === this.activeFingerprint && context.token === this.getToken().trim();
+  }
+  invalidateReviewStateCaches(context) {
+  for (const key of this.currentReviewStateCacheKeys(context)) this.responseCache.delete(key);
+  }
+  currentReviewStateCacheKeys(context) {
+  if (!this.isCurrentContext(context)) return [];
+  return [...this.responseCache.keys()].filter((key) => isReviewStateCacheKey(key, context, this.baseUrl));
+  }
+  isSafeApiUrl(value) {
+  try {
+    const url = new URL(value);
+    const base = new URL(`${this.baseUrl}/`);
+    return url.protocol === "https:" && url.origin === base.origin && url.pathname.startsWith(base.pathname);
+  } catch {
+    return false;
+  }
+  }
+}
+function permittedSubjectLevels(requested, maxLevel) {
+  if (!requested?.length) return Array.from({ length: maxLevel }, (_, index) => index + 1);
+  const levels = requested.filter((level) => level >= 1 && level <= maxLevel);
+  return levels.length ? levels : null;
+}
+function assertWanikaniPaginationUrl(url, visited, isSafe) {
+  if (!isSafe(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
+  if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
+  if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+}
+function appendWanikaniCollectionPage(items, page) {
+  if (Array.isArray(page.data)) items.push(...page.data);
+  return typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+}
+function wanikaniStatusFailureMessage(status) {
+  if (status === 401) return "WaniKani token expired or was denied (401).";
+  if (status === 403) return "WaniKani token lacks permission for this request (403).";
+  return `WaniKani API request failed (${status}).`;
+}
+function isReviewStateCacheKey(key, context, baseUrl) {
+  if (key === `${context.cacheNamespace}:${baseUrl}/summary`) return true;
+  const collectionPrefixes = ["/assignments?", "/review_statistics?"];
+  return collectionPrefixes.some((path) => key.startsWith(`${context.cacheNamespace}:${path}`));
+}
+function wanikaniCacheTtl(cache) {
+  return cache.cacheTtlMs ?? 0;
+}
+function isCacheableWanikaniRequest(cacheTtlMs, method) {
+  return cacheTtlMs > 0 && method !== "POST";
+}
+function assertSafeWanikaniRequestUrl(url, isSafe) {
+  if (!isSafe(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
+}
+const PAID_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["recurring", "lifetime"]);
+function effectiveMaxLevelForUser(user) {
+  const subscription = user.subscription;
+  if (!hasPaidSubscription(subscription)) return FREE_TIER_MAX_LEVEL;
+  const granted = Number(subscription.max_level_granted);
+  if (!Number.isFinite(granted)) return FREE_TIER_MAX_LEVEL;
+  if (granted <= 0) return FREE_TIER_MAX_LEVEL;
+  return Math.min(60, granted);
+}
+function hasPaidSubscription(subscription) {
+  if (!subscription.active) return false;
+  return PAID_SUBSCRIPTION_TYPES.has(subscription.type);
+}
+function parseWanikaniUser(raw) {
+  const record2 = isRecord$1(raw) ? isRecord$1(raw.data) ? raw.data : raw : {};
+  const subscriptionRaw = isRecord$1(record2.subscription) ? record2.subscription : {};
+  return {
+  id: typeof record2.id === "string" ? record2.id : "",
+  level: typeof record2.level === "number" ? record2.level : 0,
+  subscription: {
+    active: subscriptionRaw.active === true,
+    type: typeof subscriptionRaw.type === "string" ? subscriptionRaw.type : "",
+    max_level_granted: typeof subscriptionRaw.max_level_granted === "number" ? subscriptionRaw.max_level_granted : 0,
+    period_ends_at: typeof subscriptionRaw.period_ends_at === "string" ? subscriptionRaw.period_ends_at : null
+  }
+  };
+}
+function queryString(options) {
+  const params = new URLSearchParams();
+  if (options.ids?.length) params.set("ids", options.ids.join(","));
+  if (options.levels?.length) params.set("levels", options.levels.join(","));
+  if (options.types?.length) params.set("types", options.types.join(","));
+  if (options.updatedAfter) params.set("updated_after", options.updatedAfter);
+  if (options.hidden !== void 0) params.set("hidden", String(options.hidden));
+  if (options.immediatelyAvailableForReview !== void 0) params.set("immediately_available_for_review", String(options.immediatelyAvailableForReview));
+  if (options.immediatelyAvailableForLessons !== void 0) params.set("immediately_available_for_lessons", String(options.immediatelyAvailableForLessons));
+  if (options.subjectIds?.length) params.set("subject_ids", options.subjectIds.join(","));
+  if (options.slugs?.length) params.set("slugs", options.slugs.join(","));
+  if (options.srsStages?.length) params.set("srs_stages", options.srsStages.join(","));
+  if (options.availableBefore) params.set("available_before", options.availableBefore);
+  if (options.started !== void 0) params.set("started", String(options.started));
+  if (options.unlocked !== void 0) params.set("unlocked", String(options.unlocked));
+  if (options.page !== void 0) params.set("page", String(options.page));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+function normalizeWanikaniError(error) {
+  if (error instanceof WanikaniApiError) return error;
+  const status = httpStatusFromError(error);
+  if (!(error instanceof Error)) return new WanikaniApiError("WaniKani request failed.", status);
+  if (status === 401) return new WanikaniApiError("WaniKani token expired or was denied.", 401);
+  if (status === 403) return new WanikaniApiError("WaniKani token lacks permission for this request.", 403);
+  if (status !== void 0) return new WanikaniApiError(error.message, status);
+  return error;
+}
+function isRateLimitError(error) {
+  return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
+}
+function rawSubjectLevel(value) {
+  if (!isRecord$1(value) || !isRecord$1(value.data)) return Number.POSITIVE_INFINITY;
+  return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
+}
+function stableOptionsKey(options) {
+  return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([left], [right]) => left.localeCompare(right))));
+}
+function trimBaseUrl(value) {
+  return value.replace(/\/+$/u, "");
+}
+function isRecord$1(value) {
+  return typeof value === "object" && value !== null;
+}
+async function exportSettingsBackupSnapshot(fallbackSettings) {
+  const storage = await exportManagedStoredValues();
+  for (const key of RETIRED_SETTINGS_STORAGE_KEYS) delete storage[key];
+  const view = await readSettingsPersistenceViewStrict();
+  if (!isRecord$3(view.settings)) {
+  if (Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY)) {
+    throw new Error("Could not capture canonical settings for backup.");
+  }
+  return structuredClone({ settings: normalizeReaderSettings(fallbackSettings), storage });
+  }
+  const current = normalizeReaderSettings({
+  ...fallbackSettings,
+  ...view.settings,
+  shortcuts: {
+    ...fallbackSettings.shortcuts,
+    ...isRecord$3(view.settings.shortcuts) ? view.settings.shortcuts : {}
+  }
+  });
+  const intentLedger = {
+  revision: view.intentLedger.revision,
+  records: Object.fromEntries(Object.entries(view.intentLedger.records).filter(([key]) => Object.hasOwn(current, key)))
+  };
+  const settings = normalizeReaderSettings(applySettingsIntent(current, intentLedger));
+  return structuredClone({ settings, storage: { ...storage, ...serializeSettingsPersistencePair(settings, intentLedger) } });
+}
+const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
+function input(name, label, value, type = "text", attributes = {}) {
+  const fieldClass = ["jpdb-reader-settings-field"];
+  if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
+  return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
+}
+function shortcutInput(name, label, value, placeholder = "Press keys") {
+  return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$1(label)}"></label>`;
+}
+function checkbox(name, label, checked, attributes = {}) {
+  return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
+}
+function select(name, label, value, options) {
+  return `<label>${label}<select name="${name}">${options.map(
+      ([optionValue, text2, className]) => `<option value="${escapeHtml$1(optionValue)}"${className ? ` class="${escapeHtml$1(className)}"` : ""} ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+    ).join("")}</select></label>`;
+}
+function radioGroup(name, label, value, options) {
+  return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
+      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$1(text2)}</label>`
+    ).join("")}</fieldset>`;
+}
+function settingsTabButton(panel, label, active = false) {
+  return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$1(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$1(label)}</button>`;
+}
+function miniIcon(name) {
+  const paths = {
+  drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
+  up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
+  down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
+  remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+}
+function settingsTabControls(panel) {
+  return {
+  api: "jpdb-reader-settings-panel-api",
+  newTab: "jpdb-reader-settings-panel-newtab",
+  appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
+  backup: "jpdb-reader-settings-panel-backup",
+  reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
+  dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
+  media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
+  mining: "jpdb-reader-settings-panel-mining",
+  shortcuts: "jpdb-reader-settings-panel-shortcuts",
+  help: "jpdb-reader-settings-panel-help"
+  }[panel] ?? "jpdb-reader-settings-panel-api";
+}
+function attributeHtml(attributes) {
+  return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$1(String(attributeValue))}"`).join("");
+}
+function booleanAttributeHtml(attributes) {
+  return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
+}
+function renderReadingHiddenStateGroupControls(settings, targetLanguage2) {
+  const language2 = settings.interfaceLanguage;
+  const selected = new Set(settings.furiganaHiddenStateGroups);
+  const boxes = FURIGANA_HIDE_STATE_GROUPS.map((group) => checkbox(`furiganaHide-${group}`, uiText(language2, CARD_STATE_LABEL_KEYS[group]), selected.has(group))).join("");
+  const hidden = effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden";
+  const legendKey = targetLanguage2 === "ja" ? "hideFuriganaFor" : "hideReadingsFor";
+  return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, legendKey)}</legend>${boxes}</fieldset>`;
+}
+function renderWordColorHiddenStateGroupControls(settings) {
+  const language2 = settings.interfaceLanguage;
+  const selected = new Set(settings.wordColorHiddenStateGroups);
+  const boxes = WORD_COLOR_HIDE_STATE_GROUPS.map((group) => checkbox(
+  `colorHide-${group}`,
+  uiText(language2, group === "ignored" ? "wordColorIgnored" : CARD_STATE_LABEL_KEYS[group]),
+  selected.has(group)
+  )).join("");
+  return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>${escapedUiText$4(language2, "hideColorFor")}</legend>${boxes}</fieldset>`;
+}
+const HIDE_STATE_GROUP_CONTROL_LABELS = [
+  ...FURIGANA_HIDE_STATE_GROUPS.flatMap((group) => {
+  const key = CARD_STATE_LABEL_KEYS[group];
+  return [
+    [`furiganaHide-${group}`, key],
+    [`colorHide-${group}`, key]
+  ];
+  }),
+  ["colorHide-ignored", "wordColorIgnored"]
+];
+function escapedUiText$4(language2, key) {
+  return escapeHtml$1(uiText(language2, key));
+}
+const LANGUAGE_ENDONYMS = Object.freeze({
+  ja: "日本語",
+  zh: "中文",
+  yue: "粵語",
+  lzh: "文言"
+});
+function headwordLanguageEndonym(language2) {
+  return LANGUAGE_ENDONYMS[language2] ?? language2;
+}
+function headwordLanguageName(language2, locale = "en") {
+  const display = languageDisplayName(language2, locale);
+  return display === language2 ? headwordLanguageEndonym(language2) : display;
+}
+function activeTargetLanguageDisplayName(interfaceLanguage) {
+  return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+}
+function targetLanguageDisplayNameFor(tag, interfaceLanguage) {
+  const uiLanguage = resolveUiLanguage(interfaceLanguage);
+  const subtag = languageSubtag(tag) ?? "ja";
+  return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
+}
+function rosterIdentityDisplayName(subtag, uiLanguage) {
+  const identity = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
+  return TARGET_IDENTITY_NAMES[identity]?.[uiLanguage];
+}
+const TARGET_IDENTITY_NAMES = {
+  sh: { en: "Serbo-Croatian", ja: "セルボ・クロアチア語" },
+  tl: { en: "Tagalog", ja: "タガログ語" }
+};
+const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG = {
+  bs: "sh",
+  fil: "tl",
+  hr: "sh",
+  sr: "sh"
+};
+function settingsText(language2, targetLanguage2) {
+  const targetName = targetLanguage2 ? targetLanguageDisplayNameFor(targetLanguage2, language2) : activeTargetLanguageDisplayName(language2);
+  return (key) => {
+  const message = uiText(language2, key);
+  return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
+  };
+}
+function updateSourceRowEditor(action, control) {
+  const row = control?.closest("[data-source-row]");
+  const container = row?.closest("[data-source-editor]");
+  if (!container || !row) return;
+  const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+  const index = rows.indexOf(row);
+  const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
+  moveSourceRow(container, index, targetIndex);
+}
+function installSourceRowDrag(root, onReorder) {
+  let drag = null;
+  const dragDocument = root.ownerDocument;
+  root.addEventListener("pointerdown", trustedReaderEventHandler((event) => {
+  if (drag) return;
+  const handle = sourceRowDragHandle(root, event);
+  if (!handle) return;
+  const elements = sourceRowDragElements(handle);
+  if (!elements) return;
+  const { container, row } = elements;
+  event.preventDefault();
+  setSourceRowPointerCapture(handle, event.pointerId);
+  const pageScale = overlayViewport().pageScale;
+  drag = {
+    active: false,
+    container,
+    handle,
+    pageScale,
+    pointerId: event.pointerId,
+    row,
+    startY: sourceRowOverlayY(event.clientY, pageScale)
+  };
+  row.classList.add("jpdb-reader-order-row-drag-pending");
+  dragDocument.addEventListener("pointermove", trustedMoveDrag);
+  dragDocument.addEventListener("pointerup", trustedFinishDrag);
+  dragDocument.addEventListener("pointercancel", trustedFinishDrag);
+  }));
+  const moveDrag = (event) => {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
+  if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
+  event.preventDefault();
+  drag.active = true;
+  drag.row.classList.add("jpdb-reader-order-row-dragging");
+  moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
+  };
+  const finishDrag = (event) => {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  releaseSourceRowPointerCapture(drag.handle, event.pointerId);
+  drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
+  syncSourceRowOrder(drag.container);
+  if (drag.active) onReorder?.();
+  drag = null;
+  dragDocument.removeEventListener("pointermove", trustedMoveDrag);
+  dragDocument.removeEventListener("pointerup", trustedFinishDrag);
+  dragDocument.removeEventListener("pointercancel", trustedFinishDrag);
+  };
+  const trustedMoveDrag = trustedReaderEventHandler(moveDrag);
+  const trustedFinishDrag = trustedReaderEventHandler(finishDrag);
+  root.addEventListener("pointermove", trustedMoveDrag);
+  root.addEventListener("pointerup", trustedFinishDrag);
+  root.addEventListener("pointercancel", trustedFinishDrag);
+}
+function moveSourceRow(container, index, targetIndex) {
+  const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+  if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
+  const row = rows[index];
+  const target = rows[targetIndex];
+  if (targetIndex < index) container.insertBefore(row, target);
+  else container.insertBefore(row, target.nextSibling);
+  syncSourceRowOrder(container);
+}
+function sourceRowDragHandle(root, event) {
+  if (!sourceRowDragPointerAllowed(event)) return null;
+  const handle = event.target.closest("[data-source-drag-handle]");
+  return handle && root.contains(handle) ? handle : null;
+}
+function sourceRowDragPointerAllowed(event) {
+  return event.pointerType !== "mouse" || event.button === 0;
+}
+function sourceRowDragElements(handle) {
+  const row = handle.closest("[data-source-row]");
+  const container = row?.closest("[data-source-editor]");
+  return row && container ? { container, row } : null;
+}
+function setSourceRowPointerCapture(handle, pointerId) {
+  try {
+  handle.setPointerCapture?.(pointerId);
+  } catch {
+  }
+}
+function releaseSourceRowPointerCapture(handle, pointerId) {
+  try {
+  handle.releasePointerCapture?.(pointerId);
+  } catch {
+  }
+}
+function moveSourceRowToPointer(container, row, overlayY, pageScale) {
+  const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate) => candidate !== row);
+  const target = rows.find((candidate) => {
+  const rect = sourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
+  return overlayY < rect.top + rect.height / 2;
+  });
+  if (target) container.insertBefore(row, target);
+  else container.appendChild(row);
+  syncSourceRowOrder(container);
+}
+function sourceRowOverlayY(clientY, pageScale) {
+  return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
+}
+function canMoveSourceRow(index, targetIndex, rowCount) {
+  return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
+}
+function syncSourceRowOrder(container) {
+  const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+  rows.forEach((row, index) => {
+  const priority = row.querySelector('input[name$=".priority"]');
+  if (priority) priority.value = String(index);
+  const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
+  if (indexLabel) indexLabel.textContent = String(index + 1);
+  });
+  container.querySelectorAll("input[data-source-order-tail]").forEach((priority, index) => {
+  priority.value = String(rows.length + index);
+  });
+  if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
+  if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
+}
+function syncAudioSourceIndexes(container, rows = Array.from(container.querySelectorAll("[data-audio-source-row]"))) {
+  const language2 = settingsLanguageForElement(container);
+  rows.forEach((row, index) => {
+  row.dataset.sourceId = `audio-${index}`;
+  row.querySelectorAll('[name^="audioSources."]').forEach((control) => {
+    control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
+    if (control instanceof HTMLSelectElement && control.name.endsWith(".type")) {
+      control.setAttribute("aria-label", uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)));
+    }
+    if (control instanceof HTMLInputElement && control.name.endsWith(".enabled")) {
+      control.setAttribute("aria-label", uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)));
+    }
+    if (control instanceof HTMLSelectElement && control.name.endsWith(".voice")) {
+      control.setAttribute("aria-label", uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
+    }
+  });
+  });
+}
+function syncDictionaryLookupLinkIndexes(container, rows = Array.from(container.querySelectorAll("[data-lookup-link-row]"))) {
+  const language2 = settingsLanguageForElement(container);
+  rows.forEach((row, index) => {
+  row.dataset.index = String(index);
+  row.dataset.sourceId = `lookup-link-${index}`;
+  row.querySelectorAll('[name^="dictionaryLookupLinks."]').forEach((control) => {
+    control.name = control.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
+    if (control.name.endsWith(".label")) control.setAttribute("aria-label", uiText(language2, "lookupPillLabelNumber").replace("{number}", String(index + 1)));
+    if (control.name.endsWith(".urlTemplate")) control.setAttribute("aria-label", uiText(language2, "lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
+  });
+  });
+}
+function settingsLanguageForElement(element2) {
+  const control = element2.closest("form")?.elements.namedItem("interfaceLanguage");
+  const value = control instanceof HTMLSelectElement ? control.value : "en";
+  return value === "auto" || value === "en" || value === "ja" ? value : "en";
+}
+const SOURCE_ROW_COPY_KEYS_BY_ID = {
+  __jpdb__: { helpKey: "sourceHelpJpdb" },
+  __jiten__: { helpKey: "sourceHelpJiten" },
+  __bunpro__: { helpKey: "sourceHelpBunpro" },
+  __wanikani__: { helpKey: "sourceHelpWanikani" },
+  __anki__: { nameKey: "sourceNameAnki", helpKey: "sourceHelpAnki" },
+  __study_translation__: { nameKey: "sourceNameTranslation", helpKey: "sourceHelpTranslation" },
+  __study_grammar__: { nameKey: "sourceNameGrammar", helpKey: "sourceHelpGrammar" },
+  __immersion_kit__: { nameKey: "sourceNameImmersionKit", helpKey: "sourceHelpImmersionKit" },
+  __kanji_stroke__: { nameKey: "sourceNameStrokePractice", helpKey: "sourceHelpStrokePractice" },
+  __kanji_rtk__: { helpKey: "sourceHelpRtk" },
+  __kanji_wanikani__: { helpKey: "sourceHelpWanikaniKanji" },
+  __kanji_dictionaries__: { nameKey: "sourceNameImportedKanjiDictionaries", helpKey: "sourceHelpImportedKanjiDictionaries" },
+  __kanji_similar_words__: { nameKey: "sourceNameWordsUsingKanji", helpKey: "sourceHelpWordsUsingKanji" },
+  __kanji_origins__: { nameKey: "originStructure", helpKey: "sourceHelpComponentGraph" }
+};
+const SOURCE_ROW_ORDER_LABELS = { drag: "Drag to reorder", up: "Move up", down: "Move down" };
+function renderSourceRowsHelp(language2, key) {
+  return `<div class="jpdb-reader-help" data-help-key="${key}">${escapeHtml$1(uiText(language2, key))}</div>`;
+}
+function miniIconButton(icon, label, attributes) {
+  const dragClass = icon === "drag" ? " jpdb-reader-drag-handle" : "";
+  return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${miniIcon(icon)}</button>`;
+}
+function renderRowOrderTools(options) {
+  const ariaLabel = options.label ? ` aria-label="${escapeHtml$1(options.label)}"` : "";
+  return `<div class="jpdb-reader-row-tools jpdb-reader-row-order-tools"${ariaLabel}>
+                    ${options.leading ?? ""}
+                    ${miniIconButton("drag", options.labels.drag, 'data-source-drag-handle tabindex="-1"')}
+                    ${miniIconButton("up", options.labels.up, `data-action="${options.upAction}"`)}
+                    ${miniIconButton("down", options.labels.down, `data-action="${options.downAction}"`)}
+                </div>`;
+}
+function renderRowRemoveTools(control) {
+  return `<div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
+                    ${control}
+                </div>`;
+}
+function renderSourceRowsList(rows, options) {
+  const removableCount = rows.filter((row) => row.removable).length;
+  const showRemove = removableCount > 0;
+  const context = {
+  ...options,
+  layoutClass: sourceRowsLayoutClass(options.showAlias, showRemove),
+  showRemove
+  };
+  return `
+        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}">
+            <span>On</span>
+            <span>${escapeHtml$1(options.sourceLabel)}</span>
+            ${options.showAlias ? "<span>Display name</span>" : ""}
+            <span>Order</span>
+            ${showRemove ? "<span>Remove</span>" : ""}
+        </div>
+        ${renderSourceRowsCountInput(options, removableCount)}
+        ${rows.map((row, index) => renderSourceRow(row, index, context)).join("")}
+    `;
+}
+function sourceRowsLayoutClass(showAlias, showRemove) {
+  return [
+  showAlias ? "" : "compact",
+  showRemove ? "has-remove" : "no-remove"
+  ].filter(Boolean).join(" ");
+}
+function renderSourceRowsCountInput(options, removableCount) {
+  if (!options.countName) return "";
+  return `<input type="hidden" name="${escapeHtml$1(options.countName)}" value="${options.countValue ?? removableCount}">`;
+}
+function renderSourceRow(row, index, context) {
+  const keys = sourceRowCopyKeys(row);
+  return `
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
+                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
+                    <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? "checked" : ""}>
+                    <span>${index + 1}</span>
+                </label>
+                ${sourceField(sourceRowDisplayName(row, context.showAlias), row.name, row.prefix, "name", context.sourceLabel, keys?.nameKey)}
+                ${renderSourceAliasControl(row, context.showAlias, keys)}
+                ${renderRowOrderTools({
+      upAction: "dictionary-source-up",
+      downAction: "dictionary-source-down",
+      labels: SOURCE_ROW_ORDER_LABELS,
+      // The STORED priority, not the row's index: an untouched Save
+      // writes it back as it was. Moving any row renumbers the whole
+      // list by position (syncSourceRowOrder), which is the only
+      // time the order becomes the learner's.
+      leading: `<input name="${row.prefix}.priority" type="hidden" value="${row.priority}">`
+    })}
+                ${renderSourceRemoveCell(row, context.showRemove)}
+                ${renderSourceTypeInput(row)}
+                ${renderSourceRowHelp(row, keys)}
+            </div>
+        `;
+}
+function renderSourceAliasControl(row, showAlias, keys) {
+  if (!showAlias) return "";
+  const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml$1(keys.nameKey)}"` : "";
+  return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml$1(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml$1(row.name)}"${keyAttribute}>`;
+}
+function renderSourceRemoveCell(row, showRemove) {
+  if (!showRemove) return "";
+  return renderRowRemoveTools(renderSourceRemoveButton(row));
+}
+function renderSourceRemoveButton(row) {
+  if (!row.removable) return "";
+  return miniIconButton("remove", "Remove imported dictionary", `data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$1(row.name)}"`);
+}
+function renderSourceTypeInput(row) {
+  if (!row.removable) return "";
+  return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$1(row.dictionaryType ?? "terms")}">`;
+}
+function renderSourceRowHelp(row, keys) {
+  if (!row.help) return "";
+  const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml$1(keys.helpKey)}"` : "";
+  return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml$1(row.help)}</div>`;
+}
+function sourceRowDisplayName(row, showAlias) {
+  return !showAlias && row.alias ? row.alias : row.name;
+}
+function sourceField(displayValue, formValue, prefix, field, label, nameKey) {
+  return `
+        <span class="jpdb-reader-field-display" aria-label="${escapeHtml$1(label)}" ${nameKey ? `data-source-name-key="${escapeHtml$1(nameKey)}"` : ""}>${escapeHtml$1(displayValue)}</span>
+        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml$1(formValue)}">
+    `;
+}
+function sourceRowCopyKeys(row) {
+  return SOURCE_ROW_COPY_KEYS_BY_ID[row.id] ?? importedKanjiDictionaryCopyKeys(row.id);
+}
+function importedKanjiDictionaryCopyKeys(rowId) {
+  return rowId.startsWith("__kanji_dictionary__:") ? { helpKey: "sourceHelpImportedKanjiDictionary" } : void 0;
+}
+const AUDIO_URL_PLACEHOLDER_KEYS = {
+  "custom-json": "audioCustomJsonPlaceholder",
+  custom: "audioCustomUrlPlaceholder"
+};
+const JITEN_TTS_VOICE_OPTIONS = [
+  ["", "Random Jiten voice"],
+  ["female", "Female"],
+  ["female2", "Female 2"],
+  ["male", "Male"],
+  ["male2", "Male 2"],
+  ["asmr", "ASMR"]
+];
+const JPDB_TTS_VOICE_OPTIONS = [
+  ["", "Random JPDB voice"],
+  ["f1", "Female 1"],
+  ["f2", "Female 2"],
+  ["m1", "Male 1"],
+  ["m2", "Male 2"]
+];
+function escapedUiText$3(language2, key) {
+  return escapeHtml$1(uiText(language2, key));
+}
+function renderAudioSourceEditor(sources, language2 = "en") {
+  return `
+        <div class="jpdb-reader-audio-source-head jpdb-reader-order-head">
+            <span>${escapedUiText$3(language2, "enabledHeader")}</span>
+            <span>${escapedUiText$3(language2, "audioSource")}</span>
+            <span>${escapedUiText$3(language2, "urlVoice")}</span>
+            <span>${escapedUiText$3(language2, "orderHeader")}</span>
+            <span>${escapedUiText$3(language2, "removeHeader")}</span>
+        </div>
+        ${renderAudioSourceRows(audioSourceRowsForSettings(sources), language2)}
+        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">${escapedUiText$3(language2, "addAudioSource")}</button>
+    `;
+}
+function renderAudioSourceRows(rows, language2) {
+  const count = rows.length;
+  const orderTools = renderRowOrderTools({
+  label: uiText(language2, "audioSourceOrder"),
+  upAction: "audio-source-up",
+  downAction: "audio-source-down",
+  labels: {
+    drag: uiText(language2, "dragToReorder"),
+    up: uiText(language2, "moveUp"),
+    down: uiText(language2, "moveDown")
+  }
+  });
+  const removeTools = renderRowRemoveTools(miniIconButton("remove", uiText(language2, "remove"), 'data-action="audio-source-remove"'));
+  return `
+        <input type="hidden" name="audioSourceCount" value="${count}">
+        ${rows.map((source, index) => `
+        <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
+            <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
+                <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$1(uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)))}" ${source.enabled ? "checked" : ""}>
+                <span>${index + 1}</span>
+            </label>
+            <div class="jpdb-reader-audio-source-choice">
+                <select name="audioSources.${index}.type" aria-label="${escapeHtml$1(uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)))}">
+                    ${audioSourceSelectOptions(source.type, language2).map(
+  ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+  ).join("")}
+                </select>
+                <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText$3(language2, "previewAudio")}" aria-label="${escapedUiText$3(language2, "previewAudio")}">${speakerIcon()}</button>
+            </div>
+            <div class="jpdb-reader-audio-source-fields">
+                <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type, language2))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
+                <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
+                    ${audioVoiceSelectOptions(source, language2)}
+                </select>
+            </div>
+            ${orderTools}
+            ${removeTools}
+            ${renderAudioSubSourcePanel(index, source, rows, language2)}
+        </div>
+    `).join("")}
+    `;
+}
+function renderAudioSubSourcePanel(index, source, rows, language2) {
+  const visible = source.type === "custom-json";
+  return `
+        <div class="jpdb-reader-audio-subsources" data-audio-subsources ${visible ? "" : "hidden"}>
+            <div class="jpdb-reader-audio-subsource-list" data-audio-subsource-list>
+                ${renderAudioSubSourceList(index, audioSubSourcesForRow(source), rows, language2)}
+            </div>
+            <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
+        </div>
+    `;
+}
+function audioSubSourcesForRow(source) {
+  return mergeAudioSubSources(source.subSources ?? [], knownAudioSubSourceNames(source.url));
+}
+function renderAudioSubSourceList(index, subSources, rows, language2) {
+  const help = subSources.length ? `<span class="jpdb-reader-audio-subsource-help">${escapedUiText$3(language2, "audioSubSourcesHelp")}</span>` : "";
+  return `
+        <input type="hidden" name="audioSources.${index}.subSourceCount" value="${subSources.length}">
+        ${help}
+        ${subSources.map((subSource, subIndex) => renderAudioSubSourceRow(index, subIndex, subSource, rows, language2)).join("")}
+    `;
+}
+function renderAudioSubSourceRow(index, subIndex, subSource, rows, language2) {
+  const overlap = audioSubSourceOverlapsEnabledRow(subSource, index, rows) ? `<span class="jpdb-reader-audio-subsource-overlap">${escapedUiText$3(language2, "audioSubSourceOverlapHint")}</span>` : "";
+  const toggleLabel = uiText(language2, "enableSourceName").replace("{name}", subSource.name);
+  return `
+        <label class="inline jpdb-reader-audio-subsource">
+            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml$1(toggleLabel)}" ${subSource.enabled ? "checked" : ""}>
+            <span>${escapeHtml$1(subSource.name)}</span>
+            ${overlap}
+        </label>
+        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml$1(subSource.name)}">
+    `;
+}
+const AUDIO_SUB_SOURCE_OVERLAP_TYPES = {
+  jpod: ["jpod101", "language-pod-101"],
+  jpod101: ["jpod101", "language-pod-101"],
+  japanesepod101: ["jpod101", "language-pod-101"],
+  languagepod101: ["language-pod-101"],
+  jisho: ["jisho"],
+  bunpro: ["bunpro"],
+  wiktionary: ["wiktionary"],
+  "lingua libre": ["lingua-libre"],
+  "lingua-libre": ["lingua-libre"]
+};
+function mergeAudioSubSources(existing, detectedNames) {
+  const merged = existing.map((subSource) => ({ ...subSource }));
+  const seen = new Set(merged.map((subSource) => audioSubSourceNameKey(subSource.name)));
+  for (const name of detectedNames) {
+  const trimmed = name.trim();
+  const key = audioSubSourceNameKey(trimmed);
+  if (!trimmed || seen.has(key)) continue;
+  seen.add(key);
+  merged.push({ name: trimmed, enabled: true });
+  }
+  return merged;
+}
+function audioSubSourceOverlapsEnabledRow(subSource, rowIndex, rows) {
+  if (!subSource.enabled) return false;
+  const overlapTypes = AUDIO_SUB_SOURCE_OVERLAP_TYPES[audioSubSourceNameKey(subSource.name)];
+  if (!overlapTypes) return false;
+  return rows.some((row, index) => index !== rowIndex && row.enabled && overlapTypes.includes(row.type));
+}
+function audioSourceSelectOptions(type, language2) {
+  if (type === "custom") {
+  return [
+    ...AUDIO_SOURCE_UI_TYPE_VALUES.map((value) => [value, audioSourceLabel(language2, value)]),
+    ["custom", uiText(language2, "customAdvanced").replace("{label}", audioSourceLabel(language2, "custom"))]
+  ];
+  }
+  return AUDIO_SOURCE_UI_TYPE_VALUES.map((value) => [value, audioSourceLabel(language2, value)]);
+}
+function audioSourceRowsForSettings(sources) {
+  const rows = sources.map((source) => ({ ...source }));
+  return rows.length ? rows : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+}
+function audioUrlPlaceholder(type, language2) {
+  return uiText(language2, audioUrlPlaceholderKey(type));
+}
+function audioUrlPlaceholderKey(type) {
+  return AUDIO_URL_PLACEHOLDER_KEYS[type ?? ""] ?? "audioBuiltInPlaceholder";
+}
+function audioSourceUsesUrl(type) {
+  return type === "custom" || type === "custom-json";
+}
+function audioSourceUsesVoice(type) {
+  return audioSourceVoiceKind(type) !== "none";
+}
+function audioSourceVoiceKind(type) {
+  if (type === "jiten-tts") return "jiten";
+  if (type === "jpdb-tts") return "jpdb";
+  if (type === "text-to-speech" || type === "text-to-speech-reading") return "browser";
+  return "none";
+}
+function audioVoiceSelectOptions(source, language2) {
+  if (audioSourceVoiceKind(source.type) === "jiten") return jitenTtsVoiceSelectOptions(source.voice);
+  if (audioSourceVoiceKind(source.type) === "jpdb") return jpdbTtsVoiceSelectOptions(source.voice);
+  const label = source.voice || uiText(language2, "automaticBrowserVoice");
+  return `<option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(label)}</option>`;
+}
+function jitenTtsVoiceSelectOptions(selectedVoice) {
+  const selected = selectedVoice.trim();
+  const options = JITEN_TTS_VOICE_OPTIONS.map(
+  ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
+  );
+  if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+  options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
+  }
+  return options.join("");
+}
+function jpdbTtsVoiceSelectOptions(selectedVoice) {
+  const selected = selectedVoice.trim();
+  const options = JPDB_TTS_VOICE_OPTIONS.map(
+  ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
+  );
+  if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+  options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
+  }
+  return options.join("");
+}
+function syncAudioSourceRow(row, type) {
+  if (!row) return;
+  row.querySelectorAll("[data-audio-url-field]").forEach((node) => {
+  node.hidden = !audioSourceUsesUrl(type);
+  });
+  row.querySelectorAll("[data-audio-subsources]").forEach((node) => {
+  node.hidden = type !== "custom-json";
+  });
+  row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
+  const voiceKind = audioSourceVoiceKind(type);
+  node.hidden = voiceKind === "none";
+  node.dataset.audioVoiceKind = voiceKind;
+  if (node instanceof HTMLSelectElement && voiceKind === "jiten") {
+    const selected = node.value || node.dataset.selectedVoice || "";
+    setInnerHtml(node, jitenTtsVoiceSelectOptions(selected));
+  }
+  if (node instanceof HTMLSelectElement && voiceKind === "jpdb") {
+    const selected = node.value || node.dataset.selectedVoice || "";
+    setInnerHtml(node, jpdbTtsVoiceSelectOptions(selected));
+  }
+  });
+}
+function syncBrowserTtsVoiceOptions(form) {
+  const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
+  const language2 = form.lang === "ja" ? "ja" : "en";
+  const text2 = settingsText(language2);
+  const sortedVoices = voices.slice().sort((a, b) => {
+  const aJapanese = a.lang.toLowerCase().startsWith("ja") ? 0 : 1;
+  const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
+  return aJapanese - bJapanese || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name);
+  });
+  form.querySelectorAll('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach((select2) => {
+  const selected = select2.value || select2.dataset.selectedVoice || "";
+  const options = [
+    `<option value="" ${selected ? "" : "selected"}>${escapeHtml$1(text2("automaticBrowserVoice"))}</option>`,
+    ...sortedVoices.map((voice) => {
+      const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ""}${voice.default ? ` - ${text2("defaultVoiceSuffix")}` : ""}`;
+      return `<option value="${escapeHtml$1(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`;
+    })
+  ];
+  if (selected && !sortedVoices.some((voice) => voice.name === selected)) {
+    options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(text2("savedVoiceLabel").replace("{voice}", selected))}</option>`);
+  }
+  setInnerHtml(select2, options.join(""));
+  });
+}
+function isAudioSourceTypeValue(value) {
+  return AUDIO_SOURCE_UI_TYPE_VALUES.includes(value) || value === "custom";
+}
+function updateAudioSourceEditor(form, action, control) {
+  const container = form.querySelector(".jpdb-reader-audio-sources");
+  if (!container) return;
+  const row = control?.closest("[data-audio-source-row]");
+  const rows = Array.from(container.querySelectorAll("[data-audio-source-row]"));
+  const index = row ? rows.indexOf(row) : -1;
+  if (isAudioSourceMoveAction(action)) {
+  moveSourceRow(container, index, audioSourceMoveTargetIndex(action, index));
+  return;
+  }
+  const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
+  updateAudioSourceRows(sources, action, index);
+  setInnerHtml(container, renderAudioSourceEditor(sources, form.lang === "ja" ? "ja" : "en"));
+}
+function isAudioSourceMoveAction(action) {
+  return action === "audio-source-up" || action === "audio-source-down";
+}
+function audioSourceMoveTargetIndex(action, index) {
+  return action === "audio-source-up" ? index - 1 : index + 1;
+}
+function updateAudioSourceRows(sources, action, index) {
+  if (action === "audio-source-add") addAudioSourceRow(sources);
+  if (action === "audio-source-remove") removeAudioSourceRow(sources, index);
+}
+function addAudioSourceRow(sources) {
+  if (sources.length < 12) sources.push({ type: "custom-json", url: "", voice: "", enabled: true });
+}
+function removeAudioSourceRow(sources, index) {
+  if (index >= 0 && sources.length > 1) sources.splice(index, 1);
+}
+function focusPreviewAudioSource(form, button2, previewSettings) {
+  const row = button2?.closest("[data-audio-source-row]");
+  if (!row) return;
+  const source = previewSettings.audioSources[sourceRowIndex(form, row)];
+  if (!source) return;
+  previewSettings.audioSources = [{ ...source, enabled: true }];
+  previewSettings.audioEnableDefaultSources = false;
+}
+function sourceRowIndex(form, row) {
+  return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+}
+function probeableAudioSourceUrl(row) {
+  if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
+  if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
+  const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
+  return isProbeableAudioSourceUrl(url) ? url : "";
+}
+function isProbeableAudioSourceUrl(url) {
+  try {
+  return ["http:", "https:"].includes(new URL(url).protocol);
+  } catch {
+  return false;
+  }
+}
+function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = [], targetLanguage2 = "ja") {
+  const rows = lookupPillEditorRows(links, localFrequencyPreferences, targetLanguage2);
+  return `
+        <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
+            <span>On</span>
+            <span>Label</span>
+            <span>URL template</span>
+            <span>Order</span>
+            <span>Remove</span>
+        </div>
+        ${renderDictionaryLookupLinkRows(rows, targetLanguage2)}
+        ${renderLookupLinkComponentGaps(targetLanguage2)}
+        <div class="jpdb-reader-lookup-link-actions">
+            <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
+        </div>
+    `;
+}
+const LOOKUP_COMPONENT_LABELS = {
+  definition: "Definitions",
+  sentences: "Example sentences",
+  audio: "Audio",
+  images: "Images"
+};
+function renderLookupLinkNotes(targetLanguage2, link) {
+  const components = lookupSiteComponents(targetLanguage2, link.id);
+  const opensOverPlaintextHttp = /^http:\/\//i.test(link.urlTemplate);
+  if (!components.length && !opensOverPlaintextHttp) return "";
+  const note = components.map((component) => LOOKUP_COMPONENT_LABELS[component]).join(" · ");
+  const separator = components.length && opensOverPlaintextHttp ? " · " : "";
+  const transport = opensOverPlaintextHttp ? `<span data-lookup-link-transport>${escapedUiText$3("en", "plaintextHttpLink")}</span>` : "";
+  return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components.length ? "components" : "transport"}"${components.length ? ` data-lookup-link-components="${escapeHtml$1(components.join(" "))}"` : ""}>${escapeHtml$1(note)}${separator}${transport}</span>`;
+}
+function renderLookupLinkComponentGaps(targetLanguage2) {
+  const missing = missingLookupComponents(targetLanguage2);
+  if (!missing.length) return "";
+  const names = missing.map((component) => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(", ");
+  return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml$1(missing.join(" "))}">No verified site for this language offers ${escapeHtml$1(names)}. Add your own above if you know one.</p>`;
+}
+function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
+  const orderTools = renderRowOrderTools({
+  label: "Lookup pill order",
+  upAction: "lookup-link-up",
+  downAction: "lookup-link-down",
+  labels: { drag: "Drag to reorder", up: "Move up", down: "Move down" }
+  });
+  return `
+        <input type="hidden" name="dictionaryLookupLinkCount" value="${rows.length}">
+        ${rows.map((link, index) => {
+      const isCopyAction = link.action === "copy";
+      const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$1(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$1(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage2, link)}`;
+      const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
+      return `
+            <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
+                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
+                    <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled ? "checked" : ""}>
+                    <span>${index + 1}</span>
+                </label>
+                <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml$1(link.label)}" aria-label="Lookup pill label">
+                ${urlControl}
+                <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml$1(link.id)}">
+                <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml$1(link.action ?? "open")}">
+                <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml$1(String(link.priority ?? index))}">
+                ${orderTools}
+                ${renderRowRemoveTools(removeControl)}
+            </div>
+        `;
+    }).join("")}
+    `;
+}
+function lookupPillEditorRows(links, localFrequencyPreferences, target) {
+  const normalized = normalizeDictionaryLookupLinks(links, false, target);
+  const byId = new Map(normalized.map((link) => [link.id, link]));
+  for (const preference of localFrequencyPreferences) {
+  const id = localFrequencyLookupPillId(preference.name);
+  if (!byId.has(id)) {
+    byId.set(id, {
+      id,
+      label: preference.alias || preference.name,
+      urlTemplate: "",
+      enabled: true,
+      action: "frequency-local",
+      priority: preference.priority
+    });
+  }
+  }
+  return normalizeDictionaryLookupLinks(Array.from(byId.values()), false, target).sort(compareLookupPillEditorRows);
+}
+function compareLookupPillEditorRows(a, b) {
+  const priority = (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER);
+  if (priority) return priority;
+  return a.id.localeCompare(b.id);
+}
+function localFrequencyLookupPillId(dictionary) {
+  return `frequency-local:${dictionary}`;
+}
+function frequencyLookupPillNote(link) {
+  if (link.action === "frequency-local") return "Installed local frequency dictionary badge. Replaces matching live site frequency.";
+  return link.id === "jpdb-frequency" ? "Live JPDB frequency from site lookup; no local dictionary install." : "Live Jiten frequency from site lookup; no local dictionary install.";
+}
+function updateDictionaryLookupLinkEditor(form, action, control) {
+  const container = form.querySelector(".jpdb-reader-lookup-links");
+  if (!container) return;
+  const row = control?.closest("[data-lookup-link-row]");
+  const index = row ? Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row) : -1;
+  if (action === "lookup-link-up" || action === "lookup-link-down") {
+  moveSourceRow(container, index, action === "lookup-link-up" ? index - 1 : index + 1);
+  return;
+  }
+  const data = new FormData(form);
+  const links = readDictionaryLookupLinks(data);
+  const target = formTargetLanguage(data);
+  updateDictionaryLookupLinks(links, action, index, target);
+  setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], target));
+}
+function formTargetLanguage(data) {
+  return String(data.get("targetLanguage") ?? "") || "ja";
+}
+function updateDictionaryLookupLinks(links, action, index, target) {
+  if (action === "lookup-link-add") addDictionaryLookupLink(links, target);
+  if (action === "lookup-link-remove") removeDictionaryLookupLink(links, index);
+}
+function addDictionaryLookupLink(links, target) {
+  if (links.length >= defaultDictionaryLookupLinks("local", target).length + MAX_EXTRA_LOOKUP_LINKS) return;
+  links.push({
+  id: `custom-${Date.now().toString(36)}`,
+  label: "",
+  urlTemplate: "https://takoboto.jp/?q={query}",
+  enabled: true
+  });
+}
+function removeDictionaryLookupLink(links, index) {
+  if (index >= 0 && links.length > 1 && links[index]?.action !== "copy") links.splice(index, 1);
+}
+const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
+const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
+const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
+const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
+const FONT_FAMILY_PRESETS = [
+  { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
+  { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
+  { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
+  { value: JAPANESE_ROUNDED_FONT_FAMILY, labelKey: "fontPresetJapaneseRounded", fallbackLabel: "Japanese rounded" },
+  { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
+  { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
+];
+function userFacingError(copyKey, options = {}) {
+  return Object.assign(
+  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+  { name: "UserFacingError", yomuUiCopyKey: copyKey }
+  );
+}
+function userFacingErrorText(language2, fallbackKey, error) {
+  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
+  const message = uiText(language2, copyKey);
+  return typeof message === "string" ? message : uiText(language2, fallbackKey);
+}
+function userFacingCopyKeyOf(error) {
+  if (!error || typeof error !== "object") return void 0;
+  const copyKey = error.yomuUiCopyKey;
+  return typeof copyKey === "string" ? copyKey : void 0;
+}
+function isUserFacingError(error) {
+  return userFacingCopyKeyOf(error) !== void 0;
+}
+function userFacingCopyKey(error) {
+  return userFacingCopyKeyOf(error);
+}
+function validateCloudSettingsEnvelope(value) {
+  if (!isRecord$3(value) || value.formatName !== "yomu-google-drive-settings-sync" || value.formatVersion !== 1) {
+  throw userFacingError("settingsImportUnsupportedFormat");
+  }
+  if (!isRecord$3(value.settings) || typeof value.syncedAt !== "string" || !Number.isFinite(Date.parse(value.syncedAt)) || value.storage !== void 0 && !isRecord$3(value.storage)) {
+  throw userFacingError("settingsImportIncomplete");
+  }
+  return value;
+}
+const AUTHORIZATION_STATE_BYTES = 24;
+const AUTHORIZATION_STATE_PATTERN = /^[0-9a-f]{48}$/u;
+function createCloudSettingsAuthorization() {
+  const cryptoSource = globalThis.crypto;
+  if (!cryptoSource?.getRandomValues) {
+  throw new Error("Secure randomness is unavailable for Google authorization.");
+  }
+  const bytes = cryptoSource.getRandomValues(new Uint8Array(AUTHORIZATION_STATE_BYTES));
+  return {
+  state: Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")
+  };
+}
+function isCloudSettingsAuthorizationState(value) {
+  return typeof value === "string" && AUTHORIZATION_STATE_PATTERN.test(value);
+}
+function cloudSettingsRedirectHandoffRequired() {
+  const global = globalThis;
+  return [
+  typeof GM_xmlhttpRequest === "function",
+  typeof global.GM?.xmlHttpRequest === "function",
+  typeof global.GM?.xmlhttpRequest === "function",
+  Boolean(global.GM_info)
+  ].some(Boolean);
+}
+const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
+const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
+const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+const SETTINGS_FILE_NAME = "yomu-settings.json";
+const SETTINGS_MIME_TYPE = "application/json";
+const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
+const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
+const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
+const OAUTH_TOKEN_PAYLOAD_TYPE = "yomu-drive-oauth-token";
+const TOKEN_EARLY_REFRESH_MS = 6e4;
+const DRIVE_TIMEOUT_MS = 2e4;
+let cachedToken = null;
+let pendingAuthRedirectResult = readAuthRedirectCandidate();
+function cloudSettingsSyncAvailable() {
+  return CLOUD_SETTINGS_SYNC_ENABLED;
+}
+function cloudSettingsAuthRedirectResult(expectedState) {
+  const candidate = takeAuthRedirectCandidate();
+  if (!candidate) return null;
+  if (!authRedirectStateMatches(candidate, expectedState)) {
+  return {
+    ok: false,
+    state: candidate.state,
+    error: "Google authorization did not match the pending Yomu action."
+  };
+  }
+  cacheAuthRedirectToken(candidate);
+  return { ok: candidate.ok, state: candidate.state, error: candidate.error };
+}
+function takeAuthRedirectCandidate() {
+  const candidate = pendingAuthRedirectResult;
+  pendingAuthRedirectResult = null;
+  return candidate;
+}
+function authRedirectStateMatches(candidate, expectedState) {
+  if (!isCloudSettingsAuthorizationState(expectedState)) return false;
+  return candidate.state === expectedState;
+}
+function cacheAuthRedirectToken(candidate) {
+  if (!candidate.ok) return;
+  if (!candidate.accessToken) return;
+  cachedToken = {
+  token: candidate.accessToken,
+  expiresAt: Date.now() + (candidate.expiresInSeconds ?? 3600) * 1e3
+  };
+}
+async function uploadCloudSettingsToCloud(settings, authorization) {
+  requireConfigured();
+  const backup = await exportSettingsBackupSnapshot(settings);
+  const snapshot = {
+  formatName: "yomu-google-drive-settings-sync",
+  formatVersion: 1,
+  syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
+  settings: backup.settings,
+  storage: backup.storage
+  };
+  const serialized = JSON.stringify(snapshot);
+  const existing = await findSettingsFile(authorization);
+  const file = existing ? await updateSettingsFile(existing.id, serialized, authorization) : await createSettingsFile(serialized, authorization);
+  return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
+}
+async function downloadCloudSettingsFromCloud(authorization) {
+  requireConfigured();
+  const existing = await findSettingsFile(authorization);
+  if (!existing?.id) return null;
+  const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`, { authorization });
+  return parseSettingsSnapshot(body);
+}
+function requireConfigured() {
+  if (!CLOUD_SETTINGS_SYNC_ENABLED) {
+  throw new Error("Google Drive settings sync is not configured for this build.");
+  }
+}
+async function findSettingsFile(authorization) {
+  const params = new URLSearchParams({
+  spaces: "appDataFolder",
+  pageSize: "1",
+  fields: "files(id,name,modifiedTime,size)",
+  q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
+  });
+  const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`, { authorization });
+  return driveFileOrNull(driveFiles(body)[0]);
+}
+function driveFiles(body) {
+  if (!isRecord$3(body)) return [];
+  return Array.isArray(body.files) ? body.files : [];
+}
+function driveFileOrNull(value) {
+  if (!isRecord$3(value)) return null;
+  if (typeof value.id !== "string") return null;
+  return value;
+}
+async function createSettingsFile(serialized, authorization) {
+  const boundary = `yomu_drive_sync_${randomBoundary()}`;
+  const metadata = { name: SETTINGS_FILE_NAME, mimeType: SETTINGS_MIME_TYPE, parents: ["appDataFolder"] };
+  const body = [
+  `--${boundary}`,
+  "Content-Type: application/json; charset=UTF-8",
+  "",
+  JSON.stringify(metadata),
+  `--${boundary}`,
+  `Content-Type: ${SETTINGS_MIME_TYPE}`,
+  "",
+  serialized,
+  `--${boundary}--`,
+  ""
+  ].join("\r\n");
+  const result = await driveRequestJson("/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size", {
+  method: "POST",
+  headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+  data: body,
+  authorization
+  });
+  return driveFileFromResponse(result);
+}
+async function updateSettingsFile(fileId, serialized, authorization) {
+  const result = await driveRequestJson(
+  `/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size`,
+  { method: "PATCH", headers: { "Content-Type": SETTINGS_MIME_TYPE }, data: serialized, authorization }
+  );
+  return driveFileFromResponse(result);
+}
+async function driveRequestJson(path, options = {}) {
+  return driveRequest(options, (body) => requestJson(driveUrl(path), body));
+}
+async function driveRequestText(path, options = {}) {
+  return driveRequest(options, (body) => requestText(driveUrl(path), body));
+}
+async function driveRequest(options, run) {
+  const firstToken = await acquireAccessToken(true, options.authorization);
+  try {
+  return await run(driveHttpOptions(options, firstToken));
+  } catch (error) {
+  if (!isUnauthorized(error)) throw error;
+  cachedToken = null;
+  }
+  const freshToken = await acquireAccessToken(false, options.authorization);
+  return run(driveHttpOptions(options, freshToken));
+}
+function driveHttpOptions(options, token) {
+  return {
+  method: options.method ?? "GET",
+  headers: { ...options.headers ?? {}, Authorization: `Bearer ${token}` },
+  data: options.data,
+  responseType: "json",
+  timeoutMs: DRIVE_TIMEOUT_MS,
+  allowDirectCrossOrigin: true,
+  preferFetch: true,
+  failureLabel: "Google Drive settings sync"
+  };
+}
+function driveUrl(path) {
+  return `https://www.googleapis.com${path}`;
+}
+async function acquireAccessToken(allowCached, authorization) {
+  const cached = reusableAccessToken(allowCached);
+  if (cached) return cached;
+  const token = await freshAccessToken(authorization);
+  cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
+  return cachedToken.token;
+}
+function reusableAccessToken(allowCached) {
+  if (!allowCached) return null;
+  if (!cachedToken) return null;
+  return Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS ? cachedToken.token : null;
+}
+function freshAccessToken(authorization) {
+  if (cloudSettingsRedirectHandoffRequired()) return tokenViaPageRedirect(authorization);
+  return tokenViaIdentityServices();
+}
+async function tokenViaIdentityServices() {
+  const gis = await loadIdentityServices();
+  return new Promise((resolve, reject) => {
+  try {
+    const client = gis.accounts.oauth2.initTokenClient({
+      client_id: WEB_OAUTH_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (response) => {
+        if (response.error || !response.access_token) {
+          reject(new Error(googleTokenError(response)));
+          return;
+        }
+        resolve({ accessToken: response.access_token, expiresInSeconds: Number(response.expires_in) || 3600 });
+      },
+      error_callback: (error) => reject(new Error(error?.message || "Google authorization was cancelled."))
+    });
+    client.requestAccessToken({ prompt: "" });
+  } catch (error) {
+    reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
+  }
+  });
+}
+function tokenViaPageRedirect(authorization) {
+  return new Promise((_resolve, reject) => startPageRedirect(authorization, reject));
+}
+function startPageRedirect(authorization, reject) {
+  try {
+  const target = pageRedirectTarget(authorization);
+  navigateToOAuthBroker(target.browserWindow, target.url);
+  } catch (error) {
+  reject(googleAuthorizationStartError(error));
+  }
+}
+function pageRedirectTarget(authorization) {
+  const browserWindow = currentBrowserWindow();
+  if (!browserWindow) throw new Error("Google Drive settings sync needs a browser page.");
+  if (!authorization) throw new Error("Google authorization requires a private pending Yomu action.");
+  if (!isCloudSettingsAuthorizationState(authorization.state)) {
+  throw new Error("Google authorization requires a private pending Yomu action.");
+  }
+  return { browserWindow, url: oauthBrokerUrl(browserWindow.location.href, authorization.state) };
+}
+function googleAuthorizationStartError(error) {
+  return error instanceof Error ? error : new Error("Google authorization failed to start.");
+}
+function oauthBrokerUrl(returnUrl, state) {
+  const brokerUrl = new URL(OAUTH_BROKER_URL);
+  brokerUrl.searchParams.set("return_url", returnUrl);
+  brokerUrl.searchParams.set("client_id", WEB_OAUTH_CLIENT_ID);
+  brokerUrl.searchParams.set("state", state);
+  return brokerUrl.href;
+}
+function navigateToOAuthBroker(browserWindow, url) {
+  browserWindow.location.assign(url);
+}
+function readAuthRedirectCandidate() {
+  const browserWindow = currentBrowserWindow();
+  if (!browserWindow) return null;
+  scrubLegacyOAuthWindowName(browserWindow);
+  const envelope = readOAuthReturnEnvelope(browserWindow.location.href);
+  if (!envelope) return null;
+  clearOAuthReturnHash(browserWindow);
+  return oauthRedirectCandidate(envelope.state, envelope.payload);
+}
+function currentBrowserWindow() {
+  if (typeof window === "undefined") return null;
+  return window;
+}
+function readOAuthReturnEnvelope(href) {
+  const state = oauthReturnState(href);
+  if (!state) return null;
+  return { state, payload: parseOAuthReturnPayload(href) };
+}
+function oauthRedirectCandidate(state, payload) {
+  if (!isValidOAuthReturnPayload(state, payload)) {
+  return { ok: false, state, error: "Google authorization returned without a Yomu token." };
+  }
+  if (hasOAuthAccessToken(payload)) {
+  return {
+    ok: true,
+    state,
+    accessToken: payload.accessToken,
+    expiresInSeconds: oauthTokenLifetime(payload.expiresIn)
+  };
+  }
+  return { ok: false, state, error: payload.error || "Google authorization failed." };
+}
+function isValidOAuthReturnPayload(state, payload) {
+  if (!isCloudSettingsAuthorizationState(state)) return false;
+  if (!payload) return false;
+  if (payload.type !== OAUTH_TOKEN_PAYLOAD_TYPE) return false;
+  return payload.state === state;
+}
+function hasOAuthAccessToken(payload) {
+  return typeof payload.accessToken === "string" && Boolean(payload.accessToken);
+}
+function oauthTokenLifetime(value) {
+  const seconds = Number(value);
+  return seconds > 0 ? seconds : 3600;
+}
+function scrubLegacyOAuthWindowName(browserWindow) {
+  try {
+  const parsed = JSON.parse(browserWindow.name);
+  if (isRecord$3(parsed) && parsed.type === OAUTH_TOKEN_PAYLOAD_TYPE) browserWindow.name = "";
+  } catch {
+  }
+}
+function parseOAuthReturnPayload(href) {
+  const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
+  if (!encoded) return null;
+  try {
+  const parsed = JSON.parse(encoded);
+  return isRecord$3(parsed) ? parsed : null;
+  } catch {
+  return null;
+  }
+}
+function oauthReturnState(href) {
+  return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
+}
+function oauthHashParam(href, key) {
+  let hash = "";
+  try {
+  hash = new URL(href).hash.slice(1);
+  } catch {
+  return "";
+  }
+  const prefix = `${key}=`;
+  const entry = hash.split("&").find((part) => part.startsWith(prefix));
+  if (!entry) return "";
+  try {
+  return decodeURIComponent(entry.slice(prefix.length));
+  } catch {
+  return "";
+  }
+}
+function clearOAuthReturnHash(browserWindow) {
+  if (!browserWindow.history?.replaceState) return;
+  try {
+  const url = new URL(browserWindow.location.href);
+  url.hash = hashWithoutOAuthReturn(url.hash);
+  browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
+  } catch {
+  }
+}
+function hashWithoutOAuthReturn(hash) {
+  const remaining = hash.slice(1).split("&").filter(retainsOAuthHashPart).join("&");
+  return remaining ? `#${remaining}` : "";
+}
+function retainsOAuthHashPart(part) {
+  if (!part) return false;
+  const separator = part.indexOf("=");
+  const key = separator < 0 ? part : part.slice(0, separator);
+  return key !== OAUTH_RETURN_HASH_KEY && key !== OAUTH_TOKEN_HASH_KEY;
+}
+let identityServicesPromise = null;
+function loadIdentityServices() {
+  const existing = googleIdentityServices();
+  if (existing) return Promise.resolve(existing);
+  if (identityServicesPromise) return identityServicesPromise;
+  identityServicesPromise = new Promise((resolve, reject) => {
+  if (typeof document === "undefined") {
+    reject(new Error("Google Identity Services is unavailable in this context."));
+    return;
+  }
+  const script = document.createElement("script");
+  script.src = GIS_SCRIPT_URL;
+  script.async = true;
+  script.onload = () => {
+    const gis = googleIdentityServices();
+    if (gis) resolve(gis);
+    else reject(new Error("Google Identity Services failed to initialise."));
+  };
+  script.onerror = () => {
+    identityServicesPromise = null;
+    reject(new Error("Failed to load Google Identity Services."));
+  };
+  document.head.appendChild(script);
+  });
+  return identityServicesPromise;
+}
+function googleIdentityServices() {
+  const candidate = globalThis.google;
+  return candidate?.accounts?.oauth2 ? candidate : null;
+}
+function parseSettingsSnapshot(body) {
+  let parsed;
+  try {
+  parsed = JSON.parse(body);
+  } catch {
+  throw userFacingError("settingsImportUnsupportedFormat");
+  }
+  return validateCloudSettingsEnvelope(parsed);
+}
+function driveFileFromResponse(value) {
+  if (isRecord$3(value) && typeof value.id === "string") return value;
+  throw new Error("Google Drive did not return the saved file.");
+}
+function isUnauthorized(error) {
+  return error instanceof Error && /\(401\)|unauthor/i.test(error.message);
+}
+function googleTokenError(response) {
+  return response.error_description || response.error || "Google authorization failed.";
+}
+function randomBoundary() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+function renderAnkiTagsEditor(value, language2) {
+  const tags = ankiTagList(value);
+  return `
+        <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
+            <input type="hidden" name="ankiTags" value="${escapeHtml$1(tags.join(" "))}">
+            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapeHtml$1(uiText(language2, "ankiTags"))}</label>
+            <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${renderAnkiTagChipHtml(tags, language2)}</div>
+            <div class="jpdb-reader-tag-add-row">
+                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml$1(language2 === "ja" ? "タグを追加" : "Add tag")}">
+                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$1(language2 === "ja" ? "追加" : "Add")}</button>
+            </div>
+        </div>
+    `;
+}
+function updateAnkiTagsEditor(form, action, control) {
+  const editor = control?.closest("[data-anki-tags-editor]") ?? form.querySelector("[data-anki-tags-editor]");
+  const hidden = editor?.querySelector('input[name="ankiTags"]');
+  if (!editor || !hidden) return;
+  const language2 = formInterfaceLanguage(form);
+  const tags = ankiTagList(hidden.value);
+  updateAnkiTagList(editor, tags, action, control);
+  hidden.value = tags.join(" ");
+  dispatchAuthorizedReaderControlEvent(hidden, new Event("input", { bubbles: true }));
+  renderAnkiTagChips(editor, tags, language2);
+}
+function updateAnkiTagList(editor, tags, action, control) {
+  if (action === "anki-tag-add") {
+  addAnkiTags(editor, tags);
+  return;
+  }
+  removeAnkiTag(tags, control?.dataset.tag?.trim());
+}
+function addAnkiTags(editor, tags) {
+  const input2 = editor.querySelector("[data-anki-tag-input]");
+  if (!input2) return;
+  tags.push(...ankiTagList(input2.value).filter((tag) => !tags.includes(tag)));
+  input2.value = "";
+}
+function removeAnkiTag(tags, tag) {
+  if (!tag) return;
+  const index = tags.indexOf(tag);
+  if (index >= 0) tags.splice(index, 1);
+}
+function ankiTagList(value) {
+  return uniqueStrings(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
+}
+function renderAnkiTagChipHtml(tags, language2) {
+  return tags.map((tag) => `
+        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$1(tag)}" aria-label="${escapeHtml$1(tagRemoveLabel(tag, language2))}">
+            <span>${escapeHtml$1(tag)}</span>
+            <span aria-hidden="true">×</span>
+        </button>
+    `).join("");
+}
+function renderAnkiTagChips(editor, tags, language2) {
+  const list = editor.querySelector("[data-anki-tag-chips]");
+  if (!list) return;
+  setInnerHtml(list, renderAnkiTagChipHtml(tags, language2));
+}
+function tagRemoveLabel(tag, language2) {
+  return language2 === "ja" ? `タグを削除: ${tag}` : `${uiText(language2, "remove")}: ${tag}`;
+}
+function formInterfaceLanguage(form) {
+  const control = form.elements.namedItem("interfaceLanguage");
+  const value = control instanceof HTMLSelectElement ? control.value : form.lang;
+  return value === "auto" || value === "en" || value === "ja" ? value : "en";
+}
+const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
+const ANKI_MOBILE_FALLBACK_DECK = "Default";
+function escapedUiText$2(language2, key) {
+  return escapeHtml$1(uiText(language2, key));
+}
+function renderAnkiMiningSettingsPanel(settings, ankiStatus) {
+  return `
+            <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
+                <legend>Anki</legend>
+                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml$1(JSON.stringify(settings.ankiFieldMappings))}">
+                <input type="hidden" data-anki-scan-fields value="{}">
+                <input type="hidden" data-anki-scan-confidence value="{}">
+                <div class="jpdb-reader-anki-layout">
+                    <div class="jpdb-reader-anki-main">
+                        <div class="grid jpdb-reader-anki-connection-grid">
+                            ${checkbox("ankiEnabled", "Enable Anki mining", settings.ankiEnabled)}
+                            ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding via API", settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
+                            ${checkbox("ankiCaptureScreenshot", "Attach context image when possible", settings.ankiCaptureScreenshot)}
+                            ${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings.ankiMobileHandoff)}
+                            ${input("ankiConnectUrl", "AnkiConnect URL", settings.ankiConnectUrl)}
+                            <div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${ankiStatus.html}</div>
+                        </div>
+                        <div class="jpdb-reader-settings-subsection">
+                            <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
+                            <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
+                                <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText$2(settings.interfaceLanguage, "testAnki")}</button>
+                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText$2(settings.interfaceLanguage, "prepareAnki")}</button>
+                            </div>
+                            <div class="jpdb-reader-anki-model-update" data-anki-model-update hidden>
+                                <div class="jpdb-reader-help" data-anki-model-update-message></div>
+                                <div class="jpdb-reader-settings-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="update-anki-model">${escapedUiText$2(settings.interfaceLanguage, "updateAnkiModel")}</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
+                            <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryChoices")}</div>
+                            <div class="jpdb-reader-help" data-anki-library-choices-help>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryChoicesHelp")}</div>
+                            <div class="jpdb-reader-anki-choice-grid">
+                                <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiDeckLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
+                                <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
+                            </div>
+                        </div>
+                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-template-settings">
+                            <div class="jpdb-reader-local-title" data-anki-template-settings-title>${escapedUiText$2(settings.interfaceLanguage, "ankiTemplateSettings")}</div>
+                            <div class="jpdb-reader-help" data-anki-template-settings-help>${escapedUiText$2(settings.interfaceLanguage, "ankiTemplateSettingsHelp")}</div>
+                            <div class="grid jpdb-reader-anki-card-grid">
+                                ${select("ankiTemplateMode", "Anki card template", settings.ankiTemplateMode, [["recognition", "Word first"], ["context", "Sentence first"]])}
+                                ${checkbox("ankiFrontReading", "Word-first front: show reading", settings.ankiFrontReading)}
+                                ${checkbox("ankiFrontSentence", "Word-first front: show sentence", settings.ankiFrontSentence)}
+                                ${checkbox("ankiFrontImage", "Show image on front", settings.ankiFrontImage)}
+                                ${renderAnkiTagsEditor(settings.ankiTags, settings.interfaceLanguage)}
+                            </div>
+                            <div data-anki-template-preview>
+                                ${renderAnkiTemplatePreview(settings)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="jpdb-reader-settings-subsection jpdb-reader-anki-adapter" data-anki-library-adapter>
+                        <div class="jpdb-reader-local-title" data-anki-library-adapter-title>Existing library adapter</div>
+                        <div class="jpdb-reader-help" data-anki-library-availability>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryAdapterStatus")}</div>
+                        <div data-anki-field-mapping-editor>
+                            ${renderAnkiFieldMappingEditor(settings, settings.ankiModel, [], settings.interfaceLanguage)}
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+    `;
+}
+function applyAnkiModelUpdatePrompt(form, plan, language2) {
+  const prompt = form.querySelector("[data-anki-model-update]");
+  if (!prompt) return;
+  prompt.hidden = !plan;
+  if (plan) prompt.dataset.ankiModelUpdateTarget = plan.modelName;
+  else delete prompt.dataset.ankiModelUpdateTarget;
+  const message = prompt.querySelector("[data-anki-model-update-message]");
+  if (!message) return;
+  message.textContent = plan ? formatUiText(language2, "ankiModelUpdateAvailable", {
+  model: plan.modelName,
+  fields: plan.missingFields.join(", ")
+  }) : "";
+}
+function ankiModelUpdatePromptTarget(form) {
+  const prompt = form.querySelector("[data-anki-model-update]");
+  if (!prompt || prompt.hidden) return null;
+  return prompt.dataset.ankiModelUpdateTarget || null;
+}
+function renderAnkiLibraryOptions(options, value, language2 = "en") {
+  const values = uniqueStrings([value, ...options].filter(Boolean));
+  const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
+  return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText$2(language2, "scanAnkiFirst")}</option>`;
+}
+function renderAnkiDeckLibraryOptions(options, value, language2 = "en") {
+  return renderAnkiLibraryOptions([...options, ANKI_MOBILE_FALLBACK_DECK], value, language2);
+}
+function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, scannedFields = [], language2 = settings.interfaceLanguage, confidenceByRole = {}) {
+  const model = modelName.trim();
+  const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
+  const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
+  const options = (selected = "") => [
+  `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language2, "notMapped")}</option>`,
+  ...fields.map((field) => `<option value="${escapeHtml$1(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$1(field)}</option>`)
+  ].join("");
+  const rows = ANKI_FIELD_MAPPING_ROLES.map((role) => {
+  const value = mapping[role] ?? "";
+  const roleLabel = ankiFieldMappingRoleLabel(role, language2);
+  const confidence = value ? confidenceByRole[role] : void 0;
+  return `
+                <label>
+                    <span class="jpdb-reader-anki-field-role-row">
+                        <span>${escapeHtml$1(roleLabel)}</span>
+                        ${confidence ? renderAnkiMappingConfidence(confidence, language2) : ""}
+                    </span>
+                    <select data-anki-field-role="${escapeHtml$1(role)}" aria-label="${escapeHtml$1(uiText(language2, "ankiFieldMappingSelect").replace("{role}", roleLabel))}">
+                        ${options(value)}
+                    </select>
+                </label>
+        `;
+  }).join("");
+  const emptyState = fields.length ? "" : `<div class="jpdb-reader-help">${escapedUiText$2(language2, "noScannedFields")}</div>`;
+  return `
+            <div data-anki-field-mapping-model="${escapeHtml$1(model)}">
+                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language2, "mappingForNoteType").replace("{model}", model || uiText(language2, "currentNoteType")))}</div>
+                <div class="grid">
+                    ${rows}
+                </div>
+                ${fields.length ? `<div class="jpdb-reader-help">${escapedUiText$2(language2, "ankiMappingConfidenceHelp")}</div>` : ""}
+                ${emptyState}
+            </div>
+    `;
+}
+function renderAnkiMappingConfidence(confidence, language2) {
+  const key = confidence === "high" ? "ankiMappingHighConfidence" : confidence === "medium" ? "ankiMappingMediumConfidence" : "ankiMappingLowConfidence";
+  return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText$2(language2, key)}</span>`;
+}
+function ankiFieldMappingRoleLabel(role, language2) {
+  return {
+  expression: uiText(language2, "ankiRoleExpression"),
+  reading: uiText(language2, "ankiRoleReading"),
+  meaning: uiText(language2, "ankiRoleMeaning"),
+  sentence: uiText(language2, "ankiRoleSentence"),
+  audio: uiText(language2, "ankiRoleAudio"),
+  sentenceAudio: uiText(language2, "ankiRoleSentenceAudio"),
+  image: uiText(language2, "ankiRoleImage")
+  }[role];
+}
+function renderDeckControls(settings, decks, hasApiKey, language2 = settings.interfaceLanguage) {
+  const disabled = !hasApiKey || !decks.length;
+  const deckOptions = decks.map((deck) => [deck.id, deck.name]);
+  const miningOptions = [["forq", "FORQ"], ...deckOptions];
+  const newTabOptions = [["all", "All study decks"], ["never-forget", "Never forget"], ...deckOptions];
+  return `
+        <div class="grid">
+            ${deckSelect("miningDeck", "Mining deck", settings.miningDeck, miningOptions, disabled, language2)}
+            ${checkbox("autoMineOnReview", "Add reviewed words to the mining deck automatically", settings.autoMineOnReview)}
+            ${deckSelect("newTabJpdbDeck", "New tab JPDB deck", settings.newTabJpdbDeck, newTabOptions, disabled, language2)}
+            ${deckSelect("neverForgetDeck", "Never forget deck", settings.neverForgetDeck, deckOptions, disabled, language2)}
+            ${deckSelect("blacklistDeck", "Blacklist deck", settings.blacklistDeck, deckOptions, disabled, language2)}
+        </div>
+        <div class="jpdb-reader-help">${hasApiKey ? decks.length ? "Decks are loaded from your JPDB account." : "Could not load decks yet; saved deck IDs will be kept." : "Add your JPDB API key to choose decks."}</div>
+    `;
+}
+function deckSelect(name, label, value, options, disabled, language2) {
+  const hasValue = options.some(([optionValue]) => optionValue === value);
+  const savedLabel = uiText(language2, "savedValue").replace("{value}", value);
+  const merged = hasValue || !value ? options : [[value, savedLabel], ...options];
+  return `<label>${label}
+        <select name="${name}" ${disabled ? "disabled" : ""}>
+            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`).join("")}
+        </select>
+        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">` : ""}
+    </label>`;
+}
+function renderAnkiTemplatePreview(settings) {
+  const contextMode = settings.ankiTemplateMode === "context";
+  const front = contextMode ? `${settings.ankiFrontImage ? "<small>Image appears above the prompt when available.</small>" : ""}<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>` : [
+  '<div class="jpdb-reader-template-expression">読む</div>',
+  settings.ankiFrontReading ? '<div class="jpdb-reader-template-reading">よむ</div>' : "",
+  settings.ankiFrontSentence ? '<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div>' : "",
+  settings.ankiFrontImage ? "<small>Image appears on the front when available.</small>" : "",
+  "<small>Recall the meaning first.</small>"
+  ].filter(Boolean).join("");
+  return `
+        <div class="jpdb-reader-template-preview">
+            <div class="jpdb-reader-template-preview-title">${contextMode ? "Sentence first preset" : "Word first preset"}</div>
+            <div class="jpdb-reader-template-preview-grid">
+                <div>
+                    <strong>Front</strong>
+                    ${front}
+                </div>
+                <div>
+                    <strong>Back</strong>
+                    <div class="jpdb-reader-template-expression">読む</div>
+                    <div class="jpdb-reader-template-reading">よむ</div>
+                    <div class="jpdb-reader-template-meaning">to read</div>
+                    <small>Includes dictionary, kanji, pitch, frequency, source, and image fields when available.</small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android`;
+function escapedUiText$1(language2, key) {
+  return escapeHtml$1(uiText(language2, key));
+}
+function renderJpdbStatusLine(settings) {
+  const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
+  return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
+}
+function renderBunproStatusLine(settings) {
+  const line = bunproStatusLineForSettings(settings, settings.interfaceLanguage);
+  return `<div class="jpdb-reader-help jpdb-reader-status-line" data-bunpro-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+}
+function renderWanikaniStatusLine(settings) {
+  const line = wanikaniStatusLineForSettings(settings, settings.interfaceLanguage);
+  return `<div class="jpdb-reader-help jpdb-reader-status-line" data-wanikani-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+}
+function wanikaniStatusLineForSettings(settings, language2) {
+  const japanese = resolveUiLanguage(language2) === "ja";
+  return hasWanikaniApiCredential(settings) ? { message: japanese ? "WaniKaniトークン保存済み（確認中）。" : "WaniKani token saved (checking).", tone: "pending" } : { message: japanese ? "WaniKaniトークンなし。" : "No WaniKani token.", tone: "pending" };
+}
+function formatStatusTemplate(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+}
+function jpdbStatusLineForSettings(settings, language2) {
+  return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language2);
+}
+function bunproStatusLineForSettings(settings, language2) {
+  if (!hasBunproFrontendCredential(settings)) {
+  return {
+    message: resolveUiLanguage(language2) === "ja" ? "Bunproトークンなし。" : "No Bunpro token.",
+    tone: "pending"
+  };
+  }
+  if (isBunproFrontendCredentialExpired(settings)) {
+  return {
+    message: resolveUiLanguage(language2) === "ja" ? "Bunproトークンの期限切れ。" : "Bunpro token expired.",
+    tone: "error"
+  };
+  }
+  const expiresAt = settings.bunproFrontendApiTokenExpiresAt?.trim() ?? "";
+  const date = expiresAt ? new Date(expiresAt) : null;
+  const expires = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(resolveUiLanguage(language2) === "ja" ? "ja-JP" : "en-GB") : "";
+  return {
+  message: expires ? resolveUiLanguage(language2) === "ja" ? `Bunproトークン保存済み（未確認）。期限: ${expires}` : `Bunpro token saved (not verified). Expires ${expires}.` : resolveUiLanguage(language2) === "ja" ? "Bunproトークン保存済み（未確認）。" : "Bunpro token saved (not verified).",
+  tone: "pending"
+  };
+}
+function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language2) {
+  if (!hasJpdbApiKey && !hasJitenApiKey) {
+  return {
+    message: jitenAwareMissingApiKeyMessage(language2),
+    tone: "pending"
+  };
+  }
+  if (hasJpdbApiKey && hasJitenApiKey) {
+  return {
+    message: uiText(language2, "jpdbAndJitenApiKeysConfigured"),
+    tone: "success"
+  };
+  }
+  if (!hasJpdbApiKey) {
+  return {
+    message: jitenApiKeyConfiguredMessage(language2),
+    tone: "success"
+  };
+  }
+  return {
+  message: uiText(language2, "jpdbApiKeyConfigured"),
+  tone: "success"
+  };
+}
+function jitenAwareMissingApiKeyMessage(language2) {
+  return resolveUiLanguage(language2) === "ja" ? "JitenまたはJPDBキーなし。" : "No Jiten or JPDB key.";
+}
+function jitenApiKeyConfiguredMessage(language2) {
+  return resolveUiLanguage(language2) === "ja" ? "Jitenキーあり。" : "Jiten key set.";
+}
+function ankiStatusLineForSettings(settings, language2) {
+  return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language2);
+}
+function formatSettingsStatusLine(line, language2) {
+  return `${escapedUiText$1(language2, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml$1(line.message)}`;
+}
+function renderAnkiStatusHtml(line, language2) {
+  const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml$1(line.state)}">${escapedUiText$1(language2, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
+  const summary = `<div class="jpdb-reader-status-main">${chip}${formatSettingsStatusLine(line, language2)}</div>`;
+  const actions = [...line.details ?? [], ...ankiStatusActions(line.action, language2)];
+  if (!actions.length) return summary;
+  return `${summary}<ul class="jpdb-reader-status-checklist">${actions.map(renderStatusAction).join("")}</ul>`;
+}
+function ankiAdapterStateLabelKey(state) {
+  const keys = {
+  disabled: "adapterStateDisabled",
+  probing: "adapterStateProbing",
+  unreachable: "adapterStateUnreachable",
+  connected: "adapterStateConnected",
+  scanning: "adapterStateScanning",
+  suggested: "adapterStateSuggested",
+  stale: "adapterStateStale",
+  ready: "adapterStateReady"
+  };
+  return keys[state];
+}
+function renderStatusAction(action) {
+  const label = action.href ? `<a href="${escapeHtml$1(action.href)}" target="_blank" rel="noopener">${escapeHtml$1(action.label)}</a>` : escapeHtml$1(action.label);
+  return `<li>${label}${action.suffix ? ` <span>${escapeHtml$1(action.suffix)}</span>` : ""}</li>`;
+}
+function ankiStatusActions(action, language2) {
+  if (action === "anki-unreachable") {
+  const actions = [
+    { label: uiText(language2, "ankiStatusOpenDesktop") },
+    { label: uiText(language2, "ankiStatusInstallAddon"), href: ANKI_CONNECT_ADDON_URL },
+    { label: uiText(language2, "ankiStatusMobileDocs"), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language2, "ankiStatusUseDesktopUrl") }
+  ];
+  if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname)) {
+    if (!hasUserscriptAnkiBridge()) {
+      actions.unshift(
+        { label: uiText(language2, "ankiStatusEnableUserscript") },
+        { label: uiText(language2, "ankiStatusRefreshAndCheck") }
+      );
+    }
+    actions.push({
+      label: formatUiText(language2, "ankiHostedCorsHint", { origin: location.origin })
+    });
+  }
+  return actions;
+  }
+  return [];
+}
+function settingsStatusToneLabelKey(tone) {
+  if (tone === "success") return "statusReady";
+  if (tone === "error") return "statusError";
+  return "statusAttention";
+}
+function ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, language2) {
+  if (!ankiEnabled) {
+  return {
+    message: uiText(language2, "ankiMiningDisabledStatus"),
+    tone: "pending",
+    state: "disabled"
+  };
+  }
+  return {
+  message: formatStatusTemplate(uiText(language2, "ankiCheckingConnection"), {
+    url: ankiConnectUrl.trim()
+  }),
+  tone: "pending",
+  state: "probing"
+  };
+}
+function localizeJpdbStatus(form, language2) {
+  const status = form.querySelector("[data-jpdb-status]");
+  if (!status) return;
+  const credentials = redactedApiCredentialsFromForm(form);
+  const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language2);
+  status.dataset.statusTone = line.tone;
+  status.replaceChildren(line.message);
+}
+function localizeBunproStatus(form, language2) {
+  const status = form.querySelector("[data-bunpro-status]");
+  if (!status) return;
+  const credentials = redactedApiCredentialsFromForm(form);
+  const line = bunproStatusLineForSettings(credentials, language2);
+  status.dataset.statusTone = line.tone;
+  status.replaceChildren(line.message);
+}
+function localizeInitialAnkiStatus(form, language2) {
+  const status = form.querySelector("[data-anki-status]");
+  if (!status || !isInitialAnkiSettingsStatus(status.textContent ?? "")) return;
+  const ankiEnabled = form.querySelector('input[name="ankiEnabled"]')?.checked ?? false;
+  const ankiConnectUrl = form.querySelector('input[name="ankiConnectUrl"]')?.value ?? "";
+  const line = ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, language2);
+  status.dataset.statusTone = line.tone;
+  setInnerHtml(status, renderAnkiStatusHtml(line, language2));
+}
+function isInitialAnkiSettingsStatus(value) {
+  return /Checking AnkiConnect|Anki mining disabled|AnkiConnect.*確認中|Ankiマイニングは無効/.test(value);
 }
 function dictionaryEntryDownload(entry, objectsBaseUrl2) {
   const distribution = entry.distribution;
@@ -22081,7 +25607,8 @@ const entries = [
     "published",
     "24ab5777cb003c068237449ae63174843be309d0ef78ff88e3fa47315a4e8c0d",
     6341873
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-en",
@@ -22102,7 +25629,8 @@ const entries = [
     "published",
     "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
     15509389
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-en-legacy",
@@ -22200,7 +25728,8 @@ const entries = [
     "published",
     "0da1dcd493ac8144e7573031b9e4fd670147f5bdd30b560ccf1d8b7a2879aaa5",
     1332886
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-forms",
@@ -22240,7 +25769,8 @@ const entries = [
     "published",
     "c53ee70b65f69b0f0917322929f09b83aa1d25473cd71168da5c7c4ea03e4f20",
     576727
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-hu",
@@ -22261,7 +25791,8 @@ const entries = [
     "published",
     "9b89004b50b868ec02ec4c973c5ee59968758221055fd0c1bb2f5615b6ecd7db",
     1814012
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-nl",
@@ -22282,7 +25813,8 @@ const entries = [
     "published",
     "5579d462db56cd24075d37fe763f6f208bd8122778136d65e9447d68a4a7c54d",
     3107202
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-ru",
@@ -22303,7 +25835,8 @@ const entries = [
     "published",
     "e88ac22d79fecd596120eb9c007c73ac35a5501cc44aa61b5d19b48787e95d08",
     3452083
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmdict-sl",
@@ -22343,7 +25876,8 @@ const entries = [
     "published",
     "f3e39e9497eaf1a8007eeba627bb6663f4ffd11e62203ddd32a03dda1f2491a3",
     398940
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "jmnedict",
@@ -22364,7 +25898,8 @@ const entries = [
     "published",
     "bd3c687afc4dca42b6c6cd374d87c7f29242effef161f2b122ed2221b56e743f",
     11423324
-  ]
+  ],
+  "2026-07-23"
   ],
   [
   "kanjidic-en",
@@ -53353,13 +56888,14 @@ function runtimeDictionaryCatalog(input2) {
   };
 }
 function expandRuntimeCatalogEntry(entry) {
-  const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution] = entry;
+  const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution, revision2] = entry;
   return {
   id,
   title,
   ...installedTitle ? { installedTitle } : {},
   format: "yomitan",
   version: "runtime",
+  revision: revision2,
   categories,
   headwordLanguages,
   definitionLanguages,
@@ -53402,19 +56938,6 @@ function expandRuntimeDistribution(distribution) {
   };
   }
   return state === "blocked" ? { state, reason: value ?? "Unavailable" } : { state: "source-only" };
-}
-const LANGUAGE_ENDONYMS = Object.freeze({
-  ja: "日本語",
-  zh: "中文",
-  yue: "粵語",
-  lzh: "文言"
-});
-function headwordLanguageEndonym(language2) {
-  return LANGUAGE_ENDONYMS[language2] ?? language2;
-}
-function headwordLanguageName(language2, locale = "en") {
-  const display = languageDisplayName(language2, locale);
-  return display === language2 ? headwordLanguageEndonym(language2) : display;
 }
 const CATEGORY_ORDER = [
   "terms",
@@ -53600,24 +57123,51 @@ const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONAR
 const FROZEN_CATALOG_BROWSE_DICTIONARIES = Object.freeze(
   FROZEN_CATALOG_BROWSE_SHELVES.flatMap((shelf) => shelf.dictionaries)
 );
-const RECOMMENDED_JAPANESE_DICTIONARIES = [
-  ["jitendex", "terms", "Jitendex", "recommendedJitendex", "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"],
-  ["jmdict", "terms", "JMdict", "recommendedJmdict", "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"],
-  ["jmnedict", "terms", "JMnedict", "recommendedJmnedict", "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"],
-  ["wty-ja-ja", "terms", "WTY JA-JA", "recommendedWtyJapaneseJapanese", "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"],
-  ["pixiv-light", "terms", "Pixiv Light", "recommendedPixivLight", "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"],
-  ["kanjidic", "kanji", "KANJIDIC", "recommendedKanjidic", "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"],
-  ["jpdb-kanji", "kanji", "JPDB Kanji", "recommendedJpdbKanji", "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"],
-  ["kanjium-pitch", "pitch", "Kanjium pitch accents", "recommendedKanjiumPitch", "https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip"],
-  ["jpdbv2-kana", "frequency", "JPDBv2㋕", "recommendedJpdbv2Kana", "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"],
-  ["jiten", "frequency", "Jiten", "recommendedJiten", "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"],
-  ["bccwj", "frequency", "BCCWJ", "recommendedBccwj", "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"]
-].map(
-  ([id, category, name, descriptionKey, downloadUrl]) => ({ id, category, name, descriptionKey, downloadUrl })
-);
 const CATALOG_ENTRY_BY_ID = new Map(
   FROZEN_DICTIONARY_CATALOG.entries.map((entry) => [entry.id, entry])
 );
+const CURATED_JAPANESE_DICTIONARIES = [
+  ["jitendex", "terms", "Jitendex", "recommendedJitendex", "drive-japanese-ja-en-jitendex-yomitan-2026-07-09-icndfbtjny", ["https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip", "2026.07.09.0"]],
+  ["wty-ja-ja", "terms", "WTY JA-JA", "recommendedWtyJapaneseJapanese", "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"],
+  ["pixiv-light", "terms", "Pixiv Light", "recommendedPixivLight", "drive-japanese-ja-ja-encyclopedia-pixivlight-2026-07-23-b2yz0hz8ye"],
+  ["jpdb-kanji", "kanji", "JPDB Kanji", "recommendedJpdbKanji", "drive-japanese-kanji-jpdb-kanji-gyuvmtw8ve"],
+  ["kanjium-pitch", "pitch", "Kanjium pitch accents", "recommendedKanjiumPitch", "https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip"],
+  ["jiten", "frequency", "Jiten", "recommendedJiten", "drive-japanese-ja-freq-jiten-freq-global-2026-07-23-gtrllz-fon", ["https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan", "Jiten 26-07-13"]],
+  ["bccwj", "frequency", "BCCWJ", "recommendedBccwj", "drive-japanese-ja-freq-bccwj-suw-luw-combined-wpf0pnuvsu"]
+];
+const RECOMMENDED_JAPANESE_DICTIONARIES = CURATED_JAPANESE_DICTIONARIES.map(
+  ([id, category, name, descriptionKey, source, latest]) => ({
+  id,
+  category,
+  name,
+  descriptionKey,
+  ...curatedDownload(source),
+  ...latest && { latestUrl: latest[0], revision: latest[1] }
+  })
+);
+function recommendedDictionaryBuild(dictionary, readsAnyHost) {
+  if (!readsAnyHost || !dictionary.latestUrl) return dictionary;
+  return { ...dictionary, downloadUrl: dictionary.latestUrl, sha256: void 0, bytes: void 0, revision: void 0 };
+}
+function recommendedDictionaryInstallIsCurrent(build, installedRevision) {
+  const installed = installedRevision?.match(/\d+/gu)?.map(Number);
+  const offered = build.revision?.match(/\d+/gu)?.map(Number);
+  if (!installed || !offered) return false;
+  const index = installed.findIndex((value, at) => value !== offered[at]);
+  return index < 0 || index >= offered.length || installed[index] > offered[index];
+}
+const CURATED_JAPANESE_CATALOG_IDS = CURATED_JAPANESE_DICTIONARIES.map(([, , , , source]) => source).filter((source) => !source.startsWith("https://"));
+function curatedDownload(source) {
+  if (source.startsWith("https://")) return { downloadUrl: source };
+  const { url, sha256, bytes } = mirroredCatalogDownload(source);
+  return { downloadUrl: url, sha256, bytes };
+}
+function mirroredCatalogDownload(id) {
+  const entry = CATALOG_ENTRY_BY_ID.get(id);
+  const download = entry && dictionaryEntryDownload(entry, FROZEN_DICTIONARY_CATALOG.objectsBaseUrl);
+  if (!download?.mirrored) throw new Error(`Curated dictionary "${id}" is not published on the mirror.`);
+  return download;
+}
 const CATALOG_RECOMMENDATIONS_BY_LANGUAGE = Object.freeze(
   Object.fromEntries(
   SLICE1_LEARNER_LANGUAGES.map((language2) => [
@@ -53653,10 +57203,9 @@ function recommendedDictionaryInstalledIdentity(dictionary) {
   return dictionary.installedDictionaryIdentity ?? yomitanDictionaryIdentity(dictionary.name);
 }
 function recommendedDictionaryImportOptions(dictionary) {
-  if (dictionary.origin !== "catalog") return void 0;
   if (!isMirrorServedDownload(dictionary.downloadUrl)) return void 0;
   if (!dictionary.sha256 || !dictionary.bytes) {
-  throw new Error(`Catalogue dictionary "${dictionary.id}" is missing integrity metadata.`);
+  throw new Error(`Mirrored dictionary "${dictionary.id}" is missing integrity metadata.`);
   }
   return {
   integrity: {
@@ -53692,7 +57241,8 @@ function recommendedDictionaryFromCatalog(learnerLanguage2, targetLanguage2, rec
   selectedByDefault: recommendation.selectedByDefault,
   definitionLanguage: recommendation.definitionLanguage,
   translationMode: recommendation.translationMode,
-  installedDictionaryIdentity: catalogInstalledDictionaryIdentity(entry)
+  installedDictionaryIdentity: catalogInstalledDictionaryIdentity(entry),
+  revision: entry.revision
   };
 }
 function catalogInstalledDictionaryIdentity(entry) {
@@ -53759,9 +57309,10 @@ function catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2, targe
   });
 }
 function recommendedCatalogIds(learnerLanguage2, targetLanguage2) {
-  return new Set(
-  recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2).map((dictionary) => dictionary.catalogDictionaryId).filter((id) => Boolean(id))
-  );
+  return /* @__PURE__ */ new Set([
+  ...recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2).map((dictionary) => dictionary.catalogDictionaryId).filter((id) => Boolean(id)),
+  ...targetLanguage2 === "ja" ? CURATED_JAPANESE_CATALOG_IDS : []
+  ]);
 }
 const CATALOG_BROWSE_BY_ID = new Map(
   catalogBrowseDictionaries().map((dictionary) => [dictionary.id, dictionary])
@@ -53783,3515 +57334,6 @@ function catalogRecommendationDescription(learnerLanguage2, recommendation) {
   if (recommendation.translationMode === "off") return original;
   const translation = messages.automaticTranslationLabel.replace("{language}", learner.nativeName);
   return `${original} · ${translation}`;
-}
-function createHandleDragController(options) {
-  let state = initialDragState();
-  let pointerId = 0;
-  let touchId = 0;
-  let dragging = false;
-  let moved = false;
-  let activeInput = null;
-  let activeHandle = null;
-  let activeCaptureTarget = null;
-  const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
-  const setLastPoint = (point) => {
-  state = {
-    ...state,
-    lastX: point.x,
-    lastY: point.y,
-    deltaX: point.x - state.startX,
-    deltaY: point.y - state.startY
-  };
-  };
-  const updateDrag = (point) => {
-  if (!activeHandle) return;
-  setLastPoint(point);
-  if (movementDistance(state) > options.tapMovementPx) moved = true;
-  options.onUpdate?.(state, activeHandle);
-  };
-  const beginDrag = (handle, point, input2) => {
-  if (dragging || activeInput) return false;
-  state = {
-    startX: point.x,
-    startY: point.y,
-    lastX: point.x,
-    lastY: point.y,
-    deltaX: 0,
-    deltaY: 0
-  };
-  dragging = true;
-  moved = false;
-  activeInput = input2;
-  activeHandle = handle;
-  options.onBegin?.(handle, state, input2);
-  return true;
-  };
-  const finishDrag = () => {
-  if (!dragging) return;
-  const wasMoved = moved;
-  const handle = activeHandle;
-  const captureTarget = activeCaptureTarget;
-  dragging = false;
-  moved = false;
-  activeInput = null;
-  activeHandle = null;
-  activeCaptureTarget = null;
-  cleanupListeners();
-  releasePointerCapture(captureTarget, pointerId);
-  options.onFinish(state, wasMoved, handle);
-  };
-  function cleanupListeners() {
-  if (typeof document === "undefined") return;
-  document.removeEventListener("pointermove", handlePointerMove, true);
-  document.removeEventListener("pointerup", handlePointerUp, true);
-  document.removeEventListener("pointercancel", handlePointerCancel, true);
-  document.removeEventListener("touchmove", handleTouchMove, true);
-  document.removeEventListener("touchend", handleTouchEnd, true);
-  document.removeEventListener("touchcancel", handleTouchCancel, true);
-  }
-  function cancel() {
-  if (!dragging) return;
-  const handle = activeHandle;
-  const captureTarget = activeCaptureTarget;
-  dragging = false;
-  moved = false;
-  activeInput = null;
-  activeHandle = null;
-  activeCaptureTarget = null;
-  cleanupListeners();
-  releasePointerCapture(captureTarget, pointerId);
-  options.onCancel?.(state, handle);
-  }
-  function handlePointerMove(event) {
-  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  consumeDragEvent(event);
-  updateDrag({ x: event.clientX, y: event.clientY });
-  }
-  function handlePointerUp(event) {
-  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  consumeDragEvent(event);
-  if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
-  else setLastPoint({ x: event.clientX, y: event.clientY });
-  finishDrag();
-  }
-  function handlePointerCancel(event) {
-  if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  cancel();
-  }
-  function handleTouchMove(event) {
-  if (!dragging || activeInput !== "touch") return;
-  const touch = changedTouch(event, touchId);
-  if (!touch) return;
-  consumeDragEvent(event);
-  updateDrag({ x: touch.clientX, y: touch.clientY });
-  }
-  function handleTouchEnd(event) {
-  if (!dragging || activeInput !== "touch") return;
-  const touch = changedTouch(event, touchId);
-  if (!touch) return;
-  consumeDragEvent(event);
-  if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
-  else setLastPoint({ x: touch.clientX, y: touch.clientY });
-  finishDrag();
-  }
-  function handleTouchCancel(event) {
-  if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
-  cancel();
-  }
-  return {
-  isDragging: () => dragging,
-  pointerDown(handle, event) {
-    if (activeInput) return;
-    if (event.button !== void 0 && event.button !== 0) return;
-    consumeDragEvent(event);
-    if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
-    pointerId = event.pointerId;
-    activeCaptureTarget = event.target instanceof Element ? event.target : handle;
-    setPointerCapture(activeCaptureTarget, event.pointerId);
-    document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
-    document.addEventListener("pointerup", handlePointerUp, true);
-    document.addEventListener("pointercancel", handlePointerCancel, true);
-  },
-  touchStart(handle, event) {
-    if (activeInput) return;
-    const touch = firstChangedTouch(event);
-    if (!touch) return;
-    consumeDragEvent(event);
-    if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
-    touchId = touch.identifier;
-    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
-    document.addEventListener("touchend", handleTouchEnd, true);
-    document.addEventListener("touchcancel", handleTouchCancel, true);
-  },
-  cancel,
-  cleanupListeners
-  };
-}
-function initialDragState() {
-  return {
-  startX: 0,
-  startY: 0,
-  lastX: 0,
-  lastY: 0,
-  deltaX: 0,
-  deltaY: 0
-  };
-}
-function getContainedClosest(target, root, selector, onFound) {
-  if (!(target instanceof Element)) return null;
-  const element2 = target.closest(selector);
-  if (!element2 || !root.contains(element2)) return null;
-  onFound?.(element2);
-  return element2;
-}
-function consumeDragEvent(event) {
-  event.preventDefault();
-  event.stopPropagation();
-}
-function changedTouch(event, touchId) {
-  for (const touch of Array.from(event.changedTouches)) {
-  if (touch.identifier === touchId) return touch;
-  }
-  return null;
-}
-function firstChangedTouch(event) {
-  return event.changedTouches.item(0);
-}
-function releasePointerCapture(handle, id) {
-  try {
-  handle?.releasePointerCapture?.(id);
-  } catch {
-  }
-}
-function setPointerCapture(handle, id) {
-  try {
-  handle.setPointerCapture?.(id);
-  } catch {
-  }
-}
-function addViewportChangeListeners(listener, signal) {
-  const options = { passive: true, signal };
-  window.addEventListener("resize", listener, options);
-  window.addEventListener("orientationchange", listener, options);
-  window.visualViewport?.addEventListener?.("resize", listener, options);
-  window.visualViewport?.addEventListener?.("scroll", listener, options);
-}
-const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
-const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
-const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
-const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
-const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
-const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
-function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
-  if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
-  drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
-  let viewportHeight = 0;
-  let drawerHeight = 0;
-  let startHeight = 0;
-  let rawDragHeight = 0;
-  let dragPageScale = 1;
-  let suppressNextHandleClick = false;
-  const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
-  const syncHandle = (handle) => {
-  handle.setAttribute("role", "separator");
-  handle.setAttribute("tabindex", "0");
-  handle.setAttribute("aria-label", label);
-  handle.setAttribute("aria-orientation", "horizontal");
-  handle.setAttribute("aria-valuemin", String(settingsDrawerMinHeight(viewportHeight)));
-  handle.setAttribute("aria-valuemax", String(viewportHeight));
-  handle.setAttribute("aria-valuenow", String(Math.round(drawerHeight)));
-  };
-  const syncHandleState = () => {
-  drawer.querySelectorAll(".jpdb-reader-settings-drag-handle").forEach(syncHandle);
-  };
-  const applyDrawerHeight = (height, persist = false) => {
-  const nextHeight = clampDrawerHeight(height, viewportHeight, settingsDrawerMinHeight(viewportHeight));
-  drawerHeight = nextHeight;
-  drawer.style.setProperty("--jpdb-reader-settings-drawer-height", `${Math.round(nextHeight)}px`);
-  drawer.classList.toggle("jpdb-reader-settings-drawer-expanded", isFullHeight());
-  syncHandleState();
-  if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
-  };
-  const applyViewportSize = () => {
-  applyOverlayPageScale(drawer);
-  const previousViewportHeight = viewportHeight;
-  const { pageScale } = overlayViewport();
-  const bottomInset = settingsDrawerBottomInset() * pageScale;
-  viewportHeight = fixedChromeViewportHeight();
-  drawer.style.setProperty("--jpdb-reader-settings-drawer-bottom", `${bottomInset}px`);
-  drawer.style.setProperty("--jpdb-reader-settings-drawer-viewport-height", `${viewportHeight}px`);
-  drawer.style.setProperty("--jpdb-reader-settings-drawer-min-height", `${settingsDrawerMinHeight(viewportHeight)}px`);
-  drawer.classList.toggle("jpdb-reader-settings-keyboard-open", bottomInset > 0);
-  const ratio = previousViewportHeight > 0 && drawerHeight > 0 ? drawerHeight / previousViewportHeight : readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO);
-  applyDrawerHeight(viewportHeight * ratio);
-  };
-  const clearDragStyles = () => {
-  drawer.classList.remove("jpdb-reader-settings-drawer-resizing");
-  };
-  const reset = () => {
-  drawer.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease";
-  clearDragStyles();
-  window.setTimeout(() => {
-    drawer.style.transition = "";
-  }, 180);
-  };
-  const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
-  const drawerDrag = createHandleDragController({
-  tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
-  movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
-  onBegin: () => {
-    dragPageScale = overlayViewport().pageScale;
-    startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
-    rawDragHeight = startHeight;
-    drawer.style.transition = "";
-    drawer.classList.add("jpdb-reader-settings-drawer-resizing");
-  },
-  onUpdate: (state) => {
-    rawDragHeight = startHeight - state.deltaY * dragPageScale;
-    applyDrawerHeight(rawDragHeight);
-  },
-  onFinish: (_state, wasMoved) => {
-    const finishHeight = rawDragHeight;
-    if (wasMoved) {
-      suppressNextHandleClick = true;
-      applyDrawerHeight(finishHeight, true);
-    }
-    reset();
-  },
-  onCancel: reset
-  });
-  const handleViewportChange = () => {
-  if (drawerDrag.isDragging()) drawerDrag.cancel();
-  drawer.style.transition = "";
-  applyViewportSize();
-  clearDragStyles();
-  syncHandleState();
-  };
-  applyViewportSize();
-  syncHandleState();
-  const viewportController = new AbortController();
-  let disposed = false;
-  let disposeObserver;
-  const dispose = () => {
-  if (disposed) return;
-  disposed = true;
-  drawerDrag.cleanupListeners();
-  viewportController.abort();
-  disposeObserver?.disconnect();
-  };
-  disposeObserver = new MutationObserver(() => {
-  if (!drawer.isConnected) dispose();
-  });
-  if (document.documentElement) {
-  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-  }
-  drawer.addEventListener("click", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (suppressNextHandleClick) {
-    suppressNextHandleClick = false;
-    return;
-  }
-  onTap?.();
-  });
-  drawer.addEventListener("pointerdown", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  drawerDrag.pointerDown(handle, event);
-  });
-  drawer.addEventListener("touchstart", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  drawerDrag.touchStart(handle, event);
-  }, { capture: true, passive: false });
-  drawer.addEventListener("keydown", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-    event.preventDefault();
-    event.stopPropagation();
-    applyDrawerHeight(drawerHeight + (event.key === "ArrowUp" ? SETTINGS_DRAWER_KEYBOARD_STEP_PX : -SETTINGS_DRAWER_KEYBOARD_STEP_PX), true);
-    reset();
-  }
-  });
-  addViewportChangeListeners(handleViewportChange, viewportController.signal);
-}
-function fixedChromeViewportHeight() {
-  const scaledViewport = overlayViewport();
-  return scaledViewport.pageScale > 1 ? Math.max(0, Math.round(overlayViewportBounds().height)) : visualViewportHeight();
-}
-function visualViewportHeight() {
-  return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
-}
-function settingsDrawerBottomInset() {
-  const visual = window.visualViewport;
-  if (!visual) return 0;
-  const layoutHeight = layoutViewportHeight();
-  if (layoutHeight <= 0) return 0;
-  return Math.max(0, Math.round(layoutHeight - visual.offsetTop - visual.height));
-}
-function layoutViewportHeight() {
-  return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
-}
-function settingsDrawerMinHeight(viewportHeight) {
-  if (viewportHeight <= 0) return MIN_SETTINGS_DRAWER_HEIGHT_PX;
-  return Math.min(viewportHeight, MIN_SETTINGS_DRAWER_HEIGHT_PX, Math.max(220, Math.round(viewportHeight * 0.38)));
-}
-function restoredSettingsDrawerHeight(viewportHeight) {
-  return clampDrawerHeight(
-  viewportHeight * readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO),
-  viewportHeight,
-  settingsDrawerMinHeight(viewportHeight)
-  );
-}
-function clampDrawerHeight(height, viewportHeight, minHeight) {
-  if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
-  return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
-}
-function readHeightRatio(storageKey, fallback) {
-  const value = gmStorageGetSync(storageKey, fallback);
-  return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
-}
-function storeHeightRatio(storageKey, height, viewportHeight) {
-  if (viewportHeight <= 0) return;
-  const ratio = Math.max(0, Math.min(1, height / viewportHeight));
-  gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
-}
-const FOCUSABLE_SELECTOR = 'button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"])';
-class LookupModalAccessibility {
-  dialog;
-  returnTo;
-  hidden = [];
-  activate(root, trigger) {
-  const active = document.activeElement;
-  const restoreTarget = this.returnTo?.isConnected ? this.returnTo : trigger?.isConnected ? trigger : active instanceof HTMLElement && !root.contains(active) ? active : void 0;
-  this.release(true);
-  this.dialog = root;
-  root.setAttribute("role", "dialog");
-  root.setAttribute("aria-modal", "true");
-  this.returnTo = restoreTarget;
-  this.hidden = hideBackground(root);
-  root.addEventListener("keydown", this.handleKeydown);
-  }
-  release(preserveRestoreTarget = false) {
-  this.dialog?.removeEventListener("keydown", this.handleKeydown);
-  this.dialog = void 0;
-  for (const [element2, ariaHidden] of this.hidden) {
-    if (ariaHidden === null) element2.removeAttribute("aria-hidden");
-    else element2.setAttribute("aria-hidden", ariaHidden);
-  }
-  this.hidden = [];
-  if (preserveRestoreTarget) return false;
-  const restoreTarget = this.returnTo?.isConnected ? this.returnTo : void 0;
-  this.returnTo = void 0;
-  restoreTarget?.focus({ preventScroll: true });
-  return Boolean(restoreTarget);
-  }
-  handleKeydown = (event) => {
-  if (event.key !== "Tab" || event.isComposing || !this.dialog) return;
-  const focusable = Array.from(this.dialog.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element2) => !element2.closest("[hidden]") && !element2.closest('[aria-hidden="true"]') && element2.tabIndex >= 0).sort((left, right) => (left.tabIndex || Infinity) - (right.tabIndex || Infinity));
-  const destination = event.shiftKey ? focusable.at(-1) : focusable[0];
-  const edge = event.shiftKey ? focusable[0] : focusable.at(-1);
-  if (document.activeElement !== edge && document.activeElement !== this.dialog && this.dialog.contains(document.activeElement)) return;
-  event.preventDefault();
-  (destination ?? this.dialog).focus();
-  };
-}
-function hideBackground(root) {
-  const hidden = [];
-  let branch = root;
-  while (branch.parentElement) {
-  const parent = branch.parentElement;
-  for (const sibling of Array.from(parent.children)) {
-    if (!(sibling instanceof HTMLElement) || sibling === branch) continue;
-    hidden.push([sibling, sibling.getAttribute("aria-hidden")]);
-    sibling.setAttribute("aria-hidden", "true");
-  }
-  if (parent === document.body) break;
-  branch = parent;
-  }
-  return hidden;
-}
-function createSettingsFormReader(data, colorSource) {
-  const get = (key) => String(data.get(key) ?? "");
-  const getAll = (key) => data.getAll(key).map((value) => String(value));
-  const number = (key, fallback) => readNumber(get(key), fallback);
-  return {
-  get,
-  getAll,
-  has: (key) => data.has(key),
-  number,
-  clamped: (key, min, max2, fallback) => Math.max(min, Math.min(max2, number(key, fallback))),
-  colorSource
-  };
-}
-function readNumber(value, fallback) {
-  if (!value.trim()) return fallback;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-function ocrInteractionModeFromSettings(settings) {
-  if (!settings.ocrEnabled) return "off";
-  return settings.ocrAutoScanImages ? "auto" : "manual";
-}
-const NATIVE_SUBTITLE_DISPLAY_MODES = ["blurred", "shown", "hidden"];
-function nativeSubtitleDisplayMode(settings) {
-  if (!settings.subtitleSecondaryVisible && settings.subtitleSecondaryVisibleChosen) return "hidden";
-  return settings.subtitleNativeBlurred ? "blurred" : "shown";
-}
-function applyNativeSubtitleDisplayMode(settings, mode, options = {}) {
-  const visible = mode !== "hidden";
-  const blurred = mode === "blurred";
-  const markVisibilityChosen = options.markVisibilityChosen ?? true;
-  const changed = settings.subtitleSecondaryVisible !== visible || settings.subtitleNativeBlurred !== blurred || markVisibilityChosen && !settings.subtitleSecondaryVisibleChosen;
-  settings.subtitleSecondaryVisible = visible;
-  settings.subtitleNativeBlurred = blurred;
-  if (markVisibilityChosen) settings.subtitleSecondaryVisibleChosen = true;
-  return changed;
-}
-function readingAnnotationModeForTarget(mode, targetLanguage2) {
-  return targetLanguage2 !== "ja" && mode === "difficult-kanji" ? "all" : mode;
-}
-const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
-  "auto",
-  ...availableInterfaceLocales().map((locale) => locale.tag)
-]);
-const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
-const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
-const DEFAULT_COLOR_SOURCE_VALUES = {
-  wordHighlightColorSource: "jpdb",
-  wordUnderlineColorSource: "pitch",
-  wordTextColorSource: "anki",
-  subtitleHighlightColorSource: "jpdb",
-  subtitleUnderlineColorSource: "pitch",
-  subtitleTextColorSource: "anki"
-};
-const ACCENT_COLOR_SETTING_NAMES = [
-  "accentColor",
-  "wordColorNew",
-  "wordColorLearning",
-  "wordColorKnown",
-  "wordColorDue",
-  "wordColorFailed",
-  "wordColorIgnored",
-  "pitchColorHeiban",
-  "pitchColorAtamadaka",
-  "pitchColorNakadaka",
-  "pitchColorOdaka",
-  "pitchColorUnknown"
-];
-const COLOR_SOURCE_SETTING_NAMES = [
-  "wordHighlightColorSource",
-  "wordUnderlineColorSource",
-  "wordTextColorSource",
-  "subtitleHighlightColorSource",
-  "subtitleUnderlineColorSource",
-  "subtitleTextColorSource"
-];
-const SHORTCUT_SETTING_NAMES = [
-  "scanPage",
-  "hoverLookup",
-  "massReviewVisible",
-  "openSettings",
-  "playAudio",
-  "closePopup",
-  "previousLookupWord",
-  "nextLookupWord",
-  "previousSubtitle",
-  "nextSubtitle",
-  "copySubtitle",
-  "toggleOcr",
-  "toggleSubtitleOverlay",
-  "toggleYoutubeImmersion",
-  "scanImages",
-  "studyReveal",
-  "studyRevealAlternate",
-  "studyUndo",
-  "studyPrevious",
-  "studyPreviousAlternate",
-  "studyNext",
-  "studyNextAlternate",
-  "gradeNothing",
-  "gradeSomething",
-  "gradeHard",
-  "gradeOkay",
-  "gradeEasy",
-  "gradeFail",
-  "gradePass"
-];
-const KANJI_ADDON_SOURCE_ROWS = [
-  ["jpdbKanji", "jpdbKanjiEnabled", "jpdbKanjiPriority", "jpdbKanjiAlias"],
-  ["kanjiImmersionKit", "kanjiImmersionKitEnabled", "kanjiImmersionKitPriority", "kanjiImmersionKitAlias"],
-  ["wanikaniKanji", "wanikaniKanjiEnabled", "wanikaniKanjiPriority", "wanikaniKanjiAlias"],
-  ["rtk", "rtkEnabled", "rtkPriority", "rtkAlias"],
-  ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
-  ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority", "kanjiOriginsAlias"]
-];
-function settingsColorSourceValue(settings, name) {
-  const source = settings[name];
-  return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
-}
-function readFormSettings(data, current) {
-  const colorSource = (key, fallback) => readOption(String(data.get(key) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
-  const reader = createSettingsFormReader(data, colorSource);
-  const { get, has } = reader;
-  const audioSources = readAudioSources(data);
-  const furiganaMode = readOption(get("furiganaMode"), ["all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode === "auto" ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
-  const apiDefinitionRowsPresent = {
-  jpdb: hasSourceRow(has, "jpdbDefinitions"),
-  jiten: hasSourceRow(has, "jitenDefinitions"),
-  bunpro: hasSourceRow(has, "bunproDefinitions"),
-  wanikani: hasSourceRow(has, "wanikaniDefinitions")
-  };
-  const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
-  const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
-  readDictionaryPreferences(data, current.dictionaryPreferences, reader),
-  dictionaryLookupLinks
-  );
-  const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
-  const apiCredentials = readApiCredentialsFromFormData(data, current);
-  const interfaceLanguage = readOption(
-  get("interfaceLanguage"),
-  SELECTABLE_INTERFACE_LANGUAGES,
-  current.interfaceLanguage
-  );
-  const settings = {
-  ...current,
-  ...apiCredentials,
-  // The deprecated key is no longer shown because Bunpro's full Yomu
-  // integration uses only the frontend token. Preserve an older saved
-  // value so opening Settings does not silently destroy user data.
-  bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
-  interfaceLanguage,
-  ...readLanguageProfileFormSettings(
-    data,
-    current,
-    interfaceLanguage,
-    dictionaryPreferences
-  ),
-  ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
-  ...readKanjiAddonFormSettings(reader, current),
-  ...readAudioFormSettings(reader, current, audioSources),
-  ...readColorFormSettings(reader, current),
-  ...readImmersionKitFormSettings(reader, current),
-  ...readLookupBehaviorFormSettings(reader, current),
-  ...readNewTabFormSettings(reader, current),
-  ...readReadingDisplayFormSettings(reader, current, furiganaMode),
-  ...readOcrFormSettings(reader, current),
-  ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
-  dictionaryPreferences,
-  dictionaryLookupLinks,
-  ...readSubtitleFormSettings(reader, current),
-  ...readYoutubeFormSettings(reader, current),
-  ...readAnkiFormSettings(reader, current),
-  ...readStudyToolFormSettings(reader, current),
-  enableLogging: has("enableLogging"),
-  ...readPopupFormSettings(reader, current),
-  ...readMiningFormSettings(reader, current),
-  shortcuts: readShortcutFormSettings(reader, current)
-  };
-  preserveDetachedJapaneseSettings(settings, current, data);
-  enforceTargetReadingAnnotationMode(settings);
-  return normalizeReaderSettings(settings);
-}
-function readLanguageProfileFormSettings(data, current, interfaceLanguage, dictionaryPreferences) {
-  const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
-  if (!active) {
-  return {
-    languageProfiles: current.languageProfiles,
-    activeLanguageProfileId: current.activeLanguageProfileId
-  };
-  }
-  const fallbackOutputLanguage = slice1LanguageIdForTag(active.outputLanguage) ?? "en";
-  const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
-  const outputLanguageTag = outputLanguage === fallbackOutputLanguage ? active.outputLanguage : canonicalTagForSlice1Language(outputLanguage);
-  const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? "ja";
-  const targetLanguageId2 = readTargetLanguage(data, fallbackTargetLanguage);
-  const targetLanguage2 = canonicalTagForLearningTarget(targetLanguageId2);
-  const parserProvider = readOption(
-  String(data.get("parserProvider") ?? ""),
-  ["local", "jiten", "jpdb", "auto"],
-  current.parserProvider
-  );
-  const definitionTranslationProviderIds = data.has("definitionTranslationControlsPresent") ? normalizedStringIds(data.getAll("definitionTranslationProviderIds")) : [...active.definitionTranslationProviderIds];
-  const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-  if (outputLanguage !== fallbackOutputLanguage) {
-  const activated = activateLanguageProfileForOutputLanguage(
-    current.languageProfiles,
-    current.activeLanguageProfileId,
-    outputLanguageTag,
-    {
-      uiLocale: interfaceLanguage,
-      parserProvider,
-      targetLanguage: targetLanguage2,
-      dictionaries: dictionaries2,
-      definitionTranslationProviderIds
-    }
-  );
-  return {
-    languageProfiles: activated.profiles,
-    activeLanguageProfileId: activated.activeProfileId
-  };
-  }
-  return {
-  languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? {
-    ...profile,
-    // Keep an existing supported script/region variant when the
-    // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
-    outputLanguage: outputLanguageTag,
-    learnerLanguage: outputLanguageTag,
-    targetLanguage: targetLanguage2,
-    uiLocale: interfaceLanguage,
-    parserProvider,
-    dictionaries: dictionaries2,
-    definitionTranslationProviderIds
-  } : profile),
-  activeLanguageProfileId: active.id
-  };
-}
-function readOutputLanguage(data, fallback) {
-  const value = String(data.get("learnerLanguage") ?? "");
-  return isLearnerLanguageId(value) ? value : fallback;
-}
-function readTargetLanguage(data, fallback) {
-  const value = String(data.get("targetLanguage") ?? "");
-  return isLearningTargetRosterId(value) ? value : fallback;
-}
-function preserveDetachedJapaneseSettings(settings, current, data) {
-  if (!data.has("furiganaMode")) {
-  settings.furiganaMode = current.furiganaMode;
-  settings.clampedRowReadings = current.clampedRowReadings;
-  settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
-  }
-  if (!data.has("showPitchAccent")) settings.showPitchAccent = current.showPitchAccent;
-  if (!data.has("pitchColorHeiban")) {
-  settings.pitchColorHeiban = current.pitchColorHeiban;
-  settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
-  settings.pitchColorNakadaka = current.pitchColorNakadaka;
-  settings.pitchColorOdaka = current.pitchColorOdaka;
-  settings.pitchColorUnknown = current.pitchColorUnknown;
-  }
-  if (readTargetLanguage(data, "ja") !== "ja") {
-  for (const name of COLOR_SOURCE_SETTING_NAMES) {
-    if (current[name] === "pitch") settings[name] = current[name];
-  }
-  }
-}
-function enforceTargetReadingAnnotationMode(settings) {
-  const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-  const targetLanguage2 = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
-  const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage2);
-  if (mode === settings.furiganaMode) return;
-  settings.furiganaMode = mode;
-  settings.showFurigana = mode !== "off";
-  settings.hideKnownFurigana = mode === "known-status";
-}
-function normalizedStringIds(values) {
-  const seen = /* @__PURE__ */ new Set();
-  const result = [];
-  values.forEach((value) => {
-  if (typeof value !== "string") return;
-  const id = value.trim();
-  if (!id || id.length > 160 || seen.has(id)) return;
-  seen.add(id);
-  result.push(id);
-  });
-  return result;
-}
-function colorSourceFallback(key, fallback) {
-  if (fallback !== "auto") return fallback;
-  return isColorSourceSettingName(key) ? DEFAULT_COLOR_SOURCE_VALUES[key] : "jpdb";
-}
-function isColorSourceSettingName(value) {
-  return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
-}
-function hasSourceRow(has, prefix) {
-  return has(`${prefix}.name`) || has(`${prefix}.priority`) || has(`${prefix}.enabled`);
-}
-function readApiDefinitionFormSettings(reader, current, rowsPresent) {
-  const { has, clamped } = reader;
-  const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
-  return {
-  jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : current.jpdbDefinitionsEnabled,
-  jpdbDefinitionsAlias: readSourceAlias(reader, "jpdbDefinitions", current.jpdbDefinitionsAlias),
-  jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
-  jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
-  jitenDefinitionsAlias: readSourceAlias(reader, "jitenDefinitions", current.jitenDefinitionsAlias),
-  jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
-  bunproDefinitionsEnabled: rowsPresent.bunpro ? has("bunproDefinitions.enabled") : current.bunproDefinitionsEnabled,
-  bunproDefinitionsAlias: readSourceAlias(reader, "bunproDefinitions", current.bunproDefinitionsAlias),
-  bunproDefinitionsPriority: clamped("bunproDefinitions.priority", 0, 999, current.bunproDefinitionsPriority),
-  wanikaniDefinitionsEnabled: rowsPresent.wanikani ? has("wanikaniDefinitions.enabled") : current.wanikaniDefinitionsEnabled,
-  wanikaniDefinitionsAlias: readSourceAlias(reader, "wanikaniDefinitions", current.wanikaniDefinitionsAlias),
-  wanikaniDefinitionsPriority: clamped("wanikaniDefinitions.priority", 0, 999, current.wanikaniDefinitionsPriority),
-  jpdbPageEnhancementsEnabled,
-  jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
-  jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
-  };
-}
-function readKanjiAddonFormSettings(reader, current) {
-  const { has, clamped } = reader;
-  return {
-  ...readSourcePriorityRows(reader, current, KANJI_ADDON_SOURCE_ROWS),
-  kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
-  kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
-  kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
-  similarKanjiWordLimit: clamped("similarKanjiWordLimit", 2, 24, current.similarKanjiWordLimit)
-  };
-}
-function readSourcePriorityRows(reader, current, rows) {
-  const settings = {};
-  const out = settings;
-  for (const [rowName, enabledKey, priorityKey, aliasKey] of rows) {
-  out[enabledKey] = reader.has(`${rowName}.enabled`);
-  out[priorityKey] = reader.clamped(`${rowName}.priority`, 0, 999, Number(current[priorityKey]));
-  if (aliasKey) out[aliasKey] = readSourceAlias(reader, rowName, String(current[aliasKey] ?? ""));
-  }
-  return settings;
-}
-function readSourceAlias(reader, prefix, current) {
-  const key = `${prefix}.alias`;
-  return reader.has(key) ? reader.get(key).trim() : current;
-}
-function readAudioFormSettings(reader, current, audioSources) {
-  const { get, has, clamped } = reader;
-  const audioAutoPlayMode = readOption(get("audioAutoPlayMode"), ["off", "all", "hover", "tap"], current.audioAutoPlayMode);
-  return {
-  audioEnabled: has("audioEnabled"),
-  autoPlayAudio: has("autoPlayAudio") && audioAutoPlayMode !== "off",
-  suppressAutoAudioOnVideo: has("suppressAutoAudioOnVideo"),
-  audioAutoPlayMode,
-  audioSources,
-  audioEnableDefaultSources: has("audioEnableDefaultSources"),
-  audioSourceUrl: audioSources.find((source) => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
-  audioViaBlob: current.audioViaBlob,
-  audioFallbackChimeEnabled: has("audioFallbackChimeEnabled"),
-  audioTimeoutMs: clamped("audioTimeoutMs", 1e3, 3e4, current.audioTimeoutMs),
-  audioSelectionMode: readOption(get("audioSelectionMode"), ["first", "random"], current.audioSelectionMode),
-  audioTtsMode: readOption(get("audioTtsMode"), ["fallback", "source-order"], current.audioTtsMode)
-  };
-}
-function readColorFormSettings(reader, current) {
-  return {
-  ...readAccentColorSettings(reader, current),
-  ...readColorSourceSettings(reader, current)
-  };
-}
-function readAccentColorSettings(reader, current) {
-  const settings = {};
-  ACCENT_COLOR_SETTING_NAMES.forEach((name) => {
-  settings[name] = sanitizeAccentColor(reader.get(name), current[name]);
-  });
-  return settings;
-}
-function readColorSourceSettings(reader, current) {
-  const settings = {};
-  COLOR_SOURCE_SETTING_NAMES.forEach((name) => {
-  settings[name] = reader.colorSource(name, current[name]);
-  });
-  return settings;
-}
-function readLookupBehaviorFormSettings(reader, current) {
-  const { get, has, clamped } = reader;
-  const pageScanMode = readOption(get("pageScanMode"), ["off", "auto", "manual"], pageScanModeFromSettings$2(current));
-  return {
-  lookupOnClick: has("lookupOnClick"),
-  lookupOnHover: has("lookupOnHover"),
-  lookupOnMiddleMouse: has("lookupOnMiddleMouse"),
-  hoverOpenDelayMs: clamped("hoverOpenDelayMs", 0, 1500, current.hoverOpenDelayMs),
-  hoverCloseDelayMs: clamped("hoverCloseDelayMs", 0, 3e3, current.hoverCloseDelayMs),
-  popupActivationMode: has("popupLookupEnabled") ? current.popupActivationMode === "off" ? DEFAULT_SETTINGS.popupActivationMode : current.popupActivationMode : "off",
-  scanModifierKey: current.scanModifierKey,
-  showFloatingButton: has("showFloatingButton"),
-  annotationsPaused: pageScanMode === "off",
-  manualScanEnabled: pageScanMode === "manual"
-  };
-}
-function pageScanModeFromSettings$2(settings) {
-  if (settings.annotationsPaused) return "off";
-  return settings.manualScanEnabled ? "manual" : "auto";
-}
-function readNewTabFormSettings(reader, current) {
-  const { get, has, clamped } = reader;
-  return {
-  newTabAnkiEnabled: has("newTabAnkiEnabled"),
-  newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
-  newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "bunpro", "wanikani", "yomu-local", "anki", "dictionary"], current.newTabSource),
-  newTabJpdbDeck: get("newTabJpdbDeck").trim() || current.newTabJpdbDeck,
-  newTabJpdbReviewMode: readOption(get("newTabJpdbReviewMode"), ["auto", "api-vocabulary", "live-review"], current.newTabJpdbReviewMode),
-  corsProxyUrl: get("corsProxyUrl").trim(),
-  newTabKanjiKeywordSource: readOption(get("newTabKanjiKeywordSource"), ["auto", "rtk", "jpdb", "local"], current.newTabKanjiKeywordSource),
-  newTabParsingEnabled: has("newTabParsingEnabled"),
-  newTabFrontSentenceEnabled: has("newTabFrontSentenceEnabled"),
-  newTabOfflineEnabled: has("newTabOfflineEnabled"),
-  newTabOfflineLimit: clamped("newTabOfflineLimit", 0, 500, current.newTabOfflineLimit),
-  newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
-  newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
-  newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
-  newTabSwipeReviews: has("newTabSwipeReviews"),
-  newTabShortcutHintsEnabled: has("newTabShortcutHintsEnabled"),
-  newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled")
-  };
-}
-function readReadingDisplayFormSettings(reader, current, furiganaMode) {
-  const { has } = reader;
-  const { get } = reader;
-  return {
-  showFurigana: furiganaMode !== "off",
-  furiganaMode,
-  furiganaHiddenStateGroups: FURIGANA_HIDE_STATE_GROUPS.filter((group) => has(`furiganaHide-${group}`)),
-  wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
-  clampedRowReadings: readOption(get("clampedRowReadings"), ["show", "hover"], "show"),
-  wordColorHiddenStateGroups: WORD_COLOR_HIDE_STATE_GROUPS.filter((group) => has(`colorHide-${group}`)),
-  showPitchAccent: has("showPitchAccent"),
-  showLookupPillFrequency: has("showLookupPillFrequency"),
-  suppressRedundantWordUi: has("suppressRedundantWordUi"),
-  sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
-  // Rendering follows `furiganaMode`; this flag only mirrors it, so it is
-  // re-derived when the mode moves, not rewritten by every Save.
-  hideKnownFurigana: furiganaMode === current.furiganaMode ? current.hideKnownFurigana : furiganaMode === "known-status"
-  };
-}
-function readLocalDictionaryFormSettings(reader, current, kanjiPreferences) {
-  const { get, has, clamped } = reader;
-  return {
-  localDictionariesEnabled: has("localDictionariesEnabled"),
-  parserProvider: readOption(get("parserProvider"), ["local", "jiten", "jpdb", "auto"], current.parserProvider),
-  localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
-  kanjiDictionariesAlias: readSourceAlias(reader, "kanjiDictionaries", current.kanjiDictionariesAlias),
-  kanjiDictionariesPriority: clamped("kanjiDictionaries.priority", 0, 999, current.kanjiDictionariesPriority),
-  dictionarySourcesInitiallyExpanded: true,
-  localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults
-  };
-}
-function readAnkiFormSettings(reader, current) {
-  const { get, has } = reader;
-  const ankiEnabled = has("ankiEnabled");
-  return {
-  ankiEnabled,
-  ...readAnkiSectionFormSettings(reader, current, ankiEnabled),
-  ankiConnectUrl: get("ankiConnectUrl").trim() || current.ankiConnectUrl,
-  ankiDeck: get("ankiDeck").trim() || current.ankiDeck,
-  ankiModel: get("ankiModel").trim() || current.ankiModel,
-  ankiTemplateMode: readOption(get("ankiTemplateMode"), ["recognition", "context"], current.ankiTemplateMode),
-  ankiFrontReading: has("ankiFrontReading"),
-  ankiFrontSentence: has("ankiFrontSentence"),
-  ankiFrontImage: has("ankiFrontImage"),
-  ankiFieldMappings: readAnkiFieldMappings(get("ankiFieldMappings"), current.ankiFieldMappings),
-  ankiTags: get("ankiTags").trim(),
-  ankiMineWithJpdb: has("ankiMineWithJpdb"),
-  ankiCaptureScreenshot: has("ankiCaptureScreenshot"),
-  ankiMobileHandoff: has("ankiMobileHandoff")
-  };
-}
-function readAnkiSectionFormSettings(reader, current, ankiEnabled) {
-  if (!ankiSectionRowPresent(reader)) {
-  return {
-    ankiSectionEnabled: current.ankiSectionEnabled,
-    ankiSectionAlias: current.ankiSectionAlias,
-    ankiSectionPriority: current.ankiSectionPriority
-  };
-  }
-  return {
-  ankiSectionEnabled: reader.has("ankiSection.enabled") || shouldAutoEnableAnkiSection(ankiEnabled, current),
-  ankiSectionAlias: readSourceAlias(reader, "ankiSection", current.ankiSectionAlias),
-  ankiSectionPriority: reader.clamped("ankiSection.priority", 0, 999, current.ankiSectionPriority)
-  };
-}
-function ankiSectionRowPresent(reader) {
-  return formReaderValuePresent(reader, "ankiSection.name") || formReaderValuePresent(reader, "ankiSection.priority") || reader.has("ankiSection.enabled");
-}
-function formReaderValuePresent(reader, name) {
-  return Boolean(reader.get(name));
-}
-function shouldAutoEnableAnkiSection(ankiEnabled, current) {
-  return ankiEnabled && !current.ankiEnabled && !current.ankiSectionEnabled;
-}
-function readAnkiFieldMappings(value, fallback) {
-  if (!value.trim()) return fallback;
-  try {
-  const parsed = JSON.parse(value);
-  return normalizeAnkiFieldMappings(parsed);
-  } catch {
-  return fallback;
-  }
-}
-function readStudyToolFormSettings(reader, current) {
-  const { has, clamped } = reader;
-  return {
-  studyTranslationEnabled: has("studyTranslation.enabled"),
-  studyTranslationAlias: readSourceAlias(reader, "studyTranslation", current.studyTranslationAlias),
-  studyTranslationPriority: clamped("studyTranslation.priority", 0, 999, current.studyTranslationPriority),
-  studyGrammarEnabled: has("studyGrammar.enabled"),
-  studyGrammarAlias: readSourceAlias(reader, "studyGrammar", current.studyGrammarAlias),
-  studyGrammarPriority: clamped("studyGrammar.priority", 0, 999, current.studyGrammarPriority)
-  };
-}
-function readPopupFormSettings(reader, current) {
-  const { get, has, clamped } = reader;
-  const popupMode = readOption(get("popupMode"), ["auto", "sheet", "popover"], current.popupMode);
-  return {
-  theme: readOption(get("theme"), ["auto", "dark", "light"], current.theme),
-  popupMode,
-  hoverPopupMode: readOption(get("hoverPopupMode"), ["auto", "sheet", "popover"], current.hoverPopupMode),
-  stickyBottomSheet: has("stickyBottomSheet"),
-  popoverBackdropEnabled: has("popoverBackdropEnabled"),
-  popoverWidth: clamped("popoverWidth", 280, 900, current.popoverWidth),
-  popoverHeight: clamped("popoverHeight", 220, 900, current.popoverHeight),
-  popoverHeightMode: readOption(get("popoverHeightMode"), ["available", "fixed"], current.popoverHeightMode),
-  readerFontFamily: readFontFamilySetting(reader, "readerFontFamily", current.readerFontFamily),
-  popupFontFamily: readFontFamilySetting(reader, "popupFontFamily", current.popupFontFamily),
-  popupFontWeight: clamped("popupFontWeight", 300, 900, current.popupFontWeight)
-  };
-}
-function readFontFamilySetting(reader, name, fallback) {
-  const value = reader.get(name).trim();
-  if (value === CUSTOM_FONT_FAMILY_VALUE) return reader.get(`${name}Custom`).trim() || fallback;
-  return value || fallback;
-}
-function readMiningFormSettings(reader, current) {
-  const { get, has } = reader;
-  return {
-  jpdbMiningEnabled: has("jpdbMiningEnabled"),
-  bunproMiningEnabled: has("bunproMiningEnabled"),
-  wanikaniReviewEnabled: has("wanikaniReviewEnabled"),
-  yomuLocalSrsEnabled: has("yomuLocalSrsEnabled"),
-  autoMineOnReview: has("autoMineOnReview"),
-  miningDeck: get("miningDeck").trim() || "forq",
-  neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
-  blacklistDeck: get("blacklistDeck").trim() || "blacklist",
-  addToForq: has("addToForq"),
-  enableReviews: has("enableReviews"),
-  twoButtonReviews: get("twoButtonReviews") === "true",
-  apiGradingProvider: readOption(get("apiGradingProvider"), ["jiten", "jpdb"], current.apiGradingProvider === "jpdb" ? "jpdb" : "jiten")
-  };
-}
-function readOcrFormSettings(reader, current) {
-  const { get, has, clamped } = reader;
-  const ocrInteractionMode = readOption(get("ocrInteractionMode"), ["auto", "manual", "off"], ocrInteractionModeFromSettings(current));
-  return {
-  ocrEnabled: ocrInteractionMode !== "off",
-  ocrAutoScanImages: ocrInteractionMode === "auto",
-  ocrShowTextOverlay: has("ocrShowTextOverlay"),
-  ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
-  ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
-  ocrOverlayTheme: readOption(get("ocrOverlayTheme"), ["auto", "dark", "light"], current.ocrOverlayTheme),
-  ocrProvider: normalizeOcrProvider(get("ocrProvider")),
-  ocrEndpointUrl: get("ocrEndpointUrl").trim(),
-  ocrEngine: get("ocrEngine").trim() || "auto",
-  ocrCloudVisionApiKey: credentialValueFromReader(reader, "ocrCloudVisionApiKey", current.ocrCloudVisionApiKey),
-  // Blank means "follow the language being studied" and has to SURVIVE
-  // the round trip. Resolving it to a literal here turned the sentinel
-  // into whichever target happened to be active the first time anything
-  // in the dialog was saved, and the field is hidden, so nothing could
-  // ever unpin it again. Read it back exactly as rendered.
-  ocrLanguage: get("ocrLanguage").trim(),
-  ocrMaxImagePixels: clamped("ocrMaxImagePixels", 16e4, 28e5, current.ocrMaxImagePixels),
-  ocrMinImageArea: clamped("ocrMinImageArea", 1e4, 8e5, current.ocrMinImageArea),
-  ocrMaxImagesPerPage: clamped("ocrMaxImagesPerPage", 1, 30, current.ocrMaxImagesPerPage),
-  ocrPrefetchMargin: clamped("ocrPrefetchMargin", 0, 3e3, current.ocrPrefetchMargin),
-  ocrPrefetchPages: clamped("ocrPrefetchPages", 0, 10, current.ocrPrefetchPages),
-  ocrConcurrency: clamped("ocrConcurrency", 1, 8, current.ocrConcurrency),
-  ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
-  ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
-  ocrBackgroundOpacity: clamped("ocrBackgroundOpacity", 0, 1, current.ocrBackgroundOpacity),
-  ocrFontScale: clamped("ocrFontScale", 0.7, 1.8, current.ocrFontScale)
-  };
-}
-function readSubtitleFormSettings(reader, current) {
-  const { get, has, clamped } = reader;
-  const overlayVisible = has("subtitleOverlayVisible");
-  const currentNativeDisplay = nativeSubtitleDisplayMode(current);
-  const nativeDisplay = readOption(get("subtitleNativeDisplay"), NATIVE_SUBTITLE_DISPLAY_MODES, currentNativeDisplay);
-  const nativeDisplaySettings = {
-  subtitleSecondaryVisible: current.subtitleSecondaryVisible,
-  subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen,
-  subtitleNativeBlurred: current.subtitleNativeBlurred
-  };
-  if (nativeDisplay !== currentNativeDisplay) applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay);
-  return {
-  subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
-  subtitleAutoDetect: has("subtitleAutoDetect"),
-  subtitleOverlayVisible: overlayVisible,
-  ...nativeDisplaySettings,
-  // Only a flip is a deliberate choice: saving the dialog after editing
-  // something unrelated must not freeze an overlay the user never touched
-  // out of the automatic reveal that first shows it.
-  subtitleOverlayVisibleChosen: current.subtitleOverlayVisibleChosen || overlayVisible !== current.subtitleOverlayVisible,
-  subtitleKaraokeMode: has("subtitleKaraokeMode"),
-  subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
-  subtitlePausePanel: has("subtitlePausePanel"),
-  subtitleShadowAutoPause: has("subtitleShadowAutoPause"),
-  subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
-  subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
-  subtitleTranscriptAutoScrollResumeSeconds: clamped("subtitleTranscriptAutoScrollResumeSeconds", 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),
-  subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
-  subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
-  subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
-  subtitleFontSize: clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
-  // The drag gesture may park the line anywhere on screen, which for a short
-  // frame near the bottom of a tall viewport is far above 100% of the frame
-  // height; only guard against garbage, not against legitimate positions.
-  subtitleBottomOffset: clamped("subtitleBottomOffset", -200, 500, current.subtitleBottomOffset),
-  subtitleTextColor: sanitizeAccentColor(get("subtitleTextColor"), current.subtitleTextColor),
-  subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
-  subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
-  subtitleBackgroundOpacity: clamped("subtitleBackgroundOpacity", 0, 1, current.subtitleBackgroundOpacity),
-  subtitleNativeBlurStrength: clamped("subtitleNativeBlurStrength", 4, 20, current.subtitleNativeBlurStrength),
-  subtitleFontFamily: readFontFamilySetting(reader, "subtitleFontFamily", current.subtitleFontFamily),
-  subtitleFontWeight: clamped("subtitleFontWeight", 100, 900, current.subtitleFontWeight),
-  subtitleMiningPause: has("subtitleMiningPause"),
-  subtitleHoverPause: has("subtitleHoverPause"),
-  subtitleSeekPadding: clamped("subtitleSeekPadding", -2, 2, current.subtitleSeekPadding)
-  };
-}
-function readImmersionKitFormSettings(reader, current) {
-  const { get, has, clamped } = reader;
-  return {
-  immersionKitEnabled: readImmersionKitEnabled(reader),
-  immersionKitAlias: readSourceAlias(reader, "immersionKit", current.immersionKitAlias),
-  immersionKitExampleSource: readOption(get("immersionKitExampleSource"), ["immersion-kit", "nadeshiko", "combined"], current.immersionKitExampleSource),
-  nadeshikoApiKey: credentialValueFromReader(reader, "nadeshikoApiKey", current.nadeshikoApiKey),
-  immersionKitPriority: clamped("immersionKit.priority", 0, 999, current.immersionKitPriority),
-  immersionKitLimitEnabled: get("immersionKitLimitEnabled") === "on",
-  immersionKitLimit: clamped("immersionKitLimit", 1, 12, current.immersionKitLimit),
-  immersionKitMinLength: clamped("immersionKitMinLength", 0, 120, current.immersionKitMinLength),
-  immersionKitMaxLength: clamped("immersionKitMaxLength", 0, 240, current.immersionKitMaxLength),
-  immersionKitCategory: readOption(get("immersionKitCategory"), ["all", "anime", "drama", "games"], current.immersionKitCategory),
-  immersionKitSort: readOption(get("immersionKitSort"), ["sentence_length:asc", "sentence_length:desc"], current.immersionKitSort),
-  immersionKitExactMatch: has("immersionKitExactMatch"),
-  immersionKitShowTranslation: has("immersionKitShowTranslation"),
-  immersionKitRevealTranslationOnClick: readEnabledChildCheckbox(reader, "immersionKitShowTranslation", "immersionKitRevealTranslationOnClick"),
-  immersionKitShowImages: has("immersionKitShowImages"),
-  immersionKitAutoPlayAudio: has("immersionKitAutoPlayAudio"),
-  immersionKitPlayOnHover: has("immersionKitPlayOnHover"),
-  immersionKitPlayOnImageClick: has("immersionKitPlayOnImageClick"),
-  immersionKitPlaybackRate: clamped("immersionKitPlaybackRate", 0.5, 2, current.immersionKitPlaybackRate)
-  };
-}
-function readImmersionKitEnabled(reader) {
-  if (!reader.has("immersionKitEnabled")) return false;
-  const sourceRowPresent = [reader.get("immersionKit.name"), reader.get("immersionKit.priority")].some(Boolean);
-  return sourceRowPresent ? reader.has("immersionKit.enabled") : true;
-}
-function readEnabledChildCheckbox(reader, parent, child) {
-  if (!reader.has(parent)) return false;
-  return reader.has(child);
-}
-function readYoutubeFormSettings(reader, current) {
-  const { get, has } = reader;
-  const youtubeControlsPresent = has("youtubeImmersionSettingsPresent");
-  const channelControlsPresent = has("youtubeChannelSuggestionSettingsPresent");
-  const immersionEnabled = youtubeControlsPresent ? has("youtubeImmersionEnabled") : current.youtubeImmersionEnabled;
-  const initialImmersionEnabled = get("youtubeImmersionEnabledInitial") === "on";
-  const immersionChanged = youtubeControlsPresent && has("youtubeImmersionEnabledInitial") && immersionEnabled !== initialImmersionEnabled;
-  const channelRecommendations = channelControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
-  const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
-  return {
-  // Site-language navigation is opt-in. The checkbox renders the effective
-  // state, so an unchanged save preserves it while a real toggle records
-  // the submitted value as an explicit choice.
-  youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
-  youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
-  preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
-  youtubeShowChannelRecommendations: channelRecommendations,
-  youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
-  youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
-  };
-}
-function readShortcutFormSettings(reader, current) {
-  return Object.fromEntries(SHORTCUT_SETTING_NAMES.map((name) => {
-  const key = `shortcuts.${name}`;
-  return [name, reader.has(key) ? readShortcutFormValue(reader, key, current.shortcuts[name]) : current.shortcuts[name]];
-  }));
-}
-function readShortcutFormValue(reader, key, currentValue) {
-  const values = reader.getAll(key);
-  if (!values.length) return currentValue;
-  const changedValues = Array.from(new Set(values.filter((value) => value !== currentValue)));
-  if (changedValues.length === 1) return changedValues[0] ?? "";
-  return values.at(-1) ?? "";
-}
-function readOption(value, allowed, fallback) {
-  return allowed.includes(value) ? value : fallback;
-}
-function readDictionaryPreferences(data, current, reader) {
-  const get = (key) => String(data.get(key) ?? "");
-  const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
-  if (!count) return current;
-  return Array.from({ length: count }, (_, index) => ({
-  name: get(`dictionaryPreferences.${index}.name`).trim(),
-  alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
-  enabled: data.has(`dictionaryPreferences.${index}.enabled`),
-  priority: reader.number(`dictionaryPreferences.${index}.priority`, index),
-  type: readDictionaryType(get(`dictionaryPreferences.${index}.type`))
-  })).filter((item) => item.name).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-}
-function reorderLocalFrequencyDictionaryPreferences(preferences, lookupLinks) {
-  const localFrequencyPrefix = "frequency-local:";
-  const preferenceByName = new Map(preferences.filter((preference) => preference.type === "frequency").map((preference) => [preference.name, preference]));
-  const ordered = lookupLinks.filter((link) => link.action === "frequency-local" && link.id.startsWith(localFrequencyPrefix)).map((link) => preferenceByName.get(link.id.slice(localFrequencyPrefix.length))).filter((preference) => preference !== void 0);
-  if (ordered.length < 2) return preferences;
-  const orderedNames = new Set(ordered.map((preference) => preference.name));
-  let next = 0;
-  return preferences.map((slot) => {
-  if (slot.type !== "frequency" || !orderedNames.has(slot.name)) return slot;
-  return { ...ordered[next++], priority: slot.priority };
-  });
-}
-function readDictionaryType(value) {
-  return value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata" ? value : "terms";
-}
-function readAudioSources(data) {
-  const get = (key) => String(data.get(key) ?? "");
-  const count = Math.max(0, Number(get("audioSourceCount")) || 0);
-  const sources = [];
-  const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
-  for (let index = 0; index < count; index++) {
-  const source = readAudioSourceRow(data, get, index);
-  if (!source || shouldSkipAudioSourceRow(source, builtInTypes)) continue;
-  sources.push(source);
-  }
-  return sources;
-}
-function readAudioSourceRow(data, get, index) {
-  return normalizeAudioSource({
-  type: get(`audioSources.${index}.type`),
-  url: get(`audioSources.${index}.url`).trim(),
-  voice: get(`audioSources.${index}.voice`).trim(),
-  enabled: data.has(`audioSources.${index}.enabled`),
-  subSources: readAudioSubSources(data, get, index)
-  });
-}
-function readAudioSubSources(data, get, index) {
-  const count = Math.max(0, Number(get(`audioSources.${index}.subSourceCount`)) || 0);
-  const subSources = [];
-  for (let subIndex = 0; subIndex < count; subIndex++) {
-  const name = get(`audioSources.${index}.subSources.${subIndex}.name`).trim();
-  if (!name) continue;
-  subSources.push({ name, enabled: data.has(`audioSources.${index}.subSources.${subIndex}.enabled`) });
-  }
-  return subSources;
-}
-function shouldSkipAudioSourceRow(source, builtInTypes) {
-  return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
-}
-function readDictionaryLookupLinks(data) {
-  return normalizeDictionaryLookupLinks(lookupLinkRows(data), false, readTargetLanguage(data, "ja"));
-}
-function lookupLinkRows(data) {
-  const get = (key) => String(data.get(key) ?? "");
-  const count = Math.max(0, Math.min(MAX_LOOKUP_LINK_ROWS, Number(get("dictionaryLookupLinkCount")) || 0));
-  const links = [];
-  for (let index = 0; index < count; index++) {
-  const link = readDictionaryLookupLinkRow(data, get, index);
-  if (link) links.push(link);
-  }
-  return links;
-}
-function readTargetAwareDictionaryLookupLinks(data, current) {
-  const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
-  const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
-  const next = readTargetLanguage(data, previous);
-  return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
-}
-function readDictionaryLookupLinkRow(data, get, index) {
-  const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
-  const label = get(`dictionaryLookupLinks.${index}.label`).trim();
-  const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
-  const action = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
-  if (!shouldKeepDictionaryLookupLink(label, urlTemplate, action)) return null;
-  return {
-  id: get(`dictionaryLookupLinks.${index}.id`).trim() || `custom-${index}`,
-  label: dictionaryLookupLinkLabel(label, action),
-  urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
-  enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
-  action,
-  priority
-  };
-}
-function readSubmittedRowPriority(value, index) {
-  if (!value.trim()) return index;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : index;
-}
-function dictionaryLookupLinkAction(value) {
-  if (value === "copy") return "copy";
-  if (value === "frequency-live") return "frequency-live";
-  if (value === "frequency-local") return "frequency-local";
-  return "open";
-}
-function shouldKeepDictionaryLookupLink(label, urlTemplate, action) {
-  return Boolean(label || urlTemplate || action === "copy" || action === "frequency-live" || action === "frequency-local");
-}
-function dictionaryLookupLinkLabel(label, action) {
-  return action === "copy" && !label ? COPY_LOOKUP_LINK.label : label;
-}
-function dictionaryLookupLinkUrlTemplate(urlTemplate, action) {
-  return action === "copy" || action === "frequency-live" || action === "frequency-local" ? "" : urlTemplate;
-}
-function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
-  const language2 = options.language ?? "en";
-  const requestOptions = {
-  method: options.method ?? "GET",
-  headers: options.headers,
-  data: options.data,
-  proxyUrl: options.proxyUrl,
-  allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
-  allowPublicProxies: options.allowPublicProxies,
-  allowConfiguredProxy: options.allowConfiguredProxy,
-  preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
-  credentials: options.credentials,
-  withCredentials: options.withCredentials,
-  timeoutMs,
-  failureLabel: uiText(language2, "audioRequest"),
-  timeoutLabel: uiText(language2, "audioRequestTimedOut")
-  };
-  return responseType === "blob" ? requestBlob$1(responseUrl, requestOptions) : requestText(responseUrl, requestOptions);
-}
-function shouldPreferFetchForAudioRequests() {
-  return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
-}
-const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
-function formatAudioUrl(template, card) {
-  const replacements = {
-  term: card.spelling,
-  reading: card.reading,
-  language: targetAudioTemplateLanguageToken()
-  };
-  return template.replace(
-  /\{(term|reading|language)\}/g,
-  (_, key) => encodeURIComponent(replacements[key] ?? "")
-  );
-}
-function namedAudioSubSources(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const record2 = value;
-  const entries2 = [];
-  for (const list of [record2.audioSources, record2.sources]) {
-  if (!Array.isArray(list)) continue;
-  for (const item of list) {
-    const entry = namedAudioSubSource(item);
-    if (entry) entries2.push(entry);
-  }
-  }
-  return entries2;
-}
-function namedAudioSubSource(value) {
-  if (!value || typeof value !== "object") return null;
-  const record2 = value;
-  if (typeof record2.name !== "string" || !record2.name.trim()) return null;
-  if (typeof record2.url !== "string" || !record2.url.trim()) return null;
-  return { name: record2.name.trim(), url: record2.url };
-}
-const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
-const audioSubSourceProbes = /* @__PURE__ */ new Map();
-function recordAudioSubSourceNames(url, names) {
-  const template = url.trim();
-  if (!template) return [];
-  const known = knownAudioSubSourcesByUrl.get(template) ?? [];
-  const seen = new Set(known.map(audioSubSourceNameKey));
-  const merged = [...known];
-  for (const name of names) {
-  const trimmed = name.trim();
-  if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
-  seen.add(audioSubSourceNameKey(trimmed));
-  merged.push(trimmed);
-  }
-  knownAudioSubSourcesByUrl.set(template, merged);
-  return [...merged];
-}
-function knownAudioSubSourceNames(url) {
-  return [...knownAudioSubSourcesByUrl.get(url.trim()) ?? []];
-}
-const AUDIO_SUB_SOURCE_PROBES = [
-  { spelling: "日本", reading: "にほん" },
-  { spelling: "食べる", reading: "たべる" },
-  { spelling: "ヨム音声テスト", reading: "" }
-];
-function detectCustomJsonAudioSubSources(url, timeoutMs, proxyUrl) {
-  const template = url.trim();
-  if (!template) return Promise.resolve([]);
-  const pending2 = audioSubSourceProbes.get(template);
-  if (pending2) return pending2;
-  const probe = probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl).then((result) => {
-  if (!result.reached) audioSubSourceProbes.delete(template);
-  return recordAudioSubSourceNames(template, result.names);
-  }, (error) => {
-  audioSubSourceProbes.delete(template);
-  throw error;
-  });
-  audioSubSourceProbes.set(template, probe);
-  return probe;
-}
-async function probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl) {
-  const results = await Promise.allSettled(AUDIO_SUB_SOURCE_PROBES.map(async (probe) => {
-  const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), probe);
-  const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-  if (typeof response !== "string") throw new Error("Audio source returned no text.");
-  return namedAudioSubSources(parseJsonValue(response));
-  }));
-  const seen = /* @__PURE__ */ new Set();
-  const names = [];
-  let reached = false;
-  for (const result of results) {
-  if (result.status !== "fulfilled") continue;
-  reached = true;
-  for (const entry of result.value) {
-    const key = audioSubSourceNameKey(entry.name);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    names.push(audioSubSourceProviderName(entry.name));
-  }
-  }
-  return { names, reached };
-}
-function parseJsonValue(text2) {
-  return parseJson(text2, null, "candidates.parseJsonValue");
-}
-function withAudioQueryPlaceholders(template) {
-  if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
-  const [base, fragment = ""] = splitUrlFragment(template);
-  const separator = base.includes("?") ? "&" : "?";
-  return `${base}${separator}term={term}&reading={reading}${fragment}`;
-}
-function splitUrlFragment(value) {
-  const hash = value.indexOf("#");
-  return hash < 0 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
-}
-function httpStatusFromError(error) {
-  if (!error || typeof error !== "object") return void 0;
-  const value = error;
-  const status = value.status ?? value.statusCode;
-  return typeof status === "number" && Number.isFinite(status) ? status : void 0;
-}
-function sensitiveFingerprint(value) {
-  const secret = value.trim();
-  if (!secret) return "";
-  let first = 2166136261;
-  let second = 2654435769;
-  for (let index = 0; index < secret.length; index += 1) {
-  const code = secret.charCodeAt(index);
-  first = Math.imul(first ^ code, 16777619) >>> 0;
-  second = Math.imul(second ^ code, 2246822507) >>> 0;
-  }
-  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
-}
-const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
-const WANIKANI_REVISION = "20170710";
-const WANIKANI_TOKEN_SETTINGS_URL = "https://www.wanikani.com/settings/personal_access_tokens";
-const REQUEST_TIMEOUT_MS = 3e4;
-const FREE_TIER_MAX_LEVEL = 3;
-class WanikaniApiError extends Error {
-  constructor(message, status) {
-  super(message);
-  this.status = status;
-  this.name = "WanikaniApiError";
-  }
-}
-const MIN_REQUEST_INTERVAL_MS = 1100;
-function fingerprintWanikaniToken(value) {
-  return sensitiveFingerprint(value);
-}
-class WanikaniClient {
-  getToken;
-  baseUrl;
-  requestImpl;
-  timeoutMs;
-  minRequestIntervalMs;
-  now;
-  sleep;
-  lastRequestAt = 0;
-  requestStartQueue = Promise.resolve();
-  pending = /* @__PURE__ */ new Map();
-  responseCache = /* @__PURE__ */ new Map();
-  verifiedUser = null;
-  verifiedContext = "";
-  activeFingerprint = "";
-  contextGeneration = 0;
-  constructor(options = {}) {
-  this.getToken = options.getToken ?? (() => "");
-  this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
-  this.requestImpl = options.requestImpl ?? requestHttp;
-  this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
-  this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? MIN_REQUEST_INTERVAL_MS);
-  this.now = options.now ?? Date.now;
-  this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
-  }
-  hasCredential() {
-  return Boolean(this.getToken().trim());
-  }
-  tokenFingerprint() {
-  return fingerprintWanikaniToken(this.getToken());
-  }
-  clear() {
-  this.resetAccountContext("");
-  }
-  async getUser(force = false) {
-  return this.getUserFor(this.accountContext(), force);
-  }
-  async effectiveMaxLevel() {
-  const context = this.accountContext();
-  return effectiveMaxLevelForUser(await this.getUserFor(context));
-  }
-  async getSummary() {
-  const context = this.accountContext();
-  await this.ensureUser(context);
-  return this.request(context, "/summary", {}, { cacheTtlMs: 3e4 });
-  }
-  async getAssignments(options = {}) {
-  const context = this.accountContext();
-  await this.ensureUser(context);
-  return this.collect(context, "/assignments", options, 3e4);
-  }
-  async getSubjects(options = {}) {
-  const context = this.accountContext();
-  const maxLevel = effectiveMaxLevelForUser(await this.ensureUser(context));
-  const levels = permittedSubjectLevels(options.levels, maxLevel);
-  if (!levels) return [];
-  const subjects = await this.collect(context, "/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
-  return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
-  }
-  async getStudyMaterials(options = {}) {
-  const context = this.accountContext();
-  await this.ensureUser(context);
-  return this.collect(context, "/study_materials", options, 6e4);
-  }
-  async getReviewStatistics(options = {}) {
-  const context = this.accountContext();
-  await this.ensureUser(context);
-  return this.collect(context, "/review_statistics", options, 6e4);
-  }
-  async createReview(body) {
-  const context = this.accountContext();
-  await this.ensureUser(context);
-  const response = await this.request(context, "/reviews", {
-    method: "POST",
-    body: { review: body }
-  });
-  this.invalidateReviewStateCaches(context);
-  return response;
-  }
-  async getUserFor(context, force = false) {
-  const cached = this.cachedUserFor(context, force);
-  if (cached) return cached;
-  const raw = await this.request(context, "/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
-  const user = parseWanikaniUser(raw);
-  if (this.isCurrentContext(context)) {
-    this.verifiedUser = user;
-    this.verifiedContext = context.cacheNamespace;
-  }
-  return user;
-  }
-  cachedUserFor(context, force) {
-  if (force) return null;
-  if (this.verifiedContext !== context.cacheNamespace) return null;
-  return this.verifiedUser;
-  }
-  async ensureUser(context) {
-  return this.getUserFor(context);
-  }
-  async collect(context, path, options, cacheTtlMs = 0) {
-  const cacheKey = `${context.cacheNamespace}:${path}?${stableOptionsKey(options)}`;
-  const cachedResponse = this.responseCache.get(cacheKey);
-  if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
-  const cached = this.pending.get(cacheKey);
-  if (cached) return cached;
-  const promise = this.collectUncached(context, path, options).then((items) => {
-    if (cacheTtlMs > 0 && this.isCurrentContext(context)) {
-      this.responseCache.set(cacheKey, { expiresAt: this.now() + cacheTtlMs, value: items });
-    }
-    return items;
-  }).finally(() => this.pending.delete(cacheKey));
-  this.pending.set(cacheKey, promise);
-  return promise;
-  }
-  async collectUncached(context, path, options) {
-  const items = [];
-  let url = `${this.baseUrl}${path}${queryString(options)}`;
-  const visited = /* @__PURE__ */ new Set();
-  while (url) {
-    assertWanikaniPaginationUrl(url, visited, (value) => this.isSafeApiUrl(value));
-    visited.add(url);
-    const page = await this.requestUrl(context, url);
-    url = appendWanikaniCollectionPage(items, page);
-  }
-  return items;
-  }
-  request(context, path, options = {}, cache = {}) {
-  const url = `${this.baseUrl}${path}`;
-  const cacheTtlMs = wanikaniCacheTtl(cache);
-  if (!isCacheableWanikaniRequest(cacheTtlMs, options.method)) return this.requestUrl(context, url, options);
-  const key = `${context.cacheNamespace}:${url}`;
-  const existing = this.cachedOrPendingResponse(key);
-  if (existing) return existing;
-  const request = this.requestUrl(context, url, options).then((value) => {
-    this.cacheResponseForCurrentContext(context, key, cacheTtlMs, value);
-    return value;
-  }).finally(() => this.pending.delete(key));
-  this.pending.set(key, request);
-  return request;
-  }
-  cachedOrPendingResponse(key) {
-  const cached = this.responseCache.get(key);
-  if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-  return this.pending.get(key) ?? null;
-  }
-  cacheResponseForCurrentContext(context, key, cacheTtlMs, value) {
-  if (!this.isCurrentContext(context)) return;
-  this.responseCache.set(key, { expiresAt: this.now() + cacheTtlMs, value });
-  }
-  async requestUrl(context, url, options = {}) {
-  assertSafeWanikaniRequestUrl(url, (value) => this.isSafeApiUrl(value));
-  return this.requestWithRateLimitRetry(context, url, options);
-  }
-  async requestWithRateLimitRetry(context, url, options) {
-  try {
-    return await this.requestAttempt(context, url, options);
-  } catch (error) {
-    const normalized = normalizeWanikaniError(error);
-    if (!isRateLimitError(normalized)) throw normalized;
-    await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
-    try {
-      return await this.requestAttempt(context, url, options);
-    } catch (retryError) {
-      throw normalizeWanikaniError(retryError);
-    }
-  }
-  }
-  async requestAttempt(context, url, options) {
-  await this.throttle();
-  return this.requestImpl(url, {
-    method: options.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${context.token}`,
-      "Wanikani-Revision": WANIKANI_REVISION,
-      Accept: "application/json",
-      "Content-Type": "application/json"
-    },
-    data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
-    responseType: "json",
-    timeoutMs: this.timeoutMs,
-    preferFetch: true,
-    allowDirectCrossOrigin: true,
-    proxyUrl: "",
-    allowPublicProxies: false,
-    allowConfiguredProxy: false,
-    credentials: "omit",
-    referrerPolicy: "no-referrer",
-    failureLabel: "WaniKani request",
-    statusFailureMessage: wanikaniStatusFailureMessage
-  });
-  }
-  throttle() {
-  const scheduled2 = this.requestStartQueue.then(async () => {
-    const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
-    if (wait > 0) await this.sleep(wait);
-    this.lastRequestAt = this.now();
-  });
-  this.requestStartQueue = scheduled2.catch(() => void 0);
-  return scheduled2;
-  }
-  accountContext() {
-  const token = this.getToken().trim();
-  if (!token) {
-    this.clear();
-    throw new WanikaniApiError("WaniKani API token is not set.");
-  }
-  const fingerprint2 = fingerprintWanikaniToken(token);
-  if (fingerprint2 !== this.activeFingerprint) this.resetAccountContext(fingerprint2);
-  const generation = this.contextGeneration;
-  return { token, fingerprint: fingerprint2, generation, cacheNamespace: `${generation}:${fingerprint2}` };
-  }
-  resetAccountContext(fingerprint2) {
-  this.contextGeneration += 1;
-  this.activeFingerprint = fingerprint2;
-  this.verifiedUser = null;
-  this.verifiedContext = "";
-  this.pending.clear();
-  this.responseCache.clear();
-  }
-  isCurrentContext(context) {
-  return context.generation === this.contextGeneration && context.fingerprint === this.activeFingerprint && context.token === this.getToken().trim();
-  }
-  invalidateReviewStateCaches(context) {
-  for (const key of this.currentReviewStateCacheKeys(context)) this.responseCache.delete(key);
-  }
-  currentReviewStateCacheKeys(context) {
-  if (!this.isCurrentContext(context)) return [];
-  return [...this.responseCache.keys()].filter((key) => isReviewStateCacheKey(key, context, this.baseUrl));
-  }
-  isSafeApiUrl(value) {
-  try {
-    const url = new URL(value);
-    const base = new URL(`${this.baseUrl}/`);
-    return url.protocol === "https:" && url.origin === base.origin && url.pathname.startsWith(base.pathname);
-  } catch {
-    return false;
-  }
-  }
-}
-function permittedSubjectLevels(requested, maxLevel) {
-  if (!requested?.length) return Array.from({ length: maxLevel }, (_, index) => index + 1);
-  const levels = requested.filter((level) => level >= 1 && level <= maxLevel);
-  return levels.length ? levels : null;
-}
-function assertWanikaniPaginationUrl(url, visited, isSafe) {
-  if (!isSafe(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
-  if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
-  if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
-}
-function appendWanikaniCollectionPage(items, page) {
-  if (Array.isArray(page.data)) items.push(...page.data);
-  return typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
-}
-function wanikaniStatusFailureMessage(status) {
-  if (status === 401) return "WaniKani token expired or was denied (401).";
-  if (status === 403) return "WaniKani token lacks permission for this request (403).";
-  return `WaniKani API request failed (${status}).`;
-}
-function isReviewStateCacheKey(key, context, baseUrl) {
-  if (key === `${context.cacheNamespace}:${baseUrl}/summary`) return true;
-  const collectionPrefixes = ["/assignments?", "/review_statistics?"];
-  return collectionPrefixes.some((path) => key.startsWith(`${context.cacheNamespace}:${path}`));
-}
-function wanikaniCacheTtl(cache) {
-  return cache.cacheTtlMs ?? 0;
-}
-function isCacheableWanikaniRequest(cacheTtlMs, method) {
-  return cacheTtlMs > 0 && method !== "POST";
-}
-function assertSafeWanikaniRequestUrl(url, isSafe) {
-  if (!isSafe(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-}
-const PAID_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["recurring", "lifetime"]);
-function effectiveMaxLevelForUser(user) {
-  const subscription = user.subscription;
-  if (!hasPaidSubscription(subscription)) return FREE_TIER_MAX_LEVEL;
-  const granted = Number(subscription.max_level_granted);
-  if (!Number.isFinite(granted)) return FREE_TIER_MAX_LEVEL;
-  if (granted <= 0) return FREE_TIER_MAX_LEVEL;
-  return Math.min(60, granted);
-}
-function hasPaidSubscription(subscription) {
-  if (!subscription.active) return false;
-  return PAID_SUBSCRIPTION_TYPES.has(subscription.type);
-}
-function parseWanikaniUser(raw) {
-  const record2 = isRecord$1(raw) ? isRecord$1(raw.data) ? raw.data : raw : {};
-  const subscriptionRaw = isRecord$1(record2.subscription) ? record2.subscription : {};
-  return {
-  id: typeof record2.id === "string" ? record2.id : "",
-  level: typeof record2.level === "number" ? record2.level : 0,
-  subscription: {
-    active: subscriptionRaw.active === true,
-    type: typeof subscriptionRaw.type === "string" ? subscriptionRaw.type : "",
-    max_level_granted: typeof subscriptionRaw.max_level_granted === "number" ? subscriptionRaw.max_level_granted : 0,
-    period_ends_at: typeof subscriptionRaw.period_ends_at === "string" ? subscriptionRaw.period_ends_at : null
-  }
-  };
-}
-function queryString(options) {
-  const params = new URLSearchParams();
-  if (options.ids?.length) params.set("ids", options.ids.join(","));
-  if (options.levels?.length) params.set("levels", options.levels.join(","));
-  if (options.types?.length) params.set("types", options.types.join(","));
-  if (options.updatedAfter) params.set("updated_after", options.updatedAfter);
-  if (options.hidden !== void 0) params.set("hidden", String(options.hidden));
-  if (options.immediatelyAvailableForReview !== void 0) params.set("immediately_available_for_review", String(options.immediatelyAvailableForReview));
-  if (options.immediatelyAvailableForLessons !== void 0) params.set("immediately_available_for_lessons", String(options.immediatelyAvailableForLessons));
-  if (options.subjectIds?.length) params.set("subject_ids", options.subjectIds.join(","));
-  if (options.slugs?.length) params.set("slugs", options.slugs.join(","));
-  if (options.srsStages?.length) params.set("srs_stages", options.srsStages.join(","));
-  if (options.availableBefore) params.set("available_before", options.availableBefore);
-  if (options.started !== void 0) params.set("started", String(options.started));
-  if (options.unlocked !== void 0) params.set("unlocked", String(options.unlocked));
-  if (options.page !== void 0) params.set("page", String(options.page));
-  const query = params.toString();
-  return query ? `?${query}` : "";
-}
-function normalizeWanikaniError(error) {
-  if (error instanceof WanikaniApiError) return error;
-  const status = httpStatusFromError(error);
-  if (!(error instanceof Error)) return new WanikaniApiError("WaniKani request failed.", status);
-  if (status === 401) return new WanikaniApiError("WaniKani token expired or was denied.", 401);
-  if (status === 403) return new WanikaniApiError("WaniKani token lacks permission for this request.", 403);
-  if (status !== void 0) return new WanikaniApiError(error.message, status);
-  return error;
-}
-function isRateLimitError(error) {
-  return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
-}
-function rawSubjectLevel(value) {
-  if (!isRecord$1(value) || !isRecord$1(value.data)) return Number.POSITIVE_INFINITY;
-  return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
-}
-function stableOptionsKey(options) {
-  return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([left], [right]) => left.localeCompare(right))));
-}
-function trimBaseUrl(value) {
-  return value.replace(/\/+$/u, "");
-}
-function isRecord$1(value) {
-  return typeof value === "object" && value !== null;
-}
-async function exportSettingsBackupSnapshot(fallbackSettings) {
-  const storage = await exportManagedStoredValues();
-  for (const key of RETIRED_SETTINGS_STORAGE_KEYS) delete storage[key];
-  const view = await readSettingsPersistenceViewStrict();
-  if (!isRecord$3(view.settings)) {
-  if (Object.hasOwn(storage, SETTINGS_STORAGE_KEY) || Object.hasOwn(storage, SETTINGS_INTENT_LEDGER_STORAGE_KEY)) {
-    throw new Error("Could not capture canonical settings for backup.");
-  }
-  return structuredClone({ settings: normalizeReaderSettings(fallbackSettings), storage });
-  }
-  const current = normalizeReaderSettings({
-  ...fallbackSettings,
-  ...view.settings,
-  shortcuts: {
-    ...fallbackSettings.shortcuts,
-    ...isRecord$3(view.settings.shortcuts) ? view.settings.shortcuts : {}
-  }
-  });
-  const intentLedger = {
-  revision: view.intentLedger.revision,
-  records: Object.fromEntries(Object.entries(view.intentLedger.records).filter(([key]) => Object.hasOwn(current, key)))
-  };
-  const settings = normalizeReaderSettings(applySettingsIntent(current, intentLedger));
-  return structuredClone({ settings, storage: { ...storage, ...serializeSettingsPersistencePair(settings, intentLedger) } });
-}
-const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
-function input(name, label, value, type = "text", attributes = {}) {
-  const fieldClass = ["jpdb-reader-settings-field"];
-  if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
-  return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
-}
-function shortcutInput(name, label, value, placeholder = "Press keys") {
-  return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$1(label)}"></label>`;
-}
-function checkbox(name, label, checked, attributes = {}) {
-  return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
-}
-function select(name, label, value, options) {
-  return `<label>${label}<select name="${name}">${options.map(
-      ([optionValue, text2, className]) => `<option value="${escapeHtml$1(optionValue)}"${className ? ` class="${escapeHtml$1(className)}"` : ""} ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
-    ).join("")}</select></label>`;
-}
-function radioGroup(name, label, value, options) {
-  return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
-      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$1(text2)}</label>`
-    ).join("")}</fieldset>`;
-}
-function settingsTabButton(panel, label, active = false) {
-  return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$1(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$1(label)}</button>`;
-}
-function miniIcon(name) {
-  const paths = {
-  drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
-  up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
-  down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
-  remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'
-  };
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
-}
-function settingsTabControls(panel) {
-  return {
-  api: "jpdb-reader-settings-panel-api",
-  newTab: "jpdb-reader-settings-panel-newtab",
-  appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
-  backup: "jpdb-reader-settings-panel-backup",
-  reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
-  dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
-  media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
-  mining: "jpdb-reader-settings-panel-mining",
-  shortcuts: "jpdb-reader-settings-panel-shortcuts",
-  help: "jpdb-reader-settings-panel-help"
-  }[panel] ?? "jpdb-reader-settings-panel-api";
-}
-function attributeHtml(attributes) {
-  return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$1(String(attributeValue))}"`).join("");
-}
-function booleanAttributeHtml(attributes) {
-  return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
-}
-function renderReadingHiddenStateGroupControls(settings, targetLanguage2) {
-  const language2 = settings.interfaceLanguage;
-  const selected = new Set(settings.furiganaHiddenStateGroups);
-  const boxes = FURIGANA_HIDE_STATE_GROUPS.map((group) => checkbox(`furiganaHide-${group}`, uiText(language2, CARD_STATE_LABEL_KEYS[group]), selected.has(group))).join("");
-  const hidden = effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden";
-  const legendKey = targetLanguage2 === "ja" ? "hideFuriganaFor" : "hideReadingsFor";
-  return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, legendKey)}</legend>${boxes}</fieldset>`;
-}
-function renderWordColorHiddenStateGroupControls(settings) {
-  const language2 = settings.interfaceLanguage;
-  const selected = new Set(settings.wordColorHiddenStateGroups);
-  const boxes = WORD_COLOR_HIDE_STATE_GROUPS.map((group) => checkbox(
-  `colorHide-${group}`,
-  uiText(language2, group === "ignored" ? "wordColorIgnored" : CARD_STATE_LABEL_KEYS[group]),
-  selected.has(group)
-  )).join("");
-  return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>${escapedUiText$4(language2, "hideColorFor")}</legend>${boxes}</fieldset>`;
-}
-const HIDE_STATE_GROUP_CONTROL_LABELS = [
-  ...FURIGANA_HIDE_STATE_GROUPS.flatMap((group) => {
-  const key = CARD_STATE_LABEL_KEYS[group];
-  return [
-    [`furiganaHide-${group}`, key],
-    [`colorHide-${group}`, key]
-  ];
-  }),
-  ["colorHide-ignored", "wordColorIgnored"]
-];
-function escapedUiText$4(language2, key) {
-  return escapeHtml$1(uiText(language2, key));
-}
-function activeTargetLanguageDisplayName(interfaceLanguage) {
-  return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
-}
-function targetLanguageDisplayNameFor(tag, interfaceLanguage) {
-  const uiLanguage = resolveUiLanguage(interfaceLanguage);
-  const subtag = languageSubtag(tag) ?? "ja";
-  return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
-}
-function rosterIdentityDisplayName(subtag, uiLanguage) {
-  const identity = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
-  return TARGET_IDENTITY_NAMES[identity]?.[uiLanguage];
-}
-const TARGET_IDENTITY_NAMES = {
-  sh: { en: "Serbo-Croatian", ja: "セルボ・クロアチア語" },
-  tl: { en: "Tagalog", ja: "タガログ語" }
-};
-const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG = {
-  bs: "sh",
-  fil: "tl",
-  hr: "sh",
-  sr: "sh"
-};
-function settingsText(language2, targetLanguage2) {
-  const targetName = targetLanguage2 ? targetLanguageDisplayNameFor(targetLanguage2, language2) : activeTargetLanguageDisplayName(language2);
-  return (key) => {
-  const message = uiText(language2, key);
-  return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
-  };
-}
-function updateSourceRowEditor(action, control) {
-  const row = control?.closest("[data-source-row]");
-  const container = row?.closest("[data-source-editor]");
-  if (!container || !row) return;
-  const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-  const index = rows.indexOf(row);
-  const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
-  moveSourceRow(container, index, targetIndex);
-}
-function installSourceRowDrag(root) {
-  let drag = null;
-  const dragDocument = root.ownerDocument;
-  root.addEventListener("pointerdown", trustedReaderEventHandler((event) => {
-  if (drag) return;
-  const handle = sourceRowDragHandle(root, event);
-  if (!handle) return;
-  const elements = sourceRowDragElements(handle);
-  if (!elements) return;
-  const { container, row } = elements;
-  event.preventDefault();
-  setSourceRowPointerCapture(handle, event.pointerId);
-  const pageScale = overlayViewport().pageScale;
-  drag = {
-    active: false,
-    container,
-    handle,
-    pageScale,
-    pointerId: event.pointerId,
-    row,
-    startY: sourceRowOverlayY(event.clientY, pageScale)
-  };
-  row.classList.add("jpdb-reader-order-row-drag-pending");
-  dragDocument.addEventListener("pointermove", trustedMoveDrag);
-  dragDocument.addEventListener("pointerup", trustedFinishDrag);
-  dragDocument.addEventListener("pointercancel", trustedFinishDrag);
-  }));
-  const moveDrag = (event) => {
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
-  if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
-  event.preventDefault();
-  drag.active = true;
-  drag.row.classList.add("jpdb-reader-order-row-dragging");
-  moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
-  };
-  const finishDrag = (event) => {
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  releaseSourceRowPointerCapture(drag.handle, event.pointerId);
-  drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
-  syncSourceRowOrder(drag.container);
-  drag = null;
-  dragDocument.removeEventListener("pointermove", trustedMoveDrag);
-  dragDocument.removeEventListener("pointerup", trustedFinishDrag);
-  dragDocument.removeEventListener("pointercancel", trustedFinishDrag);
-  };
-  const trustedMoveDrag = trustedReaderEventHandler(moveDrag);
-  const trustedFinishDrag = trustedReaderEventHandler(finishDrag);
-  root.addEventListener("pointermove", trustedMoveDrag);
-  root.addEventListener("pointerup", trustedFinishDrag);
-  root.addEventListener("pointercancel", trustedFinishDrag);
-}
-function moveSourceRow(container, index, targetIndex) {
-  const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-  if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
-  const row = rows[index];
-  const target = rows[targetIndex];
-  if (targetIndex < index) container.insertBefore(row, target);
-  else container.insertBefore(row, target.nextSibling);
-  syncSourceRowOrder(container);
-}
-function sourceRowDragHandle(root, event) {
-  if (!sourceRowDragPointerAllowed(event)) return null;
-  const handle = event.target.closest("[data-source-drag-handle]");
-  return handle && root.contains(handle) ? handle : null;
-}
-function sourceRowDragPointerAllowed(event) {
-  return event.pointerType !== "mouse" || event.button === 0;
-}
-function sourceRowDragElements(handle) {
-  const row = handle.closest("[data-source-row]");
-  const container = row?.closest("[data-source-editor]");
-  return row && container ? { container, row } : null;
-}
-function setSourceRowPointerCapture(handle, pointerId) {
-  try {
-  handle.setPointerCapture?.(pointerId);
-  } catch {
-  }
-}
-function releaseSourceRowPointerCapture(handle, pointerId) {
-  try {
-  handle.releasePointerCapture?.(pointerId);
-  } catch {
-  }
-}
-function moveSourceRowToPointer(container, row, overlayY, pageScale) {
-  const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate) => candidate !== row);
-  const target = rows.find((candidate) => {
-  const rect = sourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
-  return overlayY < rect.top + rect.height / 2;
-  });
-  if (target) container.insertBefore(row, target);
-  else container.appendChild(row);
-  syncSourceRowOrder(container);
-}
-function sourceRowOverlayY(clientY, pageScale) {
-  return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
-}
-function canMoveSourceRow(index, targetIndex, rowCount) {
-  return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
-}
-function syncSourceRowOrder(container) {
-  const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-  rows.forEach((row, index) => {
-  const priority = row.querySelector('input[name$=".priority"]');
-  if (priority) priority.value = String(index);
-  const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
-  if (indexLabel) indexLabel.textContent = String(index + 1);
-  });
-  container.querySelectorAll("input[data-source-order-tail]").forEach((priority, index) => {
-  priority.value = String(rows.length + index);
-  });
-  if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
-  if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
-}
-function syncAudioSourceIndexes(container, rows = Array.from(container.querySelectorAll("[data-audio-source-row]"))) {
-  const language2 = settingsLanguageForElement(container);
-  rows.forEach((row, index) => {
-  row.dataset.sourceId = `audio-${index}`;
-  row.querySelectorAll('[name^="audioSources."]').forEach((control) => {
-    control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
-    if (control instanceof HTMLSelectElement && control.name.endsWith(".type")) {
-      control.setAttribute("aria-label", uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)));
-    }
-    if (control instanceof HTMLInputElement && control.name.endsWith(".enabled")) {
-      control.setAttribute("aria-label", uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)));
-    }
-    if (control instanceof HTMLSelectElement && control.name.endsWith(".voice")) {
-      control.setAttribute("aria-label", uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
-    }
-  });
-  });
-}
-function syncDictionaryLookupLinkIndexes(container, rows = Array.from(container.querySelectorAll("[data-lookup-link-row]"))) {
-  const language2 = settingsLanguageForElement(container);
-  rows.forEach((row, index) => {
-  row.dataset.index = String(index);
-  row.dataset.sourceId = `lookup-link-${index}`;
-  row.querySelectorAll('[name^="dictionaryLookupLinks."]').forEach((control) => {
-    control.name = control.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
-    if (control.name.endsWith(".label")) control.setAttribute("aria-label", uiText(language2, "lookupPillLabelNumber").replace("{number}", String(index + 1)));
-    if (control.name.endsWith(".urlTemplate")) control.setAttribute("aria-label", uiText(language2, "lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
-  });
-  });
-}
-function settingsLanguageForElement(element2) {
-  const control = element2.closest("form")?.elements.namedItem("interfaceLanguage");
-  const value = control instanceof HTMLSelectElement ? control.value : "en";
-  return value === "auto" || value === "en" || value === "ja" ? value : "en";
-}
-const SOURCE_ROW_COPY_KEYS_BY_ID = {
-  __jpdb__: { helpKey: "sourceHelpJpdb" },
-  __jiten__: { helpKey: "sourceHelpJiten" },
-  __bunpro__: { helpKey: "sourceHelpBunpro" },
-  __wanikani__: { helpKey: "sourceHelpWanikani" },
-  __anki__: { nameKey: "sourceNameAnki", helpKey: "sourceHelpAnki" },
-  __study_translation__: { nameKey: "sourceNameTranslation", helpKey: "sourceHelpTranslation" },
-  __study_grammar__: { nameKey: "sourceNameGrammar", helpKey: "sourceHelpGrammar" },
-  __immersion_kit__: { nameKey: "sourceNameImmersionKit", helpKey: "sourceHelpImmersionKit" },
-  __kanji_stroke__: { nameKey: "sourceNameStrokePractice", helpKey: "sourceHelpStrokePractice" },
-  __kanji_rtk__: { helpKey: "sourceHelpRtk" },
-  __kanji_wanikani__: { helpKey: "sourceHelpWanikaniKanji" },
-  __kanji_dictionaries__: { nameKey: "sourceNameImportedKanjiDictionaries", helpKey: "sourceHelpImportedKanjiDictionaries" },
-  __kanji_similar_words__: { nameKey: "sourceNameWordsUsingKanji", helpKey: "sourceHelpWordsUsingKanji" },
-  __kanji_origins__: { nameKey: "originStructure", helpKey: "sourceHelpComponentGraph" }
-};
-const SOURCE_ROW_ORDER_LABELS = { drag: "Drag to reorder", up: "Move up", down: "Move down" };
-function renderSourceRowsHelp(language2, key) {
-  return `<div class="jpdb-reader-help" data-help-key="${key}">${escapeHtml$1(uiText(language2, key))}</div>`;
-}
-function miniIconButton(icon, label, attributes) {
-  const dragClass = icon === "drag" ? " jpdb-reader-drag-handle" : "";
-  return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${miniIcon(icon)}</button>`;
-}
-function renderRowOrderTools(options) {
-  const ariaLabel = options.label ? ` aria-label="${escapeHtml$1(options.label)}"` : "";
-  return `<div class="jpdb-reader-row-tools jpdb-reader-row-order-tools"${ariaLabel}>
-                    ${options.leading ?? ""}
-                    ${miniIconButton("drag", options.labels.drag, 'data-source-drag-handle tabindex="-1"')}
-                    ${miniIconButton("up", options.labels.up, `data-action="${options.upAction}"`)}
-                    ${miniIconButton("down", options.labels.down, `data-action="${options.downAction}"`)}
-                </div>`;
-}
-function renderRowRemoveTools(control) {
-  return `<div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
-                    ${control}
-                </div>`;
-}
-function renderSourceRowsList(rows, options) {
-  const removableCount = rows.filter((row) => row.removable).length;
-  const showRemove = removableCount > 0;
-  const context = {
-  ...options,
-  layoutClass: sourceRowsLayoutClass(options.showAlias, showRemove),
-  showRemove
-  };
-  return `
-        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}">
-            <span>On</span>
-            <span>${escapeHtml$1(options.sourceLabel)}</span>
-            ${options.showAlias ? "<span>Display name</span>" : ""}
-            <span>Order</span>
-            ${showRemove ? "<span>Remove</span>" : ""}
-        </div>
-        ${renderSourceRowsCountInput(options, removableCount)}
-        ${rows.map((row, index) => renderSourceRow(row, index, context)).join("")}
-    `;
-}
-function sourceRowsLayoutClass(showAlias, showRemove) {
-  return [
-  showAlias ? "" : "compact",
-  showRemove ? "has-remove" : "no-remove"
-  ].filter(Boolean).join(" ");
-}
-function renderSourceRowsCountInput(options, removableCount) {
-  if (!options.countName) return "";
-  return `<input type="hidden" name="${escapeHtml$1(options.countName)}" value="${options.countValue ?? removableCount}">`;
-}
-function renderSourceRow(row, index, context) {
-  const keys = sourceRowCopyKeys(row);
-  return `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
-                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                    <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? "checked" : ""}>
-                    <span>${index + 1}</span>
-                </label>
-                ${sourceField(sourceRowDisplayName(row, context.showAlias), row.name, row.prefix, "name", context.sourceLabel, keys?.nameKey)}
-                ${renderSourceAliasControl(row, context.showAlias, keys)}
-                ${renderRowOrderTools({
-      upAction: "dictionary-source-up",
-      downAction: "dictionary-source-down",
-      labels: SOURCE_ROW_ORDER_LABELS,
-      // The STORED priority, not the row's index: an untouched Save
-      // writes it back as it was. Moving any row renumbers the whole
-      // list by position (syncSourceRowOrder), which is the only
-      // time the order becomes the learner's.
-      leading: `<input name="${row.prefix}.priority" type="hidden" value="${row.priority}">`
-    })}
-                ${renderSourceRemoveCell(row, context.showRemove)}
-                ${renderSourceTypeInput(row)}
-                ${renderSourceRowHelp(row, keys)}
-            </div>
-        `;
-}
-function renderSourceAliasControl(row, showAlias, keys) {
-  if (!showAlias) return "";
-  const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml$1(keys.nameKey)}"` : "";
-  return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml$1(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml$1(row.name)}"${keyAttribute}>`;
-}
-function renderSourceRemoveCell(row, showRemove) {
-  if (!showRemove) return "";
-  return renderRowRemoveTools(renderSourceRemoveButton(row));
-}
-function renderSourceRemoveButton(row) {
-  if (!row.removable) return "";
-  return miniIconButton("remove", "Remove imported dictionary", `data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$1(row.name)}"`);
-}
-function renderSourceTypeInput(row) {
-  if (!row.removable) return "";
-  return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$1(row.dictionaryType ?? "terms")}">`;
-}
-function renderSourceRowHelp(row, keys) {
-  if (!row.help) return "";
-  const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml$1(keys.helpKey)}"` : "";
-  return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml$1(row.help)}</div>`;
-}
-function sourceRowDisplayName(row, showAlias) {
-  return !showAlias && row.alias ? row.alias : row.name;
-}
-function sourceField(displayValue, formValue, prefix, field, label, nameKey) {
-  return `
-        <span class="jpdb-reader-field-display" aria-label="${escapeHtml$1(label)}" ${nameKey ? `data-source-name-key="${escapeHtml$1(nameKey)}"` : ""}>${escapeHtml$1(displayValue)}</span>
-        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml$1(formValue)}">
-    `;
-}
-function sourceRowCopyKeys(row) {
-  return SOURCE_ROW_COPY_KEYS_BY_ID[row.id] ?? importedKanjiDictionaryCopyKeys(row.id);
-}
-function importedKanjiDictionaryCopyKeys(rowId) {
-  return rowId.startsWith("__kanji_dictionary__:") ? { helpKey: "sourceHelpImportedKanjiDictionary" } : void 0;
-}
-const AUDIO_URL_PLACEHOLDER_KEYS = {
-  "custom-json": "audioCustomJsonPlaceholder",
-  custom: "audioCustomUrlPlaceholder"
-};
-const JITEN_TTS_VOICE_OPTIONS = [
-  ["", "Random Jiten voice"],
-  ["female", "Female"],
-  ["female2", "Female 2"],
-  ["male", "Male"],
-  ["male2", "Male 2"],
-  ["asmr", "ASMR"]
-];
-const JPDB_TTS_VOICE_OPTIONS = [
-  ["", "Random JPDB voice"],
-  ["f1", "Female 1"],
-  ["f2", "Female 2"],
-  ["m1", "Male 1"],
-  ["m2", "Male 2"]
-];
-function escapedUiText$3(language2, key) {
-  return escapeHtml$1(uiText(language2, key));
-}
-function renderAudioSourceEditor(sources, language2 = "en") {
-  return `
-        <div class="jpdb-reader-audio-source-head jpdb-reader-order-head">
-            <span>${escapedUiText$3(language2, "enabledHeader")}</span>
-            <span>${escapedUiText$3(language2, "audioSource")}</span>
-            <span>${escapedUiText$3(language2, "urlVoice")}</span>
-            <span>${escapedUiText$3(language2, "orderHeader")}</span>
-            <span>${escapedUiText$3(language2, "removeHeader")}</span>
-        </div>
-        ${renderAudioSourceRows(audioSourceRowsForSettings(sources), language2)}
-        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">${escapedUiText$3(language2, "addAudioSource")}</button>
-    `;
-}
-function renderAudioSourceRows(rows, language2) {
-  const count = rows.length;
-  const orderTools = renderRowOrderTools({
-  label: uiText(language2, "audioSourceOrder"),
-  upAction: "audio-source-up",
-  downAction: "audio-source-down",
-  labels: {
-    drag: uiText(language2, "dragToReorder"),
-    up: uiText(language2, "moveUp"),
-    down: uiText(language2, "moveDown")
-  }
-  });
-  const removeTools = renderRowRemoveTools(miniIconButton("remove", uiText(language2, "remove"), 'data-action="audio-source-remove"'));
-  return `
-        <input type="hidden" name="audioSourceCount" value="${count}">
-        ${rows.map((source, index) => `
-        <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
-            <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
-                <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$1(uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)))}" ${source.enabled ? "checked" : ""}>
-                <span>${index + 1}</span>
-            </label>
-            <div class="jpdb-reader-audio-source-choice">
-                <select name="audioSources.${index}.type" aria-label="${escapeHtml$1(uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)))}">
-                    ${audioSourceSelectOptions(source.type, language2).map(
-  ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
-  ).join("")}
-                </select>
-                <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText$3(language2, "previewAudio")}" aria-label="${escapedUiText$3(language2, "previewAudio")}">${speakerIcon()}</button>
-            </div>
-            <div class="jpdb-reader-audio-source-fields">
-                <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type, language2))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
-                <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
-                    ${audioVoiceSelectOptions(source, language2)}
-                </select>
-            </div>
-            ${orderTools}
-            ${removeTools}
-            ${renderAudioSubSourcePanel(index, source, rows, language2)}
-        </div>
-    `).join("")}
-    `;
-}
-function renderAudioSubSourcePanel(index, source, rows, language2) {
-  const visible = source.type === "custom-json";
-  return `
-        <div class="jpdb-reader-audio-subsources" data-audio-subsources ${visible ? "" : "hidden"}>
-            <div class="jpdb-reader-audio-subsource-list" data-audio-subsource-list>
-                ${renderAudioSubSourceList(index, audioSubSourcesForRow(source), rows, language2)}
-            </div>
-            <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
-        </div>
-    `;
-}
-function audioSubSourcesForRow(source) {
-  return mergeAudioSubSources(source.subSources ?? [], knownAudioSubSourceNames(source.url));
-}
-function renderAudioSubSourceList(index, subSources, rows, language2) {
-  const help = subSources.length ? `<span class="jpdb-reader-audio-subsource-help">${escapedUiText$3(language2, "audioSubSourcesHelp")}</span>` : "";
-  return `
-        <input type="hidden" name="audioSources.${index}.subSourceCount" value="${subSources.length}">
-        ${help}
-        ${subSources.map((subSource, subIndex) => renderAudioSubSourceRow(index, subIndex, subSource, rows, language2)).join("")}
-    `;
-}
-function renderAudioSubSourceRow(index, subIndex, subSource, rows, language2) {
-  const overlap = audioSubSourceOverlapsEnabledRow(subSource, index, rows) ? `<span class="jpdb-reader-audio-subsource-overlap">${escapedUiText$3(language2, "audioSubSourceOverlapHint")}</span>` : "";
-  const toggleLabel = uiText(language2, "enableSourceName").replace("{name}", subSource.name);
-  return `
-        <label class="inline jpdb-reader-audio-subsource">
-            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml$1(toggleLabel)}" ${subSource.enabled ? "checked" : ""}>
-            <span>${escapeHtml$1(subSource.name)}</span>
-            ${overlap}
-        </label>
-        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml$1(subSource.name)}">
-    `;
-}
-const AUDIO_SUB_SOURCE_OVERLAP_TYPES = {
-  jpod: ["jpod101", "language-pod-101"],
-  jpod101: ["jpod101", "language-pod-101"],
-  japanesepod101: ["jpod101", "language-pod-101"],
-  languagepod101: ["language-pod-101"],
-  jisho: ["jisho"],
-  bunpro: ["bunpro"],
-  wiktionary: ["wiktionary"],
-  "lingua libre": ["lingua-libre"],
-  "lingua-libre": ["lingua-libre"]
-};
-function mergeAudioSubSources(existing, detectedNames) {
-  const merged = existing.map((subSource) => ({ ...subSource }));
-  const seen = new Set(merged.map((subSource) => audioSubSourceNameKey(subSource.name)));
-  for (const name of detectedNames) {
-  const trimmed = name.trim();
-  const key = audioSubSourceNameKey(trimmed);
-  if (!trimmed || seen.has(key)) continue;
-  seen.add(key);
-  merged.push({ name: trimmed, enabled: true });
-  }
-  return merged;
-}
-function audioSubSourceOverlapsEnabledRow(subSource, rowIndex, rows) {
-  if (!subSource.enabled) return false;
-  const overlapTypes = AUDIO_SUB_SOURCE_OVERLAP_TYPES[audioSubSourceNameKey(subSource.name)];
-  if (!overlapTypes) return false;
-  return rows.some((row, index) => index !== rowIndex && row.enabled && overlapTypes.includes(row.type));
-}
-function audioSourceSelectOptions(type, language2) {
-  if (type === "custom") {
-  return [
-    ...AUDIO_SOURCE_UI_TYPE_VALUES.map((value) => [value, audioSourceLabel(language2, value)]),
-    ["custom", uiText(language2, "customAdvanced").replace("{label}", audioSourceLabel(language2, "custom"))]
-  ];
-  }
-  return AUDIO_SOURCE_UI_TYPE_VALUES.map((value) => [value, audioSourceLabel(language2, value)]);
-}
-function audioSourceRowsForSettings(sources) {
-  const rows = sources.map((source) => ({ ...source }));
-  return rows.length ? rows : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
-}
-function audioUrlPlaceholder(type, language2) {
-  return uiText(language2, audioUrlPlaceholderKey(type));
-}
-function audioUrlPlaceholderKey(type) {
-  return AUDIO_URL_PLACEHOLDER_KEYS[type ?? ""] ?? "audioBuiltInPlaceholder";
-}
-function audioSourceUsesUrl(type) {
-  return type === "custom" || type === "custom-json";
-}
-function audioSourceUsesVoice(type) {
-  return audioSourceVoiceKind(type) !== "none";
-}
-function audioSourceVoiceKind(type) {
-  if (type === "jiten-tts") return "jiten";
-  if (type === "jpdb-tts") return "jpdb";
-  if (type === "text-to-speech" || type === "text-to-speech-reading") return "browser";
-  return "none";
-}
-function audioVoiceSelectOptions(source, language2) {
-  if (audioSourceVoiceKind(source.type) === "jiten") return jitenTtsVoiceSelectOptions(source.voice);
-  if (audioSourceVoiceKind(source.type) === "jpdb") return jpdbTtsVoiceSelectOptions(source.voice);
-  const label = source.voice || uiText(language2, "automaticBrowserVoice");
-  return `<option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(label)}</option>`;
-}
-function jitenTtsVoiceSelectOptions(selectedVoice) {
-  const selected = selectedVoice.trim();
-  const options = JITEN_TTS_VOICE_OPTIONS.map(
-  ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
-  );
-  if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
-  options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
-  }
-  return options.join("");
-}
-function jpdbTtsVoiceSelectOptions(selectedVoice) {
-  const selected = selectedVoice.trim();
-  const options = JPDB_TTS_VOICE_OPTIONS.map(
-  ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
-  );
-  if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
-  options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
-  }
-  return options.join("");
-}
-function syncAudioSourceRow(row, type) {
-  if (!row) return;
-  row.querySelectorAll("[data-audio-url-field]").forEach((node) => {
-  node.hidden = !audioSourceUsesUrl(type);
-  });
-  row.querySelectorAll("[data-audio-subsources]").forEach((node) => {
-  node.hidden = type !== "custom-json";
-  });
-  row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
-  const voiceKind = audioSourceVoiceKind(type);
-  node.hidden = voiceKind === "none";
-  node.dataset.audioVoiceKind = voiceKind;
-  if (node instanceof HTMLSelectElement && voiceKind === "jiten") {
-    const selected = node.value || node.dataset.selectedVoice || "";
-    setInnerHtml(node, jitenTtsVoiceSelectOptions(selected));
-  }
-  if (node instanceof HTMLSelectElement && voiceKind === "jpdb") {
-    const selected = node.value || node.dataset.selectedVoice || "";
-    setInnerHtml(node, jpdbTtsVoiceSelectOptions(selected));
-  }
-  });
-}
-function syncBrowserTtsVoiceOptions(form) {
-  const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
-  const language2 = form.lang === "ja" ? "ja" : "en";
-  const text2 = settingsText(language2);
-  const sortedVoices = voices.slice().sort((a, b) => {
-  const aJapanese = a.lang.toLowerCase().startsWith("ja") ? 0 : 1;
-  const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
-  return aJapanese - bJapanese || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name);
-  });
-  form.querySelectorAll('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach((select2) => {
-  const selected = select2.value || select2.dataset.selectedVoice || "";
-  const options = [
-    `<option value="" ${selected ? "" : "selected"}>${escapeHtml$1(text2("automaticBrowserVoice"))}</option>`,
-    ...sortedVoices.map((voice) => {
-      const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ""}${voice.default ? ` - ${text2("defaultVoiceSuffix")}` : ""}`;
-      return `<option value="${escapeHtml$1(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`;
-    })
-  ];
-  if (selected && !sortedVoices.some((voice) => voice.name === selected)) {
-    options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(text2("savedVoiceLabel").replace("{voice}", selected))}</option>`);
-  }
-  setInnerHtml(select2, options.join(""));
-  });
-}
-function isAudioSourceTypeValue(value) {
-  return AUDIO_SOURCE_UI_TYPE_VALUES.includes(value) || value === "custom";
-}
-function updateAudioSourceEditor(form, action, control) {
-  const container = form.querySelector(".jpdb-reader-audio-sources");
-  if (!container) return;
-  const row = control?.closest("[data-audio-source-row]");
-  const rows = Array.from(container.querySelectorAll("[data-audio-source-row]"));
-  const index = row ? rows.indexOf(row) : -1;
-  if (isAudioSourceMoveAction(action)) {
-  moveSourceRow(container, index, audioSourceMoveTargetIndex(action, index));
-  return;
-  }
-  const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
-  updateAudioSourceRows(sources, action, index);
-  setInnerHtml(container, renderAudioSourceEditor(sources, form.lang === "ja" ? "ja" : "en"));
-}
-function isAudioSourceMoveAction(action) {
-  return action === "audio-source-up" || action === "audio-source-down";
-}
-function audioSourceMoveTargetIndex(action, index) {
-  return action === "audio-source-up" ? index - 1 : index + 1;
-}
-function updateAudioSourceRows(sources, action, index) {
-  if (action === "audio-source-add") addAudioSourceRow(sources);
-  if (action === "audio-source-remove") removeAudioSourceRow(sources, index);
-}
-function addAudioSourceRow(sources) {
-  if (sources.length < 12) sources.push({ type: "custom-json", url: "", voice: "", enabled: true });
-}
-function removeAudioSourceRow(sources, index) {
-  if (index >= 0 && sources.length > 1) sources.splice(index, 1);
-}
-function focusPreviewAudioSource(form, button2, previewSettings) {
-  const row = button2?.closest("[data-audio-source-row]");
-  if (!row) return;
-  const source = previewSettings.audioSources[sourceRowIndex(form, row)];
-  if (!source) return;
-  previewSettings.audioSources = [{ ...source, enabled: true }];
-  previewSettings.audioEnableDefaultSources = false;
-}
-function sourceRowIndex(form, row) {
-  return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
-}
-function probeableAudioSourceUrl(row) {
-  if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
-  if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
-  const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
-  return isProbeableAudioSourceUrl(url) ? url : "";
-}
-function isProbeableAudioSourceUrl(url) {
-  try {
-  return ["http:", "https:"].includes(new URL(url).protocol);
-  } catch {
-  return false;
-  }
-}
-function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = [], targetLanguage2 = "ja") {
-  const rows = lookupPillEditorRows(links, localFrequencyPreferences, targetLanguage2);
-  return `
-        <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
-            <span>On</span>
-            <span>Label</span>
-            <span>URL template</span>
-            <span>Order</span>
-            <span>Remove</span>
-        </div>
-        ${renderDictionaryLookupLinkRows(rows, targetLanguage2)}
-        ${renderLookupLinkComponentGaps(targetLanguage2)}
-        <div class="jpdb-reader-lookup-link-actions">
-            <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
-        </div>
-    `;
-}
-const LOOKUP_COMPONENT_LABELS = {
-  definition: "Definitions",
-  sentences: "Example sentences",
-  audio: "Audio",
-  images: "Images"
-};
-function renderLookupLinkNotes(targetLanguage2, link) {
-  const components = lookupSiteComponents(targetLanguage2, link.id);
-  const opensOverPlaintextHttp = /^http:\/\//i.test(link.urlTemplate);
-  if (!components.length && !opensOverPlaintextHttp) return "";
-  const note = components.map((component) => LOOKUP_COMPONENT_LABELS[component]).join(" · ");
-  const separator = components.length && opensOverPlaintextHttp ? " · " : "";
-  const transport = opensOverPlaintextHttp ? `<span data-lookup-link-transport>${escapedUiText$3("en", "plaintextHttpLink")}</span>` : "";
-  return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components.length ? "components" : "transport"}"${components.length ? ` data-lookup-link-components="${escapeHtml$1(components.join(" "))}"` : ""}>${escapeHtml$1(note)}${separator}${transport}</span>`;
-}
-function renderLookupLinkComponentGaps(targetLanguage2) {
-  const missing = missingLookupComponents(targetLanguage2);
-  if (!missing.length) return "";
-  const names = missing.map((component) => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(", ");
-  return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml$1(missing.join(" "))}">No verified site for this language offers ${escapeHtml$1(names)}. Add your own above if you know one.</p>`;
-}
-function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
-  const orderTools = renderRowOrderTools({
-  label: "Lookup pill order",
-  upAction: "lookup-link-up",
-  downAction: "lookup-link-down",
-  labels: { drag: "Drag to reorder", up: "Move up", down: "Move down" }
-  });
-  return `
-        <input type="hidden" name="dictionaryLookupLinkCount" value="${rows.length}">
-        ${rows.map((link, index) => {
-      const isCopyAction = link.action === "copy";
-      const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$1(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$1(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage2, link)}`;
-      const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
-      return `
-            <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
-                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                    <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled ? "checked" : ""}>
-                    <span>${index + 1}</span>
-                </label>
-                <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml$1(link.label)}" aria-label="Lookup pill label">
-                ${urlControl}
-                <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml$1(link.id)}">
-                <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml$1(link.action ?? "open")}">
-                <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml$1(String(link.priority ?? index))}">
-                ${orderTools}
-                ${renderRowRemoveTools(removeControl)}
-            </div>
-        `;
-    }).join("")}
-    `;
-}
-function lookupPillEditorRows(links, localFrequencyPreferences, target) {
-  const normalized = normalizeDictionaryLookupLinks(links, false, target);
-  const byId = new Map(normalized.map((link) => [link.id, link]));
-  for (const preference of localFrequencyPreferences) {
-  const id = localFrequencyLookupPillId(preference.name);
-  if (!byId.has(id)) {
-    byId.set(id, {
-      id,
-      label: preference.alias || preference.name,
-      urlTemplate: "",
-      enabled: true,
-      action: "frequency-local",
-      priority: preference.priority
-    });
-  }
-  }
-  return normalizeDictionaryLookupLinks(Array.from(byId.values()), false, target).sort(compareLookupPillEditorRows);
-}
-function compareLookupPillEditorRows(a, b) {
-  const priority = (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER);
-  if (priority) return priority;
-  return a.id.localeCompare(b.id);
-}
-function localFrequencyLookupPillId(dictionary) {
-  return `frequency-local:${dictionary}`;
-}
-function frequencyLookupPillNote(link) {
-  if (link.action === "frequency-local") return "Installed local frequency dictionary badge. Replaces matching live site frequency.";
-  return link.id === "jpdb-frequency" ? "Live JPDB frequency from site lookup; no local dictionary install." : "Live Jiten frequency from site lookup; no local dictionary install.";
-}
-function updateDictionaryLookupLinkEditor(form, action, control) {
-  const container = form.querySelector(".jpdb-reader-lookup-links");
-  if (!container) return;
-  const row = control?.closest("[data-lookup-link-row]");
-  const index = row ? Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row) : -1;
-  if (action === "lookup-link-up" || action === "lookup-link-down") {
-  moveSourceRow(container, index, action === "lookup-link-up" ? index - 1 : index + 1);
-  return;
-  }
-  const data = new FormData(form);
-  const links = readDictionaryLookupLinks(data);
-  const target = formTargetLanguage(data);
-  updateDictionaryLookupLinks(links, action, index, target);
-  setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], target));
-}
-function formTargetLanguage(data) {
-  return String(data.get("targetLanguage") ?? "") || "ja";
-}
-function updateDictionaryLookupLinks(links, action, index, target) {
-  if (action === "lookup-link-add") addDictionaryLookupLink(links, target);
-  if (action === "lookup-link-remove") removeDictionaryLookupLink(links, index);
-}
-function addDictionaryLookupLink(links, target) {
-  if (links.length >= defaultDictionaryLookupLinks("local", target).length + MAX_EXTRA_LOOKUP_LINKS) return;
-  links.push({
-  id: `custom-${Date.now().toString(36)}`,
-  label: "",
-  urlTemplate: "https://takoboto.jp/?q={query}",
-  enabled: true
-  });
-}
-function removeDictionaryLookupLink(links, index) {
-  if (index >= 0 && links.length > 1 && links[index]?.action !== "copy") links.splice(index, 1);
-}
-const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
-const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
-const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
-const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
-const FONT_FAMILY_PRESETS = [
-  { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
-  { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
-  { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
-  { value: JAPANESE_ROUNDED_FONT_FAMILY, labelKey: "fontPresetJapaneseRounded", fallbackLabel: "Japanese rounded" },
-  { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
-  { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
-];
-function userFacingError(copyKey, options = {}) {
-  return Object.assign(
-  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
-  { name: "UserFacingError", yomuUiCopyKey: copyKey }
-  );
-}
-function userFacingErrorText(language2, fallbackKey, error) {
-  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
-  const message = uiText(language2, copyKey);
-  return typeof message === "string" ? message : uiText(language2, fallbackKey);
-}
-function userFacingCopyKeyOf(error) {
-  if (!error || typeof error !== "object") return void 0;
-  const copyKey = error.yomuUiCopyKey;
-  return typeof copyKey === "string" ? copyKey : void 0;
-}
-function isUserFacingError(error) {
-  return userFacingCopyKeyOf(error) !== void 0;
-}
-function userFacingCopyKey(error) {
-  return userFacingCopyKeyOf(error);
-}
-function validateCloudSettingsEnvelope(value) {
-  if (!isRecord$3(value) || value.formatName !== "yomu-google-drive-settings-sync" || value.formatVersion !== 1) {
-  throw userFacingError("settingsImportUnsupportedFormat");
-  }
-  if (!isRecord$3(value.settings) || typeof value.syncedAt !== "string" || !Number.isFinite(Date.parse(value.syncedAt)) || value.storage !== void 0 && !isRecord$3(value.storage)) {
-  throw userFacingError("settingsImportIncomplete");
-  }
-  return value;
-}
-const AUTHORIZATION_STATE_BYTES = 24;
-const AUTHORIZATION_STATE_PATTERN = /^[0-9a-f]{48}$/u;
-function createCloudSettingsAuthorization() {
-  const cryptoSource = globalThis.crypto;
-  if (!cryptoSource?.getRandomValues) {
-  throw new Error("Secure randomness is unavailable for Google authorization.");
-  }
-  const bytes = cryptoSource.getRandomValues(new Uint8Array(AUTHORIZATION_STATE_BYTES));
-  return {
-  state: Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")
-  };
-}
-function isCloudSettingsAuthorizationState(value) {
-  return typeof value === "string" && AUTHORIZATION_STATE_PATTERN.test(value);
-}
-function cloudSettingsRedirectHandoffRequired() {
-  const global = globalThis;
-  return [
-  typeof GM_xmlhttpRequest === "function",
-  typeof global.GM?.xmlHttpRequest === "function",
-  typeof global.GM?.xmlhttpRequest === "function",
-  Boolean(global.GM_info)
-  ].some(Boolean);
-}
-const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
-const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
-const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
-const SETTINGS_FILE_NAME = "yomu-settings.json";
-const SETTINGS_MIME_TYPE = "application/json";
-const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
-const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
-const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
-const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
-const OAUTH_TOKEN_PAYLOAD_TYPE = "yomu-drive-oauth-token";
-const TOKEN_EARLY_REFRESH_MS = 6e4;
-const DRIVE_TIMEOUT_MS = 2e4;
-let cachedToken = null;
-let pendingAuthRedirectResult = readAuthRedirectCandidate();
-function cloudSettingsSyncAvailable() {
-  return CLOUD_SETTINGS_SYNC_ENABLED;
-}
-function cloudSettingsAuthRedirectResult(expectedState) {
-  const candidate = takeAuthRedirectCandidate();
-  if (!candidate) return null;
-  if (!authRedirectStateMatches(candidate, expectedState)) {
-  return {
-    ok: false,
-    state: candidate.state,
-    error: "Google authorization did not match the pending Yomu action."
-  };
-  }
-  cacheAuthRedirectToken(candidate);
-  return { ok: candidate.ok, state: candidate.state, error: candidate.error };
-}
-function takeAuthRedirectCandidate() {
-  const candidate = pendingAuthRedirectResult;
-  pendingAuthRedirectResult = null;
-  return candidate;
-}
-function authRedirectStateMatches(candidate, expectedState) {
-  if (!isCloudSettingsAuthorizationState(expectedState)) return false;
-  return candidate.state === expectedState;
-}
-function cacheAuthRedirectToken(candidate) {
-  if (!candidate.ok) return;
-  if (!candidate.accessToken) return;
-  cachedToken = {
-  token: candidate.accessToken,
-  expiresAt: Date.now() + (candidate.expiresInSeconds ?? 3600) * 1e3
-  };
-}
-async function uploadCloudSettingsToCloud(settings, authorization) {
-  requireConfigured();
-  const backup = await exportSettingsBackupSnapshot(settings);
-  const snapshot = {
-  formatName: "yomu-google-drive-settings-sync",
-  formatVersion: 1,
-  syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
-  settings: backup.settings,
-  storage: backup.storage
-  };
-  const serialized = JSON.stringify(snapshot);
-  const existing = await findSettingsFile(authorization);
-  const file = existing ? await updateSettingsFile(existing.id, serialized, authorization) : await createSettingsFile(serialized, authorization);
-  return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
-}
-async function downloadCloudSettingsFromCloud(authorization) {
-  requireConfigured();
-  const existing = await findSettingsFile(authorization);
-  if (!existing?.id) return null;
-  const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`, { authorization });
-  return parseSettingsSnapshot(body);
-}
-function requireConfigured() {
-  if (!CLOUD_SETTINGS_SYNC_ENABLED) {
-  throw new Error("Google Drive settings sync is not configured for this build.");
-  }
-}
-async function findSettingsFile(authorization) {
-  const params = new URLSearchParams({
-  spaces: "appDataFolder",
-  pageSize: "1",
-  fields: "files(id,name,modifiedTime,size)",
-  q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
-  });
-  const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`, { authorization });
-  return driveFileOrNull(driveFiles(body)[0]);
-}
-function driveFiles(body) {
-  if (!isRecord$3(body)) return [];
-  return Array.isArray(body.files) ? body.files : [];
-}
-function driveFileOrNull(value) {
-  if (!isRecord$3(value)) return null;
-  if (typeof value.id !== "string") return null;
-  return value;
-}
-async function createSettingsFile(serialized, authorization) {
-  const boundary = `yomu_drive_sync_${randomBoundary()}`;
-  const metadata = { name: SETTINGS_FILE_NAME, mimeType: SETTINGS_MIME_TYPE, parents: ["appDataFolder"] };
-  const body = [
-  `--${boundary}`,
-  "Content-Type: application/json; charset=UTF-8",
-  "",
-  JSON.stringify(metadata),
-  `--${boundary}`,
-  `Content-Type: ${SETTINGS_MIME_TYPE}`,
-  "",
-  serialized,
-  `--${boundary}--`,
-  ""
-  ].join("\r\n");
-  const result = await driveRequestJson("/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size", {
-  method: "POST",
-  headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-  data: body,
-  authorization
-  });
-  return driveFileFromResponse(result);
-}
-async function updateSettingsFile(fileId, serialized, authorization) {
-  const result = await driveRequestJson(
-  `/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size`,
-  { method: "PATCH", headers: { "Content-Type": SETTINGS_MIME_TYPE }, data: serialized, authorization }
-  );
-  return driveFileFromResponse(result);
-}
-async function driveRequestJson(path, options = {}) {
-  return driveRequest(options, (body) => requestJson(driveUrl(path), body));
-}
-async function driveRequestText(path, options = {}) {
-  return driveRequest(options, (body) => requestText(driveUrl(path), body));
-}
-async function driveRequest(options, run) {
-  const firstToken = await acquireAccessToken(true, options.authorization);
-  try {
-  return await run(driveHttpOptions(options, firstToken));
-  } catch (error) {
-  if (!isUnauthorized(error)) throw error;
-  cachedToken = null;
-  }
-  const freshToken = await acquireAccessToken(false, options.authorization);
-  return run(driveHttpOptions(options, freshToken));
-}
-function driveHttpOptions(options, token) {
-  return {
-  method: options.method ?? "GET",
-  headers: { ...options.headers ?? {}, Authorization: `Bearer ${token}` },
-  data: options.data,
-  responseType: "json",
-  timeoutMs: DRIVE_TIMEOUT_MS,
-  allowDirectCrossOrigin: true,
-  preferFetch: true,
-  failureLabel: "Google Drive settings sync"
-  };
-}
-function driveUrl(path) {
-  return `https://www.googleapis.com${path}`;
-}
-async function acquireAccessToken(allowCached, authorization) {
-  const cached = reusableAccessToken(allowCached);
-  if (cached) return cached;
-  const token = await freshAccessToken(authorization);
-  cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
-  return cachedToken.token;
-}
-function reusableAccessToken(allowCached) {
-  if (!allowCached) return null;
-  if (!cachedToken) return null;
-  return Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS ? cachedToken.token : null;
-}
-function freshAccessToken(authorization) {
-  if (cloudSettingsRedirectHandoffRequired()) return tokenViaPageRedirect(authorization);
-  return tokenViaIdentityServices();
-}
-async function tokenViaIdentityServices() {
-  const gis = await loadIdentityServices();
-  return new Promise((resolve, reject) => {
-  try {
-    const client = gis.accounts.oauth2.initTokenClient({
-      client_id: WEB_OAUTH_CLIENT_ID,
-      scope: DRIVE_SCOPE,
-      callback: (response) => {
-        if (response.error || !response.access_token) {
-          reject(new Error(googleTokenError(response)));
-          return;
-        }
-        resolve({ accessToken: response.access_token, expiresInSeconds: Number(response.expires_in) || 3600 });
-      },
-      error_callback: (error) => reject(new Error(error?.message || "Google authorization was cancelled."))
-    });
-    client.requestAccessToken({ prompt: "" });
-  } catch (error) {
-    reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
-  }
-  });
-}
-function tokenViaPageRedirect(authorization) {
-  return new Promise((_resolve, reject) => startPageRedirect(authorization, reject));
-}
-function startPageRedirect(authorization, reject) {
-  try {
-  const target = pageRedirectTarget(authorization);
-  navigateToOAuthBroker(target.browserWindow, target.url);
-  } catch (error) {
-  reject(googleAuthorizationStartError(error));
-  }
-}
-function pageRedirectTarget(authorization) {
-  const browserWindow = currentBrowserWindow();
-  if (!browserWindow) throw new Error("Google Drive settings sync needs a browser page.");
-  if (!authorization) throw new Error("Google authorization requires a private pending Yomu action.");
-  if (!isCloudSettingsAuthorizationState(authorization.state)) {
-  throw new Error("Google authorization requires a private pending Yomu action.");
-  }
-  return { browserWindow, url: oauthBrokerUrl(browserWindow.location.href, authorization.state) };
-}
-function googleAuthorizationStartError(error) {
-  return error instanceof Error ? error : new Error("Google authorization failed to start.");
-}
-function oauthBrokerUrl(returnUrl, state) {
-  const brokerUrl = new URL(OAUTH_BROKER_URL);
-  brokerUrl.searchParams.set("return_url", returnUrl);
-  brokerUrl.searchParams.set("client_id", WEB_OAUTH_CLIENT_ID);
-  brokerUrl.searchParams.set("state", state);
-  return brokerUrl.href;
-}
-function navigateToOAuthBroker(browserWindow, url) {
-  browserWindow.location.assign(url);
-}
-function readAuthRedirectCandidate() {
-  const browserWindow = currentBrowserWindow();
-  if (!browserWindow) return null;
-  scrubLegacyOAuthWindowName(browserWindow);
-  const envelope = readOAuthReturnEnvelope(browserWindow.location.href);
-  if (!envelope) return null;
-  clearOAuthReturnHash(browserWindow);
-  return oauthRedirectCandidate(envelope.state, envelope.payload);
-}
-function currentBrowserWindow() {
-  if (typeof window === "undefined") return null;
-  return window;
-}
-function readOAuthReturnEnvelope(href) {
-  const state = oauthReturnState(href);
-  if (!state) return null;
-  return { state, payload: parseOAuthReturnPayload(href) };
-}
-function oauthRedirectCandidate(state, payload) {
-  if (!isValidOAuthReturnPayload(state, payload)) {
-  return { ok: false, state, error: "Google authorization returned without a Yomu token." };
-  }
-  if (hasOAuthAccessToken(payload)) {
-  return {
-    ok: true,
-    state,
-    accessToken: payload.accessToken,
-    expiresInSeconds: oauthTokenLifetime(payload.expiresIn)
-  };
-  }
-  return { ok: false, state, error: payload.error || "Google authorization failed." };
-}
-function isValidOAuthReturnPayload(state, payload) {
-  if (!isCloudSettingsAuthorizationState(state)) return false;
-  if (!payload) return false;
-  if (payload.type !== OAUTH_TOKEN_PAYLOAD_TYPE) return false;
-  return payload.state === state;
-}
-function hasOAuthAccessToken(payload) {
-  return typeof payload.accessToken === "string" && Boolean(payload.accessToken);
-}
-function oauthTokenLifetime(value) {
-  const seconds = Number(value);
-  return seconds > 0 ? seconds : 3600;
-}
-function scrubLegacyOAuthWindowName(browserWindow) {
-  try {
-  const parsed = JSON.parse(browserWindow.name);
-  if (isRecord$3(parsed) && parsed.type === OAUTH_TOKEN_PAYLOAD_TYPE) browserWindow.name = "";
-  } catch {
-  }
-}
-function parseOAuthReturnPayload(href) {
-  const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
-  if (!encoded) return null;
-  try {
-  const parsed = JSON.parse(encoded);
-  return isRecord$3(parsed) ? parsed : null;
-  } catch {
-  return null;
-  }
-}
-function oauthReturnState(href) {
-  return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
-}
-function oauthHashParam(href, key) {
-  let hash = "";
-  try {
-  hash = new URL(href).hash.slice(1);
-  } catch {
-  return "";
-  }
-  const prefix = `${key}=`;
-  const entry = hash.split("&").find((part) => part.startsWith(prefix));
-  if (!entry) return "";
-  try {
-  return decodeURIComponent(entry.slice(prefix.length));
-  } catch {
-  return "";
-  }
-}
-function clearOAuthReturnHash(browserWindow) {
-  if (!browserWindow.history?.replaceState) return;
-  try {
-  const url = new URL(browserWindow.location.href);
-  url.hash = hashWithoutOAuthReturn(url.hash);
-  browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
-  } catch {
-  }
-}
-function hashWithoutOAuthReturn(hash) {
-  const remaining = hash.slice(1).split("&").filter(retainsOAuthHashPart).join("&");
-  return remaining ? `#${remaining}` : "";
-}
-function retainsOAuthHashPart(part) {
-  if (!part) return false;
-  const separator = part.indexOf("=");
-  const key = separator < 0 ? part : part.slice(0, separator);
-  return key !== OAUTH_RETURN_HASH_KEY && key !== OAUTH_TOKEN_HASH_KEY;
-}
-let identityServicesPromise = null;
-function loadIdentityServices() {
-  const existing = googleIdentityServices();
-  if (existing) return Promise.resolve(existing);
-  if (identityServicesPromise) return identityServicesPromise;
-  identityServicesPromise = new Promise((resolve, reject) => {
-  if (typeof document === "undefined") {
-    reject(new Error("Google Identity Services is unavailable in this context."));
-    return;
-  }
-  const script = document.createElement("script");
-  script.src = GIS_SCRIPT_URL;
-  script.async = true;
-  script.onload = () => {
-    const gis = googleIdentityServices();
-    if (gis) resolve(gis);
-    else reject(new Error("Google Identity Services failed to initialise."));
-  };
-  script.onerror = () => {
-    identityServicesPromise = null;
-    reject(new Error("Failed to load Google Identity Services."));
-  };
-  document.head.appendChild(script);
-  });
-  return identityServicesPromise;
-}
-function googleIdentityServices() {
-  const candidate = globalThis.google;
-  return candidate?.accounts?.oauth2 ? candidate : null;
-}
-function parseSettingsSnapshot(body) {
-  let parsed;
-  try {
-  parsed = JSON.parse(body);
-  } catch {
-  throw userFacingError("settingsImportUnsupportedFormat");
-  }
-  return validateCloudSettingsEnvelope(parsed);
-}
-function driveFileFromResponse(value) {
-  if (isRecord$3(value) && typeof value.id === "string") return value;
-  throw new Error("Google Drive did not return the saved file.");
-}
-function isUnauthorized(error) {
-  return error instanceof Error && /\(401\)|unauthor/i.test(error.message);
-}
-function googleTokenError(response) {
-  return response.error_description || response.error || "Google authorization failed.";
-}
-function randomBoundary() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-function renderAnkiTagsEditor(value, language2) {
-  const tags = ankiTagList(value);
-  return `
-        <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
-            <input type="hidden" name="ankiTags" value="${escapeHtml$1(tags.join(" "))}">
-            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapeHtml$1(uiText(language2, "ankiTags"))}</label>
-            <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${renderAnkiTagChipHtml(tags, language2)}</div>
-            <div class="jpdb-reader-tag-add-row">
-                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml$1(language2 === "ja" ? "タグを追加" : "Add tag")}">
-                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$1(language2 === "ja" ? "追加" : "Add")}</button>
-            </div>
-        </div>
-    `;
-}
-function updateAnkiTagsEditor(form, action, control) {
-  const editor = control?.closest("[data-anki-tags-editor]") ?? form.querySelector("[data-anki-tags-editor]");
-  const hidden = editor?.querySelector('input[name="ankiTags"]');
-  if (!editor || !hidden) return;
-  const language2 = formInterfaceLanguage(form);
-  const tags = ankiTagList(hidden.value);
-  updateAnkiTagList(editor, tags, action, control);
-  hidden.value = tags.join(" ");
-  dispatchAuthorizedReaderControlEvent(hidden, new Event("input", { bubbles: true }));
-  renderAnkiTagChips(editor, tags, language2);
-}
-function updateAnkiTagList(editor, tags, action, control) {
-  if (action === "anki-tag-add") {
-  addAnkiTags(editor, tags);
-  return;
-  }
-  removeAnkiTag(tags, control?.dataset.tag?.trim());
-}
-function addAnkiTags(editor, tags) {
-  const input2 = editor.querySelector("[data-anki-tag-input]");
-  if (!input2) return;
-  tags.push(...ankiTagList(input2.value).filter((tag) => !tags.includes(tag)));
-  input2.value = "";
-}
-function removeAnkiTag(tags, tag) {
-  if (!tag) return;
-  const index = tags.indexOf(tag);
-  if (index >= 0) tags.splice(index, 1);
-}
-function ankiTagList(value) {
-  return uniqueStrings(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
-}
-function renderAnkiTagChipHtml(tags, language2) {
-  return tags.map((tag) => `
-        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$1(tag)}" aria-label="${escapeHtml$1(tagRemoveLabel(tag, language2))}">
-            <span>${escapeHtml$1(tag)}</span>
-            <span aria-hidden="true">×</span>
-        </button>
-    `).join("");
-}
-function renderAnkiTagChips(editor, tags, language2) {
-  const list = editor.querySelector("[data-anki-tag-chips]");
-  if (!list) return;
-  setInnerHtml(list, renderAnkiTagChipHtml(tags, language2));
-}
-function tagRemoveLabel(tag, language2) {
-  return language2 === "ja" ? `タグを削除: ${tag}` : `${uiText(language2, "remove")}: ${tag}`;
-}
-function formInterfaceLanguage(form) {
-  const control = form.elements.namedItem("interfaceLanguage");
-  const value = control instanceof HTMLSelectElement ? control.value : form.lang;
-  return value === "auto" || value === "en" || value === "ja" ? value : "en";
-}
-const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
-const ANKI_MOBILE_FALLBACK_DECK = "Default";
-function escapedUiText$2(language2, key) {
-  return escapeHtml$1(uiText(language2, key));
-}
-function renderAnkiMiningSettingsPanel(settings, ankiStatus) {
-  return `
-            <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
-                <legend>Anki</legend>
-                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml$1(JSON.stringify(settings.ankiFieldMappings))}">
-                <input type="hidden" data-anki-scan-fields value="{}">
-                <input type="hidden" data-anki-scan-confidence value="{}">
-                <div class="jpdb-reader-anki-layout">
-                    <div class="jpdb-reader-anki-main">
-                        <div class="grid jpdb-reader-anki-connection-grid">
-                            ${checkbox("ankiEnabled", "Enable Anki mining", settings.ankiEnabled)}
-                            ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding via API", settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
-                            ${checkbox("ankiCaptureScreenshot", "Attach context image when possible", settings.ankiCaptureScreenshot)}
-                            ${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings.ankiMobileHandoff)}
-                            ${input("ankiConnectUrl", "AnkiConnect URL", settings.ankiConnectUrl)}
-                            <div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${ankiStatus.html}</div>
-                        </div>
-                        <div class="jpdb-reader-settings-subsection">
-                            <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
-                            <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
-                                <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText$2(settings.interfaceLanguage, "testAnki")}</button>
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText$2(settings.interfaceLanguage, "prepareAnki")}</button>
-                            </div>
-                            <div class="jpdb-reader-anki-model-update" data-anki-model-update hidden>
-                                <div class="jpdb-reader-help" data-anki-model-update-message></div>
-                                <div class="jpdb-reader-settings-actions">
-                                    <button class="jpdb-reader-btn" type="button" data-action="update-anki-model">${escapedUiText$2(settings.interfaceLanguage, "updateAnkiModel")}</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
-                            <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryChoices")}</div>
-                            <div class="jpdb-reader-help" data-anki-library-choices-help>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryChoicesHelp")}</div>
-                            <div class="jpdb-reader-anki-choice-grid">
-                                <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiDeckLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
-                                <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
-                            </div>
-                        </div>
-                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-template-settings">
-                            <div class="jpdb-reader-local-title" data-anki-template-settings-title>${escapedUiText$2(settings.interfaceLanguage, "ankiTemplateSettings")}</div>
-                            <div class="jpdb-reader-help" data-anki-template-settings-help>${escapedUiText$2(settings.interfaceLanguage, "ankiTemplateSettingsHelp")}</div>
-                            <div class="grid jpdb-reader-anki-card-grid">
-                                ${select("ankiTemplateMode", "Anki card template", settings.ankiTemplateMode, [["recognition", "Word first"], ["context", "Sentence first"]])}
-                                ${checkbox("ankiFrontReading", "Word-first front: show reading", settings.ankiFrontReading)}
-                                ${checkbox("ankiFrontSentence", "Word-first front: show sentence", settings.ankiFrontSentence)}
-                                ${checkbox("ankiFrontImage", "Show image on front", settings.ankiFrontImage)}
-                                ${renderAnkiTagsEditor(settings.ankiTags, settings.interfaceLanguage)}
-                            </div>
-                            <div data-anki-template-preview>
-                                ${renderAnkiTemplatePreview(settings)}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="jpdb-reader-settings-subsection jpdb-reader-anki-adapter" data-anki-library-adapter>
-                        <div class="jpdb-reader-local-title" data-anki-library-adapter-title>Existing library adapter</div>
-                        <div class="jpdb-reader-help" data-anki-library-availability>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryAdapterStatus")}</div>
-                        <div data-anki-field-mapping-editor>
-                            ${renderAnkiFieldMappingEditor(settings, settings.ankiModel, [], settings.interfaceLanguage)}
-                        </div>
-                    </div>
-                </div>
-            </fieldset>
-    `;
-}
-function applyAnkiModelUpdatePrompt(form, plan, language2) {
-  const prompt = form.querySelector("[data-anki-model-update]");
-  if (!prompt) return;
-  prompt.hidden = !plan;
-  if (plan) prompt.dataset.ankiModelUpdateTarget = plan.modelName;
-  else delete prompt.dataset.ankiModelUpdateTarget;
-  const message = prompt.querySelector("[data-anki-model-update-message]");
-  if (!message) return;
-  message.textContent = plan ? formatUiText(language2, "ankiModelUpdateAvailable", {
-  model: plan.modelName,
-  fields: plan.missingFields.join(", ")
-  }) : "";
-}
-function ankiModelUpdatePromptTarget(form) {
-  const prompt = form.querySelector("[data-anki-model-update]");
-  if (!prompt || prompt.hidden) return null;
-  return prompt.dataset.ankiModelUpdateTarget || null;
-}
-function renderAnkiLibraryOptions(options, value, language2 = "en") {
-  const values = uniqueStrings([value, ...options].filter(Boolean));
-  const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
-  return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText$2(language2, "scanAnkiFirst")}</option>`;
-}
-function renderAnkiDeckLibraryOptions(options, value, language2 = "en") {
-  return renderAnkiLibraryOptions([...options, ANKI_MOBILE_FALLBACK_DECK], value, language2);
-}
-function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, scannedFields = [], language2 = settings.interfaceLanguage, confidenceByRole = {}) {
-  const model = modelName.trim();
-  const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
-  const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
-  const options = (selected = "") => [
-  `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language2, "notMapped")}</option>`,
-  ...fields.map((field) => `<option value="${escapeHtml$1(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$1(field)}</option>`)
-  ].join("");
-  const rows = ANKI_FIELD_MAPPING_ROLES.map((role) => {
-  const value = mapping[role] ?? "";
-  const roleLabel = ankiFieldMappingRoleLabel(role, language2);
-  const confidence = value ? confidenceByRole[role] : void 0;
-  return `
-                <label>
-                    <span class="jpdb-reader-anki-field-role-row">
-                        <span>${escapeHtml$1(roleLabel)}</span>
-                        ${confidence ? renderAnkiMappingConfidence(confidence, language2) : ""}
-                    </span>
-                    <select data-anki-field-role="${escapeHtml$1(role)}" aria-label="${escapeHtml$1(uiText(language2, "ankiFieldMappingSelect").replace("{role}", roleLabel))}">
-                        ${options(value)}
-                    </select>
-                </label>
-        `;
-  }).join("");
-  const emptyState = fields.length ? "" : `<div class="jpdb-reader-help">${escapedUiText$2(language2, "noScannedFields")}</div>`;
-  return `
-            <div data-anki-field-mapping-model="${escapeHtml$1(model)}">
-                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language2, "mappingForNoteType").replace("{model}", model || uiText(language2, "currentNoteType")))}</div>
-                <div class="grid">
-                    ${rows}
-                </div>
-                ${fields.length ? `<div class="jpdb-reader-help">${escapedUiText$2(language2, "ankiMappingConfidenceHelp")}</div>` : ""}
-                ${emptyState}
-            </div>
-    `;
-}
-function renderAnkiMappingConfidence(confidence, language2) {
-  const key = confidence === "high" ? "ankiMappingHighConfidence" : confidence === "medium" ? "ankiMappingMediumConfidence" : "ankiMappingLowConfidence";
-  return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText$2(language2, key)}</span>`;
-}
-function ankiFieldMappingRoleLabel(role, language2) {
-  return {
-  expression: uiText(language2, "ankiRoleExpression"),
-  reading: uiText(language2, "ankiRoleReading"),
-  meaning: uiText(language2, "ankiRoleMeaning"),
-  sentence: uiText(language2, "ankiRoleSentence"),
-  audio: uiText(language2, "ankiRoleAudio"),
-  sentenceAudio: uiText(language2, "ankiRoleSentenceAudio"),
-  image: uiText(language2, "ankiRoleImage")
-  }[role];
-}
-function renderDeckControls(settings, decks, hasApiKey, language2 = settings.interfaceLanguage) {
-  const disabled = !hasApiKey || !decks.length;
-  const deckOptions = decks.map((deck) => [deck.id, deck.name]);
-  const miningOptions = [["forq", "FORQ"], ...deckOptions];
-  const newTabOptions = [["all", "All study decks"], ["never-forget", "Never forget"], ...deckOptions];
-  return `
-        <div class="grid">
-            ${deckSelect("miningDeck", "Mining deck", settings.miningDeck, miningOptions, disabled, language2)}
-            ${checkbox("autoMineOnReview", "Add reviewed words to the mining deck automatically", settings.autoMineOnReview)}
-            ${deckSelect("newTabJpdbDeck", "New tab JPDB deck", settings.newTabJpdbDeck, newTabOptions, disabled, language2)}
-            ${deckSelect("neverForgetDeck", "Never forget deck", settings.neverForgetDeck, deckOptions, disabled, language2)}
-            ${deckSelect("blacklistDeck", "Blacklist deck", settings.blacklistDeck, deckOptions, disabled, language2)}
-        </div>
-        <div class="jpdb-reader-help">${hasApiKey ? decks.length ? "Decks are loaded from your JPDB account." : "Could not load decks yet; saved deck IDs will be kept." : "Add your JPDB API key to choose decks."}</div>
-    `;
-}
-function deckSelect(name, label, value, options, disabled, language2) {
-  const hasValue = options.some(([optionValue]) => optionValue === value);
-  const savedLabel = uiText(language2, "savedValue").replace("{value}", value);
-  const merged = hasValue || !value ? options : [[value, savedLabel], ...options];
-  return `<label>${label}
-        <select name="${name}" ${disabled ? "disabled" : ""}>
-            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`).join("")}
-        </select>
-        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">` : ""}
-    </label>`;
-}
-function renderAnkiTemplatePreview(settings) {
-  const contextMode = settings.ankiTemplateMode === "context";
-  const front = contextMode ? `${settings.ankiFrontImage ? "<small>Image appears above the prompt when available.</small>" : ""}<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>` : [
-  '<div class="jpdb-reader-template-expression">読む</div>',
-  settings.ankiFrontReading ? '<div class="jpdb-reader-template-reading">よむ</div>' : "",
-  settings.ankiFrontSentence ? '<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div>' : "",
-  settings.ankiFrontImage ? "<small>Image appears on the front when available.</small>" : "",
-  "<small>Recall the meaning first.</small>"
-  ].filter(Boolean).join("");
-  return `
-        <div class="jpdb-reader-template-preview">
-            <div class="jpdb-reader-template-preview-title">${contextMode ? "Sentence first preset" : "Word first preset"}</div>
-            <div class="jpdb-reader-template-preview-grid">
-                <div>
-                    <strong>Front</strong>
-                    ${front}
-                </div>
-                <div>
-                    <strong>Back</strong>
-                    <div class="jpdb-reader-template-expression">読む</div>
-                    <div class="jpdb-reader-template-reading">よむ</div>
-                    <div class="jpdb-reader-template-meaning">to read</div>
-                    <small>Includes dictionary, kanji, pitch, frequency, source, and image fields when available.</small>
-                </div>
-            </div>
-        </div>
-    `;
-}
-const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android`;
-function escapedUiText$1(language2, key) {
-  return escapeHtml$1(uiText(language2, key));
-}
-function renderJpdbStatusLine(settings) {
-  const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
-  return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
-}
-function renderBunproStatusLine(settings) {
-  const line = bunproStatusLineForSettings(settings, settings.interfaceLanguage);
-  return `<div class="jpdb-reader-help jpdb-reader-status-line" data-bunpro-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
-}
-function renderWanikaniStatusLine(settings) {
-  const line = wanikaniStatusLineForSettings(settings, settings.interfaceLanguage);
-  return `<div class="jpdb-reader-help jpdb-reader-status-line" data-wanikani-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
-}
-function wanikaniStatusLineForSettings(settings, language2) {
-  const japanese = resolveUiLanguage(language2) === "ja";
-  return hasWanikaniApiCredential(settings) ? { message: japanese ? "WaniKaniトークン保存済み（確認中）。" : "WaniKani token saved (checking).", tone: "pending" } : { message: japanese ? "WaniKaniトークンなし。" : "No WaniKani token.", tone: "pending" };
-}
-function formatStatusTemplate(template, values) {
-  return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
-}
-function jpdbStatusLineForSettings(settings, language2) {
-  return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language2);
-}
-function bunproStatusLineForSettings(settings, language2) {
-  if (!hasBunproFrontendCredential(settings)) {
-  return {
-    message: resolveUiLanguage(language2) === "ja" ? "Bunproトークンなし。" : "No Bunpro token.",
-    tone: "pending"
-  };
-  }
-  if (isBunproFrontendCredentialExpired(settings)) {
-  return {
-    message: resolveUiLanguage(language2) === "ja" ? "Bunproトークンの期限切れ。" : "Bunpro token expired.",
-    tone: "error"
-  };
-  }
-  const expiresAt = settings.bunproFrontendApiTokenExpiresAt?.trim() ?? "";
-  const date = expiresAt ? new Date(expiresAt) : null;
-  const expires = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(resolveUiLanguage(language2) === "ja" ? "ja-JP" : "en-GB") : "";
-  return {
-  message: expires ? resolveUiLanguage(language2) === "ja" ? `Bunproトークン保存済み（未確認）。期限: ${expires}` : `Bunpro token saved (not verified). Expires ${expires}.` : resolveUiLanguage(language2) === "ja" ? "Bunproトークン保存済み（未確認）。" : "Bunpro token saved (not verified).",
-  tone: "pending"
-  };
-}
-function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language2) {
-  if (!hasJpdbApiKey && !hasJitenApiKey) {
-  return {
-    message: jitenAwareMissingApiKeyMessage(language2),
-    tone: "pending"
-  };
-  }
-  if (hasJpdbApiKey && hasJitenApiKey) {
-  return {
-    message: uiText(language2, "jpdbAndJitenApiKeysConfigured"),
-    tone: "success"
-  };
-  }
-  if (!hasJpdbApiKey) {
-  return {
-    message: jitenApiKeyConfiguredMessage(language2),
-    tone: "success"
-  };
-  }
-  return {
-  message: uiText(language2, "jpdbApiKeyConfigured"),
-  tone: "success"
-  };
-}
-function jitenAwareMissingApiKeyMessage(language2) {
-  return resolveUiLanguage(language2) === "ja" ? "JitenまたはJPDBキーなし。" : "No Jiten or JPDB key.";
-}
-function jitenApiKeyConfiguredMessage(language2) {
-  return resolveUiLanguage(language2) === "ja" ? "Jitenキーあり。" : "Jiten key set.";
-}
-function ankiStatusLineForSettings(settings, language2) {
-  return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language2);
-}
-function formatSettingsStatusLine(line, language2) {
-  return `${escapedUiText$1(language2, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml$1(line.message)}`;
-}
-function renderAnkiStatusHtml(line, language2) {
-  const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml$1(line.state)}">${escapedUiText$1(language2, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
-  const summary = `<div class="jpdb-reader-status-main">${chip}${formatSettingsStatusLine(line, language2)}</div>`;
-  const actions = [...line.details ?? [], ...ankiStatusActions(line.action, language2)];
-  if (!actions.length) return summary;
-  return `${summary}<ul class="jpdb-reader-status-checklist">${actions.map(renderStatusAction).join("")}</ul>`;
-}
-function ankiAdapterStateLabelKey(state) {
-  const keys = {
-  disabled: "adapterStateDisabled",
-  probing: "adapterStateProbing",
-  unreachable: "adapterStateUnreachable",
-  connected: "adapterStateConnected",
-  scanning: "adapterStateScanning",
-  suggested: "adapterStateSuggested",
-  stale: "adapterStateStale",
-  ready: "adapterStateReady"
-  };
-  return keys[state];
-}
-function renderStatusAction(action) {
-  const label = action.href ? `<a href="${escapeHtml$1(action.href)}" target="_blank" rel="noopener">${escapeHtml$1(action.label)}</a>` : escapeHtml$1(action.label);
-  return `<li>${label}${action.suffix ? ` <span>${escapeHtml$1(action.suffix)}</span>` : ""}</li>`;
-}
-function ankiStatusActions(action, language2) {
-  if (action === "anki-unreachable") {
-  const actions = [
-    { label: uiText(language2, "ankiStatusOpenDesktop") },
-    { label: uiText(language2, "ankiStatusInstallAddon"), href: ANKI_CONNECT_ADDON_URL },
-    { label: uiText(language2, "ankiStatusMobileDocs"), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language2, "ankiStatusUseDesktopUrl") }
-  ];
-  if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname)) {
-    if (!hasUserscriptAnkiBridge()) {
-      actions.unshift(
-        { label: uiText(language2, "ankiStatusEnableUserscript") },
-        { label: uiText(language2, "ankiStatusRefreshAndCheck") }
-      );
-    }
-    actions.push({
-      label: formatUiText(language2, "ankiHostedCorsHint", { origin: location.origin })
-    });
-  }
-  return actions;
-  }
-  return [];
-}
-function settingsStatusToneLabelKey(tone) {
-  if (tone === "success") return "statusReady";
-  if (tone === "error") return "statusError";
-  return "statusAttention";
-}
-function ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, language2) {
-  if (!ankiEnabled) {
-  return {
-    message: uiText(language2, "ankiMiningDisabledStatus"),
-    tone: "pending",
-    state: "disabled"
-  };
-  }
-  return {
-  message: formatStatusTemplate(uiText(language2, "ankiCheckingConnection"), {
-    url: ankiConnectUrl.trim()
-  }),
-  tone: "pending",
-  state: "probing"
-  };
-}
-function localizeJpdbStatus(form, language2) {
-  const status = form.querySelector("[data-jpdb-status]");
-  if (!status) return;
-  const credentials = redactedApiCredentialsFromForm(form);
-  const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language2);
-  status.dataset.statusTone = line.tone;
-  status.replaceChildren(line.message);
-}
-function localizeBunproStatus(form, language2) {
-  const status = form.querySelector("[data-bunpro-status]");
-  if (!status) return;
-  const credentials = redactedApiCredentialsFromForm(form);
-  const line = bunproStatusLineForSettings(credentials, language2);
-  status.dataset.statusTone = line.tone;
-  status.replaceChildren(line.message);
-}
-function localizeInitialAnkiStatus(form, language2) {
-  const status = form.querySelector("[data-anki-status]");
-  if (!status || !isInitialAnkiSettingsStatus(status.textContent ?? "")) return;
-  const ankiEnabled = form.querySelector('input[name="ankiEnabled"]')?.checked ?? false;
-  const ankiConnectUrl = form.querySelector('input[name="ankiConnectUrl"]')?.value ?? "";
-  const line = ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, language2);
-  status.dataset.statusTone = line.tone;
-  setInnerHtml(status, renderAnkiStatusHtml(line, language2));
-}
-function isInitialAnkiSettingsStatus(value) {
-  return /Checking AnkiConnect|Anki mining disabled|AnkiConnect.*確認中|Ankiマイニングは無効/.test(value);
 }
 const CATALOG_BROWSE_CATEGORY_ORDER = [
   "terms",
@@ -57690,6 +57732,156 @@ function groupVisibleCatalogDictionaries(sections, entries2) {
   return groups.length ? [{ ...section, groups }] : [];
   });
 }
+function dictionaryInstallFailureText(language2, error) {
+  if (isStorageFull(error)) return uiText(language2, "dictionaryStorageFull");
+  const copyKey = userFacingCopyKeyOf(error) ?? "dictionaryDownloadFailed";
+  const copy = uiText(language2, copyKey);
+  const diagnostic = error instanceof Error ? error.message.trim() : "";
+  if (diagnostic.includes(copy.replace(/[.。]$/u, ""))) return diagnostic;
+  return diagnostic && copy === uiText("en", copyKey) ? `${copy} ${diagnostic}` : copy;
+}
+function isStorageFull(error) {
+  let current = error;
+  for (let depth = 0; current && depth < 4; depth++) {
+  if (current.name === "QuotaExceededError") return true;
+  current = current.cause;
+  }
+  return false;
+}
+const log$a = Logger.scope("SettingsFileIO");
+function recommendedDictionaryFilename(dictionary) {
+  if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
+  try {
+  const parsed = new URL(dictionary.downloadUrl);
+  const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
+  if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
+  } catch {
+  }
+  return `${dictionary.id}.zip`;
+}
+const READER_SETTINGS_BACKUP_FORMAT = "yomu-reader-settings";
+const READER_SETTINGS_BACKUP_VERSION = 3;
+const BACKUP_FIELDS = /* @__PURE__ */ new Set(["formatName", "formatVersion", "exportedAt", "settings", "storage", "dictionaries"]);
+function parseReaderSettingsBackup(value) {
+  if (!isRecord$3(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord$3(value.settings)) return null;
+  if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
+  const storage = value.storage;
+  if (storage !== void 0 && !isRecord$3(storage)) return null;
+  if (value.dictionaries !== void 0 && !isReaderDictionaryExport$1(value.dictionaries)) return null;
+  return { settings: value.settings, storage, dictionaries: value.dictionaries };
+}
+function readerDictionaryExportHasData(value) {
+  if (!isReaderDictionaryExport$1(value)) return false;
+  const record2 = value;
+  return arrayHasItems(record2.dictionaries) || arrayHasItems(record2.entries) || arrayHasItems(record2.terms) || arrayHasItems(record2.kanji) || arrayHasItems(record2.termMeta) || arrayHasItems(record2.kanjiMeta);
+}
+function isReaderDictionaryExport$1(value) {
+  if (!value || typeof value !== "object") return false;
+  const formatName = value.formatName;
+  return formatName === "yomu-yomitan-dictionaries" || formatName === "jpdb-reader-yomitan-dictionaries";
+}
+function arrayHasItems(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+async function pickFile(root, type) {
+  return (await pickFiles(root, type))[0] ?? null;
+}
+function pickFiles(root, type) {
+  const inputEl = root.querySelector(`input[data-file="${type}"]`);
+  if (!inputEl) {
+  log$a.warn("File picker input missing", { type });
+  return Promise.resolve([]);
+  }
+  return new Promise((resolve) => {
+  inputEl.onchange = () => {
+    const files = Array.from(inputEl.files ?? []);
+    inputEl.value = "";
+    resolve(files);
+  };
+  dispatchAuthorizedReaderControlClick(inputEl);
+  });
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
+}
+function dateStamp() {
+  return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+}
+function recommendedDictionaryForControl(control) {
+  const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
+  if (!dictionary) throw new Error("Recommended dictionary not found.");
+  return dictionary;
+}
+function recommendedDictionaryBuildHere(dictionary) {
+  if (!dictionary.latestUrl) return dictionary;
+  const readsAnyHost = Boolean(getUserscriptHttpRequest()) || readTrustedYomuUrl(location.href)?.originKind === "extension";
+  return recommendedDictionaryBuild(dictionary, readsAnyHost);
+}
+function recommendedDictionaryActionKey(button2) {
+  if (button2.dataset.current === "true") return "installed";
+  return button2.dataset.installed === "true" ? "update" : "install";
+}
+function recommendedDictionaryDownloadStatus(control, dictionaryName, language2) {
+  const action = control?.dataset.installed === "true" ? uiText(language2, "update") : uiText(language2, "dictionaryDownloading");
+  return `${dictionaryName}: ${action}...`;
+}
+function syncRecommendedDictionaryCards(form, operations, language2) {
+  form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
+  const operation = operations.get(button2.dataset.dictionaryId ?? "");
+  syncRecommendedDictionaryStatus(button2, operation);
+  if (operation && operation.state !== "failed") showRecommendedDictionaryBusy(button2, operation, language2);
+  else showRecommendedDictionaryAction(button2, language2);
+  });
+}
+function showRecommendedDictionaryAction(button2, language2) {
+  delete button2.dataset.importState;
+  delete button2.dataset.importMessage;
+  button2.disabled = button2.dataset.current === "true";
+  const label = uiText(language2, recommendedDictionaryActionKey(button2));
+  button2.replaceChildren(label);
+  button2.title = label;
+  button2.setAttribute("aria-label", label);
+}
+function showRecommendedDictionaryBusy(button2, operation, language2) {
+  const label = uiText(language2, operation.state === "installing" ? "installing" : "queued");
+  button2.disabled = true;
+  button2.dataset.importState = operation.state;
+  button2.dataset.importMessage = operation.message;
+  button2.replaceChildren(label);
+  button2.title = operation.message;
+  button2.setAttribute("aria-label", operation.message);
+}
+function syncRecommendedDictionaryStatus(button2, operation) {
+  const status = button2.closest(".jpdb-reader-recommended-item")?.querySelector("[data-recommended-dictionary-status]");
+  if (!status) return;
+  status.hidden = !operation;
+  if (operation) {
+  status.textContent = operation.message;
+  status.dataset.importState = operation.state;
+  } else {
+  status.textContent = "";
+  delete status.dataset.importState;
+  }
+}
+async function importRecommendedDictionary(dictionaries2, card, setStatus) {
+  const dictionary = recommendedDictionaryBuildHere(card);
+  const downloadUrl = dictionary.downloadUrl ?? "";
+  const importOptions = recommendedDictionaryImportOptions(dictionary);
+  return importOptions ? await dictionaries2.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), setStatus, importOptions) : await dictionaries2.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), setStatus);
+}
+function recommendedDictionaryFailureText(language2, error) {
+  if (!shouldPromptManualDictionaryDownload(error)) return dictionaryInstallFailureText(language2, error);
+  return `${userFacingErrorText(language2, "dictionaryDownloadBlocked", error)} ${uiText(language2, "dictionaryManualDownloadHint")}`;
+}
+function shouldPromptManualDictionaryDownload(error) {
+  const copyKey = userFacingCopyKeyOf(error);
+  return copyKey === "dictionaryDownloadBlocked" || copyKey === "dictionaryDownloadNeedsBridge";
+}
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML$1 = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const DICTIONARY_PLURAL_TEMPLATE_PATTERN = /^([\s\S]*?)\{count,\s*plural,\s*((?:(?:=?[a-z0-9]+)\s*\{[^{}]*\}\s*)+)\}([\s\S]*)$/iu;
 function renderRecommendedDictionaries(installed, learnerLanguage2 = "en", includeCatalogBrowse = true, targetLanguage2 = "ja", expandCatalogBrowse = true) {
@@ -57840,7 +58032,7 @@ function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLangua
     `;
 }
 function renderRecommendedDictionary(dictionary, installed, locale) {
-  const alreadyInstalled = typeof installed === "boolean" ? installed : isRecommendedDictionaryInstalled(dictionary, installed);
+  const alreadyInstalled = typeof installed === "boolean" ? installed : recommendedDictionaryInstallState(dictionary, installed);
   return `
         <div class="jpdb-reader-recommended-item"${catalogRecommendationAttributes(dictionary)}>
             <div>
@@ -57856,8 +58048,9 @@ function renderRecommendedDictionary(dictionary, installed, locale) {
 }
 function recommendedDictionaryAction(dictionary, alreadyInstalled) {
   if (dictionary.downloadUrl) {
-  return `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? "Update" : "Install"}
+  const current = alreadyInstalled === "current";
+  return `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${Boolean(alreadyInstalled)}"${current ? ' data-current="true" disabled' : ""}>
+                ${current ? "Installed" : alreadyInstalled ? "Update" : "Install"}
             </button>`;
   }
   if (!dictionary.helpUrl) return "";
@@ -57964,26 +58157,32 @@ function localizedNumber(value, locale) {
 function isRecommendedDictionaryInstalled(dictionary, installed) {
   return installed.some((item) => recommendedDictionaryMatchesInstalled(dictionary, item));
 }
+function recommendedDictionaryInstallState(dictionary, installed) {
+  const matches = installed.filter((item) => recommendedDictionaryMatchesInstalled(dictionary, item));
+  if (!matches.length) return false;
+  const build = recommendedDictionaryBuildHere(dictionary);
+  return matches.some((item) => recommendedDictionaryInstallIsCurrent(build, item.revision)) ? "current" : true;
+}
 function recommendedDictionaryMatchesInstalled(dictionary, installed) {
   if (dictionary.downloadUrl && installed.downloadUrl === dictionary.downloadUrl) return true;
+  if (yomitanDictionaryIdentity(installed.title) === recommendedDictionaryInstalledIdentity(dictionary)) return true;
   const tokenSets = recommendedDictionaryMatchTokenSets(dictionary);
   return [installed.title, installed.alias].map(dictionaryTitleTokens).some((tokens) => tokenSets.some((required) => required.every((token) => tokens.has(token))));
 }
 const RECOMMENDED_DICTIONARY_MATCH_TOKENS = {
   jitendex: [["jitendex"]],
-  jmdict: [["jmdict"]],
-  jmnedict: [["jmnedict"]],
   "wty-ja-ja": [["wty", "ja"]],
-  "pixiv-light": [["pixiv", "light"]],
-  kanjidic: [["kanjidic"]],
+  // The retired upstream card installed it as "PixivLight [2023-11-24]".
+  "pixiv-light": [["pixiv", "light"], ["pixivlight"]],
   "jpdb-kanji": [["jpdb", "kanji"]],
   "kanjium-pitch": [["kanjium", "pitch"], ["kanjium"], ["pitch", "accents"]],
   jiten: [["jiten"]],
-  "jpdbv2-kana": [["jpdb", "v2"], ["jpdbv2"]],
-  bccwj: [["bccwj"]]
+  bccwj: [["bccwj"]],
+  // The seed's JPDBv2㋕, as the retired hand-picked card installed it.
+  "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0": [["jpdb", "v2"], ["jpdbv2"]]
 };
 function recommendedDictionaryMatchTokenSets(dictionary) {
-  return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+  return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.catalogDictionaryId ?? dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
 }
 function dictionaryTitleTokens(value) {
   return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
@@ -59796,14 +59995,18 @@ function renderDictionariesSettingsPanel(settings, includeCatalogBrowse, expandC
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content hidden>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-help-key="popupOrderTitle">${escapedUiText(language2, "popupOrderTitle")}</div>
+                    <div class="jpdb-reader-help" data-help-key="popupOrderHelp">${escapedUiText(language2, "popupOrderHelp")}</div>
+                    <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
+                        ${renderDictionarySourceRows(settings)}
+                    </div>
+                </div>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language2, "checkingDictionaries")}</div>
                 ${renderLocalDictionaryStorageControls(settings)}
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language2, "parserProviderHelp")}</div>
                     ${select("parserProvider", text2("parserProvider"), settings.parserProvider, localizedOptions(text2, PARSER_PROVIDER_OPTIONS))}
-                </div>
-                <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
-                    ${renderDictionarySourceRows(settings)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language2, "lookupPills")}</div>
@@ -60662,9 +60865,8 @@ function localizedAudioUrlPlaceholder(input2, text2) {
 }
 function localizeRecommendedDictionaryButtons(form, text2) {
   form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
-  const installed = button2.dataset.installed === "true";
   const state = button2.dataset.importState;
-  const label = state === "installing" ? text2("installing") : state === "queued" ? text2("queued") : installed ? text2("update") : text2("install");
+  const label = state === "installing" ? text2("installing") : state === "queued" ? text2("queued") : text2(recommendedDictionaryActionKey(button2));
   button2.textContent = label;
   button2.title = button2.dataset.importMessage || label;
   button2.setAttribute("aria-label", button2.title);
@@ -61113,13 +61315,10 @@ function installShortcutCapture(root) {
   inputEl.addEventListener("keydown", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (event.key === "Backspace" || event.key === "Delete") {
-      inputEl.value = "";
-      syncDuplicateShortcutInputs(root, inputEl);
-      return;
-    }
-    inputEl.value = formatShortcutEvent(event);
-    syncDuplicateShortcutInputs(root, inputEl);
+    const shortcut = event.key === "Backspace" || event.key === "Delete" ? "" : formatShortcutEvent(event);
+    if (shortcut === inputEl.value) return;
+    inputEl.value = shortcut;
+    dispatchAuthorizedReaderControlEvent(inputEl, new Event("input", { bubbles: true }));
   });
   inputEl.addEventListener("input", () => syncDuplicateShortcutInputs(root, inputEl));
   inputEl.addEventListener("paste", (event) => event.preventDefault());
@@ -61619,70 +61818,6 @@ function isPendingCloudSettingsRecord(value) {
 function isFiniteTimestamp(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
-const log$a = Logger.scope("SettingsFileIO");
-function recommendedDictionaryFilename(dictionary) {
-  if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
-  try {
-  const parsed = new URL(dictionary.downloadUrl);
-  const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
-  if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
-  } catch {
-  }
-  return `${dictionary.id}.zip`;
-}
-const READER_SETTINGS_BACKUP_FORMAT = "yomu-reader-settings";
-const READER_SETTINGS_BACKUP_VERSION = 3;
-const BACKUP_FIELDS = /* @__PURE__ */ new Set(["formatName", "formatVersion", "exportedAt", "settings", "storage", "dictionaries"]);
-function parseReaderSettingsBackup(value) {
-  if (!isRecord$3(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord$3(value.settings)) return null;
-  if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
-  const storage = value.storage;
-  if (storage !== void 0 && !isRecord$3(storage)) return null;
-  if (value.dictionaries !== void 0 && !isReaderDictionaryExport$1(value.dictionaries)) return null;
-  return { settings: value.settings, storage, dictionaries: value.dictionaries };
-}
-function readerDictionaryExportHasData(value) {
-  if (!isReaderDictionaryExport$1(value)) return false;
-  const record2 = value;
-  return arrayHasItems(record2.dictionaries) || arrayHasItems(record2.entries) || arrayHasItems(record2.terms) || arrayHasItems(record2.kanji) || arrayHasItems(record2.termMeta) || arrayHasItems(record2.kanjiMeta);
-}
-function isReaderDictionaryExport$1(value) {
-  if (!value || typeof value !== "object") return false;
-  const formatName = value.formatName;
-  return formatName === "yomu-yomitan-dictionaries" || formatName === "jpdb-reader-yomitan-dictionaries";
-}
-function arrayHasItems(value) {
-  return Array.isArray(value) && value.length > 0;
-}
-async function pickFile(root, type) {
-  return (await pickFiles(root, type))[0] ?? null;
-}
-function pickFiles(root, type) {
-  const inputEl = root.querySelector(`input[data-file="${type}"]`);
-  if (!inputEl) {
-  log$a.warn("File picker input missing", { type });
-  return Promise.resolve([]);
-  }
-  return new Promise((resolve) => {
-  inputEl.onchange = () => {
-    const files = Array.from(inputEl.files ?? []);
-    inputEl.value = "";
-    resolve(files);
-  };
-  dispatchAuthorizedReaderControlClick(inputEl);
-  });
-}
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-}
-function dateStamp() {
-  return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-}
 const DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
 const DEFAULT_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
 function selectAnkiLibraryChoices(scan, currentDeck, currentModel) {
@@ -61739,6 +61874,10 @@ class SettingsPreviewBaseline {
   }
   markInterfaceLanguagePreviewed() {
   this.interfaceLanguagePreviewed = true;
+  }
+  /** Save made the previewed language the saved one: Cancel has nothing left to undo. */
+  commitInterfaceLanguagePreview() {
+  this.interfaceLanguagePreviewed = false;
   }
   restoreInterfaceLanguagePreview() {
   if (!this.interfaceLanguagePreviewed) return;
@@ -64022,9 +64161,11 @@ class SettingsRestoreCoordinator {
   restorePending = false;
   revision = 0;
   savePending = false;
+  editedDuringSave = false;
   activeSaves = /* @__PURE__ */ new Set();
   activeDurableOperations = /* @__PURE__ */ new Set();
   freezeSnapshots = /* @__PURE__ */ new WeakMap();
+  savedNotices = /* @__PURE__ */ new WeakSet();
   get importPending() {
   return this.restorePending;
   }
@@ -64056,6 +64197,7 @@ class SettingsRestoreCoordinator {
   beginSave(form) {
   if (this.saveIsBlocked(form)) return void 0;
   this.savePending = true;
+  this.editedDuringSave = false;
   try {
     this.sync(form);
   } catch (error) {
@@ -64082,8 +64224,9 @@ class SettingsRestoreCoordinator {
   saveConflictPending() {
   return this.savePending || this.activeDurableOperations.size > 0;
   }
-  finishSave(form) {
+  finishSave(form, saved = false) {
   this.savePending = false;
+  if (saved && !this.editedDuringSave) this.savedNotices.add(form);
   if (form.isConnected) this.sync(form);
   this.syncOtherCurrentForm(form);
   }
@@ -64133,10 +64276,22 @@ class SettingsRestoreCoordinator {
   const status = form.querySelector("[data-settings-save-status]");
   syncSettingsSaveControl(save, state);
   this.syncFormFreeze(form, save);
+  const message = this.saveStatusMessage(form, state);
   if (status) {
-    status.hidden = !state.message;
-    status.textContent = state.message;
+    status.hidden = !message;
+    status.textContent = message;
   }
+  }
+  /** "Settings saved." lasts until the next edit or the next operation on this form. */
+  saveStatusMessage(form, state) {
+  if (state.busy) this.savedNotices.delete(form);
+  if (state.message || !this.savedNotices.has(form)) return state.message;
+  return uiText(this.port.interfaceLanguage(), "settingsSaved");
+  }
+  /** The form changed, so it no longer holds only what was saved. */
+  noteEdited(form) {
+  if (this.savePending) this.editedDuringSave = true;
+  if (this.savedNotices.delete(form) && form.isConnected) this.sync(form);
   }
   showRestoreBlocked(form) {
   this.sync(form);
@@ -64760,15 +64915,6 @@ const log$6 = Logger.scope("SettingsDialog");
 const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
 const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-function recommendedDictionaryForControl(control) {
-  const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
-  if (!dictionary) throw new Error("Recommended dictionary not found.");
-  return dictionary;
-}
-function recommendedDictionaryDownloadStatus(control, dictionaryName, language2) {
-  const action = control?.dataset.installed === "true" ? uiText(language2, "update") : uiText(language2, "dictionaryDownloading");
-  return `${dictionaryName}: ${action}...`;
-}
 function settingsActionButton(control) {
   return control instanceof HTMLButtonElement ? control : control?.closest("button") ?? null;
 }
@@ -65144,6 +65290,7 @@ class SettingsDialogController {
     const settingsImportRevision = this.restoreCoordinator.beginSave(form);
     if (settingsImportRevision === void 0) return;
     const saveRequestId = ++this.saveRequestId;
+    let saved = false;
     const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
     void credentialPermission.then((consent) => {
       if (!acceptFirefoxAuthenticationInfoConsent(
@@ -65161,19 +65308,22 @@ class SettingsDialogController {
         this.dependencies.clearDictionarySourceOpenOverrides();
       }
       return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
-        this.afterSettingsSaved(form, saveRequestId);
+        saved = this.afterSettingsSaved(form, saveRequestId);
       });
     }).catch((error) => {
       log$6.error("Settings save failed", error);
       this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "settingsSaveFailed", error));
     }).finally(() => {
-      this.restoreCoordinator.finishSave(form);
+      this.restoreCoordinator.finishSave(form, saved);
+      if (saved) keepFocusInSettings(form);
     });
   }, () => reportInvalidSettingsForm(
     form,
     this.settings.interfaceLanguage,
     (message) => this.dependencies.toast(message)
   ));
+  form.addEventListener("input", (event) => this.noteSettingsEdited(form, event.target));
+  form.addEventListener("change", (event) => this.noteSettingsEdited(form, event.target));
   form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
   form.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || event.isComposing) return;
@@ -65234,8 +65384,14 @@ class SettingsDialogController {
     this.refreshSettingsJapaneseParse(form);
   });
   }
+  /**
+   * Save keeps the dialog open: learners tweak, save and tweak again.
+   * notifySettingsPersisted already made the saved settings the preview
+   * baseline, so a later Cancel discards only edits made after this Save.
+   */
   afterSettingsSaved(form, saveRequestId) {
-  if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return;
+  if (!this.settingsSaveEffectsAreCurrent(form, saveRequestId)) return false;
+  this.previewBaseline.commitInterfaceLanguagePreview();
   const effects = [
     ["JPDB cache clear", () => this.dependencies.jpdb.clear()],
     ["theme refresh", () => this.dependencies.applyTheme()],
@@ -65243,16 +65399,16 @@ class SettingsDialogController {
     ["subtitle refresh", () => this.dependencies.subtitles.refresh()],
     ["OCR refresh", () => this.dependencies.ocr.refresh()],
     ["YouTube refresh", () => this.dependencies.youtube.refresh()],
-    ["preview cleanup", () => this.dependencies.clearSettingsPreview()],
-    ["settings dialog dismissal", () => this.dismissSettings()],
     ["dictionary rescan scheduling", () => this.dependencies.scheduleDictionaryRescan()],
     ["new-tab refresh", () => this.dependencies.refreshNewTabIfCurrent()],
-    ["settings save status reporting", () => this.dependencies.toast(
-      uiText(this.settings.interfaceLanguage, "settingsSaved")
-    )],
     ["dictionary style refresh", () => this.refreshDictionaryStylesAfterSave()]
   ];
   for (const [label, effect] of effects) this.runPostCommitSettingsEffect(label, effect);
+  return true;
+  }
+  noteSettingsEdited(form, target) {
+  if (target?.matches?.("[data-settings-search]")) return;
+  this.restoreCoordinator.noteEdited(form);
   }
   settingsSaveEffectsAreCurrent(form, saveRequestId) {
   return this.currentForm === form && form.isConnected && this.saveRequestId === saveRequestId;
@@ -65323,6 +65479,7 @@ class SettingsDialogController {
     if (input2) input2.value = next;
     applyThemePreview();
     this.syncThemeSwitch(form);
+    this.restoreCoordinator.noteEdited(form);
     publishSettingsChange({ theme: next }, { preview: true });
   });
   bindLiveSettingsSync(form, {
@@ -65480,7 +65637,7 @@ class SettingsDialogController {
   this.bindAnkiEditorControls(form);
   form.addEventListener("change", (event) => this.handleSettingsFormChange(form, event));
   installShortcutCapture(form);
-  installSourceRowDrag(form);
+  installSourceRowDrag(form, () => this.restoreCoordinator.noteEdited(form));
   this.actionRouter.bind(form);
   }
   bindMediaEditorControls(form) {
@@ -66057,40 +66214,7 @@ class SettingsDialogController {
   this.syncRecommendedDictionaryInstallControls(form);
   }
   syncRecommendedDictionaryInstallControls(form) {
-  form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
-    const dictionaryId = button2.dataset.dictionaryId ?? "";
-    const operation = this.recommendedDictionaryOperations.get(dictionaryId);
-    const status = button2.closest(".jpdb-reader-recommended-item")?.querySelector("[data-recommended-dictionary-status]");
-    if (!operation) {
-      delete button2.dataset.importState;
-      delete button2.dataset.importMessage;
-      button2.disabled = false;
-      button2.removeAttribute("disabled");
-      if (status) {
-        status.hidden = true;
-        status.textContent = "";
-        delete status.dataset.importState;
-      }
-      const installed = button2.dataset.installed === "true";
-      const label2 = installed ? uiText(this.settings.interfaceLanguage, "update") : uiText(this.settings.interfaceLanguage, "install");
-      button2.replaceChildren(label2);
-      button2.title = label2;
-      button2.setAttribute("aria-label", label2);
-      return;
-    }
-    const label = uiText(this.settings.interfaceLanguage, operation.state === "installing" ? "installing" : "queued");
-    button2.disabled = true;
-    button2.dataset.importState = operation.state;
-    button2.dataset.importMessage = operation.message;
-    button2.replaceChildren(label);
-    button2.title = operation.message;
-    button2.setAttribute("aria-label", operation.message);
-    if (status) {
-      status.hidden = false;
-      status.dataset.importState = operation.state;
-      status.textContent = operation.message;
-    }
-  });
+  syncRecommendedDictionaryCards(form, this.recommendedDictionaryOperations, this.settings.interfaceLanguage);
   }
   async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
   if (await this.handleSettingsConnectionAction(form, action, control)) return true;
@@ -66122,33 +66246,32 @@ class SettingsDialogController {
     this.refreshSettingsJapaneseParse(form);
     return true;
   }
+  if (!this.applySettingsEditorAction(form, action, control)) return false;
+  this.restoreCoordinator.noteEdited(form);
+  return true;
+  }
+  applySettingsEditorAction(form, action, control) {
   if (isDictionarySourceOrderAction(action)) {
     updateSourceRowEditor(action, control);
-    return true;
-  }
-  if (isAudioSourceEditorAction(action)) {
+  } else if (isAudioSourceEditorAction(action)) {
     updateAudioSourceEditor(form, action, control);
     localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
     syncBrowserTtsVoiceOptions(form);
-    return true;
-  }
-  if (isLookupLinkEditorAction(action)) {
+  } else if (isLookupLinkEditorAction(action)) {
     updateDictionaryLookupLinkEditor(form, action, control);
     localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-    return true;
-  }
-  if (action === "anki-tag-add" || action === "anki-tag-remove") {
+  } else if (action === "anki-tag-add" || action === "anki-tag-remove") {
     updateAnkiTagsEditor(form, action, control);
-    return true;
+  } else {
+    return false;
   }
-  return false;
+  return true;
   }
   handleAnkiTagInputKeydown(form, event) {
   if (event.key !== "Enter") return false;
   const input2 = event.target?.closest("[data-anki-tag-input]");
   if (!input2) return false;
-  updateAnkiTagsEditor(form, "anki-tag-add", input2);
-  return true;
+  return this.handleSettingsEditorAction(form, "anki-tag-add", input2);
   }
   async handleSettingsAudioAction(form, action, control) {
   if (action !== "preview-audio") return false;
@@ -66718,30 +66841,37 @@ class SettingsDialogController {
   }
   async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
   const dictionary = recommendedDictionaryForControl(control);
-  if (this.recommendedDictionaryOperations.has(dictionary.id)) return;
+  const previous = this.recommendedDictionaryOperations.get(dictionary.id);
+  if (previous && previous.state !== "failed") return;
   const queuedMessage = formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryInstallQueued"), { dictionary: dictionary.name });
   this.setRecommendedDictionaryInstallState(form, dictionary.id, "queued", queuedMessage);
   setStatus(queuedMessage);
   await this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
+    const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
+    this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
+    setStatus(startedMessage);
+    let summary;
     try {
-      const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
-      this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
-      setStatus(startedMessage);
-      const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
+      summary = await importRecommendedDictionary(this.dependencies.dictionaries, dictionary, (message) => {
         setStatus(message);
         this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
       });
-      if (!summary) return;
       await this.persistDictionaryImport(summary);
-      setStatus(formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
-        dictionary: dictionary.name,
-        records: summary.entries.toLocaleString()
-      }));
-      await this.refreshDictionaryStatus(form);
-      this.dependencies.refreshNewTabIfCurrent();
-    } finally {
-      this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+    } catch (error) {
+      log$6.warn("Recommended dictionary install failed", { dictionary: dictionary.name }, error);
+      const message = recommendedDictionaryFailureText(this.settings.interfaceLanguage, error);
+      this.setRecommendedDictionaryInstallState(form, dictionary.id, "failed", message);
+      setStatus(message);
+      this.dependencies.toast(message);
+      return;
     }
+    this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+    setStatus(formatUiTemplate$1(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
+      dictionary: dictionary.name,
+      records: summary.entries.toLocaleString()
+    }));
+    await this.refreshDictionaryStatus(form);
+    this.dependencies.refreshNewTabIfCurrent();
   });
   }
   async persistDictionaryImport(summary) {
@@ -66760,60 +66890,6 @@ class SettingsDialogController {
   await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
   await this.dependencies.refreshDictionaryStyles();
   this.dependencies.scheduleDictionaryRescan();
-  }
-  async downloadRecommendedDictionary(dictionary, control, setStatus) {
-  if (!dictionary.downloadUrl) return null;
-  const downloadUrl = dictionary.downloadUrl;
-  try {
-    const importOptions = recommendedDictionaryImportOptions(dictionary);
-    return importOptions ? await this.dependencies.dictionaries.importFromUrl(
-      downloadUrl,
-      recommendedDictionaryFilename(dictionary),
-      (message) => setStatus(message),
-      importOptions
-    ) : await this.dependencies.dictionaries.importFromUrl(
-      downloadUrl,
-      recommendedDictionaryFilename(dictionary),
-      (message) => setStatus(message)
-    );
-  } catch (error) {
-    return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
-  }
-  }
-  handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
-  control?.removeAttribute("disabled");
-  if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
-    if (isUserFacingError(error)) throw error;
-    throw userFacingError("dictionaryDownloadFailed", {
-      cause: error,
-      diagnostic: error instanceof Error ? error.message : String(error)
-    });
-  }
-  const message = userFacingErrorText(this.settings.interfaceLanguage, "dictionaryDownloadBlocked", error);
-  const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
-  setStatus(status);
-  this.dependencies.toast(status);
-  log$6.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
-  return null;
-  }
-  /**
-   * Whether to offer "import the ZIP by hand" instead of failing outright.
-   *
-   * This used to substring-match `error.message` against fifteen hints such as
-   * 'blocked in this browser' and 'request bridge'. Not one of the five real
-   * strings contains any of them -- the copy says 'Download blocked.' and
-   * 'Download needs bridge; else import ZIP.' -- so the matcher always returned
-   * false and the manual-import recovery, written for exactly the case where a
-   * userscript manager refuses the request, could never reach anyone (GitHub #39).
-   *
-   * Matching rendered COPY is the defect: it is localized, it gets shortened for
-   * width, and neither change touches this file. The copy KEY is stable, so that
-   * is what this reads.
-   */
-  shouldPromptManualDictionaryDownload(error, downloadUrl) {
-  if (!downloadUrl.startsWith("http://") && !downloadUrl.startsWith("https://")) return false;
-  const copyKey = userFacingCopyKeyOf(error);
-  return copyKey === "dictionaryDownloadBlocked" || copyKey === "dictionaryDownloadNeedsBridge";
   }
   async importReaderSettingsFromFile(form, setStatus) {
   const file = await pickFile(form, "settings");
@@ -66885,6 +66961,12 @@ function settingsWithDiscoveredDictionaries(current, summary) {
   );
   if (JSON.stringify(merged) === JSON.stringify(current.dictionaryPreferences)) return null;
   return captureActiveLanguageProfileDictionaries(current, merged);
+}
+function keepFocusInSettings(form) {
+  if (!form.isConnected) return;
+  const active = document.activeElement;
+  if (active && active !== document.body) return;
+  form.querySelector('button[type="submit"]')?.focus({ preventScroll: true });
 }
 function publishSettingsChange(settings, options = {}) {
   publishSettingsChange$1({ preview: options.preview === true, settings });
@@ -68028,11 +68110,15 @@ async function installOfflineParsingDictionaries(options) {
     ));
     result.installed.push(target.name);
   } catch (error) {
-    result.failed.push(target.name);
-    log$3.warn("Offline dictionary install failed", { dictionary: target.name }, error);
+    recordOfflineInstallFailure(result, target.name, error, options.getSettings().interfaceLanguage);
   }
   }
   return result;
+}
+function recordOfflineInstallFailure(result, name, error, language2) {
+  result.failed.push(name);
+  result.reason ??= `${name}: ${dictionaryInstallFailureText(language2, error)}`;
+  log$3.warn("Offline dictionary install failed", { dictionary: name }, error);
 }
 async function offlineDictionarySetupPlan(store, learnerLanguage2, targetLanguage2, result) {
   const targets2 = offlineStartersForProfile(learnerLanguage2, targetLanguage2);
@@ -69027,6 +69113,7 @@ async function validateDexieJson(file) {
   return counts;
 }
 const log$2 = Logger.scope("Yomitan");
+const DICTIONARY_DOWNLOAD_TIMEOUT_MS = 12e4;
 function filenameFromUrl(url) {
   try {
   const parsed = new URL(url);
@@ -69076,8 +69163,20 @@ function formatBytes(value) {
 async function requestBlob(url, proxyUrl, onProgress, language2 = "en") {
   const done = log$2.time("Dictionary download", { host: safeHost(url) });
   const userscriptRequest = getUserscriptHttpRequest();
-  if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
-  return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
+  if (!userscriptRequest) return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
+  if (!studyPageCanFetch(url)) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
+  return await requestBlobOnStudyPage(url, userscriptRequest, done, onProgress, language2);
+}
+function studyPageCanFetch(url) {
+  return url.startsWith("https://") && isYomuNewTabUrl(location.href);
+}
+async function requestBlobOnStudyPage(url, userscriptRequest, done, onProgress, language2) {
+  try {
+  return await fetchDictionaryBlob(url, url, "", done, onProgress, language2);
+  } catch (error) {
+  if (isDictionaryCorsError(error)) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
+  return handleDictionaryFetchError(url, url, error, done);
+  }
 }
 function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2 = "en") {
   return requestViaUserscriptManager(userscriptRequest, {
@@ -69086,7 +69185,7 @@ function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, lang
     url,
     headers: { accept: "application/zip,application/octet-stream,*/*" },
     responseType: "blob",
-    timeout: 12e4,
+    timeout: DICTIONARY_DOWNLOAD_TIMEOUT_MS,
     onprogress: (event) => {
       if (event.lengthComputable && event.total > 0) {
         onProgress?.(`${uiText(language2, "dictionaryDownloadProgress")} ${Math.round(event.loaded / event.total * 100)}%...`);
@@ -69111,12 +69210,12 @@ function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, lang
   onError: () => {
     log$2.warn("Dictionary download failed", { host: safeHost(url) });
     done();
-    return userFacingError("dictionaryDownloadFailed", { diagnostic: "The userscript manager reported a request error." });
+    return userFacingError("dictionaryDownloadFailed", { diagnostic: `The userscript manager's request to ${safeHost(url)} failed.` });
   },
   onTimeout: () => {
     log$2.warn("Dictionary download timed out", { host: safeHost(url) });
     done();
-    return userFacingError("dictionaryDownloadTimedOut", { diagnostic: "The dictionary download exceeded its 120s budget." });
+    return userFacingError("dictionaryDownloadTimedOut");
   }
   });
 }
@@ -69140,29 +69239,37 @@ async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress,
   credentials: "omit",
   redirect: "follow",
   referrerPolicy: "no-referrer",
-  timeoutMs: 12e4,
+  timeoutMs: DICTIONARY_DOWNLOAD_TIMEOUT_MS,
   allowDirectCrossOrigin: true
   });
   if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
-  const blob = await responseBlobWithProgress(response, onProgress, language2);
+  const blob = await readDictionaryBody(response, onProgress, language2);
   log$2.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
   done();
   return blob;
 }
+async function readDictionaryBody(response, onProgress, language2) {
+  try {
+  return await responseBlobWithProgress(response, onProgress, language2);
+  } catch (error) {
+  if (isUserFacingError(error)) throw error;
+  throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
+  }
+}
 async function responseBlobWithProgress(response, onProgress, language2) {
-  if (!response.body || !onProgress) return response.blob();
+  if (!response.body) return response.blob();
   const total = Number(response.headers.get("content-length") ?? 0);
   const type = response.headers.get("content-type") || "application/zip";
   const reader = response.body.getReader();
   const chunks = [];
   let loaded = 0;
   for (; ; ) {
-  const { value, done } = await reader.read();
+  const { value, done } = await readChunkWithinBudget(reader);
   if (done) break;
   const chunk = localBytesFromView(value);
   chunks.push(chunk);
   loaded += chunk.byteLength;
-  onProgress(formatDictionaryDownloadProgress(language2, loaded, total));
+  onProgress?.(formatDictionaryDownloadProgress(language2, loaded, total));
   }
   const bytes = new Uint8Array(loaded);
   let offset = 0;
@@ -69171,6 +69278,20 @@ async function responseBlobWithProgress(response, onProgress, language2) {
   offset += chunk.byteLength;
   }
   return new Blob([bytes.buffer.slice(0)], { type });
+}
+async function readChunkWithinBudget(reader) {
+  let stalled = false;
+  const timer = setTimeout(() => {
+  stalled = true;
+  void reader.cancel().catch(() => void 0);
+  }, DICTIONARY_DOWNLOAD_TIMEOUT_MS);
+  try {
+  const result = await reader.read();
+  if (stalled) throw userFacingError("dictionaryDownloadTimedOut");
+  return result;
+  } finally {
+  clearTimeout(timer);
+  }
 }
 function formatDictionaryDownloadProgress(language2, loaded, total) {
   const label = uiText(language2, "dictionaryDownloadProgress");
@@ -69190,6 +69311,7 @@ function handleDictionaryFetchError(url, downloadUrl, error, done) {
   }
   log$2.warn("Dictionary download fetch failed", { host, error });
   done();
+  if (isUserFacingError(error)) throw error;
   throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
 }
 function formatDictionaryDownloadFailed(language2, status) {
@@ -71605,12 +71727,12 @@ ${entry.reading}`;
     // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
     // duplicate term rows double every lookup's index scans.
     async deleteDictionariesWithSameIdentity(dictionary, importing) {
-      const identity = yomitanDictionaryIdentity(dictionary);
+      const identity = yomitanDictionaryReplacementKey(dictionary);
       let stale = [];
       try {
         const db = await this.db();
         const installed = await this.getAllDictionaryInfo(db);
-        stale = installed.map((info) => info.title).filter((title) => title === dictionary || yomitanDictionaryIdentity(title) === identity);
+        stale = installed.map((info) => info.title).filter((title) => title === dictionary || yomitanDictionaryReplacementKey(title) === identity);
       } catch {
         stale = [dictionary];
       }
@@ -71911,7 +72033,7 @@ ${entry.reading}`;
       this.duplicateIdentitySweepDone = true;
       const byIdentity = /* @__PURE__ */ new Map();
       for (const info of items) {
-        const identity = yomitanDictionaryIdentity(info.title);
+        const identity = yomitanDictionaryReplacementKey(info.title);
         byIdentity.set(identity, [...byIdentity.get(identity) ?? [], info]);
       }
       const stale = [];

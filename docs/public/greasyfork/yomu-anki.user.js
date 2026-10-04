@@ -2947,7 +2947,8 @@ const EN = {
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
   jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  // Jiten takes a single word only into a word list (StudyDeckType 2).
+  jitenNeedsWordList: "To save words to Jiten, create a word list on jiten.moe.",
   addedToJiten: "Added to Jiten.",
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
@@ -2968,7 +2969,7 @@ const JA = {
   jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
   addedToJpdb: "JPDBに追加しました。",
   jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
-  chooseJitenStudyDeck: "先にJiten学習デッキを選択してください。",
+  jitenNeedsWordList: "Jitenに単語を保存するには、jiten.moeで単語リストを作成してください。",
   addedToJiten: "Jitenに追加しました。",
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
@@ -3635,6 +3636,7 @@ const COPY = {
   mirroredDictionaryLanguageNote: "Dictionaries for reading {language}.",
   install: "Install",
   installing: "Installing",
+  installed: "Installed",
   queued: "Queued",
   dictionaryGuide: "Guide",
   saveAfterInstall: "Save after install",
@@ -3666,6 +3668,7 @@ const COPY = {
   storageRuntimeUnavailable: "よむ storage is unavailable. Reload the page; if this continues, reinstall よむ.",
   dictionaryDownloadTimedOut: "Dictionary download timed out.",
   dictionaryDownloadNotZip: "Download was not a ZIP.",
+  dictionaryStorageFull: "Not enough storage space for this dictionary. Free up space or remove a dictionary, then try again.",
   dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
   dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
   dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
@@ -4112,6 +4115,8 @@ const COPY = {
   orderHeader: "Order",
   removeHeader: "Remove",
   definitionSource: "Definition source",
+  popupOrderTitle: "Popup order",
+  popupOrderHelp: "This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.",
   kanjiSection: "Kanji section",
   dragToReorder: "Drag to reorder",
   moveUp: "Move up",
@@ -4147,14 +4152,10 @@ const COPY = {
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
   recommendedJitendex: "Term definitions with examples.",
-  recommendedJmdict: "Core term definitions.",
-  recommendedJmnedict: "Proper names.",
   recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
   recommendedPixivLight: "Pixiv terms.",
-  recommendedKanjidic: "Kanji facts.",
   recommendedJpdbKanji: "JPDB kanji.",
   recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
-  recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
   recommendedBccwj: "Frequency badges from BCCWJ.",
   recommendedJiten: "Frequency badges from Jiten.",
   lines: "Lines",
@@ -4336,6 +4337,7 @@ dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
+dictionaryStorageFull	この辞書を保存する空き容量が足りません。空き容量を増やすか辞書を削除してから、もう一度お試しください。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
@@ -5254,6 +5256,7 @@ mirroredDictionarySearchNoResults	検索に一致する辞書がありません�
 mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
+installed	インストール済み
 queued	待機中
 dictionaryGuide	ガイド
 download	ダウンロード
@@ -5350,6 +5353,8 @@ displayName	表示名
 orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
+popupOrderTitle	ポップアップの順序
+popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動
@@ -5385,14 +5390,10 @@ sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
 recommendedJitendex	例文付きの語句定義です。
-recommendedJmdict	基本語句定義です。
-recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
-recommendedKanjidic	漢字情報です。
 recommendedJpdbKanji	JPDB漢字情報です。
 recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
-recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
@@ -6817,6 +6818,26 @@ function resolvedAnkiDeckName(deckOverride, settings) {
 }
 function resolvedAnkiModelName(settings) {
   return settings.ankiModel || "よむ Japanese";
+}
+function userFacingError(copyKey, options = {}) {
+  return Object.assign(
+  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+  { name: "UserFacingError", yomuUiCopyKey: copyKey }
+  );
+}
+const nativeEase = /* @__PURE__ */ new Map([
+  ["nothing", 1],
+  ["fail", 1],
+  ["something", 2],
+  ["hard", 2],
+  ["okay", 3],
+  ["pass", 3],
+  ["easy", 4]
+]);
+function ankiReviewAnswer(cardId, grade) {
+  const ease = nativeEase.get(grade);
+  if (!Number.isSafeInteger(cardId) || cardId <= 0 || ease === void 0) throw userFacingError("ankiConnectActionFailed");
+  return { cardId, ease };
 }
 const RTL_SCRIPTS = /* @__PURE__ */ new Set([
   "Adlm",
@@ -14703,15 +14724,6 @@ const ANKI_RENDERED_MEDIA_LIMIT = 12;
 const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
 const STATUS_INDEX_REBUILD_CANCELLED = Symbol("status-index-rebuild-cancelled");
 const log = Logger.scope("Anki");
-const ANKI_EASE_BY_GRADE = {
-  nothing: 1,
-  fail: 1,
-  something: 2,
-  hard: 2,
-  okay: 3,
-  pass: 3,
-  easy: 4
-};
 function ankiLookupWithUnavailableDetails(lookup) {
   const mark = (note) => ankiNoteHasRenderableDetails(note) ? note : { ...note, detailsUnavailable: true };
   const notes = lookup.notes.map(mark);
@@ -15792,9 +15804,9 @@ class AnkiConnectClient {
   }
   // Public review action used by card and newtab controls to answer rendered Anki review cards.
   async answerCard(cardId, grade) {
-  const ease = ankiEaseFromGrade(grade);
-  log.info("Answering Anki card", { cardId, grade, ease });
-  const accepted = await this.invoke("answerCards", { answers: [{ cardId, ease }] });
+  const answer = ankiReviewAnswer(cardId, grade);
+  log.info("Answering Anki card", { cardId, grade, ease: answer.ease });
+  const accepted = await this.invoke("answerCards", { answers: [answer] });
   if (!Array.isArray(accepted) || accepted.length !== 1 || accepted[0] !== true) {
     throw new Error(this.text("ankiConnectActionFailed"));
   }
@@ -16220,9 +16232,6 @@ function visibleArea(element) {
   const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
   const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
   return width * height;
-}
-function ankiEaseFromGrade(grade) {
-  return ANKI_EASE_BY_GRADE[grade] ?? 3;
 }
 function safeDocumentTitle() {
   return typeof document === "undefined" ? "" : document.title;
