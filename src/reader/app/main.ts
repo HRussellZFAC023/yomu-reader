@@ -307,7 +307,7 @@ import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReader
 import { rejectAsReaderSettingsUnavailable } from './settings-unavailable-error';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
-import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
+import { refreshContrastForChangedWords, refreshContrastForReaderWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import { hoverLookupScheduleDelay, retargetsPendingHoverOpen } from '../lookup/hover-scheduler';
@@ -759,7 +759,10 @@ export class ReaderApp {
         prepareAnkiWordEnrichmentBeforeRender: tokens => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
         prepareSubtitleTokensBeforeRender: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
         reconcileResolvedWordEffects: (tokens, roots) => this.queueResolvedWordEffects(tokens, roots),
-        noteRenderedRoots: roots => roots.forEach(root => this.registerRenderedWordsInRoot(root)),
+        notePaintedWords: words => {
+            this.renderedWords.registerWords(words);
+            refreshContrastForReaderWords(words);
+        },
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
     });

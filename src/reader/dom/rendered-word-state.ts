@@ -691,7 +691,7 @@ function clearRenderedWordDeckDataset(word: HTMLElement): void {
     delete word.dataset.deckNames;
 }
 
-function isRegisteredRenderedWord(element: HTMLElement): boolean {
+export function isRegisteredRenderedWord(element: HTMLElement): boolean {
     return element.matches('.jpdb-reader-word[data-yomu-word="true"], .jpdb-reader-word[data-vid][data-sid]');
 }
 

@@ -252,12 +252,17 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions =
                     ?? snippetWords[0];
                 const headingWords = document.querySelectorAll('#weblio-heading .jpdb-reader-word');
                 const weblioSnippetWords = document.querySelectorAll('#weblio-snippet .jpdb-reader-word');
-                return chip
-                    && chip.textContent?.includes('検索結果')
-                    && snippetWord
-                    && snippetWords.length >= 4
-                    && headingWords.length > 0
-                    && weblioSnippetWords.length > 0;
+                if (!chip) return false;
+                const chipRect = chip.getBoundingClientRect();
+                const projected = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
+                    .filter(reading => {
+                        const x = Number(reading.dataset.yomuSourceLeft) + Number(reading.dataset.yomuSourceWidth) / 2;
+                        const y = Number(reading.dataset.yomuSourceTop) + Number(reading.dataset.yomuSourceHeight) / 2;
+                        return [x >= chipRect.left, x <= chipRect.right, y >= chipRect.top, y <= chipRect.bottom].every(Boolean);
+                    }).map(reading => reading.textContent?.trim()));
+                return [chip.textContent?.includes('検索結果'), snippetWord, snippetWords.length >= 4,
+                    headingWords.length > 0, weblioSnippetWords.length > 0,
+                    projected.has('けんさくけっか'), projected.has('ひょうじ')].every(Boolean);
             }, null, { timeout: 20_000 });
         } catch (error) {
             const debug = await page.evaluate(() => ({
@@ -620,20 +625,19 @@ function assertGoogleChip(chip, label) {
     // reading itself must be painted, not hidden until the user hovers.
     assert(chip.projectedReadings.length > 0,
         `${label}: Google chip is not annotated at rest`, chip);
-    assert(chip.projectedReadings.every(reading => reading.visible),
-        `${label}: Google chip reading is present but not visible at rest`, chip);
+    assertGoogleChipRevealed(chip, label);
 }
 
 function assertGoogleChipRevealed(chip, label) {
     const readings = new Set(chip.projectedReadings.map(reading => reading.text));
     assert(readings.has('けんさくけっか') && readings.has('ひょうじ'),
-        `${label}: Google chip hover readings are incomplete`, chip);
+        `${label}: Google chip readings are incomplete`, chip);
     assert(chip.projectedReadings.every(reading => reading.visible),
-        `${label}: Google chip hover reading is not visible`, chip);
+        `${label}: Google chip reading is not visible`, chip);
     assert(chip.projectedReadings.every(reading => Math.abs(reading.centerDelta) <= 1),
-        `${label}: Google chip hover reading is not centred on its source`, chip);
+        `${label}: Google chip reading is not centred on its source`, chip);
     assert(chip.projectedReadings.every(reading => Math.abs(reading.baseGap) <= 1),
-        `${label}: Google chip hover reading is detached from its source`, chip);
+        `${label}: Google chip reading is detached from its source`, chip);
 }
 
 function assertGoogleClippedRows(snapshot, label) {

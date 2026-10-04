@@ -6,6 +6,7 @@ import {
     removeNonDestructiveScanMirrors,
     setRubyDistortsConstrainedRowsForTest,
 } from '../../src/reader/dom';
+import { PaintedWordRecorder } from '../../src/reader/dom/painted-word-recorder';
 import { readRenderedWordPrivateState } from '../../src/reader/dom/rendered-word-private-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -229,10 +230,17 @@ describe('non-destructive mirror preserves page-owned clips', () => {
             const richMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
             expect(richMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.pitchClass).toBe('heiban');
 
+            const touched = new PaintedWordRecorder();
+            touched.watch(target.parent);
             applyTokensToScanTarget({ ...target, nonDestructive: true }, [partialToken], renderSettings);
             const preservedMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
             expect(preservedMirror).toBe(richMirror);
             const preservedWord = preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word');
+            // Restyled in place, not painted anew: the scan must still hand it
+            // over, or its contrast and index entry keep the old card status.
+            const touchedWords = touched.take();
+            expect(touchedWords).toHaveLength(1);
+            expect(touchedWords[0]).toBe(preservedWord);
             expect(preservedWord?.dataset.pitchClass).toBe('heiban');
             expect(preservedWord?.dataset.reading).toBe('にほんご');
             expect(readRenderedWordPrivateState(preservedWord!)).toMatchObject({

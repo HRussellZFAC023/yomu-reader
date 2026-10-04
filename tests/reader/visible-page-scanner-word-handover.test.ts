@@ -1,23 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockElementBoundingClientRect } from './helpers/dom-fixtures';
-import { mirrorToken } from './helpers/japanese-token-fixtures';
+import { createVisiblePageScannerFixture, tokensForJapaneseFixture } from './helpers/visible-page-scanner-fixtures';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
+import { ReaderApp } from '../../src/reader/app/main';
 import {
-    applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
     collectTextTargetsIn,
     removeNonDestructiveScanMirrors,
     type ScanTextTarget,
 } from '../../src/reader/dom';
 
-// The scan hands the app the roots a chunk painted into, and the app refreshes
-// contrast and indexes words by querying those roots. A fragment target's
-// parent is only its first fragment's parent, and a mirror can mount outside
-// it, so every root a target's words land in must be handed over, or those
-// words keep no contrast variables and never get a late card repaint.
+// Contrast and indexing consume the painted-word handover before each yield.
 const SETTINGS: ReaderSettings = { ...testEnSettings(), furiganaMode: 'all' };
+const scanners = new Set<VisiblePageScanner>();
 const WORDS: Array<[string, string]> = [
     ['日本語', 'にほんご'], ['勉強', 'べんきょう'], ['本', 'ほん'], ['注意', 'ちゅうい'], ['学習', 'がくしゅう'],
     ['始める', 'はじめる'], ['保存', 'ほぞん'], ['単語', 'たんご'], ['確認', 'かくにん'], ['読む', 'よむ'],
@@ -28,6 +25,8 @@ beforeEach(() => {
     mockElementBoundingClientRect({ width: 100, height: 20 });
 });
 afterEach(() => {
+    scanners.forEach(scanner => scanner.destroy());
+    scanners.clear();
     removeNonDestructiveScanMirrors(document);
     vi.restoreAllMocks();
     document.body.innerHTML = '';
@@ -35,6 +34,47 @@ afterEach(() => {
 });
 
 describe('the visible-page scan hands over every word it paints', () => {
+    it.each(['fragments', 'portal'] as const)('uses the actual app index and contrast consumers before yielding for %s', async shape => {
+        document.body.innerHTML = shape === 'fragments'
+            ? '<a href="/x"><strong>学習</strong><span>日本語の本を読む</span></a>'
+            : '<article class="comment-thread"><p id="source">日本語</p></article>';
+        document.body.style.backgroundColor = '#22262b';
+        document.body.style.color = '#eef2f6';
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            pageScanner: VisiblePageScanner;
+            renderedWordIndex: Map<string, Set<HTMLElement>>;
+            settings: ReaderSettings;
+        };
+        let guards = 0;
+        const assertConsumers = () => {
+            const words = readerWords();
+            expect(words.length).toBeGreaterThan(0);
+            const indexed = new Set([...internals.renderedWordIndex.values()].flatMap(words => [...words]));
+            expect(words.filter(word => !indexed.has(word))).toEqual([]);
+            expect(words.filter(word => !word.style.getPropertyValue('--jpdb-reader-highlight-backdrop'))).toEqual([]);
+        };
+        Object.assign(app, {
+            settings: { ...SETTINGS, learningTargetChosen: true, ankiEnabled: false },
+            parseJapanese: async (texts: string[]) => texts.map(tokensFor),
+            preloadParsedTokens: vi.fn(), enrichPitchWords: vi.fn(), enrichAnkiWords: vi.fn(),
+            pauseAutoScanObserver: <T>(callback: () => T): T => { const value = callback(); guards++; assertConsumers(); return value; },
+        });
+        try {
+            if (shape === 'fragments') await internals.pageScanner.scanVisiblePage({ silent: true });
+            else {
+                const target = onlyTarget(collectTextTargetsIn(document.getElementById('source')!, 40, false));
+                const apply = internals.pageScanner as unknown as {
+                    applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], settings: ReaderSettings): Promise<ParentNode[]>;
+                };
+                await apply.applyTokens([{ ...target, nonDestructive: true }], [tokensFor(target.text)], internals.settings);
+                expect(document.querySelector('.jpdb-reader-document-annotation-portal .jpdb-reader-word')).not.toBeNull();
+            }
+            expect(guards).toBeGreaterThan(0);
+            assertConsumers();
+        } finally { app.destroy(); document.body.style.backgroundColor = ''; document.body.style.color = ''; }
+    });
+
     it.each([
         ['a flex row wrapping a direct text run', '<div style="display:flex"><span>勉強</span>の本と日本語</div>', ['勉強', '本', '日本語']],
         ['a link card with a strong title and a span summary', `<a class="yomu-link-card" href="/x">
@@ -46,83 +86,90 @@ describe('the visible-page scan hands over every word it paints', () => {
         ['Aozora lines that open with native ruby', `<div class="main_text">${[0, 1, 2].map(line => `<ruby><rb>注意</rb><rp>（</rp><rt>ちゅうい</rt><rp>）</rp></ruby>して日本語の本を読む${line}。`).join('<br />\n')}</div>`, ['日本語', '本', '読む']],
         ['a word that keeps a whole native ruby', '<p><ruby>日本<rt>にほん</rt>語<rt>ご</rt></ruby></p>', ['日本語']],
     ])('%s', async (_shape, html, expressions) => {
-        const { painted, contrastMissed, indexMissed } = await scanAndCollectHandover(html);
+        const { painted, missed } = await scanAndCollectHandover(html);
         expect(new Set(painted.map(word => word.dataset.expression))).toEqual(new Set(expressions));
-        expect(contrastMissed).toEqual([]);
-        expect(indexMissed).toEqual([]);
+        expect(missed).toEqual([]);
     });
 });
 
-describe('applyTokensToScanTarget returns every element holding the words it painted', () => {
-    it('includes a body-portal mirror', () => {
+describe('mirror and text-layer paint roots and handover cover every word', () => {
+    it('includes a body-portal mirror', async () => {
         document.body.innerHTML = '<article class="comment-thread"><p id="comment-text">日本語</p></article>';
         const target = onlyTarget(collectTextTargetsIn(document.getElementById('comment-text')!, 40, false));
-        const roots = paint({ ...target, nonDestructive: true });
+        const roots = await paint({ ...target, nonDestructive: true });
         expect(document.querySelector('.jpdb-reader-document-annotation-portal .jpdb-reader-word')).not.toBeNull();
         expect(wordsOutside(roots)).toEqual([]);
     });
 
-    it('includes a mirror mounted on a host above the source', () => {
+    it('includes a mirror mounted on a host above the source', async () => {
         document.body.innerHTML = '<div><yt-formatted-string id="host"><span id="source">日本<b>語</b>の本</span></yt-formatted-string></div>';
         const target = onlyTarget(collectFragmentTextTargetsIn(document.getElementById('source')!, 40, false));
-        const roots = paint({ ...target, nonDestructive: true });
+        const roots = await paint({ ...target, nonDestructive: true });
         expect(document.querySelector('#host > .jpdb-reader-text-mirror .jpdb-reader-word')).not.toBeNull();
         expect(wordsOutside(roots)).toEqual([]);
     });
 
-    it('covers per-leaf mirrors of a reactive target', () => {
+    it('covers per-leaf mirrors of a reactive target', async () => {
         document.body.innerHTML = '<div id="row"><span>日本</span><span>語の本</span></div>';
         const target = onlyTarget(collectFragmentTextTargetsIn(document.getElementById('row')!, 40, false));
-        const roots = paint({ ...target, nonDestructive: true });
+        const roots = await paint({ ...target, nonDestructive: true });
         expect(document.querySelectorAll('.jpdb-reader-text-mirror').length).toBeGreaterThan(1);
         expect(wordsOutside(roots)).toEqual([]);
     });
 
-    it('includes a control mirror mounted after its control', () => {
-        document.body.innerHTML = '<div><button id="control">日本語</button></div>';
+    it('includes a control mirror mounted after its control', async () => {
+        document.body.innerHTML = '<div><button id="control" aria-label="日本語">日本語</button></div>';
         const control = document.getElementById('control')!;
-        const roots = paint({
+        const roots = await paint({
             text: '日本語', parent: control, fragments: [], nonDestructive: true, controlTextMirror: true, passiveInteraction: true,
         });
         expect(control.nextElementSibling?.querySelector('.jpdb-reader-word')).not.toBeNull();
         expect(wordsOutside(roots)).toEqual([]);
     });
 
-    it('includes a canvas fallback text layer', () => {
+    it('includes a canvas fallback text layer', async () => {
         document.body.innerHTML = '<div class="canvas-reader"><canvas width="400" height="240" lang="ja">日本語の本を読む</canvas></div>';
         const canvas = document.querySelector('canvas')!;
-        const roots = paint({ text: '日本語の本を読む', parent: canvas, fragments: [], layoutSensitive: true, nonDestructive: true });
+        const roots = await paint({ text: '日本語の本を読む', parent: canvas, fragments: [], layoutSensitive: true, nonDestructive: true });
         expect(document.querySelector('.jpdb-reader-canvas-text-layer .jpdb-reader-word')).not.toBeNull();
         expect(wordsOutside(roots)).toEqual([]);
     });
 });
 
-async function scanAndCollectHandover(html: string): Promise<{ painted: HTMLElement[]; contrastMissed: string[]; indexMissed: string[] }> {
+async function scanAndCollectHandover(html: string): Promise<{ painted: HTMLElement[]; missed: string[] }> {
     document.body.innerHTML = html;
-    const contrastRoots: ParentNode[] = [];
-    const indexedRoots: ParentNode[] = [];
-    const scanner = new VisiblePageScanner({
-        getSettings: () => SETTINGS,
-        parseJapanese: async texts => texts.map(tokensFor),
-        pauseMutationObserver: callback => callback(),
-        preloadParsedTokens: vi.fn(),
-        enrichPitchWords: vi.fn(),
-        enrichAnkiWords: vi.fn(),
-        toast: vi.fn(),
-        refreshWordContrast: root => contrastRoots.push(root),
-        noteRenderedRoots: roots => indexedRoots.push(...roots),
-    });
+    const handedOver = new Set<HTMLElement>();
+    const scanner = handoverScanner(handedOver);
+    const followupRoots: ParentNode[] = [];
+    const internals = scanner as unknown as { dependencies: { makeRoomForRubyInCroppedRows?: (root?: ParentNode) => number } };
+    internals.dependencies.makeRoomForRubyInCroppedRows = root => { if (root && root !== document) followupRoots.push(root); return 0; };
     await scanner.scanVisiblePage({ silent: true });
     scanner.destroy();
     const painted = readerWords();
-    const missedBy = (roots: ParentNode[]) => painted
-        .filter(word => !roots.some(root => root.contains(word)))
+    expect(painted.filter(word => !followupRoots.some(root => root.contains(word)))).toEqual([]);
+    const missed = painted
+        .filter(word => !handedOver.has(word))
         .map(word => word.dataset.expression ?? '');
-    return { painted, contrastMissed: missedBy(contrastRoots), indexMissed: missedBy(indexedRoots) };
+    return { painted, missed };
 }
 
-function paint(target: ScanTextTarget): HTMLElement[] {
-    return applyTokensToScanTarget(target, tokensFor(target.text), SETTINGS);
+function handoverScanner(handedOver: Set<HTMLElement>): VisiblePageScanner {
+    const scanner = createVisiblePageScannerFixture(SETTINGS, tokensFor, {
+        notePaintedWords: words => words.forEach(word => handedOver.add(word)),
+    });
+    scanners.add(scanner);
+    return scanner;
+}
+
+async function paint(target: ScanTextTarget): Promise<ParentNode[]> {
+    const handedOver = new Set<HTMLElement>();
+    const scanner = handoverScanner(handedOver);
+    const apply = scanner as unknown as {
+        applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], settings: ReaderSettings): Promise<ParentNode[]>;
+    };
+    const roots = await apply.applyTokens([target], [tokensFor(target.text)], SETTINGS);
+    expect(readerWords().filter(word => !handedOver.has(word))).toEqual([]);
+    return roots;
 }
 
 function onlyTarget<T extends ScanTextTarget>(targets: T[]): T {
@@ -130,7 +177,7 @@ function onlyTarget<T extends ScanTextTarget>(targets: T[]): T {
     return targets[0];
 }
 
-function wordsOutside(roots: HTMLElement[]): string[] {
+function wordsOutside(roots: ParentNode[]): string[] {
     const words = readerWords();
     expect(words.length).toBeGreaterThan(0);
     return words.filter(word => !roots.some(root => root.contains(word))).map(word => word.dataset.expression ?? '');
@@ -141,17 +188,5 @@ function readerWords(): HTMLElement[] {
 }
 
 function tokensFor(text: string): JPDBToken[] {
-    const tokens: JPDBToken[] = [];
-    for (let start = 0; start < text.length;) {
-        const word = WORDS.find(([spelling]) => text.startsWith(spelling, start));
-        if (!word) {
-            start += 1;
-            continue;
-        }
-        const [spelling, reading] = word;
-        const end = start + spelling.length;
-        tokens.push({ ...mirrorToken(spelling, reading), start, end, rubies: [{ text: reading, start, end, length: end - start }], sentence: text });
-        start = end;
-    }
-    return tokens;
+    return tokensForJapaneseFixture(text, WORDS);
 }

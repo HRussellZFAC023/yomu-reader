@@ -20,6 +20,7 @@ import {
 } from '../dom/index';
 import { formatUiText } from '../app/i18n';
 import { normalizeOcrScannerLinesInRoot } from './dom-helpers';
+import { PaintedWordRecorder } from '../dom/painted-word-recorder';
 import { refreshRenderedMiningInsights, renderedWordsInRoot } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 import { activeTargetLanguageDisplayName } from './target-language-name';
@@ -37,6 +38,7 @@ import { applyAuthoredVocabularyOverrides } from '../lookup/authored-vocabulary'
 import { ParkableObserver } from '../platform/page-activity';
 import type { JPDBToken, ReaderSettings } from './types';
 import { isYouTubeAppHostname } from './youtube-host';
+import { scanTargetSourceScope } from '../dom/scan-paint-roots';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
@@ -55,8 +57,9 @@ const VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE = 1_800;
 const VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE = 900;
 const VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE = 700;
 const VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL = 280;
-// Large enough that the first apply paints everything just parsed in one go —
-// small chunks made ruby/colors arrive in visible waves.
+// The most targets one apply slice paints. 48 (was 16) let the first apply
+// cover a whole parse batch instead of arriving in visible waves; the frame
+// budget below now ends a slice sooner when its targets are slow to paint.
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
 const VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE = 24;
 const VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE = 12;
@@ -81,12 +84,29 @@ const ASB_SCAN_DRAIN_DELAY_MS = 80;
 const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
 // Frame budget for cooperative target collection (perf item 4).
 const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
+// The same frame budget for each token apply slice, which waitForApplyTurn can
+// lengthen. Under count caps alone, the ja-docs perf fixture's dense batch held
+// the main thread on a slow CPU, so ordinary scans pace their writes.
+const VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS = VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS;
+const MAX_VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS = 240;
+// Costly rendering between turns can justify larger slices, within the cap.
+const APPLY_SLICE_TO_YIELD_RATIO = 2;
 // 24 chunked slices (~290ms of budgeted work) cover the heat profile's worst
 // monolithic pass; anything beyond finishes synchronously so a loaded event
 // loop can never starve collection (each setTimeout(0) turn is unbounded).
 const MAX_VISIBLE_SCAN_COLLECTION_YIELDS = 24;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = 'data-yomu-furigana-mode';
 const CLAMPED_ROW_READINGS_ATTRIBUTE = 'data-yomu-clamped-readings';
+// How applyTokens paces its writes. A page scan passes its generation, so a
+// cancelled scan stops writing, and a frame budget, so it yields between
+// slices. The ASB cue path passes neither: a cue batch is at most
+// ASB_SCAN_BATCH_LIMIT targets, and splitting it would paint ruby before its
+// colours.
+interface TokenApplyPacing {
+    generation?: number;
+    frameBudgetMs?: number;
+}
+
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
@@ -130,9 +150,11 @@ export interface VisiblePageScannerDependencies {
     // offscreen cue nodes are rewritten. Reattach those tokens to the concrete
     // rendered roots so late local-SRS/Anki/Bunpro effects cannot be lost.
     reconcileResolvedWordEffects?: (tokens: JPDBToken[], roots: ParentNode[]) => void;
-    // Keep the app's semantic word index complete as each small scan root is
-    // painted. Late detail can then target 12 cards without 12 document walks.
-    noteRenderedRoots?: (roots: ParentNode[]) => void;
+    // The words one apply slice painted or restyled, handed over inside its
+    // guarded block before the scan yields: the app indexes them (late detail
+    // can then target 12 cards without 12 document walks) and gives them
+    // readable contrast.
+    notePaintedWords?: (words: HTMLElement[]) => void;
     refreshWordContrast?: (root: ParentNode) => void;
     // Injectable so tests spy on the ruby-room sweep via a dep instead of
     // mocking dom/index — fork reuse defeats a per-file vi.mock once an earlier
@@ -173,6 +195,9 @@ export class VisiblePageScanner {
     private lateAnnotationStateRoots = new Set<ParentNode>();
     private lateAnnotationGeometryRoots = new Set<ParentNode>();
     private lateAnnotationRefreshTimer: number | undefined;
+    // What the last apply yield cost in wall time: see waitForApplyTurn.
+    private applyYieldCostMs = 0;
+    private applyFollowupCostMs = 0;
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
     private makeRoomForRuby(root?: ParentNode): number {
@@ -517,6 +542,8 @@ export class VisiblePageScanner {
 
     private async runVisiblePageScan(silent: boolean, generation: number): Promise<void> {
         if (this.isStaleScan(generation)) return;
+        this.applyYieldCostMs = 0;
+        this.applyFollowupCostMs = 0;
         removeStaleControlTextMirrors(document);
         const settings = this.dependencies.getSettings();
         const targetCollectionLimit = !isNarrowVisibleScanViewport()
@@ -736,48 +763,33 @@ export class VisiblePageScanner {
         const applyAnkiColors = this.shouldEnrichAnkiWords()
             ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
             : undefined;
-        const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, generation);
+        const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, {
+            generation,
+            frameBudgetMs: VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS,
+        });
         applyAnkiColors?.(changedRoots);
         this.preloadParsed(resolved, changedRoots, {
             skipAnki: Boolean(applyAnkiColors),
         });
     }
 
-    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation?: number): Promise<ParentNode[]> {
+    private async applyTokens(
+        targets: ScanTextTarget[],
+        parsed: JPDBToken[][],
+        scanStartSettings: ReaderSettings,
+        pacing: TokenApplyPacing = {},
+    ): Promise<ParentNode[]> {
         const allChangedRoots = new Set<ParentNode>();
         const applyBatchSize = !isNarrowVisibleScanViewport()
             ? VISIBLE_SCAN_APPLY_BATCH_SIZE
             : hasJpdbParseApiKey(scanStartSettings)
                 ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE
                 : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
-        for (let index = 0; index < targets.length; index += applyBatchSize) {
-            if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
-            const start = index;
-            const batch = targets.slice(start, start + applyBatchSize);
-            const changedRoots = new Set<ParentNode>();
-            this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
-                // pauseMutationObserver only pauses the app-level auto-scan
-                // observer; the PER-HOST text-mirror observers stay live and
-                // would fire on our own teardown/rebuild mutations, dispatching
-                // a stale event that schedules yet another scan (the OOM
-                // feedback loop). withMirrorTokenApply suppresses that dispatch
-                // for the duration of our own apply — real external re-renders
-                // (outside this block) still trigger legitimate rescans.
-                if (this.shouldStopApplyingTokens(generation)) return;
-                batch.forEach((target, offset) => {
-                    if (this.shouldStopApplyingTokens(generation)) return;
-                    if (!isCurrentScanTarget(target)) return;
-                    applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings())
-                        .forEach(root => changedRoots.add(root));
-                });
-                changedRoots.forEach(root => {
-                    normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings());
-                    allChangedRoots.add(root);
-                    this.dependencies.refreshWordContrast?.(root);
-                });
-            }));
-            if (changedRoots.size) this.dependencies.noteRenderedRoots?.([...changedRoots]);
-            if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
+        for (let index = 0; index < targets.length;) {
+            if (this.shouldStopApplyingTokens(pacing.generation)) return [...allChangedRoots];
+            const end = Math.min(targets.length, index + applyBatchSize);
+            index = this.applyTokenSlice(targets, parsed, index, end, pacing, allChangedRoots);
+            if (index < targets.length) await this.waitForApplyTurn();
         }
         // Reserve ruby room for this parse batch's newly-changed rows once the
         // batch has applied — so early rows never flash cropped during a long
@@ -789,8 +801,105 @@ export class VisiblePageScanner {
         // the delayed document sweep. The repeated call is read-heavy but
         // write-cheap: makeRoomForRubyInBox is guarded by previousRubyRoomHeight
         // so an already-grown box is never re-grown, only re-measured.
-        this.reserveRubyRoomForNewRoots(allChangedRoots);
-        return [...allChangedRoots];
+        const roots = compactConnectedRoots(allChangedRoots);
+        this.reserveRubyRoomForNewRoots(roots);
+        return roots;
+    }
+
+    // Paints targets[start, end) in one guarded block and returns where the
+    // next slice starts. With a frame budget the slice also ends once that
+    // budget is spent (always after at least one target), so a dense batch on
+    // a slow device becomes several short tasks instead of one long one. The
+    // words it painted or restyled are indexed and given contrast inside the
+    // slice, never across a yield. Only those words: refreshing each changed
+    // root whole re-derived every older word on every slice, so a page whose
+    // text shares one parent cost quadratic time.
+    private applyTokenSlice(
+        targets: ScanTextTarget[],
+        parsed: JPDBToken[][],
+        start: number,
+        end: number,
+        pacing: TokenApplyPacing,
+        changedRoots: Set<ParentNode>,
+    ): number {
+        const mustStop = this.applySliceStop(start, pacing);
+        const sliceRoots = new Set<ParentNode>();
+        let next = start;
+        this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
+            // pauseMutationObserver only pauses the app-level auto-scan
+            // observer; the PER-HOST text-mirror observers stay live and
+            // would fire on our own teardown/rebuild mutations, dispatching
+            // a stale event that schedules yet another scan (the OOM
+            // feedback loop). withMirrorTokenApply suppresses that dispatch
+            // for the duration of our own apply — real external re-renders
+            // (outside this block) still trigger legitimate rescans.
+            const painted = new PaintedWordRecorder();
+            try {
+                for (; next < end && !mustStop(next); next += 1) {
+                    this.paintScanTarget(targets[next], parsed[next], painted, sliceRoots);
+                }
+            } finally { this.finishApplySlice(painted, sliceRoots); }
+        }));
+        sliceRoots.forEach(root => changedRoots.add(root));
+        // Always make progress: a pause wrapper that never ran the callback
+        // skips the slice, as the fixed-count chunks did (a stopped scan
+        // returns at the caller's next check either way).
+        return next > start ? next : end;
+    }
+
+    // Reserve the previous slice's measured handover cost. One target remains
+    // atomic, even when it alone exceeds the estimate.
+    private applySliceStop(start: number, pacing: TokenApplyPacing): (next: number) => boolean {
+        const budgetMs = pacing.frameBudgetMs === undefined
+            ? Number.POSITIVE_INFINITY
+            : Math.max(0, Math.min(MAX_VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS,
+                Math.max(pacing.frameBudgetMs, APPLY_SLICE_TO_YIELD_RATIO * this.applyYieldCostMs)) - this.applyFollowupCostMs);
+        const startedAt = Date.now();
+        return next => (next > start && Date.now() - startedAt >= budgetMs)
+            || this.shouldStopApplyingTokens(pacing.generation);
+    }
+
+    private paintScanTarget(
+        target: ScanTextTarget,
+        tokens: JPDBToken[] | undefined,
+        painted: PaintedWordRecorder,
+        roots: Set<ParentNode>,
+    ): void {
+        if (!isCurrentScanTarget(target)) return;
+        const sourceScope = scanTargetSourceScope(target);
+        painted.watch(sourceScope);
+        const paintedRoots = applyTokensToScanTarget(target, tokens ?? [], this.dependencies.getSettings());
+        paintedRoots.forEach(root => roots.add(root));
+        // The painter returns its source scope first, then outside mounts.
+        paintedRoots.slice(1).forEach(root => painted.includeWordsIn(root));
+    }
+
+    private notePaintedWords(words: HTMLElement[]): void {
+        if (words.length) this.dependencies.notePaintedWords?.(words);
+    }
+
+    private finishApplySlice(painted: PaintedWordRecorder, roots: Set<ParentNode>): void {
+        const startedAt = Date.now();
+        try {
+            roots.forEach(root => normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings()));
+        } finally {
+            this.notePaintedWords(painted.take());
+            this.applyFollowupCostMs = Date.now() - startedAt;
+        }
+    }
+
+    // Yields between apply slices and records what the yield cost: the timer
+    // clamp, any frame the browser rendered, other tasks. A yield is a few ms
+    // on most pages, and the frame budget rules. It is ~100 ms where one huge
+    // block of text (an Aozora Bunko page) is laid out again every frame, and
+    // 1 s in a background tab; there one-target slices would pay that once per
+    // target, so slices lengthen with it (APPLY_SLICE_TO_YIELD_RATIO) and grow
+    // back toward the count cap. A 400-line one-root page took 30 s to finish
+    // when slices ignored the yield cost, against 9 s under count caps alone.
+    private async waitForApplyTurn(): Promise<void> {
+        const yieldedAt = Date.now();
+        await waitForVisibleScanTurn();
+        this.applyYieldCostMs = Date.now() - yieldedAt;
     }
 
     private reserveRubyRoomForNewRoots(roots: Iterable<ParentNode>): void {
