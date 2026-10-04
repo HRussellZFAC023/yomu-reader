@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.10] - 2026-10-04
+
+### Fixed
+
+- Installing a recommended dictionary works again. On Study, Install failed at once with “Dictionary download failed.”, and with the extension or userscript installed it waited two minutes and then timed out. A download the browser blocks now says so and suggests importing the ZIP.
+
 ## [2.0.9] - 2026-10-02
 
 ### Fixed

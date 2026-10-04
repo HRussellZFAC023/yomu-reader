@@ -6278,10 +6278,12 @@ function userscriptHttpEventBridge() {
       return;
     }
     cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: withoutCallbacks(options) });
   });
   }));
+}
+function withoutCallbacks(options) {
+  return Object.fromEntries(Object.entries(options).filter(([, value]) => typeof value !== "function"));
 }
 function tagEventBridgeRequest(request) {
   request[EVENT_BRIDGE_TAG] = true;
@@ -18250,7 +18252,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.0.9".trim() ? "2.0.9".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.10".trim() ? "2.0.10".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -69134,7 +69136,13 @@ function throwMissingDictionaryDownloadBridge(done, language2) {
   });
 }
 async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language2) {
-  const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
+  const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, {
+  credentials: "omit",
+  redirect: "follow",
+  referrerPolicy: "no-referrer",
+  timeoutMs: 12e4,
+  allowDirectCrossOrigin: true
+  });
   if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
   const blob = await responseBlobWithProgress(response, onProgress, language2);
   log$2.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });

@@ -1123,10 +1123,12 @@ function userscriptHttpEventBridge() {
       return;
     }
     cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: withoutCallbacks(options) });
   });
   }));
+}
+function withoutCallbacks(options) {
+  return Object.fromEntries(Object.entries(options).filter(([, value]) => typeof value !== "function"));
 }
 function tagEventBridgeRequest(request) {
   request[EVENT_BRIDGE_TAG] = true;

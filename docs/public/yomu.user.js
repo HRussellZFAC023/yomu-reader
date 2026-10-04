@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.0.9
+// @version 2.0.10
 // @author Henry Russell
 // @description Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.cdca4a75f1b1.user.js#sha256=zcpKdfGxHBHfhzE3fMchdmEn5AQXq+0Ju3jUzbVLcw4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.982223f24ddb.user.js#sha256=mCIj8k3bHei8NSZErFasAD/fngCAH/TQrB1oEz+ouOA=
 // @resource yomuCss  https://yomureader.com/yomu.6f1aad3cd06d.css#sha256=bxqtPNBt3m8QPMm3qqJrYtonmic+chuX3XhyASh/7MA=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -12855,10 +12855,12 @@ reject(error);
 return;
 }
 cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: requestOptions });
+dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: withoutCallbacks(options) });
 });
 }));
+}
+function withoutCallbacks(options) {
+return Object.fromEntries(Object.entries(options).filter(([, value]) => typeof value !== "function"));
 }
 function tagEventBridgeRequest(request) {
 request[EVENT_BRIDGE_TAG] = true;
@@ -36749,8 +36751,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.9"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.9"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.0.10"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.0.10"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -36893,7 +36895,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.0.9"}`;
+return `${new URL(path, url.origin).href}?v=${"2.0.10"}`;
 } catch {
 return null;
 }
