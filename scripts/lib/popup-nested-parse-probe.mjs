@@ -82,7 +82,10 @@ export function assertPopupNestedParseOverlap(page) {
                 },
             };
         }
-    }).then(snapshot => {
+    }).then(async snapshot => {
+        // Pitch, Anki and vocabulary enrichment the probe's parses started
+        // report their errors after the snapshot; let them land first.
+        await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
         assert.deepEqual(pageErrors, [], 'Popup overlap probe raised browser errors');
         assert.ok(snapshot.initialLoadingId, 'Generic parse must own a loading ticket');
         assert.equal(snapshot.overlapLoadingId, snapshot.initialLoadingId, 'Provider commit stole the generic ticket');

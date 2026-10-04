@@ -21,10 +21,13 @@ import { assertPopupNestedParseOverlap } from './lib/popup-nested-parse-probe.mj
 const { stampAppearanceBoot } = createRequire(import.meta.url)('./lib/hosted-appearance-boot.cjs');
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
+// A comparison core is chosen per run on the command line, never by a stale
+// .env entry, so read it before the local env files are merged in.
+const SCRIPT_OVERRIDE = process.env.YOMU_QA_SCRIPT_PATH?.trim();
+const OVERRIDE_NOTE = SCRIPT_OVERRIDE ? ' against an override core (comparison run, not release evidence)' : '';
 loadLocalEnv(ROOT);
 const DIST = path.join(ROOT, 'dist');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
-const SCRIPT_OVERRIDE = process.env.YOMU_QA_SCRIPT_PATH?.trim();
 const SCRIPT_PATH = SCRIPT_OVERRIDE ? path.resolve(SCRIPT_OVERRIDE) : path.join(DIST, 'yomu.user.js');
 const CSS_PATH = path.join(DIST, 'yomu.css');
 const SCRIPT_FALLBACK_PATHS = SCRIPT_OVERRIDE ? [SCRIPT_PATH] : [
@@ -4252,6 +4255,8 @@ async function auditImmersionKitPopover(browser, server) {
             immersionKitPlayOnHover: true,
         },
     });
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
     await page.locator('.jpdb-reader-word').filter({ hasText: '読' }).first().click();
     await openImmersionKitDetails(page);
     // Park the pointer: left on the summary, the first card slides under it as
@@ -4355,6 +4360,7 @@ async function auditImmersionKitPopover(browser, server) {
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'source Immersion lookup kept showing dictionary loading details after back navigation');
     await assertNoVisibleReaderErrorToasts(page, 'Immersion Kit popup examples');
     await assertPopupNestedParseOverlap(page);
+    assertAudit(!pageErrors.length, `Immersion Kit popup raised browser errors: ${pageErrors.join(' | ')}`);
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'nested lookup works and a controlled provider overlap preserves local and example words');
 }
@@ -5258,7 +5264,7 @@ function shouldSkipAudit(options) {
 async function main() {
     await mkdir(ARTIFACTS, { recursive: true });
     userscript = await readBuiltUserscript();
-    console.log(`QA core SHA256: ${createHash('sha256').update(userscript).digest('hex')}`);
+    console.log(`QA core SHA256${OVERRIDE_NOTE}: ${createHash('sha256').update(userscript).digest('hex')}`);
     companionScripts = await readBuiltCompanionScripts();
     readerCss = await readBuiltReaderCss();
 
@@ -5292,7 +5298,7 @@ async function main() {
 
     const failed = results.filter(result => result.status === 'fail');
     console.log(`\nQA artifacts: ${ARTIFACTS}`);
-    console.log(`QA summary: ${results.length - failed.length}/${results.length} passed`);
+    console.log(`QA summary: ${results.length - failed.length}/${results.length} passed${OVERRIDE_NOTE}`);
     if (failed.length) process.exitCode = 1;
 }
 

@@ -16,6 +16,9 @@ function healthySnapshot() {
     };
 }
 
+// Contract tests for the QA harness itself (page.evaluate is mocked). They
+// guard the probe against false greens; the Reader fix is proven by
+// popup-japanese-parse-lifecycle.test.ts and the built-browser QA case.
 describe('popup overlap browser probe', () => {
     it('checks the native snapshot and removes its scoped error listener', async () => {
         const page = pageFixture();
@@ -51,6 +54,16 @@ describe('popup overlap browser probe', () => {
         });
 
         await expect(assertPopupNestedParseOverlap(page)).rejects.toThrow('broken parser contract');
+        expect(page.off).toHaveBeenCalledWith('pageerror', page.on.mock.calls[0]?.[1]);
+    });
+
+    it('fails on a browser error raised by enrichment after its snapshot', async () => {
+        const page = pageFixture();
+        page.evaluate
+            .mockResolvedValueOnce(healthySnapshot())
+            .mockImplementationOnce(async () => { page.on.mock.calls[0]?.[1](new Error('late enrichment failure')); });
+
+        await expect(assertPopupNestedParseOverlap(page)).rejects.toThrow('late enrichment failure');
         expect(page.off).toHaveBeenCalledWith('pageerror', page.on.mock.calls[0]?.[1]);
     });
 
