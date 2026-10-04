@@ -104,7 +104,7 @@ export function hasResolvedPitchComponents(card: Pick<JPDBCard, 'spelling' | 're
 }
 
 // Tolerant view: at least one morpheme classifies, so a coloured underline can
-// be painted (the rest render neutral). Distinct from hasResolvedPitchComponents
+// be painted (the rest stay bare). Distinct from hasResolvedPitchComponents
 // on purpose — the enrichment passes must keep filling a partially-resolved
 // compound (they gate on the strict predicate), but the repaint must apply the
 // partial gradient as morphemes arrive rather than wait for a complete set.
@@ -117,10 +117,11 @@ export function pitchComponentUnderlineGradient(card: Pick<JPDBCard, 'spelling' 
     const components = tiledPitchComponents(card);
     if (!components) return '';
     // Paint the underline as soon as ONE morpheme's accent is known: an
-    // unresolved morpheme becomes a neutral segment aligned to its exact
-    // substring rather than voiding the whole compound's colouring. Killing the
-    // gradient on a single missing (often rare) morpheme is what left compounds
-    // like 賛成票率順 completely undecorated even though 賛成 has a known accent.
+    // unresolved morpheme leaves its exact substring bare rather than voiding
+    // the whole compound's colouring. Killing the gradient on a single missing
+    // (often rare) morpheme is what left compounds like 賛成票率順 completely
+    // undecorated even though 賛成 has a known accent. Bare, not the "Unknown"
+    // swatch: unknown pitch never paints an underline (1.6.98).
     if (!components.some(component => PITCH_CLASSES.has(component.pitchClass))) return '';
     const lengths = components.map(component => Array.from(component.spelling).length);
     const total = lengths.reduce((sum, length) => sum + length, 0);
@@ -133,7 +134,7 @@ export function pitchComponentUnderlineGradient(card: Pick<JPDBCard, 'spelling' 
         const end = offset / total * 100;
         const color = PITCH_CLASSES.has(component.pitchClass)
             ? `var(--jpdb-reader-pitch-${component.pitchClass})`
-            : 'var(--jpdb-reader-pitch-unknown)';
+            : 'transparent';
         stops.push(`${color} ${formatPercent(start)}`, `${color} ${formatPercent(end)}`);
     });
     return `linear-gradient(to right, ${stops.join(', ')})`;

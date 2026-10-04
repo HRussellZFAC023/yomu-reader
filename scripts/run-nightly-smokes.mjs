@@ -65,6 +65,11 @@ export const NIGHTLY_SMOKES = [
     // check:release; nightly is the lane its own header comment names.
     'smoke:tatoeba-contract',
     'smoke:transcript-drawer',
+    // Chromium + WebKit: an underline is drawn only for information the learner
+    // has a colour for (no grey compound tail, no not-in-deck underline), and
+    // the hide/only-new options reach the inline compound gradient.
+    'smoke:underline-colour-sources',
+    'smoke:underline-colour-sources:webkit',
     'smoke:youtube-dom-safe',
 ];
 

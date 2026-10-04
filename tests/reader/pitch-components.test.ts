@@ -128,9 +128,10 @@ describe('inline compound pitch components', () => {
         expect(pitchComponentUnderlineGradient(compound({ pitchAccent: ['LHHHHH'] }))).toBe('');
     });
 
-    it('paints a partial gradient with a neutral segment when one morpheme has no pitch', () => {
-        // 賛成 resolves; 票率順 has no bank entry. The whole underline used to
-        // vanish; now 賛成's colour paints and the unresolved tail is neutral.
+    it('paints a partial gradient that leaves the unresolved morpheme bare', () => {
+        // 賛成 resolves; 票率順 has no bank entry. 賛成's colour paints and the
+        // unresolved tail draws nothing, like a whole word with unknown pitch:
+        // no part of a pitch underline is ever the grey "Unknown" swatch.
         const card = compound({
             spelling: '賛成票率順',
             reading: 'さんせいひょうりつじゅん',
@@ -148,12 +149,40 @@ describe('inline compound pitch components', () => {
         expect(hasPaintablePitchComponents(card)).toBe(true);
 
         const gradient = pitchComponentUnderlineGradient(card);
-        expect(gradient).toContain('var(--jpdb-reader-pitch-heiban)');
-        expect(gradient).toContain('var(--jpdb-reader-pitch-unknown)');
+        expect(gradient).not.toContain('--jpdb-reader-pitch-unknown');
         // The colour boundary sits on the exact 賛成 | 票率順 substring split (2/5).
         expect(gradient).toBe(
-            'linear-gradient(to right, var(--jpdb-reader-pitch-heiban) 0%, var(--jpdb-reader-pitch-heiban) 40%, var(--jpdb-reader-pitch-unknown) 40%, var(--jpdb-reader-pitch-unknown) 100%)',
+            'linear-gradient(to right, var(--jpdb-reader-pitch-heiban) 0%, var(--jpdb-reader-pitch-heiban) 40%, transparent 40%, transparent 100%)',
         );
+    });
+
+    it('never paints an inferred kana tail, wherever the unresolved part sits', () => {
+        // The reported case: 申し訳 resolves, the inflected tail ありません is
+        // never looked up, so under default settings it drew a grey segment.
+        const inferred = inferredAnnotatedPitchComponents(compound({
+            spelling: '申し訳ありません',
+            reading: 'もうしわけありません',
+            wordWithReading: '申[もう]し訳[わけ]ありません',
+            pitchComponents: undefined,
+        }));
+        inferred[0]!.pitchAccent = ['LHHHH'];
+        expect(pitchComponentUnderlineGradient(compound({
+            spelling: '申し訳ありません',
+            reading: 'もうしわけありません',
+            pitchComponents: inferred,
+        }))).toBe('linear-gradient(to right, var(--jpdb-reader-pitch-heiban) 0%, var(--jpdb-reader-pitch-heiban) 37.5%, transparent 37.5%, transparent 100%)');
+
+        // A bare middle keeps both neighbours on their exact substrings.
+        expect(pitchComponentUnderlineGradient(compound({
+            spelling: '日本語能力試験',
+            reading: 'にほんごのうりょくしけん',
+            wordWithReading: null,
+            pitchComponents: [
+                { spelling: '日本語', reading: 'にほんご', pitchAccent: ['LHHH'], wordWithReading: null },
+                { spelling: '能力', reading: 'のうりょく', pitchAccent: [], wordWithReading: null },
+                { spelling: '試験', reading: 'しけん', pitchAccent: ['LHH'], wordWithReading: null },
+            ],
+        }))).toBe('linear-gradient(to right, var(--jpdb-reader-pitch-heiban) 0%, var(--jpdb-reader-pitch-heiban) 42.857%, transparent 42.857%, transparent 71.429%, var(--jpdb-reader-pitch-heiban) 71.429%, var(--jpdb-reader-pitch-heiban) 100%)');
     });
 
     it('still voids the gradient when not a single morpheme resolves', () => {

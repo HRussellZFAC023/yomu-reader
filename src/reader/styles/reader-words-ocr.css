@@ -757,6 +757,26 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-underline-pitch .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
 }
+/* Not-in-deck has no colour picker, so a deck-status underline draws nothing
+   where the channel colour above resolves to it, as unknown pitch draws
+   nothing (1.6.98). A word can carry a second state (Anki's, projected as
+   jpdb-* on pages or anki-* in Study); each :not() list names the states its
+   channel ranks after not-in-deck, which keep their colour. jiten-not-in-deck
+   ranks last in both. Only the underline channel changes: the shared source
+   vars also feed the highlight wash and the mirror lanes.
+   tests/reader/underline-colour-sources-css.test.ts holds this to the cascade. */
+.jpdb-reader-word-underline-jpdb .jpdb-reader-word.jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
+),
+.jpdb-reader-word-underline-status .jpdb-reader-word.jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended,
+  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+),
+:is(.jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-status) .jpdb-reader-word.jiten-not-in-deck {
+  --jpdb-reader-word-decoration-source: transparent;
+}
 /* Some expressions have no defensible whole-word accent, but Jiten provides
    an exact aligned decomposition whose components each do (王子様 → 王子 +
    様). Paint proportional component colours on the one clickable word's
@@ -1269,6 +1289,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-word-color-new-only
   .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
+  /* A compound's pitch gradient is an inline var painted by ::after, out of
+     reach of the background-image reset below; !important beats inline. */
+  --jpdb-reader-inline-pitch-gradient: none !important;
   color: inherit !important;
   /* WebKit paints text via -webkit-text-fill-color, which the colour-source
      rules set with their own !important — reset it too or Safari/iOS keeps the
@@ -1307,6 +1330,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-word-color-hide-new
   .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-inline-pitch-gradient: none !important;
   color: inherit !important;
   /* WebKit paints text via -webkit-text-fill-color, which the colour-source
      rules set with their own !important — reset it too or Safari/iOS keeps the

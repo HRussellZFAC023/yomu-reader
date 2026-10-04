@@ -8730,7 +8730,7 @@ export class ReaderApp {
         // reading geometry but omit `composedOf` (申し訳ありません is the standing
         // subtitle example). ICU boundaries may recover the exact substrings;
         // only components with their own exact pitch evidence are coloured and
-        // every unresolved suffix remains a neutral segment.
+        // every unresolved suffix stays bare.
         const inferred = inferredAnnotatedPitchComponents(card);
         if (!inferred.length) return;
         await this.enrichCardPitchComponents(card, inferred, allowPublicLookup);

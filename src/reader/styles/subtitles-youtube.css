@@ -458,6 +458,19 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }
 .jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
 .jpdb-reader-subtitle-underline-review :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-review-decoration); }
+/* Not-in-deck draws no deck-status underline, as on the page (see the matching
+   reader-words-ocr.css rule for the :not() lists). The subtitle highlight wash
+   derives from the same decoration vars, so only the underline is reset. */
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed
+),
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-not-in-deck:not(
+  .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
+  .jpdb-due, .jpdb-failed, .jpdb-suspended,
+  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+),
+:is(.jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-status) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jiten-not-in-deck { --jpdb-reader-word-underline: transparent; }
 /* Unknown-pitch words keep their internal class for later enrichment, but do
    not paint the old neutral grey underline. A pitch underline should mean an
    actual resolved pitch class. */
