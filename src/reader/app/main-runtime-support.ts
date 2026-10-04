@@ -389,11 +389,6 @@ export interface PageWordDefinitionState {
     bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null;
 }
 
-export interface PageAddonParseState {
-    dirty: boolean;
-    running?: Promise<void>;
-}
-
 export interface MountedCardCompletionContext extends Omit<CardPopoverHydrationContext, 'state' | 'requestId'> {
     mounted: MountedCardShell;
     fallbackAnkiLookup: AnkiLookupResult;

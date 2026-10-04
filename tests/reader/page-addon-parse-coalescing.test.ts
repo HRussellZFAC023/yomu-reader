@@ -1,14 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 
-interface PageAddonParseState {
-    dirty: boolean;
-    running?: Promise<void>;
-}
-
 interface ReaderAppPageAddonParseInternals {
     parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void>;
-    flushJpdbPageAddonJapaneseParse(root: HTMLElement, state: PageAddonParseState): Promise<void>;
     performJpdbPageAddonJapaneseParse(root: HTMLElement): Promise<void>;
 }
 
@@ -87,36 +81,43 @@ describe('enhanced-page addon parse coalescing', () => {
         const app = new ReaderApp();
         const internals = app as unknown as ReaderAppPageAddonParseInternals;
         const root = mountPageAddon();
-        const originalFlush = internals.flushJpdbPageAddonJapaneseParse.bind(app);
+        const pending = deferred();
+        const followUp = deferred();
+        const started = deferred();
         let boundaryRequest: Promise<void> | undefined;
-        let injectAtDrainBoundary = true;
+        let parseCount = 0;
         let activeParses = 0;
         let maximumActiveParses = 0;
 
-        internals.performJpdbPageAddonJapaneseParse = vi.fn(async () => {
+        internals.performJpdbPageAddonJapaneseParse = vi.fn(() => {
             activeParses += 1;
             maximumActiveParses = Math.max(maximumActiveParses, activeParses);
-            await Promise.resolve();
-            activeParses -= 1;
+            const pass = parseCount++ === 0 ? pending.promise : followUp.promise;
+            void pass.then(() => { activeParses -= 1; });
+            started.resolve();
+            return pass;
         });
-        internals.flushJpdbPageAddonJapaneseParse = async (addonRoot, state) => {
-            await originalFlush(addonRoot, state);
-            if (!injectAtDrainBoundary) return;
-            injectAtDrainBoundary = false;
-            // The original drain has completed its final dirty check, while
-            // parseJpdbPageAddonJapanese still owns `state.running`. This is
-            // the narrow provider-hydration race handled by its `finally`.
-            boundaryRequest = internals.parseJpdbPageAddonJapanese(addonRoot);
-        };
 
         try {
-            await internals.parseJpdbPageAddonJapanese(root);
-            await boundaryRequest;
-
-            expect(boundaryRequest).toBeDefined();
+            const initialParse = internals.parseJpdbPageAddonJapanese(root);
+            let completed = false;
+            void initialParse.then(() => { completed = true; });
+            await started.promise;
+            pending.resolve();
+            // The awaiting drain resumes first and finishes its dirty check;
+            // this commit precedes the owner's queued finally continuation.
+            queueMicrotask(() => { boundaryRequest = internals.parseJpdbPageAddonJapanese(root); });
+            await vi.waitFor(() => expect(parseCount).toBe(2));
+            expect(boundaryRequest).toBe(initialParse);
+            expect(completed).toBe(false);
+            followUp.resolve();
+            await initialParse;
+            expect(completed).toBe(true);
             expect(internals.performJpdbPageAddonJapaneseParse).toHaveBeenCalledTimes(2);
             expect(maximumActiveParses).toBe(1);
         } finally {
+            pending.resolve();
+            followUp.resolve();
             app.destroy();
         }
     });

@@ -4396,8 +4396,12 @@ function immersionKitFirstSnapshotFromDom() {
 
 function currentImmersionExampleTextSettledFromDom() {
     const card = document.querySelector('[data-immersion-kit] .jpdb-reader-example-card');
+    const helpers = window.__yomuQaReaderWordDomHelpers;
+    const localSurfaces = [...document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word')]
+        .map(word => helpers?.surface?.(word)?.trim() ?? word.textContent?.replace(/\s+/g, '').trim() ?? '');
     return Boolean(card?.getAttribute('data-immersion-sentence'))
-        && card.querySelectorAll('.jpdb-reader-example-sentence .jpdb-reader-word').length >= 2;
+        && card.querySelectorAll('.jpdb-reader-example-sentence .jpdb-reader-word').length >= 2
+        && ['日本語', '読む'].every(term => localSurfaces.includes(term));
 }
 
 function immersionKitNextExampleDebugSnapshotFromDom() {

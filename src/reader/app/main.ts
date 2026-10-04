@@ -264,6 +264,7 @@ import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
@@ -461,7 +462,6 @@ import {
     type ActivePopoverDismissOptions,
     type CardPopoverHydrationContext,
     type PageWordDefinitionState,
-    type PageAddonParseState,
     type MountedCardCompletionContext,
 } from './main-runtime-support';
 import { HostThemeController } from './host-theme-controller';
@@ -941,7 +941,7 @@ export class ReaderApp {
     private preloadedTermAudioKeys = new Set<string>();
     private preloadedPreparedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
-    private pageAddonParseStates = new WeakMap<HTMLElement, PageAddonParseState>();
+    private nestedParseCoordinator = new NestedParseCoordinator();
     private pitchEnrichmentLocalCache = new Map<string, Promise<LocalPitchResolution>>();
     private localPitchDictionaryAvailability?: Promise<boolean>;
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
@@ -7712,7 +7712,15 @@ export class ReaderApp {
         });
     }
 
-    private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
+    private parsePopoverJapanese(popover: HTMLElement): Promise<void> {
+        return this.nestedParseCoordinator.run(
+            popover,
+            () => this.performPopoverJapaneseParse(popover),
+            () => this.isCurrentPopoverRoot(popover),
+        );
+    }
+
+    private async performPopoverJapaneseParse(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
         void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(popover, this.settings);
         installProviderExampleBehaviors(popover, {
@@ -7724,48 +7732,20 @@ export class ReaderApp {
         });
         this.enrichJpdbRelatedWords(popover);
         const plan = nestedTextParsePlan(popover, 120, { excludeProviderExamples: true });
-        if (plan && !nestedParseAlreadyScheduled(popover, plan.parseKey)) {
-            await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
-        }
+        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
         if (!this.isCurrentPopoverRoot(popover)) return;
         const providerPlan = providerExampleTextParsePlan(popover, 24);
-        if (providerPlan && !nestedParseAlreadyScheduled(popover, providerPlan.parseKey)) {
-            await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
-                publicJitenDetailLimit: 24,
-            }, false);
-        }
+        await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
+            publicJitenDetailLimit: 24,
+        }, false);
     }
 
-    private async parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
-        let state = this.pageAddonParseStates.get(root);
-        if (!state) {
-            state = { dirty: false };
-            this.pageAddonParseStates.set(root, state);
-        }
-        state.dirty = true;
-        if (state.running) return state.running;
-        state.running = this.flushJpdbPageAddonJapaneseParse(root, state)
-            .finally(() => {
-                state.running = undefined;
-                // A provider can commit in the microtask between the drain's
-                // final check and this release. Chain the follow-up drain from
-                // finally so that caller still awaits the parse it requested.
-                if (state.dirty && this.isJpdbPageAddonRoot(root)) {
-                    return this.parseJpdbPageAddonJapanese(root);
-                }
-            });
-        return state.running;
-    }
-
-    private async flushJpdbPageAddonJapaneseParse(root: HTMLElement, state: PageAddonParseState): Promise<void> {
-        // Provider promises commonly settle together. Let their HTML commits
-        // coalesce into one parse pass, then serialize any genuinely later
-        // update so whole-root JPDB/Jiten parsing never overlaps itself.
-        await Promise.resolve();
-        while (state.dirty && this.isJpdbPageAddonRoot(root)) {
-            state.dirty = false;
-            await this.performJpdbPageAddonJapaneseParse(root);
-        }
+    private parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
+        return this.nestedParseCoordinator.run(
+            root,
+            () => this.performJpdbPageAddonJapaneseParse(root),
+            () => this.isJpdbPageAddonRoot(root),
+        );
     }
 
     private async performJpdbPageAddonJapaneseParse(root: HTMLElement): Promise<void> {
@@ -7895,11 +7875,12 @@ export class ReaderApp {
 
     private async parseNestedJapaneseContent(
         root: HTMLElement,
-        plan: NestedParsePlan,
+        plan: NestedParsePlan | null,
         isCurrent: () => boolean,
         options: ReaderParserParseOptions = {},
         recordParseKey = true,
     ): Promise<void> {
+        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
