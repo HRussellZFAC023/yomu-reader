@@ -44,14 +44,18 @@ function ordinaryPageSave(settings: ReaderSettings, word: JPDBCard): HTMLButtonE
     return renderPopup(settings, word, emptyCardRenderData(), false).querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
 }
 
-function jitenController(settings: ReaderSettings, decks: typeof DECKS, trusted = false) {
+// An Error stands for srs/reader-study-decks failing.
+function jitenController(settings: ReaderSettings, decks: typeof DECKS | Error) {
     const addToStudyDeck = vi.fn(async (_deck: string, _word: JPDBCard) => undefined);
-    const listReaderStudyDecks = vi.fn(async () => decks);
+    const listReaderStudyDecks = vi.fn(async () => {
+        if (decks instanceof Error) throw decks;
+        return decks;
+    });
     const mine = vi.fn(async (_request: { expression: string }) => ({}));
     const jpdbAdd = vi.fn(async () => undefined);
     const toast = vi.fn();
     const controller = testCardActionController({
-        getSettings: () => settings, isJpdbBackedCard, accountDataSurfaceTrusted: () => trusted, toast,
+        getSettings: () => settings, isJpdbBackedCard, accountDataSurfaceTrusted: () => false, toast,
         jiten: { addToStudyDeck, listReaderStudyDecks } as never,
         jpdb: { addToDeck: jpdbAdd } as never,
         srsAdapters: { 'yomu-local': { id: 'yomu-local', hasCredential: () => true, mine } as never },
@@ -104,22 +108,33 @@ describe('saving to Jiten', () => {
         expect(f.mine).toHaveBeenCalledTimes(1);
     });
 
-    it('with no word list and nowhere else to go, nothing is saved: the page hears only that, Study names the fix', async () => {
+    // A page offers the save while Jiten's decks are still unknown (loading, or
+    // the list timed out); "not saved, open Study" beats "turn a deck on" for a
+    // learner whose Jiten is on. Study shows its note instead ("Study deck picker").
+    it('with no word list and nowhere else to go, nothing is saved and the page hears only that', async () => {
         const collect = ordinaryPageSave(JITEN_ONLY, JITEN_WORD);
-        const page = jitenController(JITEN_ONLY, NO_WORD_LIST);
-        const study = jitenController(JITEN_ONLY, NO_WORD_LIST, true);
+        const f = jitenController(JITEN_ONLY, NO_WORD_LIST);
 
-        const onPage = await page.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE).catch((error: unknown) => error);
-        const onStudy = await study.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE).catch((error: unknown) => error);
+        const error = await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE).catch((caught: unknown) => caught);
 
-        expect(page.addToStudyDeck).not.toHaveBeenCalled();
-        expect(userFacingErrorText('en', 'actionFailed', onPage)).toBe('This word was not saved. Try again, or open Study for details.');
-        expect(userFacingErrorText('en', 'actionFailed', onStudy)).toBe('To save words to Jiten, create a word list on jiten.moe.');
-        expect(userFacingErrorText('ja', 'actionFailed', onStudy)).toBe('Jitenに単語を保存するには、jiten.moeで単語リストを作成してください。');
+        expect(f.addToStudyDeck).not.toHaveBeenCalled();
+        expect(userFacingErrorText('en', 'actionFailed', error)).toBe('This word was not saved. Try again, or open Study for details.');
+    });
+
+    // An unreadable deck list is not "no word list": the word may belong in one.
+    it('when Jiten cannot list its decks, a page save fails instead of going to the next destination', async () => {
+        const collect = ordinaryPageSave(WITH_YOMU_DECK, JITEN_WORD);
+        const f = jitenController(WITH_YOMU_DECK, new Error('offline'));
+
+        const error = await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE).catch((caught: unknown) => caught);
+
+        expect(userFacingErrorText('en', 'actionFailed', error)).toBe('This word was not saved. Try again, or open Study for details.');
+        expect(f.addToStudyDeck).not.toHaveBeenCalled();
+        expect(f.mine).not.toHaveBeenCalled();
     });
 
     describe('subtitle "Add selected"', () => {
-        async function addSelected(settings: ReaderSettings, decks: typeof DECKS) {
+        async function addSelected(settings: ReaderSettings, decks: typeof DECKS | Error) {
             const f = jitenController(settings, decks);
             const words = [JITEN_WORD, { ...JITEN_WORD, spelling: '飲む', reading: 'のむ', jitenWordId: 9002 }].map(word => ({ card: { ...word }, sentence: SENTENCE }));
             const plans = f.controller.batchMining.prepare(words);
@@ -145,6 +160,13 @@ describe('saving to Jiten', () => {
             const f = await addSelected(JITEN_ONLY, NO_WORD_LIST);
             expect(f.states).toEqual(['no-destination', 'no-destination']);
             expect(f.addToStudyDeck).not.toHaveBeenCalled();
+        });
+
+        it('when Jiten cannot list its decks, fails instead of saving the words elsewhere', async () => {
+            const f = await addSelected(WITH_YOMU_DECK, new Error('offline'));
+            expect(f.states).toEqual(['failed', 'unattempted']);
+            expect(f.addToStudyDeck).not.toHaveBeenCalled();
+            expect(f.mine).not.toHaveBeenCalled();
         });
     });
 
@@ -192,11 +214,42 @@ describe('saving to Jiten', () => {
             expect(note(actions)).toBe('To save words to Jiten, create a word list on jiten.moe.');
         });
 
+        it('says nothing about word lists when JPDB is the grading service', async () => {
+            const jpdbGrades: ReaderSettings = { ...DUAL_KEY, apiGradingProvider: 'jpdb' };
+            const data = await loader(jpdbGrades, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
+            const actions = renderPopup(jpdbGrades, JITEN_WORD, { ...data, loading: false }, true);
+            expect(data.jitenDecks).toEqual([]);
+            expect(offered(actions)).toEqual(['jpdb', 'yomu-local']);
+            expect(note(actions)).toBeUndefined();
+        });
+
         it('with no word list and nowhere else to go, shows only the note', async () => {
             const data = await loader(JITEN_ONLY, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const actions = renderPopup(JITEN_ONLY, JITEN_WORD, { ...data, loading: false }, true);
             expect(actions.querySelector('.jpdb-reader-collect button')).toBeNull();
             expect(note(actions)).toBe('To save words to Jiten, create a word list on jiten.moe.');
+        });
+
+        // The learner follows the note: the next popup soon offers the new word list.
+        it('looks again soon for a word list the learner has just created', async () => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            try {
+                const listReaderStudyDecks = vi.fn(async () => NO_WORD_LIST);
+                const settings = { ...JITEN_ONLY, localDictionariesEnabled: false, showPitchAccent: false };
+                const data = testCardRenderDataLoader({ settings, jiten: { listReaderStudyDecks } as never, isJpdbBackedCard });
+                const decksFor = async (spelling: string, jitenWordId: number) => (await data.load({ ...JITEN_WORD, spelling, jitenWordId }).all).jitenDecks;
+                await expect(decksFor('食べる', 9001)).resolves.toEqual([]);
+
+                listReaderStudyDecks.mockResolvedValue(DECKS);
+                vi.advanceTimersByTime(31_000);
+                await expect(decksFor('飲む', 9002)).resolves.toEqual([{ id: '9', name: 'Mined words' }, { id: '11', name: 'Core list' }]);
+                // A word list, once found, is kept as long as any deck list.
+                vi.advanceTimersByTime(31_000);
+                await decksFor('見る', 9003);
+                expect(listReaderStudyDecks).toHaveBeenCalledTimes(2);
+            } finally {
+                vi.useRealTimers();
+            }
         });
 
         it('says nothing about word lists while Jiten\'s decks are unknown', async () => {

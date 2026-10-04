@@ -925,7 +925,12 @@ export class CardRenderDataLoader {
         const now = Date.now();
         if (this.jitenDecksCache?.key === key && this.jitenDecksCache.expiresAt > now) return this.jitenDecksCache.promise;
         const promise = this.dependencies.jiten.listReaderStudyDecks()
-            .then(decks => decks.filter(isJitenWordListDeck).map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name })))
+            .then(decks => {
+                const wordLists = decks.filter(isJitenWordListDeck).map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name }));
+                // Study asks a learner with no word list to create one on jiten.moe, so look again soon.
+                if (!wordLists.length && this.jitenDecksCache?.promise === promise) this.jitenDecksCache.expiresAt = Date.now() + CARD_RENDER_DATA_CACHE_TTL_MS;
+                return wordLists;
+            })
             .catch(error => {
                 if (this.jitenDecksCache?.promise === promise) this.jitenDecksCache = undefined;
                 throw error;

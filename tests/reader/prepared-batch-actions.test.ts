@@ -376,6 +376,27 @@ describe('batch collection follows the popup destination', () => {
         expect((await controller.batchMining.execute([plans[1]!.token], 'collect')).rejected).toBe('unavailable');
     });
 
+    // Jiten takes a word only into a word list; with none, the word goes to the
+    // next destination before anything is written to Jiten.
+    it('does not hold the batch open for a word moved off a service with no collection for it', async () => {
+        const settings = { ...DEFAULT_SETTINGS, jitenApiKey: 'private-key', ankiEnabled: true };
+        const jiten = provider('jiten');
+        const collectAnki = vi.fn(async () => true);
+        const batch = new PreparedBatchActions({ getSettings: () => settings, resolveReviewProvider: () => jiten,
+            resolveCollectionDestination: (_card, _settings, without) => without === 'jiten' ? 'anki' : jiten,
+            review: vi.fn(), collectAnki, collectionDeck: vi.fn(async () => ''), collectForReview: vi.fn(), findOnGradingService: vi.fn(), notify: vi.fn() }, 2);
+
+        for (let vid = 0; vid < 5; vid += 1) {
+            batch.beginGeneration();
+            const [plan] = batch.prepare([{ card: card(vid) }]);
+            const result = await batch.execute([plan!.token], 'collect');
+            expect(result.rejected).toBeUndefined();
+            expect(result.items.map(item => item.state)).toEqual(['completed']);
+        }
+        expect(jiten.addToDeck).not.toHaveBeenCalled();
+        expect(collectAnki).toHaveBeenCalledTimes(5);
+    });
+
     it('skips a word Bunpro has no entry for without holding the batch open', async () => {
         const mine = vi.fn(async (request: { expression: string }) => {
             if (request.expression === '語82') throw new BunproApiError('No Bunpro item found.', undefined, 'bunproNoMatchingWord');
