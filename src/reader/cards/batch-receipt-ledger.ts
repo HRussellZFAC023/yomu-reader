@@ -4,7 +4,7 @@ export interface BatchReceiptItem {
     readonly required: readonly string[];
 }
 
-type ReceiptGroup = Map<string, BatchReceiptItem>;
+export type ReceiptGroup = Map<string, BatchReceiptItem>;
 
 /** Keep retry prefixes until the whole operation finishes; never evict unresolved work. */
 export class BatchReceiptLedger {

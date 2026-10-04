@@ -18,6 +18,18 @@ const PUBLIC_READ_CACHE_LIMIT = 160;
 export interface JitenReaderStudyDeck {
     userStudyDeckId: number;
     name: string;
+    /** Jiten's StudyDeckType: 0 media, 1 frequency range, 2 word list, 3 smart. */
+    deckType?: number;
+}
+
+/** Jiten adds a single word only to a word list (StaticWordList); its other study decks refuse it. */
+export function isJitenWordListDeck(deck: JitenReaderStudyDeck): boolean {
+    return deck.deckType === 2;
+}
+
+/** The learner's first word list in their Jiten deck order, or '' when they have none. */
+export function firstJitenWordListId(decks: readonly JitenReaderStudyDeck[]): string {
+    return String(decks.find(isJitenWordListDeck)?.userStudyDeckId ?? '');
 }
 
 export interface JitenCardReference {
@@ -1870,12 +1882,13 @@ function normalizeReaderStudyDecks(value: unknown): JitenReaderStudyDeck[] {
 }
 
 function normalizeReaderStudyDeck(value: unknown): JitenReaderStudyDeck {
-    if (!isJsonRecord(value)) throw new JitenApiError('Jiten reader study deck response was invalid.');
-    const { userStudyDeckId, name } = value;
-    if (typeof userStudyDeckId !== 'number' || !Number.isFinite(userStudyDeckId) || typeof name !== 'string') {
-        throw new JitenApiError('Jiten reader study deck response was invalid.');
-    }
-    return { userStudyDeckId, name };
+    if (!isReaderStudyDeck(value)) throw new JitenApiError('Jiten reader study deck response was invalid.');
+    const { userStudyDeckId, name, deckType } = value;
+    return typeof deckType === 'number' ? { userStudyDeckId, name, deckType } : { userStudyDeckId, name };
+}
+
+function isReaderStudyDeck(value: unknown): value is JitenReaderStudyDeck & { deckType?: unknown } {
+    return isJsonRecord(value) && typeof value.userStudyDeckId === 'number' && Number.isFinite(value.userStudyDeckId) && typeof value.name === 'string';
 }
 
 function normalizeJitenStudyDeckId(value: string | number): number {

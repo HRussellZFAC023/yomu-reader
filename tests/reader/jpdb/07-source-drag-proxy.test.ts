@@ -1684,7 +1684,7 @@ describe('reader helpers', () => {
     });
 
     it('loads Jiten study decks through the shared API mining gate', async () => {
-        const listReaderStudyDecks = vi.fn(async () => [{ userStudyDeckId: 12, name: 'Mining' }]);
+        const listReaderStudyDecks = vi.fn(async () => [{ userStudyDeckId: 12, name: 'Mining', deckType: 2 }]);
         const enabledLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
                 apiKey: '',
@@ -1700,7 +1700,7 @@ describe('reader helpers', () => {
         });
         expect(listReaderStudyDecks).toHaveBeenCalledTimes(1);
 
-        const disabledListReaderStudyDecks = vi.fn(async () => [{ userStudyDeckId: 13, name: 'Disabled' }]);
+        const disabledListReaderStudyDecks = vi.fn(async () => [{ userStudyDeckId: 13, name: 'Disabled', deckType: 2 }]);
         const disabledLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
                 apiKey: '',
@@ -1712,7 +1712,7 @@ describe('reader helpers', () => {
         });
 
         await expect(disabledLoader.load(jitenTestCard()).all).resolves.toMatchObject({
-            jitenDecks: [],
+            jitenDecks: undefined,
         });
         expect(disabledListReaderStudyDecks).not.toHaveBeenCalled();
     });

@@ -174,7 +174,7 @@ function mockJiten(url, method, request, state) {
     const p = url.pathname.replace(/^\/api\/?/, '');
     if (method === 'GET' && /^vocabulary\/\d+\/\d+\/info$/.test(p)) return jitenInfo(url);
     if (method === 'GET' && p === 'vocabulary/parse') return jsonHttpResponse([]);
-    if (p.startsWith('srs/reader-study-decks') || p.startsWith('srs/study-decks')) return jsonHttpResponse([{ userStudyDeckId: 2864, name: 'Offline deck' }]);
+    if (p.startsWith('srs/reader-study-decks') || p.startsWith('srs/study-decks')) return jsonHttpResponse([{ userStudyDeckId: 2864, name: 'Offline deck', deckType: 2 }]);
     if (p.startsWith('srs/study-batch')) return jsonHttpResponse(studyBatch(state));
     if (p.startsWith('srs/review')) {
         const body = readJson(request);

@@ -371,7 +371,7 @@ function jitenResponse(url, rawBody, scenario, requests) {
     if (endpoint === 'reader/ping') return jsonResponse({ ok: true });
     if (endpoint === 'reader/parse') return jsonResponse(jitenParseResponse(parseJsonBody(rawBody)));
     if (endpoint === 'vocabulary/parse') return jsonResponse(jitenPublicParseResponse(url.searchParams.get('text') ?? ''));
-    if (endpoint === 'srs/reader-study-decks') return jsonResponse([{ userStudyDeckId: 1, name: 'Mining' }]);
+    if (endpoint === 'srs/reader-study-decks') return jsonResponse([{ userStudyDeckId: 1, name: 'Mining', deckType: 2 }]);
     if (/^vocabulary\/\d+\/\d+\/info$/.test(endpoint)) return jsonResponse(jitenVocabularyInfo(endpoint));
     if (/^vocabulary\/\d+\/\d+\/random-example-sentences$/.test(endpoint)) return jsonResponse([]);
     return jsonResponse({});

@@ -361,7 +361,7 @@ describe('batch collection follows the popup destination', () => {
         const addToStudyDeck = vi.fn(async (_deck: string, _word: JPDBCard) => undefined);
         const controller = testCardActionController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, yomuLocalSrsEnabled: false }),
-            jiten: { addToStudyDeck, listStudyDecks: async () => [{ id: 12, name: 'Reading' }] } as never,
+            jiten: { addToStudyDeck, listReaderStudyDecks: async () => [{ userStudyDeckId: 12, name: 'Reading', deckType: 2 }] } as never,
             isJpdbBackedCard: () => false,
         });
         // Only Jiten collects here, and it needs its own identity for a word.

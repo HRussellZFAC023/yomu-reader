@@ -12,7 +12,8 @@ const EN = {
     jpdbAddApiKeyRequired: 'Add a JPDB API key, or use Add to Anki.',
     addedToJpdb: 'Added to JPDB.',
     jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
-    chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
+    // Jiten takes a single word only into a word list (StudyDeckType 2).
+    jitenNeedsWordList: 'To save words to Jiten, create a word list on jiten.moe.',
     addedToJiten: 'Added to Jiten.',
     bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
     bunproNoMatchingWord: 'Bunpro has no entry for this word.',
@@ -34,7 +35,7 @@ const JA: Record<keyof typeof EN, string> = {
     jpdbAddApiKeyRequired: 'JPDB APIキーかAnki追加が必要です。',
     addedToJpdb: 'JPDBに追加しました。',
     jitenAddApiKeyRequired: 'Jiten APIキーかAnki追加が必要です。',
-    chooseJitenStudyDeck: '先にJiten学習デッキを選択してください。',
+    jitenNeedsWordList: 'Jitenに単語を保存するには、jiten.moeで単語リストを作成してください。',
     addedToJiten: 'Jitenに追加しました。',
     bunproAddApiKeyRequired: 'Bunproのfrontend_api_tokenかAnki追加が必要です。',
     bunproNoMatchingWord: 'この単語はBunproに見つかりませんでした。',

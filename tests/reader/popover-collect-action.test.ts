@@ -240,7 +240,7 @@ describe('popup collect action', () => {
         function dualKeyController(grading: 'jpdb' | 'jiten', found: { jpdb?: JPDBCard; jiten?: JPDBCard } = {}) {
             const services = {
                 jpdb: { addToDeck: vi.fn(async () => undefined), parse: vi.fn(async (terms: string[]) => terms.map(() => found.jpdb ? [token(found.jpdb)] : [])) },
-                jiten: { addToStudyDeck: vi.fn(async () => undefined), listStudyDecks: async () => [{ id: 12, name: 'Mining' }], parse: vi.fn(async (terms: string[]) => terms.map(() => found.jiten ? [token(found.jiten)] : [])) },
+                jiten: { addToStudyDeck: vi.fn(async () => undefined), listReaderStudyDecks: async () => [{ userStudyDeckId: 12, name: 'Mining', deckType: 2 }], parse: vi.fn(async (terms: string[]) => terms.map(() => found.jiten ? [token(found.jiten)] : [])) },
             };
             const settings = { ...DEFAULT_SETTINGS, ...DUAL_KEY, apiGradingProvider: grading };
             const controller = testCardActionController({ getSettings: () => settings, isJpdbBackedCard, jpdb: services.jpdb as never, jiten: services.jiten as never,
@@ -329,10 +329,11 @@ describe('popup collect action', () => {
         const assignment: JPDBCard = { ...WORD, source: 'wanikani', wanikaniSubjectId: 1, wanikaniAssignmentId: 7 };
         expect(renderActions(wanikaniOnly, {}, emptyCardRenderData(), assignment).querySelector('.jpdb-reader-collect')).toBeNull();
 
-        // A Jiten-only learner saves into a Jiten study deck, so the save waits until there is one.
+        // A Jiten-only learner saves into a Jiten word list, so the save waits until there is one
+        // (jiten-word-list-mining.test.ts covers the note that says so).
         const jitenOnly: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, yomuLocalSrsEnabled: false, ankiEnabled: false, enableReviews: true };
         const jitenWord: JPDBCard = { ...WORD, source: 'jiten', jitenWordId: 9, jitenReadingIndex: 0 };
-        expect(renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [] }), jitenWord).querySelector('.jpdb-reader-collect')).toBeNull();
+        expect(renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [] }), jitenWord).querySelector('.jpdb-reader-collect button')).toBeNull();
         const withDeck = renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [{ id: 'study', name: 'Mining' }] }), jitenWord);
         expect(withDeck.querySelector('.jpdb-reader-collect [data-add-deck-select] [data-deck-source="jiten"]')).not.toBeNull();
     });

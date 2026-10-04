@@ -309,7 +309,7 @@ describe('reader helpers', () => {
         const controller = testCardActionController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', jpdbMiningEnabled: true,
                 apiGradingProvider: 'jiten', ankiEnabled: false, enableReviews }),
-            jiten: { addToStudyDeck, reviewCard, listStudyDecks: vi.fn(async () => [{ id: 12, name: 'Reading' }]) } as unknown as JitenApiClient,
+            jiten: { addToStudyDeck, reviewCard, listReaderStudyDecks: vi.fn(async () => [{ userStudyDeckId: 12, name: 'Reading', deckType: 2 }]) } as unknown as JitenApiClient,
         });
         const candidate = { ...card, source: 'jiten' as const, jitenWordId: 42, jitenReadingIndex: 0 };
 

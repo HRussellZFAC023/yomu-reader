@@ -114,6 +114,11 @@ let jitenParseCalls = 0;
 let jitenTransientMiss = true;
 // The unmatched phase: JPDB has no exact match for the graded word.
 let jpdbLacksTerm = false;
+// srs/reader-study-decks. Jiten takes a single word only into a word list
+// (deckType 2); its media decks (deckType 0) answer 400.
+const MEDIA_DECK = { userStudyDeckId: 3, name: 'Frieren', deckType: 0 };
+const WORD_LIST = { userStudyDeckId: 9, name: 'Mined words', deckType: 2 };
+let jitenStudyDecks = [MEDIA_DECK, WORD_LIST];
 const parsedTexts = { jpdb: [], jiten: [] };
 
 try {
@@ -126,7 +131,11 @@ try {
     const resolvedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb' });
     // ...and when JPDB does not have it, nothing is graded anywhere.
     const unmatchedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb-unmatched', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb', unmatched: true });
-    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, browserEvents };
+    // "Add to deck +" with Jiten grading: the first word list, past a media deck;
+    // with no word list, the next destination (the Yomu deck) and no Jiten write.
+    const wordListSave = await runJitenSavePhase({ name: 'jiten-save-word-list', decks: [MEDIA_DECK, WORD_LIST], savedTo: WORD_LIST });
+    const noWordListSave = await runJitenSavePhase({ name: 'jiten-save-no-word-list', decks: [MEDIA_DECK], savedTo: null });
+    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, wordListSave, noWordListSave, browserEvents };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({
         ok: true,
@@ -143,6 +152,7 @@ try {
         },
         jitenParserJpdbGrading: { pageParsedBy: resolvedRun.pageParsedBy, resolvedWith: resolvedRun.resolvedWith, reviewRequests: resolvedRun.reviewRequests },
         unmatchedJpdbGrading: { toast: unmatchedRun.toast, reviewRequests: unmatchedRun.reviewRequests },
+        jitenSaves: { wordList: wordListSave, noWordList: noWordListSave },
     }, null, 2));
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
@@ -152,42 +162,9 @@ try {
 // chosen service comes from settings, exactly as a learner sets it in Study.
 async function runGradingProviderPhase(phase) {
     const provider = phase.grading;
-    requests.length = 0;
-    jitenKnownState = [0];
-    jitenParseCalls = 0;
-    jitenTransientMiss = phase.parser === 'jpdb';
-    jpdbLacksTerm = phase.unmatched === true;
-    parsedTexts.jpdb.length = 0;
-    parsedTexts.jiten.length = 0;
     const label = provider === 'jpdb' ? 'JPDB' : 'Jiten';
     const otherProvider = provider === 'jpdb' ? 'jiten' : 'jpdb';
-    const context = await browser.newContext({ bypassCSP: true, ...smokeContextOptions(SMOKE_VIEWPORT) });
-    const page = await context.newPage();
-    page.on('console', message => {
-        if (message.type() === 'error' || message.type() === 'warning') {
-            browserEvents.push({ provider, type: message.type(), text: message.text() });
-        }
-    });
-    page.on('pageerror', error => browserEvents.push({ provider, type: 'pageerror', text: String(error) }));
-    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => handleRequest(request));
-    await addGmStorageBridgeInitScript(page, {
-        key: YOMU_SETTINGS_KEY,
-        value: phaseSettings(phase),
-        requestBridgeName: REQUEST_BRIDGE_NAME,
-    });
-    await page.route(/https?:\/\/(?:[^/]*jpdb\.io|[^/]*api\.jiten\.moe|[^/]*workers\.dev)\//, route => {
-        const response = handleRequest({ method: route.request().method(), url: route.request().url(), headers: route.request().headers(), data: route.request().postData() ?? '' });
-        return route.fulfill({ status: response.status, contentType: response.contentType ?? 'application/json; charset=utf-8', body: response.responseText ?? '' });
-    });
-
-    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-    await page.addStyleTag({ path: CSS_PATH });
-    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-
-    await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
-    const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
-    assert(await word.count() === 1, 'jpdb parse did not render the 復習 reader word');
-    await ensurePopover(page, word);
+    const { context, page, word } = await openPhasePage(phase);
     // Before any kanji navigation: renderKanjiCardShell replaces the title row,
     // so .jpdb-reader-spelling stops existing once kanji details are open.
     await assertPopoverHeadwordMatchesLookup(page, word, { label: `grading-provider ${provider} first open` });
@@ -220,6 +197,62 @@ async function runGradingProviderPhase(phase) {
     };
     await context.close();
     return result;
+}
+
+async function openPhasePage(phase) {
+    const provider = phase.grading;
+    requests.length = 0;
+    jitenKnownState = [0];
+    jitenParseCalls = 0;
+    jitenTransientMiss = phase.parser === 'jpdb';
+    jpdbLacksTerm = phase.unmatched === true;
+    jitenStudyDecks = phase.decks ?? [MEDIA_DECK, WORD_LIST];
+    parsedTexts.jpdb.length = 0;
+    parsedTexts.jiten.length = 0;
+    const context = await browser.newContext({ bypassCSP: true, ...smokeContextOptions(SMOKE_VIEWPORT) });
+    const page = await context.newPage();
+    page.on('console', message => {
+        if (message.type() === 'error' || message.type() === 'warning') {
+            browserEvents.push({ provider, type: message.type(), text: message.text() });
+        }
+    });
+    page.on('pageerror', error => browserEvents.push({ provider, type: 'pageerror', text: String(error) }));
+    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => routeRequest(request));
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: phaseSettings(phase),
+        requestBridgeName: REQUEST_BRIDGE_NAME,
+    });
+    await page.route(/https?:\/\/(?:[^/]*jpdb\.io|[^/]*api\.jiten\.moe|[^/]*workers\.dev)\//, route => {
+        const response = routeRequest({ method: route.request().method(), url: route.request().url(), headers: route.request().headers(), data: route.request().postData() ?? '' });
+        return route.fulfill({ status: response.status, contentType: response.contentType ?? 'application/json; charset=utf-8', body: response.responseText ?? '' });
+    });
+
+    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await page.addStyleTag({ path: CSS_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+
+    await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
+    const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
+    assert(await word.count() === 1, 'jpdb parse did not render the 復習 reader word');
+    await ensurePopover(page, word);
+    return { context, page, word };
+}
+
+// The ordinary page's provider-neutral "Add to deck +": a Jiten save reaches
+// only the learner's first word list, and without one the word goes to the
+// next destination with no Jiten write. Either way the page hears "Added to deck."
+async function runJitenSavePhase(phase) {
+    const { context, page } = await openPhasePage({ ...phase, grading: 'jiten', parser: 'default' });
+    await page.locator('.jpdb-reader-actions [data-action="add-default"]').first().click();
+    await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-reader-toast')].some(toast => (toast.textContent ?? '').includes('Added to deck.')), null, { timeout: 8_000 });
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, `${phase.name}.png`), fullPage: false });
+    const writes = requests.filter(request => request.method === 'POST' && /\/srs\/study-decks\/\d+\/words$/.test(request.path)).map(request => request.path);
+    const expected = phase.savedTo ? [`/api/srs/study-decks/${phase.savedTo.userStudyDeckId}/words`] : [];
+    assert(JSON.stringify(writes) === JSON.stringify(expected), 'Jiten saved the word to the wrong study deck', { writes, expected, requests: summarizeRequests() });
+    assert(browserEvents.length === 0, 'Browser console/page errors occurred during the Jiten save', { browserEvents });
+    await context.close();
+    return { jitenWrites: writes, toast: 'Added to deck.' };
 }
 
 async function assertGradedOnceOn(page, provider, label, otherProvider) {
@@ -445,6 +478,15 @@ async function readReviewedWordState(page) {
     }, TERM);
 }
 
+// The phase's Jiten study decks answer before the shared mocks.
+function routeRequest(request) {
+    const url = new URL(request.url);
+    const decks = url.host.includes('api.jiten.moe') ? mockJitenStudyDecks(url.pathname) : null;
+    if (!decks) return handleRequest(request);
+    requests.push({ host: url.host, path: `${url.pathname}${url.search}`, method: request.method ?? 'GET' });
+    return decks;
+}
+
 function handleRequest(request) {
     const url = new URL(request.url);
     const summary = { host: url.host, path: `${url.pathname}${url.search}`, method: request.method ?? 'GET' };
@@ -543,6 +585,18 @@ function mockJiten(pathname, body = {}) {
     }
     // srs/review, srs/set-vocabulary-state, kanji words, etc.
     return jsonHttpResponse({});
+}
+
+function mockJitenStudyDecks(pathname) {
+    if (pathname.endsWith('/srs/reader-study-decks')) return jsonHttpResponse(jitenStudyDecks);
+    const deckId = /\/srs\/study-decks\/(\d+)\/words$/.exec(pathname)?.[1];
+    return deckId ? jitenDeckWordWrite(Number(deckId)) : null;
+}
+
+// Jiten takes a single word only into a word list, as its API does.
+function jitenDeckWordWrite(deckId) {
+    const deck = jitenStudyDecks.find(candidate => candidate.userStudyDeckId === deckId);
+    return deck?.deckType === 2 ? jsonHttpResponse({}) : { status: 400, responseText: 'Words can only be added in static word list decks.', contentType: 'text/plain; charset=utf-8' };
 }
 
 function requestCount(host, pathFragment) {

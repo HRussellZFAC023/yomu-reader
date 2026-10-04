@@ -1196,6 +1196,11 @@ html.jpdb-reader-doodle-active * {
   width: 100%;
   min-height: 40px;
 }
+.jpdb-reader-collect > .jpdb-reader-help {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+}
 .jpdb-reader-add-deck-select {
   position: absolute;
   width: 1px;

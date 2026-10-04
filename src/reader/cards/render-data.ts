@@ -2,7 +2,7 @@ import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLook
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './render-state';
 import { cardKey } from './utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
-import { enrichCardFromJitenVocabularyInfo, type JitenApiClient, type JitenVocabularyInfo, type JitenVocabularyWordSummary } from '../dictionaries/jiten';
+import { enrichCardFromJitenVocabularyInfo, isJitenWordListDeck, type JitenApiClient, type JitenVocabularyInfo, type JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo, JpdbVocabularyLookupResult } from '../jpdb/jpdb-vocabulary';
@@ -17,7 +17,7 @@ import { EXPRESSION_CONNECTIVE_KANA, isKanjiCharacter, type ExpressionComponentL
 import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
-import { isJitenBackedCard } from './srs-providers';
+import { apiGradingServiceToResolve, isJitenBackedCard } from './srs-providers';
 import type { ApiDeck, JPDBCard, JPDBDeck, ReaderSettings } from '../app/types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import {
@@ -57,6 +57,7 @@ export interface CardRenderData {
     metaEntries: YomitanMetaEntry[];
     ankiLookup: AnkiLookupResult;
     jpdbDecks: JPDBDeck[];
+    /** The learner's Jiten word lists, the only decks Jiten adds a word to; absent until known. */
     jitenDecks?: ApiDeck[];
     ankiDecks: string[];
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
@@ -135,6 +136,11 @@ interface FrequencyRankLoad {
     hydrated: Promise<ProviderFrequencyRanks>;
 }
 
+// Jiten also takes a word another service parsed when it is the grading service (ADR-0021).
+function jitenCanTakeWord(card: JPDBCard, settings: ReaderSettings, isJpdbBackedCard: (card: JPDBCard) => boolean): boolean {
+    return isJitenBackedCard(card) || apiGradingServiceToResolve(card, settings, isJpdbBackedCard) === 'jiten';
+}
+
 function cardNeedsCanonicalReading(card: JPDBCard): boolean {
     const spelling = card.spelling.normalize('NFKC').trim();
     const reading = card.reading.normalize('NFKC').trim();
@@ -162,7 +168,6 @@ export function loadingCardRenderData(
         metaEntries,
         ankiLookup,
         jpdbDecks: [],
-        jitenDecks: [],
         ankiDecks: [],
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
@@ -684,13 +689,13 @@ export class CardRenderDataLoader {
         }), [] as string[]);
     }
 
-    private loadJitenDecks(card: JPDBCard): Promise<ApiDeck[]> {
+    private loadJitenDecks(card: JPDBCard): Promise<ApiDeck[] | undefined> {
         const settings = this.settings();
-        if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
+        if (!settings.jpdbMiningEnabled || !jitenCanTakeWord(card, settings, this.dependencies.isJpdbBackedCard) || !hasJitenApiCredential(settings)) return Promise.resolve(undefined);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Jiten deck list', this.cachedJitenDecks(settings).catch(error => {
             log.warn('Jiten deck list failed', { term: card.spelling }, error);
-            return [];
-        }), [] as ApiDeck[]);
+            return undefined;
+        }), undefined);
     }
 
     // Field-target plan for the new-card preview: shows which fields a mining
@@ -741,7 +746,7 @@ export class CardRenderDataLoader {
             localMetaEntries,
             ankiLookup,
             japaneseProviders ? this.loadJpdbDecks(card) : Promise.resolve([] as JPDBDeck[]),
-            japaneseProviders ? this.loadJitenDecks(card) : Promise.resolve([] as ApiDeck[]),
+            japaneseProviders ? this.loadJitenDecks(card) : Promise.resolve(undefined),
             ankiDecks,
             jpdbDeckMembership,
             jpdbVocabularyInfo,
@@ -920,7 +925,7 @@ export class CardRenderDataLoader {
         const now = Date.now();
         if (this.jitenDecksCache?.key === key && this.jitenDecksCache.expiresAt > now) return this.jitenDecksCache.promise;
         const promise = this.dependencies.jiten.listReaderStudyDecks()
-            .then(decks => decks.map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name })))
+            .then(decks => decks.filter(isJitenWordListDeck).map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name })))
             .catch(error => {
                 if (this.jitenDecksCache?.promise === promise) this.jitenDecksCache = undefined;
                 throw error;

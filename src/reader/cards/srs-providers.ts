@@ -1,11 +1,10 @@
 import { normalizeCardStates } from './state';
-import { jpdbDeckLabel } from './deck-choice';
 import { chosenWordGradingService, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
 import { userFacingError } from '../app/user-facing-errors';
-import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
+import type { CardState, JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { isLocalYomuSrsSaveInterrupted, isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import type {
     YomuSrsAdapter,
@@ -42,15 +41,9 @@ export interface ApiSrsProviderAdapter extends ApiSrsProviderView {
     supportsMiningCard?(card: JPDBCard): boolean;
     supportsDeckState(state: ApiSrsDeckState): boolean;
     selectedDeckId(deckId: string, settings: ReaderSettings): string;
-    selectedDeckLabel(settings: ReaderSettings, data: ApiSrsProviderDeckData): string;
     addToDeck(deckId: string, card: JPDBCard, sentence?: string, context?: ApiSrsProviderActionContext): Promise<void>;
     reviewCard(card: JPDBCard, grade: JPDBGrade, options?: ApiSrsProviderReviewOptions): Promise<ApiSrsProviderReviewResult>;
     setDeckState(card: JPDBCard, state: ApiSrsDeckState, deckId: string): Promise<void>;
-}
-
-export interface ApiSrsProviderDeckData {
-    jpdbDecks: JPDBDeck[];
-    jitenDecks?: ApiDeck[];
 }
 
 export interface ApiSrsProviderActionContext {
@@ -265,18 +258,27 @@ const COLLECTION_FALLBACK_ORDER: readonly CollectionDestinationId[] = ['anki', '
  * identified once the save finds it there, as a grade does (ADR-0021). The
  * learner's settings decide the rest, not the dictionary that supplied the
  * word: with JPDB mining off, a JPDB-parsed word can still go to Anki, the Yomu
- * deck or Bunpro.
+ * deck or Bunpro. `without` is a service with no collection to take the word:
+ * Jiten takes one only into the learner's word lists.
  */
 export function collectionDestinationsForCard(
     card: JPDBCard,
     settings: ReaderSettings,
     isJpdbBackedCard: (card: JPDBCard) => boolean,
+    without?: ApiSrsProviderId,
 ): CollectionDestinationId[] {
     const resolveOn = apiGradingServiceToResolve(card, settings, isJpdbBackedCard);
     const grading = resolveOn ?? apiSrsProviderViewForCard(card, settings, isJpdbBackedCard)?.id;
     const order = grading ? [grading, ...COLLECTION_FALLBACK_ORDER.filter(id => id !== grading)] : COLLECTION_FALLBACK_ORDER;
     const accepts = (id: ApiSrsProviderId): boolean => id === resolveOn || COLLECTION_ACCEPTS[id](card, isJpdbBackedCard);
-    return order.filter(id => canCollectTo(id, settings, accepts));
+    return destinationsWithout(order.filter(id => canCollectTo(id, settings, accepts)), without);
+}
+
+// When the grade row's own service cannot take the word, the other grading
+// service does not stand in for it (ADR-0021): Anki, the Yomu deck or Bunpro do.
+function destinationsWithout(destinations: CollectionDestinationId[], without: ApiSrsProviderId | undefined): CollectionDestinationId[] {
+    const gradeRow = destinations[0] === without;
+    return destinations.filter(id => id !== without && !(gradeRow && (id === 'jpdb' || id === 'jiten')));
 }
 
 function canCollectTo(id: CollectionDestinationId, settings: ReaderSettings, accepts: (id: ApiSrsProviderId) => boolean): boolean {
@@ -328,7 +330,6 @@ function createJpdbSrsProviderAdapter(
         supportsCard: isJpdbBackedCard,
         supportsDeckState: state => state === 'never-forget' || state === 'blacklisted',
         selectedDeckId: selectedJpdbDeckId,
-        selectedDeckLabel: (current, data) => jpdbDeckLabel(current, current.miningDeck.trim() || 'forq', data.jpdbDecks),
         addToDeck: async (deckId, card, sentence) => {
             const targetDeck = selectedJpdbDeckId(deckId, settings);
             await jpdb.addToDeck(targetDeck, card, sentence);
@@ -366,7 +367,6 @@ function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Reade
         supportsMiningCard: isBunproMiningCard,
         supportsDeckState: () => false,
         selectedDeckId: () => 'bunpro',
-        selectedDeckLabel: () => 'Bunpro',
         addToDeck: async (_deckId, card, sentence, context) => {
             await adapter.mine(bunproMiningRequestFromCard(card, sentence, context));
         },
@@ -399,7 +399,6 @@ function createWanikaniSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Rea
         supportsMiningCard: () => false,
         supportsDeckState: () => false,
         selectedDeckId: () => 'wanikani',
-        selectedDeckLabel: () => 'WaniKani',
         addToDeck: async () => {
             throw new Error('WaniKani has no API to add arbitrary words; open the word on wanikani.com instead.');
         },
@@ -477,7 +476,6 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         supportsCard: card => Boolean(card.spelling.trim()),
         supportsDeckState: () => false,
         selectedDeckId: () => 'yomu-local',
-        selectedDeckLabel: () => ACADEMY_SRS_LABEL,
         addToDeck: async (_deckId, card, sentence, context) => {
             const result = await localYomuMutation(
                 () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context)),
@@ -527,7 +525,6 @@ function createJitenSrsProviderAdapter(jiten: JitenApiClient, settings: ReaderSe
         supportsCard: isJitenBackedCard,
         supportsDeckState: () => true,
         selectedDeckId: selectedJitenDeckId,
-        selectedDeckLabel: (_current, data) => jitenDeckLabel((data.jitenDecks ?? [])[0]),
         addToDeck: async (deckId, card, sentence, context) => {
             await jiten.addToStudyDeck(selectedJitenDeckId(deckId), card, sentence, context?.sourceTitle);
             await refreshJitenCardState(jiten, card);
@@ -697,8 +694,4 @@ function selectedJitenDeckId(deckId: string): string {
 
 function shouldAlsoAddToForq(settings: ReaderSettings, targetDeck: string): boolean {
     return settings.addToForq && targetDeck !== 'forq';
-}
-
-function jitenDeckLabel(deck: { name: string } | undefined): string {
-    return deck?.name ? `Jiten: ${deck.name}` : 'Jiten';
 }

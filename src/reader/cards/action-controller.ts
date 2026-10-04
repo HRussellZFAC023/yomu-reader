@@ -12,7 +12,7 @@ import { formatUiText, uiList, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingCopyKeyOf, userFacingError } from '../app/user-facing-errors';
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
 import type { MiningContext } from '../study/mining-context';
-import type { JitenApiClient } from '../dictionaries/jiten';
+import { firstJitenWordListId, type JitenApiClient } from '../dictionaries/jiten';
 import {
     apiGradingProviderPreference,
     apiGradingServiceToResolve,
@@ -115,7 +115,7 @@ export class CardActionController {
         this.batchMining = new PreparedBatchActions({
             getSettings: () => this.options.getSettings(),
             // "Add selected" saves each word where the popup's "Add to deck +" would.
-            resolveCollectionDestination: (card, settings) => this.privateDefaultDestination(card, settings),
+            resolveCollectionDestination: (card, settings, without) => this.privateDefaultDestination(card, settings, without),
             resolveReviewProvider: (card, settings) => this.gradingProviderForCard(card, settings),
             collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
             collectAnki: (card, sentence, deck, assertCurrent) => this.addToAnkiForBatch(card, sentence, deck, assertCurrent),
@@ -472,13 +472,15 @@ export class CardActionController {
         return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
     }
 
-    private async addToDefaultDestination(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
+    // Only Jiten can have no collection for a word (no word list): the save
+    // then goes to the next destination, which always has one (ADR-0016).
+    private async addToDefaultDestination(card: JPDBCard, sentence: string | undefined, context: CardActionContext, without?: ApiSrsProviderId): Promise<void> {
         const settings = this.options.getSettings();
-        const destination = this.privateDefaultDestination(card, settings);
+        const destination = this.privateDefaultDestination(card, settings, without);
         if (destination === 'anki') return this.addToAnki(card, sentence, settings.ankiDeck, context);
-        if (!destination) throw userFacingError('collectNoDestination');
+        if (!destination) throw userFacingError(noCollectionKey(without));
         const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
-        if (!selectedDeckId) throw userFacingError(missingProviderDeckKey(destination));
+        if (!selectedDeckId) return this.addToDefaultDestination(card, sentence, context, destination.id);
         await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(destination, card));
     }
 
@@ -491,19 +493,20 @@ export class CardActionController {
 
     // The popup renders "Add to deck +" from the same destination list, so the
     // save lands on the first destination the learner was offered.
-    private privateDefaultDestination(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | 'anki' | null {
+    private privateDefaultDestination(card: JPDBCard, settings: ReaderSettings, without?: ApiSrsProviderId): ApiSrsProviderAdapter | 'anki' | null {
         const providers = this.apiProviders(settings).filter(provider => provider.hasApiKey);
-        for (const id of collectionDestinationsForCard(card, settings, this.options.isJpdbBackedCard)) {
+        for (const id of collectionDestinationsForCard(card, settings, this.options.isJpdbBackedCard, without)) {
             const destination = id === 'anki' ? id : providers.find(candidate => candidate.id === id);
             if (destination) return destination;
         }
         return null;
     }
 
+    // Jiten takes a word only into a word list: the learner's first, as Study's
+    // deck picker lists them.
     private async privateDefaultDeckId(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string> {
         if (provider.id !== 'jiten') return provider.selectedDeckId(settings.miningDeck, settings);
-        const decks = await this.options.jiten?.listStudyDecks?.().catch(() => []);
-        return String(decks?.[0]?.id ?? '');
+        return firstJitenWordListId(await this.options.jiten?.listReaderStudyDecks() ?? []);
     }
 
     // `word` is the provider's own copy of `card` when the save had to find it there.
@@ -902,7 +905,11 @@ function acceptsForCollection(provider: ApiSrsProviderAdapter, card: JPDBCard): 
 }
 
 function missingProviderDeckKey(provider: ApiSrsProviderAdapter): UiCopyKey {
-    return provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey;
+    return provider.id === 'jiten' ? 'jitenNeedsWordList' : provider.addApiKeyRequiredKey;
+}
+
+function noCollectionKey(without: ApiSrsProviderId | undefined): UiCopyKey {
+    return without === 'jiten' ? 'jitenNeedsWordList' : 'collectNoDestination';
 }
 
 function providerCanDropMedia(provider: ApiSrsProviderAdapter, minedToAnkiToo: boolean): boolean {

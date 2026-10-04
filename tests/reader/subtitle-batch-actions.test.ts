@@ -39,7 +39,7 @@ function setup(candidates = [candidate(42)], overrides: Partial<ReaderSettings> 
     const ankiFind = vi.fn(async (_card: JPDBCard): Promise<{ primary: object | null; notes: unknown[]; state: string }> => ({ primary: null, notes: [], state: 'not-found' }));
     const toast = vi.fn();
     const actions = testCardActionController({ getSettings: () => settings,
-        jiten: { reviewCard: jitenReview, addToStudyDeck: jitenAdd, refreshCardState: jitenRefresh, listStudyDecks: async () => [{ id: 12, name: 'Private deck' }], parse: jitenParse } as never,
+        jiten: { reviewCard: jitenReview, addToStudyDeck: jitenAdd, refreshCardState: jitenRefresh, listReaderStudyDecks: async () => [{ userStudyDeckId: 12, name: 'Private deck', deckType: 2 }], parse: jitenParse } as never,
         jpdb: { reviewCard: jpdbReview, addToDeck: jpdbAdd, parse: jpdbParse } as never,
         anki: { findExistingCards: ankiFind, addCard: ankiAdd } as never,
         resolveMiningContext: async (card, sentence) => ({ term: card.spelling, sentence: sentence ?? '', sourceKind: 'page', sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 }),

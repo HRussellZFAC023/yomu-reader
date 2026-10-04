@@ -388,7 +388,7 @@ function handleJitenReview(_url, request, requests) {
 
 function handleJitenReaderStudyDecks(_url, _request, requests) {
     requests.push({ kind: 'jiten-reader-study-decks' });
-    return jsonHttpResponse([{ userStudyDeckId: 2864, name: 'Smoke deck' }]);
+    return jsonHttpResponse([{ userStudyDeckId: 2864, name: 'Smoke deck', deckType: 2 }]);
 }
 
 function handleJitenPing(_url, _request, requests) {

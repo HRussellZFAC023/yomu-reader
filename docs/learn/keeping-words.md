@@ -15,6 +15,8 @@ A saved word can carry the word, reading, meaning and source sentence. Video and
 
 Save a word with "Add to deck +" beside the grade buttons. It sends the card to Yomu's local deck, Anki, Jiten, Bunpro or JPDB, starting with the service your grades go to. With JPDB and Jiten both connected, that is your preferred grading service, and a word it does not have is not saved. WaniKani can supply its kanji and vocabulary state. The popup shows what each connected source already knows so you do not start a duplicate pile by accident. A word saved to Yomu's local deck waits in Library until you choose **Add to review** or grade it.
 
+On Jiten, a saved word goes into your first word list, in the order of your Jiten study decks. Jiten does not take single words into anime, book or frequency decks. Without a word list, the word goes to your next deck, such as Anki or Yomu's local deck, and Study's popup asks you to make a word list on jiten.moe.
+
 Anki note fields are yours. Yomu can fill the expression, reading, definition, sentence, audio and image fields you map. Mobile handoff can open a new card in AnkiMobile or AnkiDroid; full deck scanning and updates use desktop AnkiConnect.
 
 ## Open Study

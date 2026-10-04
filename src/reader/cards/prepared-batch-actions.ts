@@ -3,8 +3,8 @@ import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, effectiveBunproFrontendApiToken, effectiveBunproLegacyApiKey, effectiveWanikaniApiToken } from '../settings/api-credential';
 import { reviewGradeProfile, reviewGradeScale } from './grade-scale';
 import { normalizeCardStates } from './state';
-import { BatchReceiptLedger, type BatchReceiptItem } from './batch-receipt-ledger';
-import { isApiSrsProviderEnabled, shouldMineAnkiAlongsideApi, type ApiSrsProviderAdapter } from './srs-providers';
+import { BatchReceiptLedger, type BatchReceiptItem, type ReceiptGroup } from './batch-receipt-ledger';
+import { isApiSrsProviderEnabled, shouldMineAnkiAlongsideApi, type ApiSrsProviderAdapter, type ApiSrsProviderId } from './srs-providers';
 import { userFacingCopyKeyOf } from '../app/user-facing-errors';
 
 export interface BatchMiningCardCandidate { card: JPDBCard; sentence?: string }
@@ -35,7 +35,7 @@ export interface BatchMutationResult {
 interface BatchDependencies {
     getSettings(): ReaderSettings;
     /** The popup's default save for this word (collectionDestinationsForCard): one save, no schedule. */
-    resolveCollectionDestination(card: JPDBCard, settings: ReaderSettings): BatchCollectionDestination;
+    resolveCollectionDestination(card: JPDBCard, settings: ReaderSettings, without?: ApiSrsProviderId): BatchCollectionDestination;
     /** Where grades go: the chosen grading service (ADR-0021). */
     resolveReviewProvider(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null;
     collectionDeck(provider: ApiSrsProviderAdapter, settings: ReaderSettings): Promise<string>;
@@ -58,6 +58,8 @@ interface Entry {
     context: string;
     settings: ReaderSettings;
     destination: BatchCollectionDestination;
+    /** A service the save found no collection on, such as Jiten without a word list. */
+    without?: ApiSrsProviderId;
     reviewProvider: ApiSrsProviderAdapter | null;
     collectApi: boolean;
     collectAnki: boolean;
@@ -101,23 +103,42 @@ export class PreparedBatchActions {
         const context = batchContext(settings);
         return candidates.map(candidate => {
             const identity = batchCardIdentity(candidate.card);
-            const destination = this.deps.resolveCollectionDestination(candidate.card, settings);
-            const provider = destination === 'anki' ? null : destination;
             const reviewProvider = this.deps.resolveReviewProvider(candidate.card, settings);
             const blocked = normalizeCardStates(candidate.card.cardState).some(state => ['blacklisted', 'never-forget', 'redundant', 'suspended'].includes(state));
             const grades = settings.enableReviews && providerEnabled(reviewProvider, settings) && !blocked
                 ? reviewGradeScale(settings, reviewGradeProfile(candidate.card, reviewProvider!.id)).grades : [];
-            const entry: Entry = {
+            const planned = {
                 token: Symbol('batch-plan'), source: candidate.card, card: { ...candidate.card, cardState: [...candidate.card.cardState] }, sentence: candidate.sentence,
-                states: JSON.stringify(candidate.card.cardState),
-                identity, context, settings: { ...settings }, destination, reviewProvider, collectApi: Boolean(provider),
-                // As in the popup, a save to a service also goes to Anki when the learner mines to both.
-                collectAnki: destination === 'anki' || Boolean(provider && shouldMineAnkiAlongsideApi(settings)),
-                grades, receipts: receiptKeys(candidate.card, settings, provider, reviewProvider),
+                states: JSON.stringify(candidate.card.cardState), identity, context, settings: { ...settings }, reviewProvider, grades,
             };
+            const entry: Entry = { ...planned, ...this.collection(planned) };
             this.entries.set(entry.token, entry);
             return this.view(entry);
         });
+    }
+
+    // Where "Add selected" saves the word, and its receipts.
+    private collection(entry: Pick<Entry, 'source' | 'card' | 'settings' | 'reviewProvider'>, without?: ApiSrsProviderId): Pick<Entry, 'destination' | 'without' | 'collectApi' | 'collectAnki' | 'receipts'> {
+        const destination = this.deps.resolveCollectionDestination(entry.source, entry.settings, without);
+        const provider = destination === 'anki' ? null : destination;
+        return {
+            destination, without, collectApi: Boolean(provider),
+            // As in the popup, a save to a service also goes to Anki when the learner mines to both.
+            collectAnki: destination === 'anki' || Boolean(provider && shouldMineAnkiAlongsideApi(entry.settings)),
+            receipts: receiptKeys(entry.card, entry.settings, provider, entry.reviewProvider),
+        };
+    }
+
+    // Jiten takes a word only into a word list. A word whose service has no
+    // collection for it goes to the next destination, as the popup's save does
+    // (ADR-0016), before anything is saved.
+    private async hasSettledDestination(entry: Entry, deckOf: CollectionDeckLookup, operation: ReceiptGroup): Promise<boolean> {
+        const without = await withoutCollection(entry, deckOf);
+        if (without) {
+            this.receipts.release(operation, receiptItem(entry, 'collect').id);
+            Object.assign(entry, this.collection(entry, without));
+        }
+        return hasDestination(entry);
     }
 
     async execute(tokens: readonly symbol[], action: BatchMutation, grade?: JPDBGrade): Promise<BatchMutationResult> {
@@ -135,16 +156,17 @@ export class PreparedBatchActions {
         this.busy = true;
         const items: BatchItemOutcome[] = [];
         let matching: Promise<void> | undefined;
+        const deckOf = oncePerService((provider, settings) => this.deps.collectionDeck(provider, settings));
         try {
             for (const entry of batch) {
                 if (!this.current(entry)) { items.push(this.outcome(entry, 'stale')); break; }
                 try {
-                    if (action === 'collect' && !hasDestination(entry)) { items.push(this.outcome(entry, 'no-destination')); continue; }
+                    if (action === 'collect' && !await this.hasSettledDestination(entry, deckOf, operation)) { items.push(this.outcome(entry, 'no-destination')); continue; }
                     const onService = this.goesToGradingService(entry, action);
                     if (onService && needsMatch(entry)) await (matching ??= this.matchOnGradingService(batch, action));
                     // A word the grading service does not have is not graded or saved anywhere; the rest still are.
                     if (onService && this.unmatched.has(entry.receipts.review)) { items.push(this.outcome(entry, 'unmatched')); continue; }
-                    if (action === 'collect') await this.collect(entry);
+                    if (action === 'collect') await this.collect(entry, deckOf);
                     else await this.review(entry, grade!);
                     items.push(this.outcome(entry, 'completed'));
                 } catch (error) {
@@ -205,21 +227,8 @@ export class PreparedBatchActions {
         });
     }
 
-    private async collect(entry: Entry): Promise<void> {
-        const provider = collectProvider(entry);
-        if (provider && !this.completedStages(entry).includes('api-collection')) {
-            const word = this.serviceReceipt(entry, 'api-collection');
-            if (this.receipts.get(word) !== 'completed') {
-                const deck = await this.deps.collectionDeck(provider, entry.settings);
-                this.assertCurrent(entry);
-                if (!deck) throw new Error('No collection deck');
-                await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
-                this.receipts.set(word, 'completed');
-            }
-            this.receipts.set(entry.receipts['api-collection'], 'completed');
-            this.assertCurrent(entry);
-            this.deps.notify(entry.card);
-        }
+    private async collect(entry: Entry, deckOf: CollectionDeckLookup): Promise<void> {
+        await this.collectOnService(entry, deckOf);
         if (entry.collectAnki && !this.completedStages(entry).includes('anki-collection')) {
             this.assertCurrent(entry);
             if (!await this.deps.collectAnki(entry.card, entry.sentence, entry.settings.ankiDeck, () => this.assertCurrent(entry))) throw new Error('Collection not completed');
@@ -227,6 +236,23 @@ export class PreparedBatchActions {
         }
         this.assertCurrent(entry);
         this.keepPageState(entry);
+    }
+
+    // hasSettledDestination already moved a word whose service has no deck for
+    // it, so the deck found here takes the word.
+    private async collectOnService(entry: Entry, deckOf: CollectionDeckLookup): Promise<void> {
+        const provider = collectProvider(entry);
+        if (!provider || this.completedStages(entry).includes('api-collection')) return;
+        const word = this.serviceReceipt(entry, 'api-collection');
+        if (this.receipts.get(word) !== 'completed') {
+            const deck = await deckOf(provider, entry.settings);
+            this.assertCurrent(entry);
+            await provider.addToDeck(deck, entry.card, entry.sentence, { sourceTitle: document.title });
+            this.receipts.set(word, 'completed');
+        }
+        this.receipts.set(entry.receipts['api-collection'], 'completed');
+        this.assertCurrent(entry);
+        this.deps.notify(entry.card);
     }
 
     // A resolved word changed the grading service's record: the page word keeps
@@ -271,12 +297,12 @@ export class PreparedBatchActions {
 
     private current(entry: Entry): boolean {
         const settings = this.deps.getSettings();
-        const destination = this.deps.resolveCollectionDestination(entry.source, settings);
-        const reviewProvider = this.deps.resolveReviewProvider(entry.source, settings);
-        return this.entries.get(entry.token) === entry && entry.context === batchContext(settings)
-            && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState)
-            && destinationKey(destination) === destinationKey(entry.destination)
-            && reviewProvider?.id === entry.reviewProvider?.id && reviewProvider?.hasApiKey === entry.reviewProvider?.hasApiKey;
+        return this.entries.get(entry.token) === entry && sameWord(entry, settings) && this.sameRoutes(entry, settings);
+    }
+    // The word still saves and grades where the plan says.
+    private sameRoutes(entry: Entry, settings: ReaderSettings): boolean {
+        return destinationKey(this.deps.resolveCollectionDestination(entry.source, settings, entry.without)) === destinationKey(entry.destination)
+            && destinationKey(this.deps.resolveReviewProvider(entry.source, settings)) === destinationKey(entry.reviewProvider);
     }
     private assertCurrent(entry: Entry): void { if (!this.current(entry)) throw new StaleBatchPlan(); }
     private outcome(entry: Entry, state: BatchItemOutcome['state']): BatchItemOutcome {
@@ -297,6 +323,25 @@ export class PreparedBatchActions {
 
 class StaleBatchPlan extends Error {}
 
+type CollectionDeckLookup = (provider: ApiSrsProviderAdapter, settings: ReaderSettings) => Promise<string>;
+
+// The service this word was planned for when it has no collection to take it.
+async function withoutCollection(entry: Entry, deckOf: CollectionDeckLookup): Promise<ApiSrsProviderId | undefined> {
+    const provider = collectProvider(entry);
+    const deck = provider ? await deckOf(provider, entry.settings).catch(() => undefined) : undefined;
+    return deck === '' ? provider!.id : undefined;
+}
+
+// One deck lookup per service for a whole batch.
+function oncePerService(lookup: CollectionDeckLookup): CollectionDeckLookup {
+    const decks = new Map<ApiSrsProviderId, Promise<string>>();
+    return (provider, settings) => {
+        const deck = decks.get(provider.id) ?? lookup(provider, settings);
+        decks.set(provider.id, deck);
+        return deck;
+    };
+}
+
 function providerEnabled(provider: ApiSrsProviderAdapter | null, settings: ReaderSettings): boolean {
     return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
 }
@@ -312,6 +357,10 @@ function collectProvider(entry: Entry): ApiSrsProviderAdapter | null {
 /** The grading service has not identified this word yet (ADR-0021). */
 function needsMatch(entry: Entry): boolean {
     return Boolean(entry.reviewProvider && !entry.reviewProvider.supportsCard(entry.card));
+}
+
+function sameWord(entry: Entry, settings: ReaderSettings): boolean {
+    return entry.context === batchContext(settings) && entry.identity === batchCardIdentity(entry.source) && entry.states === JSON.stringify(entry.source.cardState);
 }
 
 function destinationKey(destination: BatchCollectionDestination): string {

@@ -370,7 +370,8 @@ export class CardPopoverRenderer {
         trustedAccountDataSurface: boolean,
     ): PopoverMiningActions {
         const settings = this.settings();
-        const destinations = collectionDestinationsForCard(card, settings, this.dependencies.isJpdbBackedCard);
+        // A learner with no Jiten word list saves elsewhere: Jiten takes a word only into one.
+        const destinations = collectionDestinationsForCard(card, settings, this.dependencies.isJpdbBackedCard, hasNoJitenWordList(data) ? 'jiten' : undefined);
         return renderApiMiningActions(settings, card, cardStates, language, data, provider, destinations, trustedAccountDataSurface);
     }
 
@@ -883,10 +884,21 @@ function renderApiMiningActions(
     // nothing for "Add to deck +" to do and it is not shown.
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider, destinations);
     const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
+    const collect = (addDeckSelect ? renderApiDeckAdd(addDeckSelect, destinations[0], language) : '') + jitenWordListNote(provider, data, language);
     return {
-        collect: addDeckSelect ? renderCollectAction(renderApiDeckAdd(addDeckSelect, destinations[0], language)) : '',
+        collect: collect ? renderCollectAction(collect) : '',
         deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : '',
     };
+}
+
+// Jiten grades this word but takes it only into a word list, and the learner has none.
+function jitenWordListNote(provider: ApiSrsProviderView | null, data: CardRenderData, language: InterfaceLanguage): string {
+    return provider?.id === 'jiten' && hasNoJitenWordList(data) ? `<span class="jpdb-reader-help">${escapeHtml(uiText(language, 'jitenNeedsWordList'))}</span>` : '';
+}
+
+// Known only once Jiten's decks have loaded.
+function hasNoJitenWordList(data: CardRenderData): boolean {
+    return data.jitenDecks?.length === 0;
 }
 
 // Saving is the deliberate, unscheduled action, so it sits beside the grades
