@@ -587,8 +587,6 @@ export class ReaderApp {
         this.rtkInstance = value;
     }
     private dictionaries = createReaderDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
-    // Local pitch reads are IndexedDB reads: 8 in flight here, all at once
-    // through the extension's Read Batches (ADR-0023).
     private readonly localPitchConcurrency = dictionaryReadConcurrency(this.dictionaries, LOCAL_PITCH_ENRICHMENT_CONCURRENCY);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
@@ -8337,11 +8335,7 @@ export class ReaderApp {
             // is abandoned at jpdb-pitch-unknown forever, with no underline. The
             // deferredPublicPitchQueuedKeys dedup + per-URL budget keep it bounded.
             const localOnlyRetryTokens = [...deferredPublicTokens, ...localOnlyTokens];
-            const localOnly = runLimited(
-                localOnlyRetryTokens,
-                this.localPitchConcurrency,
-                token => this.enrichPitchToken(token, { publicLookup: false }),
-            );
+            const localOnly = this.enrichLocalPitch(localOnlyRetryTokens);
             if (!publicTokens.length) {
                 await localOnly;
                 if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
@@ -8407,11 +8401,7 @@ export class ReaderApp {
                 this.shouldQueueResolvedPublicPitch(card, publicLookup),
             queueSubtitleRefresh: sentence => this.queueSubtitleParsedHtmlRefresh(sentence),
             cacheCards: cards => this.parser.cacheCards?.(cards),
-            enrichLocalPitch: localTokens => runLimited(
-                localTokens,
-                this.localPitchConcurrency,
-                token => this.enrichPitchToken(token, { publicLookup: false }),
-            ).then(() => undefined),
+            enrichLocalPitch: localTokens => this.enrichLocalPitch(localTokens),
         });
     }
 
@@ -8634,9 +8624,16 @@ export class ReaderApp {
             if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
             const chunk = tokens.slice(index, index + PITCH_ENRICHMENT_LIMIT);
             await this.waitForBackgroundEnrichmentTurn();
-            await runLimited(chunk, this.localPitchConcurrency, token => this.enrichPitchToken(token, options));
+            await this.enrichLocalPitch(chunk, options);
             if (index + PITCH_ENRICHMENT_LIMIT < tokens.length) await this.waitForIdle();
         }
+    }
+
+    // Every background local pitch read goes through here: 8 in flight against
+    // a store in this realm, all at once through the extension's Read Batches
+    // (ADR-0023).
+    private enrichLocalPitch(tokens: JPDBToken[], options: PitchEnrichmentOptions = { publicLookup: false }): Promise<void> {
+        return runLimited(tokens, this.localPitchConcurrency, token => this.enrichPitchToken(token, options));
     }
 
     private async fillCardPitchFromLocalDictionary(card: JPDBCard): Promise<void> {
