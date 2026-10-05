@@ -217,7 +217,7 @@ function installOperationPort(
                 const retainForSearchIndex = request!.method === 'searchTerms' && searchTermsMayPrepareIndex(args);
                 try {
                     const value = request!.method === EXTENSION_DICTIONARY_READ_BATCH
-                        ? await readBatch(dictionaryStore, args)
+                        ? await readBatch(dictionaryStore, args, () => disconnected)
                         : await invokeStore(dictionaryStore, request!.method!, args);
                     await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                     if (retainForSearchIndex) {
@@ -303,15 +303,25 @@ async function invokeStore(store: LocalDictionaryStore, methodName: string, args
     return await (method as (...values: unknown[]) => unknown).apply(store, args);
 }
 
-// Bounds the IndexedDB fan-out of one batch the way ReaderParser bounds it for
-// a store read in its own realm.
-const READ_BATCH_CONCURRENCY = 12;
+// Bounds the IndexedDB fan-out of one batch, and so how many reads of a closed
+// tab's batch still finish while it holds the one queue slot. The reads are
+// worker-bound: 4 annotate a page as fast as 12 did, and a hover in another tab
+// no longer waits about 0.5 s behind a closed tab's batch (ADR-0023).
+const READ_BATCH_CONCURRENCY = 4;
 
-/** Answers every read of one Read Batch inside the queue slot it already holds. */
-function readBatch(store: LocalDictionaryStore, calls: unknown[]): Promise<DictionaryRpcReadOutcome[]> {
+/**
+ * Answers every read of one Read Batch inside the queue slot it already holds.
+ * Once the page's Port disconnects, no further read of the batch starts.
+ */
+function readBatch(
+    store: LocalDictionaryStore,
+    calls: unknown[],
+    disconnected: () => boolean,
+): Promise<DictionaryRpcReadOutcome[]> {
     return mapLimited(calls, READ_BATCH_CONCURRENCY, async call => {
         const [method, args] = call as [string, unknown[]];
         try {
+            if (disconnected()) throw new Error('Dictionary background operation disconnected while queued.');
             if (DICTIONARY_STORE_METHODS[method as keyof typeof DICTIONARY_STORE_METHODS] !== 'read') {
                 throw new TypeError(`Dictionary store method cannot join a read batch: ${method}`);
             }

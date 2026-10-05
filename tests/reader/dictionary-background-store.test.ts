@@ -673,6 +673,30 @@ describe('extension background dictionary store', () => {
         expect(remoteDelete).not.toHaveBeenCalled();
     });
 
+    it('starts no further read of a Read Batch once its Port disconnects', async () => {
+        const release = deferred<void>();
+        const remoteMeta = vi.fn(async (expression: string) => {
+            if (expression !== '後') await release.promise;
+            return [];
+        });
+        const harness = backgroundHarness(store({ lookupTermMeta: remoteMeta }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+        const words = Array.from({ length: 40 }, (_, index) => `語${index}`);
+
+        const reads = Promise.allSettled(words.map(word => proxy.lookupTermMeta(word, 12)));
+        await settleUntil(() => remoteMeta.mock.calls.length > 0);
+        const running = remoteMeta.mock.calls.length;
+        expect(running).toBeLessThan(words.length);
+        harness.runtime.clientPorts[0].disconnect();
+        release.resolve(undefined);
+        expect((await reads).every(outcome => outcome.status === 'rejected')).toBe(true);
+
+        // The next read waits for the orphaned batch's queue slot.
+        await expect(proxy.lookupTermMeta('後', 12)).resolves.toEqual([]);
+        expect(remoteMeta.mock.calls.map(([expression]) => expression))
+            .toEqual([...words.slice(0, running), '後']);
+    });
+
     it('returns search fallback results while retaining the Port and queue for lazy index preparation', async () => {
         vi.useFakeTimers();
         const pendingPreparation = deferred<void>();
