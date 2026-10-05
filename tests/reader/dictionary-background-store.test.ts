@@ -6,6 +6,7 @@ import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { InterfaceLanguage } from '../../src/reader/app/types';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/target-runtime';
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { isStaleManagedStateEpochError, managedStateEpochSessionForRealm, StaleManagedStateEpochError } from '../../src/reader/app/managed-state-epoch';
 import type { LocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
@@ -17,6 +18,7 @@ import {
     EXTENSION_DICTIONARY_BACKGROUND_MARKER,
     EXTENSION_DICTIONARY_KEEPALIVE_MS,
     EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS,
+    EXTENSION_DICTIONARY_READ_BATCH,
     EXTENSION_DICTIONARY_RPC_CHANNEL,
     EXTENSION_DICTIONARY_RPC_PORT,
     EXTENSION_DICTIONARY_RPC_VERSION,
@@ -48,6 +50,7 @@ const SETTINGS = {
 afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    resetActiveLearningTargetLanguage();
 });
 
 describe('extension background dictionary store', () => {
@@ -329,7 +332,7 @@ describe('extension background dictionary store', () => {
         expect(directSummary).not.toHaveBeenCalled();
     });
 
-    it('round-trips a newly exposed store method through the dynamic Proxy and restores request identity', async () => {
+    it('round-trips a read through a Read Batch and restores request identity', async () => {
         const request: YomitanExactTermCandidateRequest = {
             surface: '食べました',
             lookupCandidate: {
@@ -369,7 +372,7 @@ describe('extension background dictionary store', () => {
         }));
     });
 
-    it('reads the reset epoch at most twice for a warm per-word lookup', async () => {
+    it('reads the reset epoch at most twice for a warm batch of per-word lookups', async () => {
         const remoteLookup = vi.fn(async () => []);
         const harness = backgroundHarness(store({ lookupTermMeta: remoteLookup }));
         const proxy = extensionDictionaryStoreProxy(
@@ -379,11 +382,138 @@ describe('extension background dictionary store', () => {
         await proxy.lookupTermMeta('読む', 5);
         const warm = harness.storageReads.length;
 
-        await proxy.lookupTermMeta('書く', 5);
+        await Promise.all(['書く', '話す', '聞く'].map(word => proxy.lookupTermMeta(word, 5)));
 
-        expect(remoteLookup).toHaveBeenCalledTimes(2);
+        expect(remoteLookup).toHaveBeenCalledTimes(4);
         const epochReads = harness.storageReads.slice(warm).filter(key => key === `${STORAGE_PREFIX}yomu:state-epoch`);
         expect(epochReads.length).toBeLessThanOrEqual(2);
+    });
+
+    it('sends the reads of one macrotask as one Port message answered in one queue slot', async () => {
+        const meta = (expression: string) => [{ expression, mode: 'freq', data: 1, dictionary: 'Fixture' }];
+        const remoteMeta = vi.fn(async (expression: string) => meta(expression));
+        const remoteKanji = vi.fn(async (character: string) => [{ character, onyomi: [], kunyomi: [] }]);
+        const remoteAvailability = vi.fn(async () => true);
+        const harness = backgroundHarness(store({
+            lookupTermMeta: remoteMeta,
+            lookupKanji: remoteKanji,
+            hasTermDictionaries: remoteAvailability,
+        }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+
+        await expect(Promise.all([
+            proxy.lookupTermMeta('読む', 12),
+            proxy.lookupKanji('読', 3),
+            proxy.lookupTermMeta('書く', 12),
+            proxy.hasTermDictionaries(),
+        ])).resolves.toEqual([
+            meta('読む'),
+            [{ character: '読', onyomi: [], kunyomi: [] }],
+            meta('書く'),
+            true,
+        ]);
+
+        expect(harness.runtime.connectedPortNames).toEqual([EXTENSION_DICTIONARY_RPC_PORT]);
+        expect(invokeMessages(harness.runtime)).toEqual([expect.objectContaining({
+            method: EXTENSION_DICTIONARY_READ_BATCH,
+            args: [
+                ['lookupTermMeta', ['読む', 12]],
+                ['lookupKanji', ['読', 3]],
+                ['lookupTermMeta', ['書く', 12]],
+                ['hasTermDictionaries', []],
+            ],
+            epoch: MANAGED_EPOCH,
+            target: expect.objectContaining({ id: 'japanese-v1' }),
+        })]);
+        expect(harness.adoptTarget).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects only the failed read of a batch', async () => {
+        const remoteMeta = vi.fn(async (expression: string) => {
+            if (expression === '壊れ') throw Object.assign(new Error('Meta row unreadable'), { code: 'META_UNREADABLE' });
+            return [];
+        });
+        const harness = backgroundHarness(store({ lookupTermMeta: remoteMeta }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+
+        const [failed, answered] = await Promise.allSettled([
+            proxy.lookupTermMeta('壊れ', 12),
+            proxy.lookupTermMeta('読む', 12),
+        ]);
+
+        expect(failed).toMatchObject({ status: 'rejected', reason: { message: 'Meta row unreadable', code: 'META_UNREADABLE' } });
+        expect(answered).toEqual({ status: 'fulfilled', value: [] });
+        expect(harness.runtime.connectedPortNames).toHaveLength(1);
+    });
+
+    it('keeps a durable mutation on its own Port beside a read batch', async () => {
+        const remoteDelete = vi.fn(async () => undefined);
+        const harness = backgroundHarness(store({
+            lookupTermMeta: vi.fn(async () => []),
+            deleteDictionary: remoteDelete,
+            summary: vi.fn(async () => dictionarySummary(2)),
+        }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+
+        await expect(Promise.all([
+            proxy.lookupTermMeta('読む', 12),
+            proxy.deleteDictionary('Old dictionary'),
+            proxy.summary(),
+        ])).resolves.toEqual([[], undefined, dictionarySummary(2)]);
+
+        expect(remoteDelete).toHaveBeenCalledWith('Old dictionary');
+        expect(harness.runtime.connectedPortNames).toHaveLength(2);
+        expect(invokeMessages(harness.runtime)).toEqual([
+            expect.objectContaining({ method: 'deleteDictionary', args: ['Old dictionary'], epoch: MANAGED_EPOCH }),
+            expect.objectContaining({
+                method: EXTENSION_DICTIONARY_READ_BATCH,
+                args: [['lookupTermMeta', ['読む', 12]], ['summary', []]],
+            }),
+        ]);
+    });
+
+    it('starts another batch when the learning target changes within the macrotask', async () => {
+        const remoteMeta = vi.fn(async () => []);
+        const harness = backgroundHarness(store({ lookupTermMeta: remoteMeta }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+        await proxy.lookupTermMeta('読む', 12);
+
+        const japanese = proxy.lookupTermMeta('書く', 12);
+        // The capability is warm: the read joins its batch one microtask later.
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(setActiveLearningTargetLanguage('zh')).not.toBeNull();
+        const chinese = proxy.lookupTermMeta('写', 12);
+        await Promise.all([japanese, chinese]);
+
+        const batches = invokeMessages(harness.runtime).slice(1) as Array<{ args: unknown[]; target: { id: string } }>;
+        expect(batches.map(batch => [batch.target.id, batch.args])).toEqual([
+            ['japanese-v1', [['lookupTermMeta', ['書く', 12]]]],
+            [expect.not.stringMatching(/^japanese/), [['lookupTermMeta', ['写', 12]]]],
+        ]);
+    });
+
+    it('answers a mutation inside a read batch with an error and never runs it', async () => {
+        const remoteDelete = vi.fn(async () => undefined);
+        const harness = backgroundHarness(store({
+            deleteDatabase: remoteDelete,
+            summary: vi.fn(async () => dictionarySummary(1)),
+        }));
+
+        const response = await invokePortRequest(harness.runtime, {
+            channel: EXTENSION_DICTIONARY_RPC_CHANNEL, version: EXTENSION_DICTIONARY_RPC_VERSION,
+            kind: 'invoke', method: EXTENSION_DICTIONARY_READ_BATCH, epoch: MANAGED_EPOCH,
+            args: [['deleteDatabase', []], ['summary', []]],
+        });
+
+        expect(response).toMatchObject({
+            kind: 'result',
+            value: [
+                { error: { message: expect.stringMatching(/cannot join a read batch/) } },
+                { value: dictionarySummary(1) },
+            ],
+        });
+        expect(remoteDelete).not.toHaveBeenCalled();
     });
 
     it('streams a File import over a Port and sends keepalive traffic until the import settles', async () => {
@@ -721,7 +851,7 @@ describe('extension background dictionary store', () => {
         await expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
         expect(send).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
-        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(7));
+        await expect(settleReads(proxy.summary())).resolves.toEqual(dictionarySummary(7));
         expect(send).toHaveBeenCalledTimes(2);
         expect(remoteSummary).toHaveBeenCalledTimes(1);
         expect(direct).not.toHaveBeenCalled();
@@ -802,7 +932,7 @@ describe('extension background dictionary store', () => {
         const proxy = extensionDictionaryStoreProxy(store({ summary: direct }), root as unknown as typeof globalThis);
         await expect(proxy.summary()).rejects.toMatchObject({ yomuUiCopyKey: 'extensionDictionaryUnavailable' });
         await vi.advanceTimersByTimeAsync(1_000);
-        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(7));
+        await expect(settleReads(proxy.summary())).resolves.toEqual(dictionarySummary(7));
         expect(sendMessage.mock.calls.every(args => args.length === 1)).toBe(true);
         expect(sendMessage).toHaveBeenCalledTimes(2);
         expect(remote).toHaveBeenCalledTimes(1);
@@ -820,7 +950,7 @@ describe('extension background dictionary store', () => {
         await rejected;
         vi.setSystemTime(Date.now() - 3_600_000);
         await vi.advanceTimersByTimeAsync(1_000);
-        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(7));
+        await expect(settleReads(proxy.summary())).resolves.toEqual(dictionarySummary(7));
         expect(direct).not.toHaveBeenCalled();
     });
 
@@ -1125,6 +1255,18 @@ function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>(done => { resolve = done; });
     return { promise, resolve };
+}
+
+/** A Read Batch leaves in the next macrotask; under fake timers, run it. */
+async function settleReads<T>(promise: Promise<T>): Promise<T> {
+    let settled = false;
+    promise.then(() => { settled = true; }, () => { settled = true; });
+    for (let turn = 0; !settled && turn < 50; turn++) await vi.advanceTimersByTimeAsync(0);
+    return promise;
+}
+
+function invokeMessages(runtime: FakeExtensionRuntime): Array<Record<string, unknown>> {
+    return runtime.clientPortMessages.filter(message => messageKind(message) === 'invoke') as Array<Record<string, unknown>>;
 }
 
 async function settleUntil(done: () => boolean): Promise<void> {

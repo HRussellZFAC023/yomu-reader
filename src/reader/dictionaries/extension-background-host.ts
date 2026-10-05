@@ -1,9 +1,12 @@
 import type { LocalDictionaryStore } from './local-store';
 import type { InterfaceLanguage } from '../app/types';
 import type { ManagedStateEpoch } from '../app/managed-state-epoch';
+import { mapLimited } from '../core/async-utils';
 import {
+    DICTIONARY_STORE_METHODS,
     DictionaryRpcBinaryReceiver,
     EXTENSION_DICTIONARY_BACKGROUND_MARKER,
+    EXTENSION_DICTIONARY_READ_BATCH,
     EXTENSION_DICTIONARY_RPC_CHANNEL,
     EXTENSION_DICTIONARY_RPC_PORT,
     EXTENSION_DICTIONARY_RPC_VERSION,
@@ -16,6 +19,7 @@ import {
     prepareDictionaryRpcValue,
     sendDictionaryRpcBinaries,
     type DictionaryRpcError,
+    type DictionaryRpcReadOutcome,
     type DictionaryRpcTarget,
     type DictionaryRpcValue,
 } from './extension-rpc-protocol';
@@ -185,7 +189,7 @@ function installOperationPort(
             return;
         }
         const envelope = dictionaryRpcEnvelope(message);
-        if (!envelope || envelope.kind !== 'invoke' || !validMethodName(envelope.method) || request) return;
+        if (!envelope || envelope.kind !== 'invoke' || !operationName(envelope.method) || request) return;
         request = envelope;
         try { callerEpoch = dictionaryRpcEpoch(envelope.epoch); }
         catch (error) { rejectRequest(error); return; }
@@ -212,7 +216,9 @@ function installOperationPort(
                 const args = decodeArguments(request!.args, resolveTarget, receiver, port);
                 const retainForSearchIndex = request!.method === 'searchTerms' && searchTermsMayPrepareIndex(args);
                 try {
-                    const value = await invokeStore(dictionaryStore, request!.method!, args);
+                    const value = request!.method === EXTENSION_DICTIONARY_READ_BATCH
+                        ? await readBatch(dictionaryStore, args)
+                        : await invokeStore(dictionaryStore, request!.method!, args);
                     await storage.assertCallerEpoch(callerEpoch, completedResetId(request!));
                     if (retainForSearchIndex) {
                         await postOperationResult(port, value, true);
@@ -294,7 +300,26 @@ function decodeArguments(
 async function invokeStore(store: LocalDictionaryStore, methodName: string, args: unknown[]): Promise<unknown> {
     const method = (store as unknown as Record<string, unknown>)[methodName];
     if (typeof method !== 'function') throw new TypeError(`Unknown dictionary store method: ${methodName}`);
-    return await Reflect.apply(method as (...values: unknown[]) => unknown, store, args);
+    return await (method as (...values: unknown[]) => unknown).apply(store, args);
+}
+
+// Bounds the IndexedDB fan-out of one batch the way ReaderParser bounds it for
+// a store read in its own realm.
+const READ_BATCH_CONCURRENCY = 12;
+
+/** Answers every read of one Read Batch inside the queue slot it already holds. */
+function readBatch(store: LocalDictionaryStore, calls: unknown[]): Promise<DictionaryRpcReadOutcome[]> {
+    return mapLimited(calls, READ_BATCH_CONCURRENCY, async call => {
+        const [method, args] = call as [string, unknown[]];
+        try {
+            if (DICTIONARY_STORE_METHODS[method as keyof typeof DICTIONARY_STORE_METHODS] !== 'read') {
+                throw new TypeError(`Dictionary store method cannot join a read batch: ${method}`);
+            }
+            return { value: await invokeStore(store, method, args) };
+        } catch (error) {
+            return { error: dictionaryRpcError(error) };
+        }
+    });
 }
 
 function dictionaryRpcEnvelope(value: unknown): DictionaryRpcEnvelope | null {
@@ -306,11 +331,9 @@ function dictionaryRpcEnvelope(value: unknown): DictionaryRpcEnvelope | null {
         : null;
 }
 
-function validMethodName(value: unknown): value is string {
-    return typeof value === 'string'
-        && /^[A-Za-z][A-Za-z0-9]*$/.test(value)
-        && value !== 'constructor'
-        && value !== 'prototype';
+function operationName(value: unknown): value is string {
+    return value === EXTENSION_DICTIONARY_READ_BATCH
+        || (typeof value === 'string' && Object.hasOwn(DICTIONARY_STORE_METHODS, value));
 }
 
 function response(

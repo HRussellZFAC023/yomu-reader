@@ -1,5 +1,6 @@
 import { localBytesFromBlob } from '../platform/binary-realm';
 import { parseManagedStateEpoch, type ManagedStateEpoch } from '../app/managed-state-epoch';
+import type { LocalDictionaryStore } from './local-store';
 
 export const EXTENSION_DICTIONARY_RPC_CHANNEL = 'yomu.dictionary-store.v2';
 export const EXTENSION_DICTIONARY_RPC_PORT = `${EXTENSION_DICTIONARY_RPC_CHANNEL}.operation`;
@@ -7,6 +8,47 @@ export const EXTENSION_DICTIONARY_RPC_VERSION = 2;
 export const EXTENSION_DICTIONARY_BACKGROUND_MARKER = 'yomu-extension-dictionary-background';
 export const EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS = 250;
 export const EXTENSION_DICTIONARY_KEEPALIVE_MS = 20_000;
+/** Operation name of a Read Batch: its arguments are `[method, args]` pairs. */
+export const EXTENSION_DICTIONARY_READ_BATCH = 'readBatch';
+
+/**
+ * How each public store method crosses the Port. `satisfies` turns a new
+ * public store method into a typecheck failure here until it is classified.
+ * A read joins its macrotask's Read Batch; a call keeps its own Port, ordered
+ * behind earlier operations (mutations, uploads, progress callbacks, binary
+ * results, index work); a notification is fire-and-forget.
+ */
+export const DICTIONARY_STORE_METHODS = {
+    lookup: 'read',
+    searchTerms: 'call',
+    lookupKanji: 'read',
+    listKanjiCharacters: 'read',
+    lookupTermMeta: 'read',
+    findTermMatches: 'read',
+    lookupExactTermCandidates: 'read',
+    listRandomTerms: 'read',
+    listRandomTopTerms: 'read',
+    hasDictionaries: 'read',
+    hasTermDictionaries: 'read',
+    hasPitchMetaDictionaries: 'read',
+    prepareTermSearchIndex: 'call',
+    summary: 'read',
+    dictionaryStyleCss: 'read',
+    exportJson: 'call',
+    importFile: 'call',
+    importFromUrl: 'call',
+    importZip: 'call',
+    importJson: 'call',
+    importDexieJson: 'call',
+    clear: 'call',
+    deleteDictionary: 'call',
+    deleteDatabase: 'call',
+    invalidateCaches: 'notify',
+    invalidateForFactoryReset: 'call',
+} as const satisfies Record<keyof LocalDictionaryStore, 'read' | 'call' | 'notify'>;
+
+/** One answer in a Read Batch; one failed read never fails its neighbours. */
+export type DictionaryRpcReadOutcome = { readonly value: DictionaryRpcValue } | { readonly error: DictionaryRpcError };
 
 export function dictionaryRpcEpoch(value: unknown): ManagedStateEpoch {
     if (value === undefined) throw new Error('Dictionary RPC requires an explicit caller epoch.');

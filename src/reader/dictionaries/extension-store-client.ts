@@ -10,6 +10,8 @@ import {
     EXTENSION_DICTIONARY_RPC_CHANNEL,
     EXTENSION_DICTIONARY_RPC_PORT,
     EXTENSION_DICTIONARY_RPC_VERSION,
+    EXTENSION_DICTIONARY_READ_BATCH,
+    DICTIONARY_STORE_METHODS,
     decodeDictionaryRpcValue,
     dictionaryRpcEpoch,
     dictionaryRpcEpochValue,
@@ -19,6 +21,7 @@ import {
     reviveDictionaryRpcError,
     sendDictionaryRpcBinaries,
     type DictionaryRpcError,
+    type DictionaryRpcReadOutcome,
     type DictionaryRpcTarget,
     type DictionaryRpcValue,
 } from './extension-rpc-protocol';
@@ -64,13 +67,23 @@ interface DictionaryRpcResponse {
 
 const CAPABILITY_RETRY_MS = 1_000;
 
+interface PendingRead {
+    readonly method: string;
+    readonly args: unknown[];
+    resolve(value: unknown): void;
+    reject(error: unknown): void;
+}
+
+interface ReadBatch {
+    readonly epoch: ManagedStateEpoch;
+    readonly target: DictionaryRpcTarget;
+    readonly reads: PendingRead[];
+}
+
 /**
- * One Proxy over the realm's own store, with no method list of its own: it
- * forwards any method that store has, by name, to the background store, so a
- * method added to LocalDictionaryStore needs no transport change. Only the
- * interface's methods are typed. Neither this Proxy nor the background host
- * restricts calls to them; the host invokes any well-formed method name its
- * store has.
+ * Builds the store a page uses inside the extension: one function per entry of
+ * the typed method table, each answered by the Shared Dictionary Host. Without
+ * an extension runtime the direct store is returned unchanged.
  */
 export function extensionDictionaryStoreProxy(
     directStore: LocalDictionaryStore,
@@ -99,31 +112,47 @@ export function extensionDictionaryStoreProxy(
         }
         return capability.promise;
     };
-    const wrappers = new Map<PropertyKey, (...args: unknown[]) => unknown>();
-    return new Proxy(directStore, {
-        get(target, property, receiver) {
-            const direct = Reflect.get(target as object, property, receiver) as unknown;
-            if (typeof direct !== 'function') return direct;
-            const existing = wrappers.get(property);
-            if (existing) return existing;
-            // Cache invalidation is synchronous at the interface and best-effort
-            // over the Port. Durable operations below always report failures.
-            if (property === 'invalidateCaches') {
-                const invalidate = (...args: unknown[]) => {
-                    void requireDictionaryBackground()
-                        .then(epoch => invokeRemote(extension, String(property), args, epoch))
-                        .catch(() => undefined);
-                };
-                wrappers.set(property, invalidate);
-                return invalidate;
-            }
-            const invoke = (...args: unknown[]) => requireDictionaryBackground()
-                .then(epoch => invokeRemote(extension, String(property), args, epoch));
-            wrappers.set(property, invoke);
-            return invoke;
-        },
-        has: (target, property) => Reflect.has(target as object, property),
-    }) as LocalDictionaryStore;
+    const call = (method: string, args: unknown[]) => requireDictionaryBackground()
+        .then(epoch => invokeRemoteViaPort(extension, method, args, epoch, currentTarget()));
+
+    // Reads issued in one macrotask travel as one Read Batch: one Port message
+    // answered in one host queue slot, instead of a Port per word of a parse.
+    let pending: ReadBatch | undefined;
+    const send = (batch: ReadBatch) => {
+        if (pending === batch) pending = undefined;
+        void invokeRemoteViaPort(
+            extension,
+            EXTENSION_DICTIONARY_READ_BATCH,
+            batch.reads.map(read => [read.method, read.args]),
+            batch.epoch,
+            batch.target,
+        ).then(outcomes => batch.reads.forEach((read, index) => {
+            const outcome = (outcomes as DictionaryRpcReadOutcome[])[index]!;
+            if ('error' in outcome) read.reject(reviveDictionaryRpcError(outcome.error));
+            else read.resolve(rebindDictionaryRpcInputReferences(read.args, outcome.value));
+        })).catch(error => batch.reads.forEach(read => read.reject(error)));
+    };
+    const read = (method: string, args: unknown[]) => requireDictionaryBackground().then(epoch => new Promise((resolve, reject) => {
+        const target = currentTarget();
+        // A batch has one caller epoch and learning target; a change starts another.
+        if (pending?.epoch !== epoch || pending.target.id !== target.id) {
+            pending = { epoch, target, reads: [] };
+            globalThis.setTimeout(send, 0, pending);
+        }
+        pending.reads.push({ method, args, resolve, reject });
+    }));
+
+    // coalescesReads tells ReaderParser not to gate reads one round trip apart.
+    const store: Record<string, unknown> = { coalescesReads: true };
+    for (const [method, kind] of Object.entries(DICTIONARY_STORE_METHODS)) {
+        store[method] = kind === 'read'
+            ? (...args: unknown[]) => read(method, args)
+            : kind === 'call'
+                ? (...args: unknown[]) => call(method, args)
+                // Synchronous at the interface and best-effort over the Port.
+                : (...args: unknown[]) => void call(method, args).catch(() => undefined);
+    }
+    return store as unknown as LocalDictionaryStore;
 }
 
 function probeDictionaryBackground(extension: ExtensionRuntime): Promise<ManagedStateEpoch> {
@@ -141,15 +170,12 @@ function probeDictionaryBackground(extension: ExtensionRuntime): Promise<Managed
         }, cause => { throw userFacingError('extensionDictionaryUnavailable', { cause }); });
 }
 
-function invokeRemote(extension: ExtensionRuntime, method: string, args: unknown[], epoch: ManagedStateEpoch): Promise<unknown> {
-    return invokeRemoteViaPort(extension, method, args, epoch);
-}
-
 function invokeRemoteViaPort(
     extension: ExtensionRuntime,
     method: string,
     args: unknown[],
     epoch: ManagedStateEpoch,
+    target: DictionaryRpcTarget,
 ): Promise<unknown> {
     return new Promise((resolve, reject) => {
         let port: ExtensionPort;
@@ -209,12 +235,11 @@ function invokeRemoteViaPort(
                     binary: marker => receiver.value(marker),
                 });
                 resultDelivered = true;
-                const rebound = rebindDictionaryRpcInputReferences(args, decoded);
                 if (backgroundPending) {
-                    resolve(rebound);
+                    resolve(decoded);
                     if (completionReceived) close(() => undefined);
                 } else {
-                    close(() => resolve(rebound));
+                    close(() => resolve(decoded));
                 }
             } catch (error) {
                 fail(error);
@@ -271,7 +296,7 @@ function invokeRemoteViaPort(
         if (!post(envelope('invoke', {
             method,
             args: prepared.value,
-            target: currentTarget(),
+            target,
             epoch: dictionaryRpcEpochValue(epoch),
         }))) return;
         void sendDictionaryRpcBinaries(prepared.binaries, message => {
