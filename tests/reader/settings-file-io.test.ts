@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { parseReaderSettingsBackup, readerDictionaryExportHasData } from '../../src/reader/settings/file-io';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 import { v193BackupFile } from './helpers/upgrade-v193-corpus';
 
 const current = { formatName: 'yomu-reader-settings', formatVersion: 3, settings: { theme: 'dark' } };
@@ -48,6 +48,21 @@ describe('current settings file contract', () => {
         expect(parsed?.settings).toEqual(exported.settings);
         expect(parsed?.storage).toHaveProperty('yomu:explicit-user-settings:v1');
         expect(readerDictionaryExportHasData(parsed?.dictionaries)).toBe(true);
+    });
+
+    it('drops the similar-word settings v1.9.3 exported, which nothing reads any more', () => {
+        const exported = v193BackupFile() as { settings: Record<string, unknown> };
+        const retired = ['similarKanjiWords', 'similarKanjiWordsPriority', 'similarKanjiWordLimit'];
+        for (const key of retired) expect(exported.settings).toHaveProperty(key);
+
+        // A restore normalizes the file's settings over the current ones first.
+        const restored = normalizeReaderSettings({ ...DEFAULT_SETTINGS, ...exported.settings });
+
+        expect(restored.theme).toBe(exported.settings.theme);
+        for (const key of retired) {
+            expect(DEFAULT_SETTINGS).not.toHaveProperty(key);
+            expect(restored).not.toHaveProperty(key);
+        }
     });
 
     it.each(unsupported)('rejects unsupported payload %j before touching stores', async payload => {

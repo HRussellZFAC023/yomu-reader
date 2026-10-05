@@ -389,9 +389,6 @@ export interface ReaderSettings {
     kanjiOriginKanjiMapEnabled: boolean;
     kanjiOriginGraphEnabled: boolean;
     kanjiOriginRadicalImagesEnabled: boolean;
-    similarKanjiWords: boolean;
-    similarKanjiWordsPriority: number;
-    similarKanjiWordLimit: number;
     audioEnabled: boolean;
     autoPlayAudio: boolean;
     suppressAutoAudioOnVideo: boolean;

@@ -376,13 +376,12 @@ function readApiDefinitionFormSettings(
 }
 
 function readKanjiAddonFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { has, clamped } = reader;
+    const { has } = reader;
     return {
         ...readSourcePriorityRows(reader, current, KANJI_ADDON_SOURCE_ROWS),
         kanjiOriginKanjiMapEnabled: has('kanjiOriginKanjiMapEnabled'),
         kanjiOriginGraphEnabled: has('kanjiOriginGraphEnabled'),
         kanjiOriginRadicalImagesEnabled: has('kanjiOriginRadicalImagesEnabled'),
-        similarKanjiWordLimit: clamped('similarKanjiWordLimit', 2, 24, current.similarKanjiWordLimit),
     };
 }
 

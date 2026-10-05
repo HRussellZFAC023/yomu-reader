@@ -262,7 +262,7 @@ describe('settings form localization', () => {
         expect(form.querySelector('[data-source-id="__kanji_similar_words__"]')).toBeNull();
         expect(form.textContent).not.toContain('Related vocabulary');
         expect(form.textContent).not.toContain('Words using this kanji');
-        expect(orderedKanjiSourceIds({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key', similarKanjiWords: true })).not.toContain(KANJI_SIMILAR_WORDS_SOURCE_ID);
+        expect(orderedKanjiSourceIds({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key' })).not.toContain(KANJI_SIMILAR_WORDS_SOURCE_ID);
     });
 
     it('removes redundant Kanji detail controls while preserving saved detail settings', () => {
@@ -271,7 +271,6 @@ describe('settings form localization', () => {
             kanjiOriginKanjiMapEnabled: false,
             kanjiOriginGraphEnabled: false,
             kanjiOriginRadicalImagesEnabled: false,
-            similarKanjiWordLimit: 11,
         };
         const form = renderSettingsTestForm(current);
         const kanjiPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')!;
@@ -281,12 +280,11 @@ describe('settings form localization', () => {
         expect(kanjiPanel.textContent).not.toContain('Show component graph');
         expect(kanjiPanel.textContent).not.toContain('Show radical images');
         expect(kanjiPanel.textContent).not.toContain('Similar word limit');
-        expect(kanjiPanel.querySelector('input[name="similarKanjiWordLimit"]')?.getAttribute('type')).toBe('hidden');
+        expect(kanjiPanel.querySelector('input[name="similarKanjiWordLimit"]')).toBeNull();
         expect(readFormSettings(new FormData(form), current)).toMatchObject({
             kanjiOriginKanjiMapEnabled: false,
             kanjiOriginGraphEnabled: false,
             kanjiOriginRadicalImagesEnabled: false,
-            similarKanjiWordLimit: 11,
         });
     });
 

@@ -171,8 +171,6 @@ const KANJI_NUMBER_SETTING_RANGES = {
     kanjivgPriority: { min: 0, max: 999 },
     kanjiOriginsPriority: { min: 0, max: 999 },
     kanjiDictionariesPriority: { min: 0, max: 999 },
-    similarKanjiWordsPriority: { min: 0, max: 999 },
-    similarKanjiWordLimit: { min: 2, max: 24 },
 } as const;
 const READER_ACCENT_COLOR_SETTING_KEYS = [
     'wordColorNew',
@@ -267,9 +265,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
     kanjiOriginRadicalImagesEnabled: true,
-    similarKanjiWords: true,
-    similarKanjiWordsPriority: 40,
-    similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
     suppressAutoAudioOnVideo: true,

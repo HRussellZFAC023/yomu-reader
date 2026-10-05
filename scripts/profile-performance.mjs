@@ -64,8 +64,6 @@ const settings = {
     kanjiOriginsEnabled: true,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
-    similarKanjiWords: true,
-    similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
     audioViaBlob: true,

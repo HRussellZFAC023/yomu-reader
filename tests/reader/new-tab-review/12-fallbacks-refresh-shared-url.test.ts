@@ -1787,7 +1787,6 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                similarKanjiWords: false,
                 localDictionaryShowKanji: false,
                 newTabKanjiAutogradeEnabled: false,
             }),
@@ -1856,7 +1855,6 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         vi.stubGlobal('CSS', { ...(globalThis.CSS ?? {}), escape: (value: string) => value });
         const details = renderTestKanjiDetails({
             settings: {
-                similarKanjiWords: false,
                 kanjiOriginGraphEnabled: true,
             },
             card: newTabTestCard({ spelling: '休', source: 'jpdb' }),

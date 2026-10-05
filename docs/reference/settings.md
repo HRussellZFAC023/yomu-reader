@@ -228,7 +228,6 @@ Uchisen is available only as an optional outbound lookup link, disabled by defau
 | Not yet described | — | on | `kanjiOriginKanjiMapEnabled` |
 | Not yet described | — | on | `kanjiOriginGraphEnabled` |
 | Not yet described | — | on | `kanjiOriginRadicalImagesEnabled` |
-| Not yet described | — | `8` | `similarKanjiWordLimit` |
 | Not yet described | — | on | `localDictionaryShowKanji` |
 | Imported kanji dictionaries: display name | Imported Yomitan kanji entries. | empty | `kanjiDictionariesAlias` |
 | Imported kanji dictionaries: order in the popup | Imported Yomitan kanji entries. | `30` | `kanjiDictionariesPriority` |
@@ -372,8 +371,6 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Not yet described | — | empty | `bunproApiKey` |
 | Not yet described | — | off | `onboardingSeen` |
 | Learning target selected | Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off. | off | `learningTargetChosen` |
-| Not yet described | — | on | `similarKanjiWords` |
-| Not yet described | — | `40` | `similarKanjiWordsPriority` |
 | Not yet described | — | on | `audioViaBlob` |
 | Not yet described | — | `shift` | `scanModifierKey` |
 | Not yet described | — | `keyboard` | `newTabTypeWordInputMode` |

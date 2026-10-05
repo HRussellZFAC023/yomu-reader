@@ -33,7 +33,7 @@ import type { JpdbVocabularyLookupResult, JpdbVocabularySearchResult } from '../
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../../src/reader/jpdb/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../../src/reader/kanji/origin';
 import { parseKanjiVGSvg } from '../../../src/reader/kanji/vg';
-import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, summarizeLearnerGlossary } from '../../../src/reader/dictionaries/groups';
+import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary } from '../../../src/reader/dictionaries/groups';
 import { Logger } from '../../../src/reader/app/logger';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText } from '../../../src/reader/app/mutation-scan';
 import { currentPageTermTarget, isCurrentKanjiSurface } from '../../../src/reader/app/page-enhancement-targets';
@@ -1234,7 +1234,6 @@ export function kanjiRelatedWordNavigationFixture(lookupCard: JPDBCard) {
         rtkEnabled: false,
         kanjivgEnabled: false,
         kanjiOriginsEnabled: false,
-        similarKanjiWords: false,
         showPitchAccent: false,
         immersionKitEnabled: false,
     };
@@ -3319,7 +3318,6 @@ export {
     localDictionaryLookupVariants,
     localizeSettingsForm,
     matchesShortcut,
-    mergeSimilarKanjiWords,
     mockElementBoundingClientRect,
     mutationLooksLikeReaderRenderRejection,
     mutationMayAffectJpdbPageEnhancements,

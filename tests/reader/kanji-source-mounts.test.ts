@@ -5,10 +5,7 @@ import { KANJI_SIMILAR_WORDS_SOURCE_ID, kanjiSourceRows, orderedKanjiSourceIds }
 
 describe('kanji source mounts', () => {
     it('omits the legacy similar-words source from settings order and runtime mounts', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            similarKanjiWords: true,
-        };
+        const settings = DEFAULT_SETTINGS;
 
         expect(kanjiSourceRows(settings).map(row => row.id)).not.toContain(KANJI_SIMILAR_WORDS_SOURCE_ID);
         expect(orderedKanjiSourceIds(settings)).not.toContain(KANJI_SIMILAR_WORDS_SOURCE_ID);

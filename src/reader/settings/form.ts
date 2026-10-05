@@ -1130,7 +1130,6 @@ function renderHiddenKanjiDetailSettings(settings: ReaderSettings): string {
                 ${hiddenBooleanSetting('kanjiOriginKanjiMapEnabled', settings.kanjiOriginKanjiMapEnabled)}
                 ${hiddenBooleanSetting('kanjiOriginGraphEnabled', settings.kanjiOriginGraphEnabled)}
                 ${hiddenBooleanSetting('kanjiOriginRadicalImagesEnabled', settings.kanjiOriginRadicalImagesEnabled)}
-                <input type="hidden" name="similarKanjiWordLimit" value="${settings.similarKanjiWordLimit}">
     `;
 }
 

@@ -21,7 +21,6 @@ import {
     jpdbVocabularyToCards,
     loadSettings,
     localDictionaryLookupVariants,
-    mergeSimilarKanjiWords,
     mockAppleMobileBrowser,
     mockAudioBlobUserscriptRequest,
     mockAudioPlaybackEnvironment,
@@ -1305,16 +1304,6 @@ describe('reader helpers', () => {
         expect(summarizeLearnerGlossary({
             glossary: ['noun suru transitive intransitive trade commerce 戦争中、米国は英国との交易を中断した。 During the war, Ame'],
         })).toBe('trade, commerce');
-
-        const words = mergeSimilarKanjiWords([
-            {
-                expression: '容易',
-                reading: 'ようい',
-                glossary: ['na-adj noun easy simple plain ココの知らせるのは容易ではない。 Testing Koko\'s IQ is not easy. JMdict | Tatoeba'],
-                dictionary: 'JMdict',
-            },
-        ], [], card, name => name);
-        expect(words[0]?.meaning).toBe('easy, simple, plain');
     });
 
     it('groups repeated local dictionary senses by headword for learner scanning', () => {

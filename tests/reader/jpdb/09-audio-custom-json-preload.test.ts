@@ -1486,7 +1486,6 @@ describe('reader helpers', () => {
                     kanjivgEnabled: true,
                     kanjiOriginsEnabled: true,
                     kanjiOriginGraphEnabled: true,
-                    similarKanjiWords: false,
                 };
                 internals.parsePopoverJapanese = vi.fn(async () => undefined);
 
@@ -1547,7 +1546,6 @@ describe('reader helpers', () => {
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                similarKanjiWords: false,
                 immersionKitEnabled: false,
             };
             internals.jiten = { lookupKanji };
@@ -1596,7 +1594,6 @@ describe('reader helpers', () => {
                 kanjiOriginsEnabled: true,
                 kanjiOriginKanjiMapEnabled: true,
                 kanjiOriginGraphEnabled: false,
-                similarKanjiWords: false,
                 immersionKitEnabled: false,
             };
             internals.jiten = { lookupKanji: vi.fn(async () => ({
@@ -1657,7 +1654,6 @@ describe('reader helpers', () => {
                 kanjiOriginsEnabled: true,
                 kanjiOriginKanjiMapEnabled: true,
                 kanjiOriginGraphEnabled: false,
-                similarKanjiWords: false,
                 immersionKitEnabled: false,
             };
             internals.kanjiOrigin = { lookup: vi.fn(() => origin.promise) };
@@ -1697,7 +1693,6 @@ describe('reader helpers', () => {
                 rtkEnabled: false,
                 kanjivgEnabled: false,
                 kanjiOriginsEnabled: false,
-                similarKanjiWords: false,
             };
             internals.parsePopoverJapanese = vi.fn(async () => undefined);
             const kanjiWord = { ...card, spelling: '漢字', reading: 'かんじ' };

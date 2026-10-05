@@ -314,7 +314,6 @@ const COPY = {
         kanjiOriginKanjiMapEnabled: 'Show kanji facts and component graph',
         kanjiOriginGraphEnabled: 'Show component graph',
         kanjiOriginRadicalImagesEnabled: 'Show radical images',
-        similarKanjiWordLimit: 'Similar word limit',
         noSimilarWords: 'No additional words found.',
         audioEnabled: 'Enable term audio',
         autoPlayAudio: 'Auto-play term audio',
@@ -1949,7 +1948,6 @@ hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
-similarKanjiWordLimit	類似語の上限
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ

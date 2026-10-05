@@ -1,6 +1,4 @@
-import type { JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
 import { summarizeLearnerGlossaryTexts } from './learner-glossary';
-import type { JPDBCard } from '../app/types';
 import { glossaryToText, type YomitanTermEntry } from './yomitan';
 
 export function formatMetaFrequency(value: unknown): string {
@@ -91,56 +89,6 @@ function addLearnerTermMeaning(group: LearnerTermGroup, entry: YomitanTermEntry,
         group.meanings.push(meaning);
     }
     meaningKeys.set(key, seen);
-}
-
-export function mergeSimilarKanjiWords(
-    localEntries: YomitanTermEntry[],
-    jpdbVocabulary: JpdbKanjiVocabulary[],
-    currentCard: JPDBCard,
-    dictionaryLabel: (name: string) => string,
-): Array<{ expression: string; reading: string; meaning: string; frequency?: number; source: string }> {
-    const currentKeys = new Set([`${currentCard.spelling}\n${currentCard.reading}`, `${currentCard.spelling}\n`]);
-    const words = new Map<string, { expression: string; reading: string; meaning: string; frequency?: number; source: string }>();
-    const add = (entry: { expression: string; reading: string; meaning: string; frequency?: number; source: string }) => {
-        const key = `${entry.expression}\n${entry.reading}`;
-        if (currentKeys.has(key) || entry.expression === currentCard.spelling) return;
-        const existing = words.get(key);
-        if (existing) {
-            existing.meaning ||= entry.meaning;
-            existing.frequency ??= entry.frequency;
-            if (!existing.source.includes(entry.source)) existing.source = `${existing.source} · ${entry.source}`;
-            return;
-        }
-        words.set(key, entry);
-    };
-
-    jpdbVocabulary.forEach(entry => add({
-        expression: entry.expression,
-        reading: entry.reading,
-        meaning: entry.meaning,
-        source: 'JPDB',
-    }));
-    localEntries.forEach(entry => add({
-        expression: entry.expression,
-        reading: entry.reading,
-        meaning: summarizeLearnerGlossary(entry),
-        frequency: entry.jpdbFrequency,
-        source: dictionaryLabel(entry.dictionary),
-    }));
-
-    const result = Array.from(words.values()).sort((a, b) =>
-        compareOptionalNumber(a.frequency, b.frequency)
-        || a.expression.length - b.expression.length
-        || a.expression.localeCompare(b.expression),
-    );
-    return result;
-}
-
-function compareOptionalNumber(a?: number, b?: number): number {
-    if (a === undefined && b === undefined) return 0;
-    if (a === undefined) return 1;
-    if (b === undefined) return -1;
-    return a - b;
 }
 
 export function summarizeLearnerGlossary(entry: Pick<YomitanTermEntry, 'glossary'>): string {
