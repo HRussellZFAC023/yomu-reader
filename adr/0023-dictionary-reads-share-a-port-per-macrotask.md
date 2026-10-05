@@ -1,6 +1,6 @@
 # Dictionary reads share one Port per macrotask
 
-Status: implemented locally, 5 October 2026 (dictionary engine Phase 4).
+Status: Accepted 5 October 2026 (dictionary engine Phase 4); ships in Yomu 2.0.12.
 
 ## Context
 
@@ -13,7 +13,7 @@ In the extension every store call was a separate runtime Port with its own admis
 3. Calls keep their own Port and epoch checks. Calls are mutations, uploads, operations with progress callbacks, binary results and search-index work. A call first sends the pending Read Batch, so the host receives reads and calls in the order the page made them. If a Read Batch contains a call, the host returns an error for that entry and does not run it.
 4. ReaderParser's enrichment gate and ReaderApp's local pitch lanes do not limit reads for a store that marks itself `coalescesReads`, because the host limits IndexedDB fan-out where the database is. `dictionaryReadConcurrency` is the one place that reads the mark. A store in the page's own realm, as in the userscript, keeps the 12-read and 8-read limits.
 5. The client sends a batch with `setTimeout(0)`. Chrome may delay timers in hidden tabs by up to a second, but the page scanner does not scan hidden documents, so visible parses are not delayed.
-6. Only the extension build includes the client. The userscript build returns its origin store even if it can see another extension's runtime (the no-runtime case in ADR-0014). Leaving the client out shrinks the size-limited core by 17,554 bytes (1,998,392 to 1,980,838 on top of ADR-0022's changes).
+6. Only the extension build includes the client. The userscript build returns its origin store even if it can see another extension's runtime (the no-runtime case in ADR-0014). Leaving the client out shrinks the size-limited core by 18,986 bytes: the 2.0.12 core is 1,842,725 bytes, and 1,861,711 with the client forced in.
 
 ## Consequences
 
