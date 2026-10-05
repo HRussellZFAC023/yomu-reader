@@ -262,6 +262,7 @@
     "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
     "smoke:study-flow-stability": "node scripts/study-flow-stability-smoke.mjs",
     "smoke:userscript-boot": "node scripts/userscript-boot-smoke.mjs",
+    "smoke:userscript-csp": "node scripts/userscript-csp-smoke.mjs",
     "manual:subtitles": "node scripts/manual/subtitle-player-smoke.mjs",
     "smoke:subtitle-network": "node scripts/subtitle-network-resilience-smoke.mjs",
     "smoke:tatoeba-contract": "node scripts/tatoeba-contract-smoke.mjs",

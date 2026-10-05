@@ -70,6 +70,10 @@ export const NIGHTLY_SMOKES = [
     // the hide/only-new options reach the inline compound gradient.
     'smoke:underline-colour-sources',
     'smoke:underline-colour-sources:webkit',
+    // Chromium + Firefox + WebKit: Yomu boots and local lookups return rows on
+    // strict (script-src self only) and nonce-only CSP pages, with no CSP
+    // bypass (ADR-0022).
+    'smoke:userscript-csp',
     'smoke:youtube-dom-safe',
 ];
 
