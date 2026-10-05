@@ -474,6 +474,43 @@ describe('Greasy Fork split manifest', () => {
         expect(trimCommonWrapperIndent(compacted, true)).toBe(compacted);
     });
 
+    it('keeps template text after a regex whose character class holds a quote', () => {
+        // A character scanner read /["\\]/g as a string opening and, from
+        // there on, trimmed template text and kept code indentation.
+        const source = [
+            '(function() {',
+            '  "use strict";',
+            '  function escapeAttribute(value) {',
+            '    return value.replace(/["\\\\]/g, "\\\\$&");',
+            '  }',
+            '  function card(label) {',
+            '    return `',
+            '      <div>',
+            '        ${label',
+            '          .trim()}',
+            '      </div>`;',
+            '  }',
+            '})();',
+        ].join('\n');
+
+        expect(trimCommonWrapperIndent(source, true)).toBe([
+            '(function() {',
+            '"use strict";',
+            '// yomu-generated-indent: compact',
+            'function escapeAttribute(value) {',
+            'return value.replace(/["\\\\]/g, "\\\\$&");',
+            '}',
+            'function card(label) {',
+            'return `',
+            '      <div>',
+            '        ${label',
+            '.trim()}',
+            '      </div>`;',
+            '}',
+            '})();',
+        ].join('\n'));
+    });
+
     it('keeps the injected runtime executable after removing generated indentation', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();
