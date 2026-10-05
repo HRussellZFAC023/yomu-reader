@@ -131,10 +131,18 @@ export class ReaderParser {
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<LocalPitchResolution>>();
     private localTermDictionaryAvailability?: Promise<boolean | undefined>;
-    private readonly enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
+    private readonly enrichmentGate: ConcurrencyGate;
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
 
-    constructor(private dependencies: ReaderParserDependencies) {}
+    constructor(private dependencies: ReaderParserDependencies) {
+        // The extension store client sends every read of a macrotask as one
+        // round trip and bounds IndexedDB fan-out in its host, where the
+        // database lives; gating it here would split one page into dozens of
+        // round trips. A realm's store transport is fixed when it is created.
+        this.enrichmentGate = new ConcurrencyGate((dependencies.dictionaries as { coalescesReads?: unknown }).coalescesReads === true
+            ? Infinity
+            : LOCAL_ENRICHMENT_CONCURRENCY);
+    }
 
     async parse(paragraphs: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
         const { getSettings } = this.dependencies;
@@ -822,7 +830,7 @@ export class ReaderParser {
         // enrichment hits IndexedDB. Gate that enrichment through a shared
         // concurrency limiter so parsing many cues at once (keyless warmup)
         // cannot flood IndexedDB and stall the main thread.
-        return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, match => this.localTokenFromMatch(text, match, options, target));
+        return mapLimited(matches, this.enrichmentGate.limit, match => this.localTokenFromMatch(text, match, options, target));
     }
 
     private async localTokenFromMatch(

@@ -55,7 +55,7 @@ export class ConcurrencyGate {
     private active = 0;
     private readonly queue: Array<() => void> = [];
 
-    constructor(private readonly limit: number) {}
+    constructor(readonly limit: number) {}
 
     async run<R>(task: () => Promise<R> | R): Promise<R> {
         if (this.active >= this.limit) {

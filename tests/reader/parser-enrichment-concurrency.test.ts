@@ -76,4 +76,39 @@ describe('keyless local-dictionary enrichment concurrency', () => {
         // below the unbounded 60 the old Promise.all fan-out produced.
         expect(maxActive).toBeLessThanOrEqual(12);
     });
+
+    // The extension store client sends each macrotask's reads as one round
+    // trip and bounds IndexedDB fan-out in its host. Gating it here would cut
+    // one page into a round trip per twelve words.
+    it('hands every enrichment lookup to a store that coalesces reads at once', async () => {
+        let release!: () => void;
+        const released = new Promise<void>(resolve => { release = resolve; });
+        const lookupTermMeta = vi.fn(async () => {
+            await released;
+            return [] as never[];
+        });
+        const findTermMatches = vi.fn(async (text: string) => makeMatches(text.slice(0, 2), 10));
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: true,
+                showPitchAccent: true,
+            }),
+            jpdb: {} as never,
+            dictionaries: { coalescesReads: true, findTermMatches, lookupTermMeta } as never,
+        });
+
+        const cues = ['あい', 'うえ', 'おか', 'きく', 'けこ', 'さし'];
+        const parsing = Promise.all(cues.map(text => parser.parse([`${text}文章`], {
+            includeLocalPitch: true,
+            allowSegmentedFallback: true,
+        })));
+
+        // All 60 lookups are in flight before any of them has answered.
+        await vi.waitFor(() => expect(lookupTermMeta).toHaveBeenCalledTimes(60));
+        release();
+        await parsing;
+    });
 });
