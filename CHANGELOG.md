@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.12] - 2026-10-05
+
+### Changed
+
+- The userscript is about 150 KB smaller, so every page loads less code: since 2.0.6 it carried a second copy of all the interface text.
+- With the browser extension, a page’s dictionary lookups reach the extension in a few batches instead of hundreds of separate messages (about 65 instead of 475 on a typical page).
+- GitHub release pages now point Firefox users to Firefox Add-ons: the Firefox file attached there is unsigned, so Firefox will not install it.
+
+### Fixed
+
+- The KANJIDIC and Wiktionary dictionary cards show “Installed” when you already have the same or a newer copy, instead of offering an older one as “Update”.
+
 ## [2.0.11] - 2026-10-04
 
 ### Changed

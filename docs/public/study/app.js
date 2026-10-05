@@ -4974,7 +4974,6 @@
       kanjiOriginKanjiMapEnabled: "Show kanji facts and component graph",
       kanjiOriginGraphEnabled: "Show component graph",
       kanjiOriginRadicalImagesEnabled: "Show radical images",
-      similarKanjiWordLimit: "Similar word limit",
       noSimilarWords: "No additional words found.",
       audioEnabled: "Enable term audio",
       autoPlayAudio: "Auto-play term audio",
@@ -6618,7 +6617,6 @@ hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
-similarKanjiWordLimit	類似語の上限
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -19583,9 +19581,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     rtkPriority: { min: 0, max: 999 },
     kanjivgPriority: { min: 0, max: 999 },
     kanjiOriginsPriority: { min: 0, max: 999 },
-    kanjiDictionariesPriority: { min: 0, max: 999 },
-    similarKanjiWordsPriority: { min: 0, max: 999 },
-    similarKanjiWordLimit: { min: 2, max: 24 }
+    kanjiDictionariesPriority: { min: 0, max: 999 }
   };
   const READER_ACCENT_COLOR_SETTING_KEYS = [
     "wordColorNew",
@@ -19679,9 +19675,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
     kanjiOriginRadicalImagesEnabled: true,
-    similarKanjiWords: true,
-    similarKanjiWordsPriority: 40,
-    similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
     suppressAutoAudioOnVideo: true,
@@ -27443,41 +27436,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
     };
   }
-  function collectTermMatchCandidates(db, target, candidates, rank) {
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction("terms", "readonly");
-      const store = tx.objectStore("terms");
-      const expressionIndex = store.index("expression");
-      const readingIndex = store.index("reading");
-      const expressions = sortedTermMatchExpressions(candidates);
-      const collectors = new Map(expressions.map((expression) => [
-        expression,
-        createTermMatchEntryCollector(
-          expression,
-          candidates,
-          rank,
-          (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
-        )
-      ]));
-      const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
-      let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
-      const finish = () => {
-        if (--pending2 <= 0) {
-          resolve(expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
-        }
-      };
-      const visit = (expression, entry) => {
-        collectors.get(expression)?.add(entry);
-      };
-      for (const expression of expressions) {
-        requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
-        if (queriesReadingIndex) {
-          requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
-        }
+  function indexedDbTermSource(db) {
+    return {
+      visitTermsByKeys(keys, byReading, visit) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction("terms", "readonly");
+          const store = tx.objectStore("terms");
+          const expressionIndex = store.index("expression");
+          const readingIndex = store.index("reading");
+          let pending2 = keys.length * (byReading ? 2 : 1);
+          const finish = () => {
+            if (--pending2 <= 0) resolve();
+          };
+          for (const key of keys) {
+            requestTermMatchIndex(expressionIndex, key, visit, finish, reject);
+            if (byReading) {
+              requestTermMatchIndex(readingIndex, key, visit, finish, reject);
+            }
+          }
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+        });
       }
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+    };
+  }
+  async function collectTermMatchCandidates(source, target, candidates, rank) {
+    const expressions = sortedTermMatchExpressions(candidates);
+    if (!expressions.length) return [];
+    const collectors = new Map(expressions.map((expression) => [
+      expression,
+      createTermMatchEntryCollector(
+        expression,
+        candidates,
+        rank,
+        (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
+      )
+    ]));
+    await source.visitTermsByKeys(expressions, targetTermMatchQueriesReadingIndex(target), (expression, entry) => {
+      collectors.get(expression)?.add(entry);
     });
+    return expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []);
   }
   const YOMITAN_DATABASE_NAME = "jpdb-popup-reader-yomitan";
   function firefoxXrayWaiver(value) {
@@ -29932,14 +29930,8 @@ ${scopedInner}
   function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
     return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
   }
-  function optionalCursorScanLimitReached(options, visited, startedAt) {
-    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
-  }
   function positiveLimitReached(limit, value) {
     return limit > 0 && value >= limit;
-  }
-  function optionalLimitReached(limit, value) {
-    return Boolean(limit && value >= limit);
   }
   function addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count) {
     if (!isRandomListTerm(entry, rank)) return count;
@@ -29976,17 +29968,6 @@ ${scopedInner}
     if (freq === void 0) return;
     if (freq > maxRank) return;
     expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-  }
-  function addSimilarTermByKanjiCandidate(entries2, seen, entry, character, rank) {
-    if (!entry.expression?.includes(character)) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    addUniqueTermEntry(entries2, seen, entry);
-  }
-  function addUniqueTermEntry(entries2, seen, entry) {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return;
-    seen.add(key);
-    entries2.push(entry);
   }
   function termExpressionReadingKey(entry) {
     return `${entry.expression}
@@ -30050,11 +30031,6 @@ ${entry.reading}`;
     if (typeof termId !== "number") return [];
     return tokens.map((token) => ({ token, dictionary: entry.dictionary, termId }));
   }
-  function termKanjiPostings(entry, characters) {
-    const termId = entry.id;
-    if (typeof termId !== "number") return [];
-    return characters.map((character) => ({ character, dictionary: entry.dictionary, termId }));
-  }
   function hydrateTermsByIds(db, ids) {
     return new Promise((resolve, reject) => {
       const result = /* @__PURE__ */ new Map();
@@ -30077,27 +30053,6 @@ ${entry.reading}`;
         };
         request.onerror = () => reject(request.error ?? new Error("Could not load local dictionary terms by id."));
       }
-    });
-  }
-  function collectTermKanjiPostingIds(db, character, budget, rank) {
-    return new Promise((resolve, reject) => {
-      const ids = [];
-      const seenIds = /* @__PURE__ */ new Set();
-      const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
-      request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor || ids.length >= budget) {
-          resolve(ids);
-          return;
-        }
-        const posting = cursor.value;
-        if (dictionaryEnabled(posting.dictionary, rank) && typeof posting.termId === "number" && !seenIds.has(posting.termId)) {
-          seenIds.add(posting.termId);
-          ids.push(posting.termId);
-        }
-        cursor.continue();
-      };
     });
   }
   function collectTermSearchPostings(db, range, budget, rank, options) {
@@ -30124,21 +30079,6 @@ ${entry.reading}`;
       };
     });
   }
-  function dedupedTermsForPostingIds(termIds, terms, limit) {
-    const entries2 = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const termId of termIds) {
-      if (entries2.length >= limit) break;
-      const entry = terms.get(termId);
-      if (!entry) continue;
-      const key = `${entry.expression}
-${entry.reading}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      entries2.push(entry);
-    }
-    return entries2;
-  }
   const DB_VERSION = 7;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
@@ -30160,9 +30100,6 @@ ${entry.reading}`;
   const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
   const TERM_MATCH_WINDOW_CHARS = 240;
   const TERM_MATCH_SOURCE_LIMIT = 4e3;
-  const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
-  const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
-  const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const log$G = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
@@ -30175,8 +30112,6 @@ ${entry.reading}`;
     summaryPromise;
     dictionaryStyleCssCache = /* @__PURE__ */ new Map();
     termSearchIndexPromise;
-    termKanjiIndexPromise;
-    termKanjiIndexReady = false;
     termIndexGeneration = 0;
     hotLookupCache = /* @__PURE__ */ new Map();
     // Memo for one findTermMatches call: every window asks the active target
@@ -30366,28 +30301,6 @@ ${entry.reading}`;
         }
       );
     }
-    async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-      return this.getHotLookup(
-        this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
-        async () => {
-          const done = log$G.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
-          try {
-            const db = await this.db();
-            const rank = dictionaryRank(preferences);
-            const entries2 = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
-            const results = entries2.sort(
-              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
-            ).slice(0, limit);
-            return results;
-          } catch (error) {
-            log$G.warn("Similar terms by kanji lookup failed", { character, error });
-            throw error;
-          } finally {
-            done();
-          }
-        }
-      );
-    }
     async findTermMatches(text2, limit = 32, preferences = [], target = activeLearningTarget()) {
       const targetGeneration = activeLearningTargetGeneration();
       const done = log$G.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
@@ -30445,7 +30358,7 @@ ${entry.reading}`;
       return selected.sort((a, b) => a.start - b.start);
     }
     async lookupTermMatchCandidates(target, candidates, preferences, db) {
-      return collectTermMatchCandidates(db ?? await this.db(), target, candidates, dictionaryRank(preferences));
+      return collectTermMatchCandidates(indexedDbTermSource(db ?? await this.db()), target, candidates, dictionaryRank(preferences));
     }
     async summary() {
       if (!this.summaryPromise) {
@@ -31038,7 +30951,6 @@ ${entry.reading}`;
       await runDictionaryImportWrite(db, stores, (tx) => {
         for (const storeName of stores) tx.objectStore(storeName).clear();
       }, { durability: "relaxed" }, importing);
-      this.termKanjiIndexReady = false;
     }
     async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk, importing) {
       if (!entries2.length) return;
@@ -31110,46 +31022,6 @@ ${entry.reading}`;
         }))
       ];
       return this.getTermIndexEntries(db, queries);
-    }
-    async getSimilarTermEntriesByKanji(db, character, candidateLimit, rank) {
-      if (hasStore(db, "termKanji")) {
-        await this.ensureTermKanjiIndex(db);
-        return this.getTermKanjiIndexEntries(db, character, candidateLimit, rank);
-      }
-      return this.getSimilarTermCursorEntries(db, character, candidateLimit, rank, {
-        maxRows: TERM_KANJI_INDEX_FALLBACK_MAX_ROWS,
-        maxMs: TERM_KANJI_INDEX_FALLBACK_MAX_MS
-      });
-    }
-    async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
-      const termIds = await collectTermKanjiPostingIds(db, character, candidateLimit * 2, rank);
-      const terms = await hydrateTermsByIds(db, termIds);
-      return dedupedTermsForPostingIds(termIds, terms, candidateLimit);
-    }
-    async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
-      return new Promise((resolve, reject) => {
-        const entries2 = [];
-        const seen = /* @__PURE__ */ new Set();
-        const startedAt = performance.now();
-        let visited = 0;
-        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
-        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || entries2.length >= candidateLimit) {
-            resolve(entries2);
-            return;
-          }
-          if (optionalCursorScanLimitReached(options, visited, startedAt)) {
-            resolve(entries2);
-            return;
-          }
-          visited++;
-          const entry = cursor.value;
-          addSimilarTermByKanjiCandidate(entries2, seen, entry, character, rank);
-          cursor.continue();
-        };
-      });
     }
     async getIndexedTermSearchEntries(db, query, limit) {
       return this.getTermIndexEntries(db, [
@@ -31355,25 +31227,6 @@ ${entry.reading}`;
       if (!terms || indexed) return;
       await this.rebuildTermSearchIndex(db);
     }
-    async ensureTermKanjiIndex(db) {
-      if (!hasStore(db, "termKanji") || this.termKanjiIndexReady) return;
-      const [terms, indexed] = await Promise.all([
-        this.countStore(db, "terms"),
-        this.countStore(db, "termKanji")
-      ]);
-      if (!terms || indexed) {
-        this.termKanjiIndexReady = true;
-        return;
-      }
-      if (!this.termKanjiIndexPromise) {
-        this.termKanjiIndexPromise = this.rebuildTermKanjiIndex(db).then(() => {
-          this.termKanjiIndexReady = true;
-        }).finally(() => {
-          this.termKanjiIndexPromise = void 0;
-        });
-      }
-      await this.termKanjiIndexPromise;
-    }
     async rebuildTermSearchIndex(db) {
       const done = log$G.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
@@ -31393,29 +31246,6 @@ ${entry.reading}`;
           lastKey = chunk.lastKey;
         }
         log$G.info("Term search index rebuilt", { terms: indexedTerms });
-      } finally {
-        done();
-      }
-    }
-    async rebuildTermKanjiIndex(db) {
-      const done = log$G.time("Term kanji index rebuild");
-      const generation = this.termIndexGeneration;
-      try {
-        await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
-        let indexedTerms = 0;
-        let lastKey;
-        for (; ; ) {
-          if (generation !== this.termIndexGeneration) return;
-          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
-          if (!chunk.terms.length) break;
-          if (generation !== this.termIndexGeneration) return;
-          await this.addDerivedTermIndexChunk(db, "termKanji", chunk.terms, termKanjiEntries);
-          indexedTerms += chunk.terms.length;
-          await nextTask();
-          if (chunk.done) break;
-          lastKey = chunk.lastKey;
-        }
-        log$G.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -31450,7 +31280,6 @@ ${entry.reading}`;
       await runDictionaryImportWrite(db, stores, (tx) => {
         for (const store of stores) tx.objectStore(store).clear();
       }, { durability: "relaxed" }, importing);
-      this.termKanjiIndexReady = false;
     }
     addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
       return runYomitanManagedStateWrite(db, storeName, (tx) => {
@@ -31579,7 +31408,6 @@ ${entry.reading}`;
       this.summaryPromise = void 0;
       this.dictionaryStyleCssCache.clear();
       this.hotLookupCache.clear();
-      this.termKanjiIndexReady = false;
     }
   }
   async function readYomitanZipIndex(zip, language2 = "en") {
@@ -31743,17 +31571,6 @@ ${glossaryKey}`;
   }
   function termSearchEntries(entry) {
     return termSearchPostings(entry, glossarySearchTokens(entry.glossary));
-  }
-  function termKanjiEntries(entry) {
-    return termKanjiPostings(entry, uniqueExpressionKanji(entry.expression));
-  }
-  function uniqueExpressionKanji(expression) {
-    const seen = /* @__PURE__ */ new Set();
-    return Array.from(expression).filter((character) => {
-      if (!isKanji(character) || seen.has(character)) return false;
-      seen.add(character);
-      return true;
-    });
   }
   function glossarySearchTokens(glossary) {
     return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossaryValueToSearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
@@ -49226,6 +49043,9 @@ ${normalizedReading}`;
   function toHiragana(value) {
     return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
   }
+  function dictionaryReadConcurrency(store, ownRealmLimit) {
+    return store.coalescesReads === true ? Infinity : ownRealmLimit;
+  }
   function cssColorToHex(value, backdrop) {
     const color = cssColorToRgba(value);
     if (!color) return null;
@@ -49957,6 +49777,7 @@ ${normalizedReading}`;
   class ReaderParser {
     constructor(dependencies) {
       this.dependencies = dependencies;
+      this.enrichmentGate = new ConcurrencyGate(dictionaryReadConcurrency(dependencies.dictionaries, LOCAL_ENRICHMENT_CONCURRENCY));
     }
     localCardCache = /* @__PURE__ */ new Map();
     // getCachedCard is intentionally keyed by the legacy DOM identity
@@ -49967,7 +49788,7 @@ ${normalizedReading}`;
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
     localTermDictionaryAvailability;
-    enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
+    enrichmentGate;
     kanjiReadingCache = /* @__PURE__ */ new Map();
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
@@ -50438,7 +50259,7 @@ ${entry.reading}`);
         log$r.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options, target));
+      return mapLimited(matches, this.enrichmentGate.limit, (match) => this.localTokenFromMatch(text2, match, options, target));
     }
     async localTokenFromMatch(text2, match, options, target) {
       const card = this.localCardFromEntry(match.entry, target);
@@ -84874,7 +84695,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.0.11".trim() ? "2.0.11".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.0.12".trim() ? "2.0.12".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -85260,13 +85081,12 @@ ${reading}`);
     };
   }
   function readKanjiAddonFormSettings(reader, current) {
-    const { has, clamped } = reader;
+    const { has } = reader;
     return {
       ...readSourcePriorityRows(reader, current, KANJI_ADDON_SOURCE_ROWS),
       kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
       kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
-      kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
-      similarKanjiWordLimit: clamped("similarKanjiWordLimit", 2, 24, current.similarKanjiWordLimit)
+      kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled")
     };
   }
   function readSourcePriorityRows(reader, current, rows) {
@@ -87482,6 +87302,12 @@ ${reading}`);
   }
   const revision = "2026-07-23.574961e8.wty-95a9151c1beb";
   const objectsBaseUrl = "https://dictionaries.yomureader.com/";
+  const archiveRevisions = {
+    jmdict: "JMdict.2026-07-23",
+    jmnedict: "JMnedict.2026-07-23",
+    kanjidic: "kanjidic2.2026-204",
+    wty: "2026.07.15"
+  };
   const entries = [
     [
       "drive-cantonese-honzi-words-hk-honzi-2026-07-22-uu85lmu1zc",
@@ -91143,8 +90969,7 @@ ${reading}`);
         "published",
         "24ab5777cb003c068237449ae63174843be309d0ef78ff88e3fa47315a4e8c0d",
         6341873
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-en",
@@ -91165,8 +90990,7 @@ ${reading}`);
         "published",
         "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
         15509389
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-en-legacy",
@@ -91185,7 +91009,8 @@ ${reading}`);
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-en-legacy-without-proper-names",
@@ -91204,7 +91029,8 @@ ${reading}`);
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-en-with-examples",
@@ -91224,7 +91050,8 @@ ${reading}`);
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-en-without-proper-names",
@@ -91243,7 +91070,8 @@ ${reading}`);
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-es",
@@ -91264,8 +91092,7 @@ ${reading}`);
         "published",
         "0da1dcd493ac8144e7573031b9e4fd670147f5bdd30b560ccf1d8b7a2879aaa5",
         1332886
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-forms",
@@ -91284,7 +91111,8 @@ ${reading}`);
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-fr",
@@ -91305,8 +91133,7 @@ ${reading}`);
         "published",
         "c53ee70b65f69b0f0917322929f09b83aa1d25473cd71168da5c7c4ea03e4f20",
         576727
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-hu",
@@ -91327,8 +91154,7 @@ ${reading}`);
         "published",
         "9b89004b50b868ec02ec4c973c5ee59968758221055fd0c1bb2f5615b6ecd7db",
         1814012
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-nl",
@@ -91349,8 +91175,7 @@ ${reading}`);
         "published",
         "5579d462db56cd24075d37fe763f6f208bd8122778136d65e9447d68a4a7c54d",
         3107202
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-ru",
@@ -91371,8 +91196,7 @@ ${reading}`);
         "published",
         "e88ac22d79fecd596120eb9c007c73ac35a5501cc44aa61b5d19b48787e95d08",
         3452083
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmdict-sl",
@@ -91391,7 +91215,8 @@ ${reading}`);
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-sv",
@@ -91412,8 +91237,7 @@ ${reading}`);
         "published",
         "f3e39e9497eaf1a8007eeba627bb6663f4ffd11e62203ddd32a03dda1f2491a3",
         398940
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "jmnedict",
@@ -91434,8 +91258,7 @@ ${reading}`);
         "published",
         "bd3c687afc4dca42b6c6cd374d87c7f29242effef161f2b122ed2221b56e743f",
         11423324
-      ],
-      "2026-07-23"
+      ]
     ],
     [
       "kanjidic-en",
@@ -93000,7 +92823,8 @@ ${reading}`);
         "published",
         "1f32b6ff9f84b78bdffcfc2d356d15e9911e4079599c962de5dbb1c25a005a98",
         4997
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-da-it-ipa",
@@ -95121,7 +94945,8 @@ ${reading}`);
         "published",
         "e194b59f2e78d9a5aeb175cdc0e712d06a05b95745c3aed3b4c35e8a5771f76f",
         6029
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-el-it-gloss",
@@ -98712,7 +98537,8 @@ ${reading}`);
         "published",
         "9e99ed5993c38e9323281e6c03e3977deef0d9d672cd53022bb5ae3d5cb450a3",
         6654
-      ]
+      ],
+      "2026.05.03"
     ],
     [
       "wty-fa-it-ipa",
@@ -101232,7 +101058,8 @@ ${reading}`);
         "published",
         "00ef8b08c7d2b0c8483616a41a95aa8ddbda5f26eb43c3d3ddd731f662958b46",
         4628
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-grc-it-ipa",
@@ -101841,7 +101668,8 @@ ${reading}`);
         "published",
         "46464b2ded424644f94fbe93bb91abc50fd0c1b9395183e904fd39d5987cb80a",
         5414
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-hu-it-ipa",
@@ -102828,7 +102656,8 @@ ${reading}`);
         "published",
         "997d62606253750b6cb53e4535b99631b7f4338d129f6c17ba40d45d17679031",
         4432
-      ]
+      ],
+      "2026.03.16"
     ],
     [
       "wty-id-ru-ipa",
@@ -104571,7 +104400,8 @@ ${reading}`);
         "published",
         "4c7277f3d7ab1325333523089e2cb984b5622edda7103a39edbf47ea2b1d2c3b",
         5070
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-km-it",
@@ -107049,7 +106879,8 @@ ${reading}`);
         "published",
         "5d90113a6c21eb475ebead26ef3bd21eded2e1ce29b0bd85dc756bdd82458306",
         4900
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-lo-it",
@@ -107658,7 +107489,8 @@ ${reading}`);
         "published",
         "f7b9d85adf9e146dff7708ea3c5a4515515b663aa620b2359e4d9c680394ac01",
         4756
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-mn-it",
@@ -114546,7 +114378,8 @@ ${reading}`);
         "published",
         "8577c61e0336c99b9f5f6c37271bf3f198f57b23040ba79b76ad11cd73ca1fa6",
         4902
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-sq-it-ipa",
@@ -120447,7 +120280,8 @@ ${reading}`);
         "published",
         "390d4a3101b8cddeb44bcbf1ed3ccfeceeb65e8b6c2659b399182e7eab4b621d",
         32320
-      ]
+      ],
+      "2026.03.29"
     ],
     [
       "wty-yue-tr-ipa",
@@ -120489,7 +120323,8 @@ ${reading}`);
         "published",
         "80e68cb172800f9747149a8f0606920462f8a8cd70e3c4276f9fafc6232dd1f4",
         6698
-      ]
+      ],
+      "2026.03.29"
     ],
     [
       "wty-yue-vi-ipa",
@@ -121860,6 +121695,7 @@ ${reading}`);
   const runtimeCatalogJson = {
     revision,
     objectsBaseUrl,
+    archiveRevisions,
     entries
   };
   const schemaVersion$1 = 1;
@@ -122176,6 +122012,7 @@ ${reading}`);
     if (!compact2 || typeof compact2.revision !== "string" || !Array.isArray(compact2.entries)) {
       throw new Error("Runtime dictionary catalog is invalid. Regenerate it from the published catalog.");
     }
+    const shared2 = new Map(Object.entries(compact2.archiveRevisions ?? {}));
     return {
       schemaVersion: 1,
       revision: compact2.revision,
@@ -122189,10 +122026,10 @@ ${reading}`);
         driveFolderUrl: "https://dictionaries.yomureader.com/",
         capturedAt: "runtime-projection"
       },
-      entries: compact2.entries.map(expandRuntimeCatalogEntry)
+      entries: compact2.entries.map((entry) => expandRuntimeCatalogEntry(entry, shared2))
     };
   }
-  function expandRuntimeCatalogEntry(entry) {
+  function expandRuntimeCatalogEntry(entry, shared2) {
     const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution, revision2] = entry;
     return {
       id,
@@ -122200,7 +122037,7 @@ ${reading}`);
       ...installedTitle ? { installedTitle } : {},
       format: "yomitan",
       version: "runtime",
-      revision: revision2,
+      revision: revision2 === void 0 ? shared2.get(id.split("-")[0]) : revision2 ?? void 0,
       categories,
       headwordLanguages,
       definitionLanguages,
@@ -122458,8 +122295,8 @@ ${reading}`);
     const installed = installedRevision?.match(/\d+/gu)?.map(Number);
     const offered = build.revision?.match(/\d+/gu)?.map(Number);
     if (!installed || !offered) return false;
-    const index = installed.findIndex((value, at) => value !== offered[at]);
-    return index < 0 || index >= offered.length || installed[index] > offered[index];
+    const index = offered.findIndex((value, at) => value !== installed[at]);
+    return index < 0 || (installed[index] ?? -1) > offered[index];
   }
   const CURATED_JAPANESE_CATALOG_IDS = CURATED_JAPANESE_DICTIONARIES.map(([, , , , source]) => source).filter((source) => !source.startsWith("https://"));
   function curatedDownload(source) {
@@ -123487,7 +123324,7 @@ ${reading}`);
     "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0": [["jpdb", "v2"], ["jpdbv2"]]
   };
   function recommendedDictionaryMatchTokenSets(dictionary) {
-    return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.catalogDictionaryId ?? dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+    return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.catalogDictionaryId ?? dictionary.id] ?? (dictionary.revision ? [] : [Array.from(dictionaryTitleTokens(dictionary.name))]);
   }
   function dictionaryTitleTokens(value) {
     return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
@@ -124936,7 +124773,6 @@ ${reading}`);
                 ${hiddenBooleanSetting("kanjiOriginKanjiMapEnabled", settings.kanjiOriginKanjiMapEnabled)}
                 ${hiddenBooleanSetting("kanjiOriginGraphEnabled", settings.kanjiOriginGraphEnabled)}
                 ${hiddenBooleanSetting("kanjiOriginRadicalImagesEnabled", settings.kanjiOriginRadicalImagesEnabled)}
-                <input type="hidden" name="similarKanjiWordLimit" value="${settings.similarKanjiWordLimit}">
     `;
   }
   function hiddenBooleanSetting(name, enabled) {
@@ -132204,6 +132040,9 @@ ${reading}`);
       return value.trim();
     }
   }
+  function createLocalDictionaryStore(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
+    return new YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage);
+  }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
   const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-example-summary";
   const POPOVER_SOURCE_TITLE_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
@@ -132772,7 +132611,7 @@ ${reading}`);
       }
     });
     registerYomuCompanion("localDictionaries", {
-      YomitanDictionaryStore,
+      createLocalDictionaryStore,
       renderStructuredGlossaryHtml,
       enumerateDictionaryArchiveStorageKeys
     });
@@ -158233,7 +158072,7 @@ ${options.version}`;
   }
   function importSettingsBackupForRecovery(file, setStatus) {
     return restoreReaderSettingsBackup(file, DEFAULT_SETTINGS, {
-      dictionaries: new YomitanDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
+      dictionaries: createLocalDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
       setStatus,
       persistSettings: saveSettings,
       adoptSettings: () => void 0,
@@ -159486,7 +159325,7 @@ ${rank.detail}` : baseTitle;
     yomuLocalSrs = createYomuLocalSrsAdapter(this.yomuLocalSrsRepository);
     rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     jpdbReviewBridge = createJpdbReviewBridgeClient();
-    dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+    dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     dictionarySourceState = new DictionarySourceStateController({
       getSettings: () => this.settings,
       onStateChange: () => this.repositionLookupPopover()

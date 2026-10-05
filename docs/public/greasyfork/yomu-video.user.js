@@ -9371,7 +9371,6 @@ const COPY = {
   kanjiOriginKanjiMapEnabled: "Show kanji facts and component graph",
   kanjiOriginGraphEnabled: "Show component graph",
   kanjiOriginRadicalImagesEnabled: "Show radical images",
-  similarKanjiWordLimit: "Similar word limit",
   noSimilarWords: "No additional words found.",
   audioEnabled: "Enable term audio",
   autoPlayAudio: "Auto-play term audio",
@@ -11015,7 +11014,6 @@ hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
-similarKanjiWordLimit	類似語の上限
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -13047,9 +13045,6 @@ const DEFAULT_SETTINGS = {
   kanjiOriginKanjiMapEnabled: true,
   kanjiOriginGraphEnabled: true,
   kanjiOriginRadicalImagesEnabled: true,
-  similarKanjiWords: true,
-  similarKanjiWordsPriority: 40,
-  similarKanjiWordLimit: 8,
   audioEnabled: true,
   autoPlayAudio: true,
   suppressAutoAudioOnVideo: true,
@@ -16813,7 +16808,7 @@ function readYouTubeConfigStringFromScripts(key) {
   const escapedKey = escapeRegExp$1(key);
   const patterns = [
   new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
-      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
+  new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
   ];
   for (const script of Array.from(document.scripts)) {
   const text = script.textContent ?? "";
@@ -18534,34 +18529,34 @@ function renderSubtitleTrackPanel(state) {
   const outputName = languageDisplayName(state.outputLanguage, displayLocale);
   return `
         ${renderDrawerHead({
-      mode: "tracks",
-      title: uiText(language, "subtitlesTitle"),
-      meta: subtitleDrawerMetaText({
-        mode: "tracks",
-        count: state.tracks.length,
-        tracks: state.tracks,
-        selectedTrackId: state.selectedTrackId,
-        secondaryTrackId: state.secondaryTrackId,
-        language
-      }),
-      metaTitle: subtitleDrawerMetaText({
-        mode: "tracks",
-        count: state.tracks.length,
-        tracks: state.tracks,
-        selectedTrackId: state.selectedTrackId,
-        secondaryTrackId: state.secondaryTrackId,
-        language,
-        compact: false
-      }),
-      canShowLines: state.hasTranscriptSurface,
-      showModeTabs: state.hasTranscriptSurface,
-      options: {
-        placement: state.placement,
-        pausePanelEnabled: state.pausePanelEnabled,
-        menuOpen: state.optionsMenuOpen,
-        language
-      }
-    })}
+  mode: "tracks",
+  title: uiText(language, "subtitlesTitle"),
+  meta: subtitleDrawerMetaText({
+    mode: "tracks",
+    count: state.tracks.length,
+    tracks: state.tracks,
+    selectedTrackId: state.selectedTrackId,
+    secondaryTrackId: state.secondaryTrackId,
+    language
+  }),
+  metaTitle: subtitleDrawerMetaText({
+    mode: "tracks",
+    count: state.tracks.length,
+    tracks: state.tracks,
+    selectedTrackId: state.selectedTrackId,
+    secondaryTrackId: state.secondaryTrackId,
+    language,
+    compact: false
+  }),
+  canShowLines: state.hasTranscriptSurface,
+  showModeTabs: state.hasTranscriptSurface,
+  options: {
+    placement: state.placement,
+    pausePanelEnabled: state.pausePanelEnabled,
+    menuOpen: state.optionsMenuOpen,
+    language
+  }
+  })}
         <div class="jpdb-subtitle-list-scroll"${trackVirtualizedAttribute(state)}>
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load"${subtitleActionAttributes("load")}>${escapeHtml(formatUiText(language, "loadTargetSubtitles", { language: targetName }))}</button>
@@ -21037,12 +21032,12 @@ function batchResultMessage(language, action, result, counts) {
 function renderSubtitleBatchMiningPanel(state) {
   const language = state.language;
   return `<div class="jpdb-subtitle-batch-sticky">${renderDrawerHead({
-      mode: "mine",
-      title: subtitleText(language, "bmTitle"),
-      meta: batchMiningMetaText(state),
-      canShowLines: state.hasTranscriptSurface,
-      options: { placement: state.placement, pausePanelEnabled: state.pausePanelEnabled, menuOpen: state.optionsMenuOpen, language }
-    })}${renderBatchMiningToolbar(state)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+  mode: "mine",
+  title: subtitleText(language, "bmTitle"),
+  meta: batchMiningMetaText(state),
+  canShowLines: state.hasTranscriptSurface,
+  options: { placement: state.placement, pausePanelEnabled: state.pausePanelEnabled, menuOpen: state.optionsMenuOpen, language }
+  })}${renderBatchMiningToolbar(state)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
 }
 function renderBatchMiningToolbar(state) {
   const buttons = [
@@ -21133,14 +21128,14 @@ function renderBatchMiningCandidateGrades(candidate, state) {
   if (!plan?.grades.length) return "";
   const label = `${subtitleText(state.language, "bmGradeWord")}: ${candidate.card.spelling}`;
   return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({
-      action: "bm-grade",
-      candidateKey: candidate.key,
-      grades: plan.grades.map(([grade, label2]) => ({ grade, label: label2 })),
-      batchGroup: state.batchGroup,
-      batchPlans: [plan.token],
-      disabled: state.busy,
-      ariaContext: label
-    })}</div>`;
+  action: "bm-grade",
+  candidateKey: candidate.key,
+  grades: plan.grades.map(([grade, label2]) => ({ grade, label: label2 })),
+  batchGroup: state.batchGroup,
+  batchPlans: [plan.token],
+  disabled: state.busy,
+  ariaContext: label
+  })}</div>`;
 }
 function renderBatchMiningGradeGroup(options) {
   if (!options.grades.length) return "";
@@ -21560,20 +21555,20 @@ class SubtitleParsedHtmlCache {
   parsedTokenNotifiedAt = /* @__PURE__ */ new Map();
   parseCacheKey(text, settings = this.deps.getSettings()) {
   return `${this.currentParseKeyPrefix()}${[
-        subtitleParseSourceSignature(settings),
-        settings.showFurigana,
-        settings.furiganaMode,
-        settings.hideKnownFurigana,
-        [...settings.furiganaHiddenStateGroups].sort().join(","),
-        settings.showPitchAccent,
-        settings.wordHighlightColorSource,
-        settings.wordUnderlineColorSource,
-        settings.wordTextColorSource,
-        settings.subtitleHighlightColorSource,
-        settings.subtitleUnderlineColorSource,
-        settings.subtitleTextColorSource,
-        text
-      ].join(":")}`;
+    subtitleParseSourceSignature(settings),
+    settings.showFurigana,
+    settings.furiganaMode,
+    settings.hideKnownFurigana,
+    [...settings.furiganaHiddenStateGroups].sort().join(","),
+    settings.showPitchAccent,
+    settings.wordHighlightColorSource,
+    settings.wordUnderlineColorSource,
+    settings.wordTextColorSource,
+    settings.subtitleHighlightColorSource,
+    settings.subtitleUnderlineColorSource,
+    settings.subtitleTextColorSource,
+    text
+  ].join(":")}`;
   }
   isCurrentParseKey(key) {
   return key.startsWith(this.currentParseKeyPrefix());
@@ -21892,29 +21887,29 @@ class SubtitleTranscriptPanel {
   const primaryContent = this.primaryContentLanguage();
   return `
             ${renderDrawerHead({
-        mode: "lines",
-        title: uiText(language, "subtitlesTitle"),
-        meta: subtitleDrawerMetaText({
-          mode: "lines",
-          count: rowCount,
-          tracks: this.deps.getTracks(),
-          selectedTrackId: this.deps.getSelectedTrackId(),
-          secondaryTrackId: this.deps.getSecondaryTrackId(),
-          language
-        }),
-        metaTitle: subtitleDrawerMetaText({
-          mode: "lines",
-          count: rowCount,
-          tracks: this.deps.getTracks(),
-          selectedTrackId: this.deps.getSelectedTrackId(),
-          secondaryTrackId: this.deps.getSecondaryTrackId(),
-          language,
-          compact: false
-        }),
-        canShowLines: this.deps.hasTranscriptSurface(),
-        options: this.deps.panelOptionsState(settings.subtitlePausePanel, language),
-        extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current"${subtitleActionAttributes("jump-current")} title="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
-      })}
+    mode: "lines",
+    title: uiText(language, "subtitlesTitle"),
+    meta: subtitleDrawerMetaText({
+      mode: "lines",
+      count: rowCount,
+      tracks: this.deps.getTracks(),
+      selectedTrackId: this.deps.getSelectedTrackId(),
+      secondaryTrackId: this.deps.getSecondaryTrackId(),
+      language
+    }),
+    metaTitle: subtitleDrawerMetaText({
+      mode: "lines",
+      count: rowCount,
+      tracks: this.deps.getTracks(),
+      selectedTrackId: this.deps.getSelectedTrackId(),
+      secondaryTrackId: this.deps.getSecondaryTrackId(),
+      language,
+      compact: false
+    }),
+    canShowLines: this.deps.hasTranscriptSurface(),
+    options: this.deps.panelOptionsState(settings.subtitlePausePanel, language),
+    extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current"${subtitleActionAttributes("jump-current")} title="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
+  })}
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${transcriptVirtualizedAttribute(state.virtual)}>
                 ${this.renderTranscriptVirtualSpacer(state.virtual, "topSpacer")}
                 ${this.renderTranscriptRows(state, rowIndexOffset, transcriptRows, primaryContent)}

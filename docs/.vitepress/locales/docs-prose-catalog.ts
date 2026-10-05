@@ -4780,6 +4780,10 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Example sentences in the popup, such as Immersion Kit examples, no longer leave local-dictionary words unannotated when another source answers at the same moment.": "Immersion Kitなどのポップアップ内の例文で、別のソースが同時に応答したときに端末内辞書の単語が注釈されないまま残ることがなくなりました。",
     "A dictionary download that breaks off or stalls now fails with a reason instead of hanging, a full device is reported as full storage, and Japanese learners see install errors in Japanese.": "途中で切れたり止まったりした辞書のダウンロードは、待ち続けずに理由を示して失敗するようになりました。端末の空き容量不足はその旨を表示し、日本語の画面ではインストールのエラーも日本語で表示します。",
     "よむ refuses a review grade it cannot map instead of sending it to Anki as Good.": "対応付けできない復習の評価を、Ankiに「Good」として送らず拒否するようになりました。",
+    "The userscript is about 150 KB smaller, so every page loads less code: since 2.0.6 it carried a second copy of all the interface text.": "ユーザースクリプトが約150 KB小さくなり、どのページでも読み込むコードが減りました。2.0.6以降、画面の文言一式が重複して含まれていました。",
+    "With the browser extension, a page’s dictionary lookups reach the extension in a few batches instead of hundreds of separate messages (about 65 instead of 475 on a typical page).": "ブラウザー拡張機能では、ページの辞書検索を数百件の個別メッセージではなく、まとめて拡張機能に送るようになりました（一般的なページで475件から約65件）。",
+    "GitHub release pages now point Firefox users to Firefox Add-ons: the Firefox file attached there is unsigned, so Firefox will not install it.": "GitHubのリリースページで、Firefoxを使う方をFirefox Add-onsに案内するようにしました。そこに添付しているFirefox用ファイルは署名されていないため、Firefoxではインストールできません。",
+    "The KANJIDIC and Wiktionary dictionary cards show “Installed” when you already have the same or a newer copy, instead of offering an older one as “Update”.": "KANJIDICとWiktionary辞書のカードは、同じかより新しい版がすでにあると「インストール済み」と表示し、古い版を「更新」として勧めなくなりました。",
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

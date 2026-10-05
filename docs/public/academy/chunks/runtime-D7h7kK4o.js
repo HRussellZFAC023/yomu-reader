@@ -1,4 +1,4 @@
-import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as subscribeToStoredValueChanges, a7 as currentAccountDataSurfaceIsTrusted, a8 as gmPrivateStorageSet, a9 as Logger, aa as uiText, ab as overlayViewport, ac as overlayViewportBounds, ad as layoutPointToOverlay, ae as sourceRectToOverlay, af as trustedReaderEventHandler, ag as readCardCommandCapability, ah as privateReviewGradeAllowed, ai as normalizeAttemptedAudioUrl, aj as audioSubSourceNameKey, ak as audioSubSourceProviderName, al as targetAudioTemplateLanguageToken, am as disabledAudioSubSourceNameKeys, an as parseJson, ao as escapeRegExp, ap as uniqueStrings, aq as getOrderedAudioSources, ar as orderAudioSources, as as isTextToSpeechFallbackSource, at as isBrowserTextToSpeechSource, au as audioPreloadLimits, av as preloadableAudioSources, aw as cheapCandidatePreloadAudioSources, ax as orderAudioCandidates, ay as getAudioBagKey, az as audioCandidateSelectionMode, aA as registerAudioAttempt, aB as getJpdbAudioBagKey, aC as preparedAudioCacheKey, aD as getAudioCandidateCacheKey, aE as cloneAudioCandidates, aF as targetSpeechSynthesisLocale, aG as isApiTextToSpeechSource, aH as canonicalLanguageTag, aI as languageSubtag, aJ as hasJitenAudioReference, aK as yomuAnkiCompanion, aL as flattenNoteFields, aM as stablePositiveHashId, aN as normalizeAnkiFieldName, aO as HAS_JAPANESE, aP as codePointSafePrefix, aQ as ANKI_EXPRESSION_FIELD_NAMES, aR as ANKI_READING_FIELD_NAMES, aS as ANKI_MEANING_FIELD_NAMES, aT as ANKI_SENTENCE_FIELD_NAMES, aU as sharedHexToRgb, aV as sanitizeAccentColor, aW as sharedContrastRatio, aX as CORE_COLOR_TOKENS, aY as sharedMixHex, aZ as RENDERED_WORD_CONTRAST_VARS, a_ as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, a$ as PAGE_WORD_COLOR_TOKENS, b0 as renderedWordHasAnkiState, b1 as canonicalStudyCardIdentity, b2 as applyLocalYomuSrsStateToRenderedWord, b3 as hasJpdbApiCredential, b4 as hasJitenApiCredential, b5 as chosenWordGradingService, b6 as hasBunproFrontendCredential, b7 as isBunproFrontendCredentialExpired, b8 as hasWanikaniApiCredential, b9 as ACADEMY_SRS_LABEL, ba as isLocalYomuSrsStorageError, bb as isLocalYomuSrsSaveInterrupted, bc as activeLearningTargetLanguage, bd as effectiveWanikaniApiToken, be as effectiveBunproFrontendApiToken, bf as effectiveBunproLegacyApiKey, bg as effectiveJpdbApiKey, bh as effectiveJitenApiKey, bi as yomuKanjiStudyCompanion, bj as gmStorageGetSync, bk as gmStorageSetSync, bl as isNonNullObject, bm as isRecord$5, bn as ConcurrencyGate, bo as pitchPatternFromPosition, bp as activeLearningTarget, bq as isUnifiedIdeograph, br as readerWordSurfaceText$1, bs as readAnkiAudioMergeCapability, bt as formatUiText, bu as uiList, bv as readReviewTargetCapability, bw as applyOverlayPageScale, bx as watchSavesWaitingForAnotherTab, by as escapeHtml$2, bz as privateCommandAttributes, bA as renderKanjiNavigationText, bB as shouldRenderRuby, bC as renderRuby, bD as cleanCardHighlightValue, bE as renderHighlightedTextHtml, bF as cardHighlightTargets, bG as renderedWordPrivateValue, bH as compactCardHighlightValue, bI as IMMERSION_KIT_SOURCE_ID, bJ as JITEN_DEFINITION_SOURCE_ID, bK as JPDB_DEFINITION_SOURCE_ID, bL as BUNPRO_DEFINITION_SOURCE_ID, bM as WANIKANI_DEFINITION_SOURCE_ID, bN as STUDY_TRANSLATION_SOURCE_ID, bO as ANKI_SOURCE_ID, bP as STUDY_GRAMMAR_SOURCE_ID, bQ as LOOKUP_PILL_COLOR_TOKENS, bR as normalizeDictionaryPreferences, bS as genericLookupTextVariants, bT as yomitanDictionaryIdentity, bU as gmStorageGet, bV as gmStorageSet, bW as gmStorageDelete, bX as assertManagedStateMutationAllowed, bY as managedStateEpochToken, bZ as managedStateEpochTokenRelation, b_ as assertManagedStateReadAllowed, b$ as normalizeZipKanjiMetaRow, c0 as normalizeZipTermMetaRow, c1 as normalizeZipKanjiRow, c2 as normalizeZipTermRow, c3 as isYomuNewTabUrl, c4 as isJapaneseKanjiCharacter, c5 as lookupSpansStartingInRange, c6 as normalizeImportedLookupMeta, c7 as normalizeGenericLookupText, c8 as splitTags, c9 as JAPANESE_RE$1, ca as codePointBoundaryAtOrAfter, cb as yomitanZipDictionaryName, cc as yomitanZipVersion, cd as countYomitanZipBanks, ce as normalizeImportedLookupTerm, cf as yomitanDictionaryReplacementKey, cg as activeLearningTargetGeneration, ch as imageMimeType, ci as bytesToBase64$1, cj as renderedWordNumericIdentity, ck as speakerIcon, cl as renderedWordPrivateAttributesForState, cm as cardStateLabel, cn as uniqueNonEmptyStrings, co as pitchNumberForReading, cp as KANA, cq as COMBINING_KANA_MARKS, cr as collectPitchVariants, cs as splitMorae, ct as pitchLevelsForDisplay, cu as pitchClassNameForPattern, cv as learningTargetModuleFor, cw as defaultLearningTargetModule, cx as languageDisplayName, cy as resolveUiLanguage, cz as primaryCardState, cA as KANA_ONLY_RUN_RE, cB as ITERATION_MARK, cC as KANA_WITH_PROLONGED, cD as mapLimited, cE as bareFallbackCardFromText, cF as inferredInflectedSurfaceRubies, cG as nonOverlappingTokens, cH as READING_KANA_ONLY_RE, cI as HALFWIDTH_KATAKANA, cJ as PROLONGED_SOUND_MARK, cK as KATAKANA_MIDDLE_DOT, cL as fallbackLookupTermsForCard, cM as yomuBunproCompanion, cN as shouldLookupAnkiStatus, cO as setRenderedWordPitchClass, cP as shouldHideFuriganaForCardState, cQ as isPopupLookupEnabled, cR as yomuNormalizeOcrRenderedText, cS as replaceRenderedWordFurigana, cT as htmlToFirstElement, cU as clearRenderedWordAnkiState, cV as clearRenderedWordFurigana, cW as updateRenderedWordPrivateState, cX as syncWordReviewLane, cY as cardDeckMembershipClassNames, cZ as setInnerHtml, c_ as gmStorageDeleteSync, c$ as appendToDocumentHead, d0 as yomuSettingsSurfaceCompanion, d1 as subscribeToFactoryResetSignals, d2 as APP_NAME, d3 as createFactoryResetSignal, d4 as beginSettingsResetGuard, d5 as publishFactoryResetSignal, d6 as delay, d7 as clearManagedStoredValues, d8 as deleteSettingsStorage, d9 as commitManagedStateResetEpoch, da as clearFactoryResetSignal, db as managedStateResetEpochMayHaveCommitted, dc as endSettingsResetGuard, dd as managedStoredKeysLeftAfterReset, de as ManagedStateResetError, df as stableHash32, dg as uniqueTrimmedStrings, dh as stableHashBase36, di as isTargetLanguageText, dj as KANJI_LIKE_WITH_COUNTERS, dk as HIRAGANA_WITH_PROLONGED, dl as KATAKANA_WITH_PROLONGED, dm as KANJI_LIKE_RE, dn as overlayViewportBottomInset, dp as renderImmersionSearchLinksHtml, dq as renderTokensToHtml, dr as readPrivateReviewTarget, ds as runLimited, dt as isManagedStorageKey, du as managedLocalStorage, dv as readJitenKanjiWordsCommandCapability, dw as bindPrivateCommandCapability, dx as parseHtmlDocument, dy as isCurrentScanTarget, dz as applyTokensToScanTarget, dA as unwrapReaderWords, dB as collectFragmentTextTargetsIn, dC as collectFormControlTextTargetsIn, dD as DEFAULT_OVERLAY_BACKGROUND_COLOR, dE as newTabText, dF as CARD_STATE_LABEL_KEYS, dG as readKanjiCommandCapability, dH as dispatchPrivateCommand, dI as claimLocalTapActivation, dJ as installControlTapActivation, dK as enabledReaderControl, dL as effectiveFuriganaMode, dM as KANJI_DOODLE_CLEAR_EVENT, dN as installKanjiDoodle, dO as rankKanjiStrokeCandidates, dP as promiseWithTimeout, dQ as convertRomajiToKana, dR as normalizeJapaneseStudyAnswer, dS as isolate, dT as contextPitchPattern, dU as managedStateWritesSuppressed, dV as createStorageCoordinationId, dW as managedSessionStorage, dX as bindAuthorizedReaderFormSubmit, dY as isDirectTrustedReaderInteraction, dZ as normalizedJapaneseCardReading, d_ as parseManagedStateEpoch, d$ as sameManagedStateEpoch, e0 as gmStorageGetStrict, e1 as withGmStorageLease, e2 as isStorageLeaseLapsed, e3 as DEFAULT_SETTINGS, e4 as renderImmersionSearchLinks, e5 as createStudySessionClock, e6 as subscribeAcademyDeckChanges, e7 as readJpdbKanjiCommandCapability, e8 as isNewTabCopyKey, e9 as nextExplicitUiLanguage, ea as GITHUB_REPOSITORY_URL, eb as DISCORD_INVITE_URL, ec as dispatchAuthorizedReaderControlClick, ed as DOCS_BASE_URL, ee as SUPPORT_STATUS_URL, ef as renderedWordHasCardIdentity, eg as renderedWordTextIdentityMatches, eh as validPitchPositions, ei as mountStudySessionClockControl, ej as combinedApiCredentialLabel, ek as assessKanjiStrokes, el as renderedWordSourceVisualClass, em as replaceRenderedWordStateAndPitchClasses, en as bindRenderedWordCardIdentity, eo as preserveRenderedWordSentence, ep as SHAPE_PASS_SCORE, eq as activeLanguageProfile, er as readBackupSettingsPersistenceView, es as beginStoredValuesImport, et as settingsIntentKeys, eu as normalizeReaderSettings, ev as mergeDictionaryPreferences, ew as retireStaleDictionaryPreferences, ex as captureActiveLanguageProfileDictionaries, ey as saveSettings, ez as packagedExtensionStorageAdapterMissing, eA as readSettingsPersistenceViewStrict, eB as FURIGANA_HIDE_STATE_GROUPS, eC as WORD_COLOR_HIDE_STATE_GROUPS, eD as setReviewLanePainted, eE as accentToRgba, eF as effectiveReaderTextColorSource, eG as effectiveReaderColorSource, eH as effectiveSubtitleTextColorSource, eI as effectiveSubtitleColorSource, eJ as accessibleOcrBackgroundOpacity, eK as accessibleOcrBackgroundColor, eL as colorSourceClassName, eM as READER_THEME_COLOR_TOKENS, eN as EXTENSION_STORE_URLS, eO as USERSCRIPT_INSTALL_URL, eP as readApiCredentialsFromFormData, eQ as DEFAULT_AUDIO_SOURCES, eR as learningTargetRosterIdForTag, eS as dictionaryLookupLinksForTarget, eT as availableInterfaceLocales, eU as credentialValueFromReader, eV as normalizeOcrProvider, eW as slice1LanguageIdForTag, eX as canonicalTagForSlice1Language, eY as canonicalTagForLearningTarget, eZ as languageProfileDictionariesFromPreferences, e_ as activateLanguageProfileForOutputLanguage, e$ as normalizeDictionaryLookupLinks, f0 as normalizeAudioSource, f1 as isLearningTargetRosterId, f2 as MAX_LOOKUP_LINK_ROWS, f3 as normalizeAnkiFieldMappings, f4 as isLearnerLanguageId, f5 as COPY_LOOKUP_LINK, f6 as exportManagedStoredValues, f7 as RETIRED_SETTINGS_STORAGE_KEYS, f8 as SETTINGS_STORAGE_KEY, f9 as SETTINGS_INTENT_LEDGER_STORAGE_KEY, fa as applySettingsIntent, fb as serializeSettingsPersistencePair, fc as defaultDictionaryLookupLinks, fd as MAX_EXTRA_LOOKUP_LINKS, fe as missingLookupComponents, ff as AUDIO_SOURCE_UI_TYPE_VALUES, fg as audioSourceLabel, fh as lookupSiteComponents, fi as DEFAULT_POPUP_FONT_FAMILY, fj as DEFAULT_READER_FONT_FAMILY, fk as isPromiseLike$2, fl as dispatchAuthorizedReaderControlEvent, fm as ANKI_CONNECT_ADDON_URL, fn as redactedApiCredentialsFromForm, fo as learnerLanguageById, fp as LEARNER_LANGUAGE_IDS, fq as readTrustedYomuUrl, fr as externalLinkIcon, fs as LEARNING_TARGET_ROSTER, ft as furiganaModeNeedsDifficultyExplanation, fu as DEFAULT_OVERLAY_TEXT_COLOR, fv as DEFAULT_OVERLAY_OUTLINE_COLOR, fw as storedCredentialClearName, fx as hasStatusColorSource, fy as NEW_TAB_PAGE_URL, fz as AUDIO_GUIDE_URL, fA as NADESHIKO_DEVELOPER_URL, fB as VIDEO_PLAYER_PAGE_URL, fC as PDF_READER_PAGE_URL, fD as DONATE_URL, fE as SUPPORT_COPY, fF as SUPPORT_COPY_EXTRA, fG as LEARNER_LANGUAGES, fH as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fI as gmPrivateStorageDelete, fJ as gmPrivateStorageGet, fK as subscribeToSettingsChanges, fL as subscribeLocalYomuSrsMutations, fM as LocalYomuSrsRepository, fN as unwrapProfileKey, fO as parseAcademyPairingTicket, fP as wrapProfileKey, fQ as LOCAL_YOMU_SRS_INDEX_KEY, fR as decryptProfileEvent, fS as encryptProfileEvent, fT as mergeStoredYomuSrsDecks, fU as settingsPanelHash, fV as isPrivilegedYomuLocalDevelopmentOrigin, fW as settingsPanelFromHash, fX as SETTINGS_TITLE, fY as learningTargetRosterEntry, fZ as NEW_TAB_VERSION_URL, f_ as NO_EXPLICIT_USER_CHOICE, f$ as normalizeAudioSubSources, g0 as publishSettingsChange$1, g1 as mergeApiCredentialValues, g2 as configureLogger, g3 as localeDirection, g4 as subscribeToSettingsStorageChanges, g5 as isHostedYomuOrigin, g6 as loadSettings, g7 as copyIcon, g8 as ankiIcon, g9 as createYomuLocalSrsAdapter, ga as yomuOnboardingController, gb as clearManagedBrowserCaches, gc as unregisterManagedServiceWorkers, gd as setRenderedWordCardIdentity, ge as renderedWordCardKey, gf as renderedWordsInRoot, gg as renderedWordElementKey, gh as applyInterfaceLocaleToRoot, gi as applyInterfaceLocaleToDocument, gj as ensureManagedWebStorageCurrent } from "./entrypoint-CzLM_31w.js";
+import { g as getPitchClass, K as KANJI_RE, n as normalizePitchPatternsForReading, a as normalizeCardStates, b as KANJI_PATTERN, v as viCatalog, t as trCatalog, c as thCatalog, d as tlCatalog, s as svCatalog, e as esCatalog, f as shCatalog, r as ruCatalog, h as roCatalog, p as ptCatalog, i as plCatalog, j as faCatalog, m as mnCatalog, l as laCatalog, k as loCatalog, o as koCatalog, q as kmCatalog, u as itCatalog, w as idCatalog, x as huCatalog, y as elCatalog, z as deCatalog, A as frCatalog, B as fiCatalog, C as enCatalog, D as nlCatalog, E as daCatalog, F as zhCatalog, G as yueCatalog, H as arCatalog, I as grcCatalog, J as sqCatalog, L as interfaceLocaleByTag, M as ENGLISH_INTERFACE_LOCALE, N as INTERFACE_LOCALES, O as resolveLanguageProfile, P as adoptLearningTargetLanguage, Q as isAppleTouchBrowser, R as attempt, S as DOCS_ORIGIN, T as GITHUB_PAGES_ORIGIN, U as APP_REPOSITORY_NAME, V as readyBridgeOwner, W as installedStorageResponderReady, X as expectedBridgeKind, Y as addWindowEventListener, Z as bridgeEventDetail, _ as dispatchWindowEvent, $ as createWindowCustomEvent, a0 as isYomuPrivilegedHostedAppUrl, a1 as bridgeEventId, a2 as USERSCRIPT_HTTP_BRIDGE_READY_EVENT, a3 as USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, a4 as bridgeResponseEventDetail, a5 as removeWindowEventListener, a6 as subscribeToStoredValueChanges, a7 as currentAccountDataSurfaceIsTrusted, a8 as gmPrivateStorageSet, a9 as Logger, aa as uiText, ab as overlayViewport, ac as overlayViewportBounds, ad as layoutPointToOverlay, ae as sourceRectToOverlay, af as trustedReaderEventHandler, ag as readCardCommandCapability, ah as privateReviewGradeAllowed, ai as normalizeAttemptedAudioUrl, aj as audioSubSourceNameKey, ak as audioSubSourceProviderName, al as targetAudioTemplateLanguageToken, am as disabledAudioSubSourceNameKeys, an as parseJson, ao as escapeRegExp, ap as uniqueStrings, aq as getOrderedAudioSources, ar as orderAudioSources, as as isTextToSpeechFallbackSource, at as isBrowserTextToSpeechSource, au as audioPreloadLimits, av as preloadableAudioSources, aw as cheapCandidatePreloadAudioSources, ax as orderAudioCandidates, ay as getAudioBagKey, az as audioCandidateSelectionMode, aA as registerAudioAttempt, aB as getJpdbAudioBagKey, aC as preparedAudioCacheKey, aD as getAudioCandidateCacheKey, aE as cloneAudioCandidates, aF as targetSpeechSynthesisLocale, aG as isApiTextToSpeechSource, aH as canonicalLanguageTag, aI as languageSubtag, aJ as hasJitenAudioReference, aK as yomuAnkiCompanion, aL as flattenNoteFields, aM as stablePositiveHashId, aN as normalizeAnkiFieldName, aO as HAS_JAPANESE, aP as codePointSafePrefix, aQ as ANKI_EXPRESSION_FIELD_NAMES, aR as ANKI_READING_FIELD_NAMES, aS as ANKI_MEANING_FIELD_NAMES, aT as ANKI_SENTENCE_FIELD_NAMES, aU as sharedHexToRgb, aV as sanitizeAccentColor, aW as sharedContrastRatio, aX as CORE_COLOR_TOKENS, aY as sharedMixHex, aZ as RENDERED_WORD_CONTRAST_VARS, a_ as RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW, a$ as PAGE_WORD_COLOR_TOKENS, b0 as renderedWordHasAnkiState, b1 as canonicalStudyCardIdentity, b2 as applyLocalYomuSrsStateToRenderedWord, b3 as hasJpdbApiCredential, b4 as hasJitenApiCredential, b5 as chosenWordGradingService, b6 as hasBunproFrontendCredential, b7 as isBunproFrontendCredentialExpired, b8 as hasWanikaniApiCredential, b9 as ACADEMY_SRS_LABEL, ba as isLocalYomuSrsStorageError, bb as isLocalYomuSrsSaveInterrupted, bc as activeLearningTargetLanguage, bd as effectiveWanikaniApiToken, be as effectiveBunproFrontendApiToken, bf as effectiveBunproLegacyApiKey, bg as effectiveJpdbApiKey, bh as effectiveJitenApiKey, bi as yomuKanjiStudyCompanion, bj as gmStorageGetSync, bk as gmStorageSetSync, bl as isNonNullObject, bm as isRecord$5, bn as ConcurrencyGate, bo as pitchPatternFromPosition, bp as activeLearningTarget, bq as isUnifiedIdeograph, br as readerWordSurfaceText$1, bs as readAnkiAudioMergeCapability, bt as formatUiText, bu as uiList, bv as readReviewTargetCapability, bw as applyOverlayPageScale, bx as watchSavesWaitingForAnotherTab, by as escapeHtml$2, bz as privateCommandAttributes, bA as renderKanjiNavigationText, bB as shouldRenderRuby, bC as renderRuby, bD as cleanCardHighlightValue, bE as renderHighlightedTextHtml, bF as cardHighlightTargets, bG as renderedWordPrivateValue, bH as compactCardHighlightValue, bI as IMMERSION_KIT_SOURCE_ID, bJ as JITEN_DEFINITION_SOURCE_ID, bK as JPDB_DEFINITION_SOURCE_ID, bL as BUNPRO_DEFINITION_SOURCE_ID, bM as WANIKANI_DEFINITION_SOURCE_ID, bN as STUDY_TRANSLATION_SOURCE_ID, bO as ANKI_SOURCE_ID, bP as STUDY_GRAMMAR_SOURCE_ID, bQ as LOOKUP_PILL_COLOR_TOKENS, bR as normalizeDictionaryPreferences, bS as genericLookupTextVariants, bT as yomitanDictionaryIdentity, bU as gmStorageGet, bV as gmStorageSet, bW as gmStorageDelete, bX as assertManagedStateMutationAllowed, bY as managedStateEpochToken, bZ as managedStateEpochTokenRelation, b_ as assertManagedStateReadAllowed, b$ as normalizeZipKanjiMetaRow, c0 as normalizeZipTermMetaRow, c1 as normalizeZipKanjiRow, c2 as normalizeZipTermRow, c3 as isYomuNewTabUrl, c4 as isJapaneseKanjiCharacter, c5 as lookupSpansStartingInRange, c6 as normalizeImportedLookupMeta, c7 as normalizeGenericLookupText, c8 as splitTags, c9 as JAPANESE_RE$1, ca as codePointBoundaryAtOrAfter, cb as yomitanZipDictionaryName, cc as yomitanZipVersion, cd as countYomitanZipBanks, ce as normalizeImportedLookupTerm, cf as yomitanDictionaryReplacementKey, cg as activeLearningTargetGeneration, ch as imageMimeType, ci as bytesToBase64$1, cj as renderedWordNumericIdentity, ck as speakerIcon, cl as renderedWordPrivateAttributesForState, cm as cardStateLabel, cn as uniqueNonEmptyStrings, co as pitchNumberForReading, cp as KANA, cq as COMBINING_KANA_MARKS, cr as collectPitchVariants, cs as splitMorae, ct as pitchLevelsForDisplay, cu as pitchClassNameForPattern, cv as learningTargetModuleFor, cw as defaultLearningTargetModule, cx as languageDisplayName, cy as resolveUiLanguage, cz as primaryCardState, cA as KANA_ONLY_RUN_RE, cB as ITERATION_MARK, cC as KANA_WITH_PROLONGED, cD as mapLimited, cE as bareFallbackCardFromText, cF as inferredInflectedSurfaceRubies, cG as nonOverlappingTokens, cH as READING_KANA_ONLY_RE, cI as HALFWIDTH_KATAKANA, cJ as PROLONGED_SOUND_MARK, cK as KATAKANA_MIDDLE_DOT, cL as fallbackLookupTermsForCard, cM as yomuBunproCompanion, cN as shouldLookupAnkiStatus, cO as setRenderedWordPitchClass, cP as shouldHideFuriganaForCardState, cQ as isPopupLookupEnabled, cR as yomuNormalizeOcrRenderedText, cS as replaceRenderedWordFurigana, cT as htmlToFirstElement, cU as clearRenderedWordAnkiState, cV as clearRenderedWordFurigana, cW as updateRenderedWordPrivateState, cX as syncWordReviewLane, cY as cardDeckMembershipClassNames, cZ as setInnerHtml, c_ as gmStorageDeleteSync, c$ as appendToDocumentHead, d0 as yomuSettingsSurfaceCompanion, d1 as subscribeToFactoryResetSignals, d2 as APP_NAME, d3 as createFactoryResetSignal, d4 as beginSettingsResetGuard, d5 as publishFactoryResetSignal, d6 as delay, d7 as clearManagedStoredValues, d8 as deleteSettingsStorage, d9 as commitManagedStateResetEpoch, da as clearFactoryResetSignal, db as managedStateResetEpochMayHaveCommitted, dc as endSettingsResetGuard, dd as managedStoredKeysLeftAfterReset, de as ManagedStateResetError, df as stableHash32, dg as uniqueTrimmedStrings, dh as stableHashBase36, di as isTargetLanguageText, dj as KANJI_LIKE_WITH_COUNTERS, dk as HIRAGANA_WITH_PROLONGED, dl as KATAKANA_WITH_PROLONGED, dm as KANJI_LIKE_RE, dn as overlayViewportBottomInset, dp as renderImmersionSearchLinksHtml, dq as renderTokensToHtml, dr as readPrivateReviewTarget, ds as runLimited, dt as isManagedStorageKey, du as managedLocalStorage, dv as readJitenKanjiWordsCommandCapability, dw as bindPrivateCommandCapability, dx as parseHtmlDocument, dy as isCurrentScanTarget, dz as applyTokensToScanTarget, dA as unwrapReaderWords, dB as collectFragmentTextTargetsIn, dC as collectFormControlTextTargetsIn, dD as DEFAULT_OVERLAY_BACKGROUND_COLOR, dE as newTabText, dF as CARD_STATE_LABEL_KEYS, dG as readKanjiCommandCapability, dH as dispatchPrivateCommand, dI as claimLocalTapActivation, dJ as installControlTapActivation, dK as enabledReaderControl, dL as effectiveFuriganaMode, dM as KANJI_DOODLE_CLEAR_EVENT, dN as installKanjiDoodle, dO as rankKanjiStrokeCandidates, dP as promiseWithTimeout, dQ as convertRomajiToKana, dR as normalizeJapaneseStudyAnswer, dS as isolate, dT as contextPitchPattern, dU as managedStateWritesSuppressed, dV as createStorageCoordinationId, dW as managedSessionStorage, dX as bindAuthorizedReaderFormSubmit, dY as isDirectTrustedReaderInteraction, dZ as normalizedJapaneseCardReading, d_ as parseManagedStateEpoch, d$ as sameManagedStateEpoch, e0 as gmStorageGetStrict, e1 as withGmStorageLease, e2 as isStorageLeaseLapsed, e3 as DEFAULT_SETTINGS, e4 as renderImmersionSearchLinks, e5 as createStudySessionClock, e6 as subscribeAcademyDeckChanges, e7 as readJpdbKanjiCommandCapability, e8 as isNewTabCopyKey, e9 as nextExplicitUiLanguage, ea as GITHUB_REPOSITORY_URL, eb as DISCORD_INVITE_URL, ec as dispatchAuthorizedReaderControlClick, ed as DOCS_BASE_URL, ee as SUPPORT_STATUS_URL, ef as renderedWordHasCardIdentity, eg as renderedWordTextIdentityMatches, eh as validPitchPositions, ei as mountStudySessionClockControl, ej as combinedApiCredentialLabel, ek as assessKanjiStrokes, el as renderedWordSourceVisualClass, em as replaceRenderedWordStateAndPitchClasses, en as bindRenderedWordCardIdentity, eo as preserveRenderedWordSentence, ep as SHAPE_PASS_SCORE, eq as activeLanguageProfile, er as readBackupSettingsPersistenceView, es as beginStoredValuesImport, et as settingsIntentKeys, eu as normalizeReaderSettings, ev as mergeDictionaryPreferences, ew as retireStaleDictionaryPreferences, ex as captureActiveLanguageProfileDictionaries, ey as saveSettings, ez as packagedExtensionStorageAdapterMissing, eA as readSettingsPersistenceViewStrict, eB as FURIGANA_HIDE_STATE_GROUPS, eC as WORD_COLOR_HIDE_STATE_GROUPS, eD as setReviewLanePainted, eE as accentToRgba, eF as effectiveReaderTextColorSource, eG as effectiveReaderColorSource, eH as effectiveSubtitleTextColorSource, eI as effectiveSubtitleColorSource, eJ as accessibleOcrBackgroundOpacity, eK as accessibleOcrBackgroundColor, eL as colorSourceClassName, eM as READER_THEME_COLOR_TOKENS, eN as EXTENSION_STORE_URLS, eO as USERSCRIPT_INSTALL_URL, eP as readApiCredentialsFromFormData, eQ as DEFAULT_AUDIO_SOURCES, eR as learningTargetRosterIdForTag, eS as dictionaryLookupLinksForTarget, eT as availableInterfaceLocales, eU as credentialValueFromReader, eV as normalizeOcrProvider, eW as slice1LanguageIdForTag, eX as canonicalTagForSlice1Language, eY as canonicalTagForLearningTarget, eZ as languageProfileDictionariesFromPreferences, e_ as activateLanguageProfileForOutputLanguage, e$ as normalizeDictionaryLookupLinks, f0 as normalizeAudioSource, f1 as isLearningTargetRosterId, f2 as MAX_LOOKUP_LINK_ROWS, f3 as normalizeAnkiFieldMappings, f4 as isLearnerLanguageId, f5 as COPY_LOOKUP_LINK, f6 as exportManagedStoredValues, f7 as RETIRED_SETTINGS_STORAGE_KEYS, f8 as SETTINGS_STORAGE_KEY, f9 as SETTINGS_INTENT_LEDGER_STORAGE_KEY, fa as applySettingsIntent, fb as serializeSettingsPersistencePair, fc as defaultDictionaryLookupLinks, fd as MAX_EXTRA_LOOKUP_LINKS, fe as missingLookupComponents, ff as AUDIO_SOURCE_UI_TYPE_VALUES, fg as audioSourceLabel, fh as lookupSiteComponents, fi as DEFAULT_POPUP_FONT_FAMILY, fj as DEFAULT_READER_FONT_FAMILY, fk as isPromiseLike$2, fl as dispatchAuthorizedReaderControlEvent, fm as ANKI_CONNECT_ADDON_URL, fn as redactedApiCredentialsFromForm, fo as learnerLanguageById, fp as LEARNER_LANGUAGE_IDS, fq as readTrustedYomuUrl, fr as externalLinkIcon, fs as LEARNING_TARGET_ROSTER, ft as furiganaModeNeedsDifficultyExplanation, fu as DEFAULT_OVERLAY_TEXT_COLOR, fv as DEFAULT_OVERLAY_OUTLINE_COLOR, fw as storedCredentialClearName, fx as hasStatusColorSource, fy as NEW_TAB_PAGE_URL, fz as AUDIO_GUIDE_URL, fA as NADESHIKO_DEVELOPER_URL, fB as VIDEO_PLAYER_PAGE_URL, fC as PDF_READER_PAGE_URL, fD as DONATE_URL, fE as SUPPORT_COPY, fF as SUPPORT_COPY_EXTRA, fG as LEARNER_LANGUAGES, fH as PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, fI as gmPrivateStorageDelete, fJ as gmPrivateStorageGet, fK as subscribeToSettingsChanges, fL as subscribeLocalYomuSrsMutations, fM as LocalYomuSrsRepository, fN as unwrapProfileKey, fO as parseAcademyPairingTicket, fP as wrapProfileKey, fQ as LOCAL_YOMU_SRS_INDEX_KEY, fR as decryptProfileEvent, fS as encryptProfileEvent, fT as mergeStoredYomuSrsDecks, fU as settingsPanelHash, fV as isPrivilegedYomuLocalDevelopmentOrigin, fW as settingsPanelFromHash, fX as SETTINGS_TITLE, fY as learningTargetRosterEntry, fZ as NEW_TAB_VERSION_URL, f_ as NO_EXPLICIT_USER_CHOICE, f$ as normalizeAudioSubSources, g0 as publishSettingsChange$1, g1 as mergeApiCredentialValues, g2 as configureLogger, g3 as localeDirection, g4 as subscribeToSettingsStorageChanges, g5 as isHostedYomuOrigin, g6 as loadSettings, g7 as copyIcon, g8 as ankiIcon, g9 as createYomuLocalSrsAdapter, ga as yomuOnboardingController, gb as clearManagedBrowserCaches, gc as unregisterManagedServiceWorkers, gd as setRenderedWordCardIdentity, ge as renderedWordCardKey, gf as renderedWordsInRoot, gg as renderedWordElementKey, gh as applyInterfaceLocaleToRoot, gi as applyInterfaceLocaleToDocument, gj as ensureManagedWebStorageCurrent } from "./entrypoint-DN7ZbODr.js";
 function assignSentenceInfo(paragraphs, tokens) {
   paragraphs.forEach((paragraph, index) => {
     const tokenData = tokens[index] ?? [];
@@ -10068,41 +10068,46 @@ function termMatchForEntry(position, entry) {
     deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
   };
 }
-function collectTermMatchCandidates(db, target, candidates, rank) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("terms", "readonly");
-    const store = tx.objectStore("terms");
-    const expressionIndex = store.index("expression");
-    const readingIndex = store.index("reading");
-    const expressions = sortedTermMatchExpressions(candidates);
-    const collectors = new Map(expressions.map((expression) => [
-      expression,
-      createTermMatchEntryCollector(
-        expression,
-        candidates,
-        rank,
-        (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
-      )
-    ]));
-    const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
-    let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
-    const finish = () => {
-      if (--pending2 <= 0) {
-        resolve(expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
-      }
-    };
-    const visit = (expression, entry) => {
-      collectors.get(expression)?.add(entry);
-    };
-    for (const expression of expressions) {
-      requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
-      if (queriesReadingIndex) {
-        requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
-      }
+function indexedDbTermSource(db) {
+  return {
+    visitTermsByKeys(keys, byReading, visit) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("terms", "readonly");
+        const store = tx.objectStore("terms");
+        const expressionIndex = store.index("expression");
+        const readingIndex = store.index("reading");
+        let pending2 = keys.length * (byReading ? 2 : 1);
+        const finish = () => {
+          if (--pending2 <= 0) resolve();
+        };
+        for (const key of keys) {
+          requestTermMatchIndex(expressionIndex, key, visit, finish, reject);
+          if (byReading) {
+            requestTermMatchIndex(readingIndex, key, visit, finish, reject);
+          }
+        }
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+      });
     }
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+  };
+}
+async function collectTermMatchCandidates(source, target, candidates, rank) {
+  const expressions = sortedTermMatchExpressions(candidates);
+  if (!expressions.length) return [];
+  const collectors = new Map(expressions.map((expression) => [
+    expression,
+    createTermMatchEntryCollector(
+      expression,
+      candidates,
+      rank,
+      (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
+    )
+  ]));
+  await source.visitTermsByKeys(expressions, targetTermMatchQueriesReadingIndex(target), (expression, entry) => {
+    collectors.get(expression)?.add(entry);
   });
+  return expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []);
 }
 const YOMITAN_DATABASE_NAME = "jpdb-popup-reader-yomitan";
 function firefoxXrayWaiver(value) {
@@ -12542,14 +12547,8 @@ const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
 function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
   return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
 }
-function optionalCursorScanLimitReached(options, visited, startedAt) {
-  return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
-}
 function positiveLimitReached(limit, value) {
   return limit > 0 && value >= limit;
-}
-function optionalLimitReached(limit, value) {
-  return Boolean(limit && value >= limit);
 }
 function addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count) {
   if (!isRandomListTerm(entry, rank)) return count;
@@ -12586,17 +12585,6 @@ function addTopFrequencyExpression(expressions, entry, maxRank, rank) {
   if (freq === void 0) return;
   if (freq > maxRank) return;
   expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-}
-function addSimilarTermByKanjiCandidate(entries2, seen, entry, character, rank) {
-  if (!entry.expression?.includes(character)) return;
-  if (!dictionaryEnabled(entry.dictionary, rank)) return;
-  addUniqueTermEntry(entries2, seen, entry);
-}
-function addUniqueTermEntry(entries2, seen, entry) {
-  const key = termExpressionReadingKey(entry);
-  if (seen.has(key)) return;
-  seen.add(key);
-  entries2.push(entry);
 }
 function termExpressionReadingKey(entry) {
   return `${entry.expression}
@@ -12660,11 +12648,6 @@ function termSearchPostings(entry, tokens) {
   if (typeof termId !== "number") return [];
   return tokens.map((token) => ({ token, dictionary: entry.dictionary, termId }));
 }
-function termKanjiPostings(entry, characters) {
-  const termId = entry.id;
-  if (typeof termId !== "number") return [];
-  return characters.map((character) => ({ character, dictionary: entry.dictionary, termId }));
-}
 function hydrateTermsByIds(db, ids) {
   return new Promise((resolve, reject) => {
     const result = /* @__PURE__ */ new Map();
@@ -12687,27 +12670,6 @@ function hydrateTermsByIds(db, ids) {
       };
       request.onerror = () => reject(request.error ?? new Error("Could not load local dictionary terms by id."));
     }
-  });
-}
-function collectTermKanjiPostingIds(db, character, budget, rank) {
-  return new Promise((resolve, reject) => {
-    const ids = [];
-    const seenIds = /* @__PURE__ */ new Set();
-    const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
-    request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || ids.length >= budget) {
-        resolve(ids);
-        return;
-      }
-      const posting = cursor.value;
-      if (dictionaryEnabled(posting.dictionary, rank) && typeof posting.termId === "number" && !seenIds.has(posting.termId)) {
-        seenIds.add(posting.termId);
-        ids.push(posting.termId);
-      }
-      cursor.continue();
-    };
   });
 }
 function collectTermSearchPostings(db, range, budget, rank, options) {
@@ -12734,21 +12696,6 @@ function collectTermSearchPostings(db, range, budget, rank, options) {
     };
   });
 }
-function dedupedTermsForPostingIds(termIds, terms, limit) {
-  const entries2 = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const termId of termIds) {
-    if (entries2.length >= limit) break;
-    const entry = terms.get(termId);
-    if (!entry) continue;
-    const key = `${entry.expression}
-${entry.reading}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    entries2.push(entry);
-  }
-  return entries2;
-}
 const DB_VERSION = 7;
 const DB_OPEN_TIMEOUT_MS = 1e4;
 const DEXIE_IMPORT_BATCH_SIZE = 5e3;
@@ -12770,9 +12717,6 @@ const RANDOM_TOP_TERM_LIST_MAX_ROWS = 3e4;
 const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
 const TERM_MATCH_WINDOW_CHARS = 240;
 const TERM_MATCH_SOURCE_LIMIT = 4e3;
-const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
-const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
-const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
 const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
 const log$n = Logger.scope("Yomitan");
 class YomitanDictionaryStore {
@@ -12785,8 +12729,6 @@ class YomitanDictionaryStore {
   summaryPromise;
   dictionaryStyleCssCache = /* @__PURE__ */ new Map();
   termSearchIndexPromise;
-  termKanjiIndexPromise;
-  termKanjiIndexReady = false;
   termIndexGeneration = 0;
   hotLookupCache = /* @__PURE__ */ new Map();
   // Memo for one findTermMatches call: every window asks the active target
@@ -12976,28 +12918,6 @@ class YomitanDictionaryStore {
       }
     );
   }
-  async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-    return this.getHotLookup(
-      this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
-      async () => {
-        const done = log$n.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
-        try {
-          const db = await this.db();
-          const rank = dictionaryRank(preferences);
-          const entries2 = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
-          const results = entries2.sort(
-            (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
-          ).slice(0, limit);
-          return results;
-        } catch (error) {
-          log$n.warn("Similar terms by kanji lookup failed", { character, error });
-          throw error;
-        } finally {
-          done();
-        }
-      }
-    );
-  }
   async findTermMatches(text2, limit = 32, preferences = [], target = activeLearningTarget()) {
     const targetGeneration = activeLearningTargetGeneration();
     const done = log$n.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
@@ -13055,7 +12975,7 @@ class YomitanDictionaryStore {
     return selected.sort((a, b) => a.start - b.start);
   }
   async lookupTermMatchCandidates(target, candidates, preferences, db) {
-    return collectTermMatchCandidates(db ?? await this.db(), target, candidates, dictionaryRank(preferences));
+    return collectTermMatchCandidates(indexedDbTermSource(db ?? await this.db()), target, candidates, dictionaryRank(preferences));
   }
   async summary() {
     if (!this.summaryPromise) {
@@ -13648,7 +13568,6 @@ class YomitanDictionaryStore {
     await runDictionaryImportWrite(db, stores, (tx) => {
       for (const storeName of stores) tx.objectStore(storeName).clear();
     }, { durability: "relaxed" }, importing);
-    this.termKanjiIndexReady = false;
   }
   async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk, importing) {
     if (!entries2.length) return;
@@ -13720,46 +13639,6 @@ class YomitanDictionaryStore {
       }))
     ];
     return this.getTermIndexEntries(db, queries);
-  }
-  async getSimilarTermEntriesByKanji(db, character, candidateLimit, rank) {
-    if (hasStore(db, "termKanji")) {
-      await this.ensureTermKanjiIndex(db);
-      return this.getTermKanjiIndexEntries(db, character, candidateLimit, rank);
-    }
-    return this.getSimilarTermCursorEntries(db, character, candidateLimit, rank, {
-      maxRows: TERM_KANJI_INDEX_FALLBACK_MAX_ROWS,
-      maxMs: TERM_KANJI_INDEX_FALLBACK_MAX_MS
-    });
-  }
-  async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
-    const termIds = await collectTermKanjiPostingIds(db, character, candidateLimit * 2, rank);
-    const terms = await hydrateTermsByIds(db, termIds);
-    return dedupedTermsForPostingIds(termIds, terms, candidateLimit);
-  }
-  async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
-    return new Promise((resolve, reject) => {
-      const entries2 = [];
-      const seen = /* @__PURE__ */ new Set();
-      const startedAt = performance.now();
-      let visited = 0;
-      const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
-      request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor || entries2.length >= candidateLimit) {
-          resolve(entries2);
-          return;
-        }
-        if (optionalCursorScanLimitReached(options, visited, startedAt)) {
-          resolve(entries2);
-          return;
-        }
-        visited++;
-        const entry = cursor.value;
-        addSimilarTermByKanjiCandidate(entries2, seen, entry, character, rank);
-        cursor.continue();
-      };
-    });
   }
   async getIndexedTermSearchEntries(db, query, limit) {
     return this.getTermIndexEntries(db, [
@@ -13965,25 +13844,6 @@ class YomitanDictionaryStore {
     if (!terms || indexed) return;
     await this.rebuildTermSearchIndex(db);
   }
-  async ensureTermKanjiIndex(db) {
-    if (!hasStore(db, "termKanji") || this.termKanjiIndexReady) return;
-    const [terms, indexed] = await Promise.all([
-      this.countStore(db, "terms"),
-      this.countStore(db, "termKanji")
-    ]);
-    if (!terms || indexed) {
-      this.termKanjiIndexReady = true;
-      return;
-    }
-    if (!this.termKanjiIndexPromise) {
-      this.termKanjiIndexPromise = this.rebuildTermKanjiIndex(db).then(() => {
-        this.termKanjiIndexReady = true;
-      }).finally(() => {
-        this.termKanjiIndexPromise = void 0;
-      });
-    }
-    await this.termKanjiIndexPromise;
-  }
   async rebuildTermSearchIndex(db) {
     const done = log$n.time("Term search index rebuild");
     const generation = this.termIndexGeneration;
@@ -14003,29 +13863,6 @@ class YomitanDictionaryStore {
         lastKey = chunk.lastKey;
       }
       log$n.info("Term search index rebuilt", { terms: indexedTerms });
-    } finally {
-      done();
-    }
-  }
-  async rebuildTermKanjiIndex(db) {
-    const done = log$n.time("Term kanji index rebuild");
-    const generation = this.termIndexGeneration;
-    try {
-      await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
-      let indexedTerms = 0;
-      let lastKey;
-      for (; ; ) {
-        if (generation !== this.termIndexGeneration) return;
-        const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
-        if (!chunk.terms.length) break;
-        if (generation !== this.termIndexGeneration) return;
-        await this.addDerivedTermIndexChunk(db, "termKanji", chunk.terms, termKanjiEntries);
-        indexedTerms += chunk.terms.length;
-        await nextTask();
-        if (chunk.done) break;
-        lastKey = chunk.lastKey;
-      }
-      log$n.info("Term kanji index rebuilt", { terms: indexedTerms });
     } finally {
       done();
     }
@@ -14060,7 +13897,6 @@ class YomitanDictionaryStore {
     await runDictionaryImportWrite(db, stores, (tx) => {
       for (const store of stores) tx.objectStore(store).clear();
     }, { durability: "relaxed" }, importing);
-    this.termKanjiIndexReady = false;
   }
   addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
     return runYomitanManagedStateWrite(db, storeName, (tx) => {
@@ -14189,7 +14025,6 @@ class YomitanDictionaryStore {
     this.summaryPromise = void 0;
     this.dictionaryStyleCssCache.clear();
     this.hotLookupCache.clear();
-    this.termKanjiIndexReady = false;
   }
 }
 async function readYomitanZipIndex(zip, language2 = "en") {
@@ -14353,17 +14188,6 @@ function glossaryWords(text2) {
 }
 function termSearchEntries(entry) {
   return termSearchPostings(entry, glossarySearchTokens(entry.glossary));
-}
-function termKanjiEntries(entry) {
-  return termKanjiPostings(entry, uniqueExpressionKanji(entry.expression));
-}
-function uniqueExpressionKanji(expression) {
-  const seen = /* @__PURE__ */ new Set();
-  return Array.from(expression).filter((character) => {
-    if (!isKanji(character) || seen.has(character)) return false;
-    seen.add(character);
-    return true;
-  });
 }
 function glossarySearchTokens(glossary) {
   return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossaryValueToSearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
@@ -18922,6 +18746,9 @@ function withInitialDakuten(reading) {
 function toHiragana(value) {
   return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
 }
+function dictionaryReadConcurrency(store, ownRealmLimit) {
+  return store.coalescesReads === true ? Infinity : ownRealmLimit;
+}
 const LOCAL_MATCH_LIMIT = 40;
 const LOCAL_ENRICHMENT_CONCURRENCY = 12;
 const LOCAL_PARSE_CACHE_LIMIT = 600;
@@ -18956,6 +18783,7 @@ function jpdbFirstParseOptions(options = {}) {
 class ReaderParser {
   constructor(dependencies) {
     this.dependencies = dependencies;
+    this.enrichmentGate = new ConcurrencyGate(dictionaryReadConcurrency(dependencies.dictionaries, LOCAL_ENRICHMENT_CONCURRENCY));
   }
   localCardCache = /* @__PURE__ */ new Map();
   // getCachedCard is intentionally keyed by the legacy DOM identity
@@ -18966,7 +18794,7 @@ class ReaderParser {
   localParseCache = /* @__PURE__ */ new Map();
   localPitchCache = /* @__PURE__ */ new Map();
   localTermDictionaryAvailability;
-  enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
+  enrichmentGate;
   kanjiReadingCache = /* @__PURE__ */ new Map();
   async parse(paragraphs, options = {}) {
     const { getSettings } = this.dependencies;
@@ -19437,7 +19265,7 @@ ${entry.reading}`);
       log$l.warn("Local dictionary parse failed", { length: text2.length }, error);
       return [];
     });
-    return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options, target));
+    return mapLimited(matches, this.enrichmentGate.limit, (match) => this.localTokenFromMatch(text2, match, options, target));
   }
   async localTokenFromMatch(text2, match, options, target) {
     const card = this.localCardFromEntry(match.entry, target);
@@ -46986,6 +46814,9 @@ function newTabSettingsWithPageTarget(settings, targetLanguage2) {
     languageProfiles: settings.languageProfiles.map((profile) => profile === active ? { ...profile, targetLanguage: targetLanguage2 } : profile)
   };
 }
+function createLocalDictionaryStore(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
+  return new YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage);
+}
 function settingsRestoreSaveOptions(previous, next, importedView) {
   const persistPreferredJapaneseSiteLanguage = importedView !== null || previous.preferJapaneseSiteLanguage !== next.preferJapaneseSiteLanguage;
   if (!importedView) {
@@ -47227,7 +47058,7 @@ function countStatus(template, count) {
 }
 function importSettingsBackupForRecovery(file, setStatus) {
   return restoreReaderSettingsBackup(file, DEFAULT_SETTINGS, {
-    dictionaries: new YomitanDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
+    dictionaries: createLocalDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
     setStatus,
     persistSettings: saveSettings,
     adoptSettings: () => void 0,
@@ -48057,7 +47888,7 @@ function updateFlowNoteKey(kind) {
       return "updateHelpNotesManager";
   }
 }
-const CURRENT_YOMU_VERSION = "2.0.11".trim() ? "2.0.11".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.0.12".trim() ? "2.0.12".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -48407,13 +48238,12 @@ function readApiDefinitionFormSettings(reader, current, rowsPresent) {
   };
 }
 function readKanjiAddonFormSettings(reader, current) {
-  const { has, clamped } = reader;
+  const { has } = reader;
   return {
     ...readSourcePriorityRows(reader, current, KANJI_ADDON_SOURCE_ROWS),
     kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
     kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
-    kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
-    similarKanjiWordLimit: clamped("similarKanjiWordLimit", 2, 24, current.similarKanjiWordLimit)
+    kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled")
   };
 }
 function readSourcePriorityRows(reader, current, rows) {
@@ -50701,6 +50531,12 @@ function dictionaryEntryDownload(entry, objectsBaseUrl2) {
 }
 const revision = "2026-07-23.574961e8.wty-95a9151c1beb";
 const objectsBaseUrl = "https://dictionaries.yomureader.com/";
+const archiveRevisions = {
+  jmdict: "JMdict.2026-07-23",
+  jmnedict: "JMnedict.2026-07-23",
+  kanjidic: "kanjidic2.2026-204",
+  wty: "2026.07.15"
+};
 const entries = [
   [
     "drive-cantonese-honzi-words-hk-honzi-2026-07-22-uu85lmu1zc",
@@ -54362,8 +54198,7 @@ const entries = [
       "published",
       "24ab5777cb003c068237449ae63174843be309d0ef78ff88e3fa47315a4e8c0d",
       6341873
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-en",
@@ -54384,8 +54219,7 @@ const entries = [
       "published",
       "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
       15509389
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-en-legacy",
@@ -54404,7 +54238,8 @@ const entries = [
     "Japanese / Terms",
     [
       "source-only"
-    ]
+    ],
+    null
   ],
   [
     "jmdict-en-legacy-without-proper-names",
@@ -54423,7 +54258,8 @@ const entries = [
     "Japanese / Terms",
     [
       "source-only"
-    ]
+    ],
+    null
   ],
   [
     "jmdict-en-with-examples",
@@ -54443,7 +54279,8 @@ const entries = [
     "Japanese / Terms",
     [
       "source-only"
-    ]
+    ],
+    null
   ],
   [
     "jmdict-en-without-proper-names",
@@ -54462,7 +54299,8 @@ const entries = [
     "Japanese / Terms",
     [
       "source-only"
-    ]
+    ],
+    null
   ],
   [
     "jmdict-es",
@@ -54483,8 +54321,7 @@ const entries = [
       "published",
       "0da1dcd493ac8144e7573031b9e4fd670147f5bdd30b560ccf1d8b7a2879aaa5",
       1332886
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-forms",
@@ -54503,7 +54340,8 @@ const entries = [
     "Japanese / Terms",
     [
       "source-only"
-    ]
+    ],
+    null
   ],
   [
     "jmdict-fr",
@@ -54524,8 +54362,7 @@ const entries = [
       "published",
       "c53ee70b65f69b0f0917322929f09b83aa1d25473cd71168da5c7c4ea03e4f20",
       576727
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-hu",
@@ -54546,8 +54383,7 @@ const entries = [
       "published",
       "9b89004b50b868ec02ec4c973c5ee59968758221055fd0c1bb2f5615b6ecd7db",
       1814012
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-nl",
@@ -54568,8 +54404,7 @@ const entries = [
       "published",
       "5579d462db56cd24075d37fe763f6f208bd8122778136d65e9447d68a4a7c54d",
       3107202
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-ru",
@@ -54590,8 +54425,7 @@ const entries = [
       "published",
       "e88ac22d79fecd596120eb9c007c73ac35a5501cc44aa61b5d19b48787e95d08",
       3452083
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmdict-sl",
@@ -54610,7 +54444,8 @@ const entries = [
     "Japanese / Terms",
     [
       "source-only"
-    ]
+    ],
+    null
   ],
   [
     "jmdict-sv",
@@ -54631,8 +54466,7 @@ const entries = [
       "published",
       "f3e39e9497eaf1a8007eeba627bb6663f4ffd11e62203ddd32a03dda1f2491a3",
       398940
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "jmnedict",
@@ -54653,8 +54487,7 @@ const entries = [
       "published",
       "bd3c687afc4dca42b6c6cd374d87c7f29242effef161f2b122ed2221b56e743f",
       11423324
-    ],
-    "2026-07-23"
+    ]
   ],
   [
     "kanjidic-en",
@@ -56219,7 +56052,8 @@ const entries = [
       "published",
       "1f32b6ff9f84b78bdffcfc2d356d15e9911e4079599c962de5dbb1c25a005a98",
       4997
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-da-it-ipa",
@@ -58340,7 +58174,8 @@ const entries = [
       "published",
       "e194b59f2e78d9a5aeb175cdc0e712d06a05b95745c3aed3b4c35e8a5771f76f",
       6029
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-el-it-gloss",
@@ -61931,7 +61766,8 @@ const entries = [
       "published",
       "9e99ed5993c38e9323281e6c03e3977deef0d9d672cd53022bb5ae3d5cb450a3",
       6654
-    ]
+    ],
+    "2026.05.03"
   ],
   [
     "wty-fa-it-ipa",
@@ -64451,7 +64287,8 @@ const entries = [
       "published",
       "00ef8b08c7d2b0c8483616a41a95aa8ddbda5f26eb43c3d3ddd731f662958b46",
       4628
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-grc-it-ipa",
@@ -65060,7 +64897,8 @@ const entries = [
       "published",
       "46464b2ded424644f94fbe93bb91abc50fd0c1b9395183e904fd39d5987cb80a",
       5414
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-hu-it-ipa",
@@ -66047,7 +65885,8 @@ const entries = [
       "published",
       "997d62606253750b6cb53e4535b99631b7f4338d129f6c17ba40d45d17679031",
       4432
-    ]
+    ],
+    "2026.03.16"
   ],
   [
     "wty-id-ru-ipa",
@@ -67790,7 +67629,8 @@ const entries = [
       "published",
       "4c7277f3d7ab1325333523089e2cb984b5622edda7103a39edbf47ea2b1d2c3b",
       5070
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-km-it",
@@ -70268,7 +70108,8 @@ const entries = [
       "published",
       "5d90113a6c21eb475ebead26ef3bd21eded2e1ce29b0bd85dc756bdd82458306",
       4900
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-lo-it",
@@ -70877,7 +70718,8 @@ const entries = [
       "published",
       "f7b9d85adf9e146dff7708ea3c5a4515515b663aa620b2359e4d9c680394ac01",
       4756
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-mn-it",
@@ -77765,7 +77607,8 @@ const entries = [
       "published",
       "8577c61e0336c99b9f5f6c37271bf3f198f57b23040ba79b76ad11cd73ca1fa6",
       4902
-    ]
+    ],
+    "2026.03.05"
   ],
   [
     "wty-sq-it-ipa",
@@ -83666,7 +83509,8 @@ const entries = [
       "published",
       "390d4a3101b8cddeb44bcbf1ed3ccfeceeb65e8b6c2659b399182e7eab4b621d",
       32320
-    ]
+    ],
+    "2026.03.29"
   ],
   [
     "wty-yue-tr-ipa",
@@ -83708,7 +83552,8 @@ const entries = [
       "published",
       "80e68cb172800f9747149a8f0606920462f8a8cd70e3c4276f9fafc6232dd1f4",
       6698
-    ]
+    ],
+    "2026.03.29"
   ],
   [
     "wty-yue-vi-ipa",
@@ -85079,6 +84924,7 @@ const entries = [
 const runtimeCatalogJson = {
   revision,
   objectsBaseUrl,
+  archiveRevisions,
   entries
 };
 const schemaVersion$1 = 1;
@@ -85480,6 +85326,7 @@ function runtimeDictionaryCatalog(input2) {
   if (!compact || typeof compact.revision !== "string" || !Array.isArray(compact.entries)) {
     throw new Error("Runtime dictionary catalog is invalid. Regenerate it from the published catalog.");
   }
+  const shared = new Map(Object.entries(compact.archiveRevisions ?? {}));
   return {
     schemaVersion: 1,
     revision: compact.revision,
@@ -85493,10 +85340,10 @@ function runtimeDictionaryCatalog(input2) {
       driveFolderUrl: "https://dictionaries.yomureader.com/",
       capturedAt: "runtime-projection"
     },
-    entries: compact.entries.map(expandRuntimeCatalogEntry)
+    entries: compact.entries.map((entry) => expandRuntimeCatalogEntry(entry, shared))
   };
 }
-function expandRuntimeCatalogEntry(entry) {
+function expandRuntimeCatalogEntry(entry, shared) {
   const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution, revision2] = entry;
   return {
     id,
@@ -85504,7 +85351,7 @@ function expandRuntimeCatalogEntry(entry) {
     ...installedTitle ? { installedTitle } : {},
     format: "yomitan",
     version: "runtime",
-    revision: revision2,
+    revision: revision2 === void 0 ? shared.get(id.split("-")[0]) : revision2 ?? void 0,
     categories,
     headwordLanguages,
     definitionLanguages,
@@ -85762,8 +85609,8 @@ function recommendedDictionaryInstallIsCurrent(build, installedRevision) {
   const installed = installedRevision?.match(/\d+/gu)?.map(Number);
   const offered = build.revision?.match(/\d+/gu)?.map(Number);
   if (!installed || !offered) return false;
-  const index = installed.findIndex((value, at) => value !== offered[at]);
-  return index < 0 || index >= offered.length || installed[index] > offered[index];
+  const index = offered.findIndex((value, at) => value !== installed[at]);
+  return index < 0 || (installed[index] ?? -1) > offered[index];
 }
 const CURATED_JAPANESE_CATALOG_IDS = CURATED_JAPANESE_DICTIONARIES.map(([, , , , source]) => source).filter((source) => !source.startsWith("https://"));
 function curatedDownload(source) {
@@ -86727,7 +86574,7 @@ const RECOMMENDED_DICTIONARY_MATCH_TOKENS = {
   "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0": [["jpdb", "v2"], ["jpdbv2"]]
 };
 function recommendedDictionaryMatchTokenSets(dictionary) {
-  return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.catalogDictionaryId ?? dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+  return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.catalogDictionaryId ?? dictionary.id] ?? (dictionary.revision ? [] : [Array.from(dictionaryTitleTokens(dictionary.name))]);
 }
 function dictionaryTitleTokens(value) {
   return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
@@ -88202,7 +88049,6 @@ function renderHiddenKanjiDetailSettings(settings) {
                 ${hiddenBooleanSetting("kanjiOriginKanjiMapEnabled", settings.kanjiOriginKanjiMapEnabled)}
                 ${hiddenBooleanSetting("kanjiOriginGraphEnabled", settings.kanjiOriginGraphEnabled)}
                 ${hiddenBooleanSetting("kanjiOriginRadicalImagesEnabled", settings.kanjiOriginRadicalImagesEnabled)}
-                <input type="hidden" name="similarKanjiWordLimit" value="${settings.similarKanjiWordLimit}">
     `;
 }
 function hiddenBooleanSetting(name, enabled) {
@@ -96069,7 +95915,7 @@ class NewTabRuntime {
   yomuLocalSrs = createYomuLocalSrsAdapter(this.yomuLocalSrsRepository);
   rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
   jpdbReviewBridge = createJpdbReviewBridgeClient();
-  dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+  dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
   dictionarySourceState = new DictionarySourceStateController({
     getSettings: () => this.settings,
     onStateChange: () => this.repositionLookupPopover()

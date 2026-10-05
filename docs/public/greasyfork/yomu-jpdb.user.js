@@ -9270,7 +9270,6 @@ const COPY = {
   kanjiOriginKanjiMapEnabled: "Show kanji facts and component graph",
   kanjiOriginGraphEnabled: "Show component graph",
   kanjiOriginRadicalImagesEnabled: "Show radical images",
-  similarKanjiWordLimit: "Similar word limit",
   noSimilarWords: "No additional words found.",
   audioEnabled: "Enable term audio",
   autoPlayAudio: "Auto-play term audio",
@@ -10895,7 +10894,6 @@ hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
-similarKanjiWordLimit	類似語の上限
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -14338,25 +14336,25 @@ function renderJpdbCompounds(info, language) {
         <section class="jpdb-reader-jpdb-extra">
             <ul class="jpdb-reader-jpdb-compounds">
                 ${info.compounds.map((compound) => `
-                <li class="jpdb-reader-jpdb-compound-row${compound.audioIds?.length ? " has-audio" : ""}">
-                    ${renderJpdbExampleAudioButton(compound.audioIds, compound.term, language)}
-                    <span class="jpdb-reader-jpdb-compound-main">
-                        <a
-                            class="gloss-link jpdb-reader-jpdb-compound"
-                            href="#jpdb-reader-dictionary-lookup"
-                            data-dictionary-lookup="${escapeHtml(compound.term)}"
-                            data-dictionary-reading="${escapeHtml(compound.reading)}"
-                            data-dictionary="JPDB"
-                            data-external="false"
-                        >
-                            <span class="jpdb-reader-jpdb-compound-head">
-                                ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
-                            </span>
-                        </a>
-                        ${compound.meaning ? `<small>${escapeHtml(compound.meaning)}</small>` : ""}
-                    </span>
-                </li>
-            `).join("")}
+                    <li class="jpdb-reader-jpdb-compound-row${compound.audioIds?.length ? " has-audio" : ""}">
+                        ${renderJpdbExampleAudioButton(compound.audioIds, compound.term, language)}
+                        <span class="jpdb-reader-jpdb-compound-main">
+                            <a
+                                class="gloss-link jpdb-reader-jpdb-compound"
+                                href="#jpdb-reader-dictionary-lookup"
+                                data-dictionary-lookup="${escapeHtml(compound.term)}"
+                                data-dictionary-reading="${escapeHtml(compound.reading)}"
+                                data-dictionary="JPDB"
+                                data-external="false"
+                            >
+                                <span class="jpdb-reader-jpdb-compound-head">
+                                    ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
+                                </span>
+                            </a>
+                            ${compound.meaning ? `<small>${escapeHtml(compound.meaning)}</small>` : ""}
+                        </span>
+                    </li>
+                `).join("")}
             </ul>
         </section>
     ` : "";
@@ -14372,14 +14370,14 @@ function renderJpdbUsedInVocabulary(info, sourceAttributes, language) {
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in">
                 ${entries2.map((entry) => `
-                <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length ? " has-audio" : ""}">
-                    ${renderJpdbExampleAudioButton(entry.audioIds, entry.term, language)}
-                    <span class="jpdb-reader-jpdb-used-in-main">
-                        <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(entry.term)}" data-dictionary-reading="${escapeHtml(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url, entry.termHtml)}</span></a>
-                        ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ""}
-                    </span>
-                </li>
-            `).join("")}
+                    <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length ? " has-audio" : ""}">
+                        ${renderJpdbExampleAudioButton(entry.audioIds, entry.term, language)}
+                        <span class="jpdb-reader-jpdb-used-in-main">
+                            <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(entry.term)}" data-dictionary-reading="${escapeHtml(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url, entry.termHtml)}</span></a>
+                            ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ""}
+                        </span>
+                    </li>
+                `).join("")}
                 </ul>
             </div>
         </details>

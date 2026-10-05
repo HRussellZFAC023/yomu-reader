@@ -8781,7 +8781,6 @@ hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
-similarKanjiWordLimit	類似語の上限
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -10588,8 +10587,8 @@ function escapeHtml(value) {
 function renderWanikaniDefinitionMount(card, settings, sourceAttributes) {
   if (!settings.wanikaniDefinitionsEnabled || !settings.wanikaniApiToken.trim()) return "";
   return `<div data-wanikani-definition-mount data-wanikani-expression="${escapeHtml$1(card.spelling)}" data-wanikani-reading="${escapeHtml$1(card.reading)}">
-    ${renderLoadingSource(settings.wanikaniDefinitionsAlias || "WaniKani", sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
-  </div>`;
+        ${renderLoadingSource(settings.wanikaniDefinitionsAlias || "WaniKani", sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
+    </div>`;
 }
 class WanikaniSourceController {
   constructor(lookup, getSettings, sourceAttributes, onRendered) {
@@ -10656,26 +10655,26 @@ class WanikaniSourceController {
 function renderWanikaniSource(info, settings, attributes, label = "WaniKani") {
   const subject = info.subject;
   return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}>
-    <summary class="jpdb-reader-local-title">${escapeHtml$1(label)}</summary>
-    <div class="jpdb-reader-local-entry yomu-wanikani-body">
-        ${renderWanikaniMeta(info, settings)}
-        ${renderWanikaniPublicDefinitions(subject)}
-        ${renderWanikaniReadings(subject)}
-        ${renderWanikaniSynonyms(info)}
-        ${renderWanikaniAudio(subject.audio)}
-        ${renderMnemonic("Meaning mnemonic", subject.meaningMnemonic)}
-        ${renderMnemonic("Meaning hint", subject.meaningHint)}
-        ${renderMnemonic("Reading mnemonic", subject.readingMnemonic)}
-        ${renderMnemonic("Reading hint", subject.readingHint)}
-        ${renderNote("Your meaning note", info.studyMaterial?.meaningNote)}
-        ${renderNote("Your reading note", info.studyMaterial?.readingNote)}
-        ${renderSubjectLinks("Components", info.components)}
-        ${renderSubjectLinks("Visually similar", info.visuallySimilar)}
-        ${renderSubjectLinks("Related vocabulary", info.relatedVocabulary)}
-        ${renderWanikaniContextSentences(subject)}
-        ${renderWanikaniExternalLink(subject)}
-    </div>
-  </details>`;
+        <summary class="jpdb-reader-local-title">${escapeHtml$1(label)}</summary>
+        <div class="jpdb-reader-local-entry yomu-wanikani-body">
+            ${renderWanikaniMeta(info, settings)}
+            ${renderWanikaniPublicDefinitions(subject)}
+            ${renderWanikaniReadings(subject)}
+            ${renderWanikaniSynonyms(info)}
+            ${renderWanikaniAudio(subject.audio)}
+            ${renderMnemonic("Meaning mnemonic", subject.meaningMnemonic)}
+            ${renderMnemonic("Meaning hint", subject.meaningHint)}
+            ${renderMnemonic("Reading mnemonic", subject.readingMnemonic)}
+            ${renderMnemonic("Reading hint", subject.readingHint)}
+            ${renderNote("Your meaning note", info.studyMaterial?.meaningNote)}
+            ${renderNote("Your reading note", info.studyMaterial?.readingNote)}
+            ${renderSubjectLinks("Components", info.components)}
+            ${renderSubjectLinks("Visually similar", info.visuallySimilar)}
+            ${renderSubjectLinks("Related vocabulary", info.relatedVocabulary)}
+            ${renderWanikaniContextSentences(subject)}
+            ${renderWanikaniExternalLink(subject)}
+        </div>
+    </details>`;
 }
 function renderWanikaniMeta(info, settings) {
   const parts = [
@@ -10701,10 +10700,10 @@ function renderWanikaniAccuracy(info) {
 function renderWanikaniPublicDefinitions(subject) {
   const payload = wanikaniPublicDefinitionPayload(subject);
   return `<div class="yomu-wanikani-public-definitions"${wanikaniDefinitionPayloadAttributes(payload)}>
-    <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(", ")}</p>
-    ${renderWanikaniAlternatives("Also accepted", subject.auxiliaryMeanings, "whitelist")}
-    ${renderWanikaniAlternatives("Not accepted", subject.auxiliaryMeanings, "blacklist")}
-  </div>`;
+        <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(", ")}</p>
+        ${renderWanikaniAlternatives("Also accepted", subject.auxiliaryMeanings, "whitelist")}
+        ${renderWanikaniAlternatives("Not accepted", subject.auxiliaryMeanings, "blacklist")}
+    </div>`;
 }
 function renderWanikaniMeaning(item) {
   const primary = item.primary ? " <strong>primary</strong>" : "";

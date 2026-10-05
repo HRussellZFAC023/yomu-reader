@@ -39783,7 +39783,6 @@ const COPY$c = {
     kanjiOriginKanjiMapEnabled: "Show kanji facts and component graph",
     kanjiOriginGraphEnabled: "Show component graph",
     kanjiOriginRadicalImagesEnabled: "Show radical images",
-    similarKanjiWordLimit: "Similar word limit",
     noSimilarWords: "No additional words found.",
     audioEnabled: "Enable term audio",
     autoPlayAudio: "Auto-play term audio",
@@ -41427,7 +41426,6 @@ hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
-similarKanjiWordLimit	類似語の上限
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -44438,9 +44436,7 @@ const KANJI_NUMBER_SETTING_RANGES = {
   rtkPriority: { min: 0, max: 999 },
   kanjivgPriority: { min: 0, max: 999 },
   kanjiOriginsPriority: { min: 0, max: 999 },
-  kanjiDictionariesPriority: { min: 0, max: 999 },
-  similarKanjiWordsPriority: { min: 0, max: 999 },
-  similarKanjiWordLimit: { min: 2, max: 24 }
+  kanjiDictionariesPriority: { min: 0, max: 999 }
 };
 const READER_ACCENT_COLOR_SETTING_KEYS = [
   "wordColorNew",
@@ -44534,9 +44530,6 @@ const DEFAULT_SETTINGS = {
   kanjiOriginKanjiMapEnabled: true,
   kanjiOriginGraphEnabled: true,
   kanjiOriginRadicalImagesEnabled: true,
-  similarKanjiWords: true,
-  similarKanjiWordsPriority: 40,
-  similarKanjiWordLimit: 8,
   audioEnabled: true,
   autoPlayAudio: true,
   suppressAutoAudioOnVideo: true,
@@ -267143,7 +267136,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DRXz0YiG.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-D7h7kK4o.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
