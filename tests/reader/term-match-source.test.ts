@@ -84,6 +84,51 @@ function seededDatabase(rows: readonly YomitanTermEntry[]): Promise<IDBDatabase>
     });
 }
 
+interface StalledEventTarget {
+    onerror: (() => void) | null;
+    error: DOMException | null;
+}
+
+interface StalledRequest extends StalledEventTarget {
+    onsuccess: (() => void) | null;
+}
+
+interface StalledTransaction extends StalledEventTarget {
+    onabort: (() => void) | null;
+}
+
+/**
+ * A database whose term reads never settle on their own: each getAll request is
+ * handed to the test, which fails it or aborts the transaction instead. The
+ * abort case is the iPad WebKit failure mode, where a request settles neither
+ * way and only the transaction's abort says the read is over.
+ */
+function stalledDatabase(): { db: IDBDatabase; tx: StalledTransaction; requests: StalledRequest[] } {
+    const requests: StalledRequest[] = [];
+    const index = {
+        getAll: () => {
+            const request: StalledRequest = { onsuccess: null, onerror: null, error: null };
+            requests.push(request);
+            return request;
+        },
+    };
+    const tx: StalledTransaction & { objectStore(): unknown } = {
+        onerror: null,
+        onabort: null,
+        error: null,
+        objectStore: () => ({ index: () => index }),
+    };
+    return { db: { transaction: () => tx } as unknown as IDBDatabase, tx, requests };
+}
+
+/** Settles with the promise's outcome, or with 'pending' if it is still waiting. */
+function outcomeSoon(promise: Promise<unknown>): Promise<unknown> {
+    return Promise.race([
+        promise.then(value => ({ resolved: value }), (reason: unknown) => ({ rejected: reason })),
+        new Promise(resolve => setTimeout(() => resolve('pending'), 200)),
+    ]);
+}
+
 let openDb: IDBDatabase | undefined;
 
 afterEach(async () => {
@@ -114,6 +159,30 @@ describe('term match sources', () => {
             ['いぬ', 4],
             ['犬', 4],
         ]);
+    });
+
+    it('rejects instead of waiting when an IndexedDB term read fails', async () => {
+        const { db, requests } = stalledDatabase();
+        const reading = collectTermMatchCandidates(indexedDbTermSource(db), JAPANESE_LEARNING_TARGET, CANDIDATES, RANK);
+        expect(requests.length).toBeGreaterThan(0);
+        const failure = new DOMException('The read failed.', 'UnknownError');
+        requests[0].error = failure;
+        requests[0].onerror?.();
+
+        const outcome = await outcomeSoon(reading);
+        expect(outcome).toHaveProperty('rejected');
+        expect((outcome as { rejected: unknown }).rejected).toBe(failure);
+    });
+
+    it('rejects instead of waiting when the transaction aborts with reads still unsettled', async () => {
+        const { db, tx, requests } = stalledDatabase();
+        const reading = collectTermMatchCandidates(indexedDbTermSource(db), JAPANESE_LEARNING_TARGET, CANDIDATES, RANK);
+        expect(requests.length).toBeGreaterThan(0);
+        tx.onabort?.();
+
+        await expect(outcomeSoon(reading)).resolves.toEqual({
+            rejected: expect.objectContaining({ message: 'Could not read dictionary term matches.' }),
+        });
     });
 
     it('answers an empty candidate set without asking the source', async () => {
