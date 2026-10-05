@@ -326,53 +326,78 @@ function termMatchForEntry(position: TermMatchCandidatePosition, entry: YomitanT
 }
 
 /**
- * One readonly transaction answering every expression in the candidate set,
- * fanned across the expression index (and the reading index for targets that
- * query it), each key collected by its candidate-aware entry collector.
+ * Where collectTermMatchCandidates reads term rows. One call answers a whole
+ * candidate set: `visit` receives every stored row whose expression equals a
+ * key and, when `byReading` is set, every row whose reading equals it, and the
+ * promise settles once every key is answered. How the rows are fetched and
+ * batched is the source's business; which rows survive is the collectors'.
  */
-export function collectTermMatchCandidates(
-    db: IDBDatabase,
+export interface TermSource {
+    visitTermsByKeys(
+        keys: readonly string[],
+        byReading: boolean,
+        visit: (key: string, entry: YomitanTermEntry) => void,
+    ): Promise<void>;
+}
+
+/**
+ * The IndexedDB row store's TermSource: one readonly transaction fanned across
+ * the expression index (and the reading index when asked), each key read by
+ * requestTermMatchIndex.
+ */
+export function indexedDbTermSource(db: IDBDatabase): TermSource {
+    return {
+        visitTermsByKeys(keys, byReading, visit) {
+            return new Promise<void>((resolve, reject) => {
+                const tx = db.transaction('terms', 'readonly');
+                const store = tx.objectStore('terms');
+                const expressionIndex = store.index('expression');
+                const readingIndex = store.index('reading');
+                let pending = keys.length * (byReading ? 2 : 1);
+                const finish = () => {
+                    if (--pending <= 0) resolve();
+                };
+                for (const key of keys) {
+                    requestTermMatchIndex(expressionIndex, key, visit, finish, reject);
+                    if (byReading) {
+                        requestTermMatchIndex(readingIndex, key, visit, finish, reject);
+                    }
+                }
+                tx.onerror = () => reject(tx.error);
+                // A conforming abort fires an error at every unfinished request, so
+                // this is usually redundant. It is the only signal left in the iPad
+                // WebKit failure mode this codebase already fights, where a request
+                // settles neither way: without it the callers waiting on this parse
+                // wait for a completion that is never coming.
+                tx.onabort = () => reject(tx.error ?? new Error('Could not read dictionary term matches.'));
+            });
+        },
+    };
+}
+
+/**
+ * Every expression in the candidate set, answered by one TermSource read and
+ * each key collected by its candidate-aware entry collector.
+ */
+export async function collectTermMatchCandidates(
+    source: TermSource,
     target: LearningTargetModule,
     candidates: TermMatchCandidates,
     rank: Map<string, DictionaryPreference>,
 ): Promise<YomitanTermMatch[]> {
-    return new Promise<YomitanTermMatch[]>((resolve, reject) => {
-        const tx = db.transaction('terms', 'readonly');
-        const store = tx.objectStore('terms');
-        const expressionIndex = store.index('expression');
-        const readingIndex = store.index('reading');
-        const expressions = sortedTermMatchExpressions(candidates);
-        const collectors = new Map(expressions.map(expression => [
+    const expressions = sortedTermMatchExpressions(candidates);
+    if (!expressions.length) return [];
+    const collectors = new Map(expressions.map(expression => [
+        expression,
+        createTermMatchEntryCollector(
             expression,
-            createTermMatchEntryCollector(
-                expression,
-                candidates,
-                rank,
-                (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules),
-            ),
-        ]));
-        const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
-        let pending = expressions.length * (queriesReadingIndex ? 2 : 1);
-        const finish = () => {
-            if (--pending <= 0) {
-                resolve(expressions.flatMap(expression => collectors.get(expression)?.matches() ?? []));
-            }
-        };
-        const visit = (expression: string, entry: YomitanTermEntry) => {
-            collectors.get(expression)?.add(entry);
-        };
-        for (const expression of expressions) {
-            requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
-            if (queriesReadingIndex) {
-                requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
-            }
-        }
-        tx.onerror = () => reject(tx.error);
-        // A conforming abort fires an error at every unfinished request, so
-        // this is usually redundant. It is the only signal left in the iPad
-        // WebKit failure mode this codebase already fights, where a request
-        // settles neither way: without it the callers waiting on this parse
-        // wait for a completion that is never coming.
-        tx.onabort = () => reject(tx.error ?? new Error('Could not read dictionary term matches.'));
+            candidates,
+            rank,
+            (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules),
+        ),
+    ]));
+    await source.visitTermsByKeys(expressions, targetTermMatchQueriesReadingIndex(target), (expression, entry) => {
+        collectors.get(expression)?.add(entry);
     });
+    return expressions.flatMap(expression => collectors.get(expression)?.matches() ?? []);
 }

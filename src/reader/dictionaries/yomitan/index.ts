@@ -12,6 +12,7 @@ import {
     collectTermMatchCandidates,
     exactTermCandidateMatches,
     exactTermMatchCandidates,
+    indexedDbTermSource,
     rankedDictionaryEntries,
     readIndexRequestValues,
     type TermMatchCandidates,
@@ -529,7 +530,7 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
         preferences: DictionaryPreference[],
         db?: IDBDatabase,
     ): Promise<YomitanTermMatch[]> {
-        return collectTermMatchCandidates(db ?? await this.db(), target, candidates, dictionaryRank(preferences));
+        return collectTermMatchCandidates(indexedDbTermSource(db ?? await this.db()), target, candidates, dictionaryRank(preferences));
     }
 
     async summary(): Promise<DictionarySummary> {
