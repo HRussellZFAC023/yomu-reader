@@ -597,12 +597,12 @@ function assertJitenSplitBoundary() {
   }
 }
 
-// The UI copy catalogue is the largest single Module the split moves out of
-// core. A same-directory `./i18n` import bypasses the facade alias and brings
-// all of it back (2.0.6–2.0.11 shipped ~140 KB of duplicate copy this way).
+// The UI copy catalogue ships in the @require'd runtime companion. A
+// same-directory `./i18n` import bypasses the facade alias and brings all of it
+// back into core (2.0.6–2.0.11 shipped ~140 KB of duplicate copy this way).
 function assertUiCopySplitBoundary() {
   assertSplitBoundary('ui-copy', 'Yomu UI Copy', [
-    ['English UI copy table', 'const GRAMMAR_UI_COPY'],
+    ['Grammar UI copy table (spread into the en/ja catalogues)', 'const GRAMMAR_UI_COPY'],
     ['Japanese UI copy table', 'const JA_COPY'],
     ['Japanese settings copy table', 'const JA_SETTINGS_COPY'],
   ]);
