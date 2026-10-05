@@ -91,7 +91,7 @@ describe('Yomitan managed-state epoch', () => {
         await expect(importing).rejects.toMatchObject({ name: 'StaleManagedStateEpochError' });
     });
 
-    it.each(['termSearch', 'termKanji'] as const)(
+    it.each(['termSearch'] as const)(
         'does not let a stale captured chunk repopulate %s after epoch reconciliation',
         async indexStore => {
             const values = new Map<string, unknown>();
@@ -106,7 +106,7 @@ describe('Yomitan managed-state epoch', () => {
 
             type DerivedIndexWriter = (
                 db: IDBDatabase,
-                storeName: 'termSearch' | 'termKanji',
+                storeName: 'termSearch',
                 terms: YomitanTermEntry[],
                 rowsForTerm: (term: YomitanTermEntry) => unknown[],
             ) => Promise<void>;
@@ -130,9 +130,7 @@ describe('Yomitan managed-state epoch', () => {
                 }
             };
 
-            const rebuilding = indexStore === 'termSearch'
-                ? legacyStore.prepareTermSearchIndex()
-                : legacyStore.lookupSimilarTermsByKanji('読', 5).then(() => undefined);
+            const rebuilding = legacyStore.prepareTermSearchIndex();
             await chunkCaptured;
 
             values.set(EPOCH_KEY, epoch());

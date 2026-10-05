@@ -6,8 +6,8 @@ import type { GlossaryCursorSearchOptions, YomitanTermEntry } from './types';
 type DictionaryRank = Map<string, DictionaryPreference>;
 
 /**
- * termSearch and termKanji are derived indexes over `terms`. Their rows are
- * postings — a search key plus the id of the term row that owns it — never
+ * termSearch is a derived index over `terms`. Its rows are postings — a
+ * glossary search token plus the id of the term row that owns it — never
  * copies of the term. Earlier schemas cloned the entire term row (glossary,
  * inlined images and all) into every posting, so one imported term cost up to
  * TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM copies of itself on disk.
@@ -23,13 +23,6 @@ export interface YomitanTermSearchPosting {
     termId: number;
 }
 
-export interface YomitanTermKanjiPosting {
-    id?: number;
-    character: string;
-    dictionary: string;
-    termId: number;
-}
-
 export function termSearchPostings(
     entry: YomitanTermEntry,
     tokens: string[],
@@ -37,15 +30,6 @@ export function termSearchPostings(
     const termId = entry.id;
     if (typeof termId !== 'number') return [];
     return tokens.map(token => ({ token, dictionary: entry.dictionary, termId }));
-}
-
-export function termKanjiPostings(
-    entry: YomitanTermEntry,
-    characters: string[],
-): YomitanTermKanjiPosting[] {
-    const termId = entry.id;
-    if (typeof termId !== 'number') return [];
-    return characters.map(character => ({ character, dictionary: entry.dictionary, termId }));
 }
 
 /**
@@ -76,39 +60,6 @@ export function hydrateTermsByIds(db: IDBDatabase, ids: number[]): Promise<Map<n
             };
             request.onerror = () => reject(request.error ?? new Error('Could not load local dictionary terms by id.'));
         }
-    });
-}
-
-/** Term ids whose expression contains `character`, in index order. */
-export function collectTermKanjiPostingIds(
-    db: IDBDatabase,
-    character: string,
-    budget: number,
-    rank: DictionaryRank,
-): Promise<number[]> {
-    return new Promise((resolve, reject) => {
-        const ids: number[] = [];
-        const seenIds = new Set<number>();
-        const request = db.transaction('termKanji', 'readonly')
-            .objectStore('termKanji')
-            .index('character')
-            .openCursor(IDBKeyRange.only(character));
-        request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary kanji index.'));
-        request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor || ids.length >= budget) {
-                resolve(ids);
-                return;
-            }
-            const posting = cursor.value as YomitanTermKanjiPosting;
-            if (dictionaryEnabled(posting.dictionary, rank)
-                && typeof posting.termId === 'number'
-                && !seenIds.has(posting.termId)) {
-                seenIds.add(posting.termId);
-                ids.push(posting.termId);
-            }
-            cursor.continue();
-        };
     });
 }
 
@@ -147,28 +98,4 @@ export function collectTermSearchPostings(
             cursor.continue();
         };
     });
-}
-
-/**
- * Hydrated term entries for a posting id list, deduplicated by
- * expression/reading. Two dictionaries can post the same pair, so the id list
- * is collected with headroom and trimmed to `limit` only after hydration.
- */
-export function dedupedTermsForPostingIds(
-    termIds: number[],
-    terms: Map<number, YomitanTermEntry>,
-    limit: number,
-): YomitanTermEntry[] {
-    const entries: YomitanTermEntry[] = [];
-    const seen = new Set<string>();
-    for (const termId of termIds) {
-        if (entries.length >= limit) break;
-        const entry = terms.get(termId);
-        if (!entry) continue;
-        const key = `${entry.expression}\n${entry.reading}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        entries.push(entry);
-    }
-    return entries;
 }

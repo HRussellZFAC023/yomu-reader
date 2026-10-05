@@ -84,14 +84,12 @@ import {
 import {
     addCommonTermToReservoir,
     addRandomListTermToReservoir,
-    addSimilarTermByKanjiCandidate,
     addTopFrequencyExpression,
     cursorScanLimitReached,
     glossaryCursorSearchExpired,
     glossaryFallbackSearchOptions,
     glossaryIndexSearchOptions,
     hasReadyEmptyGlossarySearchIndex,
-    optionalCursorScanLimitReached,
     shouldSkipGlossaryFallback,
 } from './sampling';
 import type {
@@ -113,11 +111,8 @@ import type {
 } from './types';
 import { formatDexieImportProgress, formatDexieStoreImportProgress, formatUiTemplate } from './import-progress';
 import {
-    collectTermKanjiPostingIds,
     collectTermSearchPostings,
-    dedupedTermsForPostingIds,
     hydrateTermsByIds,
-    termKanjiPostings,
     termSearchPostings,
 } from './term-postings';
 
@@ -153,12 +148,13 @@ const TERM_MATCH_WINDOW_CHARS = 240;
 // bounded. Well above real content: a whole expanded video description or a
 // long comment fits in one call.
 const TERM_MATCH_SOURCE_LIMIT = 4_000;
-const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
-const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
-const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
 const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
 const log = Logger.scope('Yomitan');
 
+// termKanji, a kanji-to-term posting index, is no longer built or read. The
+// object store stays in schema v7 (no version bump: older code on the same
+// origin would fail to open a newer one), is still cleared with the other
+// derived index, and is erased with everything else by Clear and Factory Reset.
 type InternalStoreName = StoreName | 'termKanji';
 
 interface TermSearchCandidate {
@@ -212,8 +208,6 @@ export class YomitanDictionaryStore {
     private summaryPromise?: Promise<DictionarySummary>;
     private dictionaryStyleCssCache = new Map<string, string>();
     private termSearchIndexPromise?: Promise<void>;
-    private termKanjiIndexPromise?: Promise<void>;
-    private termKanjiIndexReady = false;
     private termIndexGeneration = 0;
     private hotLookupCache = new Map<string, HotLookupCacheEntry<unknown>>();
     // Memo for one findTermMatches call: every window asks the active target
@@ -425,33 +419,6 @@ export class YomitanDictionaryStore {
                     return results;
                 } catch (error) {
                     log.warn('Term metadata lookup failed', { expression: normalizedExpression, error });
-                    throw error;
-                } finally {
-                    done();
-                }
-            },
-        );
-    }
-
-    async lookupSimilarTermsByKanji(character: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
-        return this.getHotLookup(
-            this.hotLookupCacheKey('lookupSimilarTermsByKanji', [character, limit], preferences),
-            async () => {
-                const done = log.time('Similar terms by kanji lookup', { character, limit, dictionaries: preferences.length });
-                try {
-                    const db = await this.db();
-                    const rank = dictionaryRank(preferences);
-                    const entries = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
-                    const results = entries
-                        .sort((a, b) =>
-                            dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-                            || (b.score ?? 0) - (a.score ?? 0)
-                            || a.expression.length - b.expression.length,
-                        )
-                        .slice(0, limit);
-                    return results;
-                } catch (error) {
-                    log.warn('Similar terms by kanji lookup failed', { character, error });
                     throw error;
                 } finally {
                     done();
@@ -1251,7 +1218,6 @@ export class YomitanDictionaryStore {
         await runDictionaryImportWrite(db, stores, tx => {
             for (const storeName of stores) tx.objectStore(storeName).clear();
         }, { durability: 'relaxed' }, importing);
-        this.termKanjiIndexReady = false;
     }
 
     private async addToStore<T>(
@@ -1352,68 +1318,6 @@ export class YomitanDictionaryStore {
             })),
         ];
         return this.getTermIndexEntries(db, queries);
-    }
-
-    private async getSimilarTermEntriesByKanji(
-        db: IDBDatabase,
-        character: string,
-        candidateLimit: number,
-        rank: Map<string, DictionaryPreference>,
-    ): Promise<YomitanTermEntry[]> {
-        if (hasStore(db, 'termKanji')) {
-            await this.ensureTermKanjiIndex(db);
-            return this.getTermKanjiIndexEntries(db, character, candidateLimit, rank);
-        }
-        return this.getSimilarTermCursorEntries(db, character, candidateLimit, rank, {
-            maxRows: TERM_KANJI_INDEX_FALLBACK_MAX_ROWS,
-            maxMs: TERM_KANJI_INDEX_FALLBACK_MAX_MS,
-        });
-    }
-
-    private async getTermKanjiIndexEntries(
-        db: IDBDatabase,
-        character: string,
-        candidateLimit: number,
-        rank: Map<string, DictionaryPreference>,
-    ): Promise<YomitanTermEntry[]> {
-        // Two postings can hydrate to the same expression/reading pair across
-        // dictionaries; collect extra ids so the post-hydration dedupe can
-        // still fill the caller's limit.
-        const termIds = await collectTermKanjiPostingIds(db, character, candidateLimit * 2, rank);
-        const terms = await hydrateTermsByIds(db, termIds);
-        return dedupedTermsForPostingIds(termIds, terms, candidateLimit);
-    }
-
-    private async getSimilarTermCursorEntries(
-        db: IDBDatabase,
-        character: string,
-        candidateLimit: number,
-        rank: Map<string, DictionaryPreference>,
-        options: GlossaryCursorSearchOptions = {},
-    ): Promise<YomitanTermEntry[]> {
-        return new Promise((resolve, reject) => {
-            const entries: YomitanTermEntry[] = [];
-            const seen = new Set<string>();
-            const startedAt = performance.now();
-            let visited = 0;
-            const request = db.transaction('terms', 'readonly').objectStore('terms').openCursor();
-            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionaries.'));
-            request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor || entries.length >= candidateLimit) {
-                    resolve(entries);
-                    return;
-                }
-                if (optionalCursorScanLimitReached(options, visited, startedAt)) {
-                    resolve(entries);
-                    return;
-                }
-                visited++;
-                const entry = cursor.value as YomitanTermEntry;
-                addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank);
-                cursor.continue();
-            };
-        });
     }
 
     private async getIndexedTermSearchEntries(db: IDBDatabase, query: string, limit: number): Promise<YomitanTermEntry[]> {
@@ -1678,28 +1582,6 @@ export class YomitanDictionaryStore {
         await this.rebuildTermSearchIndex(db);
     }
 
-    private async ensureTermKanjiIndex(db: IDBDatabase): Promise<void> {
-        if (!hasStore(db, 'termKanji') || this.termKanjiIndexReady) return;
-        const [terms, indexed] = await Promise.all([
-            this.countStore(db, 'terms'),
-            this.countStore(db, 'termKanji'),
-        ]);
-        if (!terms || indexed) {
-            this.termKanjiIndexReady = true;
-            return;
-        }
-        if (!this.termKanjiIndexPromise) {
-            this.termKanjiIndexPromise = this.rebuildTermKanjiIndex(db)
-                .then(() => {
-                    this.termKanjiIndexReady = true;
-                })
-                .finally(() => {
-                    this.termKanjiIndexPromise = undefined;
-                });
-        }
-        await this.termKanjiIndexPromise;
-    }
-
     private async rebuildTermSearchIndex(db: IDBDatabase): Promise<void> {
         const done = log.time('Term search index rebuild');
         const generation = this.termIndexGeneration;
@@ -1719,30 +1601,6 @@ export class YomitanDictionaryStore {
                 lastKey = chunk.lastKey;
             }
             log.info('Term search index rebuilt', { terms: indexedTerms });
-        } finally {
-            done();
-        }
-    }
-
-    private async rebuildTermKanjiIndex(db: IDBDatabase): Promise<void> {
-        const done = log.time('Term kanji index rebuild');
-        const generation = this.termIndexGeneration;
-        try {
-            await runYomitanManagedStateWrite(db, 'termKanji', tx => tx.objectStore('termKanji').clear());
-            let indexedTerms = 0;
-            let lastKey: IDBValidKey | undefined;
-            for (;;) {
-                if (generation !== this.termIndexGeneration) return;
-                const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
-                if (!chunk.terms.length) break;
-                if (generation !== this.termIndexGeneration) return;
-                await this.addDerivedTermIndexChunk(db, 'termKanji', chunk.terms, termKanjiEntries);
-                indexedTerms += chunk.terms.length;
-                await nextTask();
-                if (chunk.done) break;
-                lastKey = chunk.lastKey;
-            }
-            log.info('Term kanji index rebuilt', { terms: indexedTerms });
         } finally {
             done();
         }
@@ -1783,12 +1641,11 @@ export class YomitanDictionaryStore {
         await runDictionaryImportWrite(db, stores, tx => {
             for (const store of stores) tx.objectStore(store).clear();
         }, { durability: 'relaxed' }, importing);
-        this.termKanjiIndexReady = false;
     }
 
     private addDerivedTermIndexChunk<Row>(
         db: IDBDatabase,
-        storeName: 'termSearch' | 'termKanji',
+        storeName: 'termSearch',
         terms: YomitanTermEntry[],
         rowsForTerm: (term: YomitanTermEntry) => Row[],
     ): Promise<void> {
@@ -1940,7 +1797,6 @@ export class YomitanDictionaryStore {
         this.summaryPromise = undefined;
         this.dictionaryStyleCssCache.clear();
         this.hotLookupCache.clear();
-        this.termKanjiIndexReady = false;
     }
 }
 
@@ -2175,19 +2031,6 @@ function glossaryWords(text: string): string[] {
 
 function termSearchEntries(entry: YomitanTermEntry) {
     return termSearchPostings(entry, glossarySearchTokens(entry.glossary));
-}
-
-function termKanjiEntries(entry: YomitanTermEntry) {
-    return termKanjiPostings(entry, uniqueExpressionKanji(entry.expression));
-}
-
-function uniqueExpressionKanji(expression: string): string[] {
-    const seen = new Set<string>();
-    return Array.from(expression).filter(character => {
-        if (!isKanji(character) || seen.has(character)) return false;
-        seen.add(character);
-        return true;
-    });
 }
 
 function glossarySearchTokens(glossary: unknown[]): string[] {

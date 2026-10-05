@@ -41,7 +41,6 @@ describe('local dictionary store without its companion', () => {
         await expect(store.lookupKanji('猫', 5)).resolves.toEqual([]);
         await expect(store.listKanjiCharacters(5)).resolves.toEqual([]);
         await expect(store.lookupTermMeta('猫', 5)).resolves.toEqual([]);
-        await expect(store.lookupSimilarTermsByKanji('猫', 5)).resolves.toEqual([]);
         await expect(store.findTermMatches('猫が好き', 5)).resolves.toEqual([]);
         await expect(store.lookupExactTermCandidates([])).resolves.toEqual([]);
         await expect(store.listRandomTerms(5)).resolves.toEqual([]);

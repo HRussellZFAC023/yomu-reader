@@ -275,62 +275,6 @@ describe('reader helpers', () => {
         expect(termSearchCount).toBeGreaterThan(0);
     });
 
-    it('populates a kanji-to-term index and uses it for similar term lookups', async () => {
-        const store = new YomitanDictionaryStore();
-        await store.clear();
-        const file = new File([JSON.stringify({
-            formatName: 'dexie',
-            data: {
-                data: [{
-                    tableName: 'terms',
-                    rows: [
-                        { $: [1, { expression: '山猫', reading: 'やまねこ', glossary: ['wildcat'], score: 10, dictionary: 'Jitendex' }] },
-                        { $: [2, { expression: '猫舌', reading: 'ねこじた', glossary: ['sensitive to hot food'], score: 12, dictionary: 'Jitendex' }] },
-                        { $: [3, { expression: '犬', reading: 'いぬ', glossary: ['dog'], score: 20, dictionary: 'Jitendex' }] },
-                    ],
-                }],
-            },
-        })], 'similar-kanji-index.json', { type: 'application/json' });
-
-        await store.importFile(file);
-        const termKanjiCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan');
-            request.onsuccess = () => {
-                const db = request.result;
-                const count = db.transaction('termKanji', 'readonly').objectStore('termKanji').count();
-                count.onsuccess = () => {
-                    db.close();
-                    resolve(count.result);
-                };
-                count.onerror = () => {
-                    db.close();
-                    reject(count.error);
-                };
-            };
-            request.onerror = () => reject(request.error);
-        });
-        expect(termKanjiCount).toBe(0);
-        expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['猫舌', '山猫']);
-
-        const indexedTermKanjiCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan');
-            request.onsuccess = () => {
-                const db = request.result;
-                const count = db.transaction('termKanji', 'readonly').objectStore('termKanji').count();
-                count.onsuccess = () => {
-                    db.close();
-                    resolve(count.result);
-                };
-                count.onerror = () => {
-                    db.close();
-                    reject(count.error);
-                };
-            };
-            request.onerror = () => reject(request.error);
-        });
-        expect(indexedTermKanjiCount).toBe(5);
-    });
-
     it('coalesces concurrent hot local dictionary lookups and keys them by normalized preferences', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();

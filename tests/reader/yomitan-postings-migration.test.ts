@@ -58,12 +58,13 @@ describe('Yomitan v6 to v7 derived-index migration', () => {
         activeStores.push(store);
         await store.prepareTermSearchIndex();
 
-        // Glossary search and the kanji index both work again, which is only
-        // possible if the rebuild ran against the surviving `terms` rows.
+        // Glossary search works again, which is only possible if the rebuild
+        // ran against the surviving `terms` rows. termKanji is no longer built
+        // at all; its object store stays in schema v7, empty.
         await expect(store.searchTerms('wildcat', 5)).resolves.toMatchObject([{ expression: '山猫' }]);
-        await expect(store.lookupSimilarTermsByKanji('猫', 5)).resolves.toMatchObject([{ expression: '山猫' }]);
+        await expect(countStore('termKanji')).resolves.toBe(0);
 
-        for (const row of [...await readStore('termSearch'), ...await readStore('termKanji')]) {
+        for (const row of await readStore('termSearch')) {
             expect(row).not.toHaveProperty('glossary');
             expect(row).not.toHaveProperty('expression');
             expect(typeof row.termId).toBe('number');
@@ -150,7 +151,7 @@ async function countStore(storeName: 'termSearch' | 'termKanji'): Promise<number
     }
 }
 
-async function readStore(storeName: 'termSearch' | 'termKanji'): Promise<Record<string, unknown>[]> {
+async function readStore(storeName: 'termSearch'): Promise<Record<string, unknown>[]> {
     const db = await openCurrentDatabase();
     try {
         return await new Promise<Record<string, unknown>[]>((resolve, reject) => {

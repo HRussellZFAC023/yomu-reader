@@ -34,7 +34,6 @@ function inertLocalDictionaryStore(): LocalDictionaryStore {
         lookupKanji: async () => [],
         listKanjiCharacters: async () => [],
         lookupTermMeta: async () => [],
-        lookupSimilarTermsByKanji: async () => [],
         findTermMatches: async () => [],
         lookupExactTermCandidates: async () => [],
         listRandomTerms: async () => [],

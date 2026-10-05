@@ -9,7 +9,6 @@
     "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.listRandomTopTerms",
     "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.lookup",
     "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.lookupKanji",
-    "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.lookupSimilarTermsByKanji",
     "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.lookupTermMeta",
     "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.searchTerms",
     "unused-class-member:src/reader/dictionaries/yomitan/index.ts:YomitanDictionaryStore.summary",

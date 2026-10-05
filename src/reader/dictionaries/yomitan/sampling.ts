@@ -12,16 +12,8 @@ export function cursorScanLimitReached(visited: number, startedAt: number, maxRo
     return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
 }
 
-export function optionalCursorScanLimitReached(options: GlossaryCursorSearchOptions, visited: number, startedAt: number): boolean {
-    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
-}
-
 function positiveLimitReached(limit: number, value: number): boolean {
     return limit > 0 && value >= limit;
-}
-
-function optionalLimitReached(limit: number | undefined, value: number): boolean {
-    return Boolean(limit && value >= limit);
 }
 
 export function addRandomListTermToReservoir(
@@ -88,25 +80,6 @@ export function addTopFrequencyExpression(
     if (freq === undefined) return;
     if (freq > maxRank) return;
     expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-}
-
-export function addSimilarTermByKanjiCandidate(
-    entries: YomitanTermEntry[],
-    seen: Set<string>,
-    entry: YomitanTermEntry,
-    character: string,
-    rank: Map<string, DictionaryPreference>,
-): void {
-    if (!entry.expression?.includes(character)) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    addUniqueTermEntry(entries, seen, entry);
-}
-
-function addUniqueTermEntry(entries: YomitanTermEntry[], seen: Set<string>, entry: YomitanTermEntry): void {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return;
-    seen.add(key);
-    entries.push(entry);
 }
 
 function termExpressionReadingKey(entry: Pick<YomitanTermEntry, 'expression' | 'reading'>): string {

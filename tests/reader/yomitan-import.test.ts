@@ -378,30 +378,30 @@ describe('Yomitan ZIP import performance path', () => {
         });
 
         await store.prepareTermSearchIndex();
-        expect((await storeCounts(['termSearch'])).termSearch).toBeGreaterThan(0);
-        expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['山猫', '猫舌']);
-        expect((await storeCounts(['termKanji'])).termKanji).toBeGreaterThan(0);
+        const indexed = await storeCounts(['termSearch', 'termKanji']);
+        expect(indexed.termSearch).toBeGreaterThan(0);
+        // termKanji is no longer built; its object store stays in schema v7.
+        expect(indexed.termKanji).toBe(0);
 
         // The derived rows are id postings, never copies of the term. Earlier
         // schemas cloned the whole row (glossary, inlined images and all) into
         // every posting — up to 40 copies per imported term, the dominant
         // driver of multi-gigabyte dictionary databases.
-        const derivedRows = await new Promise<{ termSearch: Record<string, unknown>[]; termKanji: Record<string, unknown>[] }>((resolve, reject) => {
+        const derivedRows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
             const request = indexedDB.open('jpdb-popup-reader-yomitan');
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 const db = request.result;
-                const tx = db.transaction(['termSearch', 'termKanji'], 'readonly');
+                const tx = db.transaction('termSearch', 'readonly');
                 const search = tx.objectStore('termSearch').getAll();
-                const kanji = tx.objectStore('termKanji').getAll();
                 tx.oncomplete = () => {
                     db.close();
-                    resolve({ termSearch: search.result, termKanji: kanji.result });
+                    resolve(search.result);
                 };
                 tx.onerror = () => { db.close(); reject(tx.error); };
             };
         });
-        for (const row of [...derivedRows.termSearch, ...derivedRows.termKanji]) {
+        for (const row of derivedRows) {
             expect(row).not.toHaveProperty('glossary');
             expect(row).not.toHaveProperty('expression');
             expect(typeof row.termId).toBe('number');
