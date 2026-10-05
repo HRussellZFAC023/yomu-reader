@@ -10,6 +10,8 @@ The current host uses the extension-origin database and compiler-prefixed storag
 
 The compiler integration and proxy are replaceable choices. Keep one owner, bounded transfers, explicit failures and ordered mutations; do not preserve reflection or compiler adapters for their own sake.
 
+Reconsidered 5 October 2026: [ADR-0022](0022-one-readable-dictionary-engine.md) replaces the engine behind this store and turns `jpdb-popup-reader-yomitan` into the Legacy Origin Dictionary Database. Ownership here is unchanged: the background stays the one owner in an extension installation. The move hides nothing on a page origin either: the engine's database is filled from the legacy one, which keeps serving each dictionary until it is migrated, and both names stay registered for reset and the all-sites purge.
+
 ## Acceptance still required
 
 - One import is available in Study and ordinary Reader tabs without a page database copy.
