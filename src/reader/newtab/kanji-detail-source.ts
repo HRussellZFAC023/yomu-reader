@@ -1,7 +1,8 @@
 import type { ReaderSettings } from '../app/types';
 import { promiseWithTimeout } from '../core/async-utils';
 import type { JitenApiClient, JitenKanjiInfo } from '../dictionaries/jiten';
-import type { YomitanDictionaryStore, YomitanKanjiEntry } from '../dictionaries/yomitan';
+import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { KanjiOriginClient, KanjiSourceInfo } from '../kanji/origin';
@@ -37,7 +38,7 @@ export interface KanjiDetailSourceDeps {
     jiten?: Pick<JitenApiClient, 'lookupKanji'>;
     rtk: RtkClient;
     kanjiVG: KanjiVGClient;
-    dictionaries: YomitanDictionaryStore;
+    dictionaries: LocalDictionaryStore;
     kanjiOrigin?: Pick<KanjiOriginClient, 'lookup'>;
     localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => Promise<T>;
 }

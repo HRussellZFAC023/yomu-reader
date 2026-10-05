@@ -19,7 +19,8 @@ import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { apiGradingServiceToResolve, isJitenBackedCard } from './srs-providers';
 import type { ApiDeck, JPDBCard, JPDBDeck, ReaderSettings } from '../app/types';
-import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import {
     bunproFrequencyRank,
     cardFrequencyRanks,
@@ -116,7 +117,7 @@ export interface DefinitionSourceRenderDataLoadOptions {
 
 export interface CardRenderDataLoaderDependencies {
     getSettings: () => ReaderSettings;
-    dictionaries: YomitanDictionaryStore;
+    dictionaries: LocalDictionaryStore;
     jpdbPublicPitch: JpdbPublicPitchClient;
     jpdbVocabulary: JpdbVocabularyClient;
     anki: AnkiConnectClient;

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createLocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
+import { createReaderDictionaryStore } from '../../src/reader/dictionaries/local-store';
 import {
     YomitanDictionaryStore,
     type YomitanExactTermCandidateRequest,
@@ -127,7 +127,7 @@ describe('exact local candidate lookup', () => {
         // companion-less path.
         host.__yomuCompanions = {};
         try {
-            const inert = createLocalDictionaryStore(() => '', () => 'en');
+            const inert = createReaderDictionaryStore(() => '', () => 'en');
             await expect(inert.lookupExactTermCandidates([
                 request('猫', '猫'),
             ], [], JAPANESE_LEARNING_TARGET)).resolves.toEqual([]);

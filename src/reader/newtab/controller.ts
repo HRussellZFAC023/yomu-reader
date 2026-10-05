@@ -370,7 +370,7 @@ import {
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
-import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { NewTabTargetResources } from './target-resources';
 import { captureActiveTarget, isCurrentActiveTarget, type ActiveTargetSnapshot } from './target-scope';
 import { nearestNewTabAction, newTabAction, newTabActionSelector, type NewTabAction } from './actions';
@@ -445,7 +445,7 @@ export interface NewTabControllerDependencies {
     srsAdapters?: Partial<Record<NewTabSrsAdapterSource, NewTabSrsQueueAdapter>>;
     clearWanikaniAccountContext?: () => void;
     parser: ReaderParser;
-    dictionaries: YomitanDictionaryStore;
+    dictionaries: import('../dictionaries/local-store').LocalDictionaryStore;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
     lookupText?: (text: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;

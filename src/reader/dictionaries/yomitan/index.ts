@@ -23,6 +23,7 @@ import { assertManagedStateMutationAllowed } from '../../app/storage';
 import type { ManagedStateEpoch } from '../../app/managed-state-epoch';
 import { normalizeDictionaryPreferences } from '../../settings/index';
 import type { DictionaryPreference, InterfaceLanguage } from '../../app/types';
+import type { LocalDictionaryStore } from '../local-store';
 import { deleteDictionaryArchive, persistDictionaryArchive } from '../archive-cache';
 import { beginDictionaryImport, requestPersistentDictionaryStorage, runDictionaryImportWrite, validateDexieJson, validateZipDictionaryBanks, type DictionaryImportMutation } from './import-lifecycle';
 import { assertDictionaryObjectIntegrity } from '../catalog/integrity';
@@ -98,6 +99,7 @@ import type {
     EntryStoreName,
     GlossaryCursorSearchOptions,
     ImportSummary,
+    RandomTopTermOptions,
     StoreName,
     TermSearchOptions,
     UiTextKey,
@@ -194,15 +196,7 @@ export type {
 } from './types';
 export { glossaryToHtml, glossaryToText, renderDictionaryScopedStyles } from './glossary';
 
-interface RandomTopTermOptions {
-    fallbackToRandom?: boolean;
-    maxRows?: number;
-    maxMs?: number;
-    fallbackMaxRows?: number;
-    fallbackMaxMs?: number;
-}
-
-export class YomitanDictionaryStore {
+export class YomitanDictionaryStore implements LocalDictionaryStore {
     private dbPromise?: Promise<IDBDatabase>;
     private dictionaryInfoPromise?: Promise<YomitanDictionaryInfo[]>;
     private summaryPromise?: Promise<DictionarySummary>;

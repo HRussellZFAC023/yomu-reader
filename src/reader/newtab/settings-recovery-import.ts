@@ -1,4 +1,4 @@
-import { YomitanDictionaryStore } from '../dictionaries/yomitan';
+import { createLocalDictionaryStore } from '../dictionaries/local-store-factory';
 import { DEFAULT_SETTINGS, saveSettings } from '../settings/index';
 import { restoreReaderSettingsBackup } from '../settings/reader-settings-restore-adapter';
 
@@ -14,7 +14,7 @@ export function importSettingsBackupForRecovery(
     setStatus: (message: string) => void,
 ): Promise<string> {
     return restoreReaderSettingsBackup(file, DEFAULT_SETTINGS, {
-        dictionaries: new YomitanDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
+        dictionaries: createLocalDictionaryStore(() => DEFAULT_SETTINGS.corsProxyUrl),
         setStatus,
         persistSettings: saveSettings,
         adoptSettings: () => undefined,

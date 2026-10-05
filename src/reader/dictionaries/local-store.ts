@@ -1,34 +1,90 @@
-import type { YomitanDictionaryStore } from './yomitan';
-import type { InterfaceLanguage } from '../app/types';
+import type { DictionaryPreference, InterfaceLanguage } from '../app/types';
+import type { LearningTargetModule } from '../languages/types';
+import type {
+    DictionaryImportOptions,
+    DictionarySummary,
+    GlossaryCursorSearchOptions,
+    ImportSummary,
+    RandomTopTermOptions,
+    TermSearchOptions,
+    YomitanExactTermCandidateMatch,
+    YomitanExactTermCandidateRequest,
+    YomitanKanjiEntry,
+    YomitanMetaEntry,
+    YomitanTermEntry,
+    YomitanTermMatch,
+} from './yomitan/types';
 import { yomuLocalDictionaries } from '../companions/registry';
 import { extensionDictionaryStoreProxy } from './extension-store-client';
 
-// Derived, never declared: `keyof` over a class type is exactly its public
-// surface, so both the inert fallback and the extension Proxy cover the store
-// by construction. A list written elsewhere rots: adding a public method then
-// surfaces as a hot-path TypeError instead of a typecheck failure.
-export type LocalDictionaryStore = Pick<YomitanDictionaryStore, keyof YomitanDictionaryStore>;
+/**
+ * Everything a surface may ask of imported dictionaries, whichever Dictionary
+ * Engine answers it (ADR-0022). Declared rather than derived from an engine
+ * class: the engine `implements` it and the inert store `satisfies` it, so a
+ * method either one lacks is a typecheck failure, and callers hold this
+ * interface, never an engine's own class. The extension Proxy forwards exactly
+ * these calls to the background store (ADR-0010).
+ */
+export interface LocalDictionaryStore {
+    lookup(expression: string, reading: string, limit: number, preferences?: DictionaryPreference[]): Promise<YomitanTermEntry[]>;
+    searchTerms(query: string, limit: number, preferences?: DictionaryPreference[], options?: TermSearchOptions): Promise<YomitanTermEntry[]>;
+    lookupKanji(text: string, limit: number, preferences?: DictionaryPreference[]): Promise<YomitanKanjiEntry[]>;
+    listKanjiCharacters(limit: number, preferences?: DictionaryPreference[]): Promise<string[]>;
+    lookupTermMeta(expression: string, limit: number, preferences?: DictionaryPreference[]): Promise<YomitanMetaEntry[]>;
+    findTermMatches(
+        text: string,
+        limit?: number,
+        preferences?: DictionaryPreference[],
+        target?: LearningTargetModule,
+    ): Promise<YomitanTermMatch[]>;
+    lookupExactTermCandidates<TRequest extends YomitanExactTermCandidateRequest>(
+        requests: readonly TRequest[],
+        preferences?: DictionaryPreference[],
+        target?: LearningTargetModule,
+    ): Promise<Array<YomitanExactTermCandidateMatch<TRequest>>>;
+    listRandomTerms(limit: number, preferences?: DictionaryPreference[], options?: GlossaryCursorSearchOptions): Promise<YomitanTermEntry[]>;
+    listRandomTopTerms(limit: number, maxRank: number, preferences?: DictionaryPreference[], options?: RandomTopTermOptions): Promise<YomitanTermEntry[]>;
+    hasDictionaries(): Promise<boolean>;
+    hasTermDictionaries(): Promise<boolean>;
+    hasPitchMetaDictionaries(): Promise<boolean>;
+    prepareTermSearchIndex(): Promise<void>;
+    summary(): Promise<DictionarySummary>;
+    dictionaryStyleCss(preferences?: DictionaryPreference[]): Promise<string>;
+    exportJson(): Promise<Blob>;
+    importFile(file: File, onProgress?: (message: string) => void, sourceUrl?: string, options?: DictionaryImportOptions): Promise<ImportSummary>;
+    importFromUrl(url: string, filename?: string, onProgress?: (message: string) => void, options?: DictionaryImportOptions): Promise<ImportSummary>;
+    importZip(file: File, onProgress?: (message: string) => void, sourceUrl?: string, options?: DictionaryImportOptions): Promise<ImportSummary>;
+    importJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary>;
+    importDexieJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary>;
+    clear(): Promise<void>;
+    deleteDictionary(dictionary: string): Promise<void>;
+    deleteDatabase(options?: { timeoutMs?: number; completedResetId?: string }): Promise<void>;
+    invalidateCaches(): void;
+    invalidateForFactoryReset(): Promise<void>;
+}
 
-// The local-dictionary store implementation ships in the settings-surface
+// The Reader's store. The Dictionary Engine ships in the settings-surface
 // companion (ADR-0003) to keep the core userscript under the Greasy Fork size
-// limit. Without the companion there are no local dictionaries: lookups are
-// empty and imports fail loudly, so parsing falls through to the network
-// providers instead of breaking.
-export function createLocalDictionaryStore(
+// limit, so core asks the companion for the one factory,
+// createLocalDictionaryStore, instead of importing it. Without the companion
+// there are no local dictionaries: lookups are empty and imports fail loudly, so
+// parsing falls through to the network providers instead of breaking. In an
+// extension content script the store answers from the background (ADR-0010).
+export function createReaderDictionaryStore(
     getCorsProxyUrl: () => string,
     getInterfaceLanguage: () => InterfaceLanguage,
-): YomitanDictionaryStore {
+): LocalDictionaryStore {
     const companion = yomuLocalDictionaries();
     const direct = companion
-        ? new companion.YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage)
+        ? companion.createLocalDictionaryStore(getCorsProxyUrl, getInterfaceLanguage)
         : inertLocalDictionaryStore();
     // The proxy itself is transport-inert; capability discovery begins only
     // when target-owned runtime work invokes a dictionary operation.
-    return extensionDictionaryStoreProxy(direct) as YomitanDictionaryStore;
+    return extensionDictionaryStoreProxy(direct);
 }
 
 function inertLocalDictionaryStore(): LocalDictionaryStore {
-    const inert = {
+    return {
         lookup: async () => [],
         searchTerms: async () => [],
         lookupKanji: async () => [],
@@ -68,9 +124,6 @@ function inertLocalDictionaryStore(): LocalDictionaryStore {
         invalidateCaches: () => undefined,
         invalidateForFactoryReset: async () => undefined,
     } satisfies LocalDictionaryStore;
-    // satisfies pins the structural contract; the cast is still required
-    // because the class's private members block a direct assign.
-    return inert as unknown as LocalDictionaryStore;
 }
 
 function companionMissingError(): Error {

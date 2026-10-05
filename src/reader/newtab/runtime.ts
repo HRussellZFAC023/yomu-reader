@@ -169,7 +169,8 @@ import { repaintYomuLocalSrsRenderedWords } from '../srs/local-yomu-state';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
 import { WanikaniSourceController } from '../wanikani/wanikani-source';
-import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
+import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import { createLocalDictionaryStore } from '../dictionaries/local-store-factory';
 import { NewTabTargetLookupResolver } from './target-lookup-resolver';
 import {
     NewTabLookupTargetScope,
@@ -310,7 +311,7 @@ export class NewTabRuntime {
     private yomuLocalSrs = createYomuLocalSrsAdapter(this.yomuLocalSrsRepository);
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
-    private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+    private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private dictionarySourceState = new DictionarySourceStateController({
         getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),

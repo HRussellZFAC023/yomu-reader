@@ -26,7 +26,8 @@ import { stablePositiveHashId } from '../core/stable-hash';
 import { chosenWordGradingService, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
-import { glossaryToText, type YomitanDictionaryStore, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
+import { glossaryToText, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import { hydrateYomuLocalSrsCardStates } from '../srs/local-yomu-state';
 import type { YomuSrsAdapter } from '../srs/types';
 import {
@@ -105,7 +106,7 @@ export interface ReaderParserDependencies {
         parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]>;
         lookupMany?: (terms: readonly string[], options?: { detailLimit?: number }) => Promise<Map<string, JPDBCard>>;
     };
-    dictionaries: YomitanDictionaryStore;
+    dictionaries: LocalDictionaryStore;
     yomuLocalSrs?: Pick<YomuSrsAdapter, 'lookupCards'>;
 }
 
@@ -305,8 +306,8 @@ export class ReaderParser {
         target: LearningTargetModule,
         confirmed: Map<TermSpanLookupCandidate, ParserSpanMatch>,
     ): Promise<boolean> {
-        const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
-            lookupExactTermCandidates?: YomitanDictionaryStore['lookupExactTermCandidates'];
+        const store = this.dependencies.dictionaries as LocalDictionaryStore & {
+            lookupExactTermCandidates?: LocalDictionaryStore['lookupExactTermCandidates'];
         };
         // Without the batched exact-candidate transaction, a store that still
         // has the indexed single-term lookup answers per unique term below.
@@ -397,8 +398,8 @@ export class ReaderParser {
         target: LearningTargetModule,
     ): Promise<Map<string, JPDBCard[]>> {
         const settings = this.dependencies.getSettings();
-        const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
-            lookup?: YomitanDictionaryStore['lookup'];
+        const store = this.dependencies.dictionaries as LocalDictionaryStore & {
+            lookup?: LocalDictionaryStore['lookup'];
         };
         if (typeof store.lookup !== 'function') return new Map();
         const rows = await mapLimited(terms, LOCAL_ENRICHMENT_CONCURRENCY, async term => {
@@ -863,7 +864,7 @@ export class ReaderParser {
     }
 
     private reportedTermDictionaryAvailability(): Promise<boolean | undefined> {
-        const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
+        const store = this.dependencies.dictionaries as LocalDictionaryStore & {
             hasTermDictionaries?: () => Promise<boolean>;
         };
         if (typeof store.hasTermDictionaries !== 'function') return Promise.resolve(undefined);

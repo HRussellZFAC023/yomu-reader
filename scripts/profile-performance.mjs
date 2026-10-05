@@ -17,7 +17,7 @@ const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KE
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const USERSCRIPT_PATH = resolve(SCRIPT_DIR, '..', 'dist', 'yomu.user.js');
 // The local dictionary store (YomitanDictionaryStore) ships in the
-// settings-surface companion, not core — createLocalDictionaryStore() returns an
+// settings-surface companion, not core — createReaderDictionaryStore() returns an
 // inert store whose lookup() resolves [] when the companion is absent. Injecting
 // only yomu.user.js therefore leaves every local-dictionary lookup empty no matter
 // how the IndexedDB is seeded, so the local-enrichment metrics stay null. Load the
@@ -738,7 +738,7 @@ async function installReaderRuntimeIfNeeded(page) {
     const initialized = await page.evaluate(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')));
     if (initialized) return;
     // Register the local-dictionary store companion before core boots so
-    // createLocalDictionaryStore() picks up the real YomitanDictionaryStore.
+    // createReaderDictionaryStore() picks up the real YomitanDictionaryStore.
     await page.addScriptTag({ content: await readFile(SETTINGS_COMPANION_PATH, 'utf8') });
     await page.addScriptTag({ content: await readFile(USERSCRIPT_PATH, 'utf8') });
 }

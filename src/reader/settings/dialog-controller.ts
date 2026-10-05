@@ -102,7 +102,8 @@ import {
     type LanguageProfileFormSyncRequest,
 } from './language-profile-live-sync';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
-import { YomitanDictionaryStore, type ImportSummary } from '../dictionaries/yomitan';
+import type { ImportSummary } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import { requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import {
     importRecommendedDictionary,
@@ -152,7 +153,7 @@ interface SettingsDialogDependencies {
     onSettingsPersisted?: (settings: ReaderSettings) => void;
     onSettingsPersistenceFailed?: (previousSettings: ReaderSettings) => void;
     jpdb: JpdbClient;
-    dictionaries: YomitanDictionaryStore;
+    dictionaries: LocalDictionaryStore;
     anki: AnkiConnectClient;
     audio: AudioPlayer;
     subtitles: Refreshable;

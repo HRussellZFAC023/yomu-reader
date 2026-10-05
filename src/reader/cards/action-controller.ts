@@ -29,7 +29,7 @@ import {
     type ApiSrsProviderAdapter,
 } from './srs-providers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
-import type { YomitanDictionaryStore } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
 import { outputLanguageOf } from '../languages';
@@ -54,7 +54,7 @@ interface CardActionControllerOptions {
     jiten?: JitenApiClient;
     srsAdapters?: Partial<Record<'bunpro' | 'wanikani' | 'yomu-local', YomuSrsAdapter>>;
     anki: AnkiConnectClient;
-    dictionaries: YomitanDictionaryStore;
+    dictionaries: LocalDictionaryStore;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     resolveMiningContext: (card: JPDBCard, sentence?: string) => Promise<MiningContext>;
     showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: ShowCardOptions) => Promise<void>;

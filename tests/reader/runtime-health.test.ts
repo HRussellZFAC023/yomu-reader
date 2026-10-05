@@ -66,7 +66,7 @@ describe('Reader runtime service health', () => {
             clearProjectedReadings() {},
         };
         companions.copy = { uiText() {} };
-        companions.dictionaries = { YomitanDictionaryStore: class {} };
+        companions.dictionaries = { createLocalDictionaryStore() {} };
         companions.study = {
             translateTargetSentence() {},
             detectGrammarHints() {},

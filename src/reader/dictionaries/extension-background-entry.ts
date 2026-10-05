@@ -1,5 +1,5 @@
 import { adoptLearningTargetLanguage, learningTargetModuleFor } from '../languages/target-runtime';
-import { YomitanDictionaryStore } from './yomitan/index';
+import { createLocalDictionaryStore } from './local-store-factory';
 import { installExtensionDictionaryBackgroundHost } from './extension-background-host';
 import type { DictionaryRpcTarget } from './extension-rpc-protocol';
 import { compiledStoragePrefix } from './extension-background-adapters';
@@ -8,9 +8,7 @@ import { installExtensionReviewQueueHost, type ReviewQueueExtensionRoot } from '
 installExtensionReviewQueueHost(globalThis as ReviewQueueExtensionRoot, compiledStoragePrefix);
 
 installExtensionDictionaryBackgroundHost({
-    createStore: (getCorsProxyUrl, getInterfaceLanguage) => (
-        new YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage)
-    ),
+    createStore: createLocalDictionaryStore,
     resolveTarget: target => validatedTarget(target, false),
     adoptTarget: target => validatedTarget(target, true),
 });

@@ -393,12 +393,11 @@ import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import { addWindowEventListener } from '../platform/window-events';
 import { applyTargetSurfaceSettingsChange, shouldWakeTopLevelTarget, subscribeToFirstPersistedLearningTarget, subscribeToReaderSettingsChanges, TopLevelTargetLifecycle } from './settings-storage-subscription';
 import type {
-    YomitanDictionaryStore,
     YomitanKanjiEntry,
     YomitanMetaEntry,
     YomitanTermEntry,
 } from '../dictionaries/yomitan';
-import { createLocalDictionaryStore } from '../dictionaries/local-store';
+import { createReaderDictionaryStore, type LocalDictionaryStore } from '../dictionaries/local-store';
 import { honorDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import {
     cardHasContextPitch,
@@ -587,7 +586,7 @@ export class ReaderApp {
     private set rtk(value: InstanceType<KanjiStudyCompanionSlot['RtkClient']> | null) {
         this.rtkInstance = value;
     }
-    private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+    private dictionaries = createReaderDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
@@ -733,7 +732,7 @@ export class ReaderApp {
         // parser must read through to whatever the app currently holds. The
         // proxy also keeps capability probes honest: a method absent on the
         // current store stays absent here.
-        dictionaries: new Proxy({} as YomitanDictionaryStore, {
+        dictionaries: new Proxy({} as LocalDictionaryStore, {
             get: (_target, property) => {
                 const store = this.dictionaries as unknown as Record<PropertyKey, unknown>;
                 const value = store[property];

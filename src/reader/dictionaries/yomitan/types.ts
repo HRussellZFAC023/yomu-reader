@@ -120,6 +120,14 @@ export interface GlossaryCursorSearchOptions {
     maxMs?: number;
 }
 
+export interface RandomTopTermOptions {
+    fallbackToRandom?: boolean;
+    maxRows?: number;
+    maxMs?: number;
+    fallbackMaxRows?: number;
+    fallbackMaxMs?: number;
+}
+
 export interface TermSearchOptions {
     candidateLimit?: number;
     glossaryIndexMaxRows?: number;

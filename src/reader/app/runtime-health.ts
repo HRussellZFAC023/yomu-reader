@@ -51,7 +51,7 @@ const OPTIONAL_RUNTIME_SERVICE_PROBES: ReadonlyArray<readonly [
     ['annotation-layout', hasAnnotationLayoutRuntime],
     ['pitch', hasAnnotationLayoutRuntime],
     ['localization', () => typeof yomuI18nCompanion()?.uiText === 'function'],
-    ['local-dictionary', () => typeof yomuLocalDictionaries()?.YomitanDictionaryStore === 'function'],
+    ['local-dictionary', () => typeof yomuLocalDictionaries()?.createLocalDictionaryStore === 'function'],
     ['translation', () => typeof yomuKanjiStudyCompanion()?.translateTargetSentence === 'function'],
     ['grammar', hasGrammarRuntime],
     ['mining', hasMiningRuntime],

@@ -167,7 +167,7 @@ interface YomuCompanionRegistry {
         renderJitenDefinitionSource: RenderJitenDefinitionSourceFn;
     };
     localDictionaries?: {
-        YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
+        createLocalDictionaryStore: typeof import('../dictionaries/local-store-factory').createLocalDictionaryStore;
         renderStructuredGlossaryHtml?: typeof import('../dictionaries/yomitan/structured-content').renderStructuredGlossaryHtml;
         enumerateDictionaryArchiveStorageKeys?: typeof import('../dictionaries/archive-cache').enumerateDictionaryArchiveStorageKeys;
     };

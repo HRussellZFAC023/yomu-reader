@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createLocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
+import { createReaderDictionaryStore } from '../../src/reader/dictionaries/local-store';
 import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
 
 // The local-dictionary store ships in a companion (ADR-0003). When it is
@@ -34,7 +34,7 @@ afterEach(() => {
 
 describe('local dictionary store without its companion', () => {
     it('answers every read with an empty result instead of throwing', async () => {
-        const store = withoutCompanion(() => createLocalDictionaryStore(() => '', () => 'en'));
+        const store = withoutCompanion(() => createReaderDictionaryStore(() => '', () => 'en'));
 
         await expect(store.lookup('猫', 'ねこ', 5)).resolves.toEqual([]);
         await expect(store.searchTerms('cat', 5)).resolves.toEqual([]);
@@ -52,7 +52,7 @@ describe('local dictionary store without its companion', () => {
     });
 
     it('reports no dictionaries rather than claiming capabilities it cannot serve', async () => {
-        const store = withoutCompanion(() => createLocalDictionaryStore(() => '', () => 'en'));
+        const store = withoutCompanion(() => createReaderDictionaryStore(() => '', () => 'en'));
 
         await expect(store.hasDictionaries()).resolves.toBe(false);
         await expect(store.hasTermDictionaries()).resolves.toBe(false);
@@ -60,7 +60,7 @@ describe('local dictionary store without its companion', () => {
     });
 
     it('fails imports and exports loudly and stays quiet on teardown', async () => {
-        const store = withoutCompanion(() => createLocalDictionaryStore(() => '', () => 'en'));
+        const store = withoutCompanion(() => createReaderDictionaryStore(() => '', () => 'en'));
         const file = new File(['{}'], 'dictionary.json', { type: 'application/json' });
 
         await expect(store.importFile(file)).rejects.toThrow(COMPANION_MISSING);
@@ -81,12 +81,13 @@ describe('local dictionary store without its companion', () => {
     });
 
     it('names only methods the real store still has', () => {
-        // The typecheck side of this contract (Pick over keyof) fails when the
-        // fallback is MISSING a store method. This is the other direction: a
+        // The typecheck side of this contract (the declared interface the
+        // store implements and the fallback satisfies) fails when the fallback
+        // is MISSING a store method. This is the other direction: a
         // fallback entry for a method that was renamed or removed would sit
         // there forever, passing typecheck as an excess property and quietly
         // answering a call that should no longer exist.
-        const fallback = withoutCompanion(() => createLocalDictionaryStore(() => '', () => 'en'));
+        const fallback = withoutCompanion(() => createReaderDictionaryStore(() => '', () => 'en'));
         const stale = Object.keys(fallback).filter(name => (
             typeof (YomitanDictionaryStore.prototype as unknown as Record<string, unknown>)[name] !== 'function'
         ));
