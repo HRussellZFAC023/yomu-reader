@@ -99,11 +99,14 @@ type RuntimeCatalogEntry = readonly [
     projectUrl: string | null,
     catalogueSection: string | null,
     distribution: RuntimeDistribution,
-    revision?: string,
+    /** Absent: the family's shared revision, if any. Null: none. */
+    revision?: string | null,
 ];
 interface RuntimeCatalog {
     revision: string;
     objectsBaseUrl: string;
+    /** Each family's most common archive revision, keyed by the id's first word. */
+    archiveRevisions?: Record<string, string>;
     entries: RuntimeCatalogEntry[];
 }
 
@@ -112,6 +115,7 @@ function runtimeDictionaryCatalog(input: unknown): DictionaryCatalogManifest {
     if (!compact || typeof compact.revision !== 'string' || !Array.isArray(compact.entries)) {
         throw new Error('Runtime dictionary catalog is invalid. Regenerate it from the published catalog.');
     }
+    const shared = new Map(Object.entries(compact.archiveRevisions ?? {}));
     return {
         schemaVersion: 1,
         revision: compact.revision,
@@ -125,11 +129,11 @@ function runtimeDictionaryCatalog(input: unknown): DictionaryCatalogManifest {
             driveFolderUrl: 'https://dictionaries.yomureader.com/',
             capturedAt: 'runtime-projection',
         },
-        entries: compact.entries.map(expandRuntimeCatalogEntry),
+        entries: compact.entries.map(entry => expandRuntimeCatalogEntry(entry, shared)),
     };
 }
 
-function expandRuntimeCatalogEntry(entry: RuntimeCatalogEntry): DictionaryCatalogEntry {
+function expandRuntimeCatalogEntry(entry: RuntimeCatalogEntry, shared: ReadonlyMap<string, string>): DictionaryCatalogEntry {
     const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution, revision] = entry;
     return {
         id,
@@ -137,7 +141,7 @@ function expandRuntimeCatalogEntry(entry: RuntimeCatalogEntry): DictionaryCatalo
         ...(installedTitle ? { installedTitle } : {}),
         format: 'yomitan',
         version: 'runtime',
-        revision,
+        revision: revision === undefined ? shared.get(id.split('-')[0]!) : revision ?? undefined,
         categories,
         headwordLanguages,
         definitionLanguages,

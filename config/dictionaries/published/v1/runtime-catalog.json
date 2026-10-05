@@ -1,6 +1,12 @@
 {
   "revision": "2026-07-23.574961e8.wty-95a9151c1beb",
   "objectsBaseUrl": "https://dictionaries.yomureader.com/",
+  "archiveRevisions": {
+    "jmdict": "JMdict.2026-07-23",
+    "jmnedict": "JMnedict.2026-07-23",
+    "kanjidic": "kanjidic2.2026-204",
+    "wty": "2026.07.15"
+  },
   "entries": [
     [
       "drive-cantonese-honzi-words-hk-honzi-2026-07-22-uu85lmu1zc",
@@ -3662,8 +3668,7 @@
         "published",
         "24ab5777cb003c068237449ae63174843be309d0ef78ff88e3fa47315a4e8c0d",
         6341873
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-en",
@@ -3684,8 +3689,7 @@
         "published",
         "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
         15509389
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-en-legacy",
@@ -3704,7 +3708,8 @@
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-en-legacy-without-proper-names",
@@ -3723,7 +3728,8 @@
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-en-with-examples",
@@ -3743,7 +3749,8 @@
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-en-without-proper-names",
@@ -3762,7 +3769,8 @@
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-es",
@@ -3783,8 +3791,7 @@
         "published",
         "0da1dcd493ac8144e7573031b9e4fd670147f5bdd30b560ccf1d8b7a2879aaa5",
         1332886
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-forms",
@@ -3803,7 +3810,8 @@
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-fr",
@@ -3824,8 +3832,7 @@
         "published",
         "c53ee70b65f69b0f0917322929f09b83aa1d25473cd71168da5c7c4ea03e4f20",
         576727
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-hu",
@@ -3846,8 +3853,7 @@
         "published",
         "9b89004b50b868ec02ec4c973c5ee59968758221055fd0c1bb2f5615b6ecd7db",
         1814012
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-nl",
@@ -3868,8 +3874,7 @@
         "published",
         "5579d462db56cd24075d37fe763f6f208bd8122778136d65e9447d68a4a7c54d",
         3107202
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-ru",
@@ -3890,8 +3895,7 @@
         "published",
         "e88ac22d79fecd596120eb9c007c73ac35a5501cc44aa61b5d19b48787e95d08",
         3452083
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmdict-sl",
@@ -3910,7 +3914,8 @@
       "Japanese / Terms",
       [
         "source-only"
-      ]
+      ],
+      null
     ],
     [
       "jmdict-sv",
@@ -3931,8 +3936,7 @@
         "published",
         "f3e39e9497eaf1a8007eeba627bb6663f4ffd11e62203ddd32a03dda1f2491a3",
         398940
-      ],
-      "JMdict.2026-07-23"
+      ]
     ],
     [
       "jmnedict",
@@ -3953,8 +3957,7 @@
         "published",
         "bd3c687afc4dca42b6c6cd374d87c7f29242effef161f2b122ed2221b56e743f",
         11423324
-      ],
-      "JMnedict.2026-07-23"
+      ]
     ],
     [
       "kanjidic-en",
@@ -3975,8 +3978,7 @@
         "published",
         "d163fb13c86240cde1afa44646fe2fccb1258527fc5e78a126f76f2e5dc2e114",
         721025
-      ],
-      "kanjidic2.2026-204"
+      ]
     ],
     [
       "kanjidic-es",
@@ -3997,8 +3999,7 @@
         "published",
         "7c87f672b5d6a2bd87cab05f6010bba3c764d99e25090da31b4f3a157cf702d6",
         339023
-      ],
-      "kanjidic2.2026-204"
+      ]
     ],
     [
       "kanjidic-fr",
@@ -4019,8 +4020,7 @@
         "published",
         "df7aaf8a2ec337c03659b09d0a49a7c7155f18798da302b0748b95e30cf1e93b",
         301439
-      ],
-      "kanjidic2.2026-204"
+      ]
     ],
     [
       "kanjidic-pt",
@@ -4041,8 +4041,7 @@
         "published",
         "2b62f1ee5d3c96b4511fece96e1105429d429de02f6510e5c0d5fdbac719a277",
         283592
-      ],
-      "kanjidic2.2026-204"
+      ]
     ],
     [
       "marvnc-ja-freq-innocent-corpus",
@@ -5523,7 +5522,8 @@
         "published",
         "1f32b6ff9f84b78bdffcfc2d356d15e9911e4079599c962de5dbb1c25a005a98",
         4997
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-da-it-ipa",
@@ -7644,7 +7644,8 @@
         "published",
         "e194b59f2e78d9a5aeb175cdc0e712d06a05b95745c3aed3b4c35e8a5771f76f",
         6029
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-el-it-gloss",
@@ -11235,7 +11236,8 @@
         "published",
         "9e99ed5993c38e9323281e6c03e3977deef0d9d672cd53022bb5ae3d5cb450a3",
         6654
-      ]
+      ],
+      "2026.05.03"
     ],
     [
       "wty-fa-it-ipa",
@@ -13755,7 +13757,8 @@
         "published",
         "00ef8b08c7d2b0c8483616a41a95aa8ddbda5f26eb43c3d3ddd731f662958b46",
         4628
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-grc-it-ipa",
@@ -14364,7 +14367,8 @@
         "published",
         "46464b2ded424644f94fbe93bb91abc50fd0c1b9395183e904fd39d5987cb80a",
         5414
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-hu-it-ipa",
@@ -15351,7 +15355,8 @@
         "published",
         "997d62606253750b6cb53e4535b99631b7f4338d129f6c17ba40d45d17679031",
         4432
-      ]
+      ],
+      "2026.03.16"
     ],
     [
       "wty-id-ru-ipa",
@@ -17094,7 +17099,8 @@
         "published",
         "4c7277f3d7ab1325333523089e2cb984b5622edda7103a39edbf47ea2b1d2c3b",
         5070
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-km-it",
@@ -19572,7 +19578,8 @@
         "published",
         "5d90113a6c21eb475ebead26ef3bd21eded2e1ce29b0bd85dc756bdd82458306",
         4900
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-lo-it",
@@ -20181,7 +20188,8 @@
         "published",
         "f7b9d85adf9e146dff7708ea3c5a4515515b663aa620b2359e4d9c680394ac01",
         4756
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-mn-it",
@@ -27069,7 +27077,8 @@
         "published",
         "8577c61e0336c99b9f5f6c37271bf3f198f57b23040ba79b76ad11cd73ca1fa6",
         4902
-      ]
+      ],
+      "2026.03.05"
     ],
     [
       "wty-sq-it-ipa",
@@ -32970,7 +32979,8 @@
         "published",
         "390d4a3101b8cddeb44bcbf1ed3ccfeceeb65e8b6c2659b399182e7eab4b621d",
         32320
-      ]
+      ],
+      "2026.03.29"
     ],
     [
       "wty-yue-tr-ipa",
@@ -33012,7 +33022,8 @@
         "published",
         "80e68cb172800f9747149a8f0606920462f8a8cd70e3c4276f9fafc6232dd1f4",
         6698
-      ]
+      ],
+      "2026.03.29"
     ],
     [
       "wty-yue-vi-ipa",
