@@ -112,14 +112,15 @@ export function extensionDictionaryStoreProxy(
         }
         return capability.promise;
     };
-    const call = (method: string, args: unknown[]) => requireDictionaryBackground()
-        .then(epoch => invokeRemoteViaPort(extension, method, args, epoch, currentTarget()));
-
     // Reads issued in one macrotask travel as one Read Batch: one Port message
     // answered in one host queue slot, instead of a Port per word of a parse.
+    // The caller epoch is fixed once the probe succeeds, so only a change of
+    // learning target splits a macrotask's reads.
     let pending: ReadBatch | undefined;
-    const send = (batch: ReadBatch) => {
-        if (pending === batch) pending = undefined;
+    const flush = () => {
+        const batch = pending;
+        if (!batch) return;
+        pending = undefined;
         void invokeRemoteViaPort(
             extension,
             EXTENSION_DICTIONARY_READ_BATCH,
@@ -134,13 +135,19 @@ export function extensionDictionaryStoreProxy(
     };
     const read = (method: string, args: unknown[]) => requireDictionaryBackground().then(epoch => new Promise((resolve, reject) => {
         const target = currentTarget();
-        // A batch has one caller epoch and learning target; a change starts another.
-        if (pending?.epoch !== epoch || pending.target.id !== target.id) {
+        if (pending?.target.id !== target.id) {
+            flush();
             pending = { epoch, target, reads: [] };
-            globalThis.setTimeout(send, 0, pending);
+            globalThis.setTimeout(flush, 0);
         }
         pending.reads.push({ method, args, resolve, reject });
     }));
+    // A call posts its own Port at once. Sending the reads issued before it
+    // first keeps the host's order the order the page asked in.
+    const call = (method: string, args: unknown[]) => requireDictionaryBackground().then(epoch => {
+        flush();
+        return invokeRemoteViaPort(extension, method, args, epoch, currentTarget());
+    });
 
     // coalescesReads tells ReaderParser not to gate reads one round trip apart.
     const store: Record<string, unknown> = { coalescesReads: true };

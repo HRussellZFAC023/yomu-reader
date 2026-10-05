@@ -446,12 +446,13 @@ describe('extension background dictionary store', () => {
         expect(harness.runtime.connectedPortNames).toHaveLength(1);
     });
 
-    it('keeps a durable mutation on its own Port beside a read batch', async () => {
-        const remoteDelete = vi.fn(async () => undefined);
+    it('keeps a durable mutation on its own Port, in order with the reads around it', async () => {
+        const hostOrder: string[] = [];
+        const remoteDelete = vi.fn(async () => { hostOrder.push('deleteDictionary'); });
         const harness = backgroundHarness(store({
-            lookupTermMeta: vi.fn(async () => []),
+            lookupTermMeta: vi.fn(async () => { hostOrder.push('lookupTermMeta'); return []; }),
             deleteDictionary: remoteDelete,
-            summary: vi.fn(async () => dictionarySummary(2)),
+            summary: vi.fn(async () => { hostOrder.push('summary'); return dictionarySummary(2); }),
         }));
         const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
 
@@ -462,14 +463,62 @@ describe('extension background dictionary store', () => {
         ])).resolves.toEqual([[], undefined, dictionarySummary(2)]);
 
         expect(remoteDelete).toHaveBeenCalledWith('Old dictionary');
-        expect(harness.runtime.connectedPortNames).toHaveLength(2);
+        expect(hostOrder).toEqual(['lookupTermMeta', 'deleteDictionary', 'summary']);
+        expect(harness.runtime.connectedPortNames).toHaveLength(3);
         expect(invokeMessages(harness.runtime)).toEqual([
+            expect.objectContaining({ method: EXTENSION_DICTIONARY_READ_BATCH, args: [['lookupTermMeta', ['読む', 12]]] }),
             expect.objectContaining({ method: 'deleteDictionary', args: ['Old dictionary'], epoch: MANAGED_EPOCH }),
-            expect.objectContaining({
-                method: EXTENSION_DICTIONARY_READ_BATCH,
-                args: [['lookupTermMeta', ['読む', 12]], ['summary', []]],
-            }),
+            expect.objectContaining({ method: EXTENSION_DICTIONARY_READ_BATCH, args: [['summary', []]] }),
         ]);
+    });
+
+    it('fails every read of a batch when the epoch changes while it runs', async () => {
+        const nextEpoch = { ...MANAGED_EPOCH, generation: MANAGED_EPOCH.generation + 1, resetId: 'reset-during-batch' };
+        let harness: ReturnType<typeof backgroundHarness> | undefined;
+        const remoteMeta = vi.fn(async (expression: string) => {
+            if (expression === '書く') harness!.setStorageValue('yomu:state-epoch', nextEpoch);
+            return [];
+        });
+        harness = backgroundHarness(store({ lookupTermMeta: remoteMeta, hasTermDictionaries: vi.fn(async () => true) }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+
+        const outcomes = await Promise.allSettled([
+            proxy.lookupTermMeta('読む', 12),
+            proxy.lookupTermMeta('書く', 12),
+            proxy.hasTermDictionaries(),
+        ]);
+
+        expect(remoteMeta).toHaveBeenCalledTimes(2);
+        expect(invokeMessages(harness.runtime)).toHaveLength(1);
+        expect(outcomes).toEqual(Array.from({ length: 3 }, () => ({
+            status: 'rejected',
+            reason: expect.objectContaining({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' }),
+        })));
+    });
+
+    it('rejects a batch admitted before a reset without reading the store once it leaves the queue', async () => {
+        const pendingDelete = deferred<void>();
+        const remoteDelete = vi.fn(async () => pendingDelete.promise);
+        const remoteMeta = vi.fn(async () => []);
+        const harness = backgroundHarness(store({ deleteDictionary: remoteDelete, lookupTermMeta: remoteMeta }));
+        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
+
+        const deleting = proxy.deleteDictionary('Old dictionary').catch(error => error);
+        await settleUntil(() => remoteDelete.mock.calls.length === 1);
+        const reads = Promise.allSettled([proxy.lookupTermMeta('読む', 12), proxy.lookupTermMeta('書く', 12)]);
+        await settleUntil(() => invokeMessages(harness.runtime).length === 2);
+        // The fixture admits through microtasks; let admission finish while the delete holds the queue.
+        await nextEventLoopTurn();
+        harness.setStorageValue('yomu:state-epoch', { ...MANAGED_EPOCH, generation: MANAGED_EPOCH.generation + 1, resetId: 'queued-reset' });
+        harness.emitStorageChange('yomu:state-epoch');
+        pendingDelete.resolve(undefined);
+
+        expect(isStaleManagedStateEpochError(await deleting)).toBe(true);
+        expect(await reads).toEqual(Array.from({ length: 2 }, () => ({
+            status: 'rejected',
+            reason: expect.objectContaining({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' }),
+        })));
+        expect(remoteMeta).not.toHaveBeenCalled();
     });
 
     it('starts another batch when the learning target changes within the macrotask', async () => {
