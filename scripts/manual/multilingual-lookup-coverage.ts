@@ -8,7 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
+import { createLocalDictionaryStore } from '../../src/reader/dictionaries/local-store-factory';
 import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
@@ -237,7 +237,7 @@ async function measureTarget(language: TargetId, cacheDir: string): Promise<Targ
     const expected = dictionaries[language];
     const archivePath = resolve(cacheDir, `${dictionary}.zip`);
     const bytes = await verifyArchive(archivePath, expected);
-    const store = new YomitanDictionaryStore();
+    const store = createLocalDictionaryStore();
     await store.clear();
     await store.importFile(
         new File(

@@ -504,7 +504,7 @@ describe('multilingual parity measurement contract', () => {
         ]);
     });
 
-    it('hashes the shared measurement, dictionary-integrity, and pinned toolchain inputs', async () => {
+    it('hashes the shared measurement, store factory, dictionary-integrity, and pinned toolchain inputs', async () => {
         const files = await multilingualParityLookupContractSourceFiles('es');
 
         expect(files).toEqual(expect.arrayContaining([
@@ -518,6 +518,8 @@ describe('multilingual parity measurement contract', () => {
             'scripts/lib/multilingual-parity-archive.ts',
             'scripts/manual/multilingual-parity.ts',
             'src/reader/dictionaries/catalog/integrity.ts',
+            // The factory chooses the Dictionary Engine the gate measures.
+            'src/reader/dictionaries/local-store-factory.ts',
             'src/reader/platform/binary-realm.ts',
             'src/reader/locales/roster.ts',
             'src/reader/locales/types.ts',

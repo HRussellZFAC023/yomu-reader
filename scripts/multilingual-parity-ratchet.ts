@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import publishedCatalogJson from '../config/dictionaries/published/v1/catalog.json';
-import { YomitanDictionaryStore, type YomitanTermEntry } from '../src/reader/dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../src/reader/dictionaries/local-store';
+import { createLocalDictionaryStore } from '../src/reader/dictionaries/local-store-factory';
+import type { YomitanTermEntry } from '../src/reader/dictionaries/yomitan';
 import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
@@ -498,7 +500,7 @@ function parityCountFailures(
     return failures;
 }
 
-async function importEvidence(store: YomitanDictionaryStore, target: EvidenceTarget): Promise<void> {
+async function importEvidence(store: LocalDictionaryStore, target: EvidenceTarget): Promise<void> {
     await store.clear();
     if (!target.terms.length) return;
     await store.importFile(new NodeFile([JSON.stringify({
@@ -512,7 +514,7 @@ async function measuredAnnotated(language: string, target: EvidenceTarget): Prom
     const targetCorpus = multilingualParityCorpus().find(candidate => candidate.language === language);
     if (!targetCorpus) throw new Error(`${language}: corpus is absent.`);
     if (!setActiveLearningTargetLanguage(language)) throw new Error(`${language}: target module is absent.`);
-    const store = new YomitanDictionaryStore();
+    const store = createLocalDictionaryStore();
     const original = {
         debug: console.debug,
         info: console.info,

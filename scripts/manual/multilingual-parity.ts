@@ -10,7 +10,8 @@ import { isDeepStrictEqual, promisify } from 'node:util';
 
 import { parityDictionaryId } from '../lib/multilingual-parity-dictionary';
 import publishedCatalogJson from '../../config/dictionaries/published/v1/catalog.json';
-import { YomitanDictionaryStore, type YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
+import { createLocalDictionaryStore } from '../../src/reader/dictionaries/local-store-factory';
+import type { YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
 import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
@@ -251,7 +252,7 @@ async function measureTarget(
     const lookupContractSha256 = await multilingualParityLookupContractSha256(language);
     const dictionary = publishedDictionary(language);
     const archive = await verifiedArchive(cacheDir, dictionary);
-    const store = new YomitanDictionaryStore();
+    const store = createLocalDictionaryStore();
     await store.clear();
     const archiveFile = new File(
         [archive as Uint8Array<ArrayBuffer>],

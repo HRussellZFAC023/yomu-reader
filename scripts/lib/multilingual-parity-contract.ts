@@ -24,6 +24,11 @@ const RELEASE_VERSION_SENTINEL = 'yomu-release-version';
 const COMMON_LOOKUP_FILES = [
     'src/reader/core/string-utils.ts',
     'src/reader/dictionaries/catalog/integrity.ts',
+    // The recorder and the ratchet make their store here, as every surface
+    // does, so the factory decides which Dictionary Engine is measured. An
+    // engine that lives outside dictionaries/yomitan/ must have its sources
+    // hashed too before the factory may return it (ADR-0022).
+    'src/reader/dictionaries/local-store-factory.ts',
     'src/reader/languages/active.ts',
     'src/reader/languages/icu-segmentation.ts',
     'src/reader/languages/locale.ts',
@@ -52,7 +57,7 @@ const LOOKUP_TOOLCHAIN_INPUT_FILES = [
     'vite.config.ts',
     // Vite's esbuild transform reads the nearest tsconfig for every TypeScript
     // module. In particular, target and class-field semantics can change the
-    // initialized state of YomitanDictionaryStore.
+    // initialized state of the Dictionary Engine's store class.
     'tsconfig.json',
 ] as const;
 
@@ -210,9 +215,9 @@ function targetSourceFiles(language: string): readonly string[] {
 /**
  * Source boundary for this metric.
  *
- * The parity number deliberately measures the production Yomitan inline
- * matcher (`YomitanDictionaryStore.findTermMatches`) and its exact-span
- * selection against a real published dictionary. It does not claim to exercise
+ * The parity number deliberately measures the production inline matcher
+ * (`findTermMatches` on the store `createLocalDictionaryStore` makes) and its
+ * exact-span selection against a real published dictionary. It does not claim to exercise
  * parser/provider routing, pointer interaction, or popup UI; those boundaries
  * are covered by their own production tests and are intentionally not hashed
  * here.
