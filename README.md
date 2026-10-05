@@ -87,7 +87,7 @@ https://yomureader.com/yomu.user.js
 
 To update on Chrome or Edge, use **Tampermonkey Dashboard → Utilities → Check for userscript updates**. A browser warning that userscripts cannot be added is a disabled Tampermonkey permission, not a bad download host; the setup guide covers **Allow User Scripts** and Developer mode.
 
-Chrome Web Store and Firefox Add-ons are supported release channels, but their review queues can lag the current GitHub release; each store listing shows the version it has approved. Safari is not published yet, while each GitHub release includes its Safari package alongside the userscript and versioned Chrome and Firefox packages.
+Chrome Web Store and Firefox Add-ons are supported release channels, but their review queues can lag the current GitHub release; each store listing shows the version it has approved. Safari is not published yet, while each GitHub release includes its Safari package alongside the userscript and versioned Chrome and Firefox packages. The Firefox `.xpi` on GitHub is unsigned and Firefox reports it as unverified. It is only for developers and store reviewers; Firefox users should install よむ from Firefox Add-ons.
 
 ## What It Does
 

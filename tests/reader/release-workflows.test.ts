@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { USER_SCRIPT_COMPILER_COMMIT } from '../../scripts/build-amo-source-package.mjs';
 // @ts-expect-error plain .mjs script module without type declarations
 import { GENERATED_ARTIFACT_PATHS } from '../../scripts/lib/generated-artifacts.mjs';
+// @ts-expect-error plain .mjs script module without type declarations
+import { buildReleaseNotes } from '../../scripts/release-notes.mjs';
 
 const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-userscript.yml'), 'utf8');
 const buildExtensionWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-extension.yml'), 'utf8');
@@ -354,6 +356,22 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow.slice(firefoxLint, publish)).toContain('web-ext@10.5.0 lint');
         expect(releaseWorkflow.slice(firefoxLint, publish)).toContain('--warnings-as-errors');
         expect(publish).toBeGreaterThan(firefoxLint);
+    });
+
+    it('builds release notes from the version section and steers Firefox users to Add-ons', () => {
+        const changelog = '# Changelog\n\n## [2.0.12] - 2026-10-05\n\n- New thing.\n\n## [2.0.1] - 2026-09-01\n\n- Old thing.\n';
+        const notes: string = buildReleaseNotes(changelog, '2.0.12');
+
+        expect(releaseWorkflow).toContain('node scripts/release-notes.mjs "${TAG#v}"');
+        expect(notes.startsWith('## [2.0.12] - 2026-10-05\n\n- New thing.')).toBe(true);
+        expect(notes).not.toContain('Old thing');
+        expect(buildReleaseNotes(changelog, '2.0.1')).not.toContain('New thing');
+        expect(buildReleaseNotes(changelog, '9.9.9')).toMatch(/^## 9\.9\.9\n\nSee CHANGELOG\.md/);
+        // GitHub renders the asset list directly under the body: the Firefox
+        // pointer is the last paragraph, right above the unsigned XPI.
+        const lastParagraph = notes.trimEnd().split('\n\n').at(-1) ?? '';
+        expect(lastParagraph).toContain('(https://addons.mozilla.org/firefox/addon/yomu-reader/)');
+        expect(lastParagraph).toContain('unsigned');
     });
 
     it('publishes feature releases through isolated, fail-closed store jobs', () => {
