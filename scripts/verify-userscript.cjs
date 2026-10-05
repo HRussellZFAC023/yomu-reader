@@ -98,6 +98,7 @@ assertAudioSplitBoundary();
 assertWanikaniSplitBoundary();
 assertJpdbSplitBoundary();
 assertJitenSplitBoundary();
+assertUiCopySplitBoundary();
 assertKanjiStudySplitBoundary();
 assertNoStandaloneLegacyCopy();
 assertAnkiRenderSplitBoundary();
@@ -593,6 +594,20 @@ function assertJitenSplitBoundary() {
     'yomuJitenCompanion()?.renderJitenDefinitionSource',
   ]) {
     if (!code.includes(facade)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing the Jiten companion facade: ${facade}`);
+  }
+}
+
+// The UI copy catalogue is the largest single Module the split moves out of
+// core. A same-directory `./i18n` import bypasses the facade alias and brings
+// all of it back (2.0.6–2.0.11 shipped ~140 KB of duplicate copy this way).
+function assertUiCopySplitBoundary() {
+  assertSplitBoundary('ui-copy', 'Yomu UI Copy', [
+    ['English UI copy table', 'const GRAMMAR_UI_COPY'],
+    ['Japanese UI copy table', 'const JA_COPY'],
+    ['Japanese settings copy table', 'const JA_SETTINGS_COPY'],
+  ]);
+  if (!code.includes('yomuI18nCompanion()?.uiText(language, key)')) {
+    fail(`${USERSCRIPT_RELATIVE_PATH} is missing the UI copy companion facade.`);
   }
 }
 

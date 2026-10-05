@@ -390,6 +390,18 @@ describe('Greasy Fork split manifest', () => {
         expect(targetLanguageName).not.toContain('dictionaries/catalog-browse');
     });
 
+    it('keeps the core popup provider-state label on the canonical i18n companion alias', () => {
+        // popover-renderer reaches this helper from core; a same-directory
+        // `./i18n` import here put the whole copy catalogue (~140 KB) back in
+        // the size-capped userscript in 2.0.6–2.0.11.
+        const providerStateLabel = readFileSync(
+            path.join(repoRoot, 'src/reader/app/provider-state-label.ts'),
+            'utf8',
+        );
+        expect(providerStateLabel).toContain("from '../app/i18n';");
+        expect(providerStateLabel).not.toContain("from './i18n';");
+    });
+
     it('keeps core pronunciation behind the companion-backed target runtime', () => {
         const pronunciationSource = readFileSync(
             path.join(repoRoot, 'src/reader/popup/pronunciation.ts'),
