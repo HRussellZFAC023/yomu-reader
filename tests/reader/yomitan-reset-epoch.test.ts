@@ -91,64 +91,59 @@ describe('Yomitan managed-state epoch', () => {
         await expect(importing).rejects.toMatchObject({ name: 'StaleManagedStateEpochError' });
     });
 
-    it.each(['termSearch'] as const)(
-        'does not let a stale captured chunk repopulate %s after epoch reconciliation',
-        async indexStore => {
-            const values = new Map<string, unknown>();
-            installGmStore(values);
-            const legacyModule = await import('../../src/reader/dictionaries/yomitan');
-            const legacyStore = new legacyModule.YomitanDictionaryStore();
-            activeStores.push(legacyStore);
-            await legacyStore.importFile(new File([yomitanZipBlob({
-                'index.json': { title: 'Retained Dictionary', format: 3 },
-                'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, '']],
-            })], 'retained.zip', { type: 'application/zip' }), undefined, '', { persistArchive: false });
+    it('does not let a stale captured chunk repopulate termSearch after epoch reconciliation', async () => {
+        const values = new Map<string, unknown>();
+        installGmStore(values);
+        const legacyModule = await import('../../src/reader/dictionaries/yomitan');
+        const legacyStore = new legacyModule.YomitanDictionaryStore();
+        activeStores.push(legacyStore);
+        await legacyStore.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Retained Dictionary', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, '']],
+        })], 'retained.zip', { type: 'application/zip' }), undefined, '', { persistArchive: false });
 
-            type DerivedIndexWriter = (
-                db: IDBDatabase,
-                storeName: 'termSearch',
-                terms: YomitanTermEntry[],
-                rowsForTerm: (term: YomitanTermEntry) => unknown[],
-            ) => Promise<void>;
-            const internals = legacyStore as unknown as { addDerivedTermIndexChunk: DerivedIndexWriter };
-            const originalWriter = internals.addDerivedTermIndexChunk.bind(legacyStore);
-            let releaseCapturedChunk!: () => void;
-            const capturedChunkGate = new Promise<void>(resolve => { releaseCapturedChunk = resolve; });
-            let markChunkCaptured!: () => void;
-            const chunkCaptured = new Promise<void>(resolve => { markChunkCaptured = resolve; });
-            let staleWriteError: unknown;
-            internals.addDerivedTermIndexChunk = async (db, storeName, terms, rowsForTerm) => {
-                if (storeName === indexStore) {
-                    markChunkCaptured();
-                    await capturedChunkGate;
-                }
-                try {
-                    await originalWriter(db, storeName, terms, rowsForTerm);
-                } catch (error) {
-                    staleWriteError = error;
-                    throw error;
-                }
-            };
+        type DerivedIndexWriter = (
+            db: IDBDatabase,
+            storeName: 'termSearch',
+            terms: YomitanTermEntry[],
+            rowsForTerm: (term: YomitanTermEntry) => unknown[],
+        ) => Promise<void>;
+        const internals = legacyStore as unknown as { addDerivedTermIndexChunk: DerivedIndexWriter };
+        const originalWriter = internals.addDerivedTermIndexChunk.bind(legacyStore);
+        let releaseCapturedChunk!: () => void;
+        const capturedChunkGate = new Promise<void>(resolve => { releaseCapturedChunk = resolve; });
+        let markChunkCaptured!: () => void;
+        const chunkCaptured = new Promise<void>(resolve => { markChunkCaptured = resolve; });
+        let staleWriteError: unknown;
+        internals.addDerivedTermIndexChunk = async (db, storeName, terms, rowsForTerm) => {
+            markChunkCaptured();
+            await capturedChunkGate;
+            try {
+                await originalWriter(db, storeName, terms, rowsForTerm);
+            } catch (error) {
+                staleWriteError = error;
+                throw error;
+            }
+        };
 
-            const rebuilding = legacyStore.prepareTermSearchIndex();
-            await chunkCaptured;
+        const rebuilding = legacyStore.prepareTermSearchIndex();
+        await chunkCaptured;
 
-            values.set(EPOCH_KEY, epoch());
-            installFreshManagedStateEpochSessionForTests();
-            vi.resetModules();
-            const rebootedModule = await import('../../src/reader/dictionaries/yomitan');
-            const rebootedStore = new rebootedModule.YomitanDictionaryStore();
-            activeStores.push(rebootedStore);
-            await expect(rebootedStore.summary()).resolves.toMatchObject({ dictionaries: [], terms: 0 });
-            await expect(countDatabaseStore(indexStore)).resolves.toBe(0);
+        values.set(EPOCH_KEY, epoch());
+        installFreshManagedStateEpochSessionForTests();
+        vi.resetModules();
+        const rebootedModule = await import('../../src/reader/dictionaries/yomitan');
+        const rebootedStore = new rebootedModule.YomitanDictionaryStore();
+        activeStores.push(rebootedStore);
+        await expect(rebootedStore.summary()).resolves.toMatchObject({ dictionaries: [], terms: 0 });
+        await expect(countDatabaseStore('termSearch')).resolves.toBe(0);
 
-            releaseCapturedChunk();
-            await rebuilding.catch(() => undefined);
+        releaseCapturedChunk();
+        await rebuilding.catch(() => undefined);
 
-            expect(staleWriteError).toMatchObject({ name: 'StaleManagedStateEpochError' });
-            await expect(countDatabaseStore(indexStore)).resolves.toBe(0);
-        },
-    );
+        expect(staleWriteError).toMatchObject({ name: 'StaleManagedStateEpochError' });
+        await expect(countDatabaseStore('termSearch')).resolves.toBe(0);
+    });
 
     it('does not let a delayed generation-zero reconciliation erase generation-one data or roll back its marker', async () => {
         const values = new Map<string, unknown>();
@@ -254,7 +249,7 @@ function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
     });
 }
 
-function countDatabaseStore(storeName: 'termSearch' | 'termKanji'): Promise<number> {
+function countDatabaseStore(storeName: 'termSearch'): Promise<number> {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 7);
         request.onerror = () => reject(request.error);

@@ -55,13 +55,6 @@ describe('new tab review — search mode', () => {
             score: 10,
             dictionary: 'Local',
         };
-        const relatedEntry = {
-            expression: '読書',
-            reading: 'どくしょ',
-            glossary: ['reading books'],
-            score: 4,
-            dictionary: 'Local',
-        };
         const parser = {
             parse: vi.fn(async () => [[{
                 card: newTabTestCard({ vid: 2, sid: 2, spelling: '読む', reading: 'よむ', source: 'jpdb', sentence: '読む' }),
@@ -114,7 +107,6 @@ describe('new tab review — search mode', () => {
                 lookup: vi.fn(async () => [localEntry]),
                 findTermMatches: vi.fn(async () => []),
                 lookupKanji: vi.fn(async () => [{ character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], tags: [], meanings: ['read'], dictionary: 'Kanji Local' }]),
-                lookupSimilarTermsByKanji: vi.fn(async () => [relatedEntry]),
             } as never,
             lookupText,
             showKanjiCard,

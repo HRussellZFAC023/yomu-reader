@@ -388,7 +388,7 @@ export function createNewTabKanjiFrontFixture(
 
         ...settingsOverrides,
     }, {
-        dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+        dictionaries: { lookupKanji: vi.fn(async () => []) } as never,
         ...overrides,
     });
     const root = renderEnabledNewTabRoot(controller);

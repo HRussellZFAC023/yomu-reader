@@ -324,7 +324,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             const { root } = createNewTabKanjiFrontFixture(card, {
                 jpdbKanji: { lookup: vi.fn(async () => ({ kanji: '柔', keyword: 'gentle', meanings: ['gentle'], readings: [], components: [], vocabulary: [], frequencyRank: null })) } as never,
                 rtk: { lookup: vi.fn(async () => ({ kanji: '柔', keyword: 'tenderness', frameNumber: '2042', onYomi: '', kunYomi: '', elements: '', componentKanji: [], heisigStory: '', heisigComment: '', koohiiStories: [] })) } as never,
-                dictionaries: { lookupKanji: vi.fn(async () => [{ character: '柔', onyomi: [], kunyomi: [], tags: [], meanings: ['soft', 'flexible', 'yielding'], dictionary: 'KANJIDIC' }]), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+                dictionaries: { lookupKanji: vi.fn(async () => [{ character: '柔', onyomi: [], kunyomi: [], tags: [], meanings: ['soft', 'flexible', 'yielding'], dictionary: 'KANJIDIC' }]) } as never,
             }, {}, { corsProxyUrl: 'https://proxy.example/fetch' });
 
             await waitForExpect(() => {
@@ -346,7 +346,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             newTabKanjiAutogradeEnabled: false,
 
         }, {
-            dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+            dictionaries: { lookupKanji: vi.fn(async () => []) } as never,
         }, { surface: 'academy' });
         try {
             const root = renderEnabledNewTabRoot(controller);

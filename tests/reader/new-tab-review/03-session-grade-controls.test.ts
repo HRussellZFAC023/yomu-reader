@@ -1472,7 +1472,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         }, {
             showKanjiCard,
             rtk: { lookup: vi.fn(async () => null) } as never,
-            dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+            dictionaries: { lookupKanji: vi.fn(async () => []) } as never,
         });
         const card = newTabTestCard({ spelling: '日本', reading: 'にほん', source: 'jpdb', cardState: ['due'] });
         const root = renderSeededNewTabWord(controller, card, {

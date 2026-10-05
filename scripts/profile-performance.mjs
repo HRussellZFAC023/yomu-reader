@@ -953,10 +953,11 @@ async function seedProfileDictionaries(page) {
     await page.evaluate(async ({ dbName, dbVersion }) => {
         // Mirror of the real onupgradeneeded in
         // src/reader/dictionaries/yomitan/index.ts (~line 1704): every store the
-        // store creates, in the same shape, INCLUDING the derived term indexes
-        // (termSearch token index + termKanji character index) that were missing
-        // from the old v2 seed. Keeping these here means the seeded DB is byte-for
-        // -shape identical to a DB the userscript builds after a real import.
+        // store creates, in the same shape, INCLUDING the derived termSearch token
+        // index that was missing from the old v2 seed and the termKanji store that
+        // schema v7 still creates although nothing fills or reads it any more.
+        // Keeping these here means the seeded DB is byte-for-shape identical to a
+        // DB the userscript builds after a real import.
         const STORE_SPECS = [
             { name: 'terms', options: { keyPath: 'id', autoIncrement: true }, indexes: [['expression', 'expression'], ['reading', 'reading'], ['dictionary', 'dictionary']] },
             { name: 'kanji', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
@@ -998,7 +999,7 @@ async function seedProfileDictionaries(page) {
         ];
 
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta', 'termSearch', 'termKanji'], 'readwrite');
+            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta', 'termSearch'], 'readwrite');
             tx.objectStore('dictionaryInfo').put({ title: 'Profile Local', alias: 'Profile Local', enabled: true, priority: 0, type: 'terms', counts: { terms: 8 } });
             tx.objectStore('dictionaryInfo').put({ title: 'Profile Pitch', alias: 'Profile Pitch', enabled: true, priority: 1, type: 'metadata', counts: { termMeta: 2 } });
             tx.objectStore('dictionaryInfo').put({ title: 'Profile Kanji', alias: 'Profile Kanji', enabled: true, priority: 2, type: 'kanji', counts: { kanji: 2 } });
@@ -1010,21 +1011,16 @@ async function seedProfileDictionaries(page) {
             const termMeta = tx.objectStore('termMeta');
             termMeta.add({ expression: '今日', mode: 'freq', data: { frequency: 100 }, dictionary: 'Profile Pitch' });
             termMeta.add({ expression: '今日', mode: 'pitch', data: { reading: 'きょう', pitches: [{ position: 1 }] }, dictionary: 'Profile Pitch' });
-            // Populate the derived indexes the same way the store's rebuild does:
-            // termSearch = one row per glossary search token, termKanji = one row
-            // per unique kanji in the expression. Without this the userscript would
-            // still see the terms via the expression index, but English glossary
-            // search and kanji-similar-word lookups would resolve nothing until a
-            // background rebuild finished — a different DB state than the profiler
-            // wants to measure.
+            // Populate the derived index the same way the store's rebuild does:
+            // termSearch = one row per glossary search token. Without this the
+            // userscript would still see the terms via the expression index, but
+            // English glossary search would resolve nothing until a background
+            // rebuild finished — a different DB state than the profiler wants to
+            // measure.
             const termSearch = tx.objectStore('termSearch');
-            const termKanji = tx.objectStore('termKanji');
             for (const entry of seededTerms) {
                 for (const token of glossarySearchTokens(entry.glossary)) {
                     termSearch.add({ ...entry, token });
-                }
-                for (const character of uniqueExpressionKanji(entry.expression)) {
-                    termKanji.add({ ...entry, character });
                 }
             }
             tx.oncomplete = () => {
@@ -1086,18 +1082,6 @@ async function seedProfileDictionaries(page) {
 
         function normalizeGlossarySearchText(value) {
             return value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}\s'-]+/gu, ' ').replace(/\s+/g, ' ').trim();
-        }
-
-        // Mirror of uniqueExpressionKanji (index.ts ~1979): unique CJK ideographs
-        // (U+3400..U+9FFF) in expression order.
-        function uniqueExpressionKanji(expression) {
-            const seen = new Set();
-            return Array.from(expression).filter(character => {
-                const code = character.codePointAt(0) ?? 0;
-                if (code < 0x3400 || code > 0x9fff || seen.has(character)) return false;
-                seen.add(character);
-                return true;
-            });
         }
     }, { dbName: YOMITAN_DB.name, dbVersion: YOMITAN_DB.version });
 }

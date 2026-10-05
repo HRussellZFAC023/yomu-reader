@@ -1740,8 +1740,9 @@ async function seedLocalKanjiDictionaries(page) {
             request.addEventListener('error', () => reject(request.error));
         });
         await new Promise((resolve, reject) => {
-            // termSearch/termKanji stay empty: Yomu rebuilds them lazily from
-            // `terms` (since v7 as id postings, and the v5->v7 upgrade clears them).
+            // termSearch/termKanji stay empty: Yomu rebuilds termSearch lazily from
+            // `terms` (since v7 as id postings) and no longer fills termKanji; the
+            // v5->v7 upgrade clears both.
             const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
             tx.objectStore('dictionaryInfo').put({ title: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1, counts: { kanji: 4 } });
             tx.objectStore('dictionaryInfo').put({

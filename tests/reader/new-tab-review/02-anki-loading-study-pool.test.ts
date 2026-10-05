@@ -1343,7 +1343,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
             jpdbKanji: { lookup: vi.fn(async () => null) } as never,
             kanjiVG: { lookup: vi.fn(async () => null) } as never,
             rtk: { lookup: vi.fn(async () => null) } as never,
-            dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+            dictionaries: { lookupKanji: vi.fn(async () => []) } as never,
         });
         const root = renderEnabledNewTabRoot(controller);
         try {

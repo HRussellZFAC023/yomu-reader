@@ -415,9 +415,6 @@ async function seedJitendexDictionary(page) {
                 const termSearch = ensureStore('termSearch');
                 ensureIndex(termSearch, 'token', 'token');
                 ensureIndex(termSearch, 'dictionary', 'dictionary');
-                const termKanji = ensureStore('termKanji');
-                ensureIndex(termKanji, 'character', 'character');
-                ensureIndex(termKanji, 'dictionary', 'dictionary');
                 const termMeta = ensureStore('termMeta');
                 ensureIndex(termMeta, 'expression', 'expression');
                 ensureIndex(termMeta, 'dictionary', 'dictionary');
@@ -430,7 +427,7 @@ async function seedJitendexDictionary(page) {
             request.onerror = () => reject(request.error);
         });
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(['dictionaryInfo', 'terms', 'termSearch', 'termKanji'], 'readwrite');
+            const tx = db.transaction(['dictionaryInfo', 'terms', 'termSearch'], 'readwrite');
             const entry = {
                 expression: term,
                 reading,
@@ -444,7 +441,6 @@ async function seedJitendexDictionary(page) {
             tx.objectStore('dictionaryInfo').put({ title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms', counts: { terms: 1 } });
             tx.objectStore('terms').add(entry);
             for (const token of [term, reading, 'review', 'revision']) tx.objectStore('termSearch').add({ ...entry, token });
-            for (const character of Array.from(term)) tx.objectStore('termKanji').add({ ...entry, character });
             tx.oncomplete = () => {
                 db.close();
                 resolve();
